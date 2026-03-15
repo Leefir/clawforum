@@ -6,17 +6,55 @@
 
 ## 🔴 执行前必读（7 条核心规范）
 
-### 1. 集成前必读依赖接口
+### 1. 编码前必读依赖接口（包括测试）
 
-当代码调用 **≥3 个不同模块** 的 API 时，**必须 ReadFile 这些接口定义**：
+**写任何代码前，包括测试**，必须 ReadFile 被调用模块的接口定义。
+
+**显式规则**：
+```
+修改已有文件 → ReadFile 目标文件
+创建新文件   → ReadFile 所有依赖模块的接口（新文件也依赖已有接口！）
+```
+
+**业务代码预读清单**：
 - `src/foundation/fs/types.ts` - IFileSystem
-- `src/foundation/llm/index.ts` - ILLMService
+- `src/foundation/llm/index.ts` - ILLMService  
 - `src/core/tools/executor.ts` - ExecContext
 - `src/types/message.ts` - Message, LLMResponse
 
-**原因**: skill/轮遵循本规范 vs task/轮未遵循
-- 操作: 12次 vs 45次 (↓73%)
-- 调试: <10% vs 55% (↓82%)
+**测试代码预读清单（必须做）**：
+1. **被测类构造函数**：参数顺序、类型
+2. **被测类公共方法**：方法名、async/sync、返回值
+3. **依赖服务接口**：IFileSystem 有哪些方法？
+
+**正确流程示例**：
+```typescript
+// ✅ 正确：先读后写
+ReadFile src/core/contract/manager.ts   // constructor(clawDir, fs, monitor?)
+ReadFile src/foundation/fs/types.ts      // IFileSystem 接口
+ReadFile src/foundation/fs/node-fs.ts    // NodeFileSystem 构造函数
+
+// 现在写测试，参数不会错
+new ContractManager(CLAW_DIR, nodeFs, undefined)
+```
+
+**错误流程示例（Step9 模式）**：
+```typescript
+// ❌ 错误：凭记忆写
+new ContractManager(mockFs, baseDir)  // 错！参数顺序反了，且方法名也不对
+// 然后 6 轮试错...
+```
+
+**历史教训**：
+- skill/轮遵循本规范: 操作 12次 vs 45次 (↓73%)
+- Phase 2 质量关卡测试编写: 6 轮试错，全部源于没预读接口
+
+**禁止**：
+- ❌ 假设构造函数参数顺序
+- ❌ 假设方法存在（如 isPathAllowed）
+- ❌ 假设 mock 只需要部分方法
+- ❌ "先写个大概再调试"
+- ❌ 把失败归因于"mock 限制"而不承认是没读接口
 
 ### 2. 类型定义优先
 
