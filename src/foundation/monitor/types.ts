@@ -29,6 +29,7 @@ export interface LLMCallEvent {
   error?: string;
   isFallback: boolean;
   retryCount: number;
+  clawId?: string;
 }
 
 // Tool call event

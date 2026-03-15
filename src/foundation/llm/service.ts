@@ -46,7 +46,7 @@ export class LLMService {
   private fallback?: IProviderAdapter;
   private config: LLMServiceConfig;
   private monitor?: IMonitor;
-
+  private clawId?: string;
   
   // Track if we're using fallback
   private usingFallback = false;
@@ -54,12 +54,13 @@ export class LLMService {
   constructor(
     config: LLMServiceConfig,
     monitor?: IMonitor,
-) {
+    clawId?: string,
+  ) {
     this.config = config;
     this.primary = createProvider(config.primary);
     this.fallback = config.fallback ? createProvider(config.fallback) : undefined;
     this.monitor = monitor;
-
+    this.clawId = clawId;
   }
   
   /**
@@ -84,10 +85,11 @@ export class LLMService {
           latencyMs: Date.now() - startTime,
           inputTokens: response.usage?.input_tokens,
           outputTokens: response.usage?.output_tokens,
-          isFallback: false,
+          isFallback: this.usingFallback,
           retryCount,
         });
         
+        // Reset fallback status on primary success
         this.usingFallback = false;
         return response;
         
@@ -103,9 +105,12 @@ export class LLMService {
           }
         }
         
-        // Wait before retry (exponential backoff)
+        // Wait before retry (exponential backoff with 30s max)
         if (attempt < this.config.retryAttempts - 1) {
-          const backoffMs = this.config.retryDelayMs * Math.pow(2, attempt);
+          const backoffMs = Math.min(
+            this.config.retryDelayMs * Math.pow(2, attempt),
+            30_000  // Max 30 seconds
+          );
           await delay(backoffMs);
         }
       }
@@ -236,7 +241,9 @@ export class LLMService {
    */
   private logLLMCall(event: LLMCallEvent): void {
     if (this.monitor) {
-      this.monitor.logLLMCall(event);
+      // Inject clawId if available
+      const eventWithClawId = this.clawId ? { ...event, clawId: this.clawId } : event;
+      this.monitor.logLLMCall(eventWithClawId);
     }
   }
 }
