@@ -194,8 +194,25 @@ export class AnthropicAdapter implements IProviderAdapter {
       // Map 'assistant' to 'assistant', 'user' to 'user'
       const role = m.role === 'assistant' ? 'assistant' : 'user';
       
-      // Pass through content directly to preserve tool_use/tool_result blocks
-      return { role, content: m.content as string | unknown[] };
+      // Check if content has tool blocks
+      const hasToolBlocks = Array.isArray(m.content) && m.content.some(
+        (b: { type?: string }) => b.type === 'tool_use' || b.type === 'tool_result'
+      );
+      
+      if (hasToolBlocks) {
+        // Keep array format for tool calls (required)
+        return { role, content: m.content as unknown[] };
+      } else if (Array.isArray(m.content)) {
+        // Pure text blocks - merge to string for compatibility
+        const text = m.content
+          .filter((b: { type?: string }) => b.type === 'text')
+          .map((b: { text?: string }) => b.text || '')
+          .join('');
+        return { role, content: text };
+      } else {
+        // Already a string
+        return { role, content: m.content as string };
+      }
     });
   }
   
