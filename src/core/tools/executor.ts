@@ -278,7 +278,8 @@ export class ToolExecutorImpl implements IToolExecutor {
    * Execute multiple read-only tools in parallel
    * Write operations are executed sequentially (not in this batch)
    * 
-   * TODO: Implement proper write serialization for Phase 1+
+   * NOTE: 当前 ReAct 循环每步单工具调用，写操作天然串行。
+   * executeParallel 已过滤为只读工具，无需额外串行化。
    */
   async executeParallel(
     batch: Array<{ toolName: string; args: Record<string, unknown> }>,

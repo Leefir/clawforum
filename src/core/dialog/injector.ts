@@ -144,6 +144,10 @@ export class ContextInjector {
    * - AGENTS.md content
    * - MEMORY.md content
    * - Optional: contract summaries, skill metadata, tool definitions
+   * 
+   * NOTE: injectFixedPrefix 当前未在运行时调用（Phase 2）。
+   * 运行时实际使用 buildSystemPrompt() + toolRegistry.formatForLLM()。
+   * 保留此方法供 Phase 3 上下文刷新功能使用。
    */
   async injectFixedPrefix(
     session: SessionData,
