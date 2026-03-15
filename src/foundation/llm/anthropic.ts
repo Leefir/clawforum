@@ -28,7 +28,7 @@ import type {
  */
 interface AnthropicRequest {
   model: string;
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string | unknown[] }>;
   max_tokens: number;
   temperature?: number;
   system?: string;
@@ -189,26 +189,13 @@ export class AnthropicAdapter implements IProviderAdapter {
   /**
    * Format messages for Anthropic API
    */
-  private formatMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: string }> {
+  private formatMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: string | unknown[] }> {
     return messages.map(m => {
-      // Handle content blocks (convert to string if needed)
-      let content: string;
-      if (typeof m.content === 'string') {
-        content = m.content;
-      } else if (Array.isArray(m.content)) {
-        // Extract text from content blocks
-        content = m.content
-          .filter((b: { type: string }) => b.type === 'text')
-          .map((b: { text?: string }) => b.text || '')
-          .join('');
-      } else {
-        content = String(m.content);
-      }
-      
       // Map 'assistant' to 'assistant', 'user' to 'user'
       const role = m.role === 'assistant' ? 'assistant' : 'user';
       
-      return { role, content };
+      // Pass through content directly to preserve tool_use/tool_result blocks
+      return { role, content: m.content as string | unknown[] };
     });
   }
   

@@ -2,7 +2,7 @@
   "version": 1,
   "clawId": "test",
   "createdAt": "2026-03-15T05:56:42.899Z",
-  "updatedAt": "2026-03-15T05:56:49.349Z",
+  "updatedAt": "2026-03-15T05:57:44.080Z",
   "messages": [
     {
       "role": "user",
@@ -33,6 +33,22 @@
         {
           "type": "text",
           "text": "I'm an AI assistant designed to help you with various tasks like:\n\n- File operations (read, write, search)\n- Running commands\n- Exploring directories\n- General questions and conversations\n\nI'm here to assist you! What would you like to work on?"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "你能看到你自己的路径吗"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use"
+        },
+        {
+          "type": "text",
+          "text": "让我查一下我当前的位置：\n<minimax:tool_call>\n<invoke name=\"exec\">\n<parameter name=\"command\">pwd</parameter>\n</invoke>\n</minimax:tool_call>"
         }
       ]
     }
