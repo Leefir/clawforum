@@ -309,4 +309,41 @@ describe('ReAct Loop', () => {
     // Should complete despite onStepComplete failing
     expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
   });
+
+  // Phase 2 质量审查补充：P0 修复验证 - executor.execute() 抛出异常处理
+  it('should catch executor.execute() exception and return error result to LLM', async () => {
+    (mockLLM.call as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createToolUseResponse('read', { path: 'test.txt' }))
+      .mockResolvedValueOnce(createTextResponse('Tool failed but I continued'));
+
+    // Executor throws exception (P0 fix: should be caught, not crash)
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Disk full')
+    );
+
+    const messages: Message[] = [{ role: 'user', content: 'Read file' }];
+
+    const result = await runReact({
+      messages,
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+    });
+
+    // Loop should continue and return final text
+    expect(result.finalText).toBe('Tool failed but I continued');
+    expect(mockLLM.call).toHaveBeenCalledTimes(2);
+
+    // Check error was passed to LLM with is_error flag
+    const lastCall = (mockLLM.call as ReturnType<typeof vi.fn>).mock.lastCall;
+    const lastMessages = lastCall?.[0]?.messages as Message[];
+    const toolResult = lastMessages?.flatMap(m => 
+      Array.isArray(m.content) ? m.content : []
+    ).find((b: ContentBlock) => b.type === 'tool_result');
+
+    expect(toolResult).toBeDefined();
+    expect((toolResult as any).is_error).toBe(true);
+    expect((toolResult as any).content).toContain('Disk full');
+  });
 });

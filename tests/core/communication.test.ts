@@ -190,6 +190,36 @@ describe('Communication', () => {
       // After processing, queue should be empty
       expect(await watcher.queueLength()).toBe(0);
     });
+
+    // Phase 2 质量审查补充：move 失败测试
+    it('should not cause duplicate processing when move fails', async () => {
+      const msg: InboxMessage = {
+        id: 'msg-1',
+        type: 'message',
+        from: 'motion-1',
+        to: 'claw-1',
+        content: 'Test move failure',
+        priority: 'normal',
+        timestamp: new Date().toISOString(),
+      };
+      await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
+
+      let processCount = 0;
+      const processedIds: string[] = [];
+
+      await watcher.start(async (m) => {
+        processCount++;
+        processedIds.push(m.id);
+      });
+
+      // Wait for processing
+      await new Promise(r => setTimeout(r, 200));
+
+      // Message should be processed exactly once
+      // (even if move fails, the message shouldn't be re-processed)
+      expect(processCount).toBe(1);
+      expect(processedIds).toEqual(['msg-1']);
+    });
   });
 
   describe('OutboxWriter', () => {

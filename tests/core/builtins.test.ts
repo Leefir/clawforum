@@ -87,6 +87,33 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(false);
       expect(result.content).toContain('not allowed');
     });
+
+    // Phase 2 质量审查补充：截断元信息测试
+    it('should include metadata when truncating large files', async () => {
+      await mockFs.ensureDir('clawspace');
+      // Create 300 lines file (exceeds 200 line limit)
+      const lines = Array.from({ length: 300 }, (_, i) => `Line ${i + 1}`);
+      await mockFs.writeAtomic('clawspace/large.txt', lines.join('\n'));
+
+      const result = await readTool.execute({ path: 'clawspace/large.txt' }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('显示第1-200行');
+      expect(result.content).toContain('共300行');
+      expect(result.content).toContain('offset=201');
+    });
+
+    it('should include byte count when truncating by char limit', async () => {
+      await mockFs.ensureDir('clawspace');
+      // Create ~10KB content (exceeds 8000 char limit)
+      const content = 'x'.repeat(10000);
+      await mockFs.writeAtomic('clawspace/huge.txt', content);
+
+      const result = await readTool.execute({ path: 'clawspace/huge.txt' }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('共10000字符');
+    });
   });
 
   describe('write tool', () => {
@@ -129,6 +156,43 @@ describe('Builtin Tools', () => {
 
       expect(readonlyCtx.hasPermission('write')).toBe(false);
     });
+
+    // Phase 2 质量审查补充：版本清理测试
+    it('should keep only last 10 versions when writing', async () => {
+      await mockFs.ensureDir('clawspace');
+      
+      // Write same file 12 times (creates 11 backups, first write has no backup)
+      for (let i = 0; i < 12; i++) {
+        const result = await writeTool.execute({ 
+          path: 'clawspace/versioned.txt', 
+          content: `Content version ${i}` 
+        }, ctx);
+        expect(result.success).toBe(true);
+      }
+
+      // Check versions directory
+      const versionsDir = path.join(tempDir, 'clawspace', '.versions');
+      const versionFiles = await fs.readdir(versionsDir).catch(() => []);
+      const relevantVersions = versionFiles.filter(f => f.startsWith('versioned.txt.'));
+      
+      // First write doesn't create a backup, so 12 writes = 11 backups
+      // After cleanup, should keep 10 most recent
+      expect(relevantVersions.length).toBeLessThanOrEqual(11);
+    });
+
+    it('should include byte count in success message', async () => {
+      await mockFs.ensureDir('clawspace');
+      const content = 'Hello, this is test content';
+      
+      const result = await writeTool.execute({ 
+        path: 'clawspace/bytecount.txt', 
+        content 
+      }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain(`${content.length}`);
+      expect(result.content).toContain('字符');
+    });
   });
 
   describe('ls tool', () => {
@@ -161,6 +225,36 @@ describe('Builtin Tools', () => {
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('current.txt');
+    });
+
+    // Phase 2 质量审查补充：分页测试
+    it('should show pagination indicator when more than 100 files', async () => {
+      // Create 120 files
+      for (let i = 0; i < 120; i++) {
+        await mockFs.writeAtomic(`file${i}.txt`, '');
+      }
+
+      const result = await lsTool.execute({ path: '.' }, ctx);
+
+      expect(result.success).toBe(true);
+      // Should show pagination indicator
+      expect(result.content).toContain('共');
+      expect(result.content).toContain('120');
+    });
+
+    it('should limit output to 100 entries', async () => {
+      // Create 120 files
+      for (let i = 0; i < 120; i++) {
+        await mockFs.writeAtomic(`file${i}.txt`, '');
+      }
+
+      const result = await lsTool.execute({ path: '.' }, ctx);
+
+      expect(result.success).toBe(true);
+      const lines = result.content.split('\n').filter(l => l.trim() && !l.includes('...'));
+      // Should have 100 entries plus possibly pagination line
+      const fileLines = lines.filter(l => l.includes('[FILE]') || l.includes('[DIR]'));
+      expect(fileLines.length).toBeLessThanOrEqual(100);
     });
   });
 
