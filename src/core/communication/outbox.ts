@@ -26,6 +26,7 @@ export class OutboxWriter {
   private outboxDir: string;
 
   constructor(
+    private clawId: string,
     private clawDir: string,
     private fs: IFileSystem
   ) {
@@ -44,7 +45,7 @@ export class OutboxWriter {
     const message: OutboxMessage = {
       id: randomUUID(),
       type: options.type,
-      from: path.basename(this.clawDir), // clawId from directory name
+      from: this.clawId,
       to: options.to,
       content: options.content,
       timestamp: new Date().toISOString(),

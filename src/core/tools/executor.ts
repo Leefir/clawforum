@@ -113,6 +113,7 @@ export interface ExecContext {
   maxSteps: number;
   signal?: AbortSignal;
   getElapsedMs(): number;
+  incrementStep(): void;
 }
 
 /**
@@ -205,12 +206,11 @@ export class ToolExecutorImpl implements IToolExecutor {
     }
 
     // 4. Execute with timeout using Promise.race
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      const timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(() => {
         reject(new ToolTimeoutError(toolName, timeoutMs));
       }, timeoutMs);
-      // Clean up timeout if execution completes first
-      return () => clearTimeout(timeoutId);
     });
 
     const executionPromise = tool.execute(args, ctx);
@@ -218,6 +218,10 @@ export class ToolExecutorImpl implements IToolExecutor {
     try {
       return await Promise.race([executionPromise, timeoutPromise]);
     } finally {
+      // Clean up timeout timer
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

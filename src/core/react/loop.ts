@@ -79,7 +79,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   let stepCount = 0;
 
   while (stepCount < maxSteps) {
-    // Increment step counter in context
+    // Sync step counter to context
     ctx.stepNumber = stepCount;
 
     // Check abort signal before LLM call
@@ -142,7 +142,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       appendToolResults(messages, toolResults);
 
       // Increment step and continue loop
-      stepCount++;
+      ctx.incrementStep();
+      stepCount = ctx.stepNumber;
 
       // Call step completion callback (don't let it break the loop)
       if (onStepComplete) {

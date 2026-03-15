@@ -73,6 +73,16 @@ await fs.writeAtomic('path/to/dir/file.txt', content); // 可能失败
   ```
 - Mock 测试时，mock 函数必须检查 `options.signal?.aborted`
 
+### 5. 异步代码检查清单（新增）
+
+**问题**: 9个 Bug 中有 3个与 async/Promise 相关（资源泄漏、未 await、void 无 catch），是贯穿项目的薄弱环节
+
+**规则**:
+- [ ] 每个 `async` 函数的调用是否被 `await`？
+- [ ] 每个 `setTimeout/setInterval` 是否在 `finally` 中清理？
+- [ ] 每个 fire-and-forget 的 Promise 是否有 `.catch()`？
+- [ ] `void promise` 只用于明确不需要等待且不会 reject 的场景
+
 ---
 
 ## 📋 模块集成 Checklist
@@ -97,6 +107,11 @@ await fs.writeAtomic('path/to/dir/file.txt', content); // 可能失败
 - [ ] `pnpm tsc --noEmit` 零错误
 - [ ] `pnpm test` 全部通过
 - [ ] 检查是否有未使用的导入
+
+**重构额外检查**（改善性重构时）：
+- [ ] 记录原始代码的不变量（如：stepNumber 从 0 开始，stepsUsed = 实际执行步数）
+- [ ] 编写不变量断言测试（确保重构不改变行为）
+- [ ] 小步重构，每步运行测试验证
 
 ---
 

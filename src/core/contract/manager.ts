@@ -80,8 +80,8 @@ export class ContractManager {
 
       try {
         const progressData = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
-        if (progressData.status === 'running') {
-          // 找到 running 契约，加载完整契约
+        if (progressData.status === 'running' || progressData.status === 'paused') {
+          // 找到活跃契约（running 或 paused），加载完整契约
           return this.loadContract(entry.name);
         }
       } catch {

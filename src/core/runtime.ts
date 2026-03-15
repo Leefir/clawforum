@@ -145,7 +145,7 @@ export class ClawRuntime {
 
     // 14. 创建 InboxWatcher + OutboxWriter
     this.inboxWatcher = new InboxWatcher(clawDir, this.fs);
-    this.outboxWriter = new OutboxWriter(clawDir, this.fs);
+    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.fs);
 
     // 15. 创建活跃契约上下文（如果有）
     const activeContract = await this.contractManager.loadActive();
@@ -168,7 +168,7 @@ export class ClawRuntime {
     }
 
     // 启动 InboxWatcher
-    this.inboxWatcher.start(this.handleMessage.bind(this));
+    await this.inboxWatcher.start(this.handleMessage.bind(this));
 
     // 如果有暂停的活跃契约，恢复执行
     const active = await this.contractManager.loadActive();

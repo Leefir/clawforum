@@ -60,7 +60,7 @@ describe('Communication', () => {
       await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
 
       const messages: InboxMessage[] = [];
-      watcher.start(async (m) => {
+      await watcher.start(async (m) => {
         messages.push(m);
       });
 
@@ -83,7 +83,7 @@ describe('Communication', () => {
       };
       await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
 
-      watcher.start(async () => {});
+      await watcher.start(async () => {});
       await new Promise(r => setTimeout(r, 200));
 
       // Check file moved to done
@@ -114,7 +114,7 @@ describe('Communication', () => {
       await mockFs.writeAtomic('inbox/pending/2.json', JSON.stringify(msg2));
 
       const processed: string[] = [];
-      watcher.start(async (m) => {
+      await watcher.start(async (m) => {
         processed.push(m.content);
         if (m.content === 'Will fail') {
           throw new Error('Processing failed');
@@ -157,7 +157,7 @@ describe('Communication', () => {
       await mockFs.writeAtomic('inbox/pending/critical.json', JSON.stringify(criticalMsg));
 
       const order: string[] = [];
-      watcher.start(async (m) => {
+      await watcher.start(async (m) => {
         order.push(m.content);
       });
 
@@ -184,7 +184,7 @@ describe('Communication', () => {
       // Queue length should be 1 before starting
       expect(await watcher.queueLength()).toBe(1);
 
-      watcher.start(async () => {});
+      await watcher.start(async () => {});
       await new Promise(r => setTimeout(r, 200));
 
       // After processing, queue should be empty
@@ -200,7 +200,7 @@ describe('Communication', () => {
     beforeEach(async () => {
       tempDir = await createTempDir();
       mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
-      writer = new OutboxWriter(tempDir, mockFs);
+      writer = new OutboxWriter('test-claw', tempDir, mockFs);
     });
 
     afterEach(async () => {

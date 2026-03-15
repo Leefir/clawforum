@@ -44,6 +44,7 @@ describe('ReAct Loop', () => {
       stepNumber: 0,
       maxSteps: 100,
       getElapsedMs: () => 0,
+      incrementStep: vi.fn(function(this: { stepNumber: number }) { this.stepNumber++; }),
     } as unknown as ExecContext;
   });
 

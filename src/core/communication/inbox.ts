@@ -63,7 +63,7 @@ export class InboxWatcher {
   /**
    * Start watching and processing messages
    */
-  start(onMessage: (msg: InboxMessage) => Promise<void>): void {
+  async start(onMessage: (msg: InboxMessage) => Promise<void>): Promise<void> {
     if (this.watcher) {
       throw new Error('InboxWatcher already started');
     }
@@ -72,19 +72,23 @@ export class InboxWatcher {
     this.stopped = false;
 
     // Ensure directories exist
-    this.fs.ensureDir(this.pendingDir);
-    this.fs.ensureDir(this.doneDir);
-    this.fs.ensureDir(this.failedDir);
+    await this.fs.ensureDir(this.pendingDir);
+    await this.fs.ensureDir(this.doneDir);
+    await this.fs.ensureDir(this.failedDir);
 
     // Load existing pending messages (cold-start recovery)
-    void this.loadExistingMessages();
+    this.loadExistingMessages().catch(err => {
+      console.error('[InboxWatcher] Failed to load existing messages:', err);
+    });
 
     // Start watching for new messages
     this.watcher = createWatcher(
       this.pendingDir,
       (event) => {
         if (event.type === 'add' && event.path.endsWith('.json')) {
-          void this.handleNewFile(event.path);
+          this.handleNewFile(event.path).catch(err => {
+            console.error('[InboxWatcher] Failed to handle new file:', err);
+          });
         }
       },
       { recursive: false }
@@ -154,7 +158,9 @@ export class InboxWatcher {
       this.sortQueue();
 
       // Trigger processing
-      void this.processQueue();
+      this.processQueue().catch(err => {
+        console.error('[InboxWatcher] Failed to process queue:', err);
+      });
     } catch {
       // Skip invalid files
     }

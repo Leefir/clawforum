@@ -28,6 +28,7 @@ export interface SessionManagerOptions {
 export class SessionManager {
   private readonly currentPath: string;
   private readonly archiveDir: string;
+  private createdAt: string | null = null;
   
   constructor(
     private readonly fs: IFileSystem,
@@ -49,7 +50,9 @@ export class SessionManager {
     try {
       const content = await this.fs.read(this.currentPath);
       const data = JSON.parse(content) as SessionData;
-      return this.validateSession(data);
+      // Cache createdAt for subsequent saves
+      this.createdAt = data.createdAt;
+      return data;
     } catch {
       // current.json doesn't exist or is invalid
     }
@@ -78,19 +81,15 @@ export class SessionManager {
   async save(messages: Message[]): Promise<void> {
     const now = new Date().toISOString();
     
-    // Load existing to preserve createdAt
-    let createdAt = now;
-    try {
-      const existing = await this.load();
-      createdAt = existing.createdAt;
-    } catch {
-      // No existing session
+    // Use cached createdAt if available, otherwise use now
+    if (!this.createdAt) {
+      this.createdAt = now;
     }
 
     const data: SessionData = {
       version: 1,
       clawId: this.clawId,
-      createdAt,
+      createdAt: this.createdAt,
       updatedAt: now,
       messages,
       prunedMarkers: [], // Phase 3: will track compression markers
