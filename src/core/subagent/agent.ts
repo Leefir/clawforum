@@ -68,7 +68,7 @@ export class SubAgent {
     if (this.signal) {
       this.signal.addEventListener('abort', () => {
         timeoutController.abort();
-      });
+      }, { once: true });
     }
 
     try {

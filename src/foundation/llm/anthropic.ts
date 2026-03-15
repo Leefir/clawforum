@@ -110,7 +110,7 @@ export class AnthropicAdapter implements IProviderAdapter {
     
     // Combine with external signal if provided
     if (signal) {
-      signal.addEventListener('abort', () => controller.abort());
+      signal.addEventListener('abort', () => controller.abort(), { once: true });
     }
     
     try {

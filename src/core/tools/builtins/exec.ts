@@ -35,8 +35,8 @@ export const execTool: ITool = {
     const requestedTimeout = (args.timeout as number) ?? 30000;
     const timeout = Math.min(Math.max(requestedTimeout, 1000), 120000);
 
-    // Sandbox directory: clawDir/clawspace/
-    const workDir = path.join(ctx.clawDir, 'clawspace');
+    // Sandbox directory: clawDir (AGENTS.md 规范)
+    const workDir = ctx.clawDir;
 
     try {
       // Use shell mode to properly handle quoted arguments (MVP aligned)
@@ -45,7 +45,7 @@ export const execTool: ITool = {
         cwd: workDir,
         timeout,
         encoding: 'utf-8',
-        maxBuffer: 8 * 1024, // 8KB limit
+        maxBuffer: 1024 * 1024, // 1MB - 让 JS 层截断逻辑处理
       });
 
       // Design doc: separate truncation for stdout/stderr

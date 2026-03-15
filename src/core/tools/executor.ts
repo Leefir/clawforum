@@ -268,7 +268,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         ok: auditResult.success,
         duration_ms: duration,
         error: auditResult.success ? '' : auditResult.content.slice(0, 200),
-      }).catch(() => {});
+      }).catch(err => console.warn('[audit] Failed to write audit log:', err));
     }
     
     return result!;

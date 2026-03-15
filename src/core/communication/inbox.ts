@@ -96,9 +96,7 @@ export class InboxWatcher {
     await this.fs.ensureDir(this.failedDir);
 
     // Load existing pending messages (cold-start recovery)
-    await this.loadExistingMessages().catch(err => {
-      console.error('[InboxWatcher] Failed to load existing messages:', err);
-    });
+    await this.loadExistingMessages();
 
     // Start watching for new messages
     this.watcher = createWatcher(
