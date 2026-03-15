@@ -146,18 +146,5 @@ export interface ILLMProviderAdapter {
  */
 export type LLMServiceFactory = (config: LLMConfig) => ILLMService;
 
-/**
- * LLM call event for monitoring
- */
-export interface LLMCallEvent {
-  timestamp: string;
-  provider: string;
-  model: string;
-  success: boolean;
-  latencyMs: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  error?: string;
-  isFallback: boolean;
-  retryCount: number;
-}
+// LLMCallEvent is defined in monitor module to avoid circular imports
+// Import from '../monitor/index.js' when needed for monitoring
