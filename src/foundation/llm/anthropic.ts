@@ -117,6 +117,7 @@ export class AnthropicAdapter implements IProviderAdapter {
     }
     
     try {
+      console.log('[LLM body]', JSON.stringify(body, null, 2));
       const response = await fetch(`${this.baseUrl}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -199,8 +200,11 @@ export class AnthropicAdapter implements IProviderAdapter {
         (b: { type?: string }) => b.type === 'tool_use' || b.type === 'tool_result'
       );
       
+      // MiniMax/Anthropic API compatibility:
+      // - Pure text messages: content must be string (MiniMax requirement)
+      // - Messages with tool_use/tool_result: content must be array (Anthropic format)
       if (hasToolBlocks) {
-        // Keep array format for tool calls (required)
+        // Keep array format for tool calls (required for tool history)
         return { role, content: m.content as unknown[] };
       } else if (Array.isArray(m.content)) {
         // Pure text blocks - merge to string for compatibility
@@ -220,21 +224,23 @@ export class AnthropicAdapter implements IProviderAdapter {
    * Parse Anthropic response to our LLMResponse format
    */
   private parseResponse(data: AnthropicResponse): LLMResponse {
-    const content: ContentBlock[] = data.content.map(block => {
-      if (block.type === 'text') {
-        return {
-          type: 'text',
-          text: block.text,
-        } as TextBlock;
-      } else {
+    // Only process known block types, filter out unknown ones (e.g., reasoning, think)
+    const content: ContentBlock[] = data.content
+      .filter(block => block.type === 'text' || block.type === 'tool_use')
+      .map(block => {
+        if (block.type === 'text') {
+          return {
+            type: 'text',
+            text: block.text,
+          } as TextBlock;
+        }
         return {
           type: 'tool_use',
           id: block.id,
           name: block.name,
-          input: block.input,
+          input: block.input ?? {},
         } as ToolUseBlock;
-      }
-    });
+      });
     
     return {
       content,

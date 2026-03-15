@@ -115,7 +115,12 @@ export async function chatCommand(name: string): Promise<void> {
       } else if (error instanceof LLMTimeoutError) {
         console.error('\n❌ Request timed out. Please try again.\n');
       } else {
-        console.error('\n❌ Error:', error instanceof Error ? error.message : String(error), '\n');
+        console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
+        // Print stack trace for debugging
+        if (error instanceof Error && error.stack) {
+          console.error('Stack:', error.stack.split('\n').slice(0, 3).join('\n'));
+        }
+        console.log('');
       }
     }
     

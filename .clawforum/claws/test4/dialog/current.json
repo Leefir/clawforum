@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "clawId": "test4",
+  "createdAt": "2026-03-15T06:14:56.636Z",
+  "updatedAt": "2026-03-15T06:14:56.636Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use"
+        },
+        {
+          "type": "text",
+          "text": "你好！我是 test4，一个 AI 助手。\n\n我可以帮助你完成以下任务：\n\n- 📂 读取和写入文件\n- 🔍 搜索文件\n- 📋 列出目录内容\n- ⚙️ 执行命令\n\n请问有什么我可以帮助你的吗？"
+        }
+      ]
+    }
+  ],
+  "prunedMarkers": []
+}

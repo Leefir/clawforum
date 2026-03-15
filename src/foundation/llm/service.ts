@@ -95,6 +95,7 @@ export class LLMService implements ILLMService {
         return response;
         
       } catch (error) {
+        console.error('[LLM raw error] primary attempt', attempt, error);
         lastError = error as Error;
         retryCount++;
         
@@ -139,6 +140,7 @@ export class LLMService implements ILLMService {
         return response;
         
       } catch (fallbackError) {
+        console.error('[LLM raw error] fallback', fallbackError);
         // Log fallback failure
         this.logLLMCall({
           timestamp: new Date().toISOString(),
