@@ -126,13 +126,20 @@ export class ProcessManager {
    * @returns 进程 PID
    */
   async spawn(clawId: string, clawDir: string): Promise<number> {
-    // 检查是否已运行
-    if (this.isAlive(clawId)) {
-      throw new Error(`Claw "${clawId}" is already running`);
+    // 排他创建 PID 文件（避免竞态）
+    const pidFile = this.getPidFile(clawId);
+    await this.ensureStatusDir(clawId);
+    
+    try {
+      // 'wx' = write + exclusive，文件存在则抛出 EEXIST
+      const handle = await fs.open(pidFile, 'wx');
+      // 继续启动进程
+    } catch (err: any) {
+      if (err.code === 'EEXIST') {
+        throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
+      }
+      throw err;
     }
-
-    // 清理旧的 pid 文件
-    await this.removePid(clawId);
 
     // 启动守护进程
     const cliPath = path.resolve(clawDir, '..', '..', '..', 'dist', 'cli.js');
@@ -155,12 +162,16 @@ export class ProcessManager {
       }
 
       // 写入 pid 文件
-      await this.writePid(clawId, pid);
+      await fs.writeFile(pidFile, String(pid), 'utf-8');
 
       // 等待进程启动确认（非阻塞）
       await new Promise(resolve => setTimeout(resolve, 500));
 
       return pid;
+    } catch (err) {
+      // 启动失败，清理 PID 文件
+      await this.removePid(clawId).catch(() => {});
+      throw err;
     } finally {
       // Design doc: ensure logFd is closed in all paths
       closeSync(logFd);

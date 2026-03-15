@@ -22,7 +22,8 @@ import type {
   Contract,
   InboxStatus,
 } from './index.js';
-import type { HeartbeatEntry } from '../../types/contract.js';
+import type { HeartbeatEntry, Priority } from '../../types/contract.js';
+import { PRIORITY_VALUES } from '../../types/contract.js';
 import { writeAtomic } from '../fs/atomic.js';
 import { createWatcher } from '../fs/watcher.js';
 import type { Watcher } from '../fs/types.js';
@@ -53,16 +54,6 @@ export interface LocalTransportOptions {
   /** Base workspace directory */
   workspaceDir: string;
 }
-
-/**
- * Priority values for sorting (higher = more important)
- */
-const PRIORITY_VALUES: Record<string, number> = {
-  critical: 4,
-  high: 3,
-  normal: 2,
-  low: 1,
-};
 
 /**
  * Build YAML frontmatter content from InboxMessage
@@ -195,7 +186,7 @@ export class LocalTransport implements ITransport {
           // Parse filename for priority and timestamp
           const parts = file.split('_');
           const timestamp = parseInt(parts[0], 10) || Date.now();
-          const priority = PRIORITY_VALUES[parts[1]] ?? PRIORITY_VALUES.normal;
+          const priority = PRIORITY_VALUES[parts[1] as Priority] ?? PRIORITY_VALUES.normal;
 
           messages.push({ msg, priority, timestamp });
         } catch (err) {

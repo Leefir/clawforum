@@ -323,6 +323,23 @@ export class ToolExecutorImpl implements IToolExecutor {
       }
     }
 
+    // Check type validation (Phase 2+ enhancement)
+    if (schema.properties && typeof schema.properties === 'object') {
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        if (key in args && prop && typeof prop === 'object' && 'type' in prop) {
+          const actualType = typeof args[key];
+          const expectedType = (prop as { type: string }).type;
+          if (expectedType === 'string' && actualType !== 'string') {
+            errors.push(`Field "${key}" should be string, got ${actualType}`);
+          } else if (expectedType === 'number' && actualType !== 'number') {
+            errors.push(`Field "${key}" should be number, got ${actualType}`);
+          } else if (expectedType === 'boolean' && actualType !== 'boolean') {
+            errors.push(`Field "${key}" should be boolean, got ${actualType}`);
+          }
+        }
+      }
+    }
+
     return { valid: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
   }
 }

@@ -6,6 +6,7 @@
  * - Blacklist: dialog/ (system files)
  */
 
+import * as nodePath from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
 // Allowed paths/prefixes for read tool (MVP aligned)
@@ -65,15 +66,24 @@ export const readTool: ITool = {
   readonly: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const path = args.path as string;
+    const filePath = args.path as string;
     const offset = args.offset as number | undefined;
     const limit = args.limit as number | undefined;
 
-    // Path restriction check (MVP aligned)
-    if (!isPathAllowed(path)) {
+    // Path normalization for security (defense-in-depth)
+    const normalized = nodePath.normalize(filePath);
+    if (normalized.startsWith('..')) {
       return {
         success: false,
-        content: `Error: Path "${path}" is not allowed for read. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.`,
+        content: `Error: Path traversal not allowed: "${filePath}"`,
+      };
+    }
+
+    // Path restriction check (MVP aligned)
+    if (!isPathAllowed(normalized)) {
+      return {
+        success: false,
+        content: `Error: Path "${filePath}" is not allowed for read. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.`,
       };
     }
 
@@ -82,7 +92,7 @@ export const readTool: ITool = {
     const MAX_CHARS = 8000;
 
     try {
-      let content = await ctx.fs.read(path);
+      let content = await ctx.fs.read(normalized);
 
       // Apply line range if specified
       if (offset !== undefined || limit !== undefined) {

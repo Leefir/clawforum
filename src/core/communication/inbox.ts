@@ -13,19 +13,11 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import type { IFileSystem, FileEntry } from '../../foundation/fs/types.js';
 import type { InboxMessage, Priority } from '../../types/contract.js';
+import { PRIORITY_VALUES } from '../../types/contract.js';
 import { createWatcher } from '../../foundation/fs/watcher.js';
 import type { Watcher } from '../../foundation/fs/types.js';
 import { parseFrontmatter } from '../../utils/frontmatter.js';
-
-/**
- * Priority values for sorting
- */
-const PRIORITY_VALUES: Record<Priority, number> = {
-  critical: 4,
-  high: 3,
-  normal: 2,
-  low: 1,
-};
+const MAX_QUEUE_SIZE = 1000;  // Queue size limit to prevent memory exhaustion
 
 const VALID_PRIORITIES: Priority[] = ['critical', 'high', 'normal', 'low'];
 const VALID_TYPES = ['message', 'crash', 'contract', 'report', 'notification'];
@@ -68,6 +60,7 @@ export class InboxWatcher {
   private processing = false;
   private stopped = false;
   private onMessage: ((msg: InboxMessage) => Promise<void>) | null = null;
+  private processedFiles = new Set<string>();  // Deduplication for watcher events
 
   constructor(
     private clawDir: string,
@@ -159,6 +152,19 @@ export class InboxWatcher {
    * Handle a new file in pending directory
    */
   private async handleNewFile(filePath: string): Promise<void> {
+    // Deduplication: skip if already processed
+    if (this.processedFiles.has(filePath)) {
+      return;
+    }
+    this.processedFiles.add(filePath);
+    
+    // Queue size limit: drop lowest priority if exceeded
+    if (this.queue.length >= MAX_QUEUE_SIZE) {
+      this.sortQueue();
+      const dropped = this.queue.pop();  // Remove lowest priority
+      console.warn(`[inbox] Queue full, dropped message: ${dropped?.message.id}`);
+    }
+    
     try {
       const content = await this.fs.read(filePath);
       const { meta, body } = parseFrontmatter(content);
@@ -240,7 +246,8 @@ export class InboxWatcher {
   private async moveToDone(filePath: string): Promise<void> {
     try {
       const fileName = path.basename(filePath);
-      const targetPath = path.join(this.doneDir, `${Date.now()}_${fileName}`);
+      const uuid8 = randomUUID().slice(0, 8);
+      const targetPath = path.join(this.doneDir, `${Date.now()}_${uuid8}_${fileName}`);
       await this.fs.move(filePath, targetPath);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -254,7 +261,8 @@ export class InboxWatcher {
   private async moveToFailed(filePath: string): Promise<void> {
     try {
       const fileName = path.basename(filePath);
-      const targetPath = path.join(this.failedDir, `${Date.now()}_${fileName}`);
+      const uuid8 = randomUUID().slice(0, 8);
+      const targetPath = path.join(this.failedDir, `${Date.now()}_${uuid8}_${fileName}`);
       await this.fs.move(filePath, targetPath);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

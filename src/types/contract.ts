@@ -13,6 +13,16 @@ export type ContractStatus =
 
 export type Priority = 'low' | 'normal' | 'high' | 'critical';
 
+/**
+ * Priority values for sorting (higher = more important)
+ */
+export const PRIORITY_VALUES: Record<Priority, number> = {
+  critical: 4,
+  high: 3,
+  normal: 2,
+  low: 1,
+};
+
 export interface SubTask {
   id: string;
   description: string;

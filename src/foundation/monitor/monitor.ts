@@ -128,42 +128,30 @@ export class JsonlMonitor implements IMonitor {
   // IMonitor Implementation
   // ========================================================================
   
-  private logPromises: Promise<void>[] = [];
+  private logPromises = new Set<Promise<void>>();
 
   logLLMCall(event: LLMCallEvent): void {
     const promise = this.writeEvent('llm_call', event as unknown);
-    this.logPromises.push(promise);
-    // Clean up completed promises
-    promise.then(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
-    }).catch(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
+    this.logPromises.add(promise);
+    // Clean up completed promises using finally
+    promise.finally(() => {
+      this.logPromises.delete(promise);
     });
   }
   
   logToolCall(event: ToolCallEvent): void {
     const promise = this.writeEvent('tool_call', event as unknown);
-    this.logPromises.push(promise);
-    promise.then(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
-    }).catch(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
+    this.logPromises.add(promise);
+    promise.finally(() => {
+      this.logPromises.delete(promise);
     });
   }
   
   logContract(event: ContractEvent): void {
     const promise = this.writeEvent('contract_updated', event as unknown);
-    this.logPromises.push(promise);
-    promise.then(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
-    }).catch(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
+    this.logPromises.add(promise);
+    promise.finally(() => {
+      this.logPromises.delete(promise);
     });
   }
   
@@ -175,26 +163,18 @@ export class JsonlMonitor implements IMonitor {
     error?: string;
   }): void {
     const promise = this.writeEvent('file_operation', event);
-    this.logPromises.push(promise);
-    promise.then(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
-    }).catch(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
+    this.logPromises.add(promise);
+    promise.finally(() => {
+      this.logPromises.delete(promise);
     });
   }
   
   log(type: MonitorEventType, data: Record<string, unknown>): void {
     const { clawId, contractId, ...rest } = data;
     const promise = this.writeEvent(type, rest, { clawId: clawId as string, contractId: contractId as string });
-    this.logPromises.push(promise);
-    promise.then(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
-    }).catch(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
+    this.logPromises.add(promise);
+    promise.finally(() => {
+      this.logPromises.delete(promise);
     });
   }
   
@@ -207,19 +187,15 @@ export class JsonlMonitor implements IMonitor {
       },
       context,
     });
-    this.logPromises.push(promise);
-    promise.then(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
-    }).catch(() => {
-      const idx = this.logPromises.indexOf(promise);
-      if (idx > -1) this.logPromises.splice(idx, 1);
+    this.logPromises.add(promise);
+    promise.finally(() => {
+      this.logPromises.delete(promise);
     });
   }
   
   async flush(): Promise<void> {
     // Wait for all pending log promises to complete
-    while (this.logPromises.length > 0) {
+    while (this.logPromises.size > 0) {
       await Promise.all(this.logPromises);
     }
   }
