@@ -1,0 +1,382 @@
+/**
+ * NodeFileSystem - IFileSystem implementation using Node.js fs/promises
+ * 
+ * Combines atomic operations, permission checking, and chokidar watching
+ */
+
+import * as path from 'path';
+import { promises as fs } from 'fs';
+import type {
+  IFileSystem,
+  FileSystemOptions,
+  FileEntry,
+  Watcher,
+  WatchEvent,
+} from './index.js';
+import type { PermissionChecker } from './permissions.js';
+import {
+  createPermissionChecker,
+  type PermissionOptions,
+} from './permissions.js';
+import {
+  readFile,
+  readFileBuffer,
+  writeAtomic,
+  appendFile,
+  ensureDir,
+  deleteFile,
+  removeDir,
+  moveFile,
+  copyFile,
+  exists,
+  stat,
+  isFile,
+  isDirectory,
+  cleanupOrphanedTemp,
+} from './atomic.js';
+import { createWatcher } from './watcher.js';
+import {
+  FileNotFoundError,
+  PermissionError,
+} from '../../types/errors.js';
+
+/**
+ * Node.js FileSystem implementation
+ */
+export class NodeFileSystem implements IFileSystem {
+  private readonly permissionChecker: PermissionChecker;
+  private readonly enforcePermissions: boolean;
+  
+  constructor(private readonly options: FileSystemOptions) {
+    this.enforcePermissions = options.enforcePermissions ?? true;
+    
+    const permOptions: PermissionOptions = {
+      clawDir: options.baseDir,
+      allowedPaths: options.allowedPaths,
+      strict: this.enforcePermissions,
+    };
+    
+    this.permissionChecker = createPermissionChecker(permOptions);
+  }
+  
+  // ========================================================================
+  // Path utilities
+  // ========================================================================
+  
+  /**
+   * Resolve relative path to absolute, with permission check
+   */
+  private resolveAndCheck(
+    relativePath: string, 
+    operation: 'read' | 'write'
+  ): string {
+    // Normalize path to prevent directory traversal
+    const normalized = path.normalize(relativePath);
+    
+    if (normalized.startsWith('..')) {
+      throw new PermissionError(
+        `Path "${relativePath}" attempts to escape base directory`,
+        { path: relativePath }
+      );
+    }
+    
+    const absolute = path.resolve(this.options.baseDir, normalized);
+    
+    if (this.enforcePermissions) {
+      if (operation === 'read') {
+        this.permissionChecker.checkRead(absolute);
+      } else {
+        this.permissionChecker.checkWrite(absolute);
+      }
+    }
+    
+    return absolute;
+  }
+  
+  // ========================================================================
+  // Basic File Operations
+  // ========================================================================
+  
+  async read(relativePath: string): Promise<string> {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    
+    try {
+      return await readFile(absolute);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new FileNotFoundError(relativePath);
+      }
+      throw error;
+    }
+  }
+  
+  async readBuffer(relativePath: string): Promise<Buffer> {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    
+    try {
+      return await readFileBuffer(absolute);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new FileNotFoundError(relativePath);
+      }
+      throw error;
+    }
+  }
+  
+  async writeAtomic(relativePath: string, content: string): Promise<void> {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    
+    // Ensure parent directory exists
+    const dir = path.dirname(absolute);
+    await ensureDir(dir);
+    
+    await writeAtomic(absolute, content);
+  }
+  
+  async append(relativePath: string, content: string): Promise<void> {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    
+    // Ensure parent directory exists
+    const dir = path.dirname(absolute);
+    await ensureDir(dir);
+    
+    await appendFile(absolute, content);
+  }
+  
+  async delete(relativePath: string): Promise<void> {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    
+    try {
+      await deleteFile(absolute);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new FileNotFoundError(relativePath);
+      }
+      throw error;
+    }
+  }
+  
+  // ========================================================================
+  // Directory Operations
+  // ========================================================================
+  
+  async ensureDir(relativePath: string): Promise<void> {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    await ensureDir(absolute);
+  }
+  
+  async removeDir(relativePath: string): Promise<void> {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    await removeDir(absolute);
+  }
+  
+  async list(
+    relativePath: string,
+    options?: {
+      recursive?: boolean;
+      includeDirs?: boolean;
+      pattern?: string;
+    }
+  ): Promise<FileEntry[]> {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    
+    if (!(await isDirectory(absolute))) {
+      throw new FileNotFoundError(relativePath);
+    }
+    
+    const entries: FileEntry[] = [];
+    
+    async function scan(dir: string, baseDir: string): Promise<void> {
+      // Use simple readdir for listing
+      const dirents = await fs.readdir(dir, { withFileTypes: true });
+      const items = dirents.filter(item => {
+        if (!options?.pattern) return true;
+        // Simple glob matching - can be enhanced
+        if (options.pattern === '*') return true;
+        return item.name.match(options.pattern.replace(/\*/g, '.*'));
+      });
+      
+      for (const item of items) {
+        const fullPath = path.join(dir, item.name);
+        const relativeItemPath = path.relative(baseDir, fullPath);
+        
+        if (item.isDirectory()) {
+          if (options?.includeDirs) {
+            const stats = await stat(fullPath);
+            entries.push({
+              name: item.name,
+              path: relativeItemPath,
+              isDirectory: true,
+              isFile: false,
+              size: 0,
+              mtime: stats.mtime,
+            });
+          }
+          
+          if (options?.recursive) {
+            await scan(fullPath, baseDir);
+          }
+        } else if (item.isFile()) {
+          const stats = await stat(fullPath);
+          entries.push({
+            name: item.name,
+            path: relativeItemPath,
+            isDirectory: false,
+            isFile: true,
+            size: stats.size,
+            mtime: stats.mtime,
+          });
+        }
+      }
+    }
+    
+    await scan(absolute, absolute);
+    
+    return entries;
+  }
+  
+  // ========================================================================
+  // Path Queries
+  // ========================================================================
+  
+  async exists(relativePath: string): Promise<boolean> {
+    try {
+      const absolute = this.resolveAndCheck(relativePath, 'read');
+      return await exists(absolute);
+    } catch {
+      return false;
+    }
+  }
+  
+  async isFile(relativePath: string): Promise<boolean> {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    return await isFile(absolute);
+  }
+  
+  async isDirectory(relativePath: string): Promise<boolean> {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    return await isDirectory(absolute);
+  }
+  
+  async stat(relativePath: string): Promise<{
+    size: number;
+    mtime: Date;
+    ctime: Date;
+    isFile: boolean;
+    isDirectory: boolean;
+  }> {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    
+    try {
+      return await stat(absolute);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new FileNotFoundError(relativePath);
+      }
+      throw error;
+    }
+  }
+  
+  resolve(relativePath: string): string {
+    return path.resolve(this.options.baseDir, path.normalize(relativePath));
+  }
+  
+  // ========================================================================
+  // File Watching
+  // ========================================================================
+  
+  watch(
+    relativePath: string, 
+    callback: (event: WatchEvent) => void
+  ): Watcher {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    
+    return createWatcher(absolute, callback, {
+      recursive: true,
+      ignored: [
+        /(^|[/\\])\../,  // Hidden files
+        /\.tmp_[^/]+$/,   // Temp files
+        /~$/,             // Backup files
+      ],
+    });
+  }
+  
+  // ========================================================================
+  // Advanced Operations
+  // ========================================================================
+  
+  async move(fromPath: string, toPath: string): Promise<void> {
+    const fromAbsolute = this.resolveAndCheck(fromPath, 'write');
+    const toAbsolute = this.resolveAndCheck(toPath, 'write');
+    
+    // Ensure destination directory exists
+    await ensureDir(path.dirname(toAbsolute));
+    
+    await moveFile(fromAbsolute, toAbsolute);
+  }
+  
+  async copy(fromPath: string, toPath: string): Promise<void> {
+    const fromAbsolute = this.resolveAndCheck(fromPath, 'read');
+    const toAbsolute = this.resolveAndCheck(toPath, 'write');
+    
+    // Ensure destination directory exists
+    await ensureDir(path.dirname(toAbsolute));
+    
+    await copyFile(fromAbsolute, toAbsolute);
+  }
+  
+  async glob(
+    pattern: string,
+    options?: {
+      cwd?: string;
+      ignore?: string[];
+    }
+  ): Promise<string[]> {
+    const cwd = options?.cwd ?? '.';
+    const absoluteCwd = this.resolveAndCheck(cwd, 'read');
+    
+    const results: string[] = [];
+    
+    // Simple glob implementation using readdir
+    const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'));
+    
+    async function* findFiles(dir: string): AsyncGenerator<string> {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relativePath = path.relative(absoluteCwd, fullPath);
+        
+        // Check ignore patterns
+        if (options?.ignore?.some(ign => relativePath.match(ign.replace(/\*/g, '.*')))) {
+          continue;
+        }
+        
+        if (entry.isDirectory()) {
+          yield* findFiles(fullPath);
+        } else if (regex.test(entry.name) || regex.test(relativePath)) {
+          yield fullPath;
+        }
+      }
+    }
+    
+    for await (const file of findFiles(absoluteCwd)) {
+      const relativePath = path.relative(this.options.baseDir, file);
+      results.push(relativePath);
+    }
+    
+    return results;
+  }
+  
+  // ========================================================================
+  // Cleanup
+  // ========================================================================
+  
+  /**
+   * Clean up orphaned temp files (call on startup)
+   */
+  async cleanupTempFiles(dirPath?: string): Promise<string[]> {
+    const targetDir = dirPath ?? '.';
+    const absolute = this.resolveAndCheck(targetDir, 'write');
+    return cleanupOrphanedTemp(absolute);
+  }
+}
