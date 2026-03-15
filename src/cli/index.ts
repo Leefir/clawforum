@@ -26,6 +26,11 @@ import {
   daemonCommand as motionDaemonCommand,
 } from './commands/motion.js';
 import { contractCreateCommand } from './commands/contract.js';
+import {
+  startCommand as watchdogStartCommand,
+  stopCommand as watchdogStopCommand,
+  daemonCommand as watchdogDaemonCommand,
+} from './commands/watchdog.js';
 
 program
   .name('clawforum')
@@ -225,6 +230,50 @@ contractCmd
   .action(async (opts: { claw: string; file: string }) => {
     try {
       await contractCreateCommand(opts.claw, opts.file);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// watchdog command group
+const watchdogCmd = program
+  .command('watchdog')
+  .description('System watchdog for Motion');
+
+// watchdog start
+watchdogCmd
+  .command('start')
+  .description('Start watchdog')
+  .action(async () => {
+    try {
+      await watchdogStartCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// watchdog stop
+watchdogCmd
+  .command('stop')
+  .description('Stop watchdog')
+  .action(async () => {
+    try {
+      await watchdogStopCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// watchdog daemon (internal command, spawned by startCommand)
+watchdogCmd
+  .command('daemon')
+  .description('Run watchdog daemon (internal)')
+  .action(async () => {
+    try {
+      await watchdogDaemonCommand();
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
