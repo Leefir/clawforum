@@ -41,13 +41,22 @@ export const ClawConfigSchema = z.object({
 export type ClawGlobalConfig = z.infer<typeof ClawGlobalConfigSchema>;
 export type ClawConfig = z.infer<typeof ClawConfigSchema>;
 
+// Workspace root - 优先从环境变量获取（供 exec 子进程继承）
+function getWorkspaceRoot(): string {
+  return process.env.CLAWFORUM_ROOT ?? process.cwd();
+}
+
 // Paths
 export function getGlobalConfigPath(): string {
-  return path.join(process.cwd(), '.clawforum', 'config.yaml');
+  return path.join(getWorkspaceRoot(), '.clawforum', 'config.yaml');
 }
 
 export function getClawDir(name: string): string {
-  return path.join(process.cwd(), '.clawforum', 'claws', name);
+  return path.join(getWorkspaceRoot(), '.clawforum', 'claws', name);
+}
+
+export function getMotionDir(): string {
+  return path.join(getWorkspaceRoot(), '.clawforum', 'motion');
 }
 
 export function getClawConfigPath(name: string): string {

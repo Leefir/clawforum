@@ -64,17 +64,25 @@ export class ContextInjector {
   }
 
   /**
-   * Build system prompt from AGENTS.md, MEMORY.md, skills, and active contract
-   * Gracefully degrades if files don't exist
+   * Build raw parts for system prompt injection
+   * Returns individual sections for flexible composition (used by MotionRuntime)
    */
-  async buildSystemPrompt(): Promise<string> {
-    const parts: string[] = [];
+  async buildParts(): Promise<{
+    agents: string;
+    memory: string;
+    skills: string;
+    contract: string;
+  }> {
+    let agents = '';
+    let memory = '';
+    let skills = '';
+    let contract = '';
 
     // Try to read AGENTS.md
     try {
-      const agents = await this.fs.read('AGENTS.md');
-      if (agents.trim()) {
-        parts.push(agents.trim());
+      const content = await this.fs.read('AGENTS.md');
+      if (content.trim()) {
+        agents = content.trim();
       }
     } catch {
       // AGENTS.md doesn't exist, skip silently
@@ -82,10 +90,9 @@ export class ContextInjector {
 
     // Try to read MEMORY.md
     try {
-      const memory = await this.fs.read('MEMORY.md');
-      if (memory.trim()) {
-        parts.push('## Memory');
-        parts.push(memory.trim());
+      const content = await this.fs.read('MEMORY.md');
+      if (content.trim()) {
+        memory = '## Memory\n' + content.trim();
       }
     } catch {
       // MEMORY.md doesn't exist, skip
@@ -95,23 +102,39 @@ export class ContextInjector {
     if (this.skillRegistry) {
       const skillContext = this.skillRegistry.formatForContext();
       if (skillContext) {
-        parts.push(skillContext);
+        skills = skillContext;
       }
     }
 
     // Inject active contract if available
     if (this.contractManager) {
       try {
-        const contract = await this.contractManager.loadActive();
-        if (contract) {
-          parts.push(formatContractForPrompt(contract));
+        const contractData = await this.contractManager.loadActive();
+        if (contractData) {
+          contract = formatContractForPrompt(contractData);
         }
       } catch {
         // No active contract or error loading, skip
       }
     }
 
-    return parts.join('\n\n');
+    return { agents, memory, skills, contract };
+  }
+
+  /**
+   * Build system prompt from AGENTS.md, MEMORY.md, skills, and active contract
+   * Gracefully degrades if files don't exist
+   */
+  async buildSystemPrompt(): Promise<string> {
+    const parts = await this.buildParts();
+    const sections: string[] = [];
+    
+    if (parts.agents) sections.push(parts.agents);
+    if (parts.memory) sections.push(parts.memory);
+    if (parts.skills) sections.push(parts.skills);
+    if (parts.contract) sections.push(parts.contract);
+
+    return sections.join('\n\n');
   }
 
   /**

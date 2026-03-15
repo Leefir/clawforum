@@ -53,7 +53,7 @@ export class ClawRuntime {
   private running = false;
 
   // Foundation
-  private systemFs!: NodeFileSystem;  // 系统组件使用（无权限检查）
+  protected systemFs!: NodeFileSystem;  // 系统组件使用（无权限检查）
   private clawFs!: NodeFileSystem;    // 工具使用（有权限检查）
   private monitor!: JsonlMonitor;
   private llm!: LLMService;
@@ -61,7 +61,7 @@ export class ClawRuntime {
 
   // Core
   private sessionManager!: SessionManager;
-  private contextInjector!: ContextInjector;
+  protected contextInjector!: ContextInjector;
   private toolRegistry!: ToolRegistry;
   private taskSystem!: TaskSystem;
   private skillRegistry!: SkillRegistry;
@@ -218,7 +218,7 @@ export class ClawRuntime {
     const messages = [...session.messages];
 
     // 2. 构建 systemPrompt（已包含 AGENTS.md + MEMORY.md + skills + contract）
-    const systemPrompt = await this.contextInjector.buildSystemPrompt();
+    const systemPrompt = await this.buildSystemPrompt();
 
     // 3. 追加 user 消息
     messages.push({ role: 'user', content: userMessage });
@@ -296,6 +296,18 @@ export class ClawRuntime {
       running: this.running,
       clawId: this.options.clawId,
     };
+  }
+
+  // ============================================================================
+  // Protected methods (可被子类覆盖)
+  // ============================================================================
+
+  /**
+   * 构建系统提示词（可被子类覆盖以自定义注入顺序）
+   * 默认行为：AGENTS.md + MEMORY.md + skills + contract
+   */
+  protected async buildSystemPrompt(): Promise<string> {
+    return this.contextInjector.buildSystemPrompt();
   }
 
   // ============================================================================

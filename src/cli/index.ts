@@ -2,6 +2,11 @@
  * Clawforum CLI - Command line interface
  */
 
+// 设置工作区根路径，供 exec 子进程继承（子进程 CWD 是 clawspace/，无法直接找到 .clawforum）
+if (!process.env.CLAWFORUM_ROOT) {
+  process.env.CLAWFORUM_ROOT = process.cwd();
+}
+
 import { program } from 'commander';
 import { initCommand } from './commands/init.js';
 import { 
@@ -13,6 +18,10 @@ import {
   healthCommand,
 } from './commands/claw.js';
 import { daemonCommand } from './commands/daemon.js';
+import { 
+  initCommand as motionInitCommand,
+  chatCommand as motionChatCommand,
+} from './commands/motion.js';
 
 program
   .name('clawforum')
@@ -122,6 +131,37 @@ clawCmd
   .action(async (name: string) => {
     try {
       await daemonCommand(name);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// motion command group
+const motionCmd = program
+  .command('motion')
+  .description('Manage Motion (system orchestrator)');
+
+// motion init
+motionCmd
+  .command('init')
+  .description('Initialize Motion configuration')
+  .action(async () => {
+    try {
+      await motionInitCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// motion chat
+motionCmd
+  .command('chat')
+  .description('Chat with Motion')
+  .action(async () => {
+    try {
+      await motionChatCommand();
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
