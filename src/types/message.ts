@@ -24,7 +24,12 @@ export interface ToolResultBlock {
   is_error?: boolean;
 }
 
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+export interface UnknownBlock {
+  type: string;
+  [key: string]: unknown;
+}
+
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | UnknownBlock;
 
 export interface Message {
   role: Role;

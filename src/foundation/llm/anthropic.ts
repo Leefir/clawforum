@@ -46,10 +46,7 @@ interface AnthropicResponse {
   id: string;
   type: string;
   role: string;
-  content: Array<
-    | { type: 'text'; text: string }
-    | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-  >;
+  content: Array<{ type: string; [key: string]: unknown }>;
   model: string;
   stop_reason: string | null;
   usage?: {
@@ -190,56 +187,22 @@ export class AnthropicAdapter implements IProviderAdapter {
    * Format messages for Anthropic API
    */
   private formatMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: string | unknown[] }> {
-    return messages.map(m => {
-      // Map 'assistant' to 'assistant', 'user' to 'user'
-      const role = m.role === 'assistant' ? 'assistant' : 'user';
-      
-      // Check if content has tool blocks
-      const hasToolBlocks = Array.isArray(m.content) && m.content.some(
-        (b: { type?: string }) => b.type === 'tool_use' || b.type === 'tool_result'
-      );
-      
-      // MiniMax/Anthropic API compatibility:
-      // - Pure text messages: content must be string (MiniMax requirement)
-      // - Messages with tool_use/tool_result: content must be array (Anthropic format)
-      if (hasToolBlocks) {
-        // Keep array format for tool calls (required for tool history)
-        return { role, content: m.content as unknown[] };
-      } else if (Array.isArray(m.content)) {
-        // Pure text blocks - merge to string for compatibility
-        const text = m.content
-          .filter((b: { type?: string }) => b.type === 'text')
-          .map((b: { text?: string }) => b.text || '')
-          .join('');
-        return { role, content: text };
-      } else {
-        // Already a string
-        return { role, content: m.content as string };
-      }
-    });
+    // Align with MVP: pass through content directly
+    // - string content stays string (user messages)
+    // - array content stays array (assistant messages with blocks)
+    return messages.map(m => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content as string | unknown[],
+    }));
   }
   
   /**
    * Parse Anthropic response to our LLMResponse format
    */
   private parseResponse(data: AnthropicResponse): LLMResponse {
-    // Only process known block types, filter out unknown ones (e.g., reasoning, think)
-    const content: ContentBlock[] = data.content
-      .filter(block => block.type === 'text' || block.type === 'tool_use')
-      .map(block => {
-        if (block.type === 'text') {
-          return {
-            type: 'text',
-            text: block.text,
-          } as TextBlock;
-        }
-        return {
-          type: 'tool_use',
-          id: block.id,
-          name: block.name,
-          input: block.input ?? {},
-        } as ToolUseBlock;
-      });
+    // Store raw content blocks including unknown types (think, reasoning, etc.)
+    // This aligns with MVP behavior - don't filter, let LLM handle its own blocks
+    const content = data.content as ContentBlock[];
     
     return {
       content,

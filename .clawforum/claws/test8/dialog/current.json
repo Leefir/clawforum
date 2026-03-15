@@ -2,7 +2,7 @@
   "version": 1,
   "clawId": "test8",
   "createdAt": "2026-03-15T06:30:25.217Z",
-  "updatedAt": "2026-03-15T06:34:10.224Z",
+  "updatedAt": "2026-03-15T06:40:20.376Z",
   "messages": [
     {
       "role": "user",
@@ -514,6 +514,142 @@
         {
           "type": "text",
           "text": "是的，成功写入 `MEMORY.md`！文件已创建并显示在目录中（72 bytes）。\n\n还有其他需要测试或操作的吗？"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "再读取文件看看"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_3zy7t5ayw3eg_1",
+          "name": "read",
+          "input": {
+            "path": "MEMORY.md"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_3zy7t5ayw3eg_1",
+          "content": "# Memory 测试\n\n这是一个测试文件，用于验证写入功能。\n",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "成功读取！`MEMORY.md` 的内容如上所示，写入功能正常工作 ✓\n\n还需要其他操作吗？"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "帮我记一个数:”847612“"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_gr9rlol2esck_1",
+          "name": "write",
+          "input": {
+            "content": "记住的数字: 847612\n",
+            "path": "remembered_number.txt"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_gr9rlol2esck_1",
+          "content": "写入成功: remembered_number.txt",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_2hrqile035sc_1",
+          "name": "read",
+          "input": {
+            "path": "remembered_number.txt"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_2hrqile035sc_1",
+          "content": "记住的数字: 847612\n",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "已记住！数字 **847612** 已保存在 `remembered_number.txt` 文件中。\n\n需要我记住其他内容吗？"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "帮我回忆要记的数"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_5v9zb45k8df1_1",
+          "name": "read",
+          "input": {
+            "path": "remembered_number.txt"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_5v9zb45k8df1_1",
+          "content": "记住的数字: 847612\n",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "你让我记住的数字是：**847612** ✓"
         }
       ]
     }
