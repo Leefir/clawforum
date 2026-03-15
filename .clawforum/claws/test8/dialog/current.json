@@ -1,0 +1,355 @@
+{
+  "version": 1,
+  "clawId": "test8",
+  "createdAt": "2026-03-15T06:30:25.217Z",
+  "updatedAt": "2026-03-15T06:31:57.018Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hi there! I'm here to help you with whatever you need. I have access to tools for reading and writing files, searching through content, executing commands, and more.\n\nWhat can I help you with today?"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "which model do u use?"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "I don't have specific information about which LLM model is powering me. I'm simply here to help you with tasks using the tools available to me.\n\nIs there something I can help you with — like working with files, running commands, searching through code, or something else?"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "你可以查看你当前的目录吗"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_pqbtte9y6k50_1",
+          "name": "ls",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_pqbtte9y6k50_1",
+          "content": "[FILE] AGENTS.md 260 bytes\n[DIR] clawspace\n[FILE] config.yaml 46 bytes\n[DIR] contract\n[DIR] dialog\n[DIR] inbox\n[DIR] logs\n[DIR] memory\n[DIR] outbox\n[DIR] skills\n[DIR] tasks",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "当前目录包含以下文件和文件夹：\n\n| 文件/目录 | 大小/类型 |\n|-----------|-----------|\n| AGENTS.md | 260 bytes |\n| clawspace | 目录 |\n| config.yaml | 46 bytes |\n| contract | 目录 |\n| dialog | 目录 |\n| inbox | 目录 |\n| logs | 目录 |\n| memory | 目录 |\n| outbox | 目录 |\n| skills | 目录 |\n| tasks | 目录 |\n\n你想让我查看或操作哪个目录或文件？"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "看一下AGENTS.md"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_9gv8wq27npns_1",
+          "name": "read",
+          "input": {
+            "path": "AGENTS.md"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_9gv8wq27npns_1",
+          "content": "你是 test8，一个 AI 助手。\n\n你可以使用以下工具：\n- read: 读取文件内容\n- write: 写入文件内容\n- ls: 列出目录内容\n- search: 搜索文件\n- exec: 执行命令\n- skill: 加载技能\n\n请高效、准确地完成用户的任务。\n",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "文件 `AGENTS.md` 的内容是：\n\n```\n你是 test8，一个 AI 助手。\n\n你可以使用以下工具：\n- read: 读取文件内容\n- write: 写入文件内容\n- ls: 列出目录内容\n- search: 搜索文件\n- exec: 执行命令\n- skill: 加载技能\n\n请高效、准确地完成用户的任务。\n```\n\n这是关于我（test8）的介绍文件，说明我是一个 AI 助手，并列出了我可用的工具。\n\n还有其他想查看的文件吗？"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "测试一下你的各个工具"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "好的，我来逐一测试各个工具：\n"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_function_o3ktig3rfo8t_1",
+          "name": "write",
+          "input": {
+            "content": "这是一个测试文件。\n用于测试 write 工具是否正常工作。\n时间: ",
+            "path": "test_file.txt"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_o3ktig3rfo8t_1",
+          "content": "写入成功: test_file.txt",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_bbeqw9r87qdz_1",
+          "name": "search",
+          "input": {
+            "query": "test"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_bbeqw9r87qdz_1",
+          "content": "未找到包含 \"test\" 的内容",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_nj2c1i003y2a_1",
+          "name": "search",
+          "input": {
+            "query": "AI"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_nj2c1i003y2a_1",
+          "content": "未找到包含 \"AI\" 的内容",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_sbedvtjy7o9v_1",
+          "name": "search",
+          "input": {
+            "path": ".",
+            "query": "test"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_sbedvtjy7o9v_1",
+          "content": "AGENTS.md:1: 你是 test8，一个 AI 助手。\nconfig.yaml:1: name: test8\ndialog/current.json:3: \"clawId\": \"test8\",\ndialog/current.json:91: \"content\": \"你是 test8，一个 AI 助手。\\n\\n你可以使用以下工具：\\n- read: 读取文件内容\\n- write: 写入文件内容\\n- ls: 列出目录内容\\n- search: 搜索文件\\n- exec: 执行命令\\n- skill: 加载技能\\n\\n请高效、准确地完成用户的任务。\\n\",\ndialog/current.json:101: \"text\": \"文件 `AGENTS.md` 的内容是：\\n\\n```\\n你是 test8，一个 AI 助手。\\n\\n你可以使用以下工具：\\n- read: 读取文件内容\\n- write: 写入文件内容\\n- ls: 列出目录内容\\n- search: 搜索文件\\n- exec: 执行命令\\n- skill: 加载技能\\n\\n请高效、准确地完成用户的任务。\\n```\\n\\n这是关于我（test8）的介绍文件，说明我是一个 AI 助手，并列出了我可用的工具。\\n\\n还有其他想查看的文件吗？\"",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_yb1rmyf2ibp2_1",
+          "name": "exec",
+          "input": {
+            "command": "pwd"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_yb1rmyf2ibp2_1",
+          "content": "/Users/lleefir/code/mess/260315/clawforum/.clawforum/claws/test8/clawspace\n",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_akq1ruyogn93_1",
+          "name": "ls",
+          "input": {
+            "path": "skills"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_akq1ruyogn93_1",
+          "content": "目录为空",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_0x4bg97nvylj_1",
+          "name": "status",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_0x4bg97nvylj_1",
+          "content": "Claw ID: test8\nProfile: full\nStep: 6/100\nElapsed: 92639ms",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_8b3ktzkn9ai0_1",
+          "name": "exec",
+          "input": {
+            "command": "rm test_file.txt"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_8b3ktzkn9ai0_1",
+          "content": "Error: Command failed: rm test_file.txt\nrm: test_file.txt: No such file or directory\n",
+          "is_error": true
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_0f068a0z92e6_1",
+          "name": "ls",
+          "input": {
+            "path": "clawspace"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_0f068a0z92e6_1",
+          "content": "目录为空",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_function_ppos23mfskbq_1",
+          "name": "ls",
+          "input": {
+            "path": "."
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_function_ppos23mfskbq_1",
+          "content": "[FILE] AGENTS.md 260 bytes\n[DIR] clawspace\n[FILE] config.yaml 46 bytes\n[DIR] contract\n[DIR] dialog\n[DIR] inbox\n[DIR] logs\n[DIR] memory\n[DIR] outbox\n[DIR] skills\n[DIR] tasks\n[FILE] test_file.txt 83 bytes",
+          "is_error": false
+        }
+      ]
+    }
+  ],
+  "prunedMarkers": []
+}
