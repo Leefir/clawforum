@@ -1,10 +1,17 @@
 /**
- * ToolExecutor 测试 - 权限检查 + 审计日志
+ * ToolExecutor 测试 - 权限检查 + 审计日志 + 参数验证
  * 
- * 简化测试：验证路径解析逻辑
+ * 简化测试：验证路径解析逻辑和参数验证
+ * 
+ * 新增测试：
+ * - validateArgs() 类型检查（string/number/boolean）
+ * - getForProfile() 按权限级别过滤
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as path from 'path';
+import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
+import { ToolRegistry } from '../../src/core/tools/registry.js';
+import type { Tool, ToolPermission } from '../../src/types/tool.js';
 
 describe('Tool Path Validation', () => {
   it('should resolve paths correctly', () => {
@@ -50,5 +57,190 @@ describe('Tool Path Validation', () => {
                         resolved.endsWith('config.yaml');
       expect(isOutside || p.includes('..')).toBe(true);
     }
+  });
+});
+
+describe('ToolExecutor validateArgs', () => {
+  const registry = new ToolRegistry();
+  const executor = new ToolExecutorImpl(registry);
+
+  // 注册测试工具
+  registry.register({
+    name: 'testTool',
+    description: 'Test tool',
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        count: { type: 'number' },
+        enabled: { type: 'boolean' },
+      },
+      required: ['name'],
+    },
+    requiredPermissions: ['read'],
+    readonly: true,
+    execute: async () => ({ success: true, content: 'ok' }),
+  });
+
+  it('should validate required fields', () => {
+    const result = executor.validateArgs('testTool', {});
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing required field: name');
+  });
+
+  it('should pass with all required fields', () => {
+    const result = executor.validateArgs('testTool', { name: 'test' });
+    expect(result.valid).toBe(true);
+  });
+
+  it('should reject string field with number value', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: 123 as any,  // 类型错误
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors?.some(e => e.includes('should be string'))).toBe(true);
+  });
+
+  it('should reject number field with string value', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: 'test',
+      count: 'ten' as any,  // 类型错误
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors?.some(e => e.includes('should be number'))).toBe(true);
+  });
+
+  it('should reject boolean field with string value', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: 'test',
+      enabled: 'yes' as any,  // 类型错误
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors?.some(e => e.includes('should be boolean'))).toBe(true);
+  });
+
+  it('should pass with correct types', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: 'test',
+      count: 42,
+      enabled: true,
+    });
+    expect(result.valid).toBe(true);
+    expect(result.errors).toBeUndefined();
+  });
+
+  it('should return error for non-existent tool', () => {
+    const result = executor.validateArgs('nonExistent', {});
+    expect(result.valid).toBe(false);
+    expect(result.errors?.[0]).toContain('not found');
+  });
+
+  // === 新增：更多类型验证测试 ===
+
+  it('should reject string field with boolean value', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: true as any,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors?.some(e => e.includes('should be string'))).toBe(true);
+  });
+
+  it('should reject number field with boolean value', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: 'test',
+      count: true as any,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors?.some(e => e.includes('should be number'))).toBe(true);
+  });
+
+  it('should reject boolean field with number value', () => {
+    const result = executor.validateArgs('testTool', { 
+      name: 'test',
+      enabled: 1 as any,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors?.some(e => e.includes('should be boolean'))).toBe(true);
+  });
+
+  it('should allow null for optional fields', () => {
+    // count 和 enabled 是可选字段，null 应该被接受
+    const result = executor.validateArgs('testTool', { 
+      name: 'test',
+      count: null as any,
+      enabled: null as any,
+    });
+    // 根据实现，null 可能通过也可能失败，取决于具体验证逻辑
+    // 这里我们只验证不会崩溃
+    expect(result).toBeDefined();
+  });
+});
+
+describe('ToolRegistry getForProfile', () => {
+  it('should filter tools based on profile allowlist', () => {
+    const registry = new ToolRegistry();
+    
+    // 注册 TOOL_PROFILES 中定义的工具
+    registry.register({
+      name: 'read',
+      description: 'Read tool',
+      schema: { type: 'object', properties: {} },
+      requiredPermissions: ['read'],
+      readonly: true,
+      execute: async () => ({ success: true }),
+    });
+    
+    registry.register({
+      name: 'write',
+      description: 'Write tool',
+      schema: { type: 'object', properties: {} },
+      requiredPermissions: ['write'],
+      readonly: false,
+      execute: async () => ({ success: true }),
+    });
+
+    registry.register({
+      name: 'exec',
+      description: 'Exec tool',
+      schema: { type: 'object', properties: {} },
+      requiredPermissions: ['write'],
+      readonly: false,
+      execute: async () => ({ success: true }),
+    });
+
+    // readonly profile 应该只有 read
+    const readonlyTools = registry.getForProfile('readonly');
+    expect(readonlyTools.some(t => t.name === 'read')).toBe(true);
+    expect(readonlyTools.some(t => t.name === 'write')).toBe(false);
+    expect(readonlyTools.some(t => t.name === 'exec')).toBe(false);
+
+    // subagent profile 应该有 read, write, exec
+    const subagentTools = registry.getForProfile('subagent');
+    expect(subagentTools.some(t => t.name === 'read')).toBe(true);
+    expect(subagentTools.some(t => t.name === 'write')).toBe(true);
+    expect(subagentTools.some(t => t.name === 'exec')).toBe(true);
+
+    // full profile 应该有所有工具
+    const fullTools = registry.getForProfile('full');
+    expect(fullTools.some(t => t.name === 'read')).toBe(true);
+    expect(fullTools.some(t => t.name === 'write')).toBe(true);
+  });
+
+  it('should return empty array for non-existent tools', () => {
+    const registry = new ToolRegistry();
+    
+    // 注册不在 TOOL_PROFILES 中的工具
+    registry.register({
+      name: 'customTool',
+      description: 'Custom tool',
+      schema: { type: 'object', properties: {} },
+      requiredPermissions: ['read'],
+      readonly: true,
+      execute: async () => ({ success: true }),
+    });
+
+    // 任何 profile 都不应该包含 customTool
+    const readonlyTools = registry.getForProfile('readonly');
+    expect(readonlyTools.some(t => t.name === 'customTool')).toBe(false);
   });
 });

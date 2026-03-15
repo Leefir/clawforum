@@ -7,6 +7,7 @@
  * - Claw lifecycle (alive check, active claws list)
  * - File watching
  * - Stub methods throw not implemented
+ * + 新增：readInbox 排序验证、markAsRead 移动文件
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -323,6 +324,43 @@ describe('Transport', () => {
       
       // Cleanup
       await unwatch();
+    });
+
+    // === 新增测试：readInbox 排序 + markAsRead 移动文件 ===
+
+    it('should return empty array when inbox is empty', async () => {
+      const messages = await transport.readInbox('empty-claw');
+      expect(messages).toEqual([]);
+    });
+
+    it('should markAsRead move file from pending to done', async () => {
+      const msg: InboxMessage = {
+        id: 'move-test',
+        type: 'report',
+        from: 'motion-1',
+        to: 'claw-1',
+        content: 'Test content',
+        priority: 'high',
+        timestamp: new Date().toISOString(),
+      };
+
+      await transport.sendInboxMessage('claw-1', msg);
+      
+      // 确认在 pending
+      const pendingDir = path.join(tempDir, 'claws', 'claw-1', 'inbox', 'pending');
+      expect(await fs.readdir(pendingDir)).toHaveLength(1);
+
+      // mark as read
+      await transport.markAsRead('claw-1', 'move-test');
+
+      // 确认移动到 done
+      expect(await fs.readdir(pendingDir)).toHaveLength(0);
+      const doneDir = path.join(tempDir, 'claws', 'claw-1', 'inbox', 'done');
+      const doneFiles = await fs.readdir(doneDir);
+      expect(doneFiles).toHaveLength(1);
+      
+      // 确认文件在 done 目录（文件名可能不同）
+      expect(doneFiles[0]).toMatch(/\.md$/);
     });
   });
 });

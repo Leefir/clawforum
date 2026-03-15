@@ -2,8 +2,13 @@
  * ContractManager 测试 - 状态转换
  * 
  * 构造函数: new ContractManager(clawDir, fs, monitor?)
+ * 
+ * 新增测试：
+ * - loadActive() 按 started_at 排序
+ * - 状态验证错误 (pause/resume/cancel)
+ * - completeSubtask 覆盖
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ContractManager } from '../../src/core/contract/manager.js';
@@ -98,5 +103,239 @@ describe('ContractManager', () => {
 
     const progress = await manager.getProgress(contractId);
     expect(progress.status).toBe('cancelled');
+  });
+
+  // === 新增测试：状态转换验证 ===
+  
+  it('should throw when pausing non-running contract', async () => {
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+
+    const contractId = await manager.create(contractYaml);
+    await manager.pause(contractId, 'First pause');
+    
+    // 第二次 pause 应该抛错
+    await expect(manager.pause(contractId, 'Second pause')).rejects.toThrow('Cannot pause');
+  });
+
+  it('should throw when resuming non-paused contract', async () => {
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+
+    const contractId = await manager.create(contractYaml);
+    // running 状态不能 resume
+    await expect(manager.resume(contractId)).rejects.toThrow('Cannot resume');
+  });
+
+  it('should throw when cancelling already completed contract', async () => {
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+
+    const contractId = await manager.create(contractYaml);
+    await manager.cancel(contractId, 'Cancel');
+    
+    // 再次 cancel 应该抛错
+    await expect(manager.cancel(contractId, 'Cancel again')).rejects.toThrow('Cannot cancel');
+  });
+
+  // === 新增测试：loadActive 返回最新的 running 契约 ===
+  
+  it('should loadActive return latest running contract by started_at', async () => {
+    // 创建第一个契约
+    const contract1 = await manager.create({
+      schema_version: 1 as const,
+      title: 'First',
+      goal: 'First',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+    
+    // 稍微等待确保时间戳不同
+    await new Promise(r => setTimeout(r, 50));
+    
+    // 创建第二个契约（会自动暂停第一个）
+    const contract2 = await manager.create({
+      schema_version: 1 as const,
+      title: 'Second',
+      goal: 'Second',
+      deliverables: [],
+      subtasks: [{ id: 't2', description: 'T2' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    // 恢复第一个，让它也处于 running
+    await manager.resume(contract1);
+
+    // loadActive 应该返回最新的（第二个）
+    const active = await manager.loadActive();
+    expect(active).toBeTruthy();
+    expect(active?.id).toBe(contract2);
+  });
+
+  it('should create() auto-pause existing running contract', async () => {
+    const contract1 = await manager.create({
+      schema_version: 1 as const,
+      title: 'First',
+      goal: 'First',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    // 创建第二个，第一个应该被暂停
+    const contract2 = await manager.create({
+      schema_version: 1 as const,
+      title: 'Second',
+      goal: 'Second',
+      deliverables: [],
+      subtasks: [{ id: 't2', description: 'T2' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    const progress1 = await manager.getProgress(contract1);
+    expect(progress1.status).toBe('paused');
+    
+    const progress2 = await manager.getProgress(contract2);
+    expect(progress2.status).toBe('running');
+  });
+
+  // === 新增测试：completeSubtask 覆盖 ===
+
+  it('should complete subtask and update status', async () => {
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [
+        { id: 'task-1', description: 'Task 1' },
+        { id: 'task-2', description: 'Task 2' },
+      ],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+    const contractId = await manager.create(contractYaml);
+    expect(contractId).toBeTruthy();
+
+    await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'Task completed' });
+
+    const progress = await manager.getProgress(contractId);
+    expect(progress.subtasks['task-1'].status).toBe('completed');
+    expect(progress.subtasks['task-2'].status).toBe('pending');
+  });
+
+  it('should warn on unknown subtaskId in completeSubtask', async () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 'task-1', description: 'Task 1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+    const contractId = await manager.create(contractYaml);
+    expect(contractId).toBeTruthy();
+
+    // 尝试完成不存在的子任务
+    await manager.completeSubtask({ contractId, subtaskId: 'unknown-task', evidence: 'Test' });
+
+    // 应该输出警告
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown subtask')
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  it('should mark contract completed when all subtasks done', async () => {
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [
+        { id: 'task-1', description: 'Task 1' },
+        { id: 'task-2', description: 'Task 2' },
+      ],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+    const contractId = await manager.create(contractYaml);
+    expect(contractId).toBeTruthy();
+
+    // 完成所有子任务
+    await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'Task 1 done' });
+    await manager.completeSubtask({ contractId, subtaskId: 'task-2', evidence: 'Task 2 done' });
+
+    const progress = await manager.getProgress(contractId);
+    expect(progress.status).toBe('completed');
+  });
+
+  it('should throw state validation errors with correct message', async () => {
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    // cancel 后不应该能 pause
+    await manager.cancel(contractId, 'Cancelled');
+    await expect(manager.pause(contractId, 'Try pause')).rejects.toThrow('Cannot pause');
+  });
+
+  // === 新增测试：损坏 progress.json 抛出 ToolError ===
+
+  it('should throw ToolError when progress.json is corrupted', async () => {
+    const contractYaml = {
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    };
+    const contractId = await manager.create(contractYaml);
+    expect(contractId).toBeTruthy();
+
+    // 手动损坏 progress.json
+    const progressPath = path.join(CLAW_DIR, 'contract', contractId, 'progress.json');
+    await fs.writeFile(progressPath, '{ broken json', 'utf-8');
+
+    // 应该抛出包含 'Failed to parse' 的 ToolError
+    await expect(manager.getProgress(contractId)).rejects.toThrow('Failed to parse');
   });
 });
