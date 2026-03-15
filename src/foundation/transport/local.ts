@@ -28,6 +28,24 @@ import { createWatcher } from '../fs/watcher.js';
 import type { Watcher } from '../fs/types.js';
 import { parseFrontmatter } from '../../utils/frontmatter.js';
 
+// Validation helpers (duplicated from inbox.ts - consider moving to shared utils)
+const VALID_PRIORITIES: InboxMessage['priority'][] = ['critical', 'high', 'normal', 'low'];
+const VALID_TYPES = ['message', 'crash', 'contract', 'report', 'notification'];
+
+function validatePriority(value: unknown): InboxMessage['priority'] {
+  if (typeof value === 'string' && VALID_PRIORITIES.includes(value as InboxMessage['priority'])) {
+    return value as InboxMessage['priority'];
+  }
+  return 'normal';
+}
+
+function validateType(value: unknown): InboxMessage['type'] {
+  if (typeof value === 'string' && VALID_TYPES.includes(value)) {
+    return value as InboxMessage['type'];
+  }
+  return 'message';
+}
+
 /**
  * Local transport configuration
  */
@@ -160,11 +178,11 @@ export class LocalTransport implements ITransport {
           const { meta, body } = parseFrontmatter(content);
           const msg: InboxMessage = {
             id: meta.id ?? randomUUID(),
-            type: (meta.type as InboxMessage['type']) ?? 'message',
+            type: validateType(meta.type),
             from: meta.from ?? 'unknown',
             to: meta.to ?? '',
             content: body,
-            priority: (meta.priority as InboxMessage['priority']) ?? 'normal',
+            priority: validatePriority(meta.priority),
             timestamp: meta.timestamp ?? new Date().toISOString(),
             contract_id: meta.contract_id,
           };
@@ -275,7 +293,7 @@ export class LocalTransport implements ITransport {
           const { meta } = parseFrontmatter(content);
           total++;
 
-          const priority = meta.priority as InboxMessage['priority'];
+          const priority = validatePriority(meta.priority);
           if (priority === 'high' || priority === 'critical') {
             highPriority++;
           }

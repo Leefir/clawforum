@@ -78,8 +78,11 @@ export class ProcessManager {
     try {
       const pidFile = this.getPidFile(clawId);
       await this.fs.delete(pidFile);
-    } catch {
-      // 忽略删除失败
+    } catch (err: any) {
+      // 仅忽略 ENOENT（文件不存在），其他错误需要记录
+      if (err.code !== 'ENOENT') {
+        console.warn(`[ProcessManager] Failed to remove PID file for ${clawId}:`, err);
+      }
     }
   }
 

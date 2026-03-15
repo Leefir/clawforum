@@ -145,8 +145,8 @@ export class Heartbeat {
                 hasActiveContract = true;
                 break;
               }
-            } catch {
-              // progress.json 损坏，跳过
+            } catch (err) {
+              console.warn(`[heartbeat] Failed to parse progress.json for ${entry.name}:`, err);
             }
           }
         }

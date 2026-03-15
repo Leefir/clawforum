@@ -71,7 +71,7 @@ export const execTool: ITool = {
     } catch (error) {
       return {
         success: false,
-        content: `Error: ${(error as Error).message}`,
+        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

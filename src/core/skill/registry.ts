@@ -52,8 +52,8 @@ export class SkillRegistry {
 
       try {
         await this.register(skillDir);
-      } catch {
-        // 单个技能加载失败不阻断整体
+      } catch (err) {
+        console.warn(`[skill] Failed to load skill from ${skillDir}:`, err);
         continue;
       }
     }

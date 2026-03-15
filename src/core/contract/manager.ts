@@ -164,7 +164,11 @@ export class ContractManager {
       throw new ToolError(`Contract "${contractId}" progress not found`);
     }
 
-    return JSON.parse(await this.fs.read(progressPath)) as ProgressData;
+    try {
+      return JSON.parse(await this.fs.read(progressPath)) as ProgressData;
+    } catch (err) {
+      throw new ToolError(`Failed to parse progress for "${contractId}": ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   /**
@@ -232,6 +236,9 @@ export class ContractManager {
    */
   async pause(contractId: string, checkpointNote: string): Promise<void> {
     const progress = await this.getProgress(contractId);
+    if (progress.status !== 'running') {
+      throw new ToolError(`Cannot pause contract "${contractId}": current status is "${progress.status}" (expected "running")`);
+    }
     progress.status = 'paused';
     progress.checkpoint = checkpointNote;
     await this.saveProgress(contractId, progress);
@@ -248,6 +255,9 @@ export class ContractManager {
    */
   async resume(contractId: string): Promise<Contract> {
     const progress = await this.getProgress(contractId);
+    if (progress.status !== 'paused') {
+      throw new ToolError(`Cannot resume contract "${contractId}": current status is "${progress.status}" (expected "paused")`);
+    }
     progress.status = 'running';
     progress.checkpoint = null;
     await this.saveProgress(contractId, progress);
@@ -265,6 +275,9 @@ export class ContractManager {
    */
   async cancel(contractId: string, reason: string): Promise<void> {
     const progress = await this.getProgress(contractId);
+    if (progress.status === 'completed' || progress.status === 'cancelled') {
+      throw new ToolError(`Cannot cancel contract "${contractId}": already in terminal status "${progress.status}"`);
+    }
     progress.status = 'cancelled';
     progress.checkpoint = `cancelled: ${reason}`;
     await this.saveProgress(contractId, progress);

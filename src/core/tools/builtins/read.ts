@@ -114,7 +114,7 @@ export const readTool: ITool = {
     } catch (error) {
       return {
         success: false,
-        content: `Error reading file: ${(error as Error).message}`,
+        content: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

@@ -77,7 +77,7 @@ export const sendTool: ITool = {
     } catch (error) {
       return {
         success: false,
-        content: `Error sending message: ${(error as Error).message}`,
+        content: `Error sending message: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

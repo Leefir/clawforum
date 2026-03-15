@@ -177,8 +177,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       if (onStepComplete) {
         try {
           await onStepComplete();
-        } catch {
-          // Ignore callback errors
+        } catch (err) {
+          console.error('[react] Step completion callback failed:', err);
         }
       }
 

@@ -13,7 +13,9 @@ export function parseFrontmatter(raw: string): { meta: Record<string, string>; b
   if (!raw.startsWith('---\n')) return { meta: {}, body: raw };
   const afterOpen = raw.slice(4);
   const closeIdx = afterOpen.indexOf('\n---\n');
-  if (closeIdx < 0) return { meta: {}, body: raw };
+  if (closeIdx < 0) {
+    throw new Error('Malformed frontmatter: missing closing ---');
+  }
 
   const meta: Record<string, string> = {};
   for (const line of afterOpen.slice(0, closeIdx).split('\n')) {

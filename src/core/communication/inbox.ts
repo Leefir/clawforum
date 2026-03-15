@@ -27,6 +27,24 @@ const PRIORITY_VALUES: Record<Priority, number> = {
   low: 1,
 };
 
+const VALID_PRIORITIES: Priority[] = ['critical', 'high', 'normal', 'low'];
+const VALID_TYPES = ['message', 'crash', 'contract', 'report', 'notification'];
+
+function validatePriority(value: unknown): Priority {
+  if (typeof value === 'string' && VALID_PRIORITIES.includes(value as Priority)) {
+    return value as Priority;
+  }
+  console.warn(`[inbox] Invalid priority: ${value}, using 'normal'`);
+  return 'normal';
+}
+
+function validateType(value: unknown): InboxMessage['type'] {
+  if (typeof value === 'string' && VALID_TYPES.includes(value)) {
+    return value as InboxMessage['type'];
+  }
+  return 'message';
+}
+
 /**
  * Queued message with metadata
  */
@@ -78,7 +96,7 @@ export class InboxWatcher {
     await this.fs.ensureDir(this.failedDir);
 
     // Load existing pending messages (cold-start recovery)
-    this.loadExistingMessages().catch(err => {
+    await this.loadExistingMessages().catch(err => {
       console.error('[InboxWatcher] Failed to load existing messages:', err);
     });
 
@@ -149,11 +167,11 @@ export class InboxWatcher {
       
       const message: InboxMessage = {
         id: meta.id ?? randomUUID(),
-        type: (meta.type as InboxMessage['type']) ?? 'message',
+        type: validateType(meta.type),
         from: meta.from ?? meta.source ?? 'unknown',
         to: meta.to ?? '',
         content: body,
-        priority: (meta.priority as Priority) ?? 'normal',
+        priority: validatePriority(meta.priority),
         timestamp: meta.timestamp ?? new Date().toISOString(),
         contract_id: meta.claw_id ?? meta.contract_id,
       };
@@ -227,9 +245,8 @@ export class InboxWatcher {
       const targetPath = path.join(this.doneDir, `${Date.now()}_${fileName}`);
       await this.fs.move(filePath, targetPath);
     } catch (err) {
-      // Design doc: log move errors to stderr (best-effort)
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[inbox] Failed to move ${filePath} to done: ${msg}\n`);
+      console.error(`[inbox] Failed to move ${filePath} to done:`, msg);
     }
   }
 
@@ -242,9 +259,8 @@ export class InboxWatcher {
       const targetPath = path.join(this.failedDir, `${Date.now()}_${fileName}`);
       await this.fs.move(filePath, targetPath);
     } catch (err) {
-      // Design doc: log move errors to stderr (best-effort)
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[inbox] Failed to move ${filePath} to failed: ${msg}\n`);
+      console.error(`[inbox] Failed to move ${filePath} to failed:`, msg);
     }
   }
 }

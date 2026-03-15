@@ -52,7 +52,7 @@ export const lsTool: ITool = {
     } catch (error) {
       return {
         success: false,
-        content: `Error listing directory: ${(error as Error).message}`,
+        content: `Error listing directory: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

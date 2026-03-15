@@ -138,7 +138,7 @@ export const writeTool: ITool = {
     } catch (error) {
       return {
         success: false,
-        content: `Error writing file: ${(error as Error).message}`,
+        content: `Error writing file: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

@@ -106,7 +106,7 @@ export const searchTool: ITool = {
     } catch (error) {
       return {
         success: false,
-        content: `Error searching: ${(error as Error).message}`,
+        content: `Error searching: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

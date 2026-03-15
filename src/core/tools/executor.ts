@@ -41,8 +41,8 @@ async function appendAudit(clawDir: string, entry: {
     const line = JSON.stringify(entry) + '\n';
     await fs.mkdir(path.dirname(auditPath), { recursive: true });
     await fs.appendFile(auditPath, line);
-  } catch {
-    // Best-effort: audit failure should not block execution
+  } catch (err) {
+    console.warn('[executor] Failed to append audit log:', err);
   }
 }
 

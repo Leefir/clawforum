@@ -53,8 +53,12 @@ export class SessionManager {
       // Cache createdAt for subsequent saves
       this.createdAt = data.createdAt;
       return data;
-    } catch {
-      // current.json doesn't exist or is invalid
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        // 冷启动，文件不存在是正常的
+      } else {
+        console.error('[session] current.json corrupted:', err);
+      }
     }
 
     // Try to recover from archive (cold start recovery)
@@ -180,9 +184,15 @@ export class SessionManager {
       // Load latest
       const latestPath = path.join(this.archiveDir, archives[0].name);
       const content = await this.fs.read(latestPath);
-      const data = JSON.parse(content) as SessionData;
-      return this.validateSession(data);
-    } catch {
+      try {
+        const data = JSON.parse(content) as SessionData;
+        return this.validateSession(data);
+      } catch (parseErr) {
+        console.error(`[session] Archive corrupted: ${archives[0].name}`, parseErr);
+        return null;
+      }
+    } catch (err) {
+      console.error('[session] Failed to load archive:', err);
       return null;
     }
   }

@@ -38,8 +38,8 @@ claw_id: ${clawId}
 Claw "${clawId}" exited (${reason}).
 `;
     fsNative.writeFileSync(path.join(motionInbox, `${ts}_crash_${uuid8}.md`), content);
-  } catch {
-    // best-effort，忽略写失败
+  } catch (err) {
+    console.warn(`[daemon] Failed to notify motion of exit:`, err);
   }
 }
 
@@ -121,7 +121,10 @@ export async function daemonCommand(name: string): Promise<void> {
         try {
           const p = JSON.parse(fsNative.readFileSync(path.join(contractDir, e.name, 'progress.json'), 'utf-8'));
           return p.status === 'running';
-        } catch { return false; }
+        } catch (err) {
+          console.warn(`[daemon] Failed to parse progress.json for ${e.name}:`, err);
+          return false;
+        }
       });
       if (hasRunning) {
         fsNative.mkdirSync(inboxPending, { recursive: true });

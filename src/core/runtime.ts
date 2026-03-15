@@ -109,7 +109,9 @@ export class ClawRuntime {
     this.clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
 
     // 2.5 启动时清理孤立临时文件（best-effort）
-    this.systemFs.cleanupTempFiles().catch(() => {});
+    this.systemFs.cleanupTempFiles().catch(err => {
+      console.warn('[runtime] Failed to cleanup temp files:', err);
+    });
 
     // 3. 创建 JsonlMonitor
     const logsDir = monitorDir || path.join(clawDir, 'logs');
