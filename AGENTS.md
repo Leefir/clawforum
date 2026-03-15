@@ -270,24 +270,27 @@ export async function listCommand(): Promise<number> {
 ```
 
 **技术债务**: 当前项目中以下文件需要重构：
-- `src/cli/commands/claw.ts` - 8 处 `process.exit(1)`
-  - `startCommand` (L176): claw 不存在 → **中优先级**（Motion exec 调用需要错误信息）
-  - `stopCommand` (L209): claw 不存在 → **中优先级**（Motion exec 调用需要错误信息）
-  - 其他 6 处: 低优先级（用户直接调用场景）
-- `src/cli/commands/init.ts` - 2 处 `process.exit(1)`（低优先级）
-- `src/cli/commands/motion.ts` - 1 处 `process.exit(1)`（低优先级）
+
+| 位置 | 场景 | 影响面 | 触发概率 | 优先级 | 说明 |
+|------|------|--------|---------|--------|------|
+| `claw.ts:176` | startCommand claw不存在 | 中（Motion自动化链路） | 高（Motion启动claw时触发） | **中** | 需要结构化错误信息做恢复决策 |
+| `claw.ts:209` | stopCommand claw不存在 | 中（Motion自动化链路） | 高（Motion停止claw时触发） | **中** | 需要结构化错误信息做恢复决策 |
+| `claw.ts` 其他6处 | 用户直接调用错误 | 低（仅影响CLI用户） | 低 | **低** | 可测试性问题，功能正常 |
+| `init.ts:2处` | 初始化错误 | 低（仅影响首次setup） | 低 | **低** | 用户直接处理 |
+| `motion.ts:1处` | motion未初始化 | 低（仅影响首次使用） | 低 | **低** | 用户直接处理 |
+
+**优先级评估标准**: `优先级 = 影响面 × 触发概率`
+- **高**: 阻塞核心功能（如 Phase1 的 formatMessages）
+- **中**: 影响自动化链路（如 Motion exec 路径）
+- **低**: 仅影响开发体验（如可测试性）或用户可直接处理的场景
 
 **为什么 Motion 调用场景优先级更高**:
-当 Motion 通过 `exec: node ... claw start <不存在的claw>` 调用时，`process.exit(1)` 只返回退出码 1，没有任何错误信息。Motion 无法区分：
+当 Motion 通过 `exec: node ... claw start <不存在的claw>` 调用时，`process.exit(1)` 只返回退出码 1。Motion 无法区分：
 - claw 不存在？
 - 配置错误？
 - 权限不足？
 
-如果 Motion 要实现智能错误恢复（如"claw 不存在，是否创建？"），需要结构化错误输出而非静默退出。
-
-**优先级**: 
-- 中：`startCommand` / `stopCommand` 的"claw 不存在"场景（Motion 调用路径）
-- 低：其他场景（用户直接 CLI 调用）
+结构化错误输出是 Motion 智能错误恢复（如"claw 不存在，是否创建？"）的前置条件。
 
 ### 2.7.1 测试编写预读规范（新增，Step 27 教训）
 
@@ -668,7 +671,7 @@ async function sendResult(result: TaskResult): Promise<void> {
 | ~~TaskSystem 投递失败~~ | ✅ **已修复** | 高 | Step 26 添加 inbox 回退 |
 | noUnusedLocals tsconfig | ⚠️ 未修复 | 低 | 延后 |
 | ToolExecutorImpl 接口不完整 | 🟡 已打补丁 | 低 | 当前通过 ToolExecutor 子类解决 |
-| CLI 命令直接 process.exit | 🟡 技术债务 | 中/低 | start/stop 中优先级（Motion 调用），其他低优先级 |
+| CLI 命令直接 process.exit | 🟡 技术债务 | 中/低 | 中：Motion 调用路径；低：用户直接调用 |
 
 ## ✅ MVP 对齐完成 (2026-03-15)
 
