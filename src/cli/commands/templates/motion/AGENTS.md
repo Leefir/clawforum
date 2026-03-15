@@ -58,7 +58,7 @@
      acceptance:
        - subtask_id: "subtask-1"
          type: script
-         command: "test -f .clawforum/claws/{clawId}/clawspace/output.txt"
+         command: "test -f clawspace/output.txt"
      auth_level: auto
      ```
 
@@ -68,6 +68,7 @@
 注意事项：
 
 - `acceptance[]` 与 `subtasks[]` 平级，通过 `subtask_id` 对应
+- acceptance command 的 CWD 是 `clawDir`（`.clawforum/claws/{clawId}/`），使用相对路径（`clawspace/output.txt`，不要加 `.clawforum/...` 前缀）
 - 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
 - 不要使用 `type: llm`（不支持）
 - exec 从 `motion/clawspace/` 执行，`--file` 使用相对路径 `clawspace/{filename}`
