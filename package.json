@@ -16,7 +16,8 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && npm run copy-templates",
+    "copy-templates": "cp -r src/cli/commands/templates dist/",
     "dev": "tsup --watch",
     "test": "vitest",
     "test:run": "vitest run",
