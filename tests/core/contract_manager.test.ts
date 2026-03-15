@@ -250,9 +250,7 @@ describe('ContractManager', () => {
     expect(progress.subtasks['task-2'].status).toBe('pending');
   });
 
-  it('should warn on unknown subtaskId in completeSubtask', async () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    
+  it('should reject unknown subtaskId in completeSubtask with valid IDs', async () => {
     const contractYaml = {
       schema_version: 1 as const,
       title: 'Test',
@@ -266,14 +264,20 @@ describe('ContractManager', () => {
     expect(contractId).toBeTruthy();
 
     // 尝试完成不存在的子任务
-    await manager.completeSubtask({ contractId, subtaskId: 'unknown-task', evidence: 'Test' });
+    const result = await manager.completeSubtask({ 
+      contractId, 
+      subtaskId: 'unknown-task', 
+      evidence: 'Test' 
+    });
 
-    // 应该输出警告
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown subtask')
-    );
+    // 应该返回失败，并包含有效 ID 列表
+    expect(result.passed).toBe(false);
+    expect(result.feedback).toContain('Unknown subtask');
+    expect(result.feedback).toContain('task-1');
 
-    consoleSpy.mockRestore();
+    // 真正的 task-1 应该仍是 pending
+    const progress = await manager.getProgress(contractId);
+    expect(progress.subtasks['task-1'].status).toBe('pending');
   });
 
   it('should mark contract completed when all subtasks done', async () => {

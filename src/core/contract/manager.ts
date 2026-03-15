@@ -217,9 +217,13 @@ export class ContractManager {
       // 更新进度
       const progress = await this.getProgress(contractId);
       
-      // 检查 subtaskId 是否存在（容错）
+      // 检查 subtaskId 是否存在
       if (!progress.subtasks[subtaskId]) {
-        console.warn(`[contract] Unknown subtask "${subtaskId}" for contract ${contractId}`);
+        const validIds = Object.keys(progress.subtasks).join(', ');
+        return {
+          passed: false,
+          feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`,
+        };
       }
       
       progress.subtasks[subtaskId] = {
