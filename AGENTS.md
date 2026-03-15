@@ -271,10 +271,23 @@ export async function listCommand(): Promise<number> {
 
 **技术债务**: 当前项目中以下文件需要重构：
 - `src/cli/commands/claw.ts` - 8 处 `process.exit(1)`
-- `src/cli/commands/init.ts` - 2 处 `process.exit(1)`
-- `src/cli/commands/motion.ts` - 1 处 `process.exit(1)`
+  - `startCommand` (L176): claw 不存在 → **中优先级**（Motion exec 调用需要错误信息）
+  - `stopCommand` (L209): claw 不存在 → **中优先级**（Motion exec 调用需要错误信息）
+  - 其他 6 处: 低优先级（用户直接调用场景）
+- `src/cli/commands/init.ts` - 2 处 `process.exit(1)`（低优先级）
+- `src/cli/commands/motion.ts` - 1 处 `process.exit(1)`（低优先级）
 
-**优先级**: 低（功能正常，影响可测试性）
+**为什么 Motion 调用场景优先级更高**:
+当 Motion 通过 `exec: node ... claw start <不存在的claw>` 调用时，`process.exit(1)` 只返回退出码 1，没有任何错误信息。Motion 无法区分：
+- claw 不存在？
+- 配置错误？
+- 权限不足？
+
+如果 Motion 要实现智能错误恢复（如"claw 不存在，是否创建？"），需要结构化错误输出而非静默退出。
+
+**优先级**: 
+- 中：`startCommand` / `stopCommand` 的"claw 不存在"场景（Motion 调用路径）
+- 低：其他场景（用户直接 CLI 调用）
 
 ### 2.7.1 测试编写预读规范（新增，Step 27 教训）
 
@@ -655,7 +668,7 @@ async function sendResult(result: TaskResult): Promise<void> {
 | ~~TaskSystem 投递失败~~ | ✅ **已修复** | 高 | Step 26 添加 inbox 回退 |
 | noUnusedLocals tsconfig | ⚠️ 未修复 | 低 | 延后 |
 | ToolExecutorImpl 接口不完整 | 🟡 已打补丁 | 低 | 当前通过 ToolExecutor 子类解决 |
-| CLI 命令直接 process.exit | 🟡 技术债务 | 低 | 影响可测试性，需统一返回 exit code |
+| CLI 命令直接 process.exit | 🟡 技术债务 | 中/低 | start/stop 中优先级（Motion 调用），其他低优先级 |
 
 ## ✅ MVP 对齐完成 (2026-03-15)
 
