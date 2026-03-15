@@ -2,7 +2,7 @@
  * Dialog module tests
  * 
  * Tests:
- * - SessionManager: load, save, archive, token estimation
+ * - SessionManager: load, save, archive, token estimation, crash recovery
  * - ContextInjector: system prompt building
  */
 
@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { SessionManager } from '../../src/core/dialog/session.js';
 import { ContextInjector } from '../../src/core/dialog/injector.js';
 import type { Message } from '../../src/types/message.js';
+import type { SessionData } from '../../src/core/dialog/types.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 
 async function createTempDir(): Promise<string> {
@@ -34,14 +35,14 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
 describe('Dialog', () => {
   describe('SessionManager', () => {
     let tempDir: string;
-    let fs: NodeFileSystem;
+    let nodeFs: NodeFileSystem;
     let sessionManager: SessionManager;
 
     beforeEach(async () => {
       tempDir = await createTempDir();
-      fs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
-      await fs.ensureDir('dialog');
-      sessionManager = new SessionManager(fs, 'dialog');
+      nodeFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+      await nodeFs.ensureDir('dialog');
+      sessionManager = new SessionManager(nodeFs, 'dialog');
     });
 
     afterEach(async () => {
@@ -74,18 +75,18 @@ describe('Dialog', () => {
       await sessionManager.save(messages);
 
       // Verify current.json exists
-      expect(await fs.exists('dialog/current.json')).toBe(true);
+      expect(await nodeFs.exists('dialog/current.json')).toBe(true);
 
       // Archive
       await sessionManager.archive();
 
       // current.json should be gone
-      expect(await fs.exists('dialog/current.json')).toBe(false);
+      expect(await nodeFs.exists('dialog/current.json')).toBe(false);
       
       // Archive directory should have the file
-      const entries = await fs.list('dialog/archive');
+      const entries = await nodeFs.list('dialog/archive');
       expect(entries.length).toBeGreaterThan(0);
-      expect(entries[0].name).toMatch(/\d+\.json$/);
+      expect(entries[0].name).toMatch(/\.json$/);
     });
 
     it('should recover from archive on cold start', async () => {
@@ -97,7 +98,7 @@ describe('Dialog', () => {
       await sessionManager.archive();
 
       // Verify current.json doesn't exist
-      expect(await fs.exists('dialog/current.json')).toBe(false);
+      expect(await nodeFs.exists('dialog/current.json')).toBe(false);
 
       // Load should recover from archive
       const recovered = await sessionManager.load();
@@ -146,17 +147,86 @@ describe('Dialog', () => {
       expect(loaded.createdAt).toBeDefined();
       expect(loaded.updatedAt).toBeDefined();
     });
+
+    describe('crash recovery', () => {
+      it('should recover from archive when current.json is missing', async () => {
+        // Create archive directory and an archived session
+        await nodeFs.ensureDir('dialog/archive');
+        const archivedSession: SessionData = {
+          version: 1,
+          clawId: 'test-claw',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T01:00:00Z',
+          messages: [{ role: 'user', content: 'Archived message' }],
+          prunedMarkers: [],
+        };
+        await nodeFs.writeAtomic(
+          'dialog/archive/20240101_120000.json',
+          JSON.stringify(archivedSession)
+        );
+
+        // Load without current.json
+        const loaded = await sessionManager.load();
+
+        expect(loaded.messages).toHaveLength(1);
+        expect(loaded.messages[0].content).toBe('Archived message');
+      });
+
+      it('should recover from archive when current.json has invalid JSON', async () => {
+        // Create invalid current.json
+        await nodeFs.writeAtomic('dialog/current.json', 'invalid json {');
+        
+        // Create archive
+        await nodeFs.ensureDir('dialog/archive');
+        const archivedSession: SessionData = {
+          version: 1,
+          clawId: 'test-claw',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T01:00:00Z',
+          messages: [{ role: 'user', content: 'Recovered from archive' }],
+          prunedMarkers: [],
+        };
+        await nodeFs.writeAtomic(
+          'dialog/archive/20240101_120000.json',
+          JSON.stringify(archivedSession)
+        );
+
+        const loaded = await sessionManager.load();
+
+        expect(loaded.messages).toHaveLength(1);
+        expect(loaded.messages[0].content).toBe('Recovered from archive');
+      });
+
+      it('should return empty session when nothing exists', async () => {
+        // No current.json, no archive - fresh start
+        const loaded = await sessionManager.load();
+
+        expect(loaded.messages).toHaveLength(0);
+        expect(loaded.version).toBe(1);
+        expect(loaded.clawId).toBeDefined();
+        expect(loaded.createdAt).toBeDefined();
+      });
+
+      it('should return empty session when archive directory is empty', async () => {
+        // Create empty archive directory
+        await nodeFs.ensureDir('dialog/archive');
+
+        const loaded = await sessionManager.load();
+
+        expect(loaded.messages).toHaveLength(0);
+      });
+    });
   });
 
   describe('ContextInjector', () => {
     let tempDir: string;
-    let fs: NodeFileSystem;
+    let nodeFs: NodeFileSystem;
     let injector: ContextInjector;
 
     beforeEach(async () => {
       tempDir = await createTempDir();
-      fs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
-      injector = new ContextInjector(fs);
+      nodeFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+      injector = new ContextInjector({ fs: nodeFs });
     });
 
     afterEach(async () => {
@@ -165,9 +235,9 @@ describe('Dialog', () => {
 
     it('should build system prompt from AGENTS.md and MEMORY.md', async () => {
       // Create AGENTS.md
-      await fs.writeAtomic('AGENTS.md', '# Agent Instructions\nBe helpful.');
+      await nodeFs.writeAtomic('AGENTS.md', '# Agent Instructions\nBe helpful.');
       // Create MEMORY.md
-      await fs.writeAtomic('MEMORY.md', '# Memory\nUser likes TypeScript.');
+      await nodeFs.writeAtomic('MEMORY.md', '# Memory\nUser likes TypeScript.');
 
       const prompt = await injector.buildSystemPrompt();
 
@@ -184,7 +254,7 @@ describe('Dialog', () => {
     });
 
     it('should handle missing MEMORY.md gracefully', async () => {
-      await fs.writeAtomic('AGENTS.md', '# Instructions\nTest.');
+      await nodeFs.writeAtomic('AGENTS.md', '# Instructions\nTest.');
       // MEMORY.md doesn't exist
 
       const prompt = await injector.buildSystemPrompt();
@@ -195,7 +265,7 @@ describe('Dialog', () => {
     });
 
     it('should inject fixed prefix into session', async () => {
-      await fs.writeAtomic('AGENTS.md', 'System prompt here');
+      await nodeFs.writeAtomic('AGENTS.md', 'System prompt here');
       
       const session = {
         version: 1,

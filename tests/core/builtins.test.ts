@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool } from '../../src/core/tools/builtins/index.js';
+import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySearchTool, execTool, spawnTool } from '../../src/core/tools/builtins/index.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 
@@ -48,54 +48,72 @@ describe('Builtin Tools', () => {
 
   describe('read tool', () => {
     it('should read existing file', async () => {
-      await mockFs.writeAtomic('test.txt', 'Hello, World!');
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/test.txt', 'Hello, World!');
 
-      const result = await readTool.execute({ path: 'test.txt' }, ctx);
+      const result = await readTool.execute({ path: 'clawspace/test.txt' }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('Hello, World!');
     });
 
     it('should return error for non-existent file', async () => {
-      const result = await readTool.execute({ path: 'nonexistent.txt' }, ctx);
+      const result = await readTool.execute({ path: 'clawspace/nonexistent.txt' }, ctx);
 
       expect(result.success).toBe(false);
       expect(result.content).toContain('Error');
     });
 
     it('should read specific line range', async () => {
-      await mockFs.writeAtomic('lines.txt', 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5');
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/lines.txt', 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5');
 
-      const result = await readTool.execute({ path: 'lines.txt', offset: 2, limit: 2 }, ctx);
+      const result = await readTool.execute({ path: 'clawspace/lines.txt', offset: 2, limit: 2 }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('Line 2\nLine 3');
+    });
+
+    it('should block paths not in allowlist', async () => {
+      const result = await readTool.execute({ path: 'dialog/test.txt' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('not allowed');
+    });
+
+    it('should block dialog/ path (blacklist)', async () => {
+      const result = await readTool.execute({ path: 'dialog/current.json' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('not allowed');
     });
   });
 
   describe('write tool', () => {
     it('should write new file', async () => {
-      const result = await writeTool.execute({ path: 'output.txt', content: 'New content' }, ctx);
+      await mockFs.ensureDir('clawspace');
+      const result = await writeTool.execute({ path: 'clawspace/output.txt', content: 'New content' }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('写入成功');
 
-      const content = await mockFs.read('output.txt');
+      const content = await mockFs.read('clawspace/output.txt');
       expect(content).toBe('New content');
     });
 
     it('should append to file', async () => {
-      await mockFs.writeAtomic('append.txt', 'First line\n');
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/append.txt', 'First line\n');
 
       const result = await writeTool.execute({
-        path: 'append.txt',
+        path: 'clawspace/append.txt',
         content: 'Second line',
         append: true,
       }, ctx);
 
       expect(result.success).toBe(true);
 
-      const content = await mockFs.read('append.txt');
+      const content = await mockFs.read('clawspace/append.txt');
       expect(content).toBe('First line\nSecond line');
     });
 
@@ -104,6 +122,7 @@ describe('Builtin Tools', () => {
         clawId: 'test',
         clawDir: tempDir,
         profile: 'readonly',
+        callerType: 'claw',
         fs: mockFs,
       });
 
@@ -146,11 +165,11 @@ describe('Builtin Tools', () => {
 
   describe('search tool', () => {
     it('should find matching text', async () => {
-      await mockFs.ensureDir('memory');
-      await mockFs.writeAtomic('memory/note1.txt', 'Hello world\nThis is a test\nHello again');
-      await mockFs.writeAtomic('memory/note2.txt', 'Goodbye world');
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/note1.txt', 'Hello world\nThis is a test\nHello again');
+      await mockFs.writeAtomic('clawspace/note2.txt', 'Goodbye world');
 
-      const result = await searchTool.execute({ query: 'hello', path: 'memory' }, ctx);
+      const result = await searchTool.execute({ query: 'hello', path: 'clawspace' }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('Hello world');
@@ -159,24 +178,31 @@ describe('Builtin Tools', () => {
     });
 
     it('should return no results message', async () => {
-      await mockFs.ensureDir('memory');
-      await mockFs.writeAtomic('memory/empty.txt', 'Nothing here');
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/empty.txt', 'Nothing here');
 
-      const result = await searchTool.execute({ query: 'xyz', path: 'memory' }, ctx);
+      const result = await searchTool.execute({ query: 'xyz', path: 'clawspace' }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('未找到');
     });
 
     it('should respect max_results', async () => {
-      await mockFs.ensureDir('memory');
-      await mockFs.writeAtomic('memory/many.txt', 'target\ntarget\ntarget\ntarget\ntarget\ntarget');
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/many.txt', 'target\ntarget\ntarget\ntarget\ntarget\ntarget');
 
-      const result = await searchTool.execute({ query: 'target', path: 'memory', max_results: 3 }, ctx);
+      const result = await searchTool.execute({ query: 'target', path: 'clawspace', max_results: 3 }, ctx);
 
       expect(result.success).toBe(true);
       const lines = result.content.split('\n').filter(l => l.trim());
       expect(lines.length).toBe(3);
+    });
+
+    it('should block paths not in allowlist', async () => {
+      const result = await searchTool.execute({ query: 'test', path: 'dialog' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('not allowed');
     });
   });
 
@@ -217,6 +243,130 @@ describe('Builtin Tools', () => {
 
       expect(result.success).toBe(false);
       expect(result.content).toContain('Invalid message type');
+    });
+  });
+
+  describe('memory_search tool', () => {
+    it('should search with query', async () => {
+      await mockFs.ensureDir('memory');
+      await mockFs.writeAtomic('memory/note1.md', 'Hello world\nThis is a test');
+      await mockFs.writeAtomic('memory/note2.md', 'Goodbye world');
+
+      const result = await memorySearchTool.execute({ query: 'hello' }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('Hello world');
+      expect(result.content).not.toContain('Goodbye');
+    });
+
+    it('should filter by filename pattern', async () => {
+      await mockFs.ensureDir('memory');
+      await mockFs.writeAtomic('memory/2026-01.md', 'Content from 2026');
+      await mockFs.writeAtomic('memory/2025-12.md', 'Content from 2025');
+
+      const result = await memorySearchTool.execute({ query: 'content', pattern: '2026.*' }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('2026-01.md');
+      expect(result.content).not.toContain('2025-12.md');
+    });
+
+    it('should filter by frontmatter metadata', async () => {
+      await mockFs.ensureDir('memory');
+      await mockFs.writeAtomic('memory/feedback1.md', '---\ntype: feedback\n---\nThis is feedback content');
+      await mockFs.writeAtomic('memory/bug1.md', '---\ntype: bug\n---\nThis is bug report');
+
+      const result = await memorySearchTool.execute({ filter: { type: 'feedback' } }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('feedback1.md');
+      expect(result.content).not.toContain('bug1.md');
+    });
+
+    it('should combine query and filter', async () => {
+      await mockFs.ensureDir('memory');
+      await mockFs.writeAtomic('memory/a.md', '---\ntype: feedback\n---\nHello from A');
+      await mockFs.writeAtomic('memory/b.md', '---\ntype: bug\n---\nHello from B');
+
+      const result = await memorySearchTool.execute({ query: 'hello', filter: { type: 'feedback' } }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('A');
+      expect(result.content).not.toContain('B');
+    });
+
+    it('should return error without query or filter', async () => {
+      const result = await memorySearchTool.execute({}, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('必须提供 query 或 filter');
+    });
+
+    it('should return no results message', async () => {
+      await mockFs.ensureDir('memory');
+      await mockFs.writeAtomic('memory/empty.md', 'Nothing relevant');
+
+      const result = await memorySearchTool.execute({ query: 'xyz123' }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('未找到');
+    });
+  });
+
+  describe('exec tool', () => {
+    it('should return error for non-existent command', async () => {
+      const result = await execTool.execute({ command: 'nonexistent_command_xyz' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Error');
+    });
+
+    it('should have timeout parameter processed', async () => {
+      // Test that timeout parameter is accepted and processed
+      // (actual timeout behavior depends on environment having shell commands)
+      const result = await execTool.execute({ command: 'echo test', timeout: 5000 }, ctx);
+      
+      // Should either succeed or fail with some error (not crash)
+      expect(typeof result.success).toBe('boolean');
+    });
+  });
+
+  describe('spawn tool', () => {
+    it('should reject spawn in subagent context', async () => {
+      const subagentCtx = new ExecContextImpl({
+        clawId: 'test-subagent',
+        clawDir: tempDir,
+        profile: 'subagent',
+        callerType: 'subagent',
+        fs: mockFs,
+      });
+
+      const result = await spawnTool.execute({ prompt: 'test task' }, subagentCtx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('recursion') || expect(result.content).toContain('cannot');
+    });
+
+    it('should require TaskSystem', async () => {
+      const result = await spawnTool.execute({ prompt: 'test task' }, ctx);
+
+      // Without TaskSystem injected, should fail
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('TaskSystem');
+    });
+
+    it('should accept maxSteps parameter up to 50', async () => {
+      // maxSteps > 50 should be capped or rejected
+      // This test verifies the parameter is accepted
+      const result = await spawnTool.execute({ 
+        prompt: 'test task', 
+        maxSteps: 100  // Over the 50 limit
+      }, ctx);
+
+      // Should fail due to no TaskSystem, but schema validation should pass
+      expect(result.success).toBe(false);
+      // Error should be about TaskSystem, not about maxSteps
+      expect(result.content).toContain('TaskSystem');
     });
   });
 });

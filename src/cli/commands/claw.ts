@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
+import * as yaml from 'js-yaml';
 import { 
   loadGlobalConfig, 
   loadClawConfig, 
@@ -12,9 +13,12 @@ import {
   clawExists,
   getClawDir,
   buildLLMConfig,
+  getGlobalConfigPath,
 } from '../config.js';
 import { ClawRuntime } from '../../core/runtime.js';
 import { LLMRateLimitError, LLMTimeoutError } from '../../types/errors.js';
+import { ProcessManager } from '../../foundation/process/manager.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 
 export async function createCommand(name: string): Promise<void> {
   // Load global config (ensures initialized)
@@ -103,10 +107,26 @@ export async function chatCommand(name: string): Promise<void> {
       return;
     }
     
+    // 暂停 readline TTY 管理，防止输出被覆盖
+    rl.pause();
+    
     try {
-      // Note: onToolCall callback not supported in current runtime.chat signature
-      // Tool calls will be logged by the runtime internally
-      const response = await runtime.chat(trimmed);
+      const response = await runtime.chat(trimmed, {
+        onBeforeLLMCall: () => {
+          console.log('\x1b[2mThinking...\x1b[0m');
+        },
+        onToolCall: (name) => {
+          console.log(`\x1b[2m  → 调用工具: ${name}\x1b[0m`);
+        },
+        onToolResult: (name, result, step, maxSteps) => {
+          const summary = result.content.length > 80
+            ? result.content.slice(0, 80) + '...'
+            : result.content;
+          const status = result.success ? '✓' : '✗';
+          // step 是 0-indexed，显示时 +1
+          console.log(`\x1b[2m    ${status} [${step + 1}/${maxSteps}] ${summary}\x1b[0m`);
+        },
+      });
       
       console.log('\n' + response + '\n');
     } catch (error) {
@@ -118,6 +138,9 @@ export async function chatCommand(name: string): Promise<void> {
         console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
         console.log('');
       }
+    } finally {
+      // 确保 readline 总是被恢复，即使发生异常
+      rl.resume();
     }
     
     rl.prompt();
@@ -135,4 +158,179 @@ export async function chatCommand(name: string): Promise<void> {
     await runtime.stop();
     process.exit(0);
   });
+}
+
+// ============================================================================
+// Daemon Management Commands
+// ============================================================================
+
+/**
+ * 启动 Claw 守护进程
+ */
+export async function startCommand(name: string): Promise<void> {
+  loadGlobalConfig();
+  
+  if (!clawExists(name)) {
+    console.error(`❌ Claw "${name}" does not exist`);
+    process.exit(1);
+  }
+
+  const clawDir = getClawDir(name);
+  const globalConfigPath = getGlobalConfigPath();
+  const baseDir = path.dirname(globalConfigPath);
+  
+  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(fs, baseDir);
+
+  // 检查是否已运行
+  if (processManager.isAlive(name)) {
+    console.log(`ℹ️  Claw "${name}" is already running`);
+    return;
+  }
+
+  try {
+    const pid = await processManager.spawn(name, clawDir);
+    console.log(`✅ Started Claw "${name}" (PID: ${pid})`);
+  } catch (error) {
+    console.error('❌ Failed to start:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
+
+/**
+ * 停止 Claw 守护进程
+ */
+export async function stopCommand(name: string): Promise<void> {
+  loadGlobalConfig();
+  
+  if (!clawExists(name)) {
+    console.error(`❌ Claw "${name}" does not exist`);
+    process.exit(1);
+  }
+
+  const globalConfigPath = getGlobalConfigPath();
+  const baseDir = path.dirname(globalConfigPath);
+  
+  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(fs, baseDir);
+
+  // 检查是否运行
+  if (!processManager.isAlive(name)) {
+    console.log(`ℹ️  Claw "${name}" is not running`);
+    return;
+  }
+
+  console.log(`🛑 Stopping Claw "${name}"...`);
+  
+  const success = await processManager.stop(name);
+  if (success) {
+    console.log(`✅ Stopped Claw "${name}"`);
+  } else {
+    console.error(`❌ Failed to stop Claw "${name}"`);
+    process.exit(1);
+  }
+}
+
+/**
+ * 列出所有 Claw 及其状态
+ */
+export async function listCommand(): Promise<void> {
+  loadGlobalConfig();
+  
+  const globalConfigPath = getGlobalConfigPath();
+  const baseDir = path.dirname(globalConfigPath);
+  const clawsDir = path.join(baseDir, 'claws');
+
+  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(fs, baseDir);
+
+  try {
+    const entries = fs.readdirSync(clawsDir);
+    const claws: Array<{ name: string; status: string; pid?: string }> = [];
+
+    for (const entry of entries) {
+      const configPath = path.join(clawsDir, entry, 'config.yaml');
+      if (fs.existsSync(configPath)) {
+        const isRunning = processManager.isAlive(entry);
+        let pid: string | undefined;
+        
+        if (isRunning) {
+          try {
+            const pidFile = path.join(clawsDir, entry, 'status', 'pid');
+            pid = fs.readFileSync(pidFile, 'utf-8').trim();
+          } catch {
+            // 忽略读取错误
+          }
+        }
+
+        claws.push({
+          name: entry,
+          status: isRunning ? 'running' : 'stopped',
+          pid,
+        });
+      }
+    }
+
+    if (claws.length === 0) {
+      console.log('No claws found. Create one with: clawforum claw create <name>');
+      return;
+    }
+
+    // 打印表格
+    console.log('\n📋 Claw List:');
+    console.log('─'.repeat(60));
+    console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)}`);
+    console.log('─'.repeat(60));
+    
+    for (const claw of claws) {
+      const statusIcon = claw.status === 'running' ? '🟢' : '⚪';
+      const pidStr = claw.pid || '-';
+      console.log(`${claw.name.padEnd(20)} ${statusIcon} ${claw.status.padEnd(10)} ${pidStr.padEnd(10)}`);
+    }
+    
+    console.log('─'.repeat(60));
+    console.log(`\nTotal: ${claws.length} claws (${claws.filter(c => c.status === 'running').length} running)\n`);
+  } catch (error) {
+    console.error('❌ Failed to list claws:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
+
+/**
+ * 显示 Claw 健康状态
+ */
+export async function healthCommand(name: string): Promise<void> {
+  loadGlobalConfig();
+  
+  if (!clawExists(name)) {
+    console.error(`❌ Claw "${name}" does not exist`);
+    process.exit(1);
+  }
+
+  const clawDir = getClawDir(name);
+  const statusFile = path.join(clawDir, 'status', 'STATUS.md');
+  const globalConfigPath = getGlobalConfigPath();
+  const baseDir = path.dirname(globalConfigPath);
+  
+  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(fs, baseDir);
+
+  // 显示运行状态
+  const isRunning = processManager.isAlive(name);
+  console.log(`\n🏥 Health Check: ${name}`);
+  console.log('─'.repeat(40));
+  console.log(`Status: ${isRunning ? '🟢 running' : '⚪ stopped'}`);
+
+  // 读取 STATUS.md
+  try {
+    const statusContent = fs.readFileSync(statusFile, 'utf-8');
+    console.log('\n📄 STATUS.md:');
+    console.log(statusContent);
+  } catch {
+    if (isRunning) {
+      console.log('\n⏳ STATUS.md not yet created (daemon may be starting)');
+    } else {
+      console.log('\n⚠️  STATUS.md not found (claw is not running)');
+    }
+  }
 }

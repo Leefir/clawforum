@@ -23,11 +23,11 @@ import {
 describe('Tools', () => {
   describe('TOOL_PROFILES', () => {
     it('should define correct tools for readonly profile', () => {
-      expect(TOOL_PROFILES.readonly).toEqual(['read', 'search', 'ls', 'status']);
+      expect(TOOL_PROFILES.readonly).toEqual(['read', 'search', 'ls', 'status', 'memory_search']);
     });
 
     it('should define correct tools for full profile', () => {
-      expect(TOOL_PROFILES.full).toHaveLength(10);
+      expect(TOOL_PROFILES.full).toHaveLength(11);
       expect(TOOL_PROFILES.full).toContain('read');
       expect(TOOL_PROFILES.full).toContain('write');
       expect(TOOL_PROFILES.full).toContain('spawn');
@@ -41,7 +41,7 @@ describe('Tools', () => {
     });
 
     it('should define correct tools for dream profile', () => {
-      expect(TOOL_PROFILES.dream).toEqual(['read', 'search', 'ls']);
+      expect(TOOL_PROFILES.dream).toEqual(['read', 'search', 'ls', 'memory_search']);
     });
   });
 
@@ -175,7 +175,7 @@ describe('Tools', () => {
       });
 
       const readonlyTools = registry.getForProfile('readonly');
-      expect(readonlyTools).toHaveLength(4);
+      expect(readonlyTools).toHaveLength(5);
       expect(readonlyTools.every(t => TOOL_PROFILES.readonly.includes(t.name))).toBe(true);
       expect(readonlyTools.some(t => t.name === 'write')).toBe(false);
     });

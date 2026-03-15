@@ -40,6 +40,12 @@ export interface ReactOptions {
   /** Callback when a tool is called (for UI updates) */
   onToolCall?: (toolName: string) => void;
   
+  /** Callback before LLM call (for showing "Thinking...") */
+  onBeforeLLMCall?: () => void;
+  
+  /** Callback after tool execution with result (for showing tool output) */
+  onToolResult?: (toolName: string, result: ToolResult, step: number, maxSteps: number) => void;
+  
   /** Callback after each step completes (for incremental persistence) */
   onStepComplete?: () => Promise<void>;
   
@@ -76,6 +82,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     ctx,
     maxSteps = 20,
     onToolCall,
+    onBeforeLLMCall,
+    onToolResult,
     onStepComplete,
   } = options;
 
@@ -89,6 +97,9 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     if (ctx.signal?.aborted) {
       throw new Error('Execution aborted');
     }
+
+    // Notify before LLM call (for "Thinking..." display)
+    onBeforeLLMCall?.();
 
     // Call LLM
     const response = await llm.call({
@@ -131,6 +142,9 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
           args: toolCall.input,
           ctx,
         });
+
+        // Notify tool result (for displaying output summary)
+        onToolResult?.(toolCall.name, result, stepCount, maxSteps);
 
         // Format result as ToolResultBlock
         const resultBlock: ToolResultBlock = {
@@ -211,6 +225,7 @@ function extractToolCalls(content: ContentBlock[]): ToolUseBlock[] {
 
 /**
  * Extract text from content blocks
+ * MVP aligned: join with space and trim, not newline
  */
 function extractText(content: ContentBlock[]): string {
   return content
@@ -218,7 +233,8 @@ function extractText(content: ContentBlock[]): string {
       block.type === 'text'
     )
     .map(block => block.text)
-    .join('\n');
+    .join(' ')
+    .trim();
 }
 
 /**

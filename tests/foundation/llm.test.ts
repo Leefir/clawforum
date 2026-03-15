@@ -281,7 +281,7 @@ describe('LLM Service', () => {
 
       const service = new LLMService({
         primary: primaryConfig,
-        retryAttempts: 3,
+        maxAttempts: 3,
         retryDelayMs: 100,
       });
 
@@ -307,7 +307,7 @@ describe('LLM Service', () => {
       const service = new LLMService({
         primary: primaryConfig,
         fallback: fallbackConfig,
-        retryAttempts: 1,
+        maxAttempts: 1,
         retryDelayMs: 100,
       });
 
@@ -326,7 +326,7 @@ describe('LLM Service', () => {
       const service = new LLMService({
         primary: primaryConfig,
         fallback: fallbackConfig,
-        retryAttempts: 1,
+        maxAttempts: 1,
         retryDelayMs: 100,
       });
 
@@ -350,7 +350,7 @@ describe('LLM Service', () => {
       const service = new LLMService({
         primary: primaryConfig,
         fallback: fallbackConfig,
-        retryAttempts: 3,
+        maxAttempts: 3,
         retryDelayMs: 10, // Fast for test
       });
 
@@ -390,7 +390,7 @@ describe('LLM Service', () => {
       const service = new LLMService(
         {
           primary: primaryConfig,
-          retryAttempts: 1,
+          maxAttempts: 1,
           retryDelayMs: 100,
         },
         mockMonitor,
@@ -432,7 +432,7 @@ describe('LLM Service', () => {
       const service = new LLMService({
         primary: primaryConfig,
         fallback: fallbackConfig,
-        retryAttempts: 1,
+        maxAttempts: 1,
         retryDelayMs: 10,
       });
 
@@ -466,7 +466,7 @@ describe('LLM Service', () => {
 
       const service = new LLMService({
         primary: primaryConfig,
-        retryAttempts: 5,  // Max 5 attempts total
+        maxAttempts: 5,  // Max 5 attempts total
         // Base delay: 50ms
         // 1st retry: 50ms * 2^0 = 50ms
         // 2nd retry: 50ms * 2^1 = 100ms
@@ -495,7 +495,7 @@ describe('LLM Service', () => {
       const service = new LLMService({
         primary: primaryConfig,
         fallback: fallbackConfig,
-        retryAttempts: 1,
+        maxAttempts: 1,
         retryDelayMs: 100,
       });
 
@@ -513,7 +513,7 @@ describe('LLM Service', () => {
 
       const service = new LLMService({
         primary: primaryConfig,
-        retryAttempts: 1,
+        maxAttempts: 1,
         retryDelayMs: 100,
       });
 

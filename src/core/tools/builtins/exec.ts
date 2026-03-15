@@ -31,18 +31,17 @@ export const execTool: ITool = {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const command = args.command as string;
-    const timeout = (args.timeout as number) ?? 30000;
-
-    // Parse command and arguments
-    const parts = command.trim().split(/\s+/);
-    const cmd = parts[0];
-    const cmdArgs = parts.slice(1);
+    // Clamp timeout between 1s and 120s (MVP: 120s hard limit)
+    const requestedTimeout = (args.timeout as number) ?? 30000;
+    const timeout = Math.min(Math.max(requestedTimeout, 1000), 120000);
 
     // Sandbox directory: clawDir/clawspace/
     const workDir = path.join(ctx.clawDir, 'clawspace');
 
     try {
-      const { stdout, stderr } = await execFileAsync(cmd, cmdArgs, {
+      // Use shell mode to properly handle quoted arguments (MVP aligned)
+      // e.g., `echo "hello world"` works correctly instead of being split
+      const { stdout, stderr } = await execFileAsync('sh', ['-c', command], {
         cwd: workDir,
         timeout,
         encoding: 'utf-8',

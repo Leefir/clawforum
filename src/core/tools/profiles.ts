@@ -8,10 +8,10 @@ import type { ToolProfile } from '../../types/config.js';
  * Tool name lists for each profile
  */
 export const TOOL_PROFILES: Record<ToolProfile, string[]> = {
-  full:     ['read', 'write', 'search', 'ls', 'send', 'done', 'spawn', 'skill', 'exec', 'status'],
-  readonly: ['read', 'search', 'ls', 'status'],
-  subagent: ['read', 'write', 'search', 'ls', 'exec', 'skill'],
-  dream:    ['read', 'search', 'ls'],
+  full:     ['read', 'write', 'search', 'ls', 'send', 'done', 'spawn', 'skill', 'exec', 'status', 'memory_search'],
+  readonly: ['read', 'search', 'ls', 'status', 'memory_search'],
+  subagent: ['read', 'write', 'search', 'ls', 'exec', 'skill', 'memory_search'],
+  dream:    ['read', 'search', 'ls', 'memory_search'],
 };
 
 /**

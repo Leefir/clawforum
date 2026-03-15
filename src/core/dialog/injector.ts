@@ -11,7 +11,10 @@
 
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { Message } from '../../types/message.js';
+import type { Contract } from '../../types/contract.js';
 import type { SessionData, InjectorOptions } from './types.js';
+import type { SkillRegistry } from '../skill/registry.js';
+import type { ContractManager } from '../contract/manager.js';
 
 /**
  * Context injector configuration
@@ -19,16 +22,49 @@ import type { SessionData, InjectorOptions } from './types.js';
 export interface ContextInjectorOptions {
   /** File system instance */
   fs: IFileSystem;
+  /** Skill registry for skill metadata injection */
+  skillRegistry?: SkillRegistry;
+  /** Contract manager for active contract injection */
+  contractManager?: ContractManager;
+}
+
+/**
+ * Format contract for prompt injection
+ * Returns markdown with title, goal, and subtask progress
+ */
+function formatContractForPrompt(contract: Contract): string {
+  const lines = [
+    '## Active Contract',
+    `**Title:** ${contract.title}`,
+    `**Goal:** ${contract.goal}`,
+    '',
+    '**Subtasks:**',
+  ];
+
+  for (const subtask of contract.subtasks) {
+    const checkbox = subtask.status === 'completed' ? '[x]' : '[ ]';
+    lines.push(`${checkbox} ${subtask.description}`);
+  }
+
+  return lines.join('\n');
 }
 
 /**
  * Injects context into sessions
  */
 export class ContextInjector {
-  constructor(private readonly fs: IFileSystem) {}
+  private fs: IFileSystem;
+  private skillRegistry?: SkillRegistry;
+  private contractManager?: ContractManager;
+
+  constructor(options: ContextInjectorOptions) {
+    this.fs = options.fs;
+    this.skillRegistry = options.skillRegistry;
+    this.contractManager = options.contractManager;
+  }
 
   /**
-   * Build system prompt from AGENTS.md and MEMORY.md
+   * Build system prompt from AGENTS.md, MEMORY.md, skills, and active contract
    * Gracefully degrades if files don't exist
    */
   async buildSystemPrompt(): Promise<string> {
@@ -53,6 +89,26 @@ export class ContextInjector {
       }
     } catch {
       // MEMORY.md doesn't exist, skip
+    }
+
+    // Inject skill metadata if available
+    if (this.skillRegistry) {
+      const skillContext = this.skillRegistry.formatForContext();
+      if (skillContext) {
+        parts.push(skillContext);
+      }
+    }
+
+    // Inject active contract if available
+    if (this.contractManager) {
+      try {
+        const contract = await this.contractManager.loadActive();
+        if (contract) {
+          parts.push(formatContractForPrompt(contract));
+        }
+      } catch {
+        // No active contract or error loading, skip
+      }
     }
 
     return parts.join('\n\n');
@@ -94,15 +150,23 @@ export class ContextInjector {
     }
 
     // 3. Active contracts (Phase 1 extension)
-    if (opts.includeContracts) {
-      // TODO: Inject active contract summaries
-      // This will be implemented when ContractManager is ready
+    if (opts.includeContracts && this.contractManager) {
+      try {
+        const contract = await this.contractManager.loadActive();
+        if (contract) {
+          parts.push(formatContractForPrompt(contract));
+        }
+      } catch {
+        // No active contract or error loading, skip
+      }
     }
 
     // 4. Skill metadata (Phase 1 extension)
-    if (opts.includeSkills) {
-      // TODO: Inject loaded skill descriptions
-      // This will be implemented when SkillRegistry is ready
+    if (opts.includeSkills && this.skillRegistry) {
+      const skillContext = this.skillRegistry.formatForContext();
+      if (skillContext) {
+        parts.push(skillContext);
+      }
     }
 
     // 5. Tool definitions (Phase 1 extension)

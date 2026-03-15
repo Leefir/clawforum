@@ -73,7 +73,7 @@ export class LLMService implements ILLMService {
     let retryCount = 0;
     
     // Try primary provider with retries
-    for (let attempt = 0; attempt < this.config.retryAttempts; attempt++) {
+    for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
       try {
         const response = await this.primary.call(options);
         
@@ -107,7 +107,7 @@ export class LLMService implements ILLMService {
         }
         
         // Wait before retry (exponential backoff with 30s max)
-        if (attempt < this.config.retryAttempts - 1) {
+        if (attempt < this.config.maxAttempts - 1) {
           const backoffMs = Math.min(
             this.config.retryDelayMs * Math.pow(2, attempt),
             30_000  // Max 30 seconds

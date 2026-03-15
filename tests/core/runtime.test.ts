@@ -35,7 +35,7 @@ function createMockLLMConfig(): LLMServiceConfig {
       temperature: 0.7,
       timeoutMs: 30000,
     },
-    retryAttempts: 1,
+    maxAttempts: 1,
     retryDelayMs: 100,
   };
 }

@@ -1,12 +1,33 @@
 /**
  * search tool - Search for text in files
+ * 
+ * Path restrictions (MVP aligned):
+ * - Whitelist: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/
  */
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
+// Allowed paths/prefixes for search tool (MVP aligned)
+const SEARCH_ALLOWLIST = [
+  'AGENTS.md',
+  'MEMORY.md',
+  'memory/',
+  'clawspace/',
+  'prompts/',
+  'skills/',
+];
+
+function isSearchPathAllowed(searchPath: string): boolean {
+  // Normalize path: add trailing slash for directory checks
+  const normalizedPath = searchPath.endsWith('/') ? searchPath : searchPath + '/';
+  return SEARCH_ALLOWLIST.some(allowed => 
+    searchPath === allowed || normalizedPath.startsWith(allowed)
+  );
+}
+
 export const searchTool: ITool = {
   name: 'search',
-  description: 'Search for text in files. Returns matching lines with file names and line numbers.',
+  description: 'Search for text in files. Allowed paths: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/. Returns matching lines with file names and line numbers.',
   schema: {
     type: 'object',
     properties: {
@@ -16,7 +37,7 @@ export const searchTool: ITool = {
       },
       path: {
         type: 'string',
-        description: 'Directory to search in (defaults to memory/)',
+        description: 'Directory to search in (defaults to clawspace/, allowed: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/)',
       },
       max_results: {
         type: 'number',
@@ -30,8 +51,16 @@ export const searchTool: ITool = {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const query = (args.query as string).toLowerCase();
-    const searchPath = (args.path as string) ?? 'memory/';
+    const searchPath = (args.path as string) ?? 'clawspace/';
     const maxResults = (args.max_results as number) ?? 5;
+
+    // Path restriction check (MVP aligned)
+    if (!isSearchPathAllowed(searchPath)) {
+      return {
+        success: false,
+        content: `Error: Path "${searchPath}" is not allowed for search. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/.`,
+      };
+    }
 
     const results: string[] = [];
 

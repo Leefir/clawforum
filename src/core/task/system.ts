@@ -171,6 +171,30 @@ export class TaskSystem {
         parentClawId: task.parentClawId,
         error: errMsg,
       });
+      // 回退：transport 投递失败时，直接写文件到 inbox（绕过 transport，保证 claw 能收到反馈）
+      try {
+        const fallbackMsg = {
+          type: 'task_result',
+          taskId: task.id,
+          result,
+          is_error: isError,
+          parentClawId: task.parentClawId,
+          error_note: 'transport_failed',
+        };
+        await this.fs.ensureDir('inbox/pending');
+        await this.fs.writeAtomic(
+          `inbox/pending/${Date.now()}_task_result_${task.id}.json`,
+          JSON.stringify(fallbackMsg, null, 2)
+        );
+      } catch (fallbackErr) {
+        // best-effort fallback，transport 和文件系统都失败时才完全丢失
+        const fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+        this.monitor.log('error', {
+          taskId: task.id,
+          parentClawId: task.parentClawId,
+          error: `Both transport and fallback failed: ${fallbackErrMsg}`,
+        });
+      }
     }
   }
 

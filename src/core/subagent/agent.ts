@@ -107,6 +107,7 @@ Work efficiently and return a clear, concise result.`;
           clawId: this.agentId,
           dialogId: this.agentId,
           signal: timeoutController.signal,
+          callerType: 'subagent',
         }),
         maxSteps: this.maxSteps,
         onToolCall: (name) => {

@@ -185,15 +185,59 @@ export class AnthropicAdapter implements IProviderAdapter {
   
   /**
    * Format messages for Anthropic API
+   * 
+   * ⚠️ CRITICAL: This logic was refined through 5 iterations (hotfix #1, #2, #5).
+   * DO NOT simplify to pass-through without understanding the consequences.
+   * 
+   * History:
+   * - v1: Filter text only → lost tool blocks
+   * - v2: Pass-through all → MiniMax rejected pure arrays for text-only messages
+   * - v3: Conditional: tool blocks→array, text→string → ✅ correct
+   * - v4 (Step 20): Pass-through all → REGRESSION: pure thinking blocks caused empty responses
+   * - v5 (hotfix #5): Restore v3 logic with better comments
+   * 
+   * Requirements:
+   * - Pure text messages → must be string (MiniMax compatibility)
+   * - Messages with tool_use/tool_result → must keep array format
+   * - Messages with only thinking blocks → extract text, skip thinking blocks
+   * 
+   * Smart conversion:
+   * - string content → string (user messages)
+   * - array with tool blocks → array (assistant messages with tool_use/tool_result)
+   * - array without tool blocks (text-only or think-only) → extract text → string
+   * 
+   * This prevents pure think/thinking blocks from being sent to API without text,
+   * which can cause empty responses from some LLM providers (e.g., MiniMax).
    */
   private formatMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: string | unknown[] }> {
-    // Align with MVP: pass through content directly
-    // - string content stays string (user messages)
-    // - array content stays array (assistant messages with blocks)
-    return messages.map(m => ({
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: m.content as string | unknown[],
-    }));
+    return messages.map(m => {
+      const role = m.role === 'assistant' ? 'assistant' : 'user';
+      
+      // String content stays string
+      if (!Array.isArray(m.content)) {
+        return { role, content: m.content as string };
+      }
+      
+      const blocks = m.content as Array<{type?: string}>;
+      
+      // Check if message contains tool-related blocks
+      const hasToolBlocks = blocks.some(
+        b => b.type === 'tool_use' || b.type === 'tool_result'
+      );
+      
+      if (hasToolBlocks) {
+        // Keep array format for tool messages
+        return { role, content: blocks as unknown[] };
+      }
+      
+      // Text-only or think-only: extract text blocks and join to string
+      const text = (blocks as Array<{type?: string; text?: string}>)
+        .filter(b => b.type === 'text')
+        .map(b => b.text || '')
+        .join('');
+      
+      return { role, content: text };
+    });
   }
   
   /**

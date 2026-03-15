@@ -8,7 +8,7 @@ import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
 export const sendTool: ITool = {
   name: 'send',
-  description: 'Send a message to the outbox for the parent or other claws.',
+  description: 'Send a message to the outbox for the parent or other claws. Priority: critical|high|normal|low (default: normal).',
   schema: {
     type: 'object',
     properties: {
@@ -21,6 +21,12 @@ export const sendTool: ITool = {
         description: 'Message type: report|question|result|error',
         enum: ['report', 'question', 'result', 'error'],
       },
+      priority: {
+        type: 'string',
+        description: 'Message priority: critical|high|normal|low (default: normal)',
+        enum: ['critical', 'high', 'normal', 'low'],
+        default: 'normal',
+      },
     },
     required: ['content', 'type'],
   },
@@ -30,6 +36,7 @@ export const sendTool: ITool = {
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const content = args.content as string;
     const type = args.type as string;
+    const priority = (args.priority as string) ?? 'normal';
 
     // Validate type
     const validTypes = ['report', 'question', 'result', 'error'];
@@ -40,14 +47,23 @@ export const sendTool: ITool = {
       };
     }
 
+    // Validate priority
+    const validPriorities = ['critical', 'high', 'normal', 'low'];
+    if (!validPriorities.includes(priority)) {
+      return {
+        success: false,
+        content: `Invalid priority: ${priority}. Must be one of: ${validPriorities.join(', ')}`,
+      };
+    }
+
     try {
       // Create outbox/pending directory
       const outboxDir = path.join('outbox', 'pending');
       await ctx.fs.ensureDir(outboxDir);
 
-      // Generate filename: {timestamp}_{type}_{uuid}.md
+      // Generate filename: {timestamp}_{priority}_{type}_{uuid}.md (MVP aligned)
       const timestamp = Date.now();
-      const filename = `${timestamp}_${type}_${randomUUID().slice(0, 8)}.md`;
+      const filename = `${timestamp}_${priority}_${type}_${randomUUID().slice(0, 8)}.md`;
       const filePath = path.join(outboxDir, filename);
 
       // Write message

@@ -45,11 +45,10 @@ export interface LLMServiceConfig {
   fallback?: ProviderConfig;
   
   /** 
-   * Maximum retry attempts for primary
-   * Total attempts = retryAttempts (includes initial call + retries)
-   * e.g., retryAttempts=3 means 1 initial attempt + up to 2 retries
+   * Maximum total attempts for primary (including initial call + retries)
+   * e.g., maxAttempts=3 means 1 initial attempt + up to 2 retries
    */
-  retryAttempts: number;
+  maxAttempts: number;
   
   /** Delay between retries (exponential backoff base) */
   retryDelayMs: number;

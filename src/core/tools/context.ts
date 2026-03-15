@@ -31,6 +31,9 @@ export interface ExecContextImplOptions {
   /** Tool profile for permission control */
   profile: ToolProfile;
   
+  /** Caller type for spawn recursion prevention */
+  callerType?: 'claw' | 'subagent';
+  
   /** File system instance */
   fs: IFileSystem;
   
@@ -63,6 +66,7 @@ export class ExecContextImpl implements ExecContext {
   clawId: string;
   clawDir: string;
   profile: ToolProfile;
+  callerType: 'claw' | 'subagent';
   permissions: ToolPermissions;
   fs: IFileSystem;
   monitor?: IMonitor;
@@ -80,6 +84,7 @@ export class ExecContextImpl implements ExecContext {
     this.clawId = options.clawId;
     this.clawDir = options.clawDir;
     this.profile = options.profile;
+    this.callerType = options.callerType ?? 'claw';
     this.permissions = PERMISSION_PRESETS[options.profile];
     this.fs = options.fs;
     this.monitor = options.monitor;

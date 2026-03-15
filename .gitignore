@@ -1,29 +1,34 @@
 # Dependencies
 node_modules/
-.pnpm-store/
+package-lock.json
+yarn.lock
 
 # Build output
 dist/
-*.tsbuildinfo
+*.js.map
+*.d.ts
+*.d.cts
 
-# Logs
-logs/
+# Test artifacts
+coverage/
 *.log
-npm-debug.log*
 
-# Environment
-.env
-.env.local
+# Runtime data
+.clawforum/
+!tests/fixtures/.clawforum/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Test coverage
-coverage/
+# Environment
+.env
+.env.local
+.env.*.local

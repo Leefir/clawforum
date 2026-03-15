@@ -1,18 +1,54 @@
 /**
  * read tool - Read file contents
+ * 
+ * Path restrictions (MVP aligned):
+ * - Whitelist: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/
+ * - Blacklist: dialog/ (system files)
  */
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
+// Allowed paths/prefixes for read tool (MVP aligned)
+const READ_ALLOWLIST = [
+  'AGENTS.md',
+  'MEMORY.md',
+  'memory/',
+  'clawspace/',
+  'prompts/',
+  'skills/',
+  'contract/',
+];
+
+// Blocked paths (MVP aligned)
+const READ_BLOCKLIST = [
+  'dialog/',
+];
+
+function isPathAllowed(filePath: string): boolean {
+  // Check blocklist first
+  if (READ_BLOCKLIST.some(blocked => filePath.startsWith(blocked) || filePath.includes(`/${blocked}`))) {
+    return false;
+  }
+  // Check allowlist (exact match or starts with prefix)
+  return READ_ALLOWLIST.some(allowed => {
+    if (filePath === allowed) return true;
+    // For directory prefixes, check if path starts with prefix
+    if (allowed.endsWith('/')) {
+      return filePath.startsWith(allowed);
+    }
+    return false;
+  });
+}
+
 export const readTool: ITool = {
   name: 'read',
-  description: 'Read the contents of a file. Optionally specify line range with offset and limit.',
+  description: 'Read the contents of a file. Allowed paths: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.',
   schema: {
     type: 'object',
     properties: {
       path: {
         type: 'string',
-        description: 'Path to the file to read',
+        description: 'Path to the file to read (allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/)',
       },
       offset: {
         type: 'number',
@@ -33,6 +69,18 @@ export const readTool: ITool = {
     const offset = args.offset as number | undefined;
     const limit = args.limit as number | undefined;
 
+    // Path restriction check (MVP aligned)
+    if (!isPathAllowed(path)) {
+      return {
+        success: false,
+        content: `Error: Path "${path}" is not allowed for read. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.`,
+      };
+    }
+
+    // Safety limits
+    const MAX_LINES = 200;
+    const MAX_CHARS = 8000;
+
     try {
       let content = await ctx.fs.read(path);
 
@@ -42,6 +90,15 @@ export const readTool: ITool = {
         const start = (offset ?? 1) - 1; // Convert to 0-indexed
         const end = limit !== undefined ? start + limit : lines.length;
         content = lines.slice(start, end).join('\n');
+      }
+
+      // Apply safety limits
+      const lines = content.split('\n');
+      if (lines.length > MAX_LINES) {
+        content = lines.slice(0, MAX_LINES).join('\n') + '\n[truncated: exceeded 200 line limit]';
+      }
+      if (content.length > MAX_CHARS) {
+        content = content.slice(0, MAX_CHARS) + '\n[truncated: exceeded 8000 char limit]';
       }
 
       return {

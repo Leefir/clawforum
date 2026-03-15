@@ -103,6 +103,8 @@ export interface ExecContext {
   clawDir: string;
   contractId?: string;
   parentClawId?: string;
+  /** Caller type for spawn recursion prevention */
+  callerType: 'claw' | 'subagent';
   fs: IFileSystem;
   llm?: ILLMService;
   monitor?: IMonitor;
@@ -318,12 +320,13 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: string; dialogId?: string; maxSteps?: number; signal?: AbortSignal }
+    options: { clawId: string; dialogId?: string; maxSteps?: number; signal?: AbortSignal; callerType?: 'claw' | 'subagent' }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
       clawDir: this.clawDir,
       profile,
+      callerType: options.callerType ?? 'claw',
       fs: this.fs,
       monitor: this.monitor,
       llm: this.llm,

@@ -4,7 +4,15 @@
 
 import { program } from 'commander';
 import { initCommand } from './commands/init.js';
-import { createCommand, chatCommand } from './commands/claw.js';
+import { 
+  createCommand, 
+  chatCommand, 
+  startCommand, 
+  stopCommand, 
+  listCommand, 
+  healthCommand,
+} from './commands/claw.js';
+import { daemonCommand } from './commands/daemon.js';
 
 program
   .name('clawforum')
@@ -49,6 +57,71 @@ clawCmd
   .action(async (name: string) => {
     try {
       await chatCommand(name);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw start
+clawCmd
+  .command('start <name>')
+  .description('Start Claw daemon')
+  .action(async (name: string) => {
+    try {
+      await startCommand(name);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw stop
+clawCmd
+  .command('stop <name>')
+  .description('Stop Claw daemon')
+  .action(async (name: string) => {
+    try {
+      await stopCommand(name);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw list
+clawCmd
+  .command('list')
+  .description('List all Claws and their status')
+  .action(async () => {
+    try {
+      await listCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw health
+clawCmd
+  .command('health <name>')
+  .description('Show Claw health status')
+  .action(async (name: string) => {
+    try {
+      await healthCommand(name);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw daemon (internal command, spawned by ProcessManager)
+clawCmd
+  .command('daemon <name>')
+  .description('Run Claw as daemon (internal)')
+  .action(async (name: string) => {
+    try {
+      await daemonCommand(name);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

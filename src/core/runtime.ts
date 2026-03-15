@@ -53,7 +53,8 @@ export class ClawRuntime {
   private running = false;
 
   // Foundation
-  private fs!: NodeFileSystem;
+  private systemFs!: NodeFileSystem;  // 系统组件使用（无权限检查）
+  private clawFs!: NodeFileSystem;    // 工具使用（有权限检查）
   private monitor!: JsonlMonitor;
   private llm!: LLMService;
   private transport!: LocalTransport;
@@ -89,8 +90,11 @@ export class ClawRuntime {
     // 1. 创建目录结构
     await this.ensureDirectories(clawDir);
 
-    // 2. 创建 NodeFileSystem（runtime 层不强制权限，由具体工具检查）
-    this.fs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    // 2. 创建两个 NodeFileSystem 实例
+    // systemFs: 系统组件使用（dialog/, contract/ 等），不强制权限
+    this.systemFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    // clawFs: 工具使用，强制权限检查
+    this.clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
 
     // 3. 创建 JsonlMonitor
     const logsDir = monitorDir || path.join(clawDir, 'logs');
@@ -104,34 +108,39 @@ export class ClawRuntime {
     this.transport = new LocalTransport({ workspaceDir });
     await this.transport.initialize();
 
-    // 6. 创建 SessionManager
-    this.sessionManager = new SessionManager(this.fs, 'dialog', clawId);
+    // 6. 创建 SessionManager（使用 systemFs，系统组件需要写 dialog/）
+    this.sessionManager = new SessionManager(this.systemFs, 'dialog', clawId);
 
-    // 7. 创建 ContextInjector
-    this.contextInjector = new ContextInjector(this.fs);
-
-    // 8. 创建 ToolRegistry + 注册内置工具
+    // 7. 创建 ToolRegistry + 注册内置工具
     this.toolRegistry = new ToolRegistry();
     registerBuiltinTools(this.toolRegistry);
 
-    // 9. 创建 TaskSystem
-    this.taskSystem = new TaskSystem(clawDir, this.fs, this.transport);
+    // 8. 创建 TaskSystem
+    this.taskSystem = new TaskSystem(clawDir, this.systemFs, this.transport);
     await this.taskSystem.initialize();
     this.taskSystem.setLLMService(this.llm);
 
-    // 10. 创建 SkillRegistry（懒加载技能）
-    this.skillRegistry = new SkillRegistry(this.fs, 'skills');
+    // 9. 创建 SkillRegistry（懒加载技能）
+    this.skillRegistry = new SkillRegistry(this.systemFs, 'skills');
     await this.skillRegistry.loadAll();
 
-    // 11. 创建 ContractManager
-    this.contractManager = new ContractManager(clawDir, this.fs, this.monitor);
+    // 10. 创建 ContractManager
+    this.contractManager = new ContractManager(clawDir, this.systemFs, this.monitor);
 
-    // 12. 创建 ExecContextImpl（注入所有依赖）
+    // 11. 创建 ContextInjector（注入 skillRegistry 和 contractManager）
+    this.contextInjector = new ContextInjector({
+      fs: this.systemFs,
+      skillRegistry: this.skillRegistry,
+      contractManager: this.contractManager,
+    });
+
+    // 12. 创建 ExecContextImpl（注入所有依赖，工具使用 clawFs）
     this.execContext = new ExecContextImpl({
       clawId,
       clawDir,
       profile: toolProfile!,
-      fs: this.fs,
+      callerType: 'claw',
+      fs: this.clawFs,
       monitor: this.monitor,
       llm: this.llm,
       maxSteps,
@@ -143,17 +152,9 @@ export class ClawRuntime {
     // 13. 创建 ToolExecutorImpl
     this.toolExecutor = new ToolExecutorImpl(this.toolRegistry);
 
-    // 14. 创建 InboxWatcher + OutboxWriter
-    this.inboxWatcher = new InboxWatcher(clawDir, this.fs);
-    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.fs);
-
-    // 15. 创建活跃契约上下文（如果有）
-    const activeContract = await this.contractManager.loadActive();
-    if (activeContract) {
-      // 将契约信息注入上下文
-      const contractContext = this.formatContractContext(activeContract);
-      // 这里可以扩展 ContextInjector 支持动态添加上下文
-    }
+    // 14. 创建 InboxWatcher + OutboxWriter（系统组件使用 systemFs）
+    this.inboxWatcher = new InboxWatcher(clawDir, this.systemFs);
+    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs);
 
     this.initialized = true;
   }
@@ -200,7 +201,14 @@ export class ClawRuntime {
   /**
    * 交互式对话（CLI 使用）
    */
-  async chat(userMessage: string): Promise<string> {
+  async chat(
+    userMessage: string, 
+    options?: { 
+      onToolCall?: (toolName: string) => void;
+      onBeforeLLMCall?: () => void;
+      onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+    }
+  ): Promise<string> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -209,10 +217,8 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     const messages = [...session.messages];
 
-    // 2. 构建 systemPrompt
-    const basePrompt = await this.contextInjector.buildSystemPrompt();
-    const skillContext = this.skillRegistry.formatForContext();
-    const systemPrompt = [basePrompt, skillContext].filter(Boolean).join('\n\n');
+    // 2. 构建 systemPrompt（已包含 AGENTS.md + MEMORY.md + skills + contract）
+    const systemPrompt = await this.contextInjector.buildSystemPrompt();
 
     // 3. 追加 user 消息
     messages.push({ role: 'user', content: userMessage });
@@ -231,6 +237,9 @@ export class ClawRuntime {
       ctx: this.execContext,
       tools,
       maxSteps: this.options.maxSteps,
+      onToolCall: options?.onToolCall,
+      onBeforeLLMCall: options?.onBeforeLLMCall,
+      onToolResult: options?.onToolResult,
       onStepComplete: async () => {
         // 增量存盘
         await this.sessionManager.save(messages);
@@ -319,7 +328,4 @@ export class ClawRuntime {
     }
   }
 
-  private formatContractContext(contract: { id: string; title: string; goal: string }): string {
-    return `## Active Contract\n- ID: ${contract.id}\n- Title: ${contract.title}\n- Goal: ${contract.goal}`;
-  }
 }

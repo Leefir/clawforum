@@ -153,7 +153,7 @@ export function buildLLMConfig(
   return {
     primary: primaryProvider,
     fallback: fallbackProvider,
-    retryAttempts: globalConfig.llm.retry_attempts,
+    maxAttempts: globalConfig.llm.retry_attempts,
     retryDelayMs: globalConfig.llm.retry_delay_ms,
   };
 }

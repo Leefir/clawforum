@@ -84,7 +84,16 @@ export class ContractManager {
           // 找到活跃契约（running 或 paused），加载完整契约
           return this.loadContract(entry.name);
         }
-      } catch {
+      } catch (error) {
+        // 区分文件不存在（ENOENT，正常跳过）vs 其他错误（JSON 解析失败、损坏等）
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT' && this.monitor) {
+          this.monitor.log('error', {
+            context: 'ContractManager.loadActive',
+            contract: entry.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
         continue;
       }
     }
