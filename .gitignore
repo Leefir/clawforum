@@ -12,6 +12,7 @@ dist/
 # Test artifacts
 coverage/
 *.log
+.test-*/
 
 # Runtime data
 .clawforum/
