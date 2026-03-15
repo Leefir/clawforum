@@ -71,15 +71,17 @@ export class ContractManager {
   }
 
   /**
-   * 加载当前活跃契约
+   * 加载当前活跃契约（返回最新的 running/paused 契约）
    */
   async loadActive(): Promise<Contract | null> {
     const contractDir = 'contract';
     const exists = await this.fs.exists(contractDir);
     if (!exists) return null;
 
-    // 扫描 contract/ 目录找 running 状态的契约
+    // 扫描 contract/ 目录找 running 状态的契约，按 started_at 排序取最新
     const entries = await this.fs.list(contractDir, { includeDirs: true });
+    
+    let latest: { name: string; startedAt: string } | null = null;
     
     for (const entry of entries) {
       if (!entry.isDirectory) continue;
@@ -91,8 +93,11 @@ export class ContractManager {
       try {
         const progressData = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
         if (progressData.status === 'running' || progressData.status === 'paused') {
-          // 找到活跃契约（running 或 paused），加载完整契约
-          return this.loadContract(entry.name);
+          // 比较 started_at，取最新的
+          const startedAt = progressData.started_at ?? '';
+          if (!latest || startedAt > latest.startedAt) {
+            latest = { name: entry.name, startedAt };
+          }
         }
       } catch (error) {
         // 区分文件不存在（ENOENT，正常跳过）vs 其他错误（JSON 解析失败、损坏等）
@@ -111,7 +116,7 @@ export class ContractManager {
       }
     }
 
-    return null;
+    return latest ? this.loadContract(latest.name) : null;
   }
 
   /**
@@ -119,6 +124,13 @@ export class ContractManager {
    */
   async create(contractYaml: ContractYaml): Promise<string> {
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
+
+    // 关闭已有的 running 契约（避免多个 running 契约冲突）
+    const existing = await this.loadActive();
+    if (existing && existing.id !== contractId) {
+      console.log(`[contract] Pausing existing contract ${existing.id} for new contract ${contractId}`);
+      await this.pause(existing.id, 'Superseded by new contract');
+    }
 
     await this.fs.ensureDir(`contract/${contractId}`);
 
@@ -204,6 +216,12 @@ export class ContractManager {
     if (result.passed) {
       // 更新进度
       const progress = await this.getProgress(contractId);
+      
+      // 检查 subtaskId 是否存在（容错）
+      if (!progress.subtasks[subtaskId]) {
+        console.warn(`[contract] Unknown subtask "${subtaskId}" for contract ${contractId}`);
+      }
+      
       progress.subtasks[subtaskId] = {
         status: 'completed',
         completed_at: new Date().toISOString(),
