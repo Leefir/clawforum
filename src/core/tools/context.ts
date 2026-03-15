@@ -16,6 +16,7 @@ import type { ExecContext, ToolPermissions } from './executor.js';
 import { PERMISSION_PRESETS } from './executor.js';
 import type { TaskSystem } from '../task/system.js';
 import type { SkillRegistry } from '../skill/registry.js';
+import type { ContractManager } from '../contract/manager.js';
 
 /**
  * Options for creating execution context
@@ -50,6 +51,9 @@ export interface ExecContextImplOptions {
   
   /** Optional skill registry for skill tool */
   skillRegistry?: SkillRegistry;
+  
+  /** Optional contract manager for done tool */
+  contractManager?: ContractManager;
 }
 
 /**
@@ -68,6 +72,7 @@ export class ExecContextImpl implements ExecContext {
   signal?: AbortSignal;
   taskSystem?: TaskSystem;
   skillRegistry?: SkillRegistry;
+  contractManager?: ContractManager;
   
   private startTime: number;
 
@@ -83,6 +88,7 @@ export class ExecContextImpl implements ExecContext {
     this.signal = options.signal;
     this.taskSystem = options.taskSystem;
     this.skillRegistry = options.skillRegistry;
+    this.contractManager = options.contractManager;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

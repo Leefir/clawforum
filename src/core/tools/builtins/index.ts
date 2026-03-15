@@ -12,9 +12,10 @@ import { execTool } from './exec.js';
 import { sendTool } from './send.js';
 import { spawnTool } from './spawn.js';
 import { skillTool } from './skill.js';
+import { doneTool } from './done.js';
 
 // Re-export all tools
-export { readTool, writeTool, lsTool, searchTool, statusTool, execTool, sendTool, spawnTool, skillTool };
+export { readTool, writeTool, lsTool, searchTool, statusTool, execTool, sendTool, spawnTool, skillTool, doneTool };
 
 /**
  * Register all builtin tools to a registry
@@ -29,4 +30,5 @@ export function registerBuiltinTools(registry: IToolRegistry): void {
   registry.register(sendTool);
   registry.register(spawnTool);
   registry.register(skillTool);
+  registry.register(doneTool);
 }
