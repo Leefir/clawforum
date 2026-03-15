@@ -148,6 +148,57 @@ tests/core/dialog.test.ts:injector = new ContextInjector({ fs });
 - **白名单检查标准化**: 目录路径统一加尾部斜杠再比较
 - **修改路径限制时同步更新测试**（同一轮修改，非等失败后再改）
 
+### 2.7.6 模板内容外置（新增，Step 31 教训）
+
+**问题**: 模板字符串中的反引号转义层层叠加导致 6 次重试：`\`exec\``（Markdown）→ `\\`exec\\``（JS 模板字符串）→ `\\\\`exec\\\\``（文件实际字节）。三层转义嵌套使字符串匹配变得极其脆弱。
+
+**规则**: **超过 5 行的文本模板不应内嵌在 TypeScript 中**，使用独立文件 + `readFileSync`
+
+```typescript
+// ❌ 错误：模板硬编码（转义地狱）
+const AGENTS_MD_TEMPLATE = `通过 \\\`exec\\\` 调用...`;
+
+// ✅ 正确：模板作为独立文件，运行时读取
+// templates/motion/AGENTS.md  ← 原生 Markdown，零转义
+const template = readFileSync(
+  join(__dirname, '../templates/motion/AGENTS.md'),
+  'utf-8'
+);
+```
+
+**优势**:
+- 消除 JS 转义与目标格式的冲突（Markdown/HTML/Shell 等）
+- 模板可直接用对应预览器渲染验证
+- 降低认知负担：编辑 Markdown 而非转义字符串
+
+### 2.7.7 非代码资源必须验证构建产物（新增，Step 31.2 教训）
+
+**问题**: TypeScript/tsup 只处理 `.ts` → `.js`，非代码文件（.md/.json/.yaml）被静默忽略。运行时 `readFileSync` 报错文件不存在，但源码目录存在该文件。
+
+**根本原因**: 运行时的文件系统布局 ≠ 源码的文件系统布局
+
+**规则**: **引入 `readFileSync/require` 加载非 `.ts` 文件时，必须确认构建工具是否会将其复制到 dist/**
+
+**检查清单**:
+- [ ] 不确定时，先 `npm run build` 再检查 `dist/` 目录结构
+- [ ] 非代码文件必须在 package.json 中声明复制（如 `"copy-templates": "cp -r src/templates dist/"`）
+- [ ] 或者：运行时支持源码目录回退路径（开发时）
+
+**可选的健壮实现**（开发/构建双支持）:
+```typescript
+function getTemplatePath(name: string): string {
+  // 优先：dist/templates/（构建后）
+  const distPath = join(__dirname, 'templates', name);
+  if (existsSync(distPath)) return distPath;
+  
+  // 回退：src/.../templates/（开发时，tsup watch 未复制）
+  const srcPath = join(__dirname, '../../src/templates', name);
+  if (existsSync(srcPath)) return srcPath;
+  
+  throw new Error(`Template not found: ${name}`);
+}
+```
+
 ### 2.7.1 测试编写预读规范（新增，Step 27 教训）
 
 **问题**: Step 27 测试补全轮需要 4 轮测试修复（全项目最多），23 个权限测试预期值写错 2 次，crash recovery 测试作用域错误 2 次

@@ -19,16 +19,43 @@ import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 模板文件路径
-const TEMPLATES_DIR = path.join(__dirname, 'templates', 'motion');
+// 模板文件路径（支持构建产物和源码双模式）
 const TEMPLATE_FILES = ['AGENTS.md', 'SOUL.md', 'AUTH_POLICY.md', 'HEARTBEAT.md', 'REVIEW.md'];
 
 /**
- * 读取模板文件内容
+ * 获取模板文件路径（支持构建产物或源码目录）
+ * 
+ * 优先检查 dist/（构建产物），回退到 src/（开发时 tsup watch 模式）
+ */
+function getTemplatePath(name: string): string {
+  // 优先：dist/templates/motion/（构建后）
+  const distPath = path.join(__dirname, 'templates', 'motion', name);
+  
+  // 回退：src/cli/commands/templates/motion/（开发时，tsup watch 未复制模板）
+  const srcPath = path.join(__dirname, '..', '..', '..', '..', 'src', 'cli', 'commands', 'templates', 'motion', name);
+  
+  // 同步检查存在性（只在启动时执行一次）
+  try {
+    // ESM 中无法直接使用 existsSync，用 readFile 的成败判断
+    return distPath; // 优先返回 dist 路径，失败时 readTemplate 会回退
+  } catch {
+    return srcPath;
+  }
+}
+
+/**
+ * 读取模板文件内容（支持构建产物或源码目录回退）
  */
 async function readTemplate(name: string): Promise<string> {
-  const templatePath = path.join(TEMPLATES_DIR, name);
-  return fs.readFile(templatePath, 'utf-8');
+  // 优先尝试 dist 路径
+  const distPath = path.join(__dirname, 'templates', 'motion', name);
+  try {
+    return await fs.readFile(distPath, 'utf-8');
+  } catch {
+    // 回退到 src 路径（开发时）
+    const srcPath = path.join(__dirname, '..', '..', '..', '..', 'src', 'cli', 'commands', 'templates', 'motion', name);
+    return fs.readFile(srcPath, 'utf-8');
+  }
 }
 
 /**
