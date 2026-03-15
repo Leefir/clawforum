@@ -5,6 +5,8 @@
  * Exports: IMonitor interface, JsonlMonitor implementation
  */
 
+// TODO(phase3): 统计聚合方法 get_llm_stats() - MVP 有聚合统计，TS 只有基础 JSONL 写入
+
 // Types and interfaces
 export type {
   MonitorEvent,

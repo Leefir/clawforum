@@ -4,6 +4,8 @@
  * 管理契约的加载、进度追踪、验收和状态转换。
  */
 
+// TODO(phase3): 实现契约依赖检查 - MVP 有 check_dependencies() 方法（契约 A 完成后才启动 B）
+
 import * as yaml from 'js-yaml';
 import { randomUUID } from 'crypto';
 import type { IFileSystem } from '../../foundation/fs/types.js';
@@ -95,12 +97,15 @@ export class ContractManager {
       } catch (error) {
         // 区分文件不存在（ENOENT，正常跳过）vs 其他错误（JSON 解析失败、损坏等）
         const code = (error as NodeJS.ErrnoException).code;
-        if (code !== 'ENOENT' && this.monitor) {
-          this.monitor.log('error', {
-            context: 'ContractManager.loadActive',
-            contract: entry.name,
-            error: error instanceof Error ? error.message : String(error),
-          });
+        if (code !== 'ENOENT') {
+          console.warn(`[contract] progress.json corrupted: ${entry.name}`, error);
+          if (this.monitor) {
+            this.monitor.log('error', {
+              context: 'ContractManager.loadActive',
+              contract: entry.name,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
         }
         continue;
       }

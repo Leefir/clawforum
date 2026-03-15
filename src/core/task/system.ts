@@ -189,6 +189,7 @@ export class TaskSystem {
       } catch (fallbackErr) {
         // best-effort fallback，transport 和文件系统都失败时才完全丢失
         const fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+        console.error(`[task] Both transport and fallback failed for ${task.id}:`, fallbackErr);
         this.monitor.log('error', {
           taskId: task.id,
           parentClawId: task.parentClawId,
@@ -262,6 +263,7 @@ export class TaskSystem {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Shutdown timeout')), timeoutMs)),
       ]).catch(() => {
         // Timeout is acceptable
+        console.warn('[task] Shutdown timeout, some tasks may not have stopped');
       });
     }
 

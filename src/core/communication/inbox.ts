@@ -173,8 +173,8 @@ export class InboxWatcher {
       this.processQueue().catch(err => {
         console.error('[InboxWatcher] Failed to process queue:', err);
       });
-    } catch {
-      // Skip invalid files
+    } catch (err) {
+      console.warn('[inbox] Skip malformed message:', err);
     }
   }
 
@@ -208,8 +208,9 @@ export class InboxWatcher {
         await this.onMessage(item.message);
         // Success: move to done
         await this.moveToDone(item.filePath);
-      } catch {
+      } catch (err) {
         // Failure: move to failed
+        console.error(`[inbox] Process failed for ${item.filePath}:`, err);
         await this.moveToFailed(item.filePath);
       }
     }

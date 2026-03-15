@@ -4,6 +4,8 @@
  * 管理守护进程的启动、停止和状态检查
  */
 
+// TODO(phase3): 僵尸进程检测 - MVP 用 `ps` 命令检测僵尸，TS 只用 kill(0)，macOS/Linux 行为差异
+
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -235,7 +237,8 @@ export class ProcessManager {
       }
 
       return running;
-    } catch {
+    } catch (err) {
+      console.warn('[process] listRunning failed:', err);
       return [];
     }
   }

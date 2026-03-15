@@ -180,8 +180,8 @@ export class LocalTransport implements ITransport {
           const priority = PRIORITY_VALUES[parts[1]] ?? PRIORITY_VALUES.normal;
 
           messages.push({ msg, priority, timestamp });
-        } catch {
-          // Skip invalid messages
+        } catch (err) {
+          console.warn(`[transport] Skip unparseable message: ${entry.name}`, err);
           continue;
         }
       }
@@ -284,12 +284,15 @@ export class LocalTransport implements ITransport {
           if (timestamp && (!oldestMessage || timestamp < oldestMessage)) {
             oldestMessage = timestamp;
           }
-        } catch {
+        } catch (err) {
+          console.warn(`[transport] getInboxStatus skip: ${entry.name}`, err);
           continue;
         }
       }
-    } catch {
-      // Directory doesn't exist
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn('[transport] getInboxStatus failed:', err);
+      }
     }
 
     return {
@@ -331,8 +334,8 @@ export class LocalTransport implements ITransport {
               contract_id: meta.contract_id,
             };
             callback(msg);
-          } catch {
-            // Skip invalid messages
+          } catch (err) {
+            console.warn(`[transport] watchInbox skip: ${name}`, err);
           }
         }
       },

@@ -225,7 +225,8 @@ export class LLMService implements ILLMService {
         maxTokens: 1,
       });
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('[llm] healthCheck failed:', err instanceof Error ? err.message : err);
       return false;
     }
   }
