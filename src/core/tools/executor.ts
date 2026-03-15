@@ -1,45 +1,39 @@
 /**
- * Tool Executor - Execution context and tool interface
- * Phase 0: Interface definitions only
+ * Tool Executor - Execution context and tool interfaces
+ * Phase 0: Interface definitions + Implementation
  * 
- * Design principles:
- * - Tools are pure functions with side effects via FileSystem
- * - ExecContext provides all dependencies (fs, monitor, permissions)
- * - Tool permissions enforced at execution time
+ * This file contains both:
+ * - Interface definitions (from Phase 0)
+ * - ToolExecutorImpl implementation (Phase 1)
  */
 
 import type { JSONSchema7 } from '../../types/message.js';
-import type { IMonitor } from '../../foundation/monitor/index.js';
-import type { IFileSystem } from '../../foundation/fs/index.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolProfile } from '../../types/config.js';
+import type { IFileSystem } from '../../foundation/fs/types.js';
+import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { ILLMService } from '../../foundation/llm/index.js';
+import {
+  ToolNotFoundError,
+  PermissionError,
+  ToolTimeoutError,
+  ToolInvalidInputError,
+} from '../../types/errors.js';
+// Note: ToolRegistry type imported via IToolRegistry interface
 
-// Re-export for convenience
-export type { JSONSchema7 };
+// ============================================================================
+// Phase 0: Interface Definitions (Frozen)
+// ============================================================================
 
 /**
  * Tool permissions - What a tool can do
  */
 export interface ToolPermissions {
-  /** Can read files */
   read: boolean;
-  
-  /** Can write/modify files */
   write: boolean;
-  
-  /** Can execute shell commands */
   execute: boolean;
-  
-  /** Can spawn subagents */
   spawn: boolean;
-  
-  /** Can send messages to other Claws */
   send: boolean;
-  
-  /** Can access network */
   network: boolean;
-  
-  /** Can access system paths outside claw space */
   system: boolean;
 }
 
@@ -53,7 +47,7 @@ export const PERMISSION_PRESETS: Record<ToolProfile, ToolPermissions> = {
     execute: true,
     spawn: true,
     send: true,
-    network: false,  // Network disabled even in full mode for security
+    network: false,
     system: false,
   },
   readonly: {
@@ -69,8 +63,8 @@ export const PERMISSION_PRESETS: Record<ToolProfile, ToolPermissions> = {
     read: true,
     write: true,
     execute: false,
-    spawn: false,  // Subagent cannot spawn more subagents
-    send: true,    // Can send back to parent
+    spawn: false,
+    send: true,
     network: false,
     system: false,
   },
@@ -86,84 +80,12 @@ export const PERMISSION_PRESETS: Record<ToolProfile, ToolPermissions> = {
 };
 
 /**
- * Execution context - Passed to all tool executions
- * 
- * Contains all dependencies and context needed for tool execution
- */
-export interface ExecContext {
-  // ========================================================================
-  // Identity
-  // ========================================================================
-  
-  /** Claw ID */
-  clawId: string;
-  
-  /** Claw workspace directory */
-  clawDir: string;
-  
-  /** Current contract ID (if executing within a contract) */
-  contractId?: string;
-  
-  /** Parent Claw ID (if this is a subagent) */
-  parentClawId?: string;
-  
-  // ========================================================================
-  // Dependencies
-  // ========================================================================
-  
-  /** File system interface */
-  fs: IFileSystem;
-  
-  /** LLM service (for tools that need LLM) */
-  llm?: ILLMService;
-  
-  /** Monitor for logging */
-  monitor?: IMonitor;
-  
-  // ========================================================================
-  // Permissions
-  // ========================================================================
-  
-  /** Current tool profile */
-  profile: ToolProfile;
-  
-  /** Detailed permissions */
-  permissions: ToolPermissions;
-  
-  /** Check if a specific permission is granted */
-  hasPermission(permission: keyof ToolPermissions): boolean;
-  
-  // ========================================================================
-  // Execution State
-  // ========================================================================
-  
-  /** Current step number in ReAct loop */
-  stepNumber: number;
-  
-  /** Maximum allowed steps */
-  maxSteps: number;
-  
-  /** Abort signal for cancellation */
-  signal?: AbortSignal;
-  
-  /** Get elapsed time since execution started */
-  getElapsedMs(): number;
-}
-
-/**
  * Tool execution result
  */
 export interface ToolResult {
-  /** Success indicator */
   success: boolean;
-  
-  /** Result content (shown to LLM) */
   content: string;
-  
-  /** Error message (if success is false) */
   error?: string;
-  
-  /** Additional metadata (not shown to LLM) */
   metadata?: {
     filesAffected?: string[];
     durationMs?: number;
@@ -172,81 +94,47 @@ export interface ToolResult {
 }
 
 /**
+ * Execution context - Passed to all tool executions
+ */
+export interface ExecContext {
+  clawId: string;
+  clawDir: string;
+  contractId?: string;
+  parentClawId?: string;
+  fs: IFileSystem;
+  llm?: ILLMService;
+  monitor?: IMonitor;
+  profile: ToolProfile;
+  permissions: ToolPermissions;
+  hasPermission(permission: keyof ToolPermissions): boolean;
+  stepNumber: number;
+  maxSteps: number;
+  signal?: AbortSignal;
+  getElapsedMs(): number;
+}
+
+/**
  * Tool interface - All tools implement this
  */
 export interface ITool {
-  /** Tool name (must be unique) */
   name: string;
-  
-  /** Human-readable description (shown to LLM) */
   description: string;
-  
-  /** JSON Schema for input validation */
   schema: JSONSchema7;
-  
-  /** Required permissions for this tool */
   requiredPermissions: (keyof ToolPermissions)[];
-  
-  /** Whether this tool is read-only (can be executed in parallel) */
   readonly: boolean;
-  
-  /**
-   * Execute the tool
-   * @param args - Validated arguments
-   * @param ctx - Execution context
-   * @returns Tool result
-   */
-  execute(
-    args: Record<string, unknown>, 
-    ctx: ExecContext
-  ): Promise<ToolResult>;
+  execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult>;
 }
 
 /**
  * Tool registry interface
  */
 export interface IToolRegistry {
-  /**
-   * Register a tool
-   * @param tool - Tool to register
-   */
   register(tool: ITool): void;
-  
-  /**
-   * Unregister a tool
-   * @param name - Tool name
-   */
   unregister(name: string): void;
-  
-  /**
-   * Get a tool by name
-   * @param name - Tool name
-   * @returns Tool or undefined if not found
-   */
   get(name: string): ITool | undefined;
-  
-  /**
-   * Get all registered tools
-   */
-  getAll(): ITool[];
-  
-  /**
-   * Get tools available for a profile
-   * @param profile - Tool profile
-   */
-  getForProfile(profile: ToolProfile): ITool[];
-  
-  /**
-   * Check if tool exists
-   * @param name - Tool name
-   */
   has(name: string): boolean;
-  
-  /**
-   * Format tools for LLM API
-   * @param tools - Tools to format
-   * @returns Tool definitions for LLM
-   */
+  getAll(): ITool[];
+  getForProfile(profile: ToolProfile): ITool[];
   formatForLLM(tools: ITool[]): Array<{
     name: string;
     description: string;
@@ -257,50 +145,128 @@ export interface IToolRegistry {
 /**
  * Tool execution options
  */
-export interface ToolExecutionOptions {
-  /** Tool name */
+export interface ExecuteOptions {
   toolName: string;
-  
-  /** Tool arguments */
   args: Record<string, unknown>;
-  
-  /** Execution context */
   ctx: ExecContext;
-  
-  /** Timeout in milliseconds (default: 60000) */
   timeoutMs?: number;
 }
 
 /**
- * Tool executor interface - Handles tool execution with parallelization
+ * Tool executor interface
  */
 export interface IToolExecutor {
-  /**
-   * Execute a single tool
-   * @param options - Execution options
-   * @returns Tool result
-   */
-  execute(options: ToolExecutionOptions): Promise<ToolResult>;
-  
-  /**
-   * Execute multiple read-only tools in parallel
-   * @param batch - Array of tool calls
-   * @param ctx - Execution context
-   * @returns Array of results (in same order)
-   */
+  execute(options: ExecuteOptions): Promise<ToolResult>;
   executeParallel(
     batch: Array<{ toolName: string; args: Record<string, unknown> }>,
     ctx: ExecContext
   ): Promise<ToolResult[]>;
-  
+  validateArgs(toolName: string, args: Record<string, unknown>): { valid: boolean; errors?: string[] };
+}
+
+// ============================================================================
+// Phase 1: Implementation
+// ============================================================================
+
+/**
+ * Tool execution implementation
+ */
+export class ToolExecutorImpl implements IToolExecutor {
+  constructor(private registry: IToolRegistry) {}
+
+  /**
+   * Execute a single tool
+   */
+  async execute(options: ExecuteOptions): Promise<ToolResult> {
+    const { toolName, args, ctx, timeoutMs = 60000 } = options;
+
+    // 1. Find tool
+    const tool = this.registry.get(toolName);
+    if (!tool) {
+      throw new ToolNotFoundError(toolName);
+    }
+
+    // 2. Check permissions
+    for (const perm of tool.requiredPermissions) {
+      if (!ctx.hasPermission(perm)) {
+        throw new PermissionError(
+          `Tool "${toolName}" requires "${perm}" permission`,
+          { toolName, required: perm, profile: ctx.profile }
+        );
+      }
+    }
+
+    // 3. Schema validation (simple check)
+    const validation = this.validateArgs(toolName, args);
+    if (!validation.valid) {
+      throw new ToolInvalidInputError(toolName, validation.errors?.[0] ?? 'Invalid input');
+    }
+
+    // 4. Execute with timeout using Promise.race
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new ToolTimeoutError(toolName, timeoutMs));
+      }, timeoutMs);
+      // Clean up timeout if execution completes first
+      return () => clearTimeout(timeoutId);
+    });
+
+    const executionPromise = tool.execute(args, ctx);
+
+    try {
+      return await Promise.race([executionPromise, timeoutPromise]);
+    } finally {
+    }
+  }
+
+  /**
+   * Execute multiple read-only tools in parallel
+   * Write operations are executed sequentially (not in this batch)
+   * 
+   * TODO: Implement proper write serialization for Phase 1+
+   */
+  async executeParallel(
+    batch: Array<{ toolName: string; args: Record<string, unknown> }>,
+    ctx: ExecContext
+  ): Promise<ToolResult[]> {
+    // Filter to only read-only tools
+    const readOnlyCalls = batch.filter(({ toolName }) => {
+      const tool = this.registry.get(toolName);
+      return tool?.readonly === true;
+    });
+
+    // Execute all in parallel
+    const promises = readOnlyCalls.map(({ toolName, args }) =>
+      this.execute({ toolName, args, ctx })
+    );
+
+    return Promise.all(promises);
+  }
+
   /**
    * Validate tool arguments against schema
-   * @param toolName - Tool name
-   * @param args - Arguments to validate
-   * @returns Validation result
    */
   validateArgs(
-    toolName: string, 
+    toolName: string,
     args: Record<string, unknown>
-  ): { valid: boolean; errors?: string[] };
+  ): { valid: boolean; errors?: string[] } {
+    const tool = this.registry.get(toolName);
+    if (!tool) {
+      return { valid: false, errors: [`Tool "${toolName}" not found`] };
+    }
+
+    const errors: string[] = [];
+    const schema = tool.schema;
+
+    // Check required fields
+    if (schema.required && Array.isArray(schema.required)) {
+      for (const field of schema.required) {
+        if (!(field in args)) {
+          errors.push(`Missing required field: ${field}`);
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
+  }
 }
