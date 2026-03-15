@@ -3,6 +3,7 @@
  */
 
 import * as fs from 'fs';
+import * as fsNative from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as yaml from 'js-yaml';
@@ -245,19 +246,19 @@ export async function listCommand(): Promise<void> {
   const processManager = new ProcessManager(fs, baseDir);
 
   try {
-    const entries = fs.readdirSync(clawsDir);
+    const entries = fsNative.readdirSync(clawsDir);
     const claws: Array<{ name: string; status: string; pid?: string }> = [];
 
     for (const entry of entries) {
       const configPath = path.join(clawsDir, entry, 'config.yaml');
-      if (fs.existsSync(configPath)) {
+      if (fsNative.existsSync(configPath)) {
         const isRunning = processManager.isAlive(entry);
         let pid: string | undefined;
         
         if (isRunning) {
           try {
             const pidFile = path.join(clawsDir, entry, 'status', 'pid');
-            pid = fs.readFileSync(pidFile, 'utf-8').trim();
+            pid = fsNative.readFileSync(pidFile, 'utf-8').trim();
           } catch {
             // 忽略读取错误
           }
@@ -323,7 +324,7 @@ export async function healthCommand(name: string): Promise<void> {
 
   // 读取 STATUS.md
   try {
-    const statusContent = fs.readFileSync(statusFile, 'utf-8');
+    const statusContent = fsNative.readFileSync(statusFile, 'utf-8');
     console.log('\n📄 STATUS.md:');
     console.log(statusContent);
   } catch {
