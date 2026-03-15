@@ -178,6 +178,11 @@ export async function daemonCommand(name: string): Promise<void> {
     process.exit(0);
   });
 
+  // 确保 exit 时清理 interval
+  process.on('exit', () => {
+    clearInterval(statusInterval);
+  });
+
   // MVP 对齐：批处理轮询循环（替代事件驱动）
   while (!stopped) {
     try {

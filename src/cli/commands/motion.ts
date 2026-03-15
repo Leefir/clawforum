@@ -444,6 +444,12 @@ export async function daemonCommand(): Promise<void> {
     await runtime.stop();
     process.exit(0);
   });
+
+  // 确保 exit 时清理 intervals
+  process.on('exit', () => {
+    clearInterval(statusInterval);
+    clearInterval(heartbeatInterval);
+  });
   
   // 保持进程运行
   console.log('[motion daemon] Started');

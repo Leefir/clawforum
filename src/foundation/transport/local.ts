@@ -181,7 +181,7 @@ export class LocalTransport implements ITransport {
 
           messages.push({ msg, priority, timestamp });
         } catch (err) {
-          console.warn(`[transport] Skip unparseable message: ${entry.name}`, err);
+          console.warn(`[transport] Skip unparseable message: ${file}`, err);
           continue;
         }
       }
@@ -285,7 +285,7 @@ export class LocalTransport implements ITransport {
             oldestMessage = timestamp;
           }
         } catch (err) {
-          console.warn(`[transport] getInboxStatus skip: ${entry.name}`, err);
+          console.warn(`[transport] getInboxStatus skip: ${file}`, err);
           continue;
         }
       }
@@ -335,7 +335,7 @@ export class LocalTransport implements ITransport {
             };
             callback(msg);
           } catch (err) {
-            console.warn(`[transport] watchInbox skip: ${name}`, err);
+            console.warn(`[transport] watchInbox skip: ${event.path}`, err);
           }
         }
       },
