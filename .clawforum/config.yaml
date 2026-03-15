@@ -1,0 +1,13 @@
+version: '1'
+llm:
+  primary:
+    name: anthropic
+    api_key: >-
+      sk-cp-yehW0MzqDQH1MN6-MvQtAxVY_rEgb-gtGqfB_kQ8ucc2e9rULL6EE0o5MaBGLLDaZs7FKmNlS7OAF9TOYte1Df5my1ueF9NruTE14WCqZ6cqy0jaVcT11N0
+    model: MiniMax-M2.5
+    max_tokens: 4096
+    temperature: 0.7
+    timeout_ms: 60000
+    base_url: https://api.minimax.io/anthropic
+  retry_attempts: 3
+  retry_delay_ms: 1000

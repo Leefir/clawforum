@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "clawId": "test",
+  "createdAt": "2026-03-15T05:56:42.899Z",
+  "updatedAt": "2026-03-15T05:56:49.349Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use"
+        },
+        {
+          "type": "text",
+          "text": "Hi there! 👋\n\nI'm here to help you with various tasks, such as:\n\n- Reading, writing, and searching files\n- Executing commands\n- Exploring directories\n- And more!\n\nWhat can I help you with today?"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "which model do u use?"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use"
+        },
+        {
+          "type": "text",
+          "text": "I'm an AI assistant designed to help you with various tasks like:\n\n- File operations (read, write, search)\n- Running commands\n- Exploring directories\n- General questions and conversations\n\nI'm here to assist you! What would you like to work on?"
+        }
+      ]
+    }
+  ],
+  "prunedMarkers": []
+}
