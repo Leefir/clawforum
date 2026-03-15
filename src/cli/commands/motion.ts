@@ -434,16 +434,19 @@ export async function daemonCommand(): Promise<void> {
   let motionStopped = false;
   const POLL_INTERVAL = 2000;
   
-  // SIGTERM 处理
-  process.on('SIGTERM', async () => {
-    console.log('[motion daemon] Received SIGTERM, shutting down...');
+  // 统一 shutdown 处理
+  const shutdown = async (signal: string) => {
+    console.log(`[motion daemon] Received ${signal}, shutting down...`);
     motionStopped = true;
     clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
     await writeMotionStatus(motionDir, 'stopped');
     await runtime.stop();
     process.exit(0);
-  });
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 
   // 确保 exit 时清理 intervals
   process.on('exit', () => {
