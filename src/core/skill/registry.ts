@@ -1,0 +1,163 @@
+/**
+ * SkillRegistry - 技能注册表
+ * 
+ * 采用渐进式披露：
+ * - 启动时只加载元信息（frontmatter）
+ * - 调用 skill 工具时才加载完整内容
+ */
+
+import type { IFileSystem } from '../../foundation/fs/types.js';
+import { ToolError } from '../../types/errors.js';
+
+export interface SkillMeta {
+  name: string;
+  description: string;
+  version: string;
+  skillDir: string;
+}
+
+interface ParsedFrontmatter {
+  name?: string;
+  description?: string;
+  version?: string;
+  [key: string]: unknown;
+}
+
+export class SkillRegistry {
+  private fs: IFileSystem;
+  private skillsDir: string;
+  private metaMap: Map<string, SkillMeta> = new Map();
+
+  constructor(fs: IFileSystem, skillsDir: string = 'skills') {
+    this.fs = fs;
+    this.skillsDir = skillsDir;
+  }
+
+  /**
+   * 扫描 skillsDir，加载所有技能元信息
+   */
+  async loadAll(): Promise<void> {
+    // 检查 skills 目录是否存在
+    const exists = await this.fs.exists(this.skillsDir);
+    if (!exists) {
+      return; // 空目录，不报错
+    }
+
+    // 列出 skills 目录下的子目录
+    const entries = await this.fs.list(this.skillsDir, { includeDirs: true });
+    
+    for (const entry of entries) {
+      if (!entry.isDirectory) continue;
+      
+      const skillDir = `${this.skillsDir}/${entry.name}`;
+      const skillMdPath = `${skillDir}/SKILL.md`;
+      
+      // 检查 SKILL.md 是否存在
+      const hasSkillMd = await this.fs.exists(skillMdPath);
+      if (!hasSkillMd) continue;
+
+      try {
+        await this.register(skillDir);
+      } catch {
+        // 单个技能加载失败不阻断整体
+        continue;
+      }
+    }
+  }
+
+  /**
+   * 手动注册单个技能
+   */
+  async register(skillDir: string): Promise<SkillMeta> {
+    const skillMdPath = `${skillDir}/SKILL.md`;
+    const content = await this.fs.read(skillMdPath);
+    
+    // 解析 frontmatter
+    const frontmatter = this.parseFrontmatter(content);
+    
+    // 从路径提取技能名（作为 fallback）
+    const dirName = skillDir.split('/').pop() || 'unknown';
+    
+    const meta: SkillMeta = {
+      name: frontmatter.name || dirName,
+      description: frontmatter.description || '',
+      version: frontmatter.version || '0.0.0',
+      skillDir,
+    };
+
+    this.metaMap.set(meta.name, meta);
+    return meta;
+  }
+
+  /**
+   * 获取元信息
+   */
+  getMeta(name: string): SkillMeta | undefined {
+    return this.metaMap.get(name);
+  }
+
+  /**
+   * 列出所有元信息
+   */
+  listMeta(): SkillMeta[] {
+    return Array.from(this.metaMap.values());
+  }
+
+  /**
+   * 加载完整 SKILL.md 内容
+   */
+  async loadFull(name: string): Promise<string> {
+    const meta = this.metaMap.get(name);
+    if (!meta) {
+      throw new ToolError(`Skill "${name}" not found`);
+    }
+
+    const skillMdPath = `${meta.skillDir}/SKILL.md`;
+    return await this.fs.read(skillMdPath);
+  }
+
+  /**
+   * 生成注入到上下文的元信息摘要
+   */
+  formatForContext(): string {
+    const metas = this.listMeta();
+    if (metas.length === 0) {
+      return '## Available Skills\nNo skills loaded.\n';
+    }
+
+    const lines = ['## Available Skills'];
+    for (const meta of metas) {
+      lines.push(`- ${meta.name}: ${meta.description || 'No description'}`);
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  /**
+   * 解析 frontmatter（简单正则实现，不依赖 gray-matter）
+   */
+  private parseFrontmatter(content: string): ParsedFrontmatter {
+    const result: ParsedFrontmatter = {};
+    
+    // 匹配 --- 开头的 frontmatter
+    const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!match) {
+      return result;
+    }
+
+    const frontmatterText = match[1];
+    const lines = frontmatterText.split('\n');
+
+    for (const line of lines) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex === -1) continue;
+
+      const key = line.slice(0, colonIndex).trim();
+      const value = line.slice(colonIndex + 1).trim();
+      
+      // 去除引号
+      result[key] = value.replace(/^["']|["']$/g, '');
+    }
+
+    return result;
+  }
+}
