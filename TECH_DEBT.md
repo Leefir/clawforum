@@ -4,6 +4,16 @@
 
 ### ~~1. ILLMService 空接口问题~~
 **位置**: `src/foundation/llm/index.ts`
+**修复**: 补全接口方法声明
+**提交**: `572a525` (Step 10)
+
+### ~~2. fs.list 路径语义问题~~
+**位置**: `src/foundation/fs/node-fs.ts`
+**问题**: `list()` 返回的 `entry.path` 相对于被列举目录而非 fs 根目录
+**修复**: 改为相对于 `this.options.baseDir`（fs 根目录）
+**提交**: 本轮 (Step 11)
+**影响**: 移除了 search 工具中的路径拼接 workaround
+**位置**: `src/foundation/llm/index.ts`
 **修复**: 补全接口方法声明，`LLMService implements ILLMService`
 **提交**: `c1f8e5b` (合并入 Step 10)
 

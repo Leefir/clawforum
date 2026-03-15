@@ -185,8 +185,9 @@ export class NodeFileSystem implements IFileSystem {
     }
     
     const entries: FileEntry[] = [];
+    const fsBaseDir = this.options.baseDir; // fs 根目录
     
-    async function scan(dir: string, baseDir: string): Promise<void> {
+    async function scan(dir: string, listedDir: string): Promise<void> {
       // Use simple readdir for listing
       const dirents = await fs.readdir(dir, { withFileTypes: true });
       const items = dirents.filter(item => {
@@ -198,14 +199,15 @@ export class NodeFileSystem implements IFileSystem {
       
       for (const item of items) {
         const fullPath = path.join(dir, item.name);
-        const relativeItemPath = path.relative(baseDir, fullPath);
+        // entry.path 应该相对于 fs 根目录，而非被列举目录
+        const relativeToFsRoot = path.relative(fsBaseDir, fullPath);
         
         if (item.isDirectory()) {
           if (options?.includeDirs) {
             const stats = await stat(fullPath);
             entries.push({
               name: item.name,
-              path: relativeItemPath,
+              path: relativeToFsRoot,
               isDirectory: true,
               isFile: false,
               size: 0,
@@ -214,13 +216,13 @@ export class NodeFileSystem implements IFileSystem {
           }
           
           if (options?.recursive) {
-            await scan(fullPath, baseDir);
+            await scan(fullPath, listedDir);
           }
         } else if (item.isFile()) {
           const stats = await stat(fullPath);
           entries.push({
             name: item.name,
-            path: relativeItemPath,
+            path: relativeToFsRoot,
             isDirectory: false,
             isFile: true,
             size: stats.size,

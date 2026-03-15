@@ -2,7 +2,6 @@
  * search tool - Search for text in files
  */
 
-import * as path from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
 export const searchTool: ITool = {
@@ -43,18 +42,15 @@ export const searchTool: ITool = {
       for (const entry of entries) {
         if (results.length >= maxResults) break;
 
-        // Construct full path relative to fs base
-        const fullPath = path.join(searchPath, entry.path);
-
         try {
-          const content = await ctx.fs.read(fullPath);
+          const content = await ctx.fs.read(entry.path);
           const lines = content.split('\n');
 
           for (let i = 0; i < lines.length; i++) {
             if (results.length >= maxResults) break;
 
             if (lines[i].toLowerCase().includes(query)) {
-              results.push(`${fullPath}:${i + 1}: ${lines[i].trim()}`);
+              results.push(`${entry.path}:${i + 1}: ${lines[i].trim()}`);
             }
           }
         } catch {

@@ -1,0 +1,89 @@
+/**
+ * OutboxWriter - Unified outbox message writing
+ * 
+ * Ensures consistent message format and file naming
+ */
+
+import * as path from 'path';
+import { randomUUID } from 'crypto';
+import type { IFileSystem } from '../../foundation/fs/types.js';
+import type { OutboxMessage, Priority } from '../../types/contract.js';
+
+/**
+ * Outbox writer options
+ */
+export interface OutboxWriteOptions {
+  type: 'response' | 'contract_update' | 'status_report';
+  to: string;
+  content: string;
+  contract_id?: string;
+}
+
+/**
+ * Outbox message writer
+ */
+export class OutboxWriter {
+  private outboxDir: string;
+
+  constructor(
+    private clawDir: string,
+    private fs: IFileSystem
+  ) {
+    this.outboxDir = path.join(clawDir, 'outbox', 'pending');
+  }
+
+  /**
+   * Write a message to outbox
+   * @returns Path to the written file
+   */
+  async write(options: OutboxWriteOptions): Promise<string> {
+    // Ensure directory exists
+    await this.fs.ensureDir(this.outboxDir);
+
+    // Generate message
+    const message: OutboxMessage = {
+      id: randomUUID(),
+      type: options.type,
+      from: path.basename(this.clawDir), // clawId from directory name
+      to: options.to,
+      content: options.content,
+      timestamp: new Date().toISOString(),
+
+      contract_id: options.contract_id,
+    };
+
+    // Generate filename: {timestamp}_{type}_{uuid}.md
+    const timestamp = Date.now();
+    const typeSlug = options.type.toUpperCase();
+    const filename = `${timestamp}_${typeSlug}_${message.id.slice(0, 8)}.md`;
+    const filePath = path.join(this.outboxDir, filename);
+
+    // Format content as markdown
+    const content = this.formatMessage(message);
+
+    // Write file
+    await this.fs.writeAtomic(filePath, content);
+
+    return filePath;
+  }
+
+  /**
+   * Format message as markdown
+   */
+  private formatMessage(msg: OutboxMessage): string {
+    const lines = [
+      `# ${msg.type.toUpperCase()}`,
+      '',
+      `**From:** ${msg.from}`,
+      `**To:** ${msg.to}`,
+      `**Time:** ${msg.timestamp}`,
+      msg.contract_id ? `**Contract:** ${msg.contract_id}` : null,
+      '',
+      '---',
+      '',
+      msg.content,
+    ];
+
+    return lines.filter(l => l !== null).join('\n');
+  }
+}
