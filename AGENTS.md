@@ -229,6 +229,53 @@ node dist/cli.js claw status test-claw  # 验证能读取状态
 
 **相关**: 参见 "3. Mock 测试的终极警示" —— 测试通过不代表功能可用，必须端到端验证。
 
+### 2.7.9 CLI 命令避免直接 process.exit（新增，Step 31.5 教训）
+
+**问题**: `claw.ts` 中散落着 11 处 `process.exit(1)`，导致：
+- 命令函数**不可测试**（测试框架随进程一起死亡）
+- **跳过清理逻辑**（`finally` 块不执行）
+- **无法捕获错误码**（调用者无法区分错误类型）
+
+**规则**: **命令函数应返回错误码或 throw Error，只在 CLI 入口统一处理 `process.exit`**
+
+**重构目标**:
+```typescript
+// ❌ 当前（不可测试）
+export async function listCommand(): Promise<void> {
+  try {
+    // ...
+  } catch (error) {
+    console.error('❌ Failed:', error);
+    process.exit(1);  // 杀死整个进程
+  }
+}
+
+// ✅ 目标（可测试）
+export async function listCommand(): Promise<number> {
+  try {
+    // ...
+    return 0;  // 成功
+  } catch (error) {
+    console.error('❌ Failed:', error);
+    return 1;  // 失败，但不退出
+  }
+}
+
+// CLI 入口统一处理
+.command('list')
+.action(async () => {
+  const exitCode = await listCommand();
+  process.exit(exitCode);
+});
+```
+
+**技术债务**: 当前项目中以下文件需要重构：
+- `src/cli/commands/claw.ts` - 8 处 `process.exit(1)`
+- `src/cli/commands/init.ts` - 2 处 `process.exit(1)`
+- `src/cli/commands/motion.ts` - 1 处 `process.exit(1)`
+
+**优先级**: 低（功能正常，影响可测试性）
+
 ### 2.7.1 测试编写预读规范（新增，Step 27 教训）
 
 **问题**: Step 27 测试补全轮需要 4 轮测试修复（全项目最多），23 个权限测试预期值写错 2 次，crash recovery 测试作用域错误 2 次
@@ -608,6 +655,7 @@ async function sendResult(result: TaskResult): Promise<void> {
 | ~~TaskSystem 投递失败~~ | ✅ **已修复** | 高 | Step 26 添加 inbox 回退 |
 | noUnusedLocals tsconfig | ⚠️ 未修复 | 低 | 延后 |
 | ToolExecutorImpl 接口不完整 | 🟡 已打补丁 | 低 | 当前通过 ToolExecutor 子类解决 |
+| CLI 命令直接 process.exit | 🟡 技术债务 | 低 | 影响可测试性，需统一返回 exit code |
 
 ## ✅ MVP 对齐完成 (2026-03-15)
 
