@@ -25,6 +25,9 @@ export type {
   IProviderAdapter,
 } from './types.js';
 
+// Import for interface definition
+import type { LLMResponse, LLMCallOptions, StreamChunk } from './types.js';
+
 // Implementation
 export { LLMService } from './service.js';
 export { AnthropicAdapter } from './anthropic.js';
@@ -32,11 +35,12 @@ export { AnthropicAdapter } from './anthropic.js';
 /**
  * ILLMService interface
  * 
- * Note: This is kept here for backward compatibility.
- * The LLMService class implements this interface structurally.
- * Import types from './types.js' for the full signature.
+ * Implemented by LLMService class.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ILLMService {
-  // Methods are defined in LLMService class
+  call(options: LLMCallOptions): Promise<LLMResponse>;
+  stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk>;
+  healthCheck(): Promise<boolean>;
+  getProviderInfo(): { name: string; model: string; isFallback: boolean };
+  close(): Promise<void>;
 }

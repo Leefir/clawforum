@@ -20,6 +20,7 @@ import type {
   IProviderAdapter,
   StreamChunk,
 } from './types.js';
+import type { ILLMService } from './index.js';
 import { AnthropicAdapter } from './anthropic.js';
 
 /**
@@ -41,7 +42,7 @@ function delay(ms: number): Promise<void> {
 /**
  * LLM Service implementation
  */
-export class LLMService {
+export class LLMService implements ILLMService {
   private primary: IProviderAdapter;
   private fallback?: IProviderAdapter;
   private config: LLMServiceConfig;

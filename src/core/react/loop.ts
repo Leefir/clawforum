@@ -11,7 +11,7 @@
  */
 
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse } from '../../types/message.js';
-import type { LLMService } from '../../foundation/llm/index.js';
+import type { ILLMService } from '../../foundation/llm/index.js';
 import type { IToolExecutor, ExecContext, ToolResult } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
 
@@ -26,7 +26,7 @@ export interface ReactOptions {
   systemPrompt: string;
   
   /** LLM service */
-  llm: LLMService;
+  llm: ILLMService;
   
   /** Tool executor */
   executor: IToolExecutor;
