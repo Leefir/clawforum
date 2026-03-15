@@ -117,7 +117,6 @@ export class AnthropicAdapter implements IProviderAdapter {
     }
     
     try {
-      console.log('[LLM body]', JSON.stringify(body, null, 2));
       const response = await fetch(`${this.baseUrl}/v1/messages`, {
         method: 'POST',
         headers: {
