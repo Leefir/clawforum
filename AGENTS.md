@@ -42,6 +42,17 @@ const fs = new NodeFileSystem(...);
 grep -r "new Xxx(" tests/ src/
 ```
 
+**补充：修改用户可见的输出字符串后，立即 grep 测试文件中的旧字符串**
+```bash
+# 示例：修改了 write 工具的输出格式
+# 从 "写入成功" 改为 "成功写入 xxx（N 字符）"
+# 必须同步更新测试断言：
+grep -r "写入成功" tests/
+# → tests/core/builtins.test.ts: expect(result.content).toContain('写入成功')
+# 修改为: expect(result.content).toContain('成功写入')
+```
+**历史教训**：Step 31.4 (claw list) 和 Step 32 (write tool) 两次因修改输出未更新测试而失败。
+
 ### 5. 测试必须覆盖真实用户路径
 
 新增 CLI 命令必须**实际执行一次**，不能仅验证 `--help`：

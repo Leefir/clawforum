@@ -1086,3 +1086,48 @@ await WriteFile('src/core/new/module.ts', content);
 **AnthropicAdapter 修复教训**:
 - 三轮修复，33次操作，根因是"else 全捕获"反模式
 - 新增规则: API 适配器永远用白名单，对称修复原则
+
+---
+
+## 📊 Phase 2 质量审查记录 (2026-03-15)
+
+### 审查发现的根本问题：hasActiveContract 决策反转
+
+**背景**: heartbeat.ts 中的崩溃自愈逻辑，对无契约 claw 是否应该自动重启？
+
+**两种"保守策略"解读**:
+| 策略 | 默认值 | 行为 | 风险 |
+|------|--------|------|------|
+| 保守可用性 | `hasActiveContract = true` | 不确定时就重启 | 不必要的重启可能干扰用户 |
+| 保守安全性 | `hasActiveContract = false` | 不确定时不重启 | 该重启的没重启，任务卡住 |
+
+**最终决策**: 采用保守安全性（MVP 对齐）
+```typescript
+// heartbeat.ts _handleCrash()
+// 设计决策：无契约目录时视为无契约，不自动重启
+// 原因：MVP 保守策略 — 未经授权的重启可能造成更大问题
+// 变更历史：最初默认 hasActiveContract=true，审查后改为 false
+```
+
+---
+
+### 修复统计
+
+| 类别 | 数量 | 文件 |
+|------|------|------|
+| P0 静默失败 | 2 | react/loop.ts, motion.ts |
+| MVP 对齐 | 1 | heartbeat.ts |
+| 设计缺口 | 1 | executor.ts (audit.log) |
+| 工具打磨 | 6 | read/write/ls/search/exec/status |
+| P1 静默失败 | 2 | inbox.ts, process/manager.ts |
+| **总计** | **12** | **14 个文件** |
+
+### 测试缺口（需补充）
+
+| 修复项 | 测试覆盖 | 优先级 |
+|--------|----------|--------|
+| react/loop.ts try-catch | ❌ 无 | 高 |
+| executor.ts audit.log | ❌ 无 | 中 |
+| write.ts 版本清理 | ❌ 无 | 中 |
+| ls.ts 100条限制 | ❌ 无 | 低 |
+
