@@ -53,6 +53,10 @@ export class ClawRuntime {
   private running = false;
 
   // Foundation
+  /**
+   * @protected 允许 MotionRuntime 等子类读取系统文件（SOUL.md, REVIEW.md 等）
+   * 注意：子类不应直接写入，保持运行时封装性
+   */
   protected systemFs!: NodeFileSystem;  // 系统组件使用（无权限检查）
   private clawFs!: NodeFileSystem;    // 工具使用（有权限检查）
   private monitor!: JsonlMonitor;
@@ -61,6 +65,10 @@ export class ClawRuntime {
 
   // Core
   private sessionManager!: SessionManager;
+  /**
+   * @protected 允许 MotionRuntime 等子类调用 buildParts() 自定义提示词注入顺序
+   * 注意：子类只读使用，不应修改 injector 状态
+   */
   protected contextInjector!: ContextInjector;
   private toolRegistry!: ToolRegistry;
   private taskSystem!: TaskSystem;
