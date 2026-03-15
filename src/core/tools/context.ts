@@ -14,6 +14,7 @@ import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { ExecContext, ToolPermissions } from './executor.js';
 import { PERMISSION_PRESETS } from './executor.js';
+import type { TaskSystem } from '../task/system.js';
 
 /**
  * Options for creating execution context
@@ -42,6 +43,9 @@ export interface ExecContextImplOptions {
   
   /** Optional abort signal */
   signal?: AbortSignal;
+  
+  /** Optional task system for spawn tool */
+  taskSystem?: TaskSystem;
 }
 
 /**
@@ -58,6 +62,7 @@ export class ExecContextImpl implements ExecContext {
   stepNumber: number;
   maxSteps: number;
   signal?: AbortSignal;
+  taskSystem?: TaskSystem;
   
   private startTime: number;
 
@@ -71,6 +76,7 @@ export class ExecContextImpl implements ExecContext {
     this.llm = options.llm;
     this.maxSteps = options.maxSteps ?? 100;
     this.signal = options.signal;
+    this.taskSystem = options.taskSystem;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

@@ -12,12 +12,14 @@ import type { ToolProfile } from '../../types/config.js';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
+import type { TaskSystem } from '../task/system.js';
 import {
   ToolNotFoundError,
   PermissionError,
   ToolTimeoutError,
   ToolInvalidInputError,
 } from '../../types/errors.js';
+import { ExecContextImpl } from './context.js';
 // Note: ToolRegistry type imported via IToolRegistry interface
 
 // ============================================================================
@@ -268,5 +270,62 @@ export class ToolExecutorImpl implements IToolExecutor {
     }
 
     return { valid: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
+  }
+}
+
+// ============================================================================
+// Phase 1+: Extended ToolExecutor with context factory
+// ============================================================================
+
+export interface ToolExecutorOptions {
+  registry: IToolRegistry;
+  clawDir: string;
+  fs: IFileSystem;
+  monitor?: IMonitor;
+  llm?: ILLMService;
+  taskSystem?: TaskSystem;
+  profile?: ToolProfile;
+}
+
+/**
+ * Extended ToolExecutor with context factory
+ * Use this for creating executable contexts
+ */
+export class ToolExecutor extends ToolExecutorImpl {
+  private clawDir: string;
+  private fs: IFileSystem;
+  private monitor?: IMonitor;
+  private llm?: ILLMService;
+  private taskSystem?: TaskSystem;
+  private profile: ToolProfile;
+
+  constructor(options: ToolExecutorOptions) {
+    super(options.registry);
+    this.clawDir = options.clawDir;
+    this.fs = options.fs;
+    this.monitor = options.monitor;
+    this.llm = options.llm;
+    this.taskSystem = options.taskSystem;
+    this.profile = options.profile ?? 'full';
+  }
+
+  /**
+   * Create an execution context
+   */
+  getExecContext(
+    profile: ToolProfile,
+    options: { clawId: string; dialogId?: string; maxSteps?: number; signal?: AbortSignal }
+  ): ExecContextImpl {
+    return new ExecContextImpl({
+      clawId: options.clawId,
+      clawDir: this.clawDir,
+      profile,
+      fs: this.fs,
+      monitor: this.monitor,
+      llm: this.llm,
+      maxSteps: options.maxSteps ?? 100,
+      signal: options.signal,
+      taskSystem: this.taskSystem,
+    });
   }
 }

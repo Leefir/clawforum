@@ -66,7 +66,7 @@ export class ToolRegistry {
   formatForLLM(tools: ITool[]): Array<{
     name: string;
     description: string;
-    input_schema: unknown;
+    input_schema: import('../../types/message.js').JSONSchema7;
   }> {
     return tools.map(tool => ({
       name: tool.name,

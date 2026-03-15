@@ -82,11 +82,17 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     // Increment step counter in context
     ctx.stepNumber = stepCount;
 
+    // Check abort signal before LLM call
+    if (ctx.signal?.aborted) {
+      throw new Error('Execution aborted');
+    }
+
     // Call LLM
     const response = await llm.call({
       messages,
       system: systemPrompt,
       maxTokens: 4096,
+      signal: ctx.signal,
     });
 
     // Handle tool_use stop reason
