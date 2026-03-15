@@ -1122,12 +1122,486 @@ await WriteFile('src/core/new/module.ts', content);
 | P1 静默失败 | 2 | inbox.ts, process/manager.ts |
 | **总计** | **12** | **14 个文件** |
 
-### 测试缺口（需补充）
+### Bug 修复记录（测试发现）
 
-| 修复项 | 测试覆盖 | 优先级 |
-|--------|----------|--------|
-| react/loop.ts try-catch | ❌ 无 | 高 |
-| executor.ts audit.log | ❌ 无 | 中 |
-| write.ts 版本清理 | ❌ 无 | 中 |
-| ls.ts 100条限制 | ❌ 无 | 低 |
+| Bug | 根因 | 影响 | 修复 |
+|-----|------|------|------|
+| write.ts 版本清理失效 | `e.path.startsWith()` 应使用 `e.name`，`fs.list()` 返回的路径包含父目录 | 版本无限累积 | 改为 `e.name` 过滤，数字时间戳排序 |
+
+### 教科书案例：宽松断言如何掩盖真实 Bug
+
+**事件时间线**:
+```
+Step 32.3: 补充版本清理测试 → 断言 <= 11（宽松）
+   ↓
+指出问题: "这可能掩盖了 bug"  
+   ↓
+Step 32.4: 改为精确断言 expect(count).toBe(10)
+   ↓
+测试失败: 实际是 14，期望是 10
+   ↓
+调查发现两个 Bug → 修复 → 通过
+```
+
+**两个 Bug 根因**:
+
+| Bug | 代码 | 分析 |
+|-----|------|------|
+| **过滤失效** | `e.path.startsWith(`${basename}.`)` | `path` 是完整路径 `clawspace/.versions/file.txt.123.bak`，永不为 `file.txt.` 开头，过滤结果恒为空 |
+| **排序错误** | `localeCompare` 字典序 | `"999" > "1000"` 导致删除错误版本 |
+
+**存活时间分析**:
+- 版本清理功能引入: Step 32 质量审查
+- Bug 发现: Step 32.4 补测试轮  
+- **存活时间: 1 轮**（vs 全项目平均 16.5 轮）
+
+**核心结论**: 
+> 测试的价值不在数量，而在于它们是否测试了真正重要的东西。
+> 一个精确的 `toBe(10)` 比一千个宽松的 `<= 11` 更有价值。
+
+**调查效率复盘**:
+
+| 实际路径 | 操作数 | 问题 |
+|---------|--------|------|
+| 猜测排序→测试→怀疑缓存→加日志→查接口→修复 | ~20 次 | 弯路：先修 localeCompare、怀疑缓存、外部测试脚本 |
+| **理想路径** | **~8 次** | **失败→加日志→看到 length=0→定位过滤问题→修复** |
+
+**教训**: 先加日志观察实际数据，再猜测根因 → 已固化为 AGENTS.md 第 8 条
+
+### 测试补充结果
+
+| 修复项 | 测试状态 | 备注 |
+|--------|----------|------|
+| react/loop.ts try-catch | ✅ 已补充 | executor 异常捕获测试 |
+| executor.ts audit.log | ✅ 已补充 | 4个测试覆盖成功/失败/截断/不阻塞 |
+| write.ts 版本清理 | ✅ 已补充 | 15次写入后保留10个版本验证 |
+| ls.ts 100条限制 | ✅ 已补充 | 分页指示器和条目限制测试 |
+| **新增测试总数** | **12** | 259 → 271 个测试 |
+
+
+---
+
+## 📊 Step 33: Watchdog 双路径崩溃感知
+
+### 设计概览
+
+**防御性深度（Defense in Depth）**：
+```
+快路径 (< 5s):   SIGTERM/SIGINT → notifyMotionExit() → 同步写 motion inbox
+慢路径 (≤ 60s):  SIGKILL/OOM → heartbeat 轮询 → 发现进程不存在 → 写 inbox
+```
+
+### 关键设计决策
+
+| 决策 | 实现 | 理由 |
+|------|------|------|
+| 信号处理器用同步 API | `mkdirSync` + `writeFileSync` | 进程即将退出，异步可能未完成 |
+| 5 分钟去重窗口 | `crashLastNotify: Map<string, number>` | 防止通知风暴 |
+| 统一消息格式 | 都写 motion inbox YAML | Motion 处理逻辑统一 |
+
+### 边界情况注释
+
+```typescript
+// heartbeat.ts _handleCrash()
+// 设计取舍：5分钟去重窗口可能导致快速循环崩溃只通知一次
+// Motion 应通过 heartbeat 的 stall 检测来发现持续崩溃的 claw
+```
+
+### 效率数据
+
+| 指标 | 数值 | 评价 |
+|------|------|------|
+| 操作次数 | ~18 次 | 高效 |
+| 失败次数 | 0 | 完美 |
+| 预读文件 | 3 次 | ✅ AGENTS.md #1 |
+| 新增测试 | +1 | 去重逻辑测试 |
+
+---
+
+
+
+---
+
+## 🚨 重大 Bug 记录：Motion 通知系统静默失效
+
+### 事件概述
+
+| 项目 | 详情 |
+|------|------|
+| **Bug** | heartbeat/daemon 写 `.md` YAML，InboxWatcher 只读 `.json` |
+| **影响** | Motion 崩溃/stall/outbox 通知**完全不工作** |
+| **引入** | Step 32 (heartbeat) + Step 33 (watchdog) |
+| **发现** | 本轮修复 motion inbox 格式不匹配 |
+| **存活时间** | ~2 轮 |
+| **测试状态** | 272 个测试全部通过 |
+
+### 为什么测试没发现？
+
+| 防线 | 状态 | 原因 |
+|------|------|------|
+| TypeScript 类型检查 | ❌ | `.md` 和 `.json` 都是 `string`，类型系统无法区分文件格式 |
+| 单元测试 | ❌ | 只验证"文件被写入"，不验证"文件被读取" |
+| 集成测试 | ❌ | 没有测试 `heartbeat → InboxWatcher` 完整链路 |
+| AGENTS.md #5 (执行验证) | ❌ | 没有端到端执行验证 |
+
+### 根本原因
+
+**跨模块接口不一致** — 写入端和读取端对"消息格式"的理解不同。
+
+```typescript
+// heartbeat.ts _writeInbox() — Step 32 实现
+const filename = `${timestamp}_heartbeat_${uuid8}.md`;  // ← 写 .md
+const content = `---\ntype: ${message.type}\n...`;      // ← YAML frontmatter
+
+// inbox.ts InboxWatcher — 之前已实现
+if (!event.path.endsWith('.json')) return;              // ← 只读 .json
+const message = JSON.parse(content);                    // ← JSON.parse
+```
+
+### 为什么 AGENTS.md #1 没预防？
+
+规范 #1 要求"集成前必读依赖接口"，但 Step 32/33 实现时**只读了类型定义**，**没读实现代码**。
+
+```typescript
+// 读了 InboxMessage 接口（类型层面匹配）
+interface InboxMessage { type: string; content: string; ... }
+
+// 但没读 InboxWatcher 的实现（格式层面不匹配）
+// - 期望: .json 文件 + JSON.parse()
+// - 实际: .md 文件 + YAML frontmatter
+```
+
+**新增检查清单**（已加入 AGENTS.md #1）：
+```typescript
+// 写入数据时，必须确认读取端的期望格式
+grep "\.json" src/core/communication/inbox.ts  // 确认文件扩展名
+grep "JSON.parse" src/core/communication/inbox.ts  // 确认解析方式
+```
+
+### 修复方案
+
+统一为 JSON + 对齐 `InboxMessage` 接口：
+
+| 方案 | 评价 |
+|------|------|
+| ❌ 让 InboxWatcher 也支持 `.md` | 增加复杂度，两种格式并存 |
+| ❌ 保持 `.md` 但改扩展名 | 格式不对齐，解析困难 |
+| ✅ **统一 JSON + 对齐 InboxMessage** | 一种格式，一种类型，零歧义 |
+
+### 影响面分析
+
+```
+存活时间: ~2 轮
+影响面: 100% (整个通知系统失效)
+修复成本: ~18 次操作 (零失败)
+
+如果到 Phase4 才发现:
+- 可能已基于失效通知系统构建更多功能
+- 修复成本: 50+ 次操作
+- 用户影响: 无法感知 claw 崩溃
+```
+
+### 与全项目报告的关联
+
+这是 **"177 个测试通过但核心功能不可用"** 的 Phase 3 翻版：
+
+| 项目 | Phase 1 | Phase 3 (本轮) |
+|------|---------|----------------|
+| 测试数 | 177 | 272 |
+| 问题 | dialog 系统失效 | Motion 通知系统失效 |
+| 根因 | 接口不匹配 | 文件格式不匹配 |
+| 测试覆盖 | ❌ 无集成测试 | ❌ 无集成测试 |
+
+**再次验证**:
+> 修复成本 ∝ 存活轮次 × 影响面
+> 本次: 2 轮 × 100% = 中等成本 (18 次操作)
+> 延迟发现: 10+ 轮 × 100% = 高成本 (50+ 次操作)
+
+### 一句话总结
+
+heartbeat 写 `.md`、InboxWatcher 读 `.json` —— 这个"文件格式不匹配"导致整个 Motion 通知系统**静默失效**，是 **"272 个测试通过但核心功能不可用"** 的典型案例。修复只需 18 次操作零失败，但它应该在 Step 32 写 `_writeInbox()` 时通过**预读 InboxWatcher 实现代码**来预防。
+
+
+
+---
+
+## 🚨 方向反转浪费记录：inbox 格式 .md vs .json
+
+### 事件时间线
+
+| 轮次 | 方向 | 改动 | 操作次数 | 结果 |
+|------|------|------|----------|------|
+| 上轮 | .md → .json | heartbeat/daemon 改为写 JSON 对齐 InboxWatcher | ~18 次 | 修复完成 |
+| 本轮 | .json → .md | InboxWatcher 改为读 .md 对齐 MVP | ~35 次 | 修复完成 |
+| **合计** | **互为相反** | **净效果 = 只改 inbox.ts 一处** | **~53 次** | **-** |
+
+### 理论最优路径
+
+如果一开始就确认 "MVP 要求 .md 格式"：
+```
+只修改 inbox.ts 添加 parseFrontmatter()
+预计操作: ~10 次
+实际花费: ~53 次
+浪费: 43 次操作 (430%)
+```
+
+### 根因分析
+
+**缺少"格式决策文档"**
+
+```typescript
+// 上一轮看到 InboxWatcher 读 .json → 假设 JSON 是标准
+// 本轮被告知 MVP 要求 .md → 反转
+
+// 如果 Step 32 实现时有文档明确写着:
+## 消息格式规范
+Inbox 消息格式：.md + YAML frontmatter
+- InboxWatcher 负责解析
+- 所有写入端必须遵循此格式
+// 两轮的反复就不会发生
+```
+
+### 新增规范
+
+**AGENTS.md #1 已补充**:
+```markdown
+跨模块数据格式冲突时，以设计文档/MVP规范为准，
+而非以"当前代码实际行为"为准
+```
+
+### 数据格式规范（新建）
+
+所有跨模块数据交换格式约定：
+
+| 数据类型 | 格式 | 定义位置 | 写入端 | 读取端 |
+|----------|------|----------|--------|--------|
+| Inbox 消息 | `.md` + YAML frontmatter | MVP Design Doc | heartbeat/daemon | InboxWatcher |
+| Outbox 消息 | `.json` | types/contract.ts | OutboxWriter | motion |
+| Contract | `.json` | types/contract.ts | motion | claw |
+| Heartbeat | `.json` | types/contract.ts | claw | motion |
+
+**关键字段别名兼容**（过渡期）:
+```yaml
+# inbox 消息支持别名
+from: xxx        # 标准
+source: xxx      # 兼容 heartbeat
+
+contract_id: xxx # 标准
+claw_id: xxx     # 兼容 heartbeat
+```
+
+### 教训
+
+在修改跨模块接口之前，必须确认 **"谁是接口的定义者"**。
+- ❌ 上一轮假设 InboxWatcher 是定义者（因为它是读取端）
+- ✅ 本轮确认 MVP 设计文档才是定义者
+
+**修复成本 ∝ 方向反转次数 × 影响文件数**
+本次：1 次反转 × 7 个文件 = 53 次操作（本可 10 次）
+
+---
+
+
+
+---
+
+## 📊 三轮合并分析：格式反转 + 架构变更
+
+### 时间线
+
+| 轮次 | 目标 | 操作数 | 结果 |
+|------|------|--------|------|
+| A | `.md` → `.json`（对齐 InboxWatcher） | ~18 | 已反转 |
+| B | `.json` → `.md`（对齐 MVP） | ~35 | 已保留 |
+| C | 事件驱动 → 批处理（processBatch） | ~18 | 已保留 |
+| **合计** | - | **~71** | - |
+
+### 理论最优路径
+
+如果一开始就明确 MVP 要求：
+```
+1. inbox.ts 支持 .md + YAML frontmatter     (~8 次)
+2. 添加 processBatch() 批处理方法          (~10 次)
+3. 替换轮询循环                            (~7 次)
+合计: ~25 次操作
+```
+
+**实际浪费: ~46 次操作 (71 - 25)**
+
+### 根因
+
+缺少**格式规范文档**导致轮 A 的无效工作，轮 B 的反转修复。
+
+### 新增技术债务
+
+| 问题 | 位置 | 影响 | 优先级 |
+|------|------|------|--------|
+| parseFrontmatter 代码重复（5 处） | inbox.ts, runtime.ts, local.ts, memory_search.ts, skill/registry.ts | 维护困难 | 中 |
+| processBatch 缺少单元测试 | runtime.test.ts | 核心逻辑未覆盖 | 已修复 ✅ |
+
+**parseFrontmatter 重复详情**:
+```typescript
+// 5 个独立实现做同样的事情：
+src/core/communication/inbox.ts      - function parseFrontmatter
+src/core/runtime.ts                  - function parseFrontmatterLocal
+src/foundation/transport/local.ts    - function parseFrontmatter
+src/core/tools/builtins/memory_search.ts - function parseFrontmatter
+src/core/skill/registry.ts           - private parseFrontmatter
+
+// 建议：提取到 src/utils/frontmatter.ts
+```
+
+### 教训总结
+
+**文档价值量化**:
+```
+有格式规范文档: ~25 次操作
+无格式规范文档: ~71 次操作
+额外成本: 184%
+```
+
+**关键规范**（已加入 AGENTS.md #1）:
+> 跨模块数据格式冲突时，以设计文档/MVP规范为准，而非以"当前代码实际行为"为准
+
+---
+
+
+
+---
+
+## 📁 目录布局规范（新增）
+
+### 核心原则
+
+**目录结构是跨模块契约，必须显式文档化。**
+
+### 标准布局
+
+```
+.clawforum/                    # workspaceRoot (通过 getWorkspaceRoot() 获取)
+├── motion/                    # getMotionDir() = workspaceRoot + '/motion'
+│   ├── AGENTS.md
+│   ├── SOUL.md
+│   ├── REVIEW.md
+│   ├── MEMORY.md
+│   ├── inbox/
+│   │   ├── pending/
+│   │   ├── done/
+│   │   └── failed/
+│   ├── dialog/
+│   └── ...
+│
+├── claws/                     # path.join(getMotionDir(), '..', 'claws')
+│   ├── claw1/                 # getClawDir('claw1')
+│   │   ├── inbox/
+│   │   ├── outbox/
+│   │   │   ├── pending/
+│   │   │   ├── done/
+│   │   │   └── failed/
+│   │   ├── dialog/
+│   │   ├── contract/
+│   │   └── ...
+│   ├── claw2/
+│   └── ...
+│
+└── config.yaml
+```
+
+### 关键关系
+
+| 函数 | 路径计算 | 说明 |
+|------|----------|------|
+| `getMotionDir()` | `workspaceRoot + '/motion'` | Motion 运行时目录 |
+| `getClawDir(id)` | `workspaceRoot + '/claws/' + id` | Claw 运行时目录 |
+| `clawsDir` | `path.dirname(motionDir) + '/claws'` | Motion 发现所有 claw |
+
+**关键假设（已文档化）**：
+- `motion/` 和 `claws/` 是 **兄弟目录**，不是父子关系
+- Motion 通过 `path.dirname(getMotionDir()) + '/claws'` 发现所有 claw
+
+### 反模式示例
+
+```typescript
+// ❌ 错误：假设 motion 在 claws 下
+const clawsDir = path.join(motionDir, '..', 'claws');
+// 结果: workspace/claws （正确，但依赖巧合）
+
+// ❌ 错误：假设 claws 在 motion 下
+const clawDir = path.join(motionDir, 'claws', 'claw1');
+// 结果: workspace/motion/claws/claw1 （错误）
+
+// ✅ 正确：使用显式函数
+const clawsDir = path.join(getMotionDir(), '..', 'claws');
+const clawDir = getClawDir('claw1');
+```
+
+### 测试沙箱规范
+
+```typescript
+// ✅ 正确：所有目录在 tempDir 内
+const workspaceDir = path.join(tempDir, 'workspace');
+const motionDir = path.join(workspaceDir, 'motion');
+const clawsDir = path.join(workspaceDir, 'claws');
+
+// ❌ 错误：路径逃逸出 tempDir
+const clawsDir = path.join(tempDir, '..', 'claws'); // /tmp/claws！
+```
+
+---
+
+
+
+---
+
+## 🏗️ 架构决策记录：共享常量提取
+
+### 决策：CLAW_SUBDIRS 放在哪里？
+
+**初始想法**：放在 `cli/config.ts`
+- 优点：CLI 代码 already import 这里
+- 缺点：`core/runtime.ts` 需要反向依赖 CLI 层 ❌
+
+**修正方案**：新建 `src/types/paths.ts`
+- 优点：共享层，无外部依赖，CLI 和 Core 都能安全引用
+- 缺点：多一个文件
+
+**决策**：选择修正方案 ✅
+
+### 依赖方向原则
+
+```
+✅ 正确方向：
+  types/ ←── 无依赖，纯定义
+    ↑
+  foundation/ ←── 可依赖 types/
+    ↑
+  core/ ←── 可依赖 foundation/, types/
+    ↑
+  cli/ ←── 可依赖所有下层
+
+❌ 错误方向：
+  core/ ──→ cli/ （核心层依赖 CLI 层）
+```
+
+### 实施
+
+```typescript
+// src/types/paths.ts - 单一真相源
+export const CLAW_SUBDIRS = [...] as const;
+
+// src/cli/config.ts - re-export 保持兼容
+export { CLAW_SUBDIRS } from '../types/paths.js';
+
+// src/core/runtime.ts - 直接引用共享层
+import { CLAW_SUBDIRS } from '../types/paths.js';
+```
+
+### 教训
+
+**架构问题越早发现成本越低**：
+- 写代码时发现：1 步思考 + 1 步修正
+- 代码评审时发现：可能需要重构多个调用点
+- 生产环境发现：breaking change
+
+---
 

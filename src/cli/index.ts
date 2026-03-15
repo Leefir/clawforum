@@ -25,6 +25,7 @@ import {
   stopCommand as motionStopCommand,
   daemonCommand as motionDaemonCommand,
 } from './commands/motion.js';
+import { contractCreateCommand } from './commands/contract.js';
 
 program
   .name('clawforum')
@@ -204,6 +205,26 @@ motionCmd
   .action(async () => {
     try {
       await motionDaemonCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// contract command group
+const contractCmd = program
+  .command('contract')
+  .description('Manage contracts');
+
+// contract create
+contractCmd
+  .command('create')
+  .description('Create a contract for a claw')
+  .requiredOption('--claw <id>', 'Target claw ID')
+  .requiredOption('--file <path>', 'Path to contract YAML file')
+  .action(async (opts: { claw: string; file: string }) => {
+    try {
+      await contractCreateCommand(opts.claw, opts.file);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

@@ -63,7 +63,8 @@ export interface Contract {
 
 export interface InboxMessage {
   id: string;
-  type: 'contract' | 'command' | 'message';
+  type: 'contract' | 'command' | 'message'
+      | 'crash_recovery' | 'stall_nudge' | 'outbox_notify' | 'crash_notification';
   from: string;        // Sender Claw/Motion ID
   to: string;          // Recipient Claw ID
   content: string;

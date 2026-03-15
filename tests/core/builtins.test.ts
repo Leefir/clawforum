@@ -161,8 +161,9 @@ describe('Builtin Tools', () => {
     it('should keep only last 10 versions when writing', async () => {
       await mockFs.ensureDir('clawspace');
       
-      // Write same file 12 times (creates 11 backups, first write has no backup)
-      for (let i = 0; i < 12; i++) {
+      // Write same file 15 times (creates 14 backups, first write has no backup)
+      // After cleanup, should keep exactly 10 most recent
+      for (let i = 0; i < 15; i++) {
         const result = await writeTool.execute({ 
           path: 'clawspace/versioned.txt', 
           content: `Content version ${i}` 
@@ -175,9 +176,8 @@ describe('Builtin Tools', () => {
       const versionFiles = await fs.readdir(versionsDir).catch(() => []);
       const relevantVersions = versionFiles.filter(f => f.startsWith('versioned.txt.'));
       
-      // First write doesn't create a backup, so 12 writes = 11 backups
-      // After cleanup, should keep 10 most recent
-      expect(relevantVersions.length).toBeLessThanOrEqual(11);
+      // Should be exactly 10 after cleanup (15 writes - 1 = 14 backups, keep last 10)
+      expect(relevantVersions.length).toBe(10);
     });
 
     it('should include byte count in success message', async () => {

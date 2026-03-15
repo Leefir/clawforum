@@ -26,6 +26,7 @@ import type { HeartbeatEntry } from '../../types/contract.js';
 import { writeAtomic } from '../fs/atomic.js';
 import { createWatcher } from '../fs/watcher.js';
 import type { Watcher } from '../fs/types.js';
+import { parseFrontmatter } from '../../utils/frontmatter.js';
 
 /**
  * Local transport configuration
@@ -44,6 +45,24 @@ const PRIORITY_VALUES: Record<string, number> = {
   normal: 2,
   low: 1,
 };
+
+/**
+ * Build YAML frontmatter content from InboxMessage
+ */
+function buildFrontmatterMessage(msg: InboxMessage): string {
+  return `---
+id: ${msg.id}
+type: ${msg.type}
+from: ${msg.from}
+to: ${msg.to}
+priority: ${msg.priority}
+timestamp: ${msg.timestamp}
+${msg.contract_id ? `contract_id: ${msg.contract_id}` : ''}
+---
+
+${msg.content}
+`;
+}
 
 /**
  * Local file system transport implementation
@@ -101,13 +120,13 @@ export class LocalTransport implements ITransport {
     const pendingDir = path.join(inboxDir, 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 
-    // Generate filename: {timestamp}_{priority}_{uuid}.json
+    // Generate filename: {timestamp}_{priority}_{uuid}.md (MVP aligned)
     const timestamp = Date.now();
     const priority = msg.priority ?? 'normal';
-    const filename = `${timestamp}_${priority}_${randomUUID().slice(0, 8)}.json`;
+    const filename = `${timestamp}_${priority}_${randomUUID().slice(0, 8)}.md`;
     const filePath = path.join(pendingDir, filename);
 
-    await writeAtomic(filePath, JSON.stringify(msg, null, 2));
+    await writeAtomic(filePath, buildFrontmatterMessage(msg));
   }
 
   /**
@@ -132,13 +151,23 @@ export class LocalTransport implements ITransport {
       const files = await fs.readdir(pendingDir);
 
       for (const file of files) {
-        if (!file.endsWith('.json')) continue;
+        if (!file.endsWith('.md')) continue;
 
         const filePath = path.join(pendingDir, file);
         const content = await fs.readFile(filePath, 'utf-8');
 
         try {
-          const msg: InboxMessage = JSON.parse(content);
+          const { meta, body } = parseFrontmatter(content);
+          const msg: InboxMessage = {
+            id: meta.id ?? randomUUID(),
+            type: (meta.type as InboxMessage['type']) ?? 'message',
+            from: meta.from ?? 'unknown',
+            to: meta.to ?? '',
+            content: body,
+            priority: (meta.priority as InboxMessage['priority']) ?? 'normal',
+            timestamp: meta.timestamp ?? new Date().toISOString(),
+            contract_id: meta.contract_id,
+          };
 
           // Filter by date
           if (options?.since && new Date(msg.timestamp) < options.since) {
@@ -196,14 +225,14 @@ export class LocalTransport implements ITransport {
     let found = false;
 
     for (const file of files) {
-      if (!file.endsWith('.json')) continue;
+      if (!file.endsWith('.md')) continue;
 
       const filePath = path.join(pendingDir, file);
       const content = await fs.readFile(filePath, 'utf-8');
 
       try {
-        const msg: InboxMessage = JSON.parse(content);
-        if (msg.id === messageId) {
+        const { meta } = parseFrontmatter(content);
+        if (meta.id === messageId) {
           // Move to done
           const donePath = path.join(doneDir, file);
           await fs.rename(filePath, donePath);
@@ -237,21 +266,23 @@ export class LocalTransport implements ITransport {
       const files = await fs.readdir(pendingDir);
 
       for (const file of files) {
-        if (!file.endsWith('.json')) continue;
+        if (!file.endsWith('.md')) continue;
 
         const filePath = path.join(pendingDir, file);
         const content = await fs.readFile(filePath, 'utf-8');
 
         try {
-          const msg: InboxMessage = JSON.parse(content);
+          const { meta } = parseFrontmatter(content);
           total++;
 
-          if (msg.priority === 'high' || msg.priority === 'critical') {
+          const priority = meta.priority as InboxMessage['priority'];
+          if (priority === 'high' || priority === 'critical') {
             highPriority++;
           }
 
-          if (!oldestMessage || msg.timestamp < oldestMessage) {
-            oldestMessage = msg.timestamp;
+          const timestamp = meta.timestamp;
+          if (timestamp && (!oldestMessage || timestamp < oldestMessage)) {
+            oldestMessage = timestamp;
           }
         } catch {
           continue;
@@ -285,10 +316,20 @@ export class LocalTransport implements ITransport {
     const watcher = createWatcher(
       pendingDir,
       async (event) => {
-        if (event.type === 'add' && event.path.endsWith('.json')) {
+        if (event.type === 'add' && event.path.endsWith('.md')) {
           try {
             const content = await fs.readFile(event.path, 'utf-8');
-            const msg: InboxMessage = JSON.parse(content);
+            const { meta, body } = parseFrontmatter(content);
+            const msg: InboxMessage = {
+              id: meta.id ?? randomUUID(),
+              type: (meta.type as InboxMessage['type']) ?? 'message',
+              from: meta.from ?? 'unknown',
+              to: meta.to ?? '',
+              content: body,
+              priority: (meta.priority as InboxMessage['priority']) ?? 'normal',
+              timestamp: meta.timestamp ?? new Date().toISOString(),
+              contract_id: meta.contract_id,
+            };
             callback(msg);
           } catch {
             // Skip invalid messages

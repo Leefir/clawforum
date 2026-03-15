@@ -6,7 +6,10 @@
  * AGENTS.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
  */
 
+import * as path from 'path';
+import { promises as fs } from 'fs';
 import { ClawRuntime, type ClawRuntimeOptions } from '../runtime.js';
+import type { Message } from '../../types/message.js';
 
 /**
  * MotionRuntime 选项（继承 ClawRuntimeOptions）
@@ -75,5 +78,105 @@ export class MotionRuntime extends ClawRuntime {
     }
 
     return sections.join('\n\n');
+  }
+
+  /**
+   * Motion 专用：批量处理 inbox + drain 所有 claw outbox
+   * @override
+   */
+  override async processBatch(): Promise<number> {
+    if (!this.initialized) await this.initialize();
+
+    const clawMessages = await this._drainClawOutboxes();
+    const { injected: ownInbox, count: inboxCount } = await this._drainOwnInbox();
+
+    if (clawMessages.length === 0 && inboxCount === 0) return 0;
+
+    const session = await this.sessionManager.load();
+    const messages: Message[] = [...session.messages];
+
+    // claw outbox 消息先注入（时间顺序）
+    for (const { clawId, body } of clawMessages) {
+      messages.push({ role: 'user', content: `[来自 claw ${clawId}]\n${body}` });
+    }
+    // 自身 inbox（heartbeat 通知等）后注入
+    messages.push(...ownInbox);
+
+    await this._runReact(messages);
+    return clawMessages.length + inboxCount;
+  }
+
+  /**
+   * 读取并 drain 所有 claw outbox/pending/*.md
+   * 返回 [{ clawId, body }]，失败文件移到 failed/
+   */
+  private async _drainClawOutboxes(): Promise<Array<{ clawId: string; body: string }>> {
+    const result: Array<{ clawId: string; body: string }> = [];
+    const clawsDir = path.join(path.dirname(this.options.clawDir), 'claws');
+
+    let clawIds: string[] = [];
+    try {
+      clawIds = await fs.readdir(clawsDir);
+    } catch {
+      return result;
+    }
+
+    for (const clawId of clawIds) {
+      if (clawId === 'motion') continue;
+      const clawPath = path.join(clawsDir, clawId);
+      
+      // 跳过非目录项
+      try {
+        const stat = await fs.stat(clawPath);
+        if (!stat.isDirectory()) continue;
+      } catch {
+        continue;
+      }
+
+      const pendingDir = path.join(clawPath, 'outbox', 'pending');
+      const doneDir = path.join(clawPath, 'outbox', 'done');
+      const failedDir = path.join(clawPath, 'outbox', 'failed');
+
+      // 读取待处理消息
+      let files: string[] = [];
+      try {
+        files = await fs.readdir(pendingDir);
+        files = files.filter(f => f.endsWith('.md'));
+      } catch {
+        continue; // outbox/pending 不存在或无法读取
+      }
+
+      if (files.length === 0) continue;
+
+      // 按文件名排序（时间顺序）
+      files.sort();
+
+      for (const name of files) {
+        const filePath = path.join(pendingDir, name);
+        try {
+          const content = await fs.readFile(filePath, 'utf-8');
+          // outbox 文件无 frontmatter，body = 全文
+          result.push({ clawId, body: content });
+
+          // 移入 done/
+          try {
+            await fs.mkdir(doneDir, { recursive: true });
+            await fs.rename(filePath, path.join(doneDir, `${Date.now()}_${name}`));
+          } catch {
+            // 移动失败不阻止处理
+          }
+        } catch {
+          // 读失败，移入 failed/
+          try {
+            await fs.mkdir(failedDir, { recursive: true });
+            await fs.rename(filePath, path.join(failedDir, `${Date.now()}_${name}`));
+          } catch {
+            // 移动失败忽略
+          }
+        }
+      }
+    }
+
+    return result;
   }
 }

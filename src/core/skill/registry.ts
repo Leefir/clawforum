@@ -8,19 +8,13 @@
 
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import { ToolError } from '../../types/errors.js';
+import { parseFrontmatter } from '../../utils/frontmatter.js';
 
 export interface SkillMeta {
   name: string;
   description: string;
   version: string;
   skillDir: string;
-}
-
-interface ParsedFrontmatter {
-  name?: string;
-  description?: string;
-  version?: string;
-  [key: string]: unknown;
 }
 
 export class SkillRegistry {
@@ -73,7 +67,7 @@ export class SkillRegistry {
     const content = await this.fs.read(skillMdPath);
     
     // 解析 frontmatter
-    const frontmatter = this.parseFrontmatter(content);
+    const { meta: frontmatter } = parseFrontmatter(content);
     
     // 从路径提取技能名（作为 fallback）
     const dirName = skillDir.split('/').pop() || 'unknown';
@@ -132,32 +126,4 @@ export class SkillRegistry {
     return lines.join('\n') + '\n';
   }
 
-  /**
-   * 解析 frontmatter（简单正则实现，不依赖 gray-matter）
-   */
-  private parseFrontmatter(content: string): ParsedFrontmatter {
-    const result: ParsedFrontmatter = {};
-    
-    // 匹配 --- 开头的 frontmatter
-    const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
-    if (!match) {
-      return result;
-    }
-
-    const frontmatterText = match[1];
-    const lines = frontmatterText.split('\n');
-
-    for (const line of lines) {
-      const colonIndex = line.indexOf(':');
-      if (colonIndex === -1) continue;
-
-      const key = line.slice(0, colonIndex).trim();
-      const value = line.slice(colonIndex + 1).trim();
-      
-      // 去除引号
-      result[key] = value.replace(/^["']|["']$/g, '');
-    }
-
-    return result;
-  }
 }

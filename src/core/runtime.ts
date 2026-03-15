@@ -7,12 +7,14 @@
  */
 
 import * as path from 'path';
+import { promises as fs } from 'fs';
 import type { LLMServiceConfig } from '../foundation/llm/types.js';
 import type { ToolProfile } from '../types/config.js';
 import type { Message } from '../types/message.js';
-import type { InboxMessage } from '../types/contract.js';
+import type { InboxMessage, Priority } from '../types/contract.js';
 import type { OutboxWriteOptions } from './communication/outbox.js';
 import type { SessionData } from './dialog/types.js';
+import { parseFrontmatter } from '../utils/frontmatter.js';
 
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { LLMService } from '../foundation/llm/service.js';
@@ -31,6 +33,7 @@ import { OutboxWriter } from './communication/outbox.js';
 import { TaskSystem } from './task/system.js';
 import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
+import { CLAW_SUBDIRS } from '../types/paths.js';
 
 /**
  * ClawRuntime 构造选项
@@ -48,8 +51,8 @@ export interface ClawRuntimeOptions {
  * ClawRuntime - 完整的 Claw 运行时实例
  */
 export class ClawRuntime {
-  private options: ClawRuntimeOptions;
-  private initialized = false;
+  protected options: ClawRuntimeOptions;
+  protected initialized = false;
   private running = false;
 
   // Foundation
@@ -60,22 +63,22 @@ export class ClawRuntime {
   protected systemFs!: NodeFileSystem;  // 系统组件使用（无权限检查）
   private clawFs!: NodeFileSystem;    // 工具使用（有权限检查）
   private monitor!: JsonlMonitor;
-  private llm!: LLMService;
+  protected llm!: LLMService;
   private transport!: LocalTransport;
 
   // Core
-  private sessionManager!: SessionManager;
+  protected sessionManager!: SessionManager;
   /**
    * @protected 允许 MotionRuntime 等子类调用 buildParts() 自定义提示词注入顺序
    * 注意：子类只读使用，不应修改 injector 状态
    */
   protected contextInjector!: ContextInjector;
-  private toolRegistry!: ToolRegistry;
+  protected toolRegistry!: ToolRegistry;
   private taskSystem!: TaskSystem;
   private skillRegistry!: SkillRegistry;
   private contractManager!: ContractManager;
-  private execContext!: ExecContextImpl;
-  private toolExecutor!: ToolExecutorImpl;
+  protected execContext!: ExecContextImpl;
+  protected toolExecutor!: ToolExecutorImpl;
   private inboxWatcher!: InboxWatcher;
   private outboxWriter!: OutboxWriter;
 
@@ -207,6 +210,131 @@ export class ClawRuntime {
   }
 
   /**
+   * MVP 对齐：恢复暂停的契约（抽取自 start()）
+   */
+  async resumeContractIfPaused(): Promise<void> {
+    const active = await this.contractManager.loadActive();
+    if (active && active.status === 'paused') {
+      await this.contractManager.resume(active.id);
+    }
+  }
+
+  /**
+   * 读取并 drain 自身 inbox/pending/*.md
+   * 已 rename 到 done/（LLM 调用前），返回注入消息
+   * @protected 供子类 MotionRuntime 复用
+   */
+  protected async _drainOwnInbox(): Promise<{ injected: Message[]; count: number }> {
+    const inboxDir = path.join(this.options.clawDir, 'inbox');
+    const pendingDir = path.join(inboxDir, 'pending');
+    const doneDir = path.join(inboxDir, 'done');
+
+    // 读取所有待处理消息
+    let files: string[] = [];
+    try {
+      files = await fs.readdir(pendingDir);
+      files = files.filter(f => f.endsWith('.md'));
+    } catch {
+      return { injected: [], count: 0 };
+    }
+
+    if (files.length === 0) return { injected: [], count: 0 };
+
+    // 按 priority + filename 排序
+    const PRIORITY_ORDER: Record<string, number> = {
+      critical: 0,
+      high: 1,
+      normal: 2,
+      low: 3,
+    };
+
+    const fileInfos: Array<{ name: string; priority: number; content: string; meta: Record<string, string>; body: string }> = [];
+    for (const name of files) {
+      try {
+        const content = await fs.readFile(path.join(pendingDir, name), 'utf-8');
+        const { meta, body } = parseFrontmatter(content);
+        const priority = PRIORITY_ORDER[meta.priority] ?? 3;
+        fileInfos.push({ name, priority, content, meta, body });
+      } catch {
+        // Skip invalid files
+      }
+    }
+
+    // 排序：priority 升序，然后 filename 升序
+    fileInfos.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.name.localeCompare(b.name);
+    });
+
+    // 移入 done/（在 LLM 调用前，MVP 行为）
+    for (const info of fileInfos) {
+      try {
+        await fs.rename(
+          path.join(pendingDir, info.name),
+          path.join(doneDir, `${Date.now()}_${info.name}`)
+        );
+      } catch {
+        // Continue even if move fails
+      }
+    }
+
+    // 构建消息注入
+    const injected: Message[] = [];
+    for (const info of fileInfos) {
+      const from = info.meta.from ?? info.meta.source ?? 'unknown';
+      injected.push({
+        role: 'user',
+        content: `[inbox 消息 from ${from}]\n${info.body}`,
+      });
+    }
+
+    return { injected, count: fileInfos.length };
+  }
+
+  /**
+   * 在给定 messages 上执行 LLM react 循环并保存 session
+   * @protected 供子类 MotionRuntime 复用
+   */
+  protected async _runReact(messages: Message[]): Promise<void> {
+    const tools = this.toolRegistry.formatForLLM(
+      this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+    );
+    const systemPrompt = await this.buildSystemPrompt();
+    await runReact({
+      messages,
+      systemPrompt,
+      llm: this.llm,
+      executor: this.toolExecutor,
+      ctx: this.execContext,
+      tools,
+      maxSteps: this.options.maxSteps,
+      onStepComplete: async () => {
+        await this.sessionManager.save(messages);
+      },
+    });
+    await this.sessionManager.save(messages);
+  }
+
+  /**
+   * MVP 对齐：批量处理 inbox 消息（批处理轮询代替事件驱动）
+   * @returns 注入的消息数（0 = 无待处理）
+   */
+  async processBatch(): Promise<number> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const { injected, count } = await this._drainOwnInbox();
+    if (count === 0) return 0;
+
+    const session = await this.sessionManager.load();
+    const messages = [...session.messages, ...injected];
+    await this._runReact(messages);
+
+    return count;
+  }
+
+  /**
    * 交互式对话（CLI 使用）
    */
   async chat(
@@ -323,27 +451,10 @@ export class ClawRuntime {
   // ============================================================================
 
   private async ensureDirectories(clawDir: string): Promise<void> {
-    const dirs = [
-      'dialog',
-      'dialog/archive',
-      'inbox/pending',
-      'inbox/done',
-      'inbox/failed',
-      'outbox/pending',
-      'tasks/pending',
-      'tasks/running',
-      'tasks/done',
-      'tasks/results',
-      'memory',
-      'contract',
-      'skills',
-      'clawspace',
-      'logs',
-    ];
-
+    // 使用共享常量（与 createCommand 保持一致）
     // 使用 Node fs 直接创建目录（因为 NodeFileSystem 还未初始化）
     const { promises: nodeFs } = await import('fs');
-    for (const dir of dirs) {
+    for (const dir of CLAW_SUBDIRS) {
       await nodeFs.mkdir(path.join(clawDir, dir), { recursive: true });
     }
   }

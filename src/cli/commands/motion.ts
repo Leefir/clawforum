@@ -440,9 +440,9 @@ export async function daemonCommand(): Promise<void> {
     toolProfile: 'full',
   });
   
-  // 初始化并启动
+  // MVP 对齐：初始化 + 恢复契约（替代 start() 的 InboxWatcher）
   await runtime.initialize();
-  await runtime.start();
+  await runtime.resumeContractIfPaused();
   
   // 创建 Heartbeat
   const baseDir = path.join(motionDir, '..');
@@ -471,9 +471,14 @@ export async function daemonCommand(): Promise<void> {
     }
   }, 5000);
   
+  // MVP 对齐：轮询循环（批处理代替事件驱动）
+  let motionStopped = false;
+  const POLL_INTERVAL = 2000;
+  
   // SIGTERM 处理
   process.on('SIGTERM', async () => {
     console.log('[motion daemon] Received SIGTERM, shutting down...');
+    motionStopped = true;
     clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
     await writeMotionStatus(motionDir, 'stopped');
@@ -483,5 +488,23 @@ export async function daemonCommand(): Promise<void> {
   
   // 保持进程运行
   console.log('[motion daemon] Started');
-  await new Promise(() => {});
+  
+  // MVP 对齐：批处理轮询循环
+  while (!motionStopped) {
+    try {
+      const injected = await runtime.processBatch();
+      if (injected > 0) {
+        // 链式反应：处理到无积压为止
+        let more = injected;
+        while (more > 0 && !motionStopped) {
+          more = await runtime.processBatch();
+        }
+      } else {
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      }
+    } catch (err) {
+      console.error('[motion daemon] processBatch error:', err);
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+    }
+  }
 }

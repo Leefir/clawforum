@@ -6,10 +6,42 @@
  */
 
 import * as path from 'path';
+import * as fsNative from 'fs';
+import { randomUUID } from 'crypto';
 import { ClawRuntime } from '../../core/runtime.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir } from '../config.js';
+import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
+
+/**
+ * 通知 motion claw 已退出（best-effort 同步写 .md YAML）
+ * 在 process.exit 前调用，确保消息写入 motion inbox
+ */
+function notifyMotionExit(clawId: string, reason: string): void {
+  try {
+    const motionInbox = path.join(getMotionDir(), 'inbox', 'pending');
+    fsNative.mkdirSync(motionInbox, { recursive: true });
+    const now = new Date();
+    const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+    const uuid8 = randomUUID().slice(0, 8);
+    
+    // YAML frontmatter 格式（MVP 对齐）
+    const content = `---
+id: crash-${now.getTime()}-${clawId}
+type: crash_notification
+source: claw_daemon
+priority: high
+timestamp: ${now.toISOString()}
+claw_id: ${clawId}
+---
+
+Claw "${clawId}" exited (${reason}).
+`;
+    fsNative.writeFileSync(path.join(motionInbox, `${ts}_crash_${uuid8}.md`), content);
+  } catch {
+    // best-effort，忽略写失败
+  }
+}
 
 /**
  * 写 STATUS.md
@@ -72,8 +104,37 @@ export async function daemonCommand(name: string): Promise<void> {
   // 创建 fs 实例用于写 STATUS.md
   const fs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
 
-  // 启动 runtime（这会启动 InboxWatcher）
-  await runtime.start();
+  // MVP 对齐：初始化 + 恢复契约（替代 start() 的 InboxWatcher）
+  await runtime.initialize();
+  await runtime.resumeContractIfPaused();
+
+  // 启动时检查：若有 running 契约但 inbox 为空，写启动消息触发执行
+  try {
+    const inboxPending = path.join(clawDir, 'inbox', 'pending');
+    const contractDir = path.join(clawDir, 'contract');
+    const inboxEmpty = !fsNative.existsSync(inboxPending) ||
+      fsNative.readdirSync(inboxPending).filter(f => f.endsWith('.md')).length === 0;
+    if (inboxEmpty && fsNative.existsSync(contractDir)) {
+      const entries = fsNative.readdirSync(contractDir, { withFileTypes: true });
+      const hasRunning = entries.some(e => {
+        if (!e.isDirectory()) return false;
+        try {
+          const p = JSON.parse(fsNative.readFileSync(path.join(contractDir, e.name, 'progress.json'), 'utf-8'));
+          return p.status === 'running';
+        } catch { return false; }
+      });
+      if (hasRunning) {
+        fsNative.mkdirSync(inboxPending, { recursive: true });
+        const now = new Date();
+        const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+        const uuid8 = randomUUID().slice(0, 8);
+        const content = `---\nid: startup-${now.getTime()}\ntype: message\nsource: system\npriority: high\ntimestamp: ${now.toISOString()}\n---\n\n系统启动。请检查活跃契约并继续执行。\n`;
+        fsNative.writeFileSync(path.join(inboxPending, `${ts}_startup_${uuid8}.md`), content);
+      }
+    }
+  } catch {
+    // best-effort
+  }
 
   // 立即写一次 STATUS.md
   await writeStatus(runtime, clawDir, fs);
@@ -87,31 +148,53 @@ export async function daemonCommand(name: string): Promise<void> {
     }
   }, 30_000);
 
+  // MVP 对齐：轮询循环（批处理代替事件驱动）
+  const POLL_INTERVAL = 2000;
+  let stopped = false;
+
   // 处理 SIGTERM - 优雅关闭
   process.on('SIGTERM', async () => {
+    stopped = true;
     clearInterval(statusInterval);
     try {
       await runtime.stop();
     } catch {
       // 忽略停止错误
     }
+    notifyMotionExit(name, 'SIGTERM');
     process.exit(0);
   });
 
   // 处理 SIGINT (Ctrl+C) - 同样优雅关闭
   process.on('SIGINT', async () => {
+    stopped = true;
     clearInterval(statusInterval);
     try {
       await runtime.stop();
     } catch {
       // 忽略停止错误
     }
+    notifyMotionExit(name, 'SIGINT');
     process.exit(0);
   });
 
-  // 守护进程保持运行
-  // 使用一个永远不会 resolve 的 promise 来保持进程
-  await new Promise(() => {
-    // 进程由信号处理器控制退出
-  });
+  // MVP 对齐：批处理轮询循环（替代事件驱动）
+  while (!stopped) {
+    try {
+      const injected = await runtime.processBatch();
+      if (injected > 0) {
+        // 链式反应：处理到无积压为止
+        let more = injected;
+        while (more > 0 && !stopped) {
+          more = await runtime.processBatch();
+        }
+        await writeStatus(runtime, clawDir, fs);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      }
+    } catch (err) {
+      console.error('[daemon] processBatch error:', err);
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+    }
+  }
 }

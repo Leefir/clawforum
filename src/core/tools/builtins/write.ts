@@ -49,15 +49,22 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<v
     
     await fs.writeAtomic(versionPath, content);
     
-    // Cleanup old versions (keep last 10) - Design doc: TODO was never implemented
+    // Cleanup old versions (keep last 10)
     try {
       const entries = await fs.list(versionsDir, { includeDirs: false });
       const versionFiles = entries
-        .filter(e => e.path.startsWith(`${basename}.`) && e.path.endsWith('.bak'))
-        .sort((a, b) => b.path.localeCompare(a.path)); // Newest first
+        .filter(e => e.name.startsWith(`${basename}.`) && e.name.endsWith('.bak'))
+        .sort((a, b) => {
+          // Extract timestamps and sort numerically (not lexically)
+          const getTs = (name: string) => {
+            const match = name.match(/\.(\d+)\.bak$/);
+            return match ? parseInt(match[1], 10) : 0;
+          };
+          return getTs(b.name) - getTs(a.name); // Newest first
+        });
       
       for (let i = 10; i < versionFiles.length; i++) {
-        await fs.delete(path.join(versionsDir, versionFiles[i].path));
+        await fs.delete(versionFiles[i].path);
       }
     } catch {
       // Ignore cleanup errors

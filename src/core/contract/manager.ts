@@ -5,19 +5,27 @@
  */
 
 import * as yaml from 'js-yaml';
+import { randomUUID } from 'crypto';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { Contract, SubTask, ContractStatus } from '../../types/contract.js';
 import { ToolError } from '../../types/errors.js';
 import { execSync } from 'child_process';
 
-// YAML 契约文件结构
-interface ContractYaml {
-  schema_version: number;
-  id: string;
+// 契约默认值常量
+const CONTRACT_DEFAULTS = {
+  schema_version: 1,
+  auth_level: 'auto' as const,
+  deliverables: [] as string[],
+};
+
+// YAML 契约文件结构（导出供 CLI 使用）
+export interface ContractYaml {
+  schema_version?: number;
+  id?: string;
   title: string;
   goal: string;
-  deliverables: string[];
+  deliverables?: string[];
   subtasks: Array<{
     id: string;
     description: string;
@@ -27,7 +35,7 @@ interface ContractYaml {
     type: 'script' | 'llm';
     command?: string;
   }>;
-  auth_level: 'auto' | 'notify' | 'confirm';
+  auth_level?: 'auto' | 'notify' | 'confirm';
 }
 
 // 进度数据结构
@@ -99,6 +107,46 @@ export class ContractManager {
     }
 
     return null;
+  }
+
+  /**
+   * 创建新契约
+   */
+  async create(contractYaml: ContractYaml): Promise<string> {
+    const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
+
+    await this.fs.ensureDir(`contract/${contractId}`);
+
+    // 写 contract.yaml（填充默认值，id 写入确保一致）
+    const content = yaml.dump({
+      schema_version: contractYaml.schema_version ?? CONTRACT_DEFAULTS.schema_version,
+      id: contractId,
+      title: contractYaml.title,
+      goal: contractYaml.goal,
+      deliverables: contractYaml.deliverables ?? CONTRACT_DEFAULTS.deliverables,
+      subtasks: contractYaml.subtasks,
+      acceptance: contractYaml.acceptance ?? [],
+      auth_level: contractYaml.auth_level ?? CONTRACT_DEFAULTS.auth_level,
+    });
+    await this.fs.writeAtomic(`contract/${contractId}/contract.yaml`, content);
+
+    // 写初始 progress.json
+    const progress: ProgressData = {
+      contract_id: contractId,
+      status: 'running',
+      subtasks: Object.fromEntries(
+        contractYaml.subtasks.map(st => [st.id, { status: 'pending' }])
+      ),
+      started_at: new Date().toISOString(),
+      checkpoint: null,
+    };
+    await this.fs.writeAtomic(
+      `contract/${contractId}/progress.json`,
+      JSON.stringify(progress, null, 2)
+    );
+
+    this.monitor?.log('contract_created', { contractId });
+    return contractId;
   }
 
   /**
@@ -208,6 +256,22 @@ export class ContractManager {
   }
 
   /**
+   * 取消契约
+   */
+  async cancel(contractId: string, reason: string): Promise<void> {
+    const progress = await this.getProgress(contractId);
+    progress.status = 'cancelled';
+    progress.checkpoint = `cancelled: ${reason}`;
+    await this.saveProgress(contractId, progress);
+
+    this.monitor?.log('contract_updated', {
+      contractId,
+      status: 'cancelled',
+      reason,
+    });
+  }
+
+  /**
    * 检查所有子任务是否完成
    */
   async isComplete(contractId: string): Promise<boolean> {
@@ -234,16 +298,16 @@ export class ContractManager {
     const yamlContract = await this.loadContractYaml(contractId);
     const progress = await this.getProgress(contractId);
 
-    // 将 YAML 格式转换为 Contract 接口
+    // 将 YAML 格式转换为 Contract 接口（使用统一默认值）
     return {
-      id: yamlContract.id,
+      id: yamlContract.id ?? contractId,
       title: yamlContract.title,
       description: yamlContract.goal,
       status: progress.status,
       priority: 'normal',
       creator: 'system',
       goal: yamlContract.goal,
-      deliverables: yamlContract.deliverables,
+      deliverables: yamlContract.deliverables ?? CONTRACT_DEFAULTS.deliverables,
       subtasks: yamlContract.subtasks.map(st => ({
         id: st.id,
         description: st.description,
@@ -251,7 +315,7 @@ export class ContractManager {
         created_at: progress.started_at || new Date().toISOString(),
         updated_at: progress.subtasks[st.id]?.completed_at || new Date().toISOString(),
       })),
-      auth_level: yamlContract.auth_level,
+      auth_level: yamlContract.auth_level ?? CONTRACT_DEFAULTS.auth_level,
       created_at: progress.started_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

@@ -27,6 +27,24 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
   }
 }
 
+/**
+ * Build YAML frontmatter message for testing (MVP aligned)
+ */
+function buildMdMessage(msg: InboxMessage): string {
+  return `---
+id: ${msg.id}
+type: ${msg.type}
+from: ${msg.from}
+to: ${msg.to}
+priority: ${msg.priority}
+timestamp: ${msg.timestamp}
+${msg.contract_id ? `contract_id: ${msg.contract_id}` : ''}
+---
+
+${msg.content}
+`;
+}
+
 describe('Communication', () => {
   describe('InboxWatcher', () => {
     let tempDir: string;
@@ -57,7 +75,7 @@ describe('Communication', () => {
         priority: 'normal',
         timestamp: new Date().toISOString(),
       };
-      await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
+      await mockFs.writeAtomic('inbox/pending/test.md', buildMdMessage(msg));
 
       const messages: InboxMessage[] = [];
       await watcher.start(async (m) => {
@@ -81,7 +99,7 @@ describe('Communication', () => {
         priority: 'normal',
         timestamp: new Date().toISOString(),
       };
-      await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
+      await mockFs.writeAtomic('inbox/pending/test.md', buildMdMessage(msg));
 
       await watcher.start(async () => {});
       await new Promise(r => setTimeout(r, 200));
@@ -110,8 +128,8 @@ describe('Communication', () => {
         priority: 'normal',
         timestamp: new Date().toISOString(),
       };
-      await mockFs.writeAtomic('inbox/pending/1.json', JSON.stringify(msg1));
-      await mockFs.writeAtomic('inbox/pending/2.json', JSON.stringify(msg2));
+      await mockFs.writeAtomic('inbox/pending/1.md', buildMdMessage(msg1));
+      await mockFs.writeAtomic('inbox/pending/2.md', buildMdMessage(msg2));
 
       const processed: string[] = [];
       await watcher.start(async (m) => {
@@ -153,8 +171,8 @@ describe('Communication', () => {
       };
 
       // Write normal first, then critical
-      await mockFs.writeAtomic('inbox/pending/normal.json', JSON.stringify(normalMsg));
-      await mockFs.writeAtomic('inbox/pending/critical.json', JSON.stringify(criticalMsg));
+      await mockFs.writeAtomic('inbox/pending/normal.md', buildMdMessage(normalMsg));
+      await mockFs.writeAtomic('inbox/pending/critical.md', buildMdMessage(criticalMsg));
 
       const order: string[] = [];
       await watcher.start(async (m) => {
@@ -179,7 +197,7 @@ describe('Communication', () => {
         priority: 'normal',
         timestamp: new Date().toISOString(),
       };
-      await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
+      await mockFs.writeAtomic('inbox/pending/test.md', buildMdMessage(msg));
 
       // Queue length should be 1 before starting
       expect(await watcher.queueLength()).toBe(1);
@@ -202,7 +220,7 @@ describe('Communication', () => {
         priority: 'normal',
         timestamp: new Date().toISOString(),
       };
-      await mockFs.writeAtomic('inbox/pending/test.json', JSON.stringify(msg));
+      await mockFs.writeAtomic('inbox/pending/test.md', buildMdMessage(msg));
 
       let processCount = 0;
       const processedIds: string[] = [];

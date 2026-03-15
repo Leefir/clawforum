@@ -96,12 +96,15 @@ describe('Heartbeat', () => {
 
   describe('handleCrash', () => {
     it('should write motion inbox on crash detection', () => {
-      // 创建一个 claw 目录（但没有运行），有契约
+      // 创建一个 claw 目录（但没有运行），有活跃契约
       const clawDir = path.join(tempDir, 'claws', 'test-claw');
       fs.mkdirSync(clawDir, { recursive: true });
       fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'contract'), { recursive: true });
-      fs.writeFileSync(path.join(clawDir, 'contract', 'active.json'), '{}');
+      fs.mkdirSync(path.join(clawDir, 'contract', 'abc-123'), { recursive: true });
+      fs.writeFileSync(
+        path.join(clawDir, 'contract', 'abc-123', 'progress.json'),
+        JSON.stringify({ status: 'running' })
+      );
       
       // 执行检查
       const results = heartbeat.checkAll();
@@ -125,11 +128,11 @@ describe('Heartbeat', () => {
       // 等待异步写入完成
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // 检查 motion inbox 中的消息内容（应该包含"未自动重启"）
+      // 检查 motion inbox 中的 .md 消息内容（应该包含"未自动重启"）
       const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
       expect(fs.existsSync(motionInbox)).toBe(true);
       
-      const files = fs.readdirSync(motionInbox);
+      const files = fs.readdirSync(motionInbox).filter(f => f.endsWith('.md'));
       expect(files.length).toBeGreaterThan(0);
       
       const hasNoRestartMsg = files.some(f => {
@@ -139,18 +142,50 @@ describe('Heartbeat', () => {
       expect(hasNoRestartMsg).toBe(true);
     });
 
-    it('should restart when contract directory has json files', () => {
+    it('should restart when contract directory has active contract', () => {
       const clawDir = path.join(tempDir, 'claws', 'test-claw-with-contract');
       fs.mkdirSync(clawDir, { recursive: true });
       fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'contract'), { recursive: true });
-      fs.writeFileSync(path.join(clawDir, 'contract', 'test-contract.json'), '{}');
+      fs.mkdirSync(path.join(clawDir, 'contract', 'test-123'), { recursive: true });
+      fs.writeFileSync(
+        path.join(clawDir, 'contract', 'test-123', 'progress.json'),
+        JSON.stringify({ status: 'running' })
+      );
       
       // 执行检查
       const results = heartbeat.checkAll();
       
       // 有契约应该尝试重启
       expect(results.some(r => r.startsWith('crash_recovery:test-claw-with-contract'))).toBe(true);
+    });
+
+    it('should deduplicate crash notifications within 5 minutes', async () => {
+      const clawDir = path.join(tempDir, 'claws', 'test-claw-dedup');
+      fs.mkdirSync(clawDir, { recursive: true });
+      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
+      // 无契约，会触发 crash_recovery 通知
+      
+      // 第一次检查 - 应该通知
+      const results1 = heartbeat.checkAll();
+      expect(results1.some(r => r.startsWith('crash_recovery:test-claw-dedup'))).toBe(true);
+      
+      // 等待异步写入完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 记录第一次通知后的文件数
+      const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
+      const filesAfterFirst = fs.existsSync(motionInbox) ? fs.readdirSync(motionInbox) : [];
+      
+      // 第二次检查（在 5 分钟内）- 应该去重，不重复写 inbox
+      const results2 = heartbeat.checkAll();
+      expect(results2.some(r => r.startsWith('crash_recovery:test-claw-dedup'))).toBe(true); // 仍返回 true（已处理）
+      
+      // 等待异步写入完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 文件数应该不变（没有去重写）
+      const filesAfterSecond = fs.existsSync(motionInbox) ? fs.readdirSync(motionInbox) : [];
+      expect(filesAfterSecond.length).toBe(filesAfterFirst.length);
     });
   });
 
@@ -261,15 +296,17 @@ describe('Heartbeat', () => {
       
       heartbeat.checkAll();
       
-      // 检查 motion inbox 是否有文件
+      // 检查 motion inbox 是否有 .md 文件
       const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
       if (fs.existsSync(motionInbox)) {
-        const files = fs.readdirSync(motionInbox);
+        const files = fs.readdirSync(motionInbox).filter(f => f.endsWith('.md'));
         expect(files.length).toBeGreaterThan(0);
         
-        // 检查文件内容
+        // 检查 YAML frontmatter 内容
         const content = fs.readFileSync(path.join(motionInbox, files[0]), 'utf-8');
+        expect(content).toContain('---');
         expect(content).toContain('source: heartbeat');
+        expect(content).toMatch(/type: (crash_recovery|outbox_notify)/);
       }
     });
 

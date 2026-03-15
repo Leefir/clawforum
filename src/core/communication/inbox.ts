@@ -15,6 +15,7 @@ import type { IFileSystem, FileEntry } from '../../foundation/fs/types.js';
 import type { InboxMessage, Priority } from '../../types/contract.js';
 import { createWatcher } from '../../foundation/fs/watcher.js';
 import type { Watcher } from '../../foundation/fs/types.js';
+import { parseFrontmatter } from '../../utils/frontmatter.js';
 
 /**
  * Priority values for sorting
@@ -85,7 +86,7 @@ export class InboxWatcher {
     this.watcher = createWatcher(
       this.pendingDir,
       (event) => {
-        if (event.type === 'add' && event.path.endsWith('.json')) {
+        if (event.type === 'add' && event.path.endsWith('.md')) {
           this.handleNewFile(event.path).catch(err => {
             console.error('[InboxWatcher] Failed to handle new file:', err);
           });
@@ -114,7 +115,7 @@ export class InboxWatcher {
     // Count files in pending directory
     try {
       const entries = await this.fs.list(this.pendingDir, { includeDirs: false });
-      const fileCount = entries.filter(e => e.name.endsWith('.json')).length;
+      const fileCount = entries.filter(e => e.name.endsWith('.md')).length;
       return Math.max(fileCount, this.queue.length);
     } catch {
       return this.queue.length;
@@ -129,7 +130,7 @@ export class InboxWatcher {
       const entries = await this.fs.list(this.pendingDir, { includeDirs: false });
       
       for (const entry of entries) {
-        if (entry.name.endsWith('.json')) {
+        if (entry.name.endsWith('.md')) {
           await this.handleNewFile(entry.path);
         }
       }
@@ -144,7 +145,18 @@ export class InboxWatcher {
   private async handleNewFile(filePath: string): Promise<void> {
     try {
       const content = await this.fs.read(filePath);
-      const message: InboxMessage = JSON.parse(content);
+      const { meta, body } = parseFrontmatter(content);
+      
+      const message: InboxMessage = {
+        id: meta.id ?? randomUUID(),
+        type: (meta.type as InboxMessage['type']) ?? 'message',
+        from: meta.from ?? meta.source ?? 'unknown',
+        to: meta.to ?? '',
+        content: body,
+        priority: (meta.priority as Priority) ?? 'normal',
+        timestamp: meta.timestamp ?? new Date().toISOString(),
+        contract_id: meta.claw_id ?? meta.contract_id,
+      };
       
       const queued: QueuedMessage = {
         message,

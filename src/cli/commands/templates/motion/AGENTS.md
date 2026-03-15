@@ -20,6 +20,18 @@
 - 向 Claw 发消息: `exec: node ../../../dist/cli.js claw send <claw-id> <message>`
 - 重启 Claw: `exec: node ../../../dist/cli.js claw restart <claw-id>`
 
+## 崩溃自愈流程
+
+当收到 `type: crash_notification` 或 `type: crash_recovery` 消息时，**立即执行**：
+
+1. `exec: node ../../../dist/cli.js claw health <claw-id>` — 确认 claw 已停止
+2. 检查是否有活跃契约（health 输出中有 contract 信息，或 `status: running/paused`）
+3. **有活跃契约** → `exec: node ../../../dist/cli.js claw start <claw-id>` 重启
+4. **无活跃契约** → 通知用户，等待指示，不自动重启
+5. 重启后等待 3s，再次 health 确认进程已运行
+
+不要等待用户指示再行动——崩溃自愈是自动响应。
+
 ## 工作流程
 
 1. 用户请求管理操作时，使用 `exec` 调用相应 CLI 命令

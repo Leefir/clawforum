@@ -4,6 +4,7 @@
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import type { FileEntry } from '../../../foundation/fs/types.js';
+import { parseFrontmatter } from '../../../utils/frontmatter.js';
 
 export const memorySearchTool: ITool = {
   name: 'memory_search',
@@ -72,8 +73,8 @@ export const memorySearchTool: ITool = {
 
         // frontmatter 元数据过滤
         if (Object.keys(metaFilter).length > 0) {
-          const fm = parseFrontmatter(text);
-          if (!metaMatches(fm, metaFilter)) continue;
+          const { meta } = parseFrontmatter(text);
+          if (!metaMatches(meta, metaFilter)) continue;
         }
 
         if (query) {
@@ -108,25 +109,6 @@ export const memorySearchTool: ITool = {
     };
   },
 };
-
-/**
- * Parse frontmatter from markdown text
- * Returns key-value pairs from ---
---- section
- */
-function parseFrontmatter(text: string): Record<string, string> {
-  const match = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-
-  const result: Record<string, string> = {};
-  for (const line of match[1].split('\n')) {
-    const idx = line.indexOf(': ');
-    if (idx !== -1) {
-      result[line.slice(0, idx).trim()] = line.slice(idx + 2).trim();
-    }
-  }
-  return result;
-}
 
 /**
  * Check if frontmatter matches all filter criteria (AND logic)

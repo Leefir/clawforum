@@ -43,6 +43,7 @@ export class Heartbeat {
   private outboxCooldown: number;
   private lastRun: number;
   private outboxLastNotify: Map<string, number> = new Map();
+  private crashLastNotify: Map<string, number> = new Map();
 
   constructor(baseDir: string, pm: ProcessManager, options: HeartbeatOptions = {}) {
     this.baseDir = baseDir;
@@ -119,64 +120,95 @@ export class Heartbeat {
 
   /**
    * 处理崩溃 claw：重启并通知 Motion
+   * 去重：5 分钟内同一 claw 不重复通知（避免与 daemon 的 crash_notification 重复）
+   * 
+   * 设计取舍：5分钟去重窗口可能导致快速循环崩溃只通知一次
+   * Motion 应通过 heartbeat 的 stall 检测来发现持续崩溃的 claw
    */
   private _handleCrash(clawId: string): boolean {
     try {
       const clawDir = path.join(this.baseDir, 'claws', clawId);
       
-      // 检查是否有活跃契约（MVP 对齐：无契约目录 = 无活跃契约）
+      // 检查是否有活跃契约：扫描 contract/{id}/progress.json，status = running/paused
       let hasActiveContract = false;
       try {
         const contractDir = path.join(clawDir, 'contract');
         if (fsNative.existsSync(contractDir)) {
-          const entries = fsNative.readdirSync(contractDir);
-          hasActiveContract = entries.some(e => e.endsWith('.json'));
+          const entries = fsNative.readdirSync(contractDir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const progressPath = path.join(contractDir, entry.name, 'progress.json');
+            if (!fsNative.existsSync(progressPath)) continue;
+            try {
+              const progress = JSON.parse(fsNative.readFileSync(progressPath, 'utf-8'));
+              if (progress.status === 'running' || progress.status === 'paused') {
+                hasActiveContract = true;
+                break;
+              }
+            } catch {
+              // progress.json 损坏，跳过
+            }
+          }
         }
       } catch {
         // 读不到契约目录，视为无活跃契约
         hasActiveContract = false;
       }
 
+      // 去重检查：5 分钟内是否已通知过
+      const now = Date.now();
+      const lastNotify = this.crashLastNotify.get(clawId) ?? 0;
+      const alreadyNotified = now - lastNotify < 5 * 60 * 1000;
+
       // MVP 对齐：无活跃契约时不自动重启（保守策略）
       if (!hasActiveContract) {
-        this._writeInbox('motion', {
-          id: `hb-${Date.now()}-${clawId}`,
-          type: 'crash_recovery',
-          source: 'heartbeat',
-          priority: 'normal',
-          timestamp: new Date().toISOString(),
-          content: `Claw "${clawId}" 进程已停止（无活跃契约，未自动重启）`,
-          clawId,
-        });
-        return true; // 已处理（通知）
+        if (!alreadyNotified) {
+          this.crashLastNotify.set(clawId, now);
+          this._writeInbox('motion', {
+            id: `hb-${Date.now()}-${clawId}`,
+            type: 'crash_recovery',
+            source: 'heartbeat',
+            priority: 'normal',
+            timestamp: new Date().toISOString(),
+            content: `Claw "${clawId}" 进程已停止（无活跃契约，未自动重启）`,
+            clawId,
+          });
+        }
+        return true; // 已处理（通知或去重）
       }
 
       // 有活跃契约，尝试重启
       try {
         this.pm.restart(clawId, clawDir);
         
-        // 重启成功，写 Motion inbox
-        this._writeInbox('motion', {
-          id: `hb-${Date.now()}-${clawId}`,
-          type: 'crash_recovery',
-          source: 'heartbeat',
-          priority: 'high',
-          timestamp: new Date().toISOString(),
-          content: `Claw "${clawId}" crashed and was automatically restarted. Active contract detected.`,
-          clawId,
-        });
+        // 重启成功，写 Motion inbox（去重）
+        if (!alreadyNotified) {
+          this.crashLastNotify.set(clawId, now);
+          this._writeInbox('motion', {
+            id: `hb-${Date.now()}-${clawId}`,
+            type: 'crash_recovery',
+            source: 'heartbeat',
+            priority: 'high',
+            timestamp: new Date().toISOString(),
+            content: `Claw "${clawId}" crashed and was automatically restarted. Active contract detected.`,
+            clawId,
+          });
+        }
         return true;
       } catch (restartError) {
-        // 重启失败，critical 通知
-        this._writeInbox('motion', {
-          id: `hb-${Date.now()}-${clawId}`,
-          type: 'crash_recovery',
-          source: 'heartbeat',
-          priority: 'critical',
-          timestamp: new Date().toISOString(),
-          content: `Claw "${clawId}" crashed and restart failed: ${restartError instanceof Error ? restartError.message : String(restartError)}`,
-          clawId,
-        });
+        // 重启失败，critical 通知（去重）
+        if (!alreadyNotified) {
+          this.crashLastNotify.set(clawId, now);
+          this._writeInbox('motion', {
+            id: `hb-${Date.now()}-${clawId}`,
+            type: 'crash_recovery',
+            source: 'heartbeat',
+            priority: 'critical',
+            timestamp: new Date().toISOString(),
+            content: `Claw "${clawId}" crashed and restart failed: ${restartError instanceof Error ? restartError.message : String(restartError)}`,
+            clawId,
+          });
+        }
         return false;
       }
     } catch (error) {
@@ -277,7 +309,7 @@ export class Heartbeat {
   }
 
   /**
-   * 写入 inbox 消息
+   * 写入 inbox 消息（YAML frontmatter .md 格式，MVP 对齐）
    */
   private _writeInbox(targetId: string, message: InboxMessage): void {
     try {
@@ -294,12 +326,11 @@ export class Heartbeat {
 
       // 生成文件名: {YYYYMMDDTHHMMSS}_heartbeat_{uuid8}.md
       const now = new Date();
-      const timestamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
       const uuid8 = randomUUID().slice(0, 8);
-      const filename = `${timestamp}_heartbeat_${uuid8}.md`;
-      const filepath = path.join(inboxDir, filename);
+      const filename = `${ts}_heartbeat_${uuid8}.md`;
 
-      // 构建内容（YAML frontmatter + body）
+      // YAML frontmatter 格式
       const content = `---
 id: ${message.id}
 type: ${message.type}
@@ -311,10 +342,9 @@ ${message.clawId ? `claw_id: ${message.clawId}` : ''}
 
 ${message.content}
 `;
-
-      fsNative.writeFileSync(filepath, content);
+      fsNative.writeFileSync(path.join(inboxDir, filename), content);
     } catch (error) {
-      console.error(`[Heartbeat] _writeInbox failed:`, error);
+      process.stderr.write(`[Heartbeat] _writeInbox failed: ${error}\n`);
     }
   }
 }

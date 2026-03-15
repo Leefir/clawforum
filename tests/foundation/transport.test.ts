@@ -38,6 +38,23 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
   }
 }
 
+/**
+ * Parse YAML frontmatter for testing
+ */
+function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
+  if (!raw.startsWith('---\n')) return { meta: {}, body: raw };
+  const afterOpen = raw.slice(4);
+  const closeIdx = afterOpen.indexOf('\n---\n');
+  if (closeIdx < 0) return { meta: {}, body: raw };
+
+  const meta: Record<string, string> = {};
+  for (const line of afterOpen.slice(0, closeIdx).split('\n')) {
+    const ci = line.indexOf(':');
+    if (ci > 0) meta[line.slice(0, ci).trim()] = line.slice(ci + 1).trim();
+  }
+  return { meta, body: afterOpen.slice(closeIdx + 5).trim() };
+}
+
 describe('Transport', () => {
   describe('LocalTransport', () => {
     let tempDir: string;
@@ -73,11 +90,11 @@ describe('Transport', () => {
       
       expect(files).toHaveLength(1);
       
-      // Verify content
+      // Verify YAML frontmatter content
       const content = await fs.readFile(path.join(pendingDir, files[0]), 'utf-8');
-      const parsed = JSON.parse(content);
-      expect(parsed.id).toBe('msg-1');
-      expect(parsed.content).toBe('Hello');
+      const { meta, body } = parseFrontmatter(content);
+      expect(meta.id).toBe('msg-1');
+      expect(body).toBe('Hello');
     });
 
     it('should read inbox messages sorted by priority', async () => {

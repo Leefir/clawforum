@@ -15,6 +15,7 @@ import {
   getClawDir,
   buildLLMConfig,
   getGlobalConfigPath,
+  CLAW_SUBDIRS,
 } from '../config.js';
 import { ClawRuntime } from '../../core/runtime.js';
 import { LLMRateLimitError, LLMTimeoutError } from '../../types/errors.js';
@@ -32,6 +33,11 @@ export async function createCommand(name: string): Promise<void> {
   }
   
   const clawDir = getClawDir(name);
+  
+  // Create directory structure (使用共享常量)
+  for (const dir of CLAW_SUBDIRS) {
+    fsNative.mkdirSync(path.join(clawDir, dir), { recursive: true });
+  }
   
   // Create claw config (inherits from global)
   const config = {

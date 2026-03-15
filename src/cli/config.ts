@@ -8,6 +8,9 @@ import * as yaml from 'js-yaml';
 import { z } from 'zod';
 import type { LLMServiceConfig, ProviderConfig } from '../foundation/llm/types.js';
 
+// Re-export shared constants
+export { CLAW_SUBDIRS } from '../types/paths.js';
+
 // Zod Schemas (snake_case for YAML compatibility)
 export const LLMProviderSchema = z.object({
   name: z.string(),

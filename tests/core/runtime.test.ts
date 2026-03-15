@@ -227,4 +227,134 @@ describe('ClawRuntime', () => {
       expect(runtime.getStatus().clawId).toBe('my-claw-123');
     });
   });
+
+  describe('processBatch()', () => {
+    it('should return 0 when inbox is empty', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      const count = await runtime.processBatch();
+      expect(count).toBe(0);
+    });
+
+    it('should process messages in priority order', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Create messages with different priorities
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+      const messages = [
+        { name: 'normal_msg.md', priority: 'normal', content: 'Normal priority' },
+        { name: 'critical_msg.md', priority: 'critical', content: 'Critical priority' },
+        { name: 'high_msg.md', priority: 'high', content: 'High priority' },
+      ];
+
+      for (const msg of messages) {
+        const content = `---
+id: ${msg.name}
+type: message
+from: motion
+priority: ${msg.priority}
+timestamp: ${new Date().toISOString()}
+---
+
+${msg.content}
+`;
+        await fs.writeFile(path.join(pendingDir, msg.name), content);
+      }
+
+      // Mock LLM
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'Processed batch' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      // Process batch
+      const count = await runtime.processBatch();
+      expect(count).toBe(3);
+
+      // Verify messages moved to done/
+      const doneDir = path.join(clawDir, 'inbox', 'done');
+      const doneFiles = await fs.readdir(doneDir);
+      expect(doneFiles.length).toBe(3);
+
+      // Verify LLM was called once (batch processing)
+      expect(mockLLM.call).toHaveBeenCalledTimes(1);
+
+      // Verify messages were injected in priority order
+      const callArgs = mockLLM.call.mock.calls[0][0];
+      const userMessages = callArgs.messages.filter((m: { role: string }) => m.role === 'user');
+      expect(userMessages.length).toBe(3);
+      // Critical should be first
+      expect(userMessages[0].content).toContain('Critical priority');
+      // High should be second
+      expect(userMessages[1].content).toContain('High priority');
+      // Normal should be third
+      expect(userMessages[2].content).toContain('Normal priority');
+    });
+
+    it('should move messages to done before LLM call', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Create a message
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+      const content = `---
+id: test-msg
+type: message
+from: motion
+priority: normal
+timestamp: ${new Date().toISOString()}
+---
+
+Test message
+`;
+      await fs.writeFile(path.join(pendingDir, 'test.md'), content);
+
+      // Mock LLM that checks if file was moved
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'Done' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      await runtime.processBatch();
+
+      // Pending should be empty
+      const pendingFiles = await fs.readdir(pendingDir);
+      expect(pendingFiles.filter(f => f.endsWith('.md')).length).toBe(0);
+
+      // Done should have the file
+      const doneDir = path.join(clawDir, 'inbox', 'done');
+      const doneFiles = await fs.readdir(doneDir);
+      expect(doneFiles.length).toBe(1);
+    });
+  });
+
+  describe('resumeContractIfPaused()', () => {
+    it('should not throw when no active contract', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Should not throw
+      await expect(runtime.resumeContractIfPaused()).resolves.not.toThrow();
+    });
+  });
 });
