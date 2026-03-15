@@ -246,6 +246,10 @@ export async function listCommand(): Promise<void> {
   const processManager = new ProcessManager(fs, baseDir);
 
   try {
+    // 确保 claws 目录存在
+    if (!fsNative.existsSync(clawsDir)) {
+      fsNative.mkdirSync(clawsDir, { recursive: true });
+    }
     const entries = fsNative.readdirSync(clawsDir);
     const claws: Array<{ name: string; status: string; pid?: string }> = [];
 
