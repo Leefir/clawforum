@@ -217,13 +217,19 @@ export class ClawRuntime {
     // 3. 追加 user 消息
     messages.push({ role: 'user', content: userMessage });
 
-    // 4. 运行 ReAct 循环（带增量存盘）
+    // 4. 获取工具定义
+    const tools = this.toolRegistry.formatForLLM(
+      this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+    );
+
+    // 5. 运行 ReAct 循环（带增量存盘）
     const result = await runReact({
       messages,
       systemPrompt,
       llm: this.llm,
       executor: this.toolExecutor,
       ctx: this.execContext,
+      tools,
       maxSteps: this.options.maxSteps,
       onStepComplete: async () => {
         // 增量存盘

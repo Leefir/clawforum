@@ -10,7 +10,7 @@
  * Reference: Python MVP clawforum/core/react_loop.py
  */
 
-import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse } from '../../types/message.js';
+import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse, ToolDefinition } from '../../types/message.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { IToolExecutor, ExecContext, ToolResult } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
@@ -42,6 +42,9 @@ export interface ReactOptions {
   
   /** Callback after each step completes (for incremental persistence) */
   onStepComplete?: () => Promise<void>;
+  
+  /** Tool definitions to pass to LLM for native tool_use */
+  tools?: ToolDefinition[];
 }
 
 /**
@@ -91,6 +94,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     const response = await llm.call({
       messages,
       system: systemPrompt,
+      tools: options.tools,
       maxTokens: 4096,
       signal: ctx.signal,
     });
