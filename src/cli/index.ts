@@ -21,6 +21,9 @@ import { daemonCommand } from './commands/daemon.js';
 import { 
   initCommand as motionInitCommand,
   chatCommand as motionChatCommand,
+  startCommand as motionStartCommand,
+  stopCommand as motionStopCommand,
+  daemonCommand as motionDaemonCommand,
 } from './commands/motion.js';
 
 program
@@ -162,6 +165,45 @@ motionCmd
   .action(async () => {
     try {
       await motionChatCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// motion start
+motionCmd
+  .command('start')
+  .description('Start Motion daemon')
+  .action(async () => {
+    try {
+      await motionStartCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// motion stop
+motionCmd
+  .command('stop')
+  .description('Stop Motion daemon')
+  .action(async () => {
+    try {
+      await motionStopCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// motion daemon (internal command, spawned by startCommand)
+motionCmd
+  .command('daemon')
+  .description('Run Motion as daemon (internal)')
+  .action(async () => {
+    try {
+      await motionDaemonCommand();
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
