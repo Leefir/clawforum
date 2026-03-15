@@ -325,6 +325,20 @@ export async function listCommand(): Promise<number> {
 1. **预读接口定义** — 确认函数签名、参数名、返回值类型
 2. **预读配置值** — 权限预设、枚举值、硬编码常数（不能凭记忆）
 3. **预读测试文件结构** — 画出 describe 嵌套结构图，确认插入位置
+4. **预读作用域遮蔽** — 搜索同名标识符在不同作用域中的定义（模块级/函数级/块级）
+
+**作用域遮蔽警示**（Step 31.7 教训）：
+```typescript
+// 模块级别
+import * as fs from 'fs';        // 原生 fs
+import * as fsNative from 'fs';  // 也是原生 fs（重复）
+
+// 函数内 - 遮蔽了模块级 fs！
+const fs = new NodeFileSystem(...);
+
+// 修复时若把 fsNative 改成 fs，就会与函数内 const fs 冲突
+```
+重命名/删除 import 前，**必须确认函数内没有同名变量**。
 
 **权限矩阵测试示例**（应该怎么做）：
 ```typescript
@@ -672,6 +686,40 @@ async function sendResult(result: TaskResult): Promise<void> {
 | noUnusedLocals tsconfig | ⚠️ 未修复 | 低 | 延后 |
 | ToolExecutorImpl 接口不完整 | 🟡 已打补丁 | 低 | 当前通过 ToolExecutor 子类解决 |
 | CLI 命令直接 process.exit | 🟡 技术债务 | 中/低 | 中：Motion 调用路径；低：用户直接调用 |
+| isAlive() 同步方法中的异步副作用 | 🔴 设计缺陷 | 中 | 导致 stop() 行为不可预测，竞态条件 |
+
+**isAlive() 同步/异步竞态条件**（Step 31.7 发现）：
+
+**问题**: `isAlive()` 是同步方法，但在检测到进程不存在时触发异步清理：
+```typescript
+isAlive(clawId: string): boolean {
+  // ...
+  if (error.code === 'ESRCH') {
+    this.removePid(clawId).catch(() => {});  // fire-and-forget
+    return false;
+  }
+}
+```
+
+这导致：
+1. **不可预测的行为**: `stop()` 的结果取决于 `isAlive()` 的异步清理是否完成
+2. **竞态条件**: 并发调用时行为未定义
+3. **不可测试**: 测试结果不确定
+
+**修复方案**:
+```typescript
+// 方案 A：返回状态，让调用者决定清理
+isAlive(): { alive: boolean; stale: boolean } {
+  // ESRCH → { alive: false, stale: true }
+  // 调用者收到 stale=true 后自行 await removePid()
+}
+
+// 方案 B：改为异步方法
+async isAlive(): Promise<boolean> {
+  await this.removePid(id);
+  return false;
+}
+```
 
 ## ✅ MVP 对齐完成 (2026-03-15)
 
