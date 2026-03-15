@@ -95,7 +95,8 @@ describe('Builtin Tools', () => {
       const result = await writeTool.execute({ path: 'clawspace/output.txt', content: 'New content' }, ctx);
 
       expect(result.success).toBe(true);
-      expect(result.content).toContain('写入成功');
+      expect(result.content).toContain('成功写入');
+      expect(result.content).toContain('字符');
 
       const content = await mockFs.read('clawspace/output.txt');
       expect(content).toBe('New content');

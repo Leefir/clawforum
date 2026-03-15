@@ -22,6 +22,7 @@ export const lsTool: ITool = {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const path = (args.path as string) ?? '.';
+    const MAX_ENTRIES = 100; // Design doc: pagination limit
 
     try {
       const entries = await ctx.fs.list(path, { includeDirs: true });
@@ -33,15 +34,20 @@ export const lsTool: ITool = {
         };
       }
 
-      const lines = entries.map(e => {
+      const total = entries.length;
+      const limited = entries.slice(0, MAX_ENTRIES);
+      
+      const lines = limited.map(e => {
         const type = e.isDirectory ? '[DIR]' : '[FILE]';
         const size = e.isFile ? ` ${e.size} bytes` : '';
         return `${type} ${e.path}${size}`;
       });
 
+      const suffix = total > MAX_ENTRIES ? `\n...共 ${total} 项` : '';
+
       return {
         success: true,
-        content: lines.join('\n'),
+        content: lines.join('\n') + suffix,
       };
     } catch (error) {
       return {

@@ -96,28 +96,61 @@ describe('Heartbeat', () => {
 
   describe('handleCrash', () => {
     it('should write motion inbox on crash detection', () => {
-      // 创建一个 claw 目录（但没有运行）
+      // 创建一个 claw 目录（但没有运行），有契约
       const clawDir = path.join(tempDir, 'claws', 'test-claw');
       fs.mkdirSync(clawDir, { recursive: true });
       fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
+      fs.mkdirSync(path.join(clawDir, 'contract'), { recursive: true });
+      fs.writeFileSync(path.join(clawDir, 'contract', 'active.json'), '{}');
       
       // 执行检查
       const results = heartbeat.checkAll();
       
-      // 应该检测到崩溃
+      // 应该检测到崩溃并尝试重启
       expect(results.some(r => r.startsWith('crash_recovery:test-claw'))).toBe(true);
     });
 
-    it('should skip when claw has no active contract', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
+    it('should NOT restart when claw has no active contract (MVP aligned)', async () => {
+      const clawDir = path.join(tempDir, 'claws', 'test-claw-no-contract');
       fs.mkdirSync(clawDir, { recursive: true });
       fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
+      // 注意：没有创建 contract/ 目录
       
       // 执行检查
       const results = heartbeat.checkAll();
       
-      // 无论如何都会尝试重启（保守策略）
-      expect(results.some(r => r.includes('test-claw'))).toBe(true);
+      // 应该检测到崩溃但不重启（无契约）
+      expect(results.some(r => r.startsWith('crash_recovery:test-claw-no-contract'))).toBe(true);
+      
+      // 等待异步写入完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 检查 motion inbox 中的消息内容（应该包含"未自动重启"）
+      const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
+      expect(fs.existsSync(motionInbox)).toBe(true);
+      
+      const files = fs.readdirSync(motionInbox);
+      expect(files.length).toBeGreaterThan(0);
+      
+      const hasNoRestartMsg = files.some(f => {
+        const content = fs.readFileSync(path.join(motionInbox, f), 'utf-8');
+        return content.includes('未自动重启') || content.includes('no active contract');
+      });
+      expect(hasNoRestartMsg).toBe(true);
+    });
+
+    it('should restart when contract directory has json files', () => {
+      const clawDir = path.join(tempDir, 'claws', 'test-claw-with-contract');
+      fs.mkdirSync(clawDir, { recursive: true });
+      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
+      fs.mkdirSync(path.join(clawDir, 'contract'), { recursive: true });
+      fs.writeFileSync(path.join(clawDir, 'contract', 'test-contract.json'), '{}');
+      
+      // 执行检查
+      const results = heartbeat.checkAll();
+      
+      // 有契约应该尝试重启
+      expect(results.some(r => r.startsWith('crash_recovery:test-claw-with-contract'))).toBe(true);
     });
   });
 

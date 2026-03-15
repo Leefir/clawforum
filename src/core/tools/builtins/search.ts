@@ -63,6 +63,7 @@ export const searchTool: ITool = {
     }
 
     const results: string[] = [];
+    let skippedCount = 0; // Design doc: track skipped files
 
     try {
       // Get all files in the search path
@@ -84,20 +85,23 @@ export const searchTool: ITool = {
           }
         } catch {
           // Skip files that can't be read
+          skippedCount++;
           continue;
         }
       }
 
+      const skippedMsg = skippedCount > 0 ? `（${skippedCount} 个文件被跳过）` : '';
+      
       if (results.length === 0) {
         return {
           success: true,
-          content: `未找到包含 "${args.query}" 的内容`,
+          content: `未找到包含 "${args.query}" 的内容${skippedMsg}`,
         };
       }
 
       return {
         success: true,
-        content: results.join('\n'),
+        content: results.join('\n') + skippedMsg,
       };
     } catch (error) {
       return {

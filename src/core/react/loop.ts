@@ -136,12 +136,22 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
         // Notify UI
         onToolCall?.(toolCall.name);
 
-        // Execute tool
-        const result = await executor.execute({
-          toolName: toolCall.name,
-          args: toolCall.input,
-          ctx,
-        });
+        // Execute tool with error handling (P0 fix: prevent daemon crash)
+        let result: ToolResult;
+        try {
+          result = await executor.execute({
+            toolName: toolCall.name,
+            args: toolCall.input,
+            ctx,
+          });
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          console.error(`[react/loop] Tool ${toolCall.name} execution failed:`, errorMsg);
+          result = { 
+            success: false, 
+            content: `工具执行失败: ${errorMsg}` 
+          };
+        }
 
         // Notify tool result (for displaying output summary)
         onToolResult?.(toolCall.name, result, stepCount, maxSteps);

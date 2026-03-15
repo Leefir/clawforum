@@ -137,27 +137,29 @@ export class ProcessManager {
     mkdirSync(logsDir, { recursive: true });
     const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
     
-    const proc = spawn('node', [cliPath, 'claw', 'daemon', clawId], {
-      detached: true,
-      stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
-      cwd: process.cwd(),
-    });
+    try {
+      const proc = spawn('node', [cliPath, 'claw', 'daemon', clawId], {
+        detached: true,
+        stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
+        cwd: process.cwd(),
+      });
 
-    // 关闭父进程的文件描述符（子进程已继承）
-    closeSync(logFd);
+      const pid = proc.pid;
+      if (!pid) {
+        throw new Error('Failed to spawn daemon process');
+      }
 
-    const pid = proc.pid;
-    if (!pid) {
-      throw new Error('Failed to spawn daemon process');
+      // 写入 pid 文件
+      await this.writePid(clawId, pid);
+
+      // 等待进程启动确认（非阻塞）
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return pid;
+    } finally {
+      // Design doc: ensure logFd is closed in all paths
+      closeSync(logFd);
     }
-
-    // 写入 pid 文件
-    await this.writePid(clawId, pid);
-
-    // 等待进程启动确认（非阻塞）
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    return pid;
   }
 
   /**

@@ -33,10 +33,38 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
   if (!taskSystem) return 'Tasks: N/A';
   
   try {
-    // Note: TaskSystem doesn't expose queue status directly, return placeholder
-    return 'Tasks: See task system logs';
-  } catch {
-    return 'Tasks: Error';
+    // Check if task system is functional by accessing its state
+    // Design doc: was returning fake 'See task system logs', now shows actual status
+    const pendingDir = 'tasks/pending';
+    const runningDir = 'tasks/running';
+    
+    let pendingCount = 0;
+    let runningCount = 0;
+    
+    try {
+      const pending = await ctx.fs.list(pendingDir, { includeDirs: false });
+      pendingCount = pending.length;
+    } catch {
+      // Pending dir might not exist
+    }
+    
+    try {
+      const running = await ctx.fs.list(runningDir, { includeDirs: false });
+      runningCount = running.length;
+    } catch {
+      // Running dir might not exist
+    }
+    
+    if (runningCount > 0) {
+      return `Tasks: ${runningCount} running, ${pendingCount} pending`;
+    } else if (pendingCount > 0) {
+      return `Tasks: ${pendingCount} pending`;
+    } else {
+      return 'Tasks: idle';
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Tasks: 不可用 (${msg})`;
   }
 }
 

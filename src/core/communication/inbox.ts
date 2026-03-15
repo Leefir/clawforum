@@ -213,8 +213,10 @@ export class InboxWatcher {
       const fileName = path.basename(filePath);
       const targetPath = path.join(this.doneDir, `${Date.now()}_${fileName}`);
       await this.fs.move(filePath, targetPath);
-    } catch {
-      // Ignore move errors
+    } catch (err) {
+      // Design doc: log move errors to stderr (best-effort)
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[inbox] Failed to move ${filePath} to done: ${msg}\n`);
     }
   }
 
@@ -226,8 +228,10 @@ export class InboxWatcher {
       const fileName = path.basename(filePath);
       const targetPath = path.join(this.failedDir, `${Date.now()}_${fileName}`);
       await this.fs.move(filePath, targetPath);
-    } catch {
-      // Ignore move errors
+    } catch (err) {
+      // Design doc: log move errors to stderr (best-effort)
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[inbox] Failed to move ${filePath} to failed: ${msg}\n`);
     }
   }
 }

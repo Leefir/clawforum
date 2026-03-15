@@ -92,13 +92,19 @@ export const readTool: ITool = {
         content = lines.slice(start, end).join('\n');
       }
 
-      // Apply safety limits
+      // Apply safety limits with meta info
+      const totalLines = content.split('\n').length;
+      const totalChars = content.length;
       const lines = content.split('\n');
+      
       if (lines.length > MAX_LINES) {
-        content = lines.slice(0, MAX_LINES).join('\n') + '\n[truncated: exceeded 200 line limit]';
+        content = lines.slice(0, MAX_LINES).join('\n') + 
+          `\n[显示第1-${MAX_LINES}行，共${totalLines}行。用 offset=${MAX_LINES+1} 读取更多]`;
       }
       if (content.length > MAX_CHARS) {
-        content = content.slice(0, MAX_CHARS) + '\n[truncated: exceeded 8000 char limit]';
+        const shownChars = content.slice(0, MAX_CHARS).length;
+        content = content.slice(0, MAX_CHARS) + 
+          `\n[显示前${shownChars}字符，共${totalChars}字符]`;
       }
 
       return {

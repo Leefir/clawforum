@@ -49,7 +49,7 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<v
     
     await fs.writeAtomic(versionPath, content);
     
-    // Cleanup old versions (keep last 10)
+    // Cleanup old versions (keep last 10) - Design doc: TODO was never implemented
     try {
       const entries = await fs.list(versionsDir, { includeDirs: false });
       const versionFiles = entries
@@ -57,8 +57,7 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<v
         .sort((a, b) => b.path.localeCompare(a.path)); // Newest first
       
       for (let i = 10; i < versionFiles.length; i++) {
-        // Note: fs doesn't have unlink, use writeAtomic with empty content as workaround
-        // or just leave them (they'll be overwritten eventually)
+        await fs.delete(path.join(versionsDir, versionFiles[i].path));
       }
     } catch {
       // Ignore cleanup errors
@@ -127,7 +126,7 @@ export const writeTool: ITool = {
       const warningMsg = warnings.length > 0 ? `\n${warnings.join('\n')}` : '';
       return {
         success: true,
-        content: `写入成功: ${filePath}${warningMsg}`,
+        content: `成功写入 ${filePath}（${content.length} 字符）${warningMsg}`,
       };
     } catch (error) {
       return {

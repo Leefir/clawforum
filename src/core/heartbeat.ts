@@ -124,8 +124,8 @@ export class Heartbeat {
     try {
       const clawDir = path.join(this.baseDir, 'claws', clawId);
       
-      // 检查是否有活跃契约（保守策略：读不到就假设有）
-      let hasActiveContract = true;
+      // 检查是否有活跃契约（MVP 对齐：无契约目录 = 无活跃契约）
+      let hasActiveContract = false;
       try {
         const contractDir = path.join(clawDir, 'contract');
         if (fsNative.existsSync(contractDir)) {
@@ -133,23 +133,36 @@ export class Heartbeat {
           hasActiveContract = entries.some(e => e.endsWith('.json'));
         }
       } catch {
-        // 读不到契约目录，保守假设有活跃契约
-        hasActiveContract = true;
+        // 读不到契约目录，视为无活跃契约
+        hasActiveContract = false;
       }
 
-      // 尝试重启
-      try {
-        this.pm.restart(clawId, clawDir);
-        
-        // 重启成功，写 Motion inbox
-        const priority = hasActiveContract ? 'high' : 'normal';
+      // MVP 对齐：无活跃契约时不自动重启（保守策略）
+      if (!hasActiveContract) {
         this._writeInbox('motion', {
           id: `hb-${Date.now()}-${clawId}`,
           type: 'crash_recovery',
           source: 'heartbeat',
-          priority,
+          priority: 'normal',
           timestamp: new Date().toISOString(),
-          content: `Claw "${clawId}" crashed and was automatically restarted.${hasActiveContract ? ' Active contract detected.' : ''}`,
+          content: `Claw "${clawId}" 进程已停止（无活跃契约，未自动重启）`,
+          clawId,
+        });
+        return true; // 已处理（通知）
+      }
+
+      // 有活跃契约，尝试重启
+      try {
+        this.pm.restart(clawId, clawDir);
+        
+        // 重启成功，写 Motion inbox
+        this._writeInbox('motion', {
+          id: `hb-${Date.now()}-${clawId}`,
+          type: 'crash_recovery',
+          source: 'heartbeat',
+          priority: 'high',
+          timestamp: new Date().toISOString(),
+          content: `Claw "${clawId}" crashed and was automatically restarted. Active contract detected.`,
           clawId,
         });
         return true;

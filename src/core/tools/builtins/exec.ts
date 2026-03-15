@@ -48,12 +48,25 @@ export const execTool: ITool = {
         maxBuffer: 8 * 1024, // 8KB limit
       });
 
-      const output = stdout || stderr || '(no output)';
-      const truncated = output.length > 8192 ? output.slice(0, 8192) + '\n[truncated]' : output;
+      // Design doc: separate truncation for stdout/stderr
+      const MAX_STDOUT = 8000;
+      const MAX_STDERR = 500;
+      
+      let output = stdout || '';
+      if (output.length > MAX_STDOUT) {
+        output = output.slice(0, MAX_STDOUT) + '\n[stdout truncated]';
+      }
+      
+      let errOutput = stderr || '';
+      if (errOutput.length > MAX_STDERR) {
+        errOutput = errOutput.slice(0, MAX_STDERR) + '\n[stderr truncated]';
+      }
+      
+      const fullOutput = output + (errOutput ? '\n[stderr]: ' + errOutput : '') || '(no output)';
 
       return {
         success: true,
-        content: truncated,
+        content: fullOutput,
       };
     } catch (error) {
       return {

@@ -13,6 +13,8 @@ import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { TaskSystem } from '../task/system.js';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 import {
   ToolNotFoundError,
   PermissionError,
@@ -21,6 +23,28 @@ import {
 } from '../../types/errors.js';
 import { ExecContextImpl } from './context.js';
 // Note: ToolRegistry type imported via IToolRegistry interface
+
+/**
+ * Append audit log entry (best-effort, non-blocking)
+ * Design doc gap C: MVP has audit.log JSONL, TS implementation was missing
+ */
+async function appendAudit(clawDir: string, entry: {
+  ts: string;
+  tool: string;
+  args: string;
+  ok: boolean;
+  duration_ms: number;
+  error: string;
+}): Promise<void> {
+  try {
+    const auditPath = path.join(clawDir, 'logs', 'audit.log');
+    const line = JSON.stringify(entry) + '\n';
+    await fs.mkdir(path.dirname(auditPath), { recursive: true });
+    await fs.appendFile(auditPath, line);
+  } catch {
+    // Best-effort: audit failure should not block execution
+  }
+}
 
 // ============================================================================
 // Phase 0: Interface Definitions (Frozen)
@@ -184,6 +208,7 @@ export class ToolExecutorImpl implements IToolExecutor {
    */
   async execute(options: ExecuteOptions): Promise<ToolResult> {
     const { toolName, args, ctx, timeoutMs = 60000 } = options;
+    const startTime = Date.now();
 
     // 1. Find tool
     const tool = this.registry.get(toolName);
@@ -217,14 +242,36 @@ export class ToolExecutorImpl implements IToolExecutor {
 
     const executionPromise = tool.execute(args, ctx);
 
+    let result: ToolResult | undefined;
     try {
-      return await Promise.race([executionPromise, timeoutPromise]);
+      result = await Promise.race([executionPromise, timeoutPromise]);
+    } catch (err) {
+      // Execution failed - create error result for audit
+      result = {
+        success: false,
+        content: err instanceof Error ? err.message : String(err),
+      };
+      throw err; // Re-throw after audit
     } finally {
       // Clean up timeout timer
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+      
+      // Audit logging (Design doc gap C: best-effort, non-blocking)
+      const duration = Date.now() - startTime;
+      const auditResult = result ?? { success: false, content: 'unknown' };
+      appendAudit(ctx.clawDir, {
+        ts: new Date().toISOString(),
+        tool: toolName,
+        args: JSON.stringify(args).slice(0, 80),
+        ok: auditResult.success,
+        duration_ms: duration,
+        error: auditResult.success ? '' : auditResult.content.slice(0, 200),
+      }).catch(() => {});
     }
+    
+    return result!;
   }
 
   /**

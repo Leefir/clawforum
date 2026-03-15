@@ -87,16 +87,28 @@ export async function initCommand(): Promise<void> {
   // 读取并写入模板文件
   const created: string[] = [];
   const existed: string[] = [];
+  const failed: string[] = [];
   
   for (const name of TEMPLATE_FILES) {
-    const content = await readTemplate(name);
-    const filePath = path.join(motionDir, name);
-    const isNew = await writeTemplate(filePath, content);
-    if (isNew) {
-      created.push(name);
-    } else {
-      existed.push(name);
+    try {
+      const content = await readTemplate(name);
+      const filePath = path.join(motionDir, name);
+      const isNew = await writeTemplate(filePath, content);
+      if (isNew) {
+        created.push(name);
+      } else {
+        existed.push(name);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`❌ 无法读取模板 ${name}: ${errorMsg}`);
+      failed.push(name);
     }
+  }
+  
+  if (failed.length > 0) {
+    console.error(`\n❌ Failed to process templates: ${failed.join(', ')}`);
+    process.exit(1);
   }
   
   // 输出结果
