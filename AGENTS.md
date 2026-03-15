@@ -75,7 +75,7 @@ await fs.writeAtomic('path/to/dir/file.txt', content); // 可能失败
   ```
 - Mock 测试时，mock 函数必须检查 `options.signal?.aborted`
 
-### 5. 异步代码检查清单（新增）
+### 5. 异步代码检查清单
 
 **问题**: 9个 Bug 中有 3个与 async/Promise 相关（资源泄漏、未 await、void 无 catch），是贯穿项目的薄弱环节
 
@@ -84,6 +84,23 @@ await fs.writeAtomic('path/to/dir/file.txt', content); // 可能失败
 - [ ] 每个 `setTimeout/setInterval` 是否在 `finally` 中清理？
 - [ ] 每个 fire-and-forget 的 Promise 是否有 `.catch()`？
 - [ ] `void promise` 只用于明确不需要等待且不会 reject 的场景
+
+### 6. API 适配器设计原则（新增）
+
+**问题**: AnthropicAdapter 三轮修复（33次操作）暴露的设计缺陷
+
+**规则**:
+- **永远用白名单，不要用 else 全捕获**
+  ```typescript
+  // ❌ 危险：else 全捕获
+  if (block.type === 'text') { ... }
+  else { /* 当成 tool_use */ }  // 可能误捕 unknown/reasoning/thinking
+  
+  // ✅ 安全：白名单过滤
+  .filter(b => b.type === 'text' || b.type === 'tool_use')
+  ```
+- **对称修复原则**：修复序列化（formatMessages）时，必须同时审查反序列化（parseResponse）
+- **第三方 API 兼容层**：对端可能返回未知类型，只处理已知类型，静默丢弃未知类型
 
 ---
 
@@ -227,15 +244,15 @@ await WriteFile('src/core/new/module.ts', content);
 
 ---
 
-*最后更新: 2026-03-15 - Phase 1 完成，AGENTS.md 规范经 6 轮验证有效，176 测试全部通过*
+*最后更新: 2026-03-15 - AnthropicAdapter 三轮修复，AGENTS.md 新增 API 适配器设计原则*
 
-## 📊 Phase 1 终极总结
+## 📊 Phase 1 + 热修复 终极总结
 
 **交付物**:
 - Foundation 层: 4 模块, 70 测试
 - Core 层: 8 模块, 97 测试  
 - CLI: 4 文件, 9 测试
-- **总计**: 60+ 源文件, 176 测试, 20+ 提交
+- **总计**: 60+ 源文件, 177 测试, 22+ 提交
 
 **核心转折点**: 第 11 轮 (task/) 效率崩溃 → AGENTS.md 规范制定
 
@@ -243,3 +260,7 @@ await WriteFile('src/core/new/module.ts', content);
 - 高复杂度集成: 7.5次/依赖 → 2.0次/依赖 (↓73%)
 - 类型检查零失败率: 10% → 50% (↑400%)
 - 项目从"被动调试驱动"转型为"主动设计驱动"
+
+**AnthropicAdapter 修复教训**:
+- 三轮修复，33次操作，根因是"else 全捕获"反模式
+- 新增规则: API 适配器永远用白名单，对称修复原则
