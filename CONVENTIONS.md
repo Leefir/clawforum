@@ -90,7 +90,11 @@ async function withTimeout<T>(
 
 ## 编码检查清单
 
-提交前自查：
+### 写代码前（前置检查）
+- [ ] **ReadFile 类型定义** — 查看相关的 `types.ts` 或接口定义，确认字段名、类型值
+- [ ] **确认路径基准** — IFileSystem 路径相对于 `baseDir`，不要重复拼接
+
+### 写代码后（后置检查）
 - [ ] 类型检查通过 (`pnpm tsc --noEmit`)
 - [ ] 测试通过 (`pnpm test`)
 - [ ] 未使用的变量用 `_` 前缀标记
