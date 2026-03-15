@@ -121,6 +121,48 @@ describe('LLM Service', () => {
       expect(toolBlock.input).toEqual({ path: 'test.txt' });
     });
 
+    it('should preserve tool_use and tool_result blocks in request', async () => {
+      // This is a critical test - it verifies that formatMessages preserves
+      // all content blocks (text, tool_use, tool_result) for multi-turn tool calls
+      const mockFetch = vi.fn().mockResolvedValue(
+        createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Done' }]))
+      );
+      vi.stubGlobal('fetch', mockFetch);
+
+      const adapter = new AnthropicAdapter(config);
+      const messages: Message[] = [
+        { role: 'user', content: 'Search for test' },
+        { 
+          role: 'assistant', 
+          content: [
+            { type: 'text', text: 'Let me search.' },
+            { type: 'tool_use', id: 'call_1', name: 'search', input: { query: 'test' } }
+          ]
+        },
+        { 
+          role: 'user', 
+          content: [
+            { type: 'tool_result', tool_use_id: 'call_1', content: 'Found: result' }
+          ]
+        }
+      ];
+      
+      await adapter.call({ messages });
+
+      // Verify the request body preserves all block types
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(requestBody.messages).toHaveLength(3);
+      
+      // Assistant message should have both text and tool_use
+      expect(requestBody.messages[1].content).toHaveLength(2);
+      expect(requestBody.messages[1].content[0].type).toBe('text');
+      expect(requestBody.messages[1].content[1].type).toBe('tool_use');
+      
+      // User message should have tool_result
+      expect(requestBody.messages[2].content).toHaveLength(1);
+      expect(requestBody.messages[2].content[0].type).toBe('tool_result');
+    });
+
     it('should throw LLMRateLimitError on 429', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         createMockResponse({ error: 'rate_limited' }, 429)

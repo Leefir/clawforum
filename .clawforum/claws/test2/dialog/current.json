@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "clawId": "test2",
+  "createdAt": "2026-03-15T06:08:22.178Z",
+  "updatedAt": "2026-03-15T06:08:22.178Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use"
+        },
+        {
+          "type": "text",
+          "text": "Hello! I'm test2, an AI assistant here to help you.\n\nI can help you with various tasks such as:\n\n- Reading and writing files\n- Searching for files\n- Executing commands\n- Listing directory contents\n\nHow can I assist you today?"
+        }
+      ]
+    }
+  ],
+  "prunedMarkers": []
+}
