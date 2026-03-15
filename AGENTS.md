@@ -85,20 +85,38 @@ await fs.writeAtomic('path/to/dir/file.txt', content); // 可能失败
 - [ ] 每个 fire-and-forget 的 Promise 是否有 `.catch()`？
 - [ ] `void promise` 只用于明确不需要等待且不会 reject 的场景
 
-### 6. API 适配器设计原则（新增）
+### 6. API 适配器设计原则
 
 **问题**: AnthropicAdapter 三轮修复（33次操作）暴露的设计缺陷
 
-**规则**:
-- **永远用白名单，不要用 else 全捕获**
-  ```typescript
-  // ❌ 危险：else 全捕获
-  if (block.type === 'text') { ... }
-  else { /* 当成 tool_use */ }  // 可能误捕 unknown/reasoning/thinking
-  
-  // ✅ 安全：白名单过滤
-  .filter(b => b.type === 'text' || b.type === 'tool_use')
-  ```
+**核心规则: 永远用白名单，不要用 "乐观 else"**
+
+```typescript
+// ❌ 危险："乐观 else" - 假设只有两种类型
+if (block.type === 'text') { 
+  return textBlock; 
+} else {
+  // 隐含假设：不是 text 就一定是 tool_use
+  return toolUseBlock;  // 可能误捕 unknown/reasoning/thinking
+}
+
+// ✅ 安全：白名单过滤 + 显式处理
+.filter(b => b.type === 'text' || b.type === 'tool_use')
+.map(b => {
+  if (b.type === 'text') return textBlock;
+  else if (b.type === 'tool_use') return toolUseBlock;
+  // else - 不会到达，已被 filter 移除
+})
+```
+
+**为什么"乐观 else"危险**:
+1. 写代码时只知道文档列出的类型，感觉 if/else 是"完备"的
+2. 没考虑第三方实现会返回额外字段（MiniMax 的 think/reasoning 等私有 block）
+3. else 变成无声的错误制造机——残缺 block 被静默创建而非丢弃
+
+**记住**: 外部系统的响应永远可能包含你不认识的字段/类型，用 else 处理"已知"的 fallback 是危险的。
+
+**其他规则**:
 - **对称修复原则**：修复序列化（formatMessages）时，必须同时审查反序列化（parseResponse）
 - **第三方 API 兼容层**：对端可能返回未知类型，只处理已知类型，静默丢弃未知类型
 
