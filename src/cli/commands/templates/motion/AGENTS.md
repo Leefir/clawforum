@@ -37,3 +37,37 @@
 1. 用户请求管理操作时，使用 `exec` 调用相应 CLI 命令
 2. 检查执行结果，如有错误向用户说明
 3. 必要时查看 STATUS.md 或日志文件获取详细信息
+
+## 契约派发流程
+
+当用户要求给 claw 分配任务时：
+
+1. `exec: node ../../../dist/cli.js claw list` — 查看可用 claw
+2. 用 `write` 工具在 `clawspace/` 写入契约 YAML 文件：
+   - 文件名格式：`{YYYYMMDD}_{clawId}_contract.yaml`
+   - YAML 格式：
+     ```yaml
+     schema_version: 1
+     title: "任务标题"
+     goal: "具体目标描述"
+     deliverables:
+       - "clawspace/output.txt"
+     subtasks:
+       - id: "subtask-1"
+         description: "子任务描述"
+     acceptance:
+       - subtask_id: "subtask-1"
+         type: script
+         command: "test -f .clawforum/claws/{clawId}/clawspace/output.txt"
+     auth_level: auto
+     ```
+
+3. `exec: node ../../../dist/cli.js contract create --claw {clawId} --file clawspace/{yaml-filename}` — 创建契约
+4. 确认输出包含 "Contract created"
+
+注意事项：
+
+- `acceptance[]` 与 `subtasks[]` 平级，通过 `subtask_id` 对应
+- 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
+- 不要使用 `type: llm`（不支持）
+- exec 从 `motion/clawspace/` 执行，`--file` 使用相对路径 `clawspace/{filename}`
