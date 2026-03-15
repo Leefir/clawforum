@@ -77,6 +77,16 @@ export class MotionRuntime extends ClawRuntime {
       sections.push(parts.contract);
     }
 
+    // 7. AUTH_POLICY.md（授权策略，如存在）
+    try {
+      const authPolicy = (await this.systemFs.read('AUTH_POLICY.md')).trim();
+      if (authPolicy) {
+        sections.push(authPolicy);
+      }
+    } catch {
+      // AUTH_POLICY.md 不存在，跳过
+    }
+
     return sections.join('\n\n');
   }
 

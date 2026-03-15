@@ -5,8 +5,8 @@
 import * as fs from 'fs';
 import * as fsNative from 'fs';
 import * as path from 'path';
-import * as readline from 'readline';
 import * as yaml from 'js-yaml';
+import { startRepl } from '../repl.js';
 import { 
   loadGlobalConfig, 
   loadClawConfig, 
@@ -19,6 +19,13 @@ import {
 } from '../config.js';
 import { ClawRuntime } from '../../core/runtime.js';
 import { LLMRateLimitError, LLMTimeoutError } from '../../types/errors.js';
+
+function isAbortError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.name === 'AbortError' || error.message === 'Execution aborted';
+  }
+  return false;
+}
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 
@@ -90,80 +97,28 @@ export async function chatCommand(name: string): Promise<void> {
   
   // Start runtime
   await runtime.start();
-  
-  // Setup readline REPL
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+
+  await startRepl({
     prompt: '> ',
-  });
-  
-  console.log('Type your message (or "exit" to quit):\n');
-  rl.prompt();
-  
-  rl.on('line', async (input) => {
-    const trimmed = input.trim();
-    
-    if (!trimmed) {
-      rl.prompt();
-      return;
-    }
-    
-    if (trimmed === 'exit' || trimmed === 'quit') {
-      rl.close();
-      return;
-    }
-    
-    // 暂停 readline TTY 管理，防止输出被覆盖
-    rl.pause();
-    
-    try {
-      const response = await runtime.chat(trimmed, {
-        onBeforeLLMCall: () => {
-          console.log('\x1b[2mThinking...\x1b[0m');
-        },
-        onToolCall: (name) => {
-          console.log(`\x1b[2m  → 调用工具: ${name}\x1b[0m`);
-        },
-        onToolResult: (name, result, step, maxSteps) => {
-          const summary = result.content.length > 80
-            ? result.content.slice(0, 80) + '...'
-            : result.content;
-          const status = result.success ? '✓' : '✗';
-          // step 是 0-indexed，显示时 +1
-          console.log(`\x1b[2m    ${status} [${step + 1}/${maxSteps}] ${summary}\x1b[0m`);
-        },
-      });
-      
-      console.log('\n' + response + '\n');
-    } catch (error) {
-      if (error instanceof LLMRateLimitError) {
-        console.error('\n❌ Rate limited. Please wait and try again.\n');
-      } else if (error instanceof LLMTimeoutError) {
-        console.error('\n❌ Request timed out. Please try again.\n');
-      } else {
-        console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
-        console.log('');
+    header: `🤖 Chat with "${name}"`,
+    onMessage: async (message, callbacks) => {
+      try {
+        return await runtime.chat(message, callbacks);
+      } catch (error) {
+        if (error instanceof LLMRateLimitError) {
+          console.error('\n❌ Rate limited. Please wait and try again.\n');
+        } else if (error instanceof LLMTimeoutError) {
+          console.error('\n❌ Request timed out. Please try again.\n');
+        } else if (isAbortError(error)) {
+          // 用户主动中断，静默处理
+        } else {
+          console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
+        }
+        return '';
       }
-    } finally {
-      // 确保 readline 总是被恢复，即使发生异常
-      rl.resume();
-    }
-    
-    rl.prompt();
-  });
-  
-  rl.on('close', async () => {
-    console.log('\n👋 Goodbye!');
-    await runtime.stop();
-    process.exit(0);
-  });
-  
-  // Handle Ctrl+C
-  process.on('SIGINT', async () => {
-    console.log('\n👋 Goodbye!');
-    await runtime.stop();
-    process.exit(0);
+    },
+    onClose: () => runtime.stop(),
+    onInterrupt: () => runtime.abort(),
   });
 }
 

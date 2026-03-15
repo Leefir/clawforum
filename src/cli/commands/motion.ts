@@ -11,8 +11,8 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as fsNative from 'fs';
-import * as readline from 'readline';
 import { spawn } from 'child_process';
+import { startRepl } from '../repl.js';
 import { fileURLToPath } from 'url';
 import { MotionRuntime } from '../../core/motion/runtime.js';
 import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
@@ -155,66 +155,25 @@ export async function chatCommand(): Promise<void> {
   
   // 初始化
   await runtime.initialize();
-  
-  // 创建 readline 接口
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+
+  await startRepl({
     prompt: 'motion> ',
-  });
-  
-  console.log('╔══════════════════════════════════════╗');
-  console.log('║   Clawforum Motion (Manager Mode)    ║');
-  console.log('╚══════════════════════════════════════╝');
-  console.log('\nType your message or "exit" to quit.\n');
-  
-  rl.prompt();
-  
-  rl.on('line', async (input) => {
-    const trimmed = input.trim();
-    if (!trimmed) {
-      rl.prompt();
-      return;
-    }
-    if (trimmed === 'exit' || trimmed === 'quit') {
-      rl.close();
-      return;
-    }
-    
-    // 暂停 readline 以避免 TTY 干扰
-    rl.pause();
-    
-    try {
-      const response = await runtime.chat(trimmed, {
-        onBeforeLLMCall: () => {
-          console.log('\x1b[2mThinking...\x1b[0m');
-        },
-        onToolCall: (toolName: string) => {
-          console.log(`\x1b[2m  → Tool: ${toolName}\x1b[0m`);
-        },
-        onToolResult: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
-          const summary = result.content.length > 80
-            ? result.content.slice(0, 80) + '...'
-            : result.content;
-          const status = result.success ? '✓' : '✗';
-          console.log(`\x1b[2m    ${status} [${step + 1}/${maxSteps}] ${summary}\x1b[0m`);
-        },
-      });
-      console.log('\n' + response + '\n');
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error('\x1b[31mError:\x1b[0m', errorMsg);
-    } finally {
-      rl.resume();
-    }
-    
-    rl.prompt();
-  });
-  
-  rl.on('close', async () => {
-    console.log('\nGoodbye!');
-    await runtime.stop();
-    process.exit(0);
+    header: '╔══════════════════════════════════════╗\n║   Clawforum Motion (Manager Mode)    ║\n╚══════════════════════════════════════╝',
+    onMessage: async (message, callbacks) => {
+      try {
+        return await runtime.chat(message, callbacks);
+      } catch (error) {
+        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Execution aborted')) {
+          // 用户主动中断，静默处理
+        } else {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error('\x1b[31mError:\x1b[0m', errorMsg);
+        }
+        return '';
+      }
+    },
+    onClose: () => runtime.stop(),
+    onInterrupt: () => runtime.abort(),
   });
 }
 

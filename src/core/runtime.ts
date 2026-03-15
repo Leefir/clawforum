@@ -54,6 +54,7 @@ export class ClawRuntime {
   protected options: ClawRuntimeOptions;
   protected initialized = false;
   private running = false;
+  private currentAbortController: AbortController | null = null;
 
   // Foundation
   /**
@@ -365,28 +366,43 @@ export class ClawRuntime {
     );
 
     // 5. 运行 ReAct 循环（带增量存盘）
-    const result = await runReact({
-      messages,
-      systemPrompt,
-      llm: this.llm,
-      executor: this.toolExecutor,
-      ctx: this.execContext,
-      tools,
-      maxSteps: this.options.maxSteps,
-      onToolCall: options?.onToolCall,
-      onBeforeLLMCall: options?.onBeforeLLMCall,
-      onToolResult: options?.onToolResult,
-      onStepComplete: async () => {
-        // 增量存盘
-        await this.sessionManager.save(messages);
-      },
-    });
+    const abortController = new AbortController();
+    this.currentAbortController = abortController;
+    this.execContext.signal = abortController.signal;
+    try {
+      const result = await runReact({
+        messages,
+        systemPrompt,
+        llm: this.llm,
+        executor: this.toolExecutor,
+        ctx: this.execContext,
+        tools,
+        maxSteps: this.options.maxSteps,
+        onToolCall: options?.onToolCall,
+        onBeforeLLMCall: options?.onBeforeLLMCall,
+        onToolResult: options?.onToolResult,
+        onStepComplete: async () => {
+          // 增量存盘
+          await this.sessionManager.save(messages);
+        },
+      });
 
-    // 5. 保存最终会话
-    await this.sessionManager.save(messages);
+      // 保存最终会话
+      await this.sessionManager.save(messages);
 
-    // 6. 返回最终文本
-    return result.finalText;
+      // 返回最终文本
+      return result.finalText;
+    } finally {
+      this.currentAbortController = null;
+      this.execContext.signal = undefined;
+    }
+  }
+
+  /**
+   * 中断当前正在进行的 chat() 调用
+   */
+  abort(): void {
+    this.currentAbortController?.abort();
   }
 
   /**
