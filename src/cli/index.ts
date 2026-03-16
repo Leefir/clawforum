@@ -16,6 +16,7 @@ import {
   stopCommand, 
   listCommand, 
   healthCommand,
+  sendCommand,
 } from './commands/claw.js';
 import { daemonCommand } from './commands/daemon.js';
 import { 
@@ -127,6 +128,26 @@ clawCmd
   .action(async (name: string) => {
     try {
       await healthCommand(name);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw send
+clawCmd
+  .command('send <name> <message>')
+  .description('Send a message to a Claw inbox')
+  .option('--priority <level>', 'Message priority (critical/high/normal/low)', 'normal')
+  .action(async (name: string, message: string, opts: { priority: string }) => {
+    try {
+      // 验证 priority 值
+      const validPriorities = ['critical', 'high', 'normal', 'low'];
+      if (!validPriorities.includes(opts.priority)) {
+        console.error(`❌ Invalid priority: ${opts.priority}. Must be one of: ${validPriorities.join(', ')}`);
+        process.exit(1);
+      }
+      await sendCommand(name, message, { priority: opts.priority as any });
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

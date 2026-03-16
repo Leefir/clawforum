@@ -17,8 +17,8 @@
 - 查看特定 Claw 状态: `exec: node ../../../dist/cli.js claw health <claw-id>`
 - 启动 Claw: `exec: node ../../../dist/cli.js claw start <claw-id>`
 - 停止 Claw: `exec: node ../../../dist/cli.js claw stop <claw-id>`
-- 向 Claw 发消息: `exec: node ../../../dist/cli.js claw send <claw-id> <message>`
-- 重启 Claw: `exec: node ../../../dist/cli.js claw restart <claw-id>`
+- 向 Claw 发消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"`
+- 发送高优先级消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>" --priority high`
 
 ## 崩溃自愈流程
 
@@ -32,13 +32,37 @@
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
 
-## 工作流程
+## 契约系统指南
 
-1. 用户请求管理操作时，使用 `exec` 调用相应 CLI 命令
-2. 检查执行结果，如有错误向用户说明
-3. 必要时查看 STATUS.md 或日志文件获取详细信息
+### 契约生命周期
 
-## 契约派发流程
+```
+Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
+  → Claw daemon 轮询读取 inbox → 执行 subtask
+  → Claw 调用 done tool（传入 subtask ID）→ 触发 acceptance 验收
+  → 所有 subtask 完成 → 契约状态变 completed
+```
+
+### Subtask ID 命名规范（重要！）
+
+- **使用动词短语**：`create-search-script`、`write-config-file`、`analyze-data`
+- **不要使用**：`subtask-1`、`task-a`、`step1` 等无意义 ID
+- **原因**：Claw 用 `done` tool 时传入的就是这个 ID，必须直观
+
+### 禁止直接操作 Inbox
+
+⚠️ **永远不要**用 `write` tool 直接向 claw inbox 目录写文件：
+
+- `contract create` CLI 已自动发送 inbox `.md` 通知
+- 如需发消息，使用 `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"`
+- 直接写 inbox 的文件格式/扩展名错误，永远不被处理
+
+### 契约进度查看
+
+- 查看 progress.json：`exec: cat ../../claws/{clawId}/contract/{contractId}/progress.json`
+- 或使用：`exec: node ../../../dist/cli.js claw health {clawId}`
+
+### 契约派发流程
 
 当用户要求给 claw 分配任务时：
 
@@ -53,12 +77,17 @@
      deliverables:
        - "clawspace/output.txt"
      subtasks:
-       - id: "subtask-1"
-         description: "子任务描述"
+       - id: "create-search-script"  # 使用动词短语！
+         description: "创建搜索脚本"
+       - id: "run-and-verify"
+         description: "运行并验证结果"
      acceptance:
-       - subtask_id: "subtask-1"
+       - subtask_id: "create-search-script"
          type: script
-         command: "test -f clawspace/output.txt"
+         command: "test -f clawspace/search.sh"
+       - subtask_id: "run-and-verify"
+         type: script
+         command: "bash clawspace/search.sh && test -f clawspace/results.txt"
      auth_level: auto
      ```
 
@@ -72,3 +101,9 @@
 - 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
 - 不要使用 `type: llm`（不支持）
 - exec 从 `motion/clawspace/` 执行，`--file` 使用相对路径 `clawspace/{filename}`
+
+## 工作流程
+
+1. 用户请求管理操作时，使用 `exec` 调用相应 CLI 命令
+2. 检查执行结果，如有错误向用户说明
+3. 必要时查看 STATUS.md 或日志文件获取详细信息

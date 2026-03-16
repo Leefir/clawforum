@@ -28,6 +28,8 @@ function isAbortError(error: unknown): boolean {
 }
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { LocalTransport } from '../../foundation/transport/local.js';
+import { randomUUID } from 'crypto';
 
 export async function createCommand(name: string): Promise<void> {
   // Load global config (ensures initialized)
@@ -298,5 +300,48 @@ export async function healthCommand(name: string): Promise<void> {
     } else {
       console.log('\n⚠️  STATUS.md not found (claw is not running)');
     }
+  }
+}
+
+// ============================================================================
+// Send Message Command
+// ============================================================================
+
+/**
+ * 向 Claw 发送 inbox 消息
+ */
+export async function sendCommand(
+  name: string, 
+  message: string, 
+  options?: { priority?: 'critical' | 'high' | 'normal' | 'low' }
+): Promise<void> {
+  loadGlobalConfig();
+  
+  if (!clawExists(name)) {
+    console.error(`❌ Claw "${name}" does not exist`);
+    process.exit(1);
+  }
+
+  const globalConfigPath = getGlobalConfigPath();
+  const baseDir = path.dirname(globalConfigPath);
+  
+  // 创建 transport（workspaceDir = baseDir，即 ~/.clawforum）
+  const transport = new LocalTransport({ workspaceDir: baseDir });
+  await transport.initialize();
+
+  try {
+    await transport.sendInboxMessage(name, {
+      id: randomUUID(),
+      type: 'message',
+      from: 'motion',
+      to: name,
+      content: message,
+      priority: options?.priority ?? 'normal',
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(`✅ Message sent to "${name}"`);
+  } finally {
+    await transport.close();
   }
 }
