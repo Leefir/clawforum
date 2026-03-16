@@ -5,6 +5,7 @@ import { InputLine } from './InputLine.js';
 import { StatusLine, type StatusItem } from './StatusLine.js';
 import { PastePreview } from './PastePreview.js';
 import { editWithEditor } from './editor.js';
+import { executeCommand, type CommandContext } from './commands.js';
 import type { ReplOptions, ReplCallbacks } from '../repl.js';
 
 type Phase = 'idle' | 'running' | 'paste_preview';
@@ -28,11 +29,24 @@ export const App: FC<AppProps> = ({ options }) => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    // exit/quit → 退出
+    // exit/quit → 退出（保留兼容）
     if (trimmed === 'exit' || trimmed === 'quit') {
       await onClose();
       exit();
       return;
+    }
+
+    // 斜杠命令
+    if (trimmed.startsWith('/')) {
+      const context: CommandContext = {
+        clearOutput: () => setOutputLines([]),
+        exit: () => { onClose().then(() => exit()); },
+      };
+      const { handled, output } = executeCommand(trimmed, context);
+      if (handled) {
+        if (output) setOutputLines(prev => [...prev, output]);
+        return;
+      }
     }
 
     setPhase('running');
