@@ -1,13 +1,9 @@
 /**
- * 公共交互式 REPL 工具 - Ink 实现
- * claw chat 和 motion chat 共用
+ * 公共交互式 REPL - 工厂模式
+ * 默认使用 Ink 后端，支持切换
  */
 
-import * as React from 'react';
-import { render } from 'ink';
-import { App } from './ink/App.js';
-
-// 保留原有导出接口，callers 零改动
+// 接口导出不变
 export interface ReplCallbacks {
   onBeforeLLMCall?: () => void;
   onToolCall?: (name: string) => void;
@@ -28,11 +24,31 @@ export interface ReplOptions {
   onInterrupt?: () => void;
 }
 
+// 后端接口
+export interface ReplBackend {
+  start(options: ReplOptions): Promise<void>;
+}
+
+// 默认 Ink 后端（动态 import）
+async function createInkBackend(): Promise<ReplBackend> {
+  const React = await import('react');
+  const { render } = await import('ink');
+  const { App } = await import('./ink/App.js');
+
+  return {
+    async start(options: ReplOptions): Promise<void> {
+      const { waitUntilExit } = render(
+        React.createElement(App, { options }),
+        { exitOnCtrlC: false }
+      );
+      await waitUntilExit();
+      process.stdin.pause();
+    },
+  };
+}
+
+// 公共入口（签名不变，callers 零改动）
 export async function startRepl(options: ReplOptions): Promise<void> {
-  const { waitUntilExit } = render(
-    React.createElement(App, { options }),
-    { exitOnCtrlC: false }
-  );
-  await waitUntilExit();
-  process.stdin.pause();
+  const backend = await createInkBackend();
+  await backend.start(options);
 }
