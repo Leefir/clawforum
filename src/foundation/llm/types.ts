@@ -33,7 +33,10 @@ export interface ProviderConfig {
   /** Timeout in milliseconds */
   timeoutMs: number;
   
-  /** Extended thinking budget tokens (for Anthropic Claude) */
+  /** Enable extended thinking (for Anthropic Claude) */
+  thinking?: boolean;
+  
+  /** Extended thinking budget tokens (defaults to max_tokens - 1024) */
   thinkingBudgetTokens?: number;
 }
 

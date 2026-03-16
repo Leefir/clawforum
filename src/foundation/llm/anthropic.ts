@@ -106,8 +106,9 @@ export class AnthropicAdapter implements IProviderAdapter {
     }
     
     // Extended thinking (requires no temperature)
-    if (this.config.thinkingBudgetTokens && this.config.thinkingBudgetTokens > 0) {
-      body.thinking = { type: 'enabled', budget_tokens: this.config.thinkingBudgetTokens };
+    if (this.config.thinking) {
+      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - 1024);
+      body.thinking = { type: 'enabled', budget_tokens: budget };
       delete body.temperature;
     }
     
@@ -192,8 +193,9 @@ export class AnthropicAdapter implements IProviderAdapter {
     }
 
     // Extended thinking (requires no temperature)
-    if (this.config.thinkingBudgetTokens && this.config.thinkingBudgetTokens > 0) {
-      body.thinking = { type: 'enabled', budget_tokens: this.config.thinkingBudgetTokens };
+    if (this.config.thinking) {
+      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - 1024);
+      body.thinking = { type: 'enabled', budget_tokens: budget };
       delete body.temperature;
     }
 
