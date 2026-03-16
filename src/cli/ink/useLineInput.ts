@@ -48,7 +48,7 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
       }
     };
 
-    stdin.on('data', onData);
+    stdin.prependListener('data', onData);
     return () => { stdin.off('data', onData); };
   }, [stdin, options.enabled]);
 
