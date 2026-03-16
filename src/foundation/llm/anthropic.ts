@@ -184,10 +184,10 @@ export class AnthropicAdapter implements IProviderAdapter {
       body.tools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema }));
     }
 
-    // 复用 call() 的 timeout + signal 逻辑
+    // fetch 阶段保留初始 timeout（等待服务器首次响应）
     const timeout = timeoutMs ?? this.config.timeoutMs;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    let timeoutId = setTimeout(() => controller.abort(), timeout);
     const onAbort = signal ? () => controller.abort() : undefined;
     if (signal && onAbort) signal.addEventListener('abort', onAbort);
 
@@ -205,7 +205,10 @@ export class AnthropicAdapter implements IProviderAdapter {
 
       if (!response.ok) await this.handleErrorResponse(response);
 
-      yield* this.parseSSEStream(response);
+      // fetch 成功，清除初始 timeout，由 parseSSEStream 管理 idle timeout
+      clearTimeout(timeoutId);
+
+      yield* this.parseSSEStream(response, controller, timeout);
     } catch (error) {
       // 与 call() 相同的错误处理
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -227,15 +230,22 @@ export class AnthropicAdapter implements IProviderAdapter {
   /**
    * Parse Anthropic SSE stream
    */
-  private async* parseSSEStream(response: Response): AsyncIterableIterator<StreamChunk> {
+  private async* parseSSEStream(
+    response: Response,
+    controller: AbortController,
+    idleTimeoutMs: number,
+  ): AsyncIterableIterator<StreamChunk> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
 
     try {
       while (true) {
         const { done, value } = await reader.read();
+        clearTimeout(idleTimer);
         if (done) break;
+        idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -288,6 +298,7 @@ export class AnthropicAdapter implements IProviderAdapter {
         }
       }
     } finally {
+      clearTimeout(idleTimer);
       reader.releaseLock();
     }
   }
