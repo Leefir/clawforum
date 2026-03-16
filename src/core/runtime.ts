@@ -357,6 +357,7 @@ export class ClawRuntime {
       onToolCall?: (toolName: string) => void;
       onBeforeLLMCall?: () => void;
       onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+      onTextDelta?: (delta: string) => void;  // 新增：流式文本增量
     }
   ): Promise<string> {
     if (!this.initialized) {
@@ -394,6 +395,7 @@ export class ClawRuntime {
         onToolCall: options?.onToolCall,
         onBeforeLLMCall: options?.onBeforeLLMCall,
         onToolResult: options?.onToolResult,
+        onTextDelta: options?.onTextDelta,  // 透传流式文本增量
         onStepComplete: async () => {
           // 增量存盘
           await this.sessionManager.save(messages);

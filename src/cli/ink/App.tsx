@@ -17,6 +17,7 @@ export const App: FC<AppProps> = ({ options }) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const [status, setStatus] = useState<StatusItem | null>(null);
+  const [streamingText, setStreamingText] = useState('');
 
   // 提交消息 → 进入 running 状态
   const handleSubmit = useCallback(async (text: string) => {
@@ -32,6 +33,7 @@ export const App: FC<AppProps> = ({ options }) => {
 
     setPhase('running');
     setStatus({ type: 'thinking', text: 'Thinking...' });
+    setStreamingText('');
 
     const callbacks: ReplCallbacks = {
       onBeforeLLMCall: () => {
@@ -47,14 +49,22 @@ export const App: FC<AppProps> = ({ options }) => {
         const icon = result.success ? '✓' : '✗';
         setStatus({ type: 'tool_result', text: `  ${icon} [${step + 1}/${maxSteps}] ${summary}` });
       },
+      onTextDelta: (delta: string) => {
+        setStreamingText(prev => prev + delta);
+      },
     };
 
     try {
-      const response = await onMessage(trimmed, callbacks);
-      if (response) {
-        setOutputLines(prev => [...prev, response]);
-      }
+      await onMessage(trimmed, callbacks);
+      // 流式文本在 streamingText 中实时累积，不再单独处理 response
     } finally {
+      // 将流式文本转为历史输出（如果中断，已显示的文本也保留）
+      setStreamingText(st => {
+        if (st) {
+          setOutputLines(prev => [...prev, st]);
+        }
+        return '';
+      });
       setStatus(null);
       setPhase('idle');
     }
@@ -91,6 +101,9 @@ export const App: FC<AppProps> = ({ options }) => {
       {outputLines.map((line, i) => (
         <Text key={i}>{line}</Text>
       ))}
+
+      {/* 流式文本（LLM 正在生成） */}
+      {streamingText && <Text>{streamingText}</Text>}
 
       {/* 状态行 */}
       <StatusLine status={status} />
