@@ -1,35 +1,106 @@
 import { type FC, useState, useCallback } from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box, useApp, useInput } from 'ink';
 import { useLineInput } from './useLineInput.js';
 import { InputLine } from './InputLine.js';
+import type { ReplOptions, ReplCallbacks } from '../repl.js';
 
-interface AppProps {
-  prompt?: string;
+type Phase = 'idle' | 'running';
+
+interface StatusItem {
+  type: 'thinking' | 'tool_call' | 'tool_result';
+  text: string;
 }
 
-export const App: FC<AppProps> = ({ prompt = '> ' }) => {
-  const [output, setOutput] = useState<string[]>([]);
+interface AppProps {
+  options: ReplOptions;
+}
 
-  const onSubmit = useCallback((text: string) => {
-    setOutput(prev => [...prev, `[submit] ${text}`]);
-  }, []);
+export const App: FC<AppProps> = ({ options }) => {
+  const { prompt, header, onMessage, onClose, onInterrupt } = options;
+  const { exit } = useApp();
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [outputLines, setOutputLines] = useState<string[]>([]);
+  const [status, setStatus] = useState<StatusItem | null>(null);
 
-  const onPaste = useCallback((lines: string[]) => {
-    setOutput(prev => [...prev, `[paste] ${lines.length} lines`]);
-  }, []);
+  // 提交消息 → 进入 running 状态
+  const handleSubmit = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    // exit/quit → 退出
+    if (trimmed === 'exit' || trimmed === 'quit') {
+      await onClose();
+      exit();
+      return;
+    }
+
+    setPhase('running');
+    setStatus({ type: 'thinking', text: 'Thinking...' });
+
+    const callbacks: ReplCallbacks = {
+      onBeforeLLMCall: () => {
+        setStatus({ type: 'thinking', text: 'Thinking...' });
+      },
+      onToolCall: (name: string) => {
+        setStatus({ type: 'tool_call', text: `→ Tool: ${name}` });
+      },
+      onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
+        const summary = result.content.length > 80
+          ? result.content.slice(0, 80) + '...'
+          : result.content;
+        const icon = result.success ? '✓' : '✗';
+        setStatus({ type: 'tool_result', text: `  ${icon} [${step + 1}/${maxSteps}] ${summary}` });
+      },
+    };
+
+    try {
+      const response = await onMessage(trimmed, callbacks);
+      if (response) {
+        setOutputLines(prev => [...prev, response]);
+      }
+    } finally {
+      setStatus(null);
+      setPhase('idle');
+    }
+  }, [onMessage, onClose, exit]);
+
+  // 粘贴暂时直接合并为单条消息发送（Step 7 实现预览）
+  const handlePaste = useCallback((lines: string[]) => {
+    const joined = lines.join('\n').trim();
+    if (joined) handleSubmit(joined);
+  }, [handleSubmit]);
 
   const { buffer, cursorPos } = useLineInput({
-    onSubmit,
-    onPaste,
-    enabled: true,
+    onSubmit: handleSubmit,
+    onPaste: handlePaste,
+    enabled: phase === 'idle',
   });
+
+  // running 状态下 Esc 中断
+  useInput((_input, key) => {
+    if (key.escape && phase === 'running') {
+      onInterrupt?.();
+      setOutputLines(prev => [...prev, '\x1b[33m[interrupted]\x1b[0m']);
+    }
+  }, { isActive: phase === 'running' });
 
   return (
     <Box flexDirection="column">
-      {output.map((line, i) => (
+      {/* Header（首次显示） */}
+      <Text>{header}</Text>
+      <Text dimColor>Type your message or "exit" to quit.</Text>
+      <Text>{''}</Text>
+
+      {/* 历史输出 */}
+      {outputLines.map((line, i) => (
         <Text key={i}>{line}</Text>
       ))}
-      <InputLine prompt={prompt} buffer={buffer} cursorPos={cursorPos} active={true} />
+
+      {/* 状态行 */}
+      {status && <Text dimColor>{status.text}</Text>}
+
+      {/* 输入行 */}
+      <InputLine prompt={prompt} buffer={buffer} cursorPos={cursorPos} active={phase === 'idle'} />
     </Box>
   );
 };
