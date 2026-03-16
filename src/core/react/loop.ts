@@ -166,6 +166,11 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
         toolResults.push(resultBlock);
       }
 
+      // 检查是否被中断（工具执行后）
+      if (ctx.signal?.aborted) {
+        throw new Error('Execution aborted');
+      }
+
       // Append tool results as user message
       appendToolResults(messages, toolResults);
 

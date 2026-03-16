@@ -171,7 +171,7 @@ export async function startRepl(options: ReplOptions): Promise<void> {
       onInterrupt?.();
       process.stdout.write('\n\x1b[33m[interrupted]\x1b[0m\n');
     };
-    process.once('SIGINT', handleInterrupt);
+    process.on('SIGINT', handleInterrupt);
     try {
       const response = await onMessage(message, callbacks);
       if (response) console.log('\n' + response + '\n');

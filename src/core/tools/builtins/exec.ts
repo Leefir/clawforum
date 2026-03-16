@@ -46,6 +46,7 @@ export const execTool: ITool = {
         timeout,
         encoding: 'utf-8',
         maxBuffer: 1024 * 1024, // 1MB - 让 JS 层截断逻辑处理
+        signal: ctx.signal, // 支持 Ctrl+C 中断
       });
 
       // Design doc: separate truncation for stdout/stderr

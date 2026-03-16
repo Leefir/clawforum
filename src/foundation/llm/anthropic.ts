@@ -135,6 +135,14 @@ export class AnthropicAdapter implements IProviderAdapter {
       
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
+        // 区分用户主动中断（Ctrl+C）和内部超时
+        if (signal?.aborted) {
+          // 用户主动中断
+          const err = new Error('Execution aborted');
+          err.name = 'AbortError';
+          throw err;
+        }
+        // 内部超时
         throw new LLMTimeoutError(this.name, timeout);
       }
       
