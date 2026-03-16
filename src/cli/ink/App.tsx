@@ -1,11 +1,13 @@
 import { type FC, useState, useCallback } from 'react';
-import { Text, Box, useApp, useInput } from 'ink';
+import { Text, Box, useApp, useInput, useStdin } from 'ink';
 import { useLineInput } from './useLineInput.js';
 import { InputLine } from './InputLine.js';
 import { StatusLine, type StatusItem } from './StatusLine.js';
+import { PastePreview } from './PastePreview.js';
+import { editWithEditor } from './editor.js';
 import type { ReplOptions, ReplCallbacks } from '../repl.js';
 
-type Phase = 'idle' | 'running';
+type Phase = 'idle' | 'running' | 'paste_preview';
 
 interface AppProps {
   options: ReplOptions;
@@ -14,10 +16,12 @@ interface AppProps {
 export const App: FC<AppProps> = ({ options }) => {
   const { prompt, header, onMessage, onClose, onInterrupt } = options;
   const { exit } = useApp();
+  const { setRawMode } = useStdin();
   const [phase, setPhase] = useState<Phase>('idle');
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const [status, setStatus] = useState<StatusItem | null>(null);
   const [streamingText, setStreamingText] = useState('');
+  const [pastedLines, setPastedLines] = useState<string[]>([]);
 
   // 提交消息 → 进入 running 状态
   const handleSubmit = useCallback(async (text: string) => {
@@ -56,9 +60,7 @@ export const App: FC<AppProps> = ({ options }) => {
 
     try {
       await onMessage(trimmed, callbacks);
-      // 流式文本在 streamingText 中实时累积，不再单独处理 response
     } finally {
-      // 将流式文本转为历史输出（如果中断，已显示的文本也保留）
       setStreamingText(st => {
         if (st) {
           setOutputLines(prev => [...prev, st]);
@@ -70,10 +72,19 @@ export const App: FC<AppProps> = ({ options }) => {
     }
   }, [onMessage, onClose, exit]);
 
-  // 粘贴暂时直接合并为单条消息发送（Step 7 实现预览）
+  // 粘贴处理：进入预览模式
   const handlePaste = useCallback((lines: string[]) => {
-    const joined = lines.join('\n').trim();
-    if (joined) handleSubmit(joined);
+    const trimmed = [...lines];
+    while (trimmed.length > 0 && trimmed[trimmed.length - 1].trim() === '') {
+      trimmed.pop();
+    }
+    if (trimmed.length === 0) return;
+    if (trimmed.length === 1) {
+      handleSubmit(trimmed[0]);
+      return;
+    }
+    setPastedLines(trimmed);
+    setPhase('paste_preview');
   }, [handleSubmit]);
 
   const { buffer, cursorPos } = useLineInput({
@@ -90,25 +101,42 @@ export const App: FC<AppProps> = ({ options }) => {
     }
   }, { isActive: phase === 'running' });
 
+  // paste_preview 状态下按键处理
+  useInput((input, key) => {
+    if (phase !== 'paste_preview') return;
+
+    if (key.return) {
+      const text = pastedLines.join('\n').trim();
+      setPastedLines([]);
+      setPhase('idle');
+      if (text) handleSubmit(text);
+    } else if (input === 'e') {
+      setRawMode(false);
+      const edited = editWithEditor(pastedLines);
+      setRawMode(true);
+      setPastedLines(edited);
+    } else if (input === 'q' || key.escape) {
+      setPastedLines([]);
+      setPhase('idle');
+    }
+  }, { isActive: phase === 'paste_preview' });
+
   return (
     <Box flexDirection="column">
-      {/* Header（首次显示） */}
       <Text>{header}</Text>
       <Text dimColor>Type your message or "exit" to quit.</Text>
       <Text>{''}</Text>
 
-      {/* 历史输出 */}
       {outputLines.map((line, i) => (
         <Text key={i}>{line}</Text>
       ))}
 
-      {/* 流式文本（LLM 正在生成） */}
       {streamingText && <Text>{streamingText}</Text>}
 
-      {/* 状态行 */}
+      {phase === 'paste_preview' && <PastePreview lines={pastedLines} />}
+
       <StatusLine status={status} />
 
-      {/* 输入行 */}
       <InputLine prompt={prompt} buffer={buffer} cursorPos={cursorPos} active={phase === 'idle'} />
     </Box>
   );
