@@ -6,6 +6,7 @@ interface Props {
 }
 
 const PREVIEW_MAX = 10;
+const MAX_LINE_WIDTH = 80;
 
 export const PastePreview: FC<Props> = ({ lines }) => {
   const shown = lines.slice(0, PREVIEW_MAX);
@@ -16,7 +17,9 @@ export const PastePreview: FC<Props> = ({ lines }) => {
       <Text color="cyan">粘贴内容（{lines.length} 行）：</Text>
       <Text>{'─'.repeat(50)}</Text>
       {shown.map((line, i) => (
-        <Text key={i}>  {line}</Text>
+        <Text key={i}>
+          {'  '}{line.length > MAX_LINE_WIDTH ? line.slice(0, MAX_LINE_WIDTH) + '…' : line}
+        </Text>
       ))}
       {lines.length > PREVIEW_MAX && (
         <Text dimColor>  ... （还有 {lines.length - PREVIEW_MAX} 行）</Text>

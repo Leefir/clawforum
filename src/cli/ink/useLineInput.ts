@@ -38,10 +38,11 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
     const onData = (data: Buffer) => {
       const str = data.toString();
       // 单次 data 含换行 = 粘贴（长度>1 排除单个回车）
-      const newlineCount = (str.match(/\r?\n/g) || []).length;
+      // 匹配 \r\n、\r、\n 三种换行（macOS 终端转换 \n 为 \r）
+      const newlineCount = (str.match(/\r\n|\r|\n/g) || []).length;
       if (newlineCount >= 1 && str.length > 1) {
         pasteDetectedRef.current = true;
-        const lines = str.split(/\r?\n/);
+        const lines = str.split(/\r\n|\r|\n/);
         pasteRef.current(lines);
         // 延迟重置标志，跳过本次 useInput 的同步调用
         setTimeout(() => { pasteDetectedRef.current = false; }, 0);

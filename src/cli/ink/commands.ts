@@ -8,6 +8,7 @@ export interface SlashCommand {
 export interface CommandContext {
   clearOutput: () => void;
   exit: () => void;
+  getPhase: () => string;
 }
 
 // 内置命令
@@ -40,8 +41,8 @@ const builtinCommands: SlashCommand[] = [
   {
     name: 'status',
     description: '显示当前状态',
-    execute: () => {
-      return '状态：idle';
+    execute: (_args, ctx) => {
+      return `状态：${ctx.getPhase()}`;
     },
   },
 ];

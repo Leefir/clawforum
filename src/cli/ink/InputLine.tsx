@@ -11,10 +11,11 @@ interface Props {
 export const InputLine: FC<Props> = ({ prompt, buffer, cursorPos, active }) => {
   if (!active) return null;
 
-  // 光标位置字符用反色显示
+  // 光标位置字符用反色显示（Unicode-aware，处理 surrogate pair）
   const before = buffer.slice(0, cursorPos);
-  const cursor = buffer[cursorPos] ?? ' ';
-  const after = buffer.slice(cursorPos + 1);
+  const codePoint = buffer.codePointAt(cursorPos);
+  const cursor = codePoint !== undefined ? String.fromCodePoint(codePoint) : ' ';
+  const after = buffer.slice(cursorPos + cursor.length);
 
   return (
     <Text>

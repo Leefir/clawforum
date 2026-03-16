@@ -42,6 +42,7 @@ export const App: FC<AppProps> = ({ options }) => {
       const context: CommandContext = {
         clearOutput: () => setOutputLines([]),
         exit: () => { shouldExit = true; },
+        getPhase: () => phase,
       };
       const { handled, output } = executeCommand(trimmed, context);
       if (handled) {
@@ -119,6 +120,10 @@ export const App: FC<AppProps> = ({ options }) => {
       if (phase === 'running') {
         onInterrupt?.();
         setOutputLines(prev => [...prev, '\x1b[33m[interrupted]\x1b[0m']);
+      } else if (phase === 'paste_preview') {
+        // 取消粘贴预览，回到 idle（不退出）
+        setPastedLines([]);
+        setPhase('idle');
       } else {
         onClose().then(() => exit()).catch(() => exit());
       }
