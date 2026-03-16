@@ -1,6 +1,6 @@
 /**
  * 公共交互式 REPL - 工厂模式
- * 默认使用 Ink 后端，支持切换
+ * 支持 Ink 和 pi-tui 后端切换
  */
 
 // 接口导出不变
@@ -29,7 +29,7 @@ export interface ReplBackend {
   start(options: ReplOptions): Promise<void>;
 }
 
-// 默认 Ink 后端（动态 import）
+// Ink 后端（动态 import）
 async function createInkBackend(): Promise<ReplBackend> {
   const React = await import('react');
   const { render } = await import('ink');
@@ -47,8 +47,22 @@ async function createInkBackend(): Promise<ReplBackend> {
   };
 }
 
+// pi-tui 后端（动态 import）
+async function createPiTuiBackend(): Promise<ReplBackend> {
+  const { runPiTui } = await import('./pi-tui/App.js');
+  return {
+    async start(options: ReplOptions): Promise<void> {
+      await runPiTui(options);
+    },
+  };
+}
+
 // 公共入口（签名不变，callers 零改动）
+// 环境变量 CLAWFORUM_TUI=ink 使用 Ink，否则默认使用 pi-tui
 export async function startRepl(options: ReplOptions): Promise<void> {
-  const backend = await createInkBackend();
+  const useInk = process.env.CLAWFORUM_TUI === 'ink';
+  const backend = useInk
+    ? await createInkBackend()
+    : await createPiTuiBackend();
   await backend.start(options);
 }

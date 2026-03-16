@@ -34,6 +34,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@mariozechner/pi-tui": "^0.58.3",
     "chokidar": "^4.0.3",
     "commander": "^13.1.0",
     "ink": "^5.0.1",
@@ -53,6 +54,8 @@
     "node": ">=22.0.0"
   },
   "pnpm": {
-    "ignoredBuiltDependencies": ["esbuild"]
+    "ignoredBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
