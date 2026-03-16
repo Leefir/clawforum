@@ -289,6 +289,7 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
         tui.requestRender();
       },
       onToolCall: (name: string) => {
+        flushThinking();
         flushStreaming();
         streamingTextComponent.setText(`→ ${name}...`);
         tui.requestRender();
