@@ -16,7 +16,8 @@ export const StatusLine: FC<Props> = ({ status }) => {
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
-    if (status?.type !== 'thinking') return;
+    // thinking 和 tool_call 都显示 spinner
+    if (status?.type !== 'thinking' && status?.type !== 'tool_call') return;
     const timer = setInterval(() => {
       setFrame(f => (f + 1) % SPINNER_FRAMES.length);
     }, 80);
@@ -25,11 +26,12 @@ export const StatusLine: FC<Props> = ({ status }) => {
 
   if (!status) return null;
 
-  if (status.type === 'thinking') {
+  // thinking 和 tool_call 都显示 spinner
+  if (status.type === 'thinking' || status.type === 'tool_call') {
     return <Text dimColor>{SPINNER_FRAMES[frame]} {status.text}</Text>;
   }
 
-  // tool_call / tool_result
+  // tool_result 静态显示
   return <Text dimColor>{status.text}</Text>;
 };
 

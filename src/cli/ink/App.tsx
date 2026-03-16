@@ -74,9 +74,9 @@ export const App: FC<AppProps> = ({ options }) => {
         setOutputLines(prev => [...prev, `\x1b[36m→ ${name}\x1b[0m`]);
       },
       onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
-        const summary = result.content.length > 80
-          ? result.content.slice(0, 80) + '...'
-          : result.content;
+        // 去换行、合并多余空格
+        const flat = result.content.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+        const summary = flat.length > 80 ? flat.slice(0, 80) + '...' : flat;
         const icon = result.success ? '✓' : '✗';
         setStatus({ type: 'tool_result', text: `  ${icon} [${step + 1}/${maxSteps}] ${summary}` });
         setOutputLines(prev => [...prev, `\x1b[2m  ${icon} ${summary}\x1b[0m`]);
