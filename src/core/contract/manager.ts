@@ -63,11 +63,62 @@ export class ContractManager {
   private fs: IFileSystem;
   private clawDir: string;
   private monitor?: IMonitor;
+  private lockRetries = 3;
+  private lockDelay = 100; // ms
 
   constructor(clawDir: string, fs: IFileSystem, monitor?: IMonitor) {
     this.clawDir = clawDir;
     this.fs = fs;
     this.monitor = monitor;
+  }
+
+  /**
+   * 获取文件锁（排他创建模式）
+   * 使用 writeAtomic + exists 检查模拟排他创建
+   */
+  private async acquireLock(lockPath: string): Promise<void> {
+    for (let i = 0; i < this.lockRetries; i++) {
+      try {
+        // 检查锁是否已存在
+        const exists = await this.fs.exists(lockPath);
+        if (exists) {
+          throw new Error('Lock exists');
+        }
+        // 尝试创建锁文件（原子写入）
+        await this.fs.writeAtomic(lockPath, JSON.stringify({ pid: process.pid, time: Date.now() }));
+        return; // 成功获取锁
+      } catch {
+        // 锁已存在或竞争失败，等待后重试
+        if (i < this.lockRetries - 1) {
+          await new Promise(r => setTimeout(r, this.lockDelay));
+        }
+      }
+    }
+    throw new ToolError(`Failed to acquire lock after ${this.lockRetries} retries: ${lockPath}`);
+  }
+
+  /**
+   * 释放文件锁
+   */
+  private async releaseLock(lockPath: string): Promise<void> {
+    try {
+      await this.fs.delete(lockPath);
+    } catch {
+      // 忽略删除失败（可能已被其他进程清理）
+    }
+  }
+
+  /**
+   * 带锁保护的 progress.json 更新
+   */
+  private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
+    const lockPath = `contract/${contractId}/progress.lock`;
+    await this.acquireLock(lockPath);
+    try {
+      return await fn();
+    } finally {
+      await this.releaseLock(lockPath);
+    }
   }
 
   /**
@@ -214,39 +265,43 @@ export class ContractManager {
     }
 
     if (result.passed) {
-      // 更新进度
-      const progress = await this.getProgress(contractId);
-      
-      // 检查 subtaskId 是否存在
-      if (!progress.subtasks[subtaskId]) {
-        const validIds = Object.keys(progress.subtasks).join(', ');
-        return {
-          passed: false,
-          feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`,
+      // 使用文件锁保护 read-modify-write
+      await this.withProgressLock(contractId, async () => {
+        // 重新读取进度（在锁内获取最新状态）
+        const progress = await this.getProgress(contractId);
+        
+        // 检查 subtaskId 是否存在
+        if (!progress.subtasks[subtaskId]) {
+          const validIds = Object.keys(progress.subtasks).join(', ');
+          result = {
+            passed: false,
+            feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`,
+          };
+          return;
+        }
+        
+        progress.subtasks[subtaskId] = {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          evidence,
+          artifacts,
         };
-      }
-      
-      progress.subtasks[subtaskId] = {
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        evidence,
-        artifacts,
-      };
 
-      // 检查所有子任务是否完成
-      const allCompleted = await this.checkAllCompleted(contractId, progress);
-      if (allCompleted) {
-        progress.status = 'completed';
-        // 更新契约状态
-        await this.updateContractStatus(contractId, 'completed');
-      }
+        // 检查所有子任务是否完成
+        const allCompleted = await this.checkAllCompleted(contractId, progress);
+        if (allCompleted) {
+          progress.status = 'completed';
+          // 更新契约状态
+          await this.updateContractStatus(contractId, 'completed');
+        }
 
-      await this.saveProgress(contractId, progress);
-      
-      this.monitor?.log('contract_updated', {
-        contractId,
-        subtaskId,
-        status: allCompleted ? 'completed' : 'running',
+        await this.saveProgress(contractId, progress);
+        
+        this.monitor?.log('contract_updated', {
+          contractId,
+          subtaskId,
+          status: allCompleted ? 'completed' : 'running',
+        });
       });
     }
 
@@ -257,18 +312,20 @@ export class ContractManager {
    * 暂停契约
    */
   async pause(contractId: string, checkpointNote: string): Promise<void> {
-    const progress = await this.getProgress(contractId);
-    if (progress.status !== 'running') {
-      throw new ToolError(`Cannot pause contract "${contractId}": current status is "${progress.status}" (expected "running")`);
-    }
-    progress.status = 'paused';
-    progress.checkpoint = checkpointNote;
-    await this.saveProgress(contractId, progress);
+    await this.withProgressLock(contractId, async () => {
+      const progress = await this.getProgress(contractId);
+      if (progress.status !== 'running') {
+        throw new ToolError(`Cannot pause contract "${contractId}": current status is "${progress.status}" (expected "running")`);
+      }
+      progress.status = 'paused';
+      progress.checkpoint = checkpointNote;
+      await this.saveProgress(contractId, progress);
 
-    this.monitor?.log('contract_updated', {
-      contractId,
-      status: 'paused',
-      checkpoint: checkpointNote,
+      this.monitor?.log('contract_updated', {
+        contractId,
+        status: 'paused',
+        checkpoint: checkpointNote,
+      });
     });
   }
 
@@ -276,38 +333,42 @@ export class ContractManager {
    * 恢复契约
    */
   async resume(contractId: string): Promise<Contract> {
-    const progress = await this.getProgress(contractId);
-    if (progress.status !== 'paused') {
-      throw new ToolError(`Cannot resume contract "${contractId}": current status is "${progress.status}" (expected "paused")`);
-    }
-    progress.status = 'running';
-    progress.checkpoint = null;
-    await this.saveProgress(contractId, progress);
+    return await this.withProgressLock(contractId, async () => {
+      const progress = await this.getProgress(contractId);
+      if (progress.status !== 'paused') {
+        throw new ToolError(`Cannot resume contract "${contractId}": current status is "${progress.status}" (expected "paused")`);
+      }
+      progress.status = 'running';
+      progress.checkpoint = null;
+      await this.saveProgress(contractId, progress);
 
-    this.monitor?.log('contract_updated', {
-      contractId,
-      status: 'running',
+      this.monitor?.log('contract_updated', {
+        contractId,
+        status: 'running',
+      });
+
+      return this.loadContract(contractId);
     });
-
-    return this.loadContract(contractId);
   }
 
   /**
    * 取消契约
    */
   async cancel(contractId: string, reason: string): Promise<void> {
-    const progress = await this.getProgress(contractId);
-    if (progress.status === 'completed' || progress.status === 'cancelled') {
-      throw new ToolError(`Cannot cancel contract "${contractId}": already in terminal status "${progress.status}"`);
-    }
-    progress.status = 'cancelled';
-    progress.checkpoint = `cancelled: ${reason}`;
-    await this.saveProgress(contractId, progress);
+    await this.withProgressLock(contractId, async () => {
+      const progress = await this.getProgress(contractId);
+      if (progress.status === 'completed' || progress.status === 'cancelled') {
+        throw new ToolError(`Cannot cancel contract "${contractId}": already in terminal status "${progress.status}"`);
+      }
+      progress.status = 'cancelled';
+      progress.checkpoint = `cancelled: ${reason}`;
+      await this.saveProgress(contractId, progress);
 
-    this.monitor?.log('contract_updated', {
-      contractId,
-      status: 'cancelled',
-      reason,
+      this.monitor?.log('contract_updated', {
+        contractId,
+        status: 'cancelled',
+        reason,
+      });
     });
   }
 

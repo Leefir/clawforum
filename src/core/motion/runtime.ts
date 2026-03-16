@@ -62,6 +62,16 @@ export class MotionRuntime extends ClawRuntime {
       // REVIEW.md 不存在，跳过
     }
 
+    // 3.5 HEARTBEAT.md（心跳任务指引）
+    try {
+      const heartbeat = (await this.systemFs.read('HEARTBEAT.md')).trim();
+      if (heartbeat) {
+        sections.push(heartbeat);
+      }
+    } catch {
+      // HEARTBEAT.md 不存在，跳过
+    }
+
     // 4. MEMORY.md（持久记忆）
     if (parts.memory) {
       sections.push(parts.memory);

@@ -290,13 +290,15 @@ export class ClawRuntime {
       }
     }
 
-    // 构建消息注入
+    // 构建消息注入（保留 type 和 priority 字段）
     const injected: Message[] = [];
     for (const info of fileInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
+      const type = info.meta.type ?? 'message';
+      const priority = info.meta.priority ?? 'normal';
       injected.push({
         role: 'user',
-        content: `[inbox 消息 from ${from}]\n${info.body}`,
+        content: `[inbox type=${type} priority=${priority} from=${from}]\n${info.body}`,
       });
     }
 
