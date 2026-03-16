@@ -55,6 +55,9 @@ export interface ReactOptions {
   
   /** Callback for streaming text deltas (for real-time display) */
   onTextDelta?: (delta: string) => void;
+  
+  /** Callback for streaming thinking deltas (for extended thinking display) */
+  onThinkingDelta?: (delta: string) => void;
 }
 
 /**
@@ -112,7 +115,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       tools: options.tools,
       maxTokens: 4096,
       signal: ctx.signal,
-    }, options.onTextDelta);
+    }, options.onTextDelta, options.onThinkingDelta);
 
     // Handle tool_use stop reason
     if (response.stop_reason === 'tool_use') {
@@ -240,9 +243,11 @@ async function collectStreamResponse(
   llm: ILLMService,
   callOptions: LLMCallOptions,
   onTextDelta?: (delta: string) => void,
+  onThinkingDelta?: (delta: string) => void,
 ): Promise<LLMResponse> {
   const contentBlocks: ContentBlock[] = [];
   let currentText = '';
+  let currentThinking = '';
   let currentToolUse: { id: string; name: string; input: string } | null = null;
   let stopReason = 'end_turn';
   let usage: { input_tokens: number; output_tokens: number } | undefined;
@@ -250,9 +255,21 @@ async function collectStreamResponse(
   for await (const chunk of llm.stream(callOptions)) {
     switch (chunk.type) {
       case 'text_delta':
+        // Flush thinking before text starts
+        if (currentThinking) {
+          contentBlocks.push({ type: 'thinking', thinking: currentThinking } as ContentBlock);
+          currentThinking = '';
+        }
         if (chunk.delta) {
           currentText += chunk.delta;
           onTextDelta?.(chunk.delta);
+        }
+        break;
+
+      case 'thinking_delta':
+        if (chunk.delta) {
+          currentThinking += chunk.delta;
+          onThinkingDelta?.(chunk.delta);
         }
         break;
 
@@ -288,6 +305,9 @@ async function collectStreamResponse(
   }
 
   // 保存最后的 blocks
+  if (currentThinking) {
+    contentBlocks.push({ type: 'thinking', thinking: currentThinking } as ContentBlock);
+  }
   if (currentText) {
     contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
   }

@@ -9,6 +9,7 @@ export interface ReplCallbacks {
   onToolCall?: (name: string) => void;
   onToolResult?: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onTextDelta?: (delta: string) => void;  // 新增：流式文本增量
+  onThinkingDelta?: (delta: string) => void;  // 新增：流式 thinking 增量
 }
 
 export interface ReplOptions {

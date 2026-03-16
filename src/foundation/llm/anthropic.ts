@@ -38,6 +38,7 @@ interface AnthropicRequest {
     input_schema: unknown;
   }>;
   stream?: boolean;
+  thinking?: { type: 'enabled'; budget_tokens: number };
 }
 
 /**
@@ -102,6 +103,12 @@ export class AnthropicAdapter implements IProviderAdapter {
         description: t.description,
         input_schema: t.input_schema,
       }));
+    }
+    
+    // Extended thinking (requires no temperature)
+    if (this.config.thinkingBudgetTokens && this.config.thinkingBudgetTokens > 0) {
+      body.thinking = { type: 'enabled', budget_tokens: this.config.thinkingBudgetTokens };
+      delete body.temperature;
     }
     
     // Setup timeout
@@ -182,6 +189,12 @@ export class AnthropicAdapter implements IProviderAdapter {
     else if (this.config.temperature !== undefined) body.temperature = this.config.temperature;
     if (tools && tools.length > 0) {
       body.tools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema }));
+    }
+
+    // Extended thinking (requires no temperature)
+    if (this.config.thinkingBudgetTokens && this.config.thinkingBudgetTokens > 0) {
+      body.thinking = { type: 'enabled', budget_tokens: this.config.thinkingBudgetTokens };
+      delete body.temperature;
     }
 
     // fetch 阶段保留初始 timeout（等待服务器首次响应）
@@ -279,6 +292,8 @@ export class AnthropicAdapter implements IProviderAdapter {
             const delta = event.delta as Record<string, unknown>;
             if (delta.type === 'text_delta') {
               yield { type: 'text_delta', delta: delta.text as string };
+            } else if (delta.type === 'thinking_delta') {
+              yield { type: 'thinking_delta', delta: delta.thinking as string };
             } else if (delta.type === 'input_json_delta') {
               yield {
                 type: 'tool_use_delta',
@@ -340,13 +355,13 @@ export class AnthropicAdapter implements IProviderAdapter {
       
       const blocks = m.content as Array<{type?: string}>;
       
-      // Check if message contains tool-related blocks
-      const hasToolBlocks = blocks.some(
-        b => b.type === 'tool_use' || b.type === 'tool_result'
+      // Check if message contains structured blocks (tool_use, tool_result, or thinking)
+      const hasStructuredBlocks = blocks.some(
+        b => b.type === 'tool_use' || b.type === 'tool_result' || b.type === 'thinking'
       );
       
-      if (hasToolBlocks) {
-        // Keep array format for tool messages
+      if (hasStructuredBlocks) {
+        // Keep array format for structured messages
         return { role, content: blocks as unknown[] };
       }
       

@@ -80,6 +80,9 @@ export const App: FC<AppProps> = ({ options }) => {
         flushStreaming();
         setStatus({ type: 'thinking', text: 'Thinking...' });
       },
+      onThinkingDelta: (delta: string) => {
+        setStreamingText(prev => prev + '\x1b[2m💭 ' + delta + '\x1b[0m');
+      },
       onToolCall: (name: string) => {
         flushStreaming();
         setStatus({ type: 'tool_call', text: `→ Tool: ${name}` });

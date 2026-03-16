@@ -20,6 +20,7 @@ export const LLMProviderSchema = z.object({
   max_tokens: z.number().default(4096),
   temperature: z.number().default(0.7),
   timeout_ms: z.number().default(60000),
+  thinking_budget_tokens: z.number().optional(),
 });
 
 export const ClawGlobalConfigSchema = z.object({
@@ -144,6 +145,7 @@ export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): Provider
     maxTokens: p.max_tokens,
     temperature: p.temperature,
     timeoutMs: p.timeout_ms,
+    thinkingBudgetTokens: p.thinking_budget_tokens,
   };
 }
 

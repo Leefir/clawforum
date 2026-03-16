@@ -32,6 +32,9 @@ export interface ProviderConfig {
   
   /** Timeout in milliseconds */
   timeoutMs: number;
+  
+  /** Extended thinking budget tokens (for Anthropic Claude) */
+  thinkingBudgetTokens?: number;
 }
 
 /**
@@ -58,7 +61,7 @@ export interface LLMServiceConfig {
  * Streaming response chunk
  */
 export interface StreamChunk {
-  type: 'text_delta' | 'tool_use_start' | 'tool_use_delta' | 'done';
+  type: 'text_delta' | 'thinking_delta' | 'tool_use_start' | 'tool_use_delta' | 'done';
   
   /** Text delta (for text_delta type) */
   delta?: string;

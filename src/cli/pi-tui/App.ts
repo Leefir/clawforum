@@ -46,6 +46,7 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
 
   // 流式文本累积
   let streamingText = '';
+  let thinkingText = '';
 
   // flush 流式文本到输出历史
   const flushStreaming = () => {
@@ -53,6 +54,14 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
       appendOutput(streamingText);
       streamingText = '';
       streamingTextComponent.setText('');
+    }
+  };
+
+  // flush thinking 到输出历史
+  const flushThinking = () => {
+    if (thinkingText) {
+      appendOutput('\x1b[2m💭 ' + thinkingText + '\x1b[0m');
+      thinkingText = '';
     }
   };
 
@@ -269,8 +278,14 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
 
     const callbacks: ReplCallbacks = {
       onBeforeLLMCall: () => {
+        flushThinking();
         flushStreaming();
         streamingTextComponent.setText('⏳ Thinking...');
+        tui.requestRender();
+      },
+      onThinkingDelta: (delta: string) => {
+        thinkingText += delta;
+        streamingTextComponent.setText('\x1b[2m💭 ' + thinkingText + '\x1b[0m');
         tui.requestRender();
       },
       onToolCall: (name: string) => {
@@ -286,6 +301,7 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
         appendOutput(`\x1b[2m  ${icon} [${step + 1}/${maxSteps}] ${summary}\x1b[0m`);
       },
       onTextDelta: (delta: string) => {
+        flushThinking();
         streamingText += delta;
         streamingTextComponent.setText(streamingText);
         tui.requestRender();
@@ -298,7 +314,8 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
       flushStreaming();
       appendOutput(`Error: ${(e as Error).message}`);
     } finally {
-      // flush 剩余流式文本
+      // flush 剩余 thinking 和流式文本
+      flushThinking();
       if (streamingText) {
         appendOutput(streamingText);
         streamingText = '';
