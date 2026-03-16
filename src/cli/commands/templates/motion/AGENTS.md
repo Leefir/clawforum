@@ -26,6 +26,8 @@
   - `write` 自动备份到 .versions/，exec 不会
   - `write` 有大小限制保护，exec 没有
 - **读文件**：使用 `read` 工具，不要用 `exec: cat`
+  - `read` 有路径白名单、行数上限（200行）、字符上限（8000字符）三层保护
+  - `exec: cat` 绕过所有保护，可能把超大文件整个灌进 context
 - `exec` 仅用于：CLI 命令、shell 脚本执行、进程管理
 
 ## 崩溃自愈流程
@@ -67,7 +69,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 
 ### 契约进度查看
 
-- 查看 progress.json：`exec: cat ../../claws/{clawId}/contract/{contractId}/progress.json`
+- 查看 progress.json：`read: ../../claws/{clawId}/contract/{contractId}/progress.json`
 - 或使用：`exec: node ../../../dist/cli.js claw health {clawId}`
 
 ### 契约派发流程
