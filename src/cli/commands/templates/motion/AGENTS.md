@@ -20,6 +20,14 @@
 - 向 Claw 发消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"`
 - 发送高优先级消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>" --priority high`
 
+## 文件操作规范
+
+- **写文件**：始终使用 `write` 工具，不要用 `exec: cat/echo/tee` 写文件
+  - `write` 自动备份到 .versions/，exec 不会
+  - `write` 有大小限制保护，exec 没有
+- **读文件**：使用 `read` 工具，不要用 `exec: cat`
+- `exec` 仅用于：CLI 命令、shell 脚本执行、进程管理
+
 ## 崩溃自愈流程
 
 当收到 `type: crash_notification` 或 `type: crash_recovery` 消息时，**立即执行**：
