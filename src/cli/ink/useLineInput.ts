@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { useInput } from 'ink';
 
 export interface UseLineInputOptions {
@@ -15,45 +15,61 @@ export interface LineInputState {
 export function useLineInput(options: UseLineInputOptions): LineInputState {
   const [buffer, setBuffer] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
+  // useRef 持有最新值，避免 useInput 闭包中 stale state
+  const bufRef = useRef(buffer);
+  const posRef = useRef(cursorPos);
+
+  // 同步更新 ref + state
+  const updateBuffer = (b: string) => {
+    bufRef.current = b;
+    setBuffer(b);
+  };
+  const updatePos = (p: number) => {
+    posRef.current = p;
+    setCursorPos(p);
+  };
 
   useInput((input, key) => {
+    const buf = bufRef.current;
+    const pos = posRef.current;
+
     if (key.return) {
-      options.onSubmit(buffer);
-      setBuffer('');
-      setCursorPos(0);
+      options.onSubmit(buf);
+      updateBuffer('');
+      updatePos(0);
       return;
     }
 
     if (key.backspace) {
-      if (cursorPos > 0) {
-        setBuffer(b => b.slice(0, cursorPos - 1) + b.slice(cursorPos));
-        setCursorPos(p => p - 1);
+      if (pos > 0) {
+        updateBuffer(buf.slice(0, pos - 1) + buf.slice(pos));
+        updatePos(pos - 1);
       }
       return;
     }
 
     if (key.delete) {
-      setBuffer(b => b.slice(0, cursorPos) + b.slice(cursorPos + 1));
+      updateBuffer(buf.slice(0, pos) + buf.slice(pos + 1));
       return;
     }
 
     if (key.leftArrow) {
-      setCursorPos(p => Math.max(0, p - 1));
+      updatePos(Math.max(0, pos - 1));
       return;
     }
 
     if (key.rightArrow) {
-      setCursorPos(p => Math.min(buffer.length, p + 1));
+      updatePos(Math.min(buf.length, pos + 1));
       return;
     }
 
     // ctrl+a → 行首, ctrl+e → 行尾（emacs 风格）
     if (key.ctrl && input === 'a') {
-      setCursorPos(0);
+      updatePos(0);
       return;
     }
     if (key.ctrl && input === 'e') {
-      setCursorPos(buffer.length);
+      updatePos(buf.length);
       return;
     }
 
@@ -68,8 +84,8 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
         }
       }
       // 单字符/单行输入
-      setBuffer(b => b.slice(0, cursorPos) + input + b.slice(cursorPos));
-      setCursorPos(p => p + input.length);
+      updateBuffer(buf.slice(0, pos) + input + buf.slice(pos));
+      updatePos(pos + input.length);
     }
   }, { isActive: options.enabled });
 
