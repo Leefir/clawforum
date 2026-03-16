@@ -98,6 +98,8 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
     // 单行放回 Input 继续编辑
     if (lines.length === 1) {
       input.setValue(lines[0]);
+      // 模拟 Ctrl+E 把光标移到末尾（setValue 不会移动光标）
+      input.handleInput('\x05');
       tui.requestRender();
       return;
     }
