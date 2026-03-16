@@ -8,6 +8,8 @@
 
 import * as yaml from 'js-yaml';
 import { randomUUID } from 'crypto';
+import * as path from 'path';
+import * as fsNative from 'fs';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { Contract, SubTask, ContractStatus } from '../../types/contract.js';
@@ -303,6 +305,13 @@ export class ContractManager {
           status: allCompleted ? 'completed' : 'running',
         });
       });
+
+      // 锁外通知 Motion（best-effort）
+      const progress = await this.getProgress(contractId);
+      if (progress.status === 'completed') {
+        const yaml = await this.loadContractYaml(contractId);
+        this.notifyMotionCompletion(contractId, yaml.title);
+      }
     }
 
     return result;
@@ -460,6 +469,42 @@ export class ContractManager {
     } catch (error) {
       const stderr = error instanceof Error ? error.message : String(error);
       return { passed: false, feedback: `Acceptance failed (cwd: ${this.clawDir}):\n${stderr}` };
+    }
+  }
+
+  /**
+   * 契约完成后通知 Motion（best-effort）
+   * MVP 对齐：_write_motion_review_request
+   */
+  private notifyMotionCompletion(contractId: string, contractTitle: string): void {
+    try {
+      // clawDir = ~/.clawforum/claws/{clawId}
+      // Motion inbox = ~/.clawforum/claws/motion/inbox/pending/
+      const clawId = path.basename(this.clawDir);
+      const motionInbox = path.resolve(this.clawDir, '..', 'motion', 'inbox', 'pending');
+
+      fsNative.mkdirSync(motionInbox, { recursive: true });
+
+      const now = new Date();
+      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+      const uuid8 = randomUUID().slice(0, 8);
+      const filename = `${ts}_review_${uuid8}.md`;
+
+      const content = `---
+id: ${ts}-${clawId}-${uuid8}
+type: review_request
+source: ${clawId}
+priority: low
+timestamp: ${now.toISOString()}
+claw_id: ${clawId}
+contract_id: ${contractId}
+---
+
+契约「${contractTitle}」已完成，请对 claw ${clawId} 进行复盘分析。
+`;
+      fsNative.writeFileSync(path.join(motionInbox, filename), content);
+    } catch {
+      // best-effort，失败不影响契约完成
     }
   }
 }
