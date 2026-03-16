@@ -72,19 +72,25 @@ async function getInboxOutboxStatus(ctx: ExecContext): Promise<string[]> {
   const lines: string[] = [];
   
   try {
-    // Check inbox pending
-    const inboxEntries = await ctx.fs.list('inbox/pending', { includeDirs: false }).catch(() => []);
+    // Check inbox pending (ENOENT = 目录不存在，正常返回空)
+    const inboxEntries = await ctx.fs.list('inbox/pending', { includeDirs: false }).catch((err: any) => {
+      if (err?.code === 'ENOENT') return [];
+      throw err;
+    });
     lines.push(`Inbox: ${inboxEntries.length} pending`);
-  } catch {
-    lines.push('Inbox: N/A');
+  } catch (err: any) {
+    lines.push(`Inbox: Error (${err?.message || 'unknown'})`);
   }
   
   try {
     // Check outbox pending
-    const outboxEntries = await ctx.fs.list('outbox/pending', { includeDirs: false }).catch(() => []);
+    const outboxEntries = await ctx.fs.list('outbox/pending', { includeDirs: false }).catch((err: any) => {
+      if (err?.code === 'ENOENT') return [];
+      throw err;
+    });
     lines.push(`Outbox: ${outboxEntries.length} pending`);
-  } catch {
-    lines.push('Outbox: N/A');
+  } catch (err: any) {
+    lines.push(`Outbox: Error (${err?.message || 'unknown'})`);
   }
   
   return lines;
@@ -101,16 +107,19 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
     } else {
       lines.push('MEMORY.md: Not found');
     }
-  } catch {
-    lines.push('MEMORY.md: Error');
+  } catch (err: any) {
+    lines.push(`MEMORY.md: Error (${err?.message || 'unknown'})`);
   }
   
   try {
-    // clawspace file count
-    const entries = await ctx.fs.list('clawspace', { recursive: true, includeDirs: false }).catch(() => []);
+    // clawspace file count (ENOENT = 目录不存在，正常返回空)
+    const entries = await ctx.fs.list('clawspace', { recursive: true, includeDirs: false }).catch((err: any) => {
+      if (err?.code === 'ENOENT') return [];
+      throw err;
+    });
     lines.push(`Clawspace: ${entries.length} files`);
-  } catch {
-    lines.push('Clawspace: Error');
+  } catch (err: any) {
+    lines.push(`Clawspace: Error (${err?.message || 'unknown'})`);
   }
   
   return lines;

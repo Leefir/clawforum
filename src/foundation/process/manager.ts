@@ -57,7 +57,11 @@ export class ProcessManager {
       const content = await this.fs.read(pidFile);
       const pid = parseInt(content.trim(), 10);
       return isNaN(pid) ? null : pid;
-    } catch {
+    } catch (err: any) {
+      // ENOENT 是正常的（进程未运行），其他错误需要记录
+      if (err?.code !== 'ENOENT') {
+        console.warn(`[ProcessManager] Failed to read PID for ${clawId}:`, err?.message || err);
+      }
       return null;
     }
   }

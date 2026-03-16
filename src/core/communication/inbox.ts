@@ -196,7 +196,7 @@ export class InboxWatcher {
         console.error('[InboxWatcher] Failed to process queue:', err);
       });
     } catch (err) {
-      console.warn('[inbox] Skip malformed message:', err);
+      console.warn(`[inbox] Skip malformed message ${filePath}:`, err);
     }
   }
 
