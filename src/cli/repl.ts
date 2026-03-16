@@ -171,12 +171,13 @@ export async function startRepl(options: ReplOptions): Promise<void> {
       onInterrupt?.();
       process.stdout.write('\n\x1b[33m[interrupted]\x1b[0m\n');
     };
-    process.on('SIGINT', handleInterrupt);
+    // readline 会拦截 SIGINT，必须用 rl.on 而不是 process.on
+    rl.on('SIGINT', handleInterrupt);
     try {
       const response = await onMessage(message, callbacks);
       if (response) console.log('\n' + response + '\n');
     } finally {
-      process.removeListener('SIGINT', handleInterrupt);
+      rl.removeListener('SIGINT', handleInterrupt);
       rl.resume();
     }
     rl.prompt();
