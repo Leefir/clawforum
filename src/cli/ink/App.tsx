@@ -38,13 +38,18 @@ export const App: FC<AppProps> = ({ options }) => {
 
     // 斜杠命令
     if (trimmed.startsWith('/')) {
+      let shouldExit = false;
       const context: CommandContext = {
         clearOutput: () => setOutputLines([]),
-        exit: () => { onClose().then(() => exit()); },
+        exit: () => { shouldExit = true; },
       };
       const { handled, output } = executeCommand(trimmed, context);
       if (handled) {
         if (output) setOutputLines(prev => [...prev, output]);
+        if (shouldExit) {
+          await onClose();
+          exit();
+        }
         return;
       }
     }
@@ -107,15 +112,15 @@ export const App: FC<AppProps> = ({ options }) => {
     enabled: phase === 'idle',
   });
 
-  // 全局按键处理：Esc 中断、Ctrl+C
+  // 全局按键处理：Ctrl+C、Esc 中断、paste_preview 按键
   useInput((input, key) => {
-    // Ctrl+C
+    // Ctrl+C（所有状态）
     if (key.ctrl && input === 'c') {
       if (phase === 'running') {
         onInterrupt?.();
         setOutputLines(prev => [...prev, '\x1b[33m[interrupted]\x1b[0m']);
       } else {
-        onClose().then(() => exit());
+        onClose().then(() => exit()).catch(() => exit());
       }
       return;
     }
@@ -124,28 +129,30 @@ export const App: FC<AppProps> = ({ options }) => {
     if (key.escape && phase === 'running') {
       onInterrupt?.();
       setOutputLines(prev => [...prev, '\x1b[33m[interrupted]\x1b[0m']);
+      return;
+    }
+
+    // paste_preview 状态按键
+    if (phase === 'paste_preview') {
+      if (key.return) {
+        const text = pastedLines.join('\n').trim();
+        setPastedLines([]);
+        setPhase('idle');
+        if (text) handleSubmit(text);
+      } else if (input === 'e') {
+        setRawMode(false);
+        try {
+          const edited = editWithEditor(pastedLines);
+          setPastedLines(edited);
+        } finally {
+          setRawMode(true);
+        }
+      } else if (input === 'q' || key.escape) {
+        setPastedLines([]);
+        setPhase('idle');
+      }
     }
   });
-
-  // paste_preview 状态下按键处理
-  useInput((input, key) => {
-    if (phase !== 'paste_preview') return;
-
-    if (key.return) {
-      const text = pastedLines.join('\n').trim();
-      setPastedLines([]);
-      setPhase('idle');
-      if (text) handleSubmit(text);
-    } else if (input === 'e') {
-      setRawMode(false);
-      const edited = editWithEditor(pastedLines);
-      setRawMode(true);
-      setPastedLines(edited);
-    } else if (input === 'q' || key.escape) {
-      setPastedLines([]);
-      setPhase('idle');
-    }
-  }, { isActive: phase === 'paste_preview' });
 
   return (
     <Box flexDirection="column">

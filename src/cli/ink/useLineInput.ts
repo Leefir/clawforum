@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useInput } from 'ink';
+import { useState, useRef, useEffect } from 'react';
+import { useInput, useStdin } from 'ink';
 
 export interface UseLineInputOptions {
   onSubmit: (text: string) => void;
@@ -15,9 +15,42 @@ export interface LineInputState {
 export function useLineInput(options: UseLineInputOptions): LineInputState {
   const [buffer, setBuffer] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
-  // useRef 持有最新值，避免 useInput 闭包中 stale state
+
+  // useRef 持有最新值，避免 stale state
   const bufRef = useRef(buffer);
   const posRef = useRef(cursorPos);
+  const submitRef = useRef(options.onSubmit);
+  const pasteRef = useRef(options.onPaste);
+  const pasteDetectedRef = useRef(false);
+
+  // 同步更新 ref
+  bufRef.current = buffer;
+  posRef.current = cursorPos;
+  submitRef.current = options.onSubmit;
+  pasteRef.current = options.onPaste;
+
+  const { stdin } = useStdin();
+
+  // 粘贴检测：监听 raw stdin data 事件
+  useEffect(() => {
+    if (!options.enabled || !stdin) return;
+
+    const onData = (data: Buffer) => {
+      const str = data.toString();
+      // 单次 data 含换行 = 粘贴（长度>1 排除单个回车）
+      const newlineCount = (str.match(/\r?\n/g) || []).length;
+      if (newlineCount >= 1 && str.length > 1) {
+        pasteDetectedRef.current = true;
+        const lines = str.split(/\r?\n/);
+        pasteRef.current(lines);
+        // 延迟重置标志，跳过本次 useInput 的同步调用
+        setTimeout(() => { pasteDetectedRef.current = false; }, 0);
+      }
+    };
+
+    stdin.on('data', onData);
+    return () => { stdin.off('data', onData); };
+  }, [stdin, options.enabled]);
 
   // 同步更新 ref + state
   const updateBuffer = (b: string) => {
@@ -30,11 +63,16 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
   };
 
   useInput((input, key) => {
+    // 如果刚检测到粘贴，跳过 useInput 的逐字符处理
+    if (pasteDetectedRef.current) {
+      return;
+    }
+
     const buf = bufRef.current;
     const pos = posRef.current;
 
     if (key.return) {
-      options.onSubmit(buf);
+      submitRef.current(buf);
       updateBuffer('');
       updatePos(0);
       return;
@@ -69,17 +107,8 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
       return;
     }
 
-    // 普通字符输入（含粘贴）
+    // 普通字符输入（单行）
     if (input && !key.ctrl && !key.meta) {
-      // 粘贴检测：input 含换行符 → 多行粘贴
-      if (input.includes('\n') || input.includes('\r')) {
-        const lines = input.split(/\r?\n/);
-        if (lines.length > 1) {
-          options.onPaste(lines);
-          return;
-        }
-      }
-      // 单字符/单行输入
       updateBuffer(buf.slice(0, pos) + input + buf.slice(pos));
       updatePos(pos + input.length);
     }
