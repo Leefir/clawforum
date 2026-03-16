@@ -28,11 +28,18 @@ const mockLLMConfig: LLMServiceConfig = {
 };
 
 async function createTempDir(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'motion-test-'));
+  // clawDir 必须是 workspace/claws/{name} 结构
+  // runtime.ts:125 做 path.resolve(clawDir, '..', '..') 推算 workspaceDir
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'motion-test-'));
+  const clawDir = path.join(base, 'claws', 'motion-test');
+  await fs.mkdir(clawDir, { recursive: true });
+  return clawDir;
 }
 
-async function cleanupDir(dir: string): Promise<void> {
-  await fs.rm(dir, { recursive: true, force: true });
+async function cleanupDir(clawDir: string): Promise<void> {
+  // clawDir = base/claws/motion-test，清理 base 根目录
+  const base = path.resolve(clawDir, '..', '..');
+  await fs.rm(base, { recursive: true, force: true });
 }
 
 describe('MotionRuntime', () => {
