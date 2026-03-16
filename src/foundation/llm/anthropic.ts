@@ -109,8 +109,9 @@ export class AnthropicAdapter implements IProviderAdapter {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     // Combine with external signal if provided
-    if (signal) {
-      signal.addEventListener('abort', () => controller.abort(), { once: true });
+    const onAbort = signal ? () => controller.abort() : undefined;
+    if (signal && onAbort) {
+      signal.addEventListener('abort', onAbort);
     }
     
     try {
@@ -125,8 +126,6 @@ export class AnthropicAdapter implements IProviderAdapter {
         signal: controller.signal,
       });
       
-      clearTimeout(timeoutId);
-      
       if (!response.ok) {
         await this.handleErrorResponse(response);
       }
@@ -135,8 +134,6 @@ export class AnthropicAdapter implements IProviderAdapter {
       return this.parseResponse(data);
       
     } catch (error) {
-      clearTimeout(timeoutId);
-      
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw new LLMTimeoutError(this.name, timeout);
       }
@@ -149,6 +146,11 @@ export class AnthropicAdapter implements IProviderAdapter {
         `LLM call failed: ${(error as Error).message}`,
         { provider: this.name }
       );
+    } finally {
+      clearTimeout(timeoutId);
+      if (signal && onAbort) {
+        signal.removeEventListener('abort', onAbort);
+      }
     }
   }
   

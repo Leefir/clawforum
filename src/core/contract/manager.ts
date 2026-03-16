@@ -446,7 +446,7 @@ export class ContractManager {
   private async runScriptAcceptance(command: string): Promise<AcceptanceResult> {
     // Phase 1: Command comes from contract YAML created by Motion (trusted)
     // Phase 2+: Consider adding command whitelist for untrusted contracts
-    console.log(`[contract] Running acceptance script: ${command.slice(0, 100)}`);
+    console.log(`[contract] Running acceptance script: ${command.slice(0, 100)} (cwd: ${this.clawDir})`);
     
     try {
       const output = execSync(command, {
@@ -459,7 +459,7 @@ export class ContractManager {
       return { passed: true, feedback: output };
     } catch (error) {
       const stderr = error instanceof Error ? error.message : String(error);
-      return { passed: false, feedback: stderr };
+      return { passed: false, feedback: `Acceptance failed (cwd: ${this.clawDir}):\n${stderr}` };
     }
   }
 }
