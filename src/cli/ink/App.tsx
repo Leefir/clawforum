@@ -2,14 +2,10 @@ import { type FC, useState, useCallback } from 'react';
 import { Text, Box, useApp, useInput } from 'ink';
 import { useLineInput } from './useLineInput.js';
 import { InputLine } from './InputLine.js';
+import { StatusLine, type StatusItem } from './StatusLine.js';
 import type { ReplOptions, ReplCallbacks } from '../repl.js';
 
 type Phase = 'idle' | 'running';
-
-interface StatusItem {
-  type: 'thinking' | 'tool_call' | 'tool_result';
-  text: string;
-}
 
 interface AppProps {
   options: ReplOptions;
@@ -97,7 +93,7 @@ export const App: FC<AppProps> = ({ options }) => {
       ))}
 
       {/* 状态行 */}
-      {status && <Text dimColor>{status.text}</Text>}
+      <StatusLine status={status} />
 
       {/* 输入行 */}
       <InputLine prompt={prompt} buffer={buffer} cursorPos={cursorPos} active={phase === 'idle'} />
