@@ -37,6 +37,7 @@ interface AnthropicRequest {
     description: string;
     input_schema: unknown;
   }>;
+  stream?: boolean;
 }
 
 /**
@@ -163,34 +164,132 @@ export class AnthropicAdapter implements IProviderAdapter {
   }
   
   /**
-   * Stream LLM response
-   * Note: SSE streaming implementation - simplified for Phase 0
+   * Stream LLM response with true SSE parsing
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
-    // For Phase 0, we'll use non-streaming and yield a single chunk
-    // Full SSE implementation can be added in Phase 1
-    const response = await this.call(options);
-    
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        yield {
-          type: 'text_delta',
-          delta: (block as TextBlock).text,
-        };
-      } else if (block.type === 'tool_use') {
-        const toolBlock = block as ToolUseBlock;
-        yield {
-          type: 'tool_use_start',
-          toolUse: {
-            id: toolBlock.id,
-            name: toolBlock.name,
-            partialInput: JSON.stringify(toolBlock.input),
-          },
-        };
-      }
+    const { messages, system, tools, maxTokens, temperature, timeoutMs, signal } = options;
+
+    const body: AnthropicRequest & { stream: boolean } = {
+      model: options.model ?? this.config.model,
+      messages: this.formatMessages(messages),
+      max_tokens: maxTokens ?? this.config.maxTokens,
+      stream: true,
+    };
+
+    // 复用 call() 的 system/temperature/tools 设置逻辑
+    if (system !== undefined) body.system = system;
+    if (temperature !== undefined) body.temperature = temperature;
+    else if (this.config.temperature !== undefined) body.temperature = this.config.temperature;
+    if (tools && tools.length > 0) {
+      body.tools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema }));
     }
-    
-    yield { type: 'done' };
+
+    // 复用 call() 的 timeout + signal 逻辑
+    const timeout = timeoutMs ?? this.config.timeoutMs;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const onAbort = signal ? () => controller.abort() : undefined;
+    if (signal && onAbort) signal.addEventListener('abort', onAbort);
+
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) await this.handleErrorResponse(response);
+
+      yield* this.parseSSEStream(response);
+    } catch (error) {
+      // 与 call() 相同的错误处理
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (signal?.aborted) {
+          const err = new Error('Execution aborted');
+          err.name = 'AbortError';
+          throw err;
+        }
+        throw new LLMTimeoutError(this.name, timeout);
+      }
+      if (error instanceof LLMError) throw error;
+      throw new LLMError(`LLM stream failed: ${(error as Error).message}`, { provider: this.name });
+    } finally {
+      clearTimeout(timeoutId);
+      if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+    }
+  }
+
+  /**
+   * Parse Anthropic SSE stream
+   */
+  private async* parseSSEStream(response: Response): AsyncIterableIterator<StreamChunk> {
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (!data || data === '[DONE]') continue;
+
+          let event: Record<string, unknown>;
+          try {
+            event = JSON.parse(data);
+          } catch {
+            continue; // 跳过解析失败的行
+          }
+
+          if (event.type === 'content_block_start') {
+            const block = event.content_block as Record<string, unknown>;
+            if (block.type === 'tool_use') {
+              yield {
+                type: 'tool_use_start',
+                toolUse: {
+                  id: block.id as string,
+                  name: block.name as string,
+                  partialInput: '',
+                },
+              };
+            }
+          } else if (event.type === 'content_block_delta') {
+            const delta = event.delta as Record<string, unknown>;
+            if (delta.type === 'text_delta') {
+              yield { type: 'text_delta', delta: delta.text as string };
+            } else if (delta.type === 'input_json_delta') {
+              yield {
+                type: 'tool_use_delta',
+                toolUse: { id: '', name: '', partialInput: delta.partial_json as string },
+              };
+            }
+          } else if (event.type === 'message_delta') {
+            const usage = event.usage as Record<string, number> | undefined;
+            yield {
+              type: 'done',
+              usage: usage ? {
+                inputTokens: usage.input_tokens ?? 0,
+                outputTokens: usage.output_tokens ?? 0,
+              } : undefined,
+            };
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
   
   /**
