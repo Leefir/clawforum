@@ -59,6 +59,8 @@ export const App: FC<AppProps> = ({ options }) => {
       }
     }
 
+    // 显示用户消息
+    setOutputLines(prev => [...prev, `${prompt}${trimmed}`]);
     setPhase('running');
     setStatus({ type: 'thinking', text: 'Thinking...' });
     setStreamingText('');
