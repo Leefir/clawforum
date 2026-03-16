@@ -28,8 +28,8 @@ export const App: FC<AppProps> = ({ options }) => {
   const handleSubmit = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) {
-      // 空行：输出一个空 prompt 行，给视觉反馈
-      setOutputLines(prev => [...prev, '']);
+      // 空行：输出一个空 prompt 行（空格确保 Ink 渲染行高）
+      setOutputLines(prev => [...prev, ' ']);
       return;
     }
 
