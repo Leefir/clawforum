@@ -4,9 +4,13 @@ import { editWithEditor } from '../ink/editor.js';
 
 type Phase = 'idle' | 'running' | 'paste_preview';
 
+// 命令历史
+const history: string[] = [];
+let historyIndex = -1;
+
 export async function runPiTui(options: ReplOptions): Promise<void> {
   const { TUI, Text, Input, ProcessTerminal, Key, matchesKey } = await import('@mariozechner/pi-tui');
-  const { prompt, header, onMessage, onClose } = options;
+  const { prompt, header, onMessage, onClose, onInterrupt } = options;
 
   const terminal = new ProcessTerminal();
   const tui = new TUI(terminal);
@@ -132,6 +136,11 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
         pastedLines = [];
         phase = 'idle';
         pastePreviewText.setText('');
+      } else if (matchesKey(data, Key.ctrl('c'))) {
+        // Ctrl+C 取消预览
+        pastedLines = [];
+        phase = 'idle';
+        pastePreviewText.setText('');
       } else if (data === 'e') {
         // 临时停止 TUI，调用外部编辑器
         tui.stop();
@@ -150,6 +159,58 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
         } else {
           showPastePreview();
         }
+      }
+      tui.requestRender();
+      return { consume: true };
+    }
+
+    // Ctrl+C
+    if (matchesKey(data, Key.ctrl('c'))) {
+      if (phase === 'running') {
+        onInterrupt?.();
+        appendOutput('\x1b[33m[interrupted]\x1b[0m');
+      } else {
+        // idle → 退出
+        doExit();
+      }
+      return { consume: true };
+    }
+
+    // Esc running → 中断
+    if (matchesKey(data, Key.escape) && phase === 'running') {
+      onInterrupt?.();
+      appendOutput('\x1b[33m[interrupted]\x1b[0m');
+      return { consume: true };
+    }
+
+    // Ctrl+D 空缓冲退出
+    if (matchesKey(data, Key.ctrl('d')) && phase === 'idle' && input.getValue().length === 0) {
+      doExit();
+      return { consume: true };
+    }
+
+    // 上箭头历史
+    if (matchesKey(data, Key.up) && phase === 'idle') {
+      if (history.length === 0) return { consume: true };
+      const newIndex = historyIndex === -1
+        ? history.length - 1
+        : Math.max(0, historyIndex - 1);
+      historyIndex = newIndex;
+      input.setValue(history[newIndex]);
+      tui.requestRender();
+      return { consume: true };
+    }
+
+    // 下箭头历史
+    if (matchesKey(data, Key.down) && phase === 'idle') {
+      if (historyIndex === -1) return { consume: true };
+      const newIndex = historyIndex + 1;
+      if (newIndex >= history.length) {
+        historyIndex = -1;
+        input.setValue('');
+      } else {
+        historyIndex = newIndex;
+        input.setValue(history[newIndex]);
       }
       tui.requestRender();
       return { consume: true };
@@ -196,10 +257,15 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
       }
     }
 
+    // 记录历史
+    history.push(trimmed);
+    historyIndex = -1;
+
     // 显示用户消息
     appendOutput(`${prompt}${trimmed}`);
     input.setValue('');
     busy = true;
+    phase = 'running';
 
     const callbacks: ReplCallbacks = {
       onBeforeLLMCall: () => {
@@ -238,6 +304,7 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
         streamingText = '';
       }
       streamingTextComponent.setText('');
+      phase = 'idle';
       busy = false;
       tui.requestRender();
     }
