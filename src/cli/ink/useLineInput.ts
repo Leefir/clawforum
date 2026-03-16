@@ -40,6 +40,12 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
       return;
     }
 
+    // Ctrl+D 空缓冲退出（标准 CLI 行为）
+    if (key.ctrl && input === 'd' && buf.length === 0) {
+      submitRef.current('exit');
+      return;
+    }
+
     if (key.backspace || key.delete) {
       if (pos > 0) {
         updateBuffer(buf.slice(0, pos - 1) + buf.slice(pos));
