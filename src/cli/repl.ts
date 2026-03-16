@@ -34,4 +34,5 @@ export async function startRepl(options: ReplOptions): Promise<void> {
     { exitOnCtrlC: false }
   );
   await waitUntilExit();
+  process.stdin.pause();
 }
