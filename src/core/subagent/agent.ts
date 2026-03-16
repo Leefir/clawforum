@@ -141,14 +141,12 @@ Work efficiently and return a clear, concise result.`;
   }
 
   /**
-   * Append to log file (streaming, not loading entire file)
+   * Append to log file (atomic append, no read-modify-write race)
    */
   private async appendToLog(text: string): Promise<void> {
     try {
-      const current = await this.fs.exists(this.logPath) 
-        ? await this.fs.read(this.logPath)
-        : '';
-      await this.fs.writeAtomic(this.logPath, current + text);
+      // 使用 IFileSystem.append 实现原子追加，避免竞态
+      await this.fs.append(this.logPath, text);
     } catch {
       // Log failures are non-fatal
     }
