@@ -8,8 +8,31 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { runReact } from '../../src/core/react/loop.js';
 import type { Message, ContentBlock, LLMResponse, ToolDefinition } from '../../src/types/message.js';
 import type { ILLMService } from '../../src/foundation/llm/index.js';
+import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import type { IToolExecutor, ExecContext } from '../../src/core/tools/executor.js';
 import { MaxStepsExceededError } from '../../src/types/errors.js';
+
+/**
+ * Convert LLMResponse to stream chunks for mock
+ */
+async function* responseToStreamChunks(response: LLMResponse): AsyncIterableIterator<StreamChunk> {
+  for (const block of response.content) {
+    if (block.type === 'text') {
+      yield { type: 'text_delta', delta: (block as { text: string }).text };
+    } else if (block.type === 'tool_use') {
+      const toolBlock = block as { id: string; name: string; input: unknown };
+      yield {
+        type: 'tool_use_start',
+        toolUse: { id: toolBlock.id, name: toolBlock.name, partialInput: '' },
+      };
+      yield {
+        type: 'tool_use_delta',
+        toolUse: { id: '', name: '', partialInput: JSON.stringify(toolBlock.input) },
+      };
+    }
+  }
+  yield { type: 'done' };
+}
 
 describe('ReAct Loop', () => {
   let mockLLM: ILLMService;
@@ -20,9 +43,20 @@ describe('ReAct Loop', () => {
   beforeEach(() => {
     llmCallCount = 0;
     
+    const callMock = vi.fn();
     mockLLM = {
-      call: vi.fn(),
-      stream: vi.fn(),
+      call: callMock,
+      stream: vi.fn((...args: unknown[]) => {
+        // 复用 call mock 的返回值，转换为 stream chunks
+        const result = callMock(...args);
+        if (result instanceof Promise) {
+          return (async function* () {
+            const response = await result;
+            yield* responseToStreamChunks(response as LLMResponse);
+          })();
+        }
+        return responseToStreamChunks(result as LLMResponse);
+      }),
       close: vi.fn(),
       healthCheck: vi.fn(),
       getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),

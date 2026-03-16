@@ -11,7 +11,8 @@
  */
 
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse, ToolDefinition } from '../../types/message.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
+import type { ILLMService, LLMCallOptions } from '../../foundation/llm/index.js';
+import type { StreamChunk } from '../../foundation/llm/types.js';
 import type { IToolExecutor, ExecContext, ToolResult } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
 
@@ -51,6 +52,9 @@ export interface ReactOptions {
   
   /** Tool definitions to pass to LLM for native tool_use */
   tools?: ToolDefinition[];
+  
+  /** Callback for streaming text deltas (for real-time display) */
+  onTextDelta?: (delta: string) => void;
 }
 
 /**
@@ -101,14 +105,14 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     // Notify before LLM call (for "Thinking..." display)
     onBeforeLLMCall?.();
 
-    // Call LLM
-    const response = await llm.call({
+    // 流式调用 LLM，收集完整 response
+    const response = await collectStreamResponse(llm, {
       messages,
       system: systemPrompt,
       tools: options.tools,
       maxTokens: 4096,
       signal: ctx.signal,
-    });
+    }, options.onTextDelta);
 
     // Handle tool_use stop reason
     if (response.stop_reason === 'tool_use') {
@@ -227,6 +231,81 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 
   // Max steps exceeded
   throw new MaxStepsExceededError(maxSteps);
+}
+
+/**
+ * 流式调用 LLM，逐块推送 text delta，收集完整 LLMResponse
+ */
+async function collectStreamResponse(
+  llm: ILLMService,
+  callOptions: LLMCallOptions,
+  onTextDelta?: (delta: string) => void,
+): Promise<LLMResponse> {
+  const contentBlocks: ContentBlock[] = [];
+  let currentText = '';
+  let currentToolUse: { id: string; name: string; input: string } | null = null;
+  let stopReason = 'end_turn';
+  let usage: { input_tokens: number; output_tokens: number } | undefined;
+
+  for await (const chunk of llm.stream(callOptions)) {
+    switch (chunk.type) {
+      case 'text_delta':
+        if (chunk.delta) {
+          currentText += chunk.delta;
+          onTextDelta?.(chunk.delta);
+        }
+        break;
+
+      case 'tool_use_start':
+        // 保存之前的 text block
+        if (currentText) {
+          contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
+          currentText = '';
+        }
+        currentToolUse = {
+          id: chunk.toolUse!.id,
+          name: chunk.toolUse!.name,
+          input: '',
+        };
+        stopReason = 'tool_use';
+        break;
+
+      case 'tool_use_delta':
+        if (currentToolUse && chunk.toolUse?.partialInput) {
+          currentToolUse.input += chunk.toolUse.partialInput;
+        }
+        break;
+
+      case 'done':
+        if (chunk.usage) {
+          usage = {
+            input_tokens: chunk.usage.inputTokens,
+            output_tokens: chunk.usage.outputTokens,
+          };
+        }
+        break;
+    }
+  }
+
+  // 保存最后的 blocks
+  if (currentText) {
+    contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
+  }
+  if (currentToolUse) {
+    contentBlocks.push({
+      type: 'tool_use',
+      id: currentToolUse.id,
+      name: currentToolUse.name,
+      input: JSON.parse(currentToolUse.input || '{}'),
+    } as ContentBlock);
+    currentToolUse = null;
+  }
+
+  return {
+    content: contentBlocks,
+    stop_reason: stopReason,
+    usage,
+  };
 }
 
 /**

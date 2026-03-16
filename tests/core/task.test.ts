@@ -15,7 +15,30 @@ import { ToolRegistry } from '../../src/core/tools/registry.js';
 import { registerBuiltinTools } from '../../src/core/tools/builtins/index.js';
 import type { LLMResponse } from '../../src/types/message.js';
 import type { ILLMService } from '../../src/foundation/llm/index.js';
+import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { LocalTransport } from '../../src/foundation/transport/local.js';
+
+/**
+ * Convert LLMResponse to stream chunks for mock
+ */
+async function* responseToStreamChunks(response: LLMResponse): AsyncIterableIterator<StreamChunk> {
+  for (const block of response.content) {
+    if (block.type === 'text') {
+      yield { type: 'text_delta', delta: (block as { text: string }).text };
+    } else if (block.type === 'tool_use') {
+      const toolBlock = block as { id: string; name: string; input: unknown };
+      yield {
+        type: 'tool_use_start',
+        toolUse: { id: toolBlock.id, name: toolBlock.name, partialInput: '' },
+      };
+      yield {
+        type: 'tool_use_delta',
+        toolUse: { id: '', name: '', partialInput: JSON.stringify(toolBlock.input) },
+      };
+    }
+  }
+  yield { type: 'done' };
+}
 
 async function createTempDir(): Promise<string> {
   const tempDir = path.join(tmpdir(), `clawforum-task-test-${randomUUID()}`);
@@ -33,12 +56,23 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
 
 function createMockLLM(responses: LLMResponse[]): ILLMService {
   let index = 0;
+  const callMock = vi.fn(async () => {
+    const response = responses[index++] || responses[responses.length - 1];
+    return response;
+  });
   return {
-    call: vi.fn(async () => {
-      const response = responses[index++] || responses[responses.length - 1];
-      return response;
+    call: callMock,
+    stream: vi.fn((...args: unknown[]) => {
+      // 复用 call mock 的返回值，转换为 stream chunks
+      const result = callMock(...args);
+      if (result instanceof Promise) {
+        return (async function* () {
+          const response = await result;
+          yield* responseToStreamChunks(response as LLMResponse);
+        })();
+      }
+      return responseToStreamChunks(result as LLMResponse);
     }),
-    stream: vi.fn(),
     close: vi.fn(),
     healthCheck: vi.fn().mockResolvedValue(true),
     getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),
