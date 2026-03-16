@@ -120,8 +120,9 @@ export class ClawRuntime {
     // 4. 创建 LLMService
     this.llm = new LLMService(llmConfig, this.monitor, clawId);
 
-    // 5. 创建 LocalTransport（workspaceDir = clawDir 的父目录）
-    const workspaceDir = path.dirname(clawDir);
+    // 5. 创建 LocalTransport（workspaceDir = clawDir 的上两级目录）
+    // clawDir = ~/.clawforum/claws/{name}，workspaceDir 应该是 ~/.clawforum
+    const workspaceDir = path.resolve(clawDir, '..', '..');
     this.transport = new LocalTransport({ workspaceDir });
     await this.transport.initialize();
 
@@ -238,8 +239,13 @@ export class ClawRuntime {
     // 读取所有待处理消息
     let files: string[] = [];
     try {
-      files = await fs.readdir(pendingDir);
-      files = files.filter(f => f.endsWith('.md'));
+      const allFiles = await fs.readdir(pendingDir);
+      // 记录非 .md 文件以便运维排查
+      const skipped = allFiles.filter(f => !f.endsWith('.md') && !f.startsWith('.'));
+      if (skipped.length > 0) {
+        console.warn(`[inbox] Skipping non-.md files: ${skipped.join(', ')}`);
+      }
+      files = allFiles.filter(f => f.endsWith('.md'));
     } catch {
       return { injected: [], count: 0 };
     }
