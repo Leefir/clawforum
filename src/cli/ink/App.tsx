@@ -71,6 +71,7 @@ export const App: FC<AppProps> = ({ options }) => {
       },
       onToolCall: (name: string) => {
         setStatus({ type: 'tool_call', text: `→ Tool: ${name}` });
+        setOutputLines(prev => [...prev, `\x1b[36m→ ${name}\x1b[0m`]);
       },
       onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
         const summary = result.content.length > 80
@@ -78,6 +79,7 @@ export const App: FC<AppProps> = ({ options }) => {
           : result.content;
         const icon = result.success ? '✓' : '✗';
         setStatus({ type: 'tool_result', text: `  ${icon} [${step + 1}/${maxSteps}] ${summary}` });
+        setOutputLines(prev => [...prev, `\x1b[2m  ${icon} ${summary}\x1b[0m`]);
       },
       onTextDelta: (delta: string) => {
         setStreamingText(prev => prev + delta);
