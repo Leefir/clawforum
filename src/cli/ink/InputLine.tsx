@@ -9,7 +9,10 @@ interface Props {
 }
 
 export const InputLine: FC<Props> = ({ prompt, buffer, cursorPos, active }) => {
-  if (!active) return null;
+  if (!active) {
+    // 非 idle：只显示 prompt，无光标块
+    return <Text><Text color="green" bold>{prompt}</Text></Text>;
+  }
 
   // 光标位置字符用反色显示（Unicode-aware，处理 surrogate pair）
   const before = buffer.slice(0, cursorPos);
