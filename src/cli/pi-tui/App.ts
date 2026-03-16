@@ -1,5 +1,6 @@
 import type { ReplOptions, ReplCallbacks } from '../repl.js';
 import { executeCommand, type CommandContext } from '../ink/commands.js';
+import { editWithEditor } from '../ink/editor.js';
 
 type Phase = 'idle' | 'running' | 'paste_preview';
 
@@ -132,11 +133,23 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
         phase = 'idle';
         pastePreviewText.setText('');
       } else if (data === 'e') {
-        // TODO: 调用外部编辑器
-        // 暂时取消预览
-        pastedLines = [];
-        phase = 'idle';
-        pastePreviewText.setText('');
+        // 临时停止 TUI，调用外部编辑器
+        tui.stop();
+        try {
+          pastedLines = editWithEditor(pastedLines);
+          // 去掉尾部空行
+          while (pastedLines.length > 0 && pastedLines[pastedLines.length - 1].trim() === '') {
+            pastedLines.pop();
+          }
+        } finally {
+          tui.start();
+        }
+        if (pastedLines.length === 0) {
+          phase = 'idle';
+          pastePreviewText.setText('');
+        } else {
+          showPastePreview();
+        }
       }
       tui.requestRender();
       return { consume: true };
