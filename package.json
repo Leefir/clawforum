@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "build": "tsup && npm run copy-templates",
+    "build": "tsup && pnpm run copy-templates",
     "copy-templates": "cp -r src/cli/commands/templates dist/",
     "dev": "tsup --watch",
     "test": "vitest",
@@ -44,6 +44,7 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.10",
+    "@types/react": "^18.3.18",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
