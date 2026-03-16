@@ -65,11 +65,23 @@ export const App: FC<AppProps> = ({ options }) => {
     setStatus({ type: 'thinking', text: 'Thinking...' });
     setStreamingText('');
 
+    // 辅助函数：flush 流式文本到 outputLines
+    const flushStreaming = () => {
+      setStreamingText(st => {
+        if (st) {
+          setOutputLines(prev => [...prev, st]);
+        }
+        return '';
+      });
+    };
+
     const callbacks: ReplCallbacks = {
       onBeforeLLMCall: () => {
+        flushStreaming();
         setStatus({ type: 'thinking', text: 'Thinking...' });
       },
       onToolCall: (name: string) => {
+        flushStreaming();
         setStatus({ type: 'tool_call', text: `→ Tool: ${name}` });
         setOutputLines(prev => [...prev, `\x1b[36m→ ${name}\x1b[0m`]);
       },
