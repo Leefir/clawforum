@@ -107,13 +107,25 @@ export const App: FC<AppProps> = ({ options }) => {
     enabled: phase === 'idle',
   });
 
-  // running 状态下 Esc 中断
-  useInput((_input, key) => {
+  // 全局按键处理：Esc 中断、Ctrl+C
+  useInput((input, key) => {
+    // Ctrl+C
+    if (key.ctrl && input === 'c') {
+      if (phase === 'running') {
+        onInterrupt?.();
+        setOutputLines(prev => [...prev, '\x1b[33m[interrupted]\x1b[0m']);
+      } else {
+        onClose().then(() => exit());
+      }
+      return;
+    }
+
+    // Esc 中断 running
     if (key.escape && phase === 'running') {
       onInterrupt?.();
       setOutputLines(prev => [...prev, '\x1b[33m[interrupted]\x1b[0m']);
     }
-  }, { isActive: phase === 'running' });
+  });
 
   // paste_preview 状态下按键处理
   useInput((input, key) => {

@@ -40,16 +40,12 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
       return;
     }
 
-    if (key.backspace) {
+    // 退格（macOS: \x7f → key.delete, Linux: \b → key.backspace）
+    if (key.backspace || key.delete) {
       if (pos > 0) {
         updateBuffer(buf.slice(0, pos - 1) + buf.slice(pos));
         updatePos(pos - 1);
       }
-      return;
-    }
-
-    if (key.delete) {
-      updateBuffer(buf.slice(0, pos) + buf.slice(pos + 1));
       return;
     }
 
