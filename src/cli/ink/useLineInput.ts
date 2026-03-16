@@ -20,6 +20,8 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
   const posRef = useRef(cursorPos);
   const submitRef = useRef(options.onSubmit);
   const pasteRef = useRef(options.onPaste);
+  const historyRef = useRef<string[]>([]);
+  const historyIndexRef = useRef(-1);
 
   bufRef.current = buffer;
   posRef.current = cursorPos;
@@ -34,6 +36,10 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
     const pos = posRef.current;
 
     if (key.return) {
+      if (buf.trim()) {
+        historyRef.current.push(buf);
+      }
+      historyIndexRef.current = -1;
       submitRef.current(buf);
       updateBuffer('');
       updatePos(0);
@@ -58,6 +64,36 @@ export function useLineInput(options: UseLineInputOptions): LineInputState {
     if (key.rightArrow) { updatePos(Math.min(buf.length, pos + 1)); return; }
     if (key.ctrl && input === 'a') { updatePos(0); return; }
     if (key.ctrl && input === 'e') { updatePos(buf.length); return; }
+
+    // 上箭头：历史回溯（从最近一条开始）
+    if (key.upArrow) {
+      const h = historyRef.current;
+      if (h.length === 0) return;
+      const newIndex = historyIndexRef.current === -1
+        ? h.length - 1
+        : Math.max(0, historyIndexRef.current - 1);
+      historyIndexRef.current = newIndex;
+      updateBuffer(h[newIndex]);
+      updatePos(h[newIndex].length);
+      return;
+    }
+
+    // 下箭头：历史前进
+    if (key.downArrow) {
+      const h = historyRef.current;
+      if (historyIndexRef.current === -1) return;
+      const newIndex = historyIndexRef.current + 1;
+      if (newIndex >= h.length) {
+        historyIndexRef.current = -1;
+        updateBuffer('');
+        updatePos(0);
+      } else {
+        historyIndexRef.current = newIndex;
+        updateBuffer(h[newIndex]);
+        updatePos(h[newIndex].length);
+      }
+      return;
+    }
 
     // 粘贴检测：多字符且含换行
     if (input && input.length > 1 && /[\r\n]/.test(input)) {
