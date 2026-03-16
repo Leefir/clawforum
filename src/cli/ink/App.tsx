@@ -1,4 +1,4 @@
-import { type FC, useState, useCallback } from 'react';
+import { type FC, useState, useCallback, useEffect } from 'react';
 import { Text, Box, useApp, useInput, useStdin } from 'ink';
 import { useLineInput } from './useLineInput.js';
 import { InputLine } from './InputLine.js';
@@ -23,6 +23,20 @@ export const App: FC<AppProps> = ({ options }) => {
   const [status, setStatus] = useState<StatusItem | null>(null);
   const [streamingText, setStreamingText] = useState('');
   const [pastedLines, setPastedLines] = useState<string[]>([]);
+
+  // 控制终端光标显示/隐藏
+  useEffect(() => {
+    if (phase === 'idle') {
+      process.stdout.write('\x1b[?25h'); // 显示光标
+    } else {
+      process.stdout.write('\x1b[?25l'); // 隐藏光标
+    }
+  }, [phase]);
+
+  // 组件卸载时恢复光标
+  useEffect(() => {
+    return () => { process.stdout.write('\x1b[?25h'); };
+  }, []);
 
   // 提交消息 → 进入 running 状态
   const handleSubmit = useCallback(async (text: string) => {
