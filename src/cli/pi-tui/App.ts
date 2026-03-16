@@ -81,9 +81,10 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
     }
     if (lines.length === 0) return;
 
-    // 单行直接提交
+    // 单行放回 Input 继续编辑
     if (lines.length === 1) {
-      input.onSubmit?.(lines[0]);
+      input.setValue(lines[0]);
+      tui.requestRender();
       return;
     }
 
@@ -213,11 +214,7 @@ export async function runPiTui(options: ReplOptions): Promise<void> {
     };
 
     try {
-      const reply = await onMessage(trimmed, callbacks);
-      if (reply) {
-        flushStreaming();
-        appendOutput(reply);
-      }
+      await onMessage(trimmed, callbacks);
     } catch (e) {
       flushStreaming();
       appendOutput(`Error: ${(e as Error).message}`);
