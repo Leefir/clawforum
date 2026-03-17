@@ -61,15 +61,6 @@ export async function createCommand(name: string): Promise<void> {
   const agentsMdPath = path.join(clawDir, 'AGENTS.md');
   const agentsTemplate = `你是 ${name}，一个 AI 助手。
 
-你可以使用以下工具：
-- read: 读取文件内容
-- write: 写入文件内容
-- ls: 列出目录内容
-- search: 搜索文件
-- exec: 执行命令
-- skill: 加载技能
-- done: 标记子任务完成（触发验收）
-
 ## 契约工作流
 
 当你收到契约任务时，系统会在 prompt 中注入契约详情（标题、目标、子任务列表）。
@@ -88,7 +79,7 @@ done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
 
 你的工作目录是 claw 根目录。输出文件写到 \`clawspace/\` 下。
 
-请高效、准确地完成用户的任务。
+请高效、准确地完成任务。
 `;
   fs.writeFileSync(agentsMdPath, agentsTemplate);
   

@@ -146,7 +146,7 @@ export class ContractManager {
     const exists = await this.fs.exists(this.activeDir);
     if (!exists) return null;
 
-    // 扫描 contract/active/ 目录找 running 状态的契约，按 started_at 排序取最新
+    // 扫描 contract/active/ 目录——里面的契约就是活跃的（不检查 status 字段）
     const entries = await this.fs.list(this.activeDir, { includeDirs: true });
     
     let latest: { name: string; startedAt: string } | null = null;
@@ -160,12 +160,10 @@ export class ContractManager {
 
       try {
         const progressData = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
-        if (progressData.status === 'running' || progressData.status === 'paused') {
-          // 比较 started_at，取最新的
-          const startedAt = progressData.started_at ?? '';
-          if (!latest || startedAt > latest.startedAt) {
-            latest = { name: entry.name, startedAt };
-          }
+        // active/ 目录里的契约就是活跃的——信任目录位置，不检查 status 字段
+        const startedAt = progressData.started_at ?? '';
+        if (!latest || startedAt > latest.startedAt) {
+          latest = { name: entry.name, startedAt };
         }
       } catch (error) {
         // 区分文件不存在（ENOENT，正常跳过）vs 其他错误（JSON 解析失败、损坏等）
