@@ -275,6 +275,8 @@ export class ContractManager {
     }
 
     if (result.passed) {
+      let allCompleted = false;
+      
       // 使用文件锁保护 read-modify-write
       await this.withProgressLock(contractId, async () => {
         // 重新读取进度（在锁内获取最新状态）
@@ -298,7 +300,7 @@ export class ContractManager {
         };
 
         // 检查所有子任务是否完成
-        const allCompleted = await this.checkAllCompleted(contractId, progress);
+        allCompleted = await this.checkAllCompleted(contractId, progress);
         if (allCompleted) {
           progress.status = 'completed';
           // 更新契约状态
@@ -314,9 +316,9 @@ export class ContractManager {
         });
       });
 
-      // 锁外通知 Motion（best-effort）
-      const progress = await this.getProgress(contractId);
-      if (progress.status === 'completed') {
+      // 锁外归档和通知 Motion（best-effort）
+      if (allCompleted) {
+        await this.moveToArchive(contractId);
         const yaml = await this.loadContractYaml(contractId);
         this.notifyMotionCompletion(contractId, yaml.title);
       }
@@ -386,7 +388,19 @@ export class ContractManager {
         status: 'cancelled',
         reason,
       });
+
+      await this.moveToArchive(contractId);
     });
+  }
+
+  /**
+   * 将契约从 active 移到 archive
+   */
+  private async moveToArchive(contractId: string): Promise<void> {
+    const src = `${this.activeDir}/${contractId}`;
+    const dst = `${this.archiveDir}/${contractId}`;
+    await this.fs.ensureDir(this.archiveDir);
+    await this.fs.move(src, dst);
   }
 
   /**
