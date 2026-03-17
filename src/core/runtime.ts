@@ -242,7 +242,7 @@ export class ClawRuntime {
    * user_inbox_message: [user inbox message] 前缀（用户通过 CLI 发消息）
    * 系统事件: [system message] 前缀
    */
-  protected formatInboxMessage(type: string, from: string, body: string): string {
+  protected async formatInboxMessage(type: string, from: string, body: string): Promise<string> {
     switch (type) {
       case 'user_chat':
         return body;
@@ -250,8 +250,15 @@ export class ClawRuntime {
         return `[user inbox message]\n${body}`;
       case 'crash_notification':
         return `[system message] Claw "${from}" 进程异常退出。\n${body}`;
-      case 'heartbeat':
-        return '[system message] 心跳触发，请巡查。';
+      case 'heartbeat': {
+        const base = '[system message] 心跳触发，请巡查。';
+        try {
+          const checklist = (await this.systemFs.read('HEARTBEAT.md')).trim();
+          return checklist ? `${base}\n\n${checklist}` : base;
+        } catch {
+          return base;
+        }
+      }
       case 'review_request':
       case 'crash_recovery':
       case 'stall_nudge':
@@ -334,7 +341,7 @@ export class ClawRuntime {
       const type = info.meta.type ?? 'message';
       injected.push({
         role: 'user',
-        content: this.formatInboxMessage(type, from, info.body),
+        content: await this.formatInboxMessage(type, from, info.body),
       });
     }
 

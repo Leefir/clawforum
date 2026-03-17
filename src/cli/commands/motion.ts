@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 import { MotionRuntime } from '../../core/motion/runtime.js';
 import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { ProcessManager } from '../../foundation/process/manager.js';
+
 import { Heartbeat } from '../../core/heartbeat.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
@@ -338,20 +338,12 @@ export async function daemonCommand(): Promise<void> {
 
   // 创建 Heartbeat
   const baseDir = path.join(motionDir, '..');
-  const fs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-  const pm = new ProcessManager(fs, baseDir);
-  const heartbeat = new Heartbeat(baseDir, pm, {
-    interval: 60,
-    stallThreshold: 300,
-  });
+  const heartbeat = new Heartbeat(baseDir, { interval: 300 });
 
   // 心跳检查定时器（每 5s 检查是否到期）
   const heartbeatInterval = setInterval(() => {
     if (heartbeat.isDue()) {
-      const results = heartbeat.checkAll();
-      if (results.length > 0) {
-        console.log('[heartbeat]', results.join(', '));
-      }
+      heartbeat.fire();
     }
   }, 5000);
   
