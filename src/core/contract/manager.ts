@@ -68,6 +68,7 @@ export class ContractManager {
   private lockRetries = 3;
   private lockDelay = 100; // ms
   private activeDir = 'contract/active';
+  private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
 
   constructor(clawDir: string, fs: IFileSystem, monitor?: IMonitor) {
@@ -77,11 +78,14 @@ export class ContractManager {
   }
 
   /**
-   * 返回契约实际所在目录前缀（active 或 archive）
+   * 返回契约实际所在目录前缀（active、paused 或 archive）
    */
   private async contractDir(contractId: string): Promise<string> {
     if (await this.fs.exists(`${this.activeDir}/${contractId}/progress.json`)) {
       return this.activeDir;
+    }
+    if (await this.fs.exists(`${this.pausedDir}/${contractId}/progress.json`)) {
+      return this.pausedDir;
     }
     if (await this.fs.exists(`${this.archiveDir}/${contractId}/progress.json`)) {
       return this.archiveDir;
@@ -180,6 +184,34 @@ export class ContractManager {
         }
         continue;
       }
+    }
+
+    return latest ? this.loadContract(latest.name) : null;
+  }
+
+  /**
+   * 加载当前暂停的契约（返回 paused/ 目录中最新的契约）
+   */
+  async loadPaused(): Promise<Contract | null> {
+    const exists = await this.fs.exists(this.pausedDir);
+    if (!exists) return null;
+
+    const entries = await this.fs.list(this.pausedDir, { includeDirs: true });
+    let latest: { name: string; startedAt: string } | null = null;
+
+    for (const entry of entries) {
+      if (!entry.isDirectory) continue;
+      const progressPath = `${this.pausedDir}/${entry.name}/progress.json`;
+      const hasProgress = await this.fs.exists(progressPath);
+      if (!hasProgress) continue;
+
+      try {
+        const data = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
+        const startedAt = data.started_at ?? '';
+        if (!latest || startedAt > latest.startedAt) {
+          latest = { name: entry.name, startedAt };
+        }
+      } catch { continue; }
     }
 
     return latest ? this.loadContract(latest.name) : null;
@@ -326,79 +358,79 @@ export class ContractManager {
   }
 
   /**
-   * 暂停契约
+   * 暂停契约（从 active/ 移到 paused/）
    */
   async pause(contractId: string, checkpointNote: string): Promise<void> {
+    const dir = await this.contractDir(contractId);
+    if (dir !== this.activeDir) {
+      throw new ToolError(`Cannot pause contract "${contractId}": not in active/`);
+    }
+    // 锁内更新 progress
     await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
-      if (progress.status !== 'running') {
-        throw new ToolError(`Cannot pause contract "${contractId}": current status is "${progress.status}" (expected "running")`);
-      }
       progress.status = 'paused';
       progress.checkpoint = checkpointNote;
       await this.saveProgress(contractId, progress);
-
-      this.monitor?.log('contract_updated', {
-        contractId,
-        status: 'paused',
-        checkpoint: checkpointNote,
-      });
     });
+    // 移动目录表达状态
+    await this.fs.ensureDir(this.pausedDir);
+    await this.fs.move(
+      `${this.activeDir}/${contractId}`,
+      `${this.pausedDir}/${contractId}`
+    );
+    this.monitor?.log('contract_updated', { contractId, status: 'paused', checkpoint: checkpointNote });
   }
 
   /**
-   * 恢复契约
+   * 恢复契约（从 paused/ 移到 active/）
    */
   async resume(contractId: string): Promise<Contract> {
-    return await this.withProgressLock(contractId, async () => {
+    const dir = await this.contractDir(contractId);
+    if (dir !== this.pausedDir) {
+      throw new ToolError(`Cannot resume contract "${contractId}": not in paused/`);
+    }
+    await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
-      if (progress.status !== 'paused') {
-        throw new ToolError(`Cannot resume contract "${contractId}": current status is "${progress.status}" (expected "paused")`);
-      }
       progress.status = 'running';
       progress.checkpoint = null;
       await this.saveProgress(contractId, progress);
-
-      this.monitor?.log('contract_updated', {
-        contractId,
-        status: 'running',
-      });
-
-      return this.loadContract(contractId);
     });
+    await this.fs.move(
+      `${this.pausedDir}/${contractId}`,
+      `${this.activeDir}/${contractId}`
+    );
+    this.monitor?.log('contract_updated', { contractId, status: 'running' });
+    return this.loadContract(contractId);
   }
 
   /**
-   * 取消契约
+   * 取消契约（从 active/ 或 paused/ 移到 archive/）
    */
   async cancel(contractId: string, reason: string): Promise<void> {
+    const dir = await this.contractDir(contractId);
+    if (dir === this.archiveDir) {
+      throw new ToolError(`Cannot cancel contract "${contractId}": already archived`);
+    }
     await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
-      if (progress.status === 'completed' || progress.status === 'cancelled') {
-        throw new ToolError(`Cannot cancel contract "${contractId}": already in terminal status "${progress.status}"`);
-      }
       progress.status = 'cancelled';
       progress.checkpoint = `cancelled: ${reason}`;
       await this.saveProgress(contractId, progress);
-
-      this.monitor?.log('contract_updated', {
-        contractId,
-        status: 'cancelled',
-        reason,
-      });
-
-      await this.moveToArchive(contractId);
     });
+    await this.fs.ensureDir(this.archiveDir);
+    await this.fs.move(`${dir}/${contractId}`, `${this.archiveDir}/${contractId}`);
+    this.monitor?.log('contract_updated', { contractId, status: 'cancelled', reason });
   }
 
   /**
-   * 将契约从 active 移到 archive
+   * 将契约从 active/ 或 paused/ 移到 archive/
    */
   private async moveToArchive(contractId: string): Promise<void> {
-    const src = `${this.activeDir}/${contractId}`;
+    const dir = await this.contractDir(contractId);
+    if (dir === this.archiveDir) return; // 已在 archive
     const dst = `${this.archiveDir}/${contractId}`;
     await this.fs.ensureDir(this.archiveDir);
-    await this.fs.move(src, dst);
+    await this.fs.move(`${dir}/${contractId}`, dst);
   }
 
   /**

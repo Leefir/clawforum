@@ -129,14 +129,14 @@ export class Heartbeat {
     try {
       const clawDir = path.join(this.baseDir, 'claws', clawId);
       
-      // 检查是否有活跃契约：检查 contract/active/ 是否存在子目录
-      const activeDir = path.join(clawDir, 'contract', 'active');
+      // 检查是否有活跃契约：检查 contract/active/ 或 contract/paused/ 是否存在子目录
       let hasActiveContract = false;
-      try {
-        const entries = fsNative.readdirSync(activeDir, { withFileTypes: true });
-        hasActiveContract = entries.some(e => e.isDirectory());
-      } catch {
-        hasActiveContract = false;
+      const contractDir = path.join(clawDir, 'contract');
+      for (const sub of ['active', 'paused']) {
+        try {
+          const entries = fsNative.readdirSync(path.join(contractDir, sub), { withFileTypes: true });
+          if (entries.some(e => e.isDirectory())) { hasActiveContract = true; break; }
+        } catch { /* skip */ }
       }
 
       // 去重检查：5 分钟内是否已通知过

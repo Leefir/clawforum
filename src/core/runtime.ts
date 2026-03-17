@@ -199,10 +199,10 @@ export class ClawRuntime {
     // 启动 InboxWatcher
     await this.inboxWatcher.start(this.handleMessage.bind(this));
 
-    // 如果有暂停的活跃契约，恢复执行
-    const active = await this.contractManager.loadActive();
-    if (active && active.status === 'paused') {
-      await this.contractManager.resume(active.id);
+    // 如果有暂停的契约，恢复执行
+    const paused = await this.contractManager.loadPaused();
+    if (paused) {
+      await this.contractManager.resume(paused.id);
     }
 
     this.running = true;
@@ -230,9 +230,9 @@ export class ClawRuntime {
    * MVP 对齐：恢复暂停的契约（抽取自 start()）
    */
   async resumeContractIfPaused(): Promise<void> {
-    const active = await this.contractManager.loadActive();
-    if (active && active.status === 'paused') {
-      await this.contractManager.resume(active.id);
+    const paused = await this.contractManager.loadPaused();
+    if (paused) {
+      await this.contractManager.resume(paused.id);
     }
   }
 

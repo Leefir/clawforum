@@ -163,13 +163,16 @@ export async function daemonCommand(name: string): Promise<void> {
     },
   });
 
-  // 检查是否有 running 契约（通过检查 contract/active/ 是否存在子目录）
-  function hasRunningContract(): boolean {
-    const activeDir = path.join(clawDir, 'contract', 'active');
-    try {
-      const entries = fsNative.readdirSync(activeDir, { withFileTypes: true });
-      return entries.some(e => e.isDirectory());
-    } catch { return false; }
+  // 检查是否有活跃契约（active/ 或 paused/ 中存在子目录）
+  function hasContract(): boolean {
+    const contractDir = path.join(clawDir, 'contract');
+    for (const sub of ['active', 'paused']) {
+      try {
+        const entries = fsNative.readdirSync(path.join(contractDir, sub), { withFileTypes: true });
+        if (entries.some(e => e.isDirectory())) return true;
+      } catch { /* skip */ }
+    }
+    return false;
   }
 
   // 处理 SIGTERM - 优雅关闭
@@ -183,7 +186,7 @@ export async function daemonCommand(name: string): Promise<void> {
       // 忽略停止错误
     }
     // 只有有活跃契约时才通知 motion
-    if (hasRunningContract()) {
+    if (hasContract()) {
       notifyMotionExit(name, 'SIGTERM');
     }
     process.exit(0);
@@ -200,7 +203,7 @@ export async function daemonCommand(name: string): Promise<void> {
       // 忽略停止错误
     }
     // 只有有活跃契约时才通知 motion
-    if (hasRunningContract()) {
+    if (hasContract()) {
       notifyMotionExit(name, 'SIGINT');
     }
     process.exit(0);
