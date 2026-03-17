@@ -21,6 +21,7 @@ import { ProcessManager } from '../../foundation/process/manager.js';
 import { Heartbeat } from '../../core/heartbeat.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
+import { runChatViewport } from './chat-viewport.js';
 
 // 获取当前文件目录（ESM 兼容）
 const __filename = fileURLToPath(import.meta.url);
@@ -131,13 +132,12 @@ export async function initCommand(): Promise<void> {
 }
 
 /**
- * motion chat - 启动交互式对话
+ * motion chat - 启动交互式对话（viewport 模式）
  */
 export async function chatCommand(): Promise<void> {
-  const globalConfig = loadGlobalConfig();
+  loadGlobalConfig();
   const motionDir = getMotionDir();
-  const llmConfig = buildLLMConfig(globalConfig);
-  
+
   // 检查 Motion 是否已初始化
   try {
     await fs.access(path.join(motionDir, 'AGENTS.md'));
@@ -145,37 +145,16 @@ export async function chatCommand(): Promise<void> {
     console.error('Motion not initialized. Run: clawforum motion init');
     process.exit(1);
   }
-  
-  // 创建 MotionRuntime
-  const runtime = new MotionRuntime({
-    clawId: 'motion',
-    clawDir: motionDir,
-    llmConfig,
-    maxSteps: 100,
-    toolProfile: 'full',
-  });
-  
-  // 初始化
-  await runtime.initialize();
 
-  await startRepl({
-    prompt: 'motion> ',
-    header: '╔══════════════════════════════════════╗\n║   Clawforum Motion (Manager Mode)    ║\n╚══════════════════════════════════════╝',
-    onMessage: async (message, callbacks) => {
-      try {
-        return await runtime.chat(message, callbacks);
-      } catch (error) {
-        if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Execution aborted')) {
-          // 用户主动中断，静默处理
-        } else {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          console.error('\x1b[31mError:\x1b[0m', errorMsg);
-        }
-        return '';
+  await runChatViewport({
+    agentDir: motionDir,
+    label: 'motion',
+    ensureDaemon: async () => {
+      if (!isMotionAlive()) {
+        console.log('Starting Motion daemon...');
+        await startCommand();
       }
     },
-    onClose: () => runtime.stop(),
-    onInterrupt: () => runtime.abort(),
   });
 }
 

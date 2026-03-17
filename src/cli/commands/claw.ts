@@ -19,6 +19,7 @@ import {
 } from '../config.js';
 import { ClawRuntime } from '../../core/runtime.js';
 import { LLMRateLimitError, LLMTimeoutError } from '../../types/errors.js';
+import { runChatViewport } from './chat-viewport.js';
 
 function isAbortError(error: unknown): boolean {
   if (error instanceof Error) {
@@ -79,48 +80,31 @@ export async function createCommand(name: string): Promise<void> {
 }
 
 export async function chatCommand(name: string): Promise<void> {
-  // Load configs
-  const globalConfig = loadGlobalConfig();
-  const clawConfig = loadClawConfig(name);
-  
-  const clawDir = getClawDir(name);
-  const llmConfig = buildLLMConfig(globalConfig, clawConfig);
-  
-  console.log(`🤖 Starting chat with "${name}"...\n`);
-  
-  // Create runtime
-  const runtime = new ClawRuntime({
-    clawId: name,
-    clawDir,
-    llmConfig,
-    maxSteps: clawConfig.max_steps,
-    toolProfile: clawConfig.tool_profile,
-  });
-  
-  // Start runtime
-  await runtime.start();
+  loadGlobalConfig();
 
-  await startRepl({
-    prompt: '> ',
-    header: `🤖 Chat with "${name}"`,
-    onMessage: async (message, callbacks) => {
-      try {
-        return await runtime.chat(message, callbacks);
-      } catch (error) {
-        if (error instanceof LLMRateLimitError) {
-          console.error('\n❌ Rate limited. Please wait and try again.\n');
-        } else if (error instanceof LLMTimeoutError) {
-          console.error('\n❌ Request timed out. Please try again.\n');
-        } else if (isAbortError(error)) {
-          // 用户主动中断，静默处理
-        } else {
-          console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
-        }
-        return '';
+  if (!clawExists(name)) {
+    console.error(`❌ Claw "${name}" does not exist`);
+    process.exit(1);
+  }
+
+  const clawDir = getClawDir(name);
+  const globalConfigPath = getGlobalConfigPath();
+  const baseDir = path.dirname(globalConfigPath);
+
+  await runChatViewport({
+    agentDir: clawDir,
+    label: name,
+    ensureDaemon: async () => {
+      const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+      const pm = new ProcessManager(nodeFs, baseDir);
+      if (!pm.isAlive(name)) {
+        console.log(`Starting Claw "${name}" daemon...`);
+        const pid = await pm.spawn(name, clawDir);
+        console.log(`✅ Started (PID: ${pid})`);
+        // 等待 daemon 初始化
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     },
-    onClose: () => runtime.stop(),
-    onInterrupt: () => runtime.abort(),
   });
 }
 
