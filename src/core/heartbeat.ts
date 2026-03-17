@@ -129,29 +129,13 @@ export class Heartbeat {
     try {
       const clawDir = path.join(this.baseDir, 'claws', clawId);
       
-      // 检查是否有活跃契约：扫描 contract/{id}/progress.json，status = running/paused
+      // 检查是否有活跃契约：检查 contract/active/ 是否存在子目录
+      const activeDir = path.join(clawDir, 'contract', 'active');
       let hasActiveContract = false;
       try {
-        const contractDir = path.join(clawDir, 'contract');
-        if (fsNative.existsSync(contractDir)) {
-          const entries = fsNative.readdirSync(contractDir, { withFileTypes: true });
-          for (const entry of entries) {
-            if (!entry.isDirectory()) continue;
-            const progressPath = path.join(contractDir, entry.name, 'progress.json');
-            if (!fsNative.existsSync(progressPath)) continue;
-            try {
-              const progress = JSON.parse(fsNative.readFileSync(progressPath, 'utf-8'));
-              if (progress.status === 'running' || progress.status === 'paused') {
-                hasActiveContract = true;
-                break;
-              }
-            } catch (err) {
-              console.warn(`[heartbeat] Failed to parse progress.json for ${entry.name}:`, err);
-            }
-          }
-        }
+        const entries = fsNative.readdirSync(activeDir, { withFileTypes: true });
+        hasActiveContract = entries.some(e => e.isDirectory());
       } catch {
-        // 读不到契约目录，视为无活跃契约
         hasActiveContract = false;
       }
 

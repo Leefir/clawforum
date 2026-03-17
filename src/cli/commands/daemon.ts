@@ -110,32 +110,26 @@ export async function daemonCommand(name: string): Promise<void> {
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
 
-  // 启动时检查：若有 running 契约但 inbox 为空，写启动消息触发执行
+  // 启动时检查：若有活跃契约但 inbox 为空，写启动消息触发执行
   try {
     const inboxPending = path.join(clawDir, 'inbox', 'pending');
-    const contractDir = path.join(clawDir, 'contract');
+    const activeDir = path.join(clawDir, 'contract', 'active');
     const inboxEmpty = !fsNative.existsSync(inboxPending) ||
       fsNative.readdirSync(inboxPending).filter(f => f.endsWith('.md')).length === 0;
-    if (inboxEmpty && fsNative.existsSync(contractDir)) {
-      const entries = fsNative.readdirSync(contractDir, { withFileTypes: true });
-      const hasRunning = entries.some(e => {
-        if (!e.isDirectory()) return false;
-        try {
-          const p = JSON.parse(fsNative.readFileSync(path.join(contractDir, e.name, 'progress.json'), 'utf-8'));
-          return p.status === 'running';
-        } catch (err) {
-          console.warn(`[daemon] Failed to parse progress.json for ${e.name}:`, err);
-          return false;
-        }
-      });
-      if (hasRunning) {
-        fsNative.mkdirSync(inboxPending, { recursive: true });
-        const now = new Date();
-        const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-        const uuid8 = randomUUID().slice(0, 8);
-        const content = `---\nid: startup-${now.getTime()}\ntype: message\nsource: system\npriority: high\ntimestamp: ${now.toISOString()}\n---\n\n系统启动。请检查活跃契约并继续执行。\n`;
-        fsNative.writeFileSync(path.join(inboxPending, `${ts}_startup_${uuid8}.md`), content);
-      }
+    
+    let hasRunning = false;
+    try {
+      const entries = fsNative.readdirSync(activeDir, { withFileTypes: true });
+      hasRunning = entries.some(e => e.isDirectory());
+    } catch { /* no active dir */ }
+    
+    if (inboxEmpty && hasRunning) {
+      fsNative.mkdirSync(inboxPending, { recursive: true });
+      const now = new Date();
+      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+      const uuid8 = randomUUID().slice(0, 8);
+      const content = `---\nid: startup-${now.getTime()}\ntype: message\nsource: system\npriority: high\ntimestamp: ${now.toISOString()}\n---\n\n系统启动。请检查活跃契约并继续执行。\n`;
+      fsNative.writeFileSync(path.join(inboxPending, `${ts}_startup_${uuid8}.md`), content);
     }
   } catch {
     // best-effort
@@ -169,19 +163,12 @@ export async function daemonCommand(name: string): Promise<void> {
     },
   });
 
-  // 检查是否有 running 契约
+  // 检查是否有 running 契约（通过检查 contract/active/ 是否存在子目录）
   function hasRunningContract(): boolean {
+    const activeDir = path.join(clawDir, 'contract', 'active');
     try {
-      const contractDir = path.join(clawDir, 'contract');
-      if (!fsNative.existsSync(contractDir)) return false;
-      const entries = fsNative.readdirSync(contractDir, { withFileTypes: true });
-      return entries.some(e => {
-        if (!e.isDirectory()) return false;
-        try {
-          const p = JSON.parse(fsNative.readFileSync(path.join(contractDir, e.name, 'progress.json'), 'utf-8'));
-          return p.status === 'running';
-        } catch { return false; }
-      });
+      const entries = fsNative.readdirSync(activeDir, { withFileTypes: true });
+      return entries.some(e => e.isDirectory());
     } catch { return false; }
   }
 
