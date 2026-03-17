@@ -19,6 +19,7 @@ import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { Heartbeat } from '../../core/heartbeat.js';
+import { waitForInbox } from './daemon-utils.js';
 
 // 获取当前文件目录（ESM 兼容）
 const __filename = fileURLToPath(import.meta.url);
@@ -453,11 +454,13 @@ export async function daemonCommand(): Promise<void> {
     clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
   });
-  
+
   // 保持进程运行
   console.log('[motion daemon] Started');
-  
-  // MVP 对齐：批处理轮询循环
+
+  const inboxPendingDir = path.join(motionDir, 'inbox', 'pending');
+  const FALLBACK_TIMEOUT = 30000;
+
   while (!motionStopped) {
     try {
       const injected = await runtime.processBatch();
@@ -468,11 +471,11 @@ export async function daemonCommand(): Promise<void> {
           more = await runtime.processBatch();
         }
       } else {
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
       }
     } catch (err) {
       console.error('[motion daemon] processBatch error:', err);
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
     }
   }
 }

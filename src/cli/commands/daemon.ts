@@ -12,6 +12,7 @@ import { ClawRuntime } from '../../core/runtime.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
+import { waitForInbox } from './daemon-utils.js';
 
 /**
  * 通知 motion claw 已退出（best-effort 同步写 .md YAML）
@@ -151,8 +152,9 @@ export async function daemonCommand(name: string): Promise<void> {
     }
   }, 30_000);
 
-  // MVP 对齐：轮询循环（批处理代替事件驱动）
-  const POLL_INTERVAL = 2000;
+  // fs.watch + fallback 超时监听 inbox
+  const inboxPendingDir = path.join(clawDir, 'inbox', 'pending');
+  const FALLBACK_TIMEOUT = 30000;
   let stopped = false;
 
   // 处理 SIGTERM - 优雅关闭
@@ -186,7 +188,7 @@ export async function daemonCommand(name: string): Promise<void> {
     clearInterval(statusInterval);
   });
 
-  // MVP 对齐：批处理轮询循环（替代事件驱动）
+  // fs.watch + fallback 超时监听 inbox
   while (!stopped) {
     try {
       const injected = await runtime.processBatch();
@@ -198,11 +200,11 @@ export async function daemonCommand(name: string): Promise<void> {
         }
         await writeStatus(runtime, clawDir, fs);
       } else {
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
       }
     } catch (err) {
       console.error('[daemon] processBatch error:', err);
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
     }
   }
 }
