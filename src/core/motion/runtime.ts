@@ -108,7 +108,7 @@ export class MotionRuntime extends ClawRuntime {
     if (!this.initialized) await this.initialize();
 
     const outboxCounts = await this._countClawOutboxes();
-    const { injected: ownInbox, count: inboxCount } = await this._drainOwnInbox();
+    const { injected: ownInbox, count: inboxCount, pendingFiles } = await this._drainOwnInbox();
 
     // 有未读 claw outbox 时，注入一条提示消息
     if (outboxCounts.size > 0) {
@@ -138,6 +138,7 @@ export class MotionRuntime extends ClawRuntime {
     messages.push(...ownInbox);
 
     await this._runReact(messages, callbacks);
+    await this._commitInbox(pendingFiles);  // react 成功后才移
     return ownInbox.length;
   }
 
