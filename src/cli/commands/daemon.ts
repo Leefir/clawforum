@@ -12,7 +12,7 @@ import { ClawRuntime } from '../../core/runtime.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
-import { waitForInbox } from './daemon-utils.js';
+import { startDaemonLoop } from './daemon-loop.js';
 
 /**
  * 通知 motion claw 已退出（best-effort 同步写 .md YAML）
@@ -152,14 +152,20 @@ export async function daemonCommand(name: string): Promise<void> {
     }
   }, 30_000);
 
-  // fs.watch + fallback 超时监听 inbox
+  // 统一事件循环
   const inboxPendingDir = path.join(clawDir, 'inbox', 'pending');
-  const FALLBACK_TIMEOUT = 30000;
-  let stopped = false;
+  const { promise, stop } = startDaemonLoop({
+    runtime,
+    inboxPendingDir,
+    label: '[daemon]',
+    onBatchComplete: async () => {
+      await writeStatus(runtime, clawDir, fs);
+    },
+  });
 
   // 处理 SIGTERM - 优雅关闭
   process.on('SIGTERM', async () => {
-    stopped = true;
+    stop();
     clearInterval(statusInterval);
     try {
       await runtime.stop();
@@ -172,7 +178,7 @@ export async function daemonCommand(name: string): Promise<void> {
 
   // 处理 SIGINT (Ctrl+C) - 同样优雅关闭
   process.on('SIGINT', async () => {
-    stopped = true;
+    stop();
     clearInterval(statusInterval);
     try {
       await runtime.stop();
@@ -188,23 +194,5 @@ export async function daemonCommand(name: string): Promise<void> {
     clearInterval(statusInterval);
   });
 
-  // fs.watch + fallback 超时监听 inbox
-  while (!stopped) {
-    try {
-      const injected = await runtime.processBatch();
-      if (injected > 0) {
-        // 链式反应：处理到无积压为止
-        let more = injected;
-        while (more > 0 && !stopped) {
-          more = await runtime.processBatch();
-        }
-        await writeStatus(runtime, clawDir, fs);
-      } else {
-        await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
-      }
-    } catch (err) {
-      console.error('[daemon] processBatch error:', err);
-      await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
-    }
-  }
+  await promise;
 }

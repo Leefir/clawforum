@@ -19,7 +19,7 @@ import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { Heartbeat } from '../../core/heartbeat.js';
-import { waitForInbox } from './daemon-utils.js';
+import { startDaemonLoop } from './daemon-loop.js';
 
 // 获取当前文件目录（ESM 兼容）
 const __filename = fileURLToPath(import.meta.url);
@@ -431,14 +431,18 @@ export async function daemonCommand(): Promise<void> {
     }
   }, 5000);
   
-  // MVP 对齐：轮询循环（批处理代替事件驱动）
-  let motionStopped = false;
-  const POLL_INTERVAL = 2000;
-  
+  // 统一事件循环
+  const inboxPendingDir = path.join(motionDir, 'inbox', 'pending');
+  const { promise, stop } = startDaemonLoop({
+    runtime,
+    inboxPendingDir,
+    label: '[motion daemon]',
+  });
+
   // 统一 shutdown 处理
   const shutdown = async (signal: string) => {
     console.log(`[motion daemon] Received ${signal}, shutting down...`);
-    motionStopped = true;
+    stop();
     clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
     await writeMotionStatus(motionDir, 'stopped');
@@ -455,27 +459,6 @@ export async function daemonCommand(): Promise<void> {
     clearInterval(heartbeatInterval);
   });
 
-  // 保持进程运行
   console.log('[motion daemon] Started');
-
-  const inboxPendingDir = path.join(motionDir, 'inbox', 'pending');
-  const FALLBACK_TIMEOUT = 30000;
-
-  while (!motionStopped) {
-    try {
-      const injected = await runtime.processBatch();
-      if (injected > 0) {
-        // 链式反应：处理到无积压为止
-        let more = injected;
-        while (more > 0 && !motionStopped) {
-          more = await runtime.processBatch();
-        }
-      } else {
-        await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
-      }
-    } catch (err) {
-      console.error('[motion daemon] processBatch error:', err);
-      await waitForInbox(inboxPendingDir, FALLBACK_TIMEOUT);
-    }
-  }
+  await promise;
 }
