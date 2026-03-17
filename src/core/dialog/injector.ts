@@ -43,7 +43,7 @@ function formatContractForPrompt(contract: Contract): string {
 
   for (const subtask of contract.subtasks) {
     const checkbox = subtask.status === 'completed' ? '[x]' : '[ ]';
-    lines.push(`${checkbox} ${subtask.description}`);
+    lines.push(`${checkbox} \`${subtask.id}\`: ${subtask.description}`);
   }
 
   return lines.join('\n');

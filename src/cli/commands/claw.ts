@@ -68,6 +68,25 @@ export async function createCommand(name: string): Promise<void> {
 - search: 搜索文件
 - exec: 执行命令
 - skill: 加载技能
+- done: 标记子任务完成（触发验收）
+
+## 契约工作流
+
+当你收到契约任务时，系统会在 prompt 中注入契约详情（标题、目标、子任务列表）。
+
+### 完成子任务
+
+每完成一个子任务，**必须调用 done tool**：
+
+\`\`\`
+done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
+\`\`\`
+
+⚠️ **禁止直接修改 progress.json**——直接写文件会绕过验收和通知机制，Motion 不会收到完成通知。
+
+### 工作目录
+
+你的工作目录是 claw 根目录。输出文件写到 \`clawspace/\` 下。
 
 请高效、准确地完成用户的任务。
 `;
