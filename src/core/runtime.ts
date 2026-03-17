@@ -227,6 +227,32 @@ export class ClawRuntime {
   }
 
   /**
+   * 按 inbox 消息 type 格式化注入文本。
+   * user_chat: 无前缀（用户在 chat 输入）
+   * user_inbox_message: [user inbox message] 前缀（用户通过 CLI 发消息）
+   * 系统事件: [system message] 前缀
+   */
+  protected formatInboxMessage(type: string, from: string, body: string): string {
+    switch (type) {
+      case 'user_chat':
+        return body;
+      case 'user_inbox_message':
+        return `[user inbox message]\n${body}`;
+      case 'crash_notification':
+        return `[system message] Claw "${from}" 进程异常退出。\n${body}`;
+      case 'heartbeat':
+        return '[system message] 心跳触发，请巡查。';
+      case 'review_request':
+      case 'crash_recovery':
+      case 'stall_nudge':
+      case 'outbox_notify':
+      case 'message':
+      default:
+        return `[system message] ${body}`;
+    }
+  }
+
+  /**
    * 读取并 drain 自身 inbox/pending/*.md
    * 已 rename 到 done/（LLM 调用前），返回注入消息
    * @protected 供子类 MotionRuntime 复用
@@ -290,15 +316,14 @@ export class ClawRuntime {
       }
     }
 
-    // 构建消息注入（保留 type 和 priority 字段）
+    // 构建消息注入（按 type 选择模板）
     const injected: Message[] = [];
     for (const info of fileInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
       const type = info.meta.type ?? 'message';
-      const priority = info.meta.priority ?? 'normal';
       injected.push({
         role: 'user',
-        content: `[inbox type=${type} priority=${priority} from=${from}]\n${info.body}`,
+        content: this.formatInboxMessage(type, from, info.body),
       });
     }
 
