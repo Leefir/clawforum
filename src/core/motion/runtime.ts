@@ -8,7 +8,7 @@
 
 import * as path from 'path';
 import { promises as fs } from 'fs';
-import { ClawRuntime, type ClawRuntimeOptions } from '../runtime.js';
+import { ClawRuntime, type ClawRuntimeOptions, type StreamCallbacks } from '../runtime.js';
 import type { Message } from '../../types/message.js';
 
 /**
@@ -104,7 +104,7 @@ export class MotionRuntime extends ClawRuntime {
    * Motion 专用：批量处理 inbox + 统计 claw outbox 未读数
    * @override
    */
-  override async processBatch(): Promise<number> {
+  override async processBatch(callbacks?: StreamCallbacks): Promise<number> {
     if (!this.initialized) await this.initialize();
 
     const outboxCounts = await this._countClawOutboxes();
@@ -128,7 +128,7 @@ export class MotionRuntime extends ClawRuntime {
     const messages: Message[] = [...session.messages];
     messages.push(...ownInbox);
 
-    await this._runReact(messages);
+    await this._runReact(messages, callbacks);
     return ownInbox.length;
   }
 

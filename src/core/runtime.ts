@@ -47,6 +47,15 @@ export interface ClawRuntimeOptions {
   toolProfile?: ToolProfile;
 }
 
+/** daemon 流式回调（processBatch / _runReact 使用） */
+export interface StreamCallbacks {
+  onTextDelta?: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
+  onToolCall?: (toolName: string) => void;
+  onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+  onBeforeLLMCall?: () => void;
+}
+
 /**
  * ClawRuntime - 完整的 Claw 运行时实例
  */
@@ -334,7 +343,7 @@ export class ClawRuntime {
    * 在给定 messages 上执行 LLM react 循环并保存 session
    * @protected 供子类 MotionRuntime 复用
    */
-  protected async _runReact(messages: Message[]): Promise<void> {
+  protected async _runReact(messages: Message[], callbacks?: StreamCallbacks): Promise<void> {
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
@@ -350,6 +359,11 @@ export class ClawRuntime {
       onStepComplete: async () => {
         await this.sessionManager.save(messages);
       },
+      onTextDelta: callbacks?.onTextDelta,
+      onThinkingDelta: callbacks?.onThinkingDelta,
+      onToolCall: callbacks?.onToolCall,
+      onToolResult: callbacks?.onToolResult,
+      onBeforeLLMCall: callbacks?.onBeforeLLMCall,
     });
     await this.sessionManager.save(messages);
   }
@@ -358,7 +372,7 @@ export class ClawRuntime {
    * MVP 对齐：批量处理 inbox 消息（批处理轮询代替事件驱动）
    * @returns 注入的消息数（0 = 无待处理）
    */
-  async processBatch(): Promise<number> {
+  async processBatch(callbacks?: StreamCallbacks): Promise<number> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -368,7 +382,7 @@ export class ClawRuntime {
 
     const session = await this.sessionManager.load();
     const messages = [...session.messages, ...injected];
-    await this._runReact(messages);
+    await this._runReact(messages, callbacks);
 
     return count;
   }
