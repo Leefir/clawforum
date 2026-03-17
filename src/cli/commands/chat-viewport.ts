@@ -5,14 +5,38 @@
 
 import * as fsNative from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
   label: string;      // 显示名，如 'motion' 或 'claw-search'
 }
 
+function writeUserChat(agentDir: string, message: string): void {
+  const inboxDir = path.join(agentDir, 'inbox', 'pending');
+  fsNative.mkdirSync(inboxDir, { recursive: true });
+
+  const now = new Date();
+  const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+  const uuid8 = randomUUID().slice(0, 8);
+  const filename = `${ts}_user_chat_${uuid8}.md`;
+
+  const content = `---
+id: chat-${now.getTime()}-${uuid8}
+type: user_chat
+source: user
+priority: high
+timestamp: ${now.toISOString()}
+---
+
+${message}
+`;
+
+  fsNative.writeFileSync(path.join(inboxDir, filename), content);
+}
+
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
-  const { TUI, Text, Key, matchesKey } = await import('@mariozechner/pi-tui');
+  const { TUI, Text, Input, Key, matchesKey } = await import('@mariozechner/pi-tui');
   const { ProcessTerminal } = await import('@mariozechner/pi-tui');
 
   const streamPath = path.join(options.agentDir, 'stream.jsonl');
@@ -27,6 +51,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const streamingText = new Text('');
   let streamingBuffer = '';
   let thinkingBuffer = '';
+
+  // 输入组件
+  const input = new Input();
 
   const appendOutput = (line: string) => {
     outputContent += '\n' + line;
@@ -151,6 +178,29 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // watch 失败，靠 pollInterval
   }
 
+  // 输入提交处理
+  input.onSubmit = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      input.setValue('');
+      tui.requestRender();
+      return;
+    }
+
+    if (trimmed === 'exit' || trimmed === 'quit') {
+      resolveExit();
+      return;
+    }
+
+    // 显示用户消息
+    appendOutput(`\x1b[32m> ${trimmed}\x1b[0m`);
+    input.setValue('');
+    tui.requestRender();
+
+    // 写入 inbox
+    writeUserChat(options.agentDir, trimmed);
+  };
+
   // Ctrl+C / Ctrl+D 退出
   let resolveExit: () => void;
   const exitPromise = new Promise<void>(r => { resolveExit = r; });
@@ -165,6 +215,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.addChild(outputText);
   tui.addChild(streamingText);
+  tui.addChild(input);
+  tui.setFocus(input);
   tui.start();
 
   await exitPromise;
