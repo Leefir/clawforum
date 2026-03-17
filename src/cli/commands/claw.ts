@@ -193,7 +193,7 @@ export async function stopCommand(name: string): Promise<void> {
  */
 export async function listCommand(): Promise<void> {
   loadGlobalConfig();
-  
+
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
   const clawsDir = path.join(baseDir, 'claws');
@@ -201,33 +201,73 @@ export async function listCommand(): Promise<void> {
   const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
   const processManager = new ProcessManager(fs, baseDir);
 
+  // 辅助：检查契约状态
+  function getContractStatus(clawPath: string): string {
+    for (const sub of ['active', 'paused']) {
+      try {
+        const entries = fsNative.readdirSync(path.join(clawPath, 'contract', sub), { withFileTypes: true });
+        if (entries.some(e => e.isDirectory())) return sub;
+      } catch { /* skip */ }
+    }
+    return '-';
+  }
+
+  // 辅助：统计 outbox 未读
+  function getOutboxCount(clawPath: string): number {
+    try {
+      return fsNative.readdirSync(path.join(clawPath, 'outbox', 'pending')).length;
+    } catch { return 0; }
+  }
+
+  // 辅助：格式化相对时间
+  function formatLastActive(clawPath: string): string {
+    try {
+      const stat = fsNative.statSync(path.join(clawPath, 'dialog', 'current.json'));
+      const ms = Date.now() - stat.mtimeMs;
+      const mins = Math.floor(ms / 60000);
+      if (mins < 1) return '<1m';
+      if (mins < 60) return `${mins}m`;
+      const hours = Math.floor(mins / 60);
+      return `${hours}h`;
+    } catch { return '-'; }
+  }
+
   try {
     // 确保 claws 目录存在
     if (!fsNative.existsSync(clawsDir)) {
       fsNative.mkdirSync(clawsDir, { recursive: true });
     }
     const entries = fsNative.readdirSync(clawsDir);
-    const claws: Array<{ name: string; status: string; pid?: string }> = [];
+    const claws: Array<{
+      name: string;
+      status: string;
+      pid?: string;
+      contract: string;
+      outbox: number;
+      lastActive: string;
+    }> = [];
 
     for (const entry of entries) {
-      const configPath = path.join(clawsDir, entry, 'config.yaml');
+      const clawPath = path.join(clawsDir, entry);
+      const configPath = path.join(clawPath, 'config.yaml');
       if (fsNative.existsSync(configPath)) {
         const isRunning = processManager.isAlive(entry);
         let pid: string | undefined;
-        
+
         if (isRunning) {
           try {
-            const pidFile = path.join(clawsDir, entry, 'status', 'pid');
+            const pidFile = path.join(clawPath, 'status', 'pid');
             pid = fsNative.readFileSync(pidFile, 'utf-8').trim();
-          } catch {
-            // 忽略读取错误
-          }
+          } catch { /* 忽略读取错误 */ }
         }
 
         claws.push({
           name: entry,
           status: isRunning ? 'running' : 'stopped',
           pid,
+          contract: getContractStatus(clawPath),
+          outbox: getOutboxCount(clawPath),
+          lastActive: formatLastActive(clawPath),
         });
       }
     }
@@ -239,17 +279,17 @@ export async function listCommand(): Promise<void> {
 
     // 打印表格
     console.log('\n📋 Claw List:');
-    console.log('─'.repeat(60));
-    console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)}`);
-    console.log('─'.repeat(60));
-    
+    console.log('─'.repeat(80));
+    console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)} ${'Contract'.padEnd(10)} ${'Outbox'.padEnd(8)} ${'LastActive'.padEnd(10)}`);
+    console.log('─'.repeat(80));
+
     for (const claw of claws) {
       const statusIcon = claw.status === 'running' ? '🟢' : '⚪';
       const pidStr = claw.pid || '-';
-      console.log(`${claw.name.padEnd(20)} ${statusIcon} ${claw.status.padEnd(10)} ${pidStr.padEnd(10)}`);
+      console.log(`${claw.name.padEnd(20)} ${statusIcon} ${claw.status.padEnd(10)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)}`);
     }
-    
-    console.log('─'.repeat(60));
+
+    console.log('─'.repeat(80));
     console.log(`\nTotal: ${claws.length} claws (${claws.filter(c => c.status === 'running').length} running)\n`);
   } catch (error) {
     console.error('❌ Failed to list claws:', error instanceof Error ? error.message : String(error));
