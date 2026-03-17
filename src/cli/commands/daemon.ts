@@ -7,7 +7,7 @@
 
 import * as path from 'path';
 import * as fsNative from 'fs';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { ClawRuntime } from '../../core/runtime.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
@@ -169,6 +169,22 @@ export async function daemonCommand(name: string): Promise<void> {
     },
   });
 
+  // 检查是否有 running 契约
+  function hasRunningContract(): boolean {
+    try {
+      const contractDir = path.join(clawDir, 'contract');
+      if (!fsNative.existsSync(contractDir)) return false;
+      const entries = fsNative.readdirSync(contractDir, { withFileTypes: true });
+      return entries.some(e => {
+        if (!e.isDirectory()) return false;
+        try {
+          const p = JSON.parse(fsNative.readFileSync(path.join(contractDir, e.name, 'progress.json'), 'utf-8'));
+          return p.status === 'running';
+        } catch { return false; }
+      });
+    } catch { return false; }
+  }
+
   // 处理 SIGTERM - 优雅关闭
   process.on('SIGTERM', async () => {
     stop();
@@ -179,7 +195,10 @@ export async function daemonCommand(name: string): Promise<void> {
     } catch {
       // 忽略停止错误
     }
-    notifyMotionExit(name, 'SIGTERM');
+    // 只有有活跃契约时才通知 motion
+    if (hasRunningContract()) {
+      notifyMotionExit(name, 'SIGTERM');
+    }
     process.exit(0);
   });
 
@@ -193,7 +212,10 @@ export async function daemonCommand(name: string): Promise<void> {
     } catch {
       // 忽略停止错误
     }
-    notifyMotionExit(name, 'SIGINT');
+    // 只有有活跃契约时才通知 motion
+    if (hasRunningContract()) {
+      notifyMotionExit(name, 'SIGINT');
+    }
     process.exit(0);
   });
 

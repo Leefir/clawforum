@@ -160,21 +160,9 @@ export class Heartbeat {
       const lastNotify = this.crashLastNotify.get(clawId) ?? 0;
       const alreadyNotified = now - lastNotify < 5 * 60 * 1000;
 
-      // MVP 对齐：无活跃契约时不自动重启（保守策略）
+      // MVP 对齐：无活跃契约时不自动重启，也不通知（静默跳过）
       if (!hasActiveContract) {
-        if (!alreadyNotified) {
-          this.crashLastNotify.set(clawId, now);
-          this._writeInbox('motion', {
-            id: `hb-${Date.now()}-${clawId}`,
-            type: 'crash_recovery',
-            source: 'heartbeat',
-            priority: 'normal',
-            timestamp: new Date().toISOString(),
-            content: `Claw "${clawId}" 进程已停止（无活跃契约，未自动重启）`,
-            clawId,
-          });
-        }
-        return true; // 已处理（通知或去重）
+        return true; // 已处理（静默，无需通知或重启）
       }
 
       // 有活跃契约，尝试重启

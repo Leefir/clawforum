@@ -49,12 +49,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const terminal = new ProcessTerminal();
   const tui = new TUI(terminal);
 
-  // 输出区域
-  const outputText = new Text(`[${options.label}] Watching daemon activity...\n`);
-  let outputContent = `[${options.label}] Watching daemon activity...\n`;
+  // 单一输出区域（永久内容 + 流式后缀合并显示，消除组件间距）
+  const outputText = new Text(`[${options.label}] Watching daemon activity...`, 1, 0);
+  let outputContent = `[${options.label}] Watching daemon activity...`;
+  let streamingSuffix = '';  // 当前流式内容（spinner / thinking / text）
 
-  // 流式文本（当前正在接收的增量）
-  const streamingText = new Text('');
   let streamingBuffer = '';
   let thinkingBuffer = '';
 
@@ -62,17 +61,29 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let spinnerTimer: ReturnType<typeof setInterval> | null = null;
 
+  const updateDisplay = () => {
+    const full = streamingSuffix
+      ? outputContent + '\n' + streamingSuffix
+      : outputContent;
+    outputText.setText(full);
+    tui.requestRender();
+  };
+
+  const setStreamingSuffix = (text: string) => {
+    streamingSuffix = text;
+    updateDisplay();
+  };
+
   const startSpinner = () => {
     stopSpinner();
     let frame = 0;
     spinnerTimer = setInterval(() => {
-      streamingText.setText(`${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} Thinking...`);
-      tui.requestRender();
+      streamingSuffix = `${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} Thinking...`;
+      updateDisplay();
       frame++;
     }, 80);
     // 立即显示第一帧
-    streamingText.setText(`${SPINNER_FRAMES[0]} Thinking...`);
-    tui.requestRender();
+    setStreamingSuffix(`${SPINNER_FRAMES[0]} Thinking...`);
   };
 
   const stopSpinner = () => {
@@ -87,22 +98,23 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const appendOutput = (line: string) => {
     outputContent += '\n' + line;
-    outputText.setText(outputContent);
-    tui.requestRender();
+    updateDisplay();
   };
 
   const flushStreaming = () => {
     if (streamingBuffer) {
-      appendOutput(streamingBuffer);
+      outputContent += '\n' + streamingBuffer;
       streamingBuffer = '';
-      streamingText.setText('');
+      streamingSuffix = '';
+      updateDisplay();
     }
   };
 
   const flushThinking = () => {
     if (thinkingBuffer) {
-      appendOutput('\x1b[2m' + thinkingBuffer + '\x1b[0m');
+      outputContent += '\n\x1b[2m' + thinkingBuffer + '\x1b[0m';
       thinkingBuffer = '';
+      updateDisplay();
     }
   };
 
@@ -127,24 +139,21 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'thinking_delta':
         stopSpinner();
         thinkingBuffer += event.delta as string;
-        streamingText.setText('\x1b[2m' + thinkingBuffer + '\x1b[0m');
-        tui.requestRender();
+        setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
         break;
 
       case 'text_delta':
         stopSpinner();
         flushThinking();
         streamingBuffer += event.delta as string;
-        streamingText.setText(streamingBuffer);
-        tui.requestRender();
+        setStreamingSuffix(streamingBuffer);
         break;
 
       case 'tool_call':
         stopSpinner();
         flushThinking();
         flushStreaming();
-        streamingText.setText(`→ ${event.name}...`);
-        tui.requestRender();
+        setStreamingSuffix(`→ ${event.name}...`);
         appendOutput(`\x1b[36m→ ${event.name}\x1b[0m`);
         break;
 
@@ -153,8 +162,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
         appendOutput(`\x1b[2m  ${icon} [${step}/${maxSteps}] ${event.summary}\x1b[0m`);
-        streamingText.setText('');
-        tui.requestRender();
+        streamingSuffix = '';
+        updateDisplay();
         break;
       }
 
@@ -232,9 +241,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
     // 写入 inbox
     writeUserChat(options.agentDir, trimmed);
-
-    // 立即显示 spinner（不等 daemon 的 llm_start）
-    startSpinner();
+    tui.requestRender();
   };
 
   // Ctrl+C / Ctrl+D 退出
@@ -250,7 +257,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   });
 
   tui.addChild(outputText);
-  tui.addChild(streamingText);
   tui.addChild(input);
   tui.setFocus(input);
   tui.start();
