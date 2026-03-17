@@ -6,8 +6,6 @@
  * AGENTS.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
  */
 
-import * as path from 'path';
-import { promises as fs } from 'fs';
 import { ClawRuntime, type ClawRuntimeOptions, type StreamCallbacks } from '../runtime.js';
 import type { Message } from '../../types/message.js';
 
@@ -101,27 +99,13 @@ export class MotionRuntime extends ClawRuntime {
   }
 
   /**
-   * Motion 专用：批量处理 inbox + 统计 claw outbox 未读数
+   * Motion 专用：批量处理 inbox
    * @override
    */
   override async processBatch(callbacks?: StreamCallbacks): Promise<number> {
     if (!this.initialized) await this.initialize();
 
-    const outboxCounts = await this._countClawOutboxes();
     const { injected: ownInbox, count: inboxCount, pendingFiles } = await this._drainOwnInbox();
-
-    // 有未读 claw outbox 时，注入一条提示消息
-    if (outboxCounts.size > 0) {
-      const parts: string[] = [];
-      for (const [clawId, count] of outboxCounts) {
-        parts.push(`${clawId}(${count})`);
-      }
-      ownInbox.push({
-        role: 'user',
-        content: `[system message] 未处理 claw outbox: ${parts.join(', ')}`,
-      });
-    }
-
     if (ownInbox.length === 0) return 0;
 
     // 通知 daemon-loop 注入了哪些消息
@@ -134,52 +118,9 @@ export class MotionRuntime extends ClawRuntime {
     }
 
     const session = await this.sessionManager.load();
-    const messages: Message[] = [...session.messages];
-    messages.push(...ownInbox);
-
+    const messages: Message[] = [...session.messages, ...ownInbox];
     await this._runReact(messages, callbacks);
     await this._commitInbox(pendingFiles);  // react 成功后才移
     return ownInbox.length;
-  }
-
-  /**
-   * 统计所有 claw outbox/pending 未读数量
-   * 不读取内容、不移动文件——motion 通过 `exec: claw outbox <id>` 主动消费
-   */
-  private async _countClawOutboxes(): Promise<Map<string, number>> {
-    const counts = new Map<string, number>();
-    const clawsDir = path.join(path.dirname(this.options.clawDir), 'claws');
-
-    let clawIds: string[] = [];
-    try {
-      clawIds = await fs.readdir(clawsDir);
-    } catch {
-      return counts;
-    }
-
-    for (const clawId of clawIds) {
-      if (clawId === 'motion') continue;
-      const clawPath = path.join(clawsDir, clawId);
-
-      try {
-        const stat = await fs.stat(clawPath);
-        if (!stat.isDirectory()) continue;
-      } catch {
-        continue;
-      }
-
-      const pendingDir = path.join(clawPath, 'outbox', 'pending');
-      try {
-        const files = await fs.readdir(pendingDir);
-        const mdFiles = files.filter(f => f.endsWith('.md'));
-        if (mdFiles.length > 0) {
-          counts.set(clawId, mdFiles.length);
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    return counts;
   }
 }
