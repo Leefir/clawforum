@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as fsNative from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import { startRepl } from '../repl.js';
+
 import { 
   loadGlobalConfig, 
   loadClawConfig, 
@@ -17,8 +17,7 @@ import {
   getGlobalConfigPath,
   CLAW_SUBDIRS,
 } from '../config.js';
-import { ClawRuntime } from '../../core/runtime.js';
-import { LLMRateLimitError, LLMTimeoutError } from '../../types/errors.js';
+
 import { runChatViewport } from './chat-viewport.js';
 
 function isAbortError(error: unknown): boolean {

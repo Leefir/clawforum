@@ -12,7 +12,6 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as fsNative from 'fs';
 import { spawn } from 'child_process';
-import { startRepl } from '../repl.js';
 import { fileURLToPath } from 'url';
 import { MotionRuntime } from '../../core/motion/runtime.js';
 import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
