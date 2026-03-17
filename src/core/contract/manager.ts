@@ -140,7 +140,7 @@ export class ContractManager {
   }
 
   /**
-   * 加载当前活跃契约（返回最新的 running/paused 契约）
+   * 加载当前活跃契约（返回 active/ 目录中最新的契约）
    */
   async loadActive(): Promise<Contract | null> {
     const exists = await this.fs.exists(this.activeDir);
@@ -191,11 +191,11 @@ export class ContractManager {
   async create(contractYaml: ContractYaml): Promise<string> {
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
 
-    // 关闭已有的 running 契约（避免多个 running 契约冲突）
+    // 归档已有的活跃契约（避免多个 running 契约冲突）
     const existing = await this.loadActive();
     if (existing && existing.id !== contractId) {
-      console.log(`[contract] Pausing existing contract ${existing.id} for new contract ${contractId}`);
-      await this.pause(existing.id, 'Superseded by new contract');
+      console.log(`[contract] Archiving existing contract ${existing.id} for new contract ${contractId}`);
+      await this.moveToArchive(existing.id);
     }
 
     await this.fs.ensureDir(`${this.activeDir}/${contractId}`);
@@ -496,9 +496,9 @@ export class ContractManager {
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
     try {
       // clawDir = ~/.clawforum/claws/{clawId}
-      // Motion inbox = ~/.clawforum/claws/motion/inbox/pending/
+      // Motion inbox = ~/.clawforum/motion/inbox/pending/
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', 'motion', 'inbox', 'pending');
+      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
 
       fsNative.mkdirSync(motionInbox, { recursive: true });
 
