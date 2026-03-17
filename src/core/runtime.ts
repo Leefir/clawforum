@@ -259,10 +259,6 @@ export class ClawRuntime {
           return base;
         }
       }
-      case 'review_request':
-      case 'crash_recovery':
-      case 'stall_nudge':
-      case 'outbox_notify':
       case 'message':
       default:
         return `[system message] ${body}`;

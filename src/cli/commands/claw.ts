@@ -20,6 +20,17 @@ import {
 
 import { runChatViewport } from './chat-viewport.js';
 
+/**
+ * 格式化相对时间（毫秒转为可读字符串）
+ */
+function formatRelativeTime(ms: number): string {
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return '<1m';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  return `${hours}h`;
+}
+
 function isAbortError(error: unknown): boolean {
   if (error instanceof Error) {
     return error.name === 'AbortError' || error.message === 'Execution aborted';
@@ -343,12 +354,21 @@ export async function healthCommand(name: string): Promise<void> {
     } catch { /* skip */ }
   }
 
+  // 最后活跃时间
+  let lastActive = '-';
+  try {
+    const stat = fsNative.statSync(path.join(clawDir, 'dialog', 'current.json'));
+    const age = Date.now() - stat.mtimeMs;
+    lastActive = formatRelativeTime(age);
+  } catch { /* skip */ }
+
   console.log(`\n🏥 Health Check: ${name}`);
   console.log('─'.repeat(40));
   console.log(`status: ${isRunning ? '🟢 running' : '⚪ stopped'}`);
   console.log(`inbox_pending: ${inboxPending}`);
   console.log(`outbox_pending: ${outboxPending}`);
   console.log(`contract: ${contractStatus}`);
+  console.log(`last_active: ${lastActive}`);
 }
 
 // ============================================================================
