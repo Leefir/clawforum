@@ -67,11 +67,26 @@ export class ContractManager {
   private monitor?: IMonitor;
   private lockRetries = 3;
   private lockDelay = 100; // ms
+  private activeDir = 'contract/active';
+  private archiveDir = 'contract/archive';
 
   constructor(clawDir: string, fs: IFileSystem, monitor?: IMonitor) {
     this.clawDir = clawDir;
     this.fs = fs;
     this.monitor = monitor;
+  }
+
+  /**
+   * 返回契约实际所在目录前缀（active 或 archive）
+   */
+  private async contractDir(contractId: string): Promise<string> {
+    if (await this.fs.exists(`${this.activeDir}/${contractId}/progress.json`)) {
+      return this.activeDir;
+    }
+    if (await this.fs.exists(`${this.archiveDir}/${contractId}/progress.json`)) {
+      return this.archiveDir;
+    }
+    throw new ToolError(`Contract "${contractId}" not found`);
   }
 
   /**
@@ -114,7 +129,8 @@ export class ContractManager {
    * 带锁保护的 progress.json 更新
    */
   private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
-    const lockPath = `contract/${contractId}/progress.lock`;
+    const dir = await this.contractDir(contractId);
+    const lockPath = `${dir}/${contractId}/progress.lock`;
     await this.acquireLock(lockPath);
     try {
       return await fn();
@@ -127,19 +143,18 @@ export class ContractManager {
    * 加载当前活跃契约（返回最新的 running/paused 契约）
    */
   async loadActive(): Promise<Contract | null> {
-    const contractDir = 'contract';
-    const exists = await this.fs.exists(contractDir);
+    const exists = await this.fs.exists(this.activeDir);
     if (!exists) return null;
 
-    // 扫描 contract/ 目录找 running 状态的契约，按 started_at 排序取最新
-    const entries = await this.fs.list(contractDir, { includeDirs: true });
+    // 扫描 contract/active/ 目录找 running 状态的契约，按 started_at 排序取最新
+    const entries = await this.fs.list(this.activeDir, { includeDirs: true });
     
     let latest: { name: string; startedAt: string } | null = null;
     
     for (const entry of entries) {
       if (!entry.isDirectory) continue;
       
-      const progressPath = `${contractDir}/${entry.name}/progress.json`;
+      const progressPath = `${this.activeDir}/${entry.name}/progress.json`;
       const hasProgress = await this.fs.exists(progressPath);
       if (!hasProgress) continue;
 
@@ -185,7 +200,7 @@ export class ContractManager {
       await this.pause(existing.id, 'Superseded by new contract');
     }
 
-    await this.fs.ensureDir(`contract/${contractId}`);
+    await this.fs.ensureDir(`${this.activeDir}/${contractId}`);
 
     // 写 contract.yaml（填充默认值，id 写入确保一致）
     const content = yaml.dump({
@@ -198,7 +213,7 @@ export class ContractManager {
       acceptance: contractYaml.acceptance ?? [],
       auth_level: contractYaml.auth_level ?? CONTRACT_DEFAULTS.auth_level,
     });
-    await this.fs.writeAtomic(`contract/${contractId}/contract.yaml`, content);
+    await this.fs.writeAtomic(`${this.activeDir}/${contractId}/contract.yaml`, content);
 
     // 写初始 progress.json
     const progress: ProgressData = {
@@ -211,7 +226,7 @@ export class ContractManager {
       checkpoint: null,
     };
     await this.fs.writeAtomic(
-      `contract/${contractId}/progress.json`,
+      `${this.activeDir}/${contractId}/progress.json`,
       JSON.stringify(progress, null, 2)
     );
 
@@ -223,17 +238,10 @@ export class ContractManager {
    * 读取契约的进度
    */
   async getProgress(contractId: string): Promise<ProgressData> {
-    const progressPath = `contract/${contractId}/progress.json`;
-    const exists = await this.fs.exists(progressPath);
-    if (!exists) {
-      throw new ToolError(`Contract "${contractId}" progress not found`);
-    }
-
-    try {
-      return JSON.parse(await this.fs.read(progressPath)) as ProgressData;
-    } catch (err) {
-      throw new ToolError(`Failed to parse progress for "${contractId}": ${err instanceof Error ? err.message : err}`);
-    }
+    const dir = await this.contractDir(contractId);
+    const progressPath = `${dir}/${contractId}/progress.json`;
+    const content = await this.fs.read(progressPath);
+    return JSON.parse(content) as ProgressData;
   }
 
   /**
@@ -394,12 +402,8 @@ export class ContractManager {
   // ============================================================================
 
   private async loadContractYaml(contractId: string): Promise<ContractYaml> {
-    const contractPath = `contract/${contractId}/contract.yaml`;
-    const exists = await this.fs.exists(contractPath);
-    if (!exists) {
-      throw new ToolError(`Contract "${contractId}" not found`);
-    }
-
+    const dir = await this.contractDir(contractId);
+    const contractPath = `${dir}/${contractId}/contract.yaml`;
     const content = await this.fs.read(contractPath);
     return yaml.load(content) as ContractYaml;
   }
@@ -432,7 +436,8 @@ export class ContractManager {
   }
 
   private async saveProgress(contractId: string, progress: ProgressData): Promise<void> {
-    const progressPath = `contract/${contractId}/progress.json`;
+    const dir = await this.contractDir(contractId);
+    const progressPath = `${dir}/${contractId}/progress.json`;
     await this.fs.writeAtomic(progressPath, JSON.stringify(progress, null, 2));
   }
 
