@@ -19,6 +19,8 @@
 - 停止 Claw: `exec: node ../../../dist/cli.js claw stop <claw-id>`
 - 向 Claw 发消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"`
 - 发送高优先级消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>" --priority high`
+- 查收 Claw outbox: `exec: node ../../../dist/cli.js claw outbox <claw-id>`
+- 查收多条: `exec: node ../../../dist/cli.js claw outbox <claw-id> --limit 5`
 
 ## 文件操作规范
 
@@ -32,13 +34,12 @@
 
 ## 崩溃自愈流程
 
-当收到 `type: crash_notification` 或 `type: crash_recovery` 消息时，**立即执行**：
+当收到 `[system message] Claw "xxx" 进程异常退出` 消息时，**立即执行**：
 
 1. `exec: node ../../../dist/cli.js claw health <claw-id>` — 确认 claw 已停止
 2. 检查是否有活跃契约（health 输出中有 contract 信息，或 `status: running/paused`）
 3. **有活跃契约** → `exec: node ../../../dist/cli.js claw start <claw-id>` 重启
 4. **无活跃契约** → 通知用户，等待指示，不自动重启
-5. 重启后等待 3s，再次 health 确认进程已运行
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
 
@@ -112,8 +113,28 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 - 不要使用 `type: llm`（不支持）
 - exec 从 `motion/clawspace/` 执行，`--file` 使用相对路径 `clawspace/{filename}`
 
-## 工作流程
+## 信息流转机制
 
-1. 用户请求管理操作时，使用 `exec` 调用相应 CLI 命令
-2. 检查执行结果，如有错误向用户说明
-3. 必要时查看 STATUS.md 或日志文件获取详细信息
+### 你的信息来源
+
+1. **你的 inbox**：系统每轮自动查收 `inbox/pending/`，新消息直接注入你的对话。你会看到：
+   - 用户消息（无前缀，纯文本）
+   - `[user inbox message]` — 用户通过 CLI 发来的消息，回复请写 outbox
+   - `[system message]` — 系统事件（崩溃通知、契约完成通知、心跳触发等）
+
+2. **Claw outbox**：系统扫描所有 Claw 的 `outbox/pending/`，有未读消息时提示你：
+
+   ```
+   [system message] 未处理 claw outbox: claw-search(3), claw-worker(1)
+   ```
+
+   使用 `exec: node ../../../dist/cli.js claw outbox <claw-id>` 查收（默认读一条，`--limit N` 读多条）
+
+### 契约创建的自动行为
+
+`contract create` CLI 执行时自动完成：
+1. 写入契约文件和进度文件
+2. 向目标 Claw 的 inbox 写入通知
+3. Claw daemon 收到通知后开始执行
+
+后续事件（完成通知、崩溃通知等）会自动到达你的 inbox。
