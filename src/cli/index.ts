@@ -17,6 +17,7 @@ import {
   listCommand, 
   healthCommand,
   sendCommand,
+  outboxCommand,
 } from './commands/claw.js';
 import { daemonCommand } from './commands/daemon.js';
 import { 
@@ -148,6 +149,20 @@ clawCmd
         process.exit(1);
       }
       await sendCommand(name, message, { priority: opts.priority as any });
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// claw outbox
+clawCmd
+  .command('outbox <name>')
+  .description('Read and consume outbox messages from a Claw')
+  .option('--limit <n>', 'Max messages to read (default: 1)', '1')
+  .action(async (name: string, opts: { limit: string }) => {
+    try {
+      await outboxCommand(name, { limit: parseInt(opts.limit, 10) });
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

@@ -345,3 +345,76 @@ export async function sendCommand(
     await transport.close();
   }
 }
+
+// ============================================================================
+// Outbox Command
+// ============================================================================
+
+/**
+ * 读取并消费 Claw outbox 消息
+ */
+export async function outboxCommand(
+  name: string,
+  options?: { limit?: number }
+): Promise<void> {
+  loadGlobalConfig();
+
+  if (!clawExists(name)) {
+    console.error(`❌ Claw "${name}" does not exist`);
+    process.exit(1);
+  }
+
+  const clawDir = getClawDir(name);
+  const pendingDir = path.join(clawDir, 'outbox', 'pending');
+  const doneDir = path.join(clawDir, 'outbox', 'done');
+
+  // 读取 pending 文件
+  let files: string[] = [];
+  try {
+    const allFiles = await fs.promises.readdir(pendingDir);
+    files = allFiles.filter(f => f.endsWith('.md')).sort();
+  } catch {
+    console.log('outbox 为空');
+    return;
+  }
+
+  if (files.length === 0) {
+    console.log('outbox 为空');
+    return;
+  }
+
+  // 限制读取数量（默认 1）
+  const limit = options?.limit ?? 1;
+  const toRead = files.slice(0, limit);
+  const remaining = files.length - toRead.length;
+
+  // 读取并输出
+  const results: string[] = [];
+  for (const fileName of toRead) {
+    const filePath = path.join(pendingDir, fileName);
+    try {
+      const content = await fs.promises.readFile(filePath, 'utf-8');
+      results.push(content);
+
+      // 移入 done/
+      try {
+        await fs.promises.mkdir(doneDir, { recursive: true });
+        await fs.promises.rename(filePath, path.join(doneDir, `${Date.now()}_${fileName}`));
+      } catch {
+        // 移动失败不阻止
+      }
+    } catch {
+      // 读取失败跳过
+    }
+  }
+
+  // 输出
+  for (const content of results) {
+    console.log(content);
+    console.log('---');
+  }
+
+  if (remaining > 0) {
+    console.log(`（还有 ${remaining} 条未读消息）`);
+  }
+}
