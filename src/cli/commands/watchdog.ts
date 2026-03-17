@@ -7,18 +7,26 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { setTimeout } from 'timers/promises';
+import { getMotionDir } from '../config.js';
+import { ProcessManager } from '../../foundation/process/manager.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { randomUUID } from 'node:crypto';
 
 // PID 文件路径
 function getWatchdogPidFile(): string {
   return path.join(process.cwd(), '.clawforum', 'watchdog.pid');
 }
 
-function getMotionDir(): string {
-  return path.join(process.cwd(), '.clawforum', 'motion');
-}
-
-function getMotionPidFile(): string {
-  return path.join(getMotionDir(), 'status', 'pid');
+/**
+ * 创建 Motion 专用的 ProcessManager
+ */
+function createMotionPM(): ProcessManager {
+  const baseDir = path.dirname(getMotionDir());
+  const nfs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  return new ProcessManager(nfs, baseDir, (id) => {
+    if (id === 'motion') return path.join(baseDir, 'motion');
+    return path.join(baseDir, 'claws', id);
+  });
 }
 
 // Watchdog PID 管理
@@ -56,34 +64,6 @@ function isWatchdogAlive(): boolean {
   }
 }
 
-// Motion PID 管理
-function writeMotionPid(pid: number): void {
-  const pidFile = getMotionPidFile();
-  fs.mkdirSync(path.dirname(pidFile), { recursive: true });
-  fs.writeFileSync(pidFile, pid.toString(), 'utf-8');
-}
-
-function getMotionPid(): number | null {
-  try {
-    const content = fs.readFileSync(getMotionPidFile(), 'utf-8');
-    const pid = parseInt(content.trim(), 10);
-    return isNaN(pid) ? null : pid;
-  } catch {
-    return null;
-  }
-}
-
-function isMotionAlive(): boolean {
-  const pid = getMotionPid();
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // 日志
 function log(message: string): void {
   const timestamp = new Date().toISOString();
@@ -95,31 +75,28 @@ function log(message: string): void {
   fs.appendFileSync(path.join(logDir, 'watchdog.log'), logLine, 'utf-8');
 }
 
-// 启动 motion daemon
-function spawnMotionDaemon(): number | null {
-  const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
-  const proc = spawn('node', [cliPath, 'motion', 'daemon'], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: process.cwd(),
-  });
-  proc.unref();
-  return proc.pid ?? null;
-}
-
-// 写入 inbox 消息
+// 写入 inbox 消息（YAML frontmatter .md 格式）
 function writeInboxMessage(type: string, content: Record<string, unknown>): void {
   const inboxDir = path.join(getMotionDir(), 'inbox', 'pending');
   fs.mkdirSync(inboxDir, { recursive: true });
-  const timestamp = Date.now();
-  const filename = `${timestamp}_watchdog_${type}.json`;
-  const message = {
-    id: `${timestamp}_${type}`,
-    type: `watchdog_${type}`,
-    content,
-    created_at: new Date().toISOString(),
-  };
-  fs.writeFileSync(path.join(inboxDir, filename), JSON.stringify(message, null, 2), 'utf-8');
+  const now = new Date();
+  const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+  const uuid8 = randomUUID().slice(0, 8);
+  const filename = `${ts}_watchdog_${type}_${uuid8}.md`;
+  
+  // YAML frontmatter 格式
+  const body = content.message ?? JSON.stringify(content);
+  const yamlContent = `---
+id: ${now.getTime()}_${type}
+type: watchdog_${type}
+source: watchdog
+priority: high
+timestamp: ${now.toISOString()}
+---
+
+${body}
+`;
+  fs.writeFileSync(path.join(inboxDir, filename), yamlContent, 'utf-8');
 }
 
 // Cron 状态
@@ -235,6 +212,9 @@ export async function daemonCommand(): Promise<void> {
   
   let stopped = false;
   
+  // 创建 Motion ProcessManager（循环外复用）
+  const pm = createMotionPM();
+  
   process.on('SIGTERM', () => {
     log('[watchdog] Received SIGTERM, shutting down...');
     stopped = true;
@@ -251,14 +231,17 @@ export async function daemonCommand(): Promise<void> {
   
   while (!stopped) {
     // 1. 检查 motion 存活
-    if (!isMotionAlive()) {
+    if (!pm.isAlive('motion')) {
       log('[watchdog] motion crashed, restarting...');
-      const pid = spawnMotionDaemon();
-      if (pid) {
-        writeMotionPid(pid);
+      try {
+        // 先清理可能存在的 stale PID 文件
+        await pm.stop('motion').catch(() => {});
+        const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
+        const motionDir = getMotionDir();
+        const pid = await pm.spawn('motion', motionDir, [cliPath, 'motion', 'daemon']);
         log(`[watchdog] motion restarted, PID=${pid}`);
-      } else {
-        log('[watchdog] FAILED to restart motion');
+      } catch (err) {
+        log(`[watchdog] FAILED to restart motion: ${err}`);
       }
     }
     

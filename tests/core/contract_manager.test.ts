@@ -176,7 +176,7 @@ describe('ContractManager', () => {
     // 稍微等待确保时间戳不同
     await new Promise(r => setTimeout(r, 50));
     
-    // 创建第二个契约（会自动暂停第一个）
+    // 创建第二个契约（会自动归档第一个）
     const contract2 = await manager.create({
       schema_version: 1 as const,
       title: 'Second',
@@ -187,16 +187,17 @@ describe('ContractManager', () => {
       auth_level: 'auto' as const,
     });
 
-    // 恢复第一个，让它也处于 running
-    await manager.resume(contract1);
-
-    // loadActive 应该返回最新的（第二个）
+    // loadActive 应该返回最新的（第二个），第一个已被归档
     const active = await manager.loadActive();
     expect(active).toBeTruthy();
     expect(active?.id).toBe(contract2);
+    
+    // 验证第一个已被归档
+    const progress1 = await manager.getProgress(contract1);
+    expect(progress1.status).toBe('running'); // status 不变，但位置在 archive/
   });
 
-  it('should create() auto-pause existing running contract', async () => {
+  it('should create() auto-archive existing running contract', async () => {
     const contract1 = await manager.create({
       schema_version: 1 as const,
       title: 'First',
@@ -207,7 +208,7 @@ describe('ContractManager', () => {
       auth_level: 'auto' as const,
     });
 
-    // 创建第二个，第一个应该被暂停
+    // 创建第二个，第一个应该被归档（不是暂停）
     const contract2 = await manager.create({
       schema_version: 1 as const,
       title: 'Second',
@@ -218,11 +219,17 @@ describe('ContractManager', () => {
       auth_level: 'auto' as const,
     });
 
+    // 第一个被归档（status 仍为 running，但不在 active/）
     const progress1 = await manager.getProgress(contract1);
-    expect(progress1.status).toBe('paused');
+    expect(progress1.status).toBe('running');
     
+    // 第二个是当前的 active
     const progress2 = await manager.getProgress(contract2);
     expect(progress2.status).toBe('running');
+    
+    // loadActive 只返回第二个
+    const active = await manager.loadActive();
+    expect(active?.id).toBe(contract2);
   });
 
   // === 新增测试：completeSubtask 覆盖 ===
@@ -335,11 +342,11 @@ describe('ContractManager', () => {
     const contractId = await manager.create(contractYaml);
     expect(contractId).toBeTruthy();
 
-    // 手动损坏 progress.json
-    const progressPath = path.join(CLAW_DIR, 'contract', contractId, 'progress.json');
+    // 手动损坏 progress.json（create() 创建在 active/ 子目录下）
+    const progressPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.json');
     await fs.writeFile(progressPath, '{ broken json', 'utf-8');
 
-    // 应该抛出包含 'Failed to parse' 的 ToolError
-    await expect(manager.getProgress(contractId)).rejects.toThrow('Failed to parse');
+    // 应该抛出包含解析错误的 ToolError
+    await expect(manager.getProgress(contractId)).rejects.toThrow(/parse|JSON|Unexpected token/i);
   });
 });

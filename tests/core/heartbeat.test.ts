@@ -1,5 +1,9 @@
 /**
- * Heartbeat 单元测试
+ * Heartbeat 单元测试 - 简化为纯 timer
+ *
+ * Heartbeat 只负责：
+ * 1. isDue() - 检查是否应该触发
+ * 2. fire() - 向 motion/inbox/pending/ 写入 .md 消息
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -8,8 +12,6 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { Heartbeat } from '../../src/core/heartbeat.js';
-import { ProcessManager } from '../../src/foundation/process/manager.js';
-import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 async function createTempDir(): Promise<string> {
   const tempDir = path.join(tmpdir(), `clawforum-hb-test-${randomUUID()}`);
@@ -27,19 +29,12 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
 
 describe('Heartbeat', () => {
   let tempDir: string;
-  let fsInstance: NodeFileSystem;
-  let pm: ProcessManager;
   let heartbeat: Heartbeat;
 
   beforeEach(async () => {
     tempDir = await createTempDir();
-    fsInstance = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
-    pm = new ProcessManager(fsInstance, tempDir);
-    heartbeat = new Heartbeat(tempDir, pm, {
-      interval: 1, // 1秒间隔用于测试
-      stallThreshold: 1, // 1秒阈值用于测试
-      outboxCooldown: 1, // 1秒冷却用于测试
-    });
+    // 创建 motion/inbox/pending 目录结构
+    fs.mkdirSync(path.join(tempDir, 'motion', 'inbox', 'pending'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -47,305 +42,105 @@ describe('Heartbeat', () => {
   });
 
   describe('isDue', () => {
-    it('should return false before interval', () => {
-      expect(heartbeat.isDue()).toBe(true); // 首次调用，lastRun=0
-      heartbeat.checkAll(); // 设置 lastRun
-      expect(heartbeat.isDue()).toBe(false); // 刚执行过
+    it('should return true on first call (lastRun=0)', () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      expect(heartbeat.isDue()).toBe(true);
     });
 
-    it('should return true after interval', async () => {
-      heartbeat.checkAll(); // 设置 lastRun
+    it('should return false immediately after fire', () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat.fire();
       expect(heartbeat.isDue()).toBe(false);
-      
-      // 等待超过 interval
+    });
+
+    it('should return true after interval elapsed', async () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 }); // 1秒间隔
+      heartbeat.fire();
+      expect(heartbeat.isDue()).toBe(false);
+
+      // 等待超过 1 秒
       await new Promise(resolve => setTimeout(resolve, 1100));
       expect(heartbeat.isDue()).toBe(true);
     });
-  });
 
-  describe('checkAll', () => {
-    it('should skip motion itself', () => {
-      // 创建 motion 目录
-      fs.mkdirSync(path.join(tempDir, 'claws', 'motion'), { recursive: true });
-      
-      const results = heartbeat.checkAll();
-      
-      // motion 应该被跳过，不处理
-      expect(results).not.toContain(expect.stringMatching(/motion/));
-    });
+    it('should respect custom interval', async () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 5 }); // 5秒间隔
+      heartbeat.fire();
+      expect(heartbeat.isDue()).toBe(false);
 
-    it('should return empty array when claws dir does not exist', () => {
-      const results = heartbeat.checkAll();
-      expect(results).toEqual([]);
-    });
-
-    it('should return empty array when claws dir is empty', () => {
-      fs.mkdirSync(path.join(tempDir, 'claws'), { recursive: true });
-      const results = heartbeat.checkAll();
-      expect(results).toEqual([]);
-    });
-
-    it('should skip non-directory entries in claws dir', () => {
-      fs.mkdirSync(path.join(tempDir, 'claws'), { recursive: true });
-      fs.writeFileSync(path.join(tempDir, 'claws', 'not-a-directory.txt'), 'test');
-      
-      const results = heartbeat.checkAll();
-      expect(results).toEqual([]);
+      // 等待 1 秒（小于间隔）
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      expect(heartbeat.isDue()).toBe(false);
     });
   });
 
-  describe('handleCrash', () => {
-    it('should write motion inbox on crash detection', () => {
-      // 创建一个 claw 目录（但没有运行），有活跃契约
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(clawDir, { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'contract', 'abc-123'), { recursive: true });
-      fs.writeFileSync(
-        path.join(clawDir, 'contract', 'abc-123', 'progress.json'),
-        JSON.stringify({ status: 'running' })
-      );
-      
-      // 执行检查
-      const results = heartbeat.checkAll();
-      
-      // 应该检测到崩溃并尝试重启
-      expect(results.some(r => r.startsWith('crash_recovery:test-claw'))).toBe(true);
+  describe('fire', () => {
+    it('should write heartbeat message to motion inbox', () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat.fire();
+
+      const inboxDir = path.join(tempDir, 'motion', 'inbox', 'pending');
+      const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
+
+      expect(files.length).toBe(1);
+
+      const content = fs.readFileSync(path.join(inboxDir, files[0]), 'utf-8');
+      expect(content).toContain('type: heartbeat');
+      expect(content).toContain('source: system');
+      expect(content).toContain('priority: low');
+      expect(content).toContain('[system message] 心跳触发，请巡查。');
     });
 
-    it('should NOT restart when claw has no active contract (MVP aligned)', async () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw-no-contract');
-      fs.mkdirSync(clawDir, { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      // 注意：没有创建 contract/ 目录
-      
-      // 执行检查
-      const results = heartbeat.checkAll();
-      
-      // 应该检测到崩溃但不重启（无契约）
-      expect(results.some(r => r.startsWith('crash_recovery:test-claw-no-contract'))).toBe(true);
-      
-      // 等待异步写入完成
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // 检查 motion inbox 中的 .md 消息内容（应该包含"未自动重启"）
-      const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
-      expect(fs.existsSync(motionInbox)).toBe(true);
-      
-      const files = fs.readdirSync(motionInbox).filter(f => f.endsWith('.md'));
-      expect(files.length).toBeGreaterThan(0);
-      
-      const hasNoRestartMsg = files.some(f => {
-        const content = fs.readFileSync(path.join(motionInbox, f), 'utf-8');
-        return content.includes('未自动重启') || content.includes('no active contract');
-      });
-      expect(hasNoRestartMsg).toBe(true);
+    it('should update lastRun after fire', async () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      expect(heartbeat.isDue()).toBe(true);
+
+      heartbeat.fire();
+      expect(heartbeat.isDue()).toBe(false);
+
+      // 等待后再次触发
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      expect(heartbeat.isDue()).toBe(true);
     });
 
-    it('should restart when contract directory has active contract', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw-with-contract');
-      fs.mkdirSync(clawDir, { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'contract', 'test-123'), { recursive: true });
-      fs.writeFileSync(
-        path.join(clawDir, 'contract', 'test-123', 'progress.json'),
-        JSON.stringify({ status: 'running' })
-      );
-      
-      // 执行检查
-      const results = heartbeat.checkAll();
-      
-      // 有契约应该尝试重启
-      expect(results.some(r => r.startsWith('crash_recovery:test-claw-with-contract'))).toBe(true);
+    it('should generate unique filenames for multiple fires', async () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+
+      heartbeat.fire();
+      await new Promise(resolve => setTimeout(resolve, 50)); // 确保不同时间戳
+      heartbeat.fire();
+
+      const inboxDir = path.join(tempDir, 'motion', 'inbox', 'pending');
+      const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
+
+      expect(files.length).toBe(2);
+      expect(files[0]).not.toBe(files[1]);
     });
 
-    it('should deduplicate crash notifications within 5 minutes', async () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw-dedup');
-      fs.mkdirSync(clawDir, { recursive: true });
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      // 无契约，会触发 crash_recovery 通知
-      
-      // 第一次检查 - 应该通知
-      const results1 = heartbeat.checkAll();
-      expect(results1.some(r => r.startsWith('crash_recovery:test-claw-dedup'))).toBe(true);
-      
-      // 等待异步写入完成
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // 记录第一次通知后的文件数
-      const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
-      const filesAfterFirst = fs.existsSync(motionInbox) ? fs.readdirSync(motionInbox) : [];
-      
-      // 第二次检查（在 5 分钟内）- 应该去重，不重复写 inbox
-      const results2 = heartbeat.checkAll();
-      expect(results2.some(r => r.startsWith('crash_recovery:test-claw-dedup'))).toBe(true); // 仍返回 true（已处理）
-      
-      // 等待异步写入完成
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // 文件数应该不变（没有去重写）
-      const filesAfterSecond = fs.existsSync(motionInbox) ? fs.readdirSync(motionInbox) : [];
-      expect(filesAfterSecond.length).toBe(filesAfterFirst.length);
+    it('should create inbox directory if not exists', () => {
+      // 使用没有 pre-created 目录的 tempDir 子目录
+      const newBaseDir = path.join(tempDir, 'newbase');
+      fs.mkdirSync(newBaseDir, { recursive: true });
+
+      heartbeat = new Heartbeat(newBaseDir, { interval: 1 });
+      heartbeat.fire();
+
+      const inboxDir = path.join(newBaseDir, 'motion', 'inbox', 'pending');
+      expect(fs.existsSync(inboxDir)).toBe(true);
+
+      const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
+      expect(files.length).toBe(1);
     });
   });
 
-  describe('checkStall', () => {
-    it('should write nudge when status is old', async () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      
-      // 写入一个旧的 STATUS.md（超过 1 秒阈值）
-      const oldTime = new Date(Date.now() - 2000).toISOString();
-      fs.writeFileSync(
-        path.join(clawDir, 'status', 'STATUS.md'),
-        `updated_at: ${oldTime}\nstate: running\n`
-      );
-      
-      // 使用当前进程自己的 PID，这样 isAlive 会返回 true
-      fs.writeFileSync(path.join(clawDir, 'status', 'pid'), String(process.pid));
-      
-      const results = heartbeat.checkAll();
-      
-      // 应该检测到 stall
-      expect(results.some(r => r.startsWith('stall_nudge:test-claw'))).toBe(true);
-    });
+  describe('default interval', () => {
+    it('should default to 300 seconds (5 minutes)', () => {
+      heartbeat = new Heartbeat(tempDir); // 不传 interval
+      heartbeat.fire();
+      expect(heartbeat.isDue()).toBe(false);
 
-    it('should skip when status is fresh', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      
-      // 写入一个新鲜的 STATUS.md
-      const freshTime = new Date().toISOString();
-      fs.writeFileSync(
-        path.join(clawDir, 'status', 'STATUS.md'),
-        `updated_at: ${freshTime}\nstate: running\n`
-      );
-      
-      // 使用当前进程自己的 PID
-      fs.writeFileSync(path.join(clawDir, 'status', 'pid'), String(process.pid));
-      
-      const results = heartbeat.checkAll();
-      
-      // 不应该检测到 stall
-      expect(results.some(r => r.startsWith('stall_nudge:'))).toBe(false);
-    });
-
-    it('should skip when no status file', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      // 使用当前进程自己的 PID
-      fs.writeFileSync(path.join(clawDir, 'status', 'pid'), String(process.pid));
-      
-      const results = heartbeat.checkAll();
-      
-      // 不应该有 stall_nudge
-      expect(results.some(r => r.startsWith('stall_nudge:'))).toBe(false);
-    });
-  });
-
-  describe('checkOutbox', () => {
-    it('should notify motion when messages pending', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'outbox', 'pending'), { recursive: true });
-      fs.writeFileSync(path.join(clawDir, 'outbox', 'pending', 'msg1.json'), '{}');
-      
-      const results = heartbeat.checkAll();
-      
-      // 应该检测到 outbox
-      expect(results.some(r => r.startsWith('outbox_notify:test-claw'))).toBe(true);
-    });
-
-    it('should deduplicate within cooldown', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'outbox', 'pending'), { recursive: true });
-      fs.writeFileSync(path.join(clawDir, 'outbox', 'pending', 'msg1.json'), '{}');
-      
-      // 第一次检查
-      const results1 = heartbeat.checkAll();
-      expect(results1.some(r => r.startsWith('outbox_notify:'))).toBe(true);
-      
-      // 第二次检查（在冷却期内）
-      const results2 = heartbeat.checkAll();
-      expect(results2.some(r => r.startsWith('outbox_notify:'))).toBe(false);
-    });
-
-    it('should skip when outbox is empty', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'outbox', 'pending'), { recursive: true });
-      
-      const results = heartbeat.checkAll();
-      
-      expect(results.some(r => r.startsWith('outbox_notify:'))).toBe(false);
-    });
-
-    it('should skip when outbox dir does not exist', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(clawDir, { recursive: true });
-      
-      const results = heartbeat.checkAll();
-      
-      expect(results.some(r => r.startsWith('outbox_notify:'))).toBe(false);
-    });
-  });
-
-  describe('writeInbox', () => {
-    it('should use motion dir for motion target', () => {
-      fs.mkdirSync(path.join(tempDir, 'claws', 'test-claw'), { recursive: true });
-      fs.mkdirSync(path.join(tempDir, 'claws', 'test-claw', 'outbox', 'pending'), { recursive: true });
-      fs.writeFileSync(path.join(tempDir, 'claws', 'test-claw', 'outbox', 'pending', 'msg.json'), '{}');
-      
-      heartbeat.checkAll();
-      
-      // 检查 motion inbox 是否有 .md 文件
-      const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
-      if (fs.existsSync(motionInbox)) {
-        const files = fs.readdirSync(motionInbox).filter(f => f.endsWith('.md'));
-        expect(files.length).toBeGreaterThan(0);
-        
-        // 检查 YAML frontmatter 内容
-        const content = fs.readFileSync(path.join(motionInbox, files[0]), 'utf-8');
-        expect(content).toContain('---');
-        expect(content).toContain('source: heartbeat');
-        expect(content).toMatch(/type: (crash_recovery|outbox_notify)/);
-      }
-    });
-
-    it('should use claw dir for regular claw target', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(clawDir, { recursive: true });
-      
-      // 创建一个旧的 STATUS.md 触发 stall 检测
-      const oldTime = new Date(Date.now() - 2000).toISOString();
-      fs.mkdirSync(path.join(clawDir, 'status'), { recursive: true });
-      fs.writeFileSync(
-        path.join(clawDir, 'status', 'STATUS.md'),
-        `updated_at: ${oldTime}\nstate: running\n`
-      );
-      fs.writeFileSync(path.join(clawDir, 'status', 'pid'), '999999');
-      
-      heartbeat.checkAll();
-      
-      // 检查 claw inbox 是否有文件
-      const clawInbox = path.join(clawDir, 'inbox', 'pending');
-      if (fs.existsSync(clawInbox)) {
-        const files = fs.readdirSync(clawInbox);
-        expect(files.length).toBeGreaterThan(0);
-      }
-    });
-
-    it('should generate unique filenames', () => {
-      const clawDir = path.join(tempDir, 'claws', 'test-claw');
-      fs.mkdirSync(path.join(clawDir, 'outbox', 'pending'), { recursive: true });
-      fs.writeFileSync(path.join(clawDir, 'outbox', 'pending', 'msg1.json'), '{}');
-      fs.writeFileSync(path.join(clawDir, 'outbox', 'pending', 'msg2.json'), '{}');
-      
-      // 连续调用两次
-      heartbeat.checkAll();
-      
-      // 等待冷却期后再次调用
-      setTimeout(() => {
-        heartbeat.checkAll();
-      }, 1100);
+      // 等待 1 秒（远小于 300 秒）
+      // 不能直接测试 300 秒，但验证行为符合默认值
     });
   });
 });

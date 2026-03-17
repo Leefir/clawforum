@@ -20,17 +20,19 @@ export interface ProcessStatus {
 export class ProcessManager {
   private fs: IFileSystem;
   private baseDir: string;
+  private resolveDir: (id: string) => string;
 
-  constructor(fs: IFileSystem, baseDir: string) {
+  constructor(fs: IFileSystem, baseDir: string, dirResolver?: (id: string) => string) {
     this.fs = fs;
     this.baseDir = baseDir;
+    this.resolveDir = dirResolver ?? ((id: string) => path.join(baseDir, 'claws', id));
   }
 
   /**
    * 获取 claw 的 status 目录路径
    */
   private getStatusDir(clawId: string): string {
-    return path.join(this.baseDir, 'claws', clawId, 'status');
+    return path.join(this.resolveDir(clawId), 'status');
   }
 
   /**
@@ -97,7 +99,7 @@ export class ProcessManager {
   isAlive(clawId: string): boolean {
     // 使用同步方式读取 pid，因为在某些场景下 async/await 会有问题
     try {
-      const pidFile = path.join(this.baseDir, 'claws', clawId, 'status', 'pid');
+      const pidFile = this.getPidFile(clawId);
       const content = readFileSync(pidFile, 'utf-8');
       const pid = parseInt(content.trim(), 10);
       if (isNaN(pid)) return false;
@@ -127,9 +129,12 @@ export class ProcessManager {
 
   /**
    * 启动守护进程
+   * @param clawId 进程 ID
+   * @param clawDir 工作目录
+   * @param args 可选的 spawn 参数（默认启动 claw daemon）
    * @returns 进程 PID
    */
-  async spawn(clawId: string, clawDir: string): Promise<number> {
+  async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
     // 排他创建 PID 文件（避免竞态）
     const pidFile = this.getPidFile(clawId);
     await this.ensureStatusDir(clawId);
@@ -137,7 +142,7 @@ export class ProcessManager {
     try {
       // 'wx' = write + exclusive，文件存在则抛出 EEXIST
       const handle = await fs.open(pidFile, 'wx');
-      // 继续启动进程
+      await handle.close(); // 关闭句柄，后续用 writeFile 写入实际 PID
     } catch (err: any) {
       if (err.code === 'EEXIST') {
         throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
@@ -146,7 +151,8 @@ export class ProcessManager {
     }
 
     // 启动守护进程
-    const cliPath = path.resolve(clawDir, '..', '..', '..', 'dist', 'cli.js');
+    const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
+    const finalArgs = args ?? [cliPath, 'claw', 'daemon', clawId];
     
     // 创建日志目录和日志文件
     const logsDir = path.join(clawDir, 'logs');
@@ -154,7 +160,7 @@ export class ProcessManager {
     const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
     
     try {
-      const proc = spawn('node', [cliPath, 'claw', 'daemon', clawId], {
+      const proc = spawn('node', finalArgs, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
         cwd: process.cwd(),
@@ -226,13 +232,16 @@ export class ProcessManager {
 
   /**
    * 重启守护进程
+   * @param clawId 进程 ID
+   * @param clawDir 工作目录
+   * @param args 可选的 spawn 参数
    * @returns 新进程 PID
    */
-  async restart(clawId: string, clawDir: string): Promise<number> {
+  async restart(clawId: string, clawDir: string, args?: string[]): Promise<number> {
     await this.stop(clawId);
     // 等待一小段时间确保端口等资源释放
     await new Promise(resolve => setTimeout(resolve, 1000));
-    return this.spawn(clawId, clawDir);
+    return this.spawn(clawId, clawDir, args);
   }
 
   /**

@@ -10,17 +10,24 @@
 
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import * as fsNative from 'fs';
-import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { MotionRuntime } from '../../core/motion/runtime.js';
-import { loadGlobalConfig, getMotionDir, buildLLMConfig } from '../config.js';
+import { loadGlobalConfig, getMotionDir } from '../config.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { ProcessManager } from '../../foundation/process/manager.js';
 
-import { Heartbeat } from '../../core/heartbeat.js';
-import { startDaemonLoop } from './daemon-loop.js';
-import { StreamWriter } from './stream-writer.js';
 import { runChatViewport } from './chat-viewport.js';
+
+/**
+ * 创建 Motion 专用的 ProcessManager
+ */
+function createMotionPM(): ProcessManager {
+  const baseDir = path.dirname(getMotionDir()); // .clawforum
+  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  return new ProcessManager(nodeFs, baseDir, (id) => {
+    if (id === 'motion') return path.join(baseDir, 'motion');
+    return path.join(baseDir, 'claws', id);
+  });
+}
 
 // 获取当前文件目录（ESM 兼容）
 const __filename = fileURLToPath(import.meta.url);
@@ -149,7 +156,7 @@ export async function chatCommand(): Promise<void> {
     agentDir: motionDir,
     label: 'motion',
     ensureDaemon: async () => {
-      if (!isMotionAlive()) {
+      if (!createMotionPM().isAlive('motion')) {
         console.log('Starting Motion daemon...');
         await startCommand();
       }
@@ -162,99 +169,28 @@ export async function chatCommand(): Promise<void> {
 // ============================================================================
 
 /**
- * 获取 Motion PID 文件路径
- */
-function getMotionPidFile(): string {
-  return path.join(getMotionDir(), 'status', 'pid');
-}
-
-/**
- * 检查 Motion 是否正在运行
- */
-function isMotionAlive(): boolean {
-  try {
-    const pidFile = getMotionPidFile();
-    if (!fsNative.existsSync(pidFile)) {
-      return false;
-    }
-    const content = fsNative.readFileSync(pidFile, 'utf-8');
-    const pid = parseInt(content.trim(), 10);
-    if (isNaN(pid)) return false;
-    
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 写入 Motion PID 文件
- */
-function writeMotionPid(pid: number): void {
-  const pidFile = getMotionPidFile();
-  fsNative.mkdirSync(path.dirname(pidFile), { recursive: true });
-  fsNative.writeFileSync(pidFile, String(pid));
-}
-
-/**
- * 删除 Motion PID 文件
- */
-function removeMotionPid(): void {
-  try {
-    const pidFile = getMotionPidFile();
-    fsNative.unlinkSync(pidFile);
-  } catch {
-    // 忽略删除失败
-  }
-}
-
-/**
  * motion start - 启动 Motion 守护进程
  */
 export async function startCommand(): Promise<void> {
   loadGlobalConfig();
-  
-  // 检查是否已运行
-  if (isMotionAlive()) {
-    console.log('ℹ️  Motion is already running');
-    return;
-  }
-  
-  // 检查 Motion 是否已初始化
   const motionDir = getMotionDir();
+
+  // 检查 Motion 是否已初始化
   try {
     await fs.access(path.join(motionDir, 'AGENTS.md'));
   } catch {
     console.error('❌ Motion not initialized. Run: clawforum motion init');
     process.exit(1);
   }
-  
-  // 启动守护进程
-  const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
-  
-  const proc = spawn('node', [cliPath, 'motion', 'daemon'], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: process.cwd(),
-  });
-  
-  const pid = proc.pid;
-  if (!pid) {
-    console.error('❌ Failed to spawn Motion daemon');
-    process.exit(1);
+
+  const pm = createMotionPM();
+  if (pm.isAlive('motion')) {
+    console.log('ℹ️  Motion is already running');
+    return;
   }
-  
-  // 写入 PID 文件
-  writeMotionPid(pid);
-  
-  // 等待启动确认
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
+
+  const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
+  const pid = await pm.spawn('motion', motionDir, [cliPath, 'motion', 'daemon']);
   console.log(`✅ Started Motion daemon (PID: ${pid})`);
 }
 
@@ -263,121 +199,14 @@ export async function startCommand(): Promise<void> {
  */
 export async function stopCommand(): Promise<void> {
   loadGlobalConfig();
-  
-  // 检查是否运行
-  if (!isMotionAlive()) {
+  const pm = createMotionPM();
+
+  if (!pm.isAlive('motion')) {
     console.log('ℹ️  Motion is not running');
     return;
   }
-  
-  // 读取 PID
-  const pidFile = getMotionPidFile();
-  let pid: number;
-  try {
-    const content = fsNative.readFileSync(pidFile, 'utf-8');
-    pid = parseInt(content.trim(), 10);
-    if (isNaN(pid)) {
-      throw new Error('Invalid PID');
-    }
-  } catch {
-    console.error('❌ Failed to read Motion PID');
-    process.exit(1);
-  }
-  
+
   console.log('🛑 Stopping Motion daemon...');
-  
-  try {
-    // 发送 SIGTERM
-    process.kill(pid, 'SIGTERM');
-    
-    // 等待 5 秒
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // 检查是否还在运行
-    if (isMotionAlive()) {
-      // 强制终止
-      process.kill(pid, 'SIGKILL');
-    }
-    
-    // 清理 PID 文件
-    removeMotionPid();
-    
-    console.log('✅ Stopped Motion daemon');
-  } catch (err: any) {
-    if (err.code === 'ESRCH') {
-      // 进程已经不存在
-      removeMotionPid();
-      console.log('✅ Stopped Motion daemon');
-    } else {
-      console.error('❌ Failed to stop Motion:', err.message);
-      process.exit(1);
-    }
-  }
-}
-
-/**
- * motion daemon - 内部命令（由 startCommand 调用）
- */
-export async function daemonCommand(): Promise<void> {
-  const globalConfig = loadGlobalConfig();
-  const motionDir = getMotionDir();
-  const llmConfig = buildLLMConfig(globalConfig);
-  
-  // 创建 MotionRuntime
-  const runtime = new MotionRuntime({
-    clawId: 'motion',
-    clawDir: motionDir,
-    llmConfig,
-    maxSteps: 100,
-    toolProfile: 'full',
-  });
-  
-  // MVP 对齐：初始化 + 恢复契约（替代 start() 的 InboxWatcher）
-  await runtime.initialize();
-  await runtime.resumeContractIfPaused();
-
-  // 创建 Heartbeat
-  const baseDir = path.join(motionDir, '..');
-  const heartbeat = new Heartbeat(baseDir, { interval: 300 });
-
-  // 心跳检查定时器（每 5s 检查是否到期）
-  const heartbeatInterval = setInterval(() => {
-    if (heartbeat.isDue()) {
-      heartbeat.fire();
-    }
-  }, 5000);
-  
-  // 创建 stream writer
-  const streamWriter = new StreamWriter(motionDir);
-  streamWriter.open();
-
-  // 统一事件循环
-  const inboxPendingDir = path.join(motionDir, 'inbox', 'pending');
-  const { promise, stop } = startDaemonLoop({
-    runtime,
-    inboxPendingDir,
-    label: '[motion daemon]',
-    streamWriter,
-  });
-
-  // 统一 shutdown 处理
-  const shutdown = async (signal: string) => {
-    console.log(`[motion daemon] Received ${signal}, shutting down...`);
-    stop();
-    streamWriter.close();
-    clearInterval(heartbeatInterval);
-    await runtime.stop();
-    process.exit(0);
-  };
-
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
-
-  // 确保 exit 时清理 interval
-  process.on('exit', () => {
-    clearInterval(heartbeatInterval);
-  });
-
-  console.log('[motion daemon] Started');
-  await promise;
+  const stopped = await pm.stop('motion');
+  console.log(stopped ? '✅ Stopped Motion daemon' : '❌ Failed to stop Motion');
 }

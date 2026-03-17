@@ -25,7 +25,6 @@ import {
   chatCommand as motionChatCommand,
   startCommand as motionStartCommand,
   stopCommand as motionStopCommand,
-  daemonCommand as motionDaemonCommand,
 } from './commands/motion.js';
 import { contractCreateCommand } from './commands/contract.js';
 import {
@@ -245,7 +244,7 @@ motionCmd
   .description('Run Motion as daemon (internal)')
   .action(async () => {
     try {
-      await motionDaemonCommand();
+      await daemonCommand('motion');
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

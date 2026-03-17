@@ -29,7 +29,9 @@ async function createContract(
   contractId: string,
   status: 'running' | 'paused' | 'completed' = 'running'
 ): Promise<void> {
-  const contractDir = path.join(tempDir, 'contract', contractId);
+  // ContractManager 现在使用 active/paused/archive 子目录
+  const subDir = status === 'completed' ? 'archive' : status === 'paused' ? 'paused' : 'active';
+  const contractDir = path.join(tempDir, 'contract', subDir, contractId);
   await fs.mkdir(contractDir, { recursive: true });
 
   // Create contract.yaml
@@ -121,7 +123,7 @@ describe('Contract System', () => {
 
     it('should complete subtask without acceptance (auto-pass)', async () => {
       // Create contract without acceptance config for st-001
-      const contractDir = path.join(tempDir, 'contract', 'contract-002');
+      const contractDir = path.join(tempDir, 'contract', 'active', 'contract-002');
       await fs.mkdir(contractDir, { recursive: true });
 
       const yamlContent = `schema_version: 1
@@ -159,7 +161,7 @@ auth_level: auto
 
     it('should complete subtask with script acceptance (success)', async () => {
       // Use a command that always succeeds
-      const contractDir = path.join(tempDir, 'contract', 'contract-003');
+      const contractDir = path.join(tempDir, 'contract', 'active', 'contract-003');
       await fs.mkdir(contractDir, { recursive: true });
 
       const yamlContent = `schema_version: 1
@@ -198,7 +200,7 @@ auth_level: auto
     });
 
     it('should fail subtask with script acceptance (command fails)', async () => {
-      const contractDir = path.join(tempDir, 'contract', 'contract-004');
+      const contractDir = path.join(tempDir, 'contract', 'active', 'contract-004');
       await fs.mkdir(contractDir, { recursive: true });
 
       const yamlContent = `schema_version: 1
@@ -236,7 +238,7 @@ auth_level: auto
     });
 
     it('should check if all subtasks are completed', async () => {
-      const contractDir = path.join(tempDir, 'contract', 'contract-005');
+      const contractDir = path.join(tempDir, 'contract', 'active', 'contract-005');
       await fs.mkdir(contractDir, { recursive: true });
 
       const yamlContent = `schema_version: 1
@@ -300,7 +302,7 @@ auth_level: auto
       await createContract(tempDir, 'contract-007', 'paused');
 
       // Set checkpoint
-      const progressPath = path.join(tempDir, 'contract', 'contract-007', 'progress.json');
+      const progressPath = path.join(tempDir, 'contract', 'paused', 'contract-007', 'progress.json');
       const progress = JSON.parse(await fs.readFile(progressPath, 'utf-8'));
       progress.checkpoint = 'Saved state';
       await fs.writeFile(progressPath, JSON.stringify(progress));

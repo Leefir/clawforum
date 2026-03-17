@@ -155,4 +155,92 @@ describe('ProcessManager', () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe('dirResolver', () => {
+    it('should use default path (claws/{id}) when no resolver provided', () => {
+      // 使用默认构造函数（已在 beforeEach 中创建）
+      const statusDir = path.join(tempDir, 'claws', 'test-claw', 'status');
+      fs.mkdirSync(statusDir, { recursive: true });
+      fs.writeFileSync(path.join(statusDir, 'pid'), '12345');
+
+      // isAlive 应该读取 claws/test-claw/status/pid
+      const result = processManager.isAlive('test-claw');
+      // 12345 进程大概率不存在，返回 false
+      expect(result).toBe(false);
+    });
+
+    it('should use custom resolver for motion path', () => {
+      // 创建带自定义 resolver 的 PM
+      const motionPM = new ProcessManager(fsInstance, tempDir, (id) => {
+        if (id === 'motion') return path.join(tempDir, 'motion');
+        return path.join(tempDir, 'claws', id);
+      });
+
+      // 在 motion/status/pid 创建文件
+      const motionStatusDir = path.join(tempDir, 'motion', 'status');
+      fs.mkdirSync(motionStatusDir, { recursive: true });
+      fs.writeFileSync(path.join(motionStatusDir, 'pid'), '12345');
+
+      // isAlive 应该读取 motion/status/pid
+      const result = motionPM.isAlive('motion');
+      expect(result).toBe(false);
+    });
+
+    it('should use custom resolver for regular claw when using motion resolver', () => {
+      // 创建带自定义 resolver 的 PM（motion 风格）
+      const motionPM = new ProcessManager(fsInstance, tempDir, (id) => {
+        if (id === 'motion') return path.join(tempDir, 'motion');
+        return path.join(tempDir, 'claws', id);
+      });
+
+      // 在 claws/test-claw/status/pid 创建文件
+      const clawStatusDir = path.join(tempDir, 'claws', 'test-claw', 'status');
+      fs.mkdirSync(clawStatusDir, { recursive: true });
+      fs.writeFileSync(path.join(clawStatusDir, 'pid'), '12345');
+
+      // isAlive 应该正确解析到 claws/test-claw
+      const result = motionPM.isAlive('test-claw');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isAlive with live process', () => {
+    it('should return true when pid file points to current process', () => {
+      // 使用当前进程 PID（肯定存在）
+      const statusDir = path.join(tempDir, 'claws', 'live-claw', 'status');
+      fs.mkdirSync(statusDir, { recursive: true });
+      fs.writeFileSync(path.join(statusDir, 'pid'), String(process.pid));
+
+      const result = processManager.isAlive('live-claw');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('spawn', () => {
+    it('should throw EEXIST error when pid file already exists', async () => {
+      // 预先创建 PID 文件（模拟已运行状态）
+      const statusDir = path.join(tempDir, 'claws', 'existing-claw', 'status');
+      fs.mkdirSync(statusDir, { recursive: true });
+      fs.writeFileSync(path.join(statusDir, 'pid'), '12345');
+
+      // spawn 应该抛出错误
+      await expect(
+        processManager.spawn('existing-claw', tempDir)
+      ).rejects.toThrow(/already running/);
+    });
+
+    it('should throw error with correct message when EEXIST', async () => {
+      const statusDir = path.join(tempDir, 'claws', 'busy-claw', 'status');
+      fs.mkdirSync(statusDir, { recursive: true });
+      fs.writeFileSync(path.join(statusDir, 'pid'), '99999');
+
+      try {
+        await processManager.spawn('busy-claw', tempDir);
+        expect.fail('should have thrown');
+      } catch (err: any) {
+        expect(err.message).toContain('busy-claw');
+        expect(err.message).toContain('already running');
+      }
+    });
+  });
 });
