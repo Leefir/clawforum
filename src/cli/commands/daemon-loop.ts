@@ -6,6 +6,7 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import type { ClawRuntime } from '../../core/runtime.js';
+import type { StreamWriter } from './stream-writer.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -13,6 +14,7 @@ export interface DaemonLoopOptions {
   label: string;                         // 日志前缀，如 '[motion daemon]' 或 '[daemon]'
   onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调（claw 用来写 STATUS.md）
   fallbackTimeoutMs?: number;            // fs.watch fallback 超时（默认 30s）
+  streamWriter?: StreamWriter;           // 流式事件写入
 }
 
 /**
@@ -53,7 +55,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, inboxPendingDir, label, onBatchComplete } = options;
+  const { runtime, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? 30000;
   let stopped = false;
 
@@ -62,13 +64,21 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   const promise = (async () => {
     while (!stopped) {
       try {
-        const injected = await runtime.processBatch();
+        // 获取流式回调（如果有 streamWriter）
+        const callbacks = streamWriter?.createCallbacks();
+        const injected = await runtime.processBatch(callbacks);
         if (injected > 0) {
+          // 一轮开始
+          streamWriter?.write({ ts: Date.now(), type: 'turn_start' });
+          
           // chain reaction：处理到无积压为止
           let more = injected;
           while (more > 0 && !stopped) {
-            more = await runtime.processBatch();
+            more = await runtime.processBatch(callbacks);
           }
+          
+          // 一轮结束
+          streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
           await onBatchComplete?.();
         } else {
           await waitForInbox(inboxPendingDir, fallbackTimeout);

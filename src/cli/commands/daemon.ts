@@ -13,6 +13,7 @@ import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
 import { startDaemonLoop } from './daemon-loop.js';
+import { StreamWriter } from './stream-writer.js';
 
 /**
  * 通知 motion claw 已退出（best-effort 同步写 .md YAML）
@@ -152,12 +153,17 @@ export async function daemonCommand(name: string): Promise<void> {
     }
   }, 30_000);
 
+  // 创建 stream writer
+  const streamWriter = new StreamWriter(clawDir);
+  streamWriter.open();
+
   // 统一事件循环
   const inboxPendingDir = path.join(clawDir, 'inbox', 'pending');
   const { promise, stop } = startDaemonLoop({
     runtime,
     inboxPendingDir,
     label: '[daemon]',
+    streamWriter,
     onBatchComplete: async () => {
       await writeStatus(runtime, clawDir, fs);
     },
@@ -166,6 +172,7 @@ export async function daemonCommand(name: string): Promise<void> {
   // 处理 SIGTERM - 优雅关闭
   process.on('SIGTERM', async () => {
     stop();
+    streamWriter.close();
     clearInterval(statusInterval);
     try {
       await runtime.stop();
@@ -179,6 +186,7 @@ export async function daemonCommand(name: string): Promise<void> {
   // 处理 SIGINT (Ctrl+C) - 同样优雅关闭
   process.on('SIGINT', async () => {
     stop();
+    streamWriter.close();
     clearInterval(statusInterval);
     try {
       await runtime.stop();

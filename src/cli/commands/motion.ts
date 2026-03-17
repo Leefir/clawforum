@@ -20,6 +20,7 @@ import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { Heartbeat } from '../../core/heartbeat.js';
 import { startDaemonLoop } from './daemon-loop.js';
+import { StreamWriter } from './stream-writer.js';
 
 // 获取当前文件目录（ESM 兼容）
 const __filename = fileURLToPath(import.meta.url);
@@ -431,18 +432,24 @@ export async function daemonCommand(): Promise<void> {
     }
   }, 5000);
   
+  // 创建 stream writer
+  const streamWriter = new StreamWriter(motionDir);
+  streamWriter.open();
+
   // 统一事件循环
   const inboxPendingDir = path.join(motionDir, 'inbox', 'pending');
   const { promise, stop } = startDaemonLoop({
     runtime,
     inboxPendingDir,
     label: '[motion daemon]',
+    streamWriter,
   });
 
   // 统一 shutdown 处理
   const shutdown = async (signal: string) => {
     console.log(`[motion daemon] Received ${signal}, shutting down...`);
     stop();
+    streamWriter.close();
     clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
     await writeMotionStatus(motionDir, 'stopped');
