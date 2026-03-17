@@ -54,6 +54,7 @@ export interface StreamCallbacks {
   onToolCall?: (toolName: string) => void;
   onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
+  onInboxDrained?: (sources: string[]) => void;  // inbox 已清空，传入消息摘要
 }
 
 /**
@@ -379,6 +380,15 @@ export class ClawRuntime {
 
     const { injected, count } = await this._drainOwnInbox();
     if (count === 0) return 0;
+
+    // 通知 daemon-loop 注入了哪些消息
+    if (callbacks?.onInboxDrained) {
+      const sources = injected.map(m => {
+        const text = typeof m.content === 'string' ? m.content : '';
+        return text.replace(/\r?\n/g, ' ').slice(0, 80);
+      });
+      callbacks.onInboxDrained(sources);
+    }
 
     const session = await this.sessionManager.load();
     const messages = [...session.messages, ...injected];

@@ -49,7 +49,7 @@
 
 ```
 Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
-  → Claw daemon 轮询读取 inbox → 执行 subtask
+  → Claw daemon 读取 inbox → 执行 subtask
   → Claw 调用 done tool（传入 subtask ID）→ 触发 acceptance 验收
   → 所有 subtask 完成 → 契约状态变 completed
 ```
@@ -138,3 +138,10 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 3. Claw daemon 收到通知后开始执行
 
 后续事件（完成通知、崩溃通知等）会自动到达你的 inbox。
+
+### 你的输出
+
+- **回复用户消息（无前缀）**：直接在会话里回复。用户在 chat 面前，你的回复通过 stream.jsonl 实时显示。
+- **回复 `[user inbox message]`**：用户不在 chat 面前，使用 `write` 工具写 outbox（`outbox/pending/{filename}.md`），用户下次查看时会收到。
+- **对 Claw**：通过 `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"` 发消息。
+- **对自己**：写 MEMORY.md（长期记忆）、clawspace/ 下的工作文件。

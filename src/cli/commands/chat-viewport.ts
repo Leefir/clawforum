@@ -58,6 +58,30 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let streamingBuffer = '';
   let thinkingBuffer = '';
 
+  // Braille spinner 动画
+  const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let spinnerTimer: ReturnType<typeof setInterval> | null = null;
+
+  const startSpinner = () => {
+    stopSpinner();
+    let frame = 0;
+    spinnerTimer = setInterval(() => {
+      streamingText.setText(`${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} Thinking...`);
+      tui.requestRender();
+      frame++;
+    }, 80);
+    // 立即显示第一帧
+    streamingText.setText(`${SPINNER_FRAMES[0]} Thinking...`);
+    tui.requestRender();
+  };
+
+  const stopSpinner = () => {
+    if (spinnerTimer) {
+      clearInterval(spinnerTimer);
+      spinnerTimer = null;
+    }
+  };
+
   // 输入组件
   const input = new Input();
 
@@ -77,7 +101,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushThinking = () => {
     if (thinkingBuffer) {
-      appendOutput('\x1b[2m💭 ' + thinkingBuffer + '\x1b[0m');
+      appendOutput('\x1b[2m' + thinkingBuffer + '\x1b[0m');
       thinkingBuffer = '';
     }
   };
@@ -88,25 +112,27 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'turn_start':
         flushThinking();
         flushStreaming();
-        if (event.source) {
-          appendOutput(`\x1b[33m── ${event.source} ──\x1b[0m`);
+        // 只显示系统消息类 source（以 [ 开头），不显示用户消息原文（viewport 已显示过 > 前缀）
+        if (event.source && typeof event.source === 'string' && event.source.startsWith('[')) {
+          appendOutput(`\x1b[33m> ${event.source}\x1b[0m`);
         }
         break;
 
       case 'llm_start':
         flushThinking();
         flushStreaming();
-        streamingText.setText('⏳ Thinking...');
-        tui.requestRender();
+        startSpinner();
         break;
 
       case 'thinking_delta':
+        stopSpinner();
         thinkingBuffer += event.delta as string;
-        streamingText.setText('\x1b[2m💭 ' + thinkingBuffer + '\x1b[0m');
+        streamingText.setText('\x1b[2m' + thinkingBuffer + '\x1b[0m');
         tui.requestRender();
         break;
 
       case 'text_delta':
+        stopSpinner();
         flushThinking();
         streamingBuffer += event.delta as string;
         streamingText.setText(streamingBuffer);
@@ -114,6 +140,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         break;
 
       case 'tool_call':
+        stopSpinner();
         flushThinking();
         flushStreaming();
         streamingText.setText(`→ ${event.name}...`);
@@ -132,6 +159,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
 
       case 'turn_end':
+        stopSpinner();
         flushThinking();
         flushStreaming();
         break;
@@ -201,10 +229,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // 显示用户消息
     appendOutput(`\x1b[32m> ${trimmed}\x1b[0m`);
     input.setValue('');
-    tui.requestRender();
 
     // 写入 inbox
     writeUserChat(options.agentDir, trimmed);
+
+    // 立即显示 spinner（不等 daemon 的 llm_start）
+    startSpinner();
   };
 
   // Ctrl+C / Ctrl+D 退出
@@ -228,6 +258,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   await exitPromise;
 
   // 清理
+  stopSpinner();
   clearInterval(pollInterval);
   watcher?.close();
   tui.stop();

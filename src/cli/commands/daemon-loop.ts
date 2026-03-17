@@ -67,13 +67,22 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         // 获取流式回调（如果有 streamWriter）
         const callbacks = streamWriter?.createCallbacks();
         
-        // 包装 onBeforeLLMCall，在第一次调用时写 turn_start
+        // 包装回调：拦截 onInboxDrained 获取 sources，在 onBeforeLLMCall 写 turn_start
         let turnStarted = false;
+        let currentSources: string[] = [];
         const wrappedCallbacks = callbacks ? {
           ...callbacks,
+          onInboxDrained: (sources: string[]) => {
+            currentSources = sources;
+            callbacks.onInboxDrained?.(sources);
+          },
           onBeforeLLMCall: () => {
             if (!turnStarted) {
-              streamWriter?.write({ ts: Date.now(), type: 'turn_start' });
+              streamWriter?.write({
+                ts: Date.now(),
+                type: 'turn_start',
+                source: currentSources.join(' | ') || undefined,
+              });
               turnStarted = true;
             }
             callbacks.onBeforeLLMCall?.();

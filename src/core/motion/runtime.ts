@@ -116,13 +116,22 @@ export class MotionRuntime extends ClawRuntime {
       for (const [clawId, count] of outboxCounts) {
         parts.push(`${clawId}(${count})`);
       }
-      ownInbox.unshift({
+      ownInbox.push({
         role: 'user',
         content: `[system message] 未处理 claw outbox: ${parts.join(', ')}`,
       });
     }
 
     if (ownInbox.length === 0) return 0;
+
+    // 通知 daemon-loop 注入了哪些消息
+    if (callbacks?.onInboxDrained) {
+      const sources = ownInbox.map(m => {
+        const text = typeof m.content === 'string' ? m.content : '';
+        return text.replace(/\r?\n/g, ' ').slice(0, 80);
+      });
+      callbacks.onInboxDrained(sources);
+    }
 
     const session = await this.sessionManager.load();
     const messages: Message[] = [...session.messages];
