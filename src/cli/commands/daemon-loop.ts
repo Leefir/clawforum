@@ -66,19 +66,32 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       try {
         // 获取流式回调（如果有 streamWriter）
         const callbacks = streamWriter?.createCallbacks();
-        const injected = await runtime.processBatch(callbacks);
+        
+        // 包装 onBeforeLLMCall，在第一次调用时写 turn_start
+        let turnStarted = false;
+        const wrappedCallbacks = callbacks ? {
+          ...callbacks,
+          onBeforeLLMCall: () => {
+            if (!turnStarted) {
+              streamWriter?.write({ ts: Date.now(), type: 'turn_start' });
+              turnStarted = true;
+            }
+            callbacks.onBeforeLLMCall?.();
+          },
+        } : undefined;
+        
+        const injected = await runtime.processBatch(wrappedCallbacks);
         if (injected > 0) {
-          // 一轮开始
-          streamWriter?.write({ ts: Date.now(), type: 'turn_start' });
-          
           // chain reaction：处理到无积压为止
           let more = injected;
           while (more > 0 && !stopped) {
-            more = await runtime.processBatch(callbacks);
+            more = await runtime.processBatch(wrappedCallbacks);
           }
           
           // 一轮结束
-          streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
+          if (turnStarted) {
+            streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
+          }
           await onBatchComplete?.();
         } else {
           await waitForInbox(inboxPendingDir, fallbackTimeout);

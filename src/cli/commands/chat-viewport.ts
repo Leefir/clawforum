@@ -176,7 +176,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // fs.watch + fallback 轮询
   let watcher: ReturnType<typeof fsNative.watch> | null = null;
-  const pollInterval = setInterval(pollStream, 1000);  // fallback 1s
+  const pollInterval = setInterval(pollStream, 200);  // fallback 200ms
 
   try {
     watcher = fsNative.watch(streamPath, () => pollStream());
