@@ -26,5 +26,5 @@ export const CLAW_SUBDIRS = [
   'skills',
   'clawspace',
   'logs',
-  'status',  // 用于 PID 文件和 STATUS.md
+  'status',  // 用于 PID 文件
 ] as const;

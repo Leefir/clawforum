@@ -191,29 +191,15 @@ export class Heartbeat {
 
   /**
    * 检查 claw 是否 stall（长时间无更新）
+   * 通过 dialog/current.json 的 mtime 判断
    */
   private _checkStall(clawId: string): boolean {
     try {
-      const statusFile = path.join(this.baseDir, 'claws', clawId, 'status', 'STATUS.md');
-      
-      if (!fsNative.existsSync(statusFile)) {
-        return false;
-      }
-
-      const content = fsNative.readFileSync(statusFile, 'utf-8');
-      
-      // 解析 updated_at
-      const match = content.match(/updated_at:\s*(.+)/);
-      if (!match) {
-        return false;
-      }
-
-      const updatedAt = new Date(match[1].trim()).getTime();
-      const now = Date.now();
-      const age = now - updatedAt;
+      const dialogFile = path.join(this.baseDir, 'claws', clawId, 'dialog', 'current.json');
+      const stat = fsNative.statSync(dialogFile);
+      const age = Date.now() - stat.mtimeMs;
 
       if (age > this.stallThreshold) {
-        // 发送催促消息
         const minutes = Math.floor(age / 60000);
         this._writeInbox(clawId, {
           id: `hb-${Date.now()}-${clawId}`,
@@ -221,12 +207,11 @@ export class Heartbeat {
           source: 'heartbeat',
           priority: 'normal',
           timestamp: new Date().toISOString(),
-          content: `[Motion] No status update for ${minutes} minutes. Please report current progress.`,
+          content: `[Motion] No dialog update for ${minutes} minutes. Please report current progress.`,
           clawId,
         });
         return true;
       }
-
       return false;
     } catch (error) {
       // 读取失败不视为 stall

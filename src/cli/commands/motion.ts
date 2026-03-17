@@ -316,53 +316,6 @@ export async function stopCommand(): Promise<void> {
 }
 
 /**
- * 写入 Motion STATUS.md
- */
-async function writeMotionStatus(motionDir: string, state: string): Promise<void> {
-  try {
-    const statusDir = path.join(motionDir, 'status');
-    await fs.mkdir(statusDir, { recursive: true });
-    const statusPath = path.join(statusDir, 'STATUS.md');
-    
-    const now = new Date().toISOString();
-    
-    // 收集 claws 统计
-    const baseDir = path.join(motionDir, '..');
-    const clawsDir = path.join(baseDir, 'claws');
-    let runningCount = 0;
-    let totalCount = 0;
-    
-    try {
-      const fs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-      const pm = new ProcessManager(fs, baseDir);
-      const entries = fsNative.readdirSync(clawsDir);
-      for (const entry of entries) {
-        if (entry === 'motion') continue;
-        const entryPath = path.join(clawsDir, entry);
-        const stat = fsNative.statSync(entryPath);
-        if (stat.isDirectory()) {
-          totalCount++;
-          if (pm.isAlive(entry)) {
-            runningCount++;
-          }
-        }
-      }
-    } catch {
-      // 忽略统计错误
-    }
-    
-    const statusContent = `updated_at: ${now}
-state: ${state}
-claws_total: ${totalCount}
-claws_running: ${runningCount}
-`;
-    await fs.writeFile(statusPath, statusContent);
-  } catch (err) {
-    console.error('[motion daemon] Failed to write status:', err);
-  }
-}
-
-/**
  * motion daemon - 内部命令（由 startCommand 调用）
  */
 export async function daemonCommand(): Promise<void> {
@@ -382,7 +335,7 @@ export async function daemonCommand(): Promise<void> {
   // MVP 对齐：初始化 + 恢复契约（替代 start() 的 InboxWatcher）
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
-  
+
   // 创建 Heartbeat
   const baseDir = path.join(motionDir, '..');
   const fs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
@@ -391,15 +344,7 @@ export async function daemonCommand(): Promise<void> {
     interval: 60,
     stallThreshold: 300,
   });
-  
-  // 初始状态写入
-  await writeMotionStatus(motionDir, 'running');
-  
-  // 状态更新定时器（每 30s）
-  const statusInterval = setInterval(async () => {
-    await writeMotionStatus(motionDir, 'running');
-  }, 30000);
-  
+
   // 心跳检查定时器（每 5s 检查是否到期）
   const heartbeatInterval = setInterval(() => {
     if (heartbeat.isDue()) {
@@ -428,9 +373,7 @@ export async function daemonCommand(): Promise<void> {
     console.log(`[motion daemon] Received ${signal}, shutting down...`);
     stop();
     streamWriter.close();
-    clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
-    await writeMotionStatus(motionDir, 'stopped');
     await runtime.stop();
     process.exit(0);
   };
@@ -438,9 +381,8 @@ export async function daemonCommand(): Promise<void> {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  // 确保 exit 时清理 intervals
+  // 确保 exit 时清理 interval
   process.on('exit', () => {
-    clearInterval(statusInterval);
     clearInterval(heartbeatInterval);
   });
 

@@ -12,7 +12,7 @@ export interface DaemonLoopOptions {
   runtime: ClawRuntime;
   inboxPendingDir: string;
   label: string;                         // 日志前缀，如 '[motion daemon]' 或 '[daemon]'
-  onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调（claw 用来写 STATUS.md）
+  onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调
   fallbackTimeoutMs?: number;            // fs.watch fallback 超时（默认 30s）
   streamWriter?: StreamWriter;           // 流式事件写入
 }

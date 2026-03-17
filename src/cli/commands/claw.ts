@@ -258,42 +258,57 @@ export async function listCommand(): Promise<void> {
 }
 
 /**
- * 显示 Claw 健康状态
+ * 显示 Claw 健康状态（实时读取目录）
  */
 export async function healthCommand(name: string): Promise<void> {
   loadGlobalConfig();
-  
+
   if (!clawExists(name)) {
     console.error(`❌ Claw "${name}" does not exist`);
     process.exit(1);
   }
 
   const clawDir = getClawDir(name);
-  const statusFile = path.join(clawDir, 'status', 'STATUS.md');
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
-  
-  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const processManager = new ProcessManager(fs, baseDir);
 
-  // 显示运行状态
+  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(nodeFs, baseDir);
+
   const isRunning = processManager.isAlive(name);
+
+  // 实时读 inbox/outbox pending
+  let inboxPending = 0;
+  let outboxPending = 0;
+  try {
+    const entries = fsNative.readdirSync(path.join(clawDir, 'inbox', 'pending'));
+    inboxPending = entries.length;
+  } catch { /* 目录不存在 */ }
+  try {
+    const entries = fsNative.readdirSync(path.join(clawDir, 'outbox', 'pending'));
+    outboxPending = entries.length;
+  } catch { /* 目录不存在 */ }
+
+  // 检查契约状态
+  let contractStatus = 'none';
+  for (const sub of ['active', 'paused']) {
+    try {
+      const entries = fsNative.readdirSync(
+        path.join(clawDir, 'contract', sub), { withFileTypes: true }
+      );
+      if (entries.some(e => e.isDirectory())) {
+        contractStatus = sub;
+        break;
+      }
+    } catch { /* skip */ }
+  }
+
   console.log(`\n🏥 Health Check: ${name}`);
   console.log('─'.repeat(40));
-  console.log(`Status: ${isRunning ? '🟢 running' : '⚪ stopped'}`);
-
-  // 读取 STATUS.md
-  try {
-    const statusContent = fsNative.readFileSync(statusFile, 'utf-8');
-    console.log('\n📄 STATUS.md:');
-    console.log(statusContent);
-  } catch {
-    if (isRunning) {
-      console.log('\n⏳ STATUS.md not yet created (daemon may be starting)');
-    } else {
-      console.log('\n⚠️  STATUS.md not found (claw is not running)');
-    }
-  }
+  console.log(`status: ${isRunning ? '🟢 running' : '⚪ stopped'}`);
+  console.log(`inbox_pending: ${inboxPending}`);
+  console.log(`outbox_pending: ${outboxPending}`);
+  console.log(`contract: ${contractStatus}`);
 }
 
 // ============================================================================

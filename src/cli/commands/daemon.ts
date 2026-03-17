@@ -46,44 +46,6 @@ Claw "${clawId}" exited (${reason}).
 }
 
 /**
- * 写 STATUS.md
- */
-async function writeStatus(
-  runtime: ClawRuntime,
-  clawDir: string,
-  fs: NodeFileSystem
-): Promise<void> {
-  const statusDir = path.join(clawDir, 'status');
-  await fs.ensureDir(statusDir);
-
-  // 获取 inbox/outbox pending 数量
-  let inboxPending = 0;
-  let outboxPending = 0;
-
-  try {
-    const inboxEntries = await fs.list('inbox/pending', { includeDirs: false });
-    inboxPending = inboxEntries.length;
-  } catch {
-    // 忽略错误
-  }
-
-  try {
-    const outboxEntries = await fs.list('outbox/pending', { includeDirs: false });
-    outboxPending = outboxEntries.length;
-  } catch {
-    // 忽略错误
-  }
-
-  const statusContent = `updated_at: ${new Date().toISOString()}
-state: running
-inbox_pending: ${inboxPending}
-outbox_pending: ${outboxPending}
-`;
-
-  await fs.writeAtomic(path.join(statusDir, 'STATUS.md'), statusContent);
-}
-
-/**
  * 守护进程主函数
  */
 export async function daemonCommand(name: string): Promise<void> {
@@ -103,7 +65,7 @@ export async function daemonCommand(name: string): Promise<void> {
     toolProfile: clawConfig.tool_profile,
   } as ClawRuntimeOptions);
 
-  // 创建 fs 实例用于写 STATUS.md
+  // 创建 fs 实例
   const fs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
 
   // MVP 对齐：初始化 + 恢复契约（替代 start() 的 InboxWatcher）
@@ -135,18 +97,6 @@ export async function daemonCommand(name: string): Promise<void> {
     // best-effort
   }
 
-  // 立即写一次 STATUS.md
-  await writeStatus(runtime, clawDir, fs);
-
-  // 每 30s 更新 STATUS.md
-  const statusInterval = setInterval(async () => {
-    try {
-      await writeStatus(runtime, clawDir, fs);
-    } catch {
-      // 忽略写状态错误
-    }
-  }, 30_000);
-
   // 创建 stream writer
   const streamWriter = new StreamWriter(clawDir);
   streamWriter.open();
@@ -158,9 +108,6 @@ export async function daemonCommand(name: string): Promise<void> {
     inboxPendingDir,
     label: '[daemon]',
     streamWriter,
-    onBatchComplete: async () => {
-      await writeStatus(runtime, clawDir, fs);
-    },
   });
 
   // 检查是否有活跃契约（active/ 或 paused/ 中存在子目录）
@@ -179,7 +126,6 @@ export async function daemonCommand(name: string): Promise<void> {
   process.on('SIGTERM', async () => {
     stop();
     streamWriter.close();
-    clearInterval(statusInterval);
     try {
       await runtime.stop();
     } catch {
@@ -196,7 +142,6 @@ export async function daemonCommand(name: string): Promise<void> {
   process.on('SIGINT', async () => {
     stop();
     streamWriter.close();
-    clearInterval(statusInterval);
     try {
       await runtime.stop();
     } catch {
@@ -207,11 +152,6 @@ export async function daemonCommand(name: string): Promise<void> {
       notifyMotionExit(name, 'SIGINT');
     }
     process.exit(0);
-  });
-
-  // 确保 exit 时清理 interval
-  process.on('exit', () => {
-    clearInterval(statusInterval);
   });
 
   await promise;
