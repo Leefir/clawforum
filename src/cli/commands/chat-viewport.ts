@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
   label: string;      // 显示名，如 'motion' 或 'claw-search'
+  ensureDaemon?: () => Promise<void>;  // 调用方提供：检查 daemon 是否运行，没运行就启动
 }
 
 function writeUserChat(agentDir: string, message: string): void {
@@ -36,6 +37,11 @@ ${message}
 }
 
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
+  // 确保 daemon 运行
+  if (options.ensureDaemon) {
+    await options.ensureDaemon();
+  }
+
   const { TUI, Text, Input, Key, matchesKey } = await import('@mariozechner/pi-tui');
   const { ProcessTerminal } = await import('@mariozechner/pi-tui');
 
