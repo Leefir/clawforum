@@ -32,6 +32,9 @@ export const ClawGlobalConfigSchema = z.object({
     retry_attempts: z.number().default(3),
     retry_delay_ms: z.number().default(1000),
   }),
+  motion: z.object({
+    heartbeat_interval_ms: z.number().default(300000),
+  }).optional(),
 });
 
 export const ClawConfigSchema = z.object({

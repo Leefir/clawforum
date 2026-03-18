@@ -4,10 +4,11 @@
  * Motion 是 Clawforum 的管理者，通过 exec 调用 CLI 管理其他 Claw。
  * 系统提示注入顺序与 Claw 不同：
  * AGENTS.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
+ * 
+ * 注：HEARTBEAT.md 不在 system prompt 中，只在心跳触发时通过 inbox 消息注入
  */
 
-import { ClawRuntime, type ClawRuntimeOptions, type StreamCallbacks } from '../runtime.js';
-import type { Message } from '../../types/message.js';
+import { ClawRuntime, type ClawRuntimeOptions } from '../runtime.js';
 
 /**
  * MotionRuntime 选项（继承 ClawRuntimeOptions）
@@ -30,6 +31,8 @@ export class MotionRuntime extends ClawRuntime {
   /**
    * 构建系统提示词
    * 注入顺序：AGENTS.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
+   * 
+   * 注：HEARTBEAT.md 只在心跳触发时通过 inbox 消息注入，不在 system prompt 中
    */
   protected override async buildSystemPrompt(): Promise<string> {
     const parts = await this.contextInjector.buildParts();
@@ -60,16 +63,6 @@ export class MotionRuntime extends ClawRuntime {
       // REVIEW.md 不存在，跳过
     }
 
-    // 3.5 HEARTBEAT.md（心跳任务指引）
-    try {
-      const heartbeat = (await this.systemFs.read('HEARTBEAT.md')).trim();
-      if (heartbeat) {
-        sections.push(heartbeat);
-      }
-    } catch {
-      // HEARTBEAT.md 不存在，跳过
-    }
-
     // 4. MEMORY.md（持久记忆）
     if (parts.memory) {
       sections.push(parts.memory);
@@ -98,29 +91,4 @@ export class MotionRuntime extends ClawRuntime {
     return sections.join('\n\n');
   }
 
-  /**
-   * Motion 专用：批量处理 inbox
-   * @override
-   */
-  override async processBatch(callbacks?: StreamCallbacks): Promise<number> {
-    if (!this.initialized) await this.initialize();
-
-    const { injected: ownInbox, count: inboxCount, pendingFiles } = await this._drainOwnInbox();
-    if (ownInbox.length === 0) return 0;
-
-    // 通知 daemon-loop 注入了哪些消息
-    if (callbacks?.onInboxDrained) {
-      const sources = ownInbox.map(m => {
-        const text = typeof m.content === 'string' ? m.content : '';
-        return text.replace(/\r?\n/g, ' ').slice(0, 80);
-      });
-      callbacks.onInboxDrained(sources);
-    }
-
-    const session = await this.sessionManager.load();
-    const messages: Message[] = [...session.messages, ...ownInbox];
-    await this._runReact(messages, callbacks);
-    await this._commitInbox(pendingFiles);  // react 成功后才移
-    return ownInbox.length;
-  }
 }

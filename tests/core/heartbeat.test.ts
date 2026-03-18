@@ -42,9 +42,9 @@ describe('Heartbeat', () => {
   });
 
   describe('isDue', () => {
-    it('should return true on first call (lastRun=0)', () => {
+    it('should return false on first call (initialized to now)', () => {
       heartbeat = new Heartbeat(tempDir, { interval: 1 });
-      expect(heartbeat.isDue()).toBe(true);
+      expect(heartbeat.isDue()).toBe(false);  // 启动后等满 interval 才触发
     });
 
     it('should return false immediately after fire', () => {
@@ -93,12 +93,16 @@ describe('Heartbeat', () => {
 
     it('should update lastRun after fire', async () => {
       heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      expect(heartbeat.isDue()).toBe(false);  // 首次不 due
+
+      // 等待后首次触发
+      await new Promise(resolve => setTimeout(resolve, 1100));
       expect(heartbeat.isDue()).toBe(true);
 
       heartbeat.fire();
-      expect(heartbeat.isDue()).toBe(false);
+      expect(heartbeat.isDue()).toBe(false);  // fire 后重置
 
-      // 等待后再次触发
+      // 再次等待后触发
       await new Promise(resolve => setTimeout(resolve, 1100));
       expect(heartbeat.isDue()).toBe(true);
     });

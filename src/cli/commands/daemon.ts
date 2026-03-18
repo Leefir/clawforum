@@ -122,7 +122,11 @@ export async function daemonCommand(name: string): Promise<void> {
   // motion 专属：heartbeat
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   if (isMotion) {
-    const heartbeat = new Heartbeat(path.join(dir, '..'), { interval: 300 });
+    // 从配置读取心跳间隔，默认 5 分钟（300 秒）
+    const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 300000;
+    const heartbeat = new Heartbeat(path.join(dir, '..'), {
+      interval: heartbeatIntervalMs / 1000  // 转换为秒
+    });
     heartbeatInterval = setInterval(() => {
       if (heartbeat.isDue()) heartbeat.fire();
     }, 5000);
@@ -137,6 +141,7 @@ export async function daemonCommand(name: string): Promise<void> {
   const inboxPendingDir = path.join(dir, 'inbox', 'pending');
   const { promise, stop } = startDaemonLoop({
     runtime,
+    agentDir: dir,
     inboxPendingDir,
     label: isMotion ? '[motion daemon]' : '[daemon]',
     streamWriter,

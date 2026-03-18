@@ -409,10 +409,20 @@ export class ClawRuntime {
 
     const session = await this.sessionManager.load();
     const messages = [...session.messages, ...injected];
-    await this._runReact(messages, callbacks);
-    await this._commitInbox(pendingFiles);  // react 成功后才移
 
-    return count;
+    // AbortController 支持（同 chat() 模式）
+    const abortController = new AbortController();
+    this.currentAbortController = abortController;
+    this.execContext.signal = abortController.signal;
+    try {
+      await this._runReact(messages, callbacks);
+      return count;
+    } finally {
+      // 无论成功/中断都移走 inbox 消息（已注入 dialog，避免重复处理）
+      await this._commitInbox(pendingFiles);
+      this.currentAbortController = null;
+      this.execContext.signal = undefined;
+    }
   }
 
   /**

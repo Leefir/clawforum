@@ -50,12 +50,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const tui = new TUI(terminal);
 
   // 单一输出区域（永久内容 + 流式后缀合并显示，消除组件间距）
-  const outputText = new Text(`[${options.label}] Watching daemon activity...`, 1, 0);
+  const outputText = new Text(`[${options.label}] Watching daemon activity...`, 0, 0);
   let outputContent = `[${options.label}] Watching daemon activity...`;
   let streamingSuffix = '';  // 当前流式内容（spinner / thinking / text）
 
   let streamingBuffer = '';
   let thinkingBuffer = '';
+  let inTurn = false;  // daemon 是否正在处理 turn（用于 ESC 中断判断）
 
   // Braille spinner 动画
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -122,6 +123,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const handleEvent = (event: { type: string; [key: string]: unknown }) => {
     switch (event.type) {
       case 'turn_start':
+        inTurn = true;
         flushThinking();
         flushStreaming();
         // 只显示系统消息类 source（以 [ 开头），不显示用户消息原文（viewport 已显示过 > 前缀）
@@ -131,6 +133,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         break;
 
       case 'llm_start':
+        inTurn = true;
         flushThinking();
         flushStreaming();
         startSpinner();
@@ -168,9 +171,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
 
       case 'turn_end':
+        inTurn = false;
         stopSpinner();
         flushThinking();
         flushStreaming();
+        streamingSuffix = '';
+        updateDisplay();
+        break;
+
+      case 'turn_interrupted':
+        inTurn = false;
+        stopSpinner();
+        flushThinking();
+        flushStreaming();
+        streamingSuffix = '';
+        updateDisplay();
+        appendOutput('\x1b[33m⏎ Interrupted\x1b[0m');
         break;
     }
   };
@@ -249,6 +265,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const exitPromise = new Promise<void>(r => { resolveExit = r; });
 
   tui.addInputListener((data: string) => {
+    // ESC → 中断 daemon react（只在活跃 turn 时有效）
+    if (matchesKey(data, Key.escape)) {
+      if (!inTurn) return { consume: true };  // 空闲时忽略
+      const interruptFile = path.join(options.agentDir, 'interrupt');
+      try {
+        fsNative.writeFileSync(interruptFile, '');
+      } catch { /* best-effort */ }
+      appendOutput('\x1b[33m⏎ Interrupting...\x1b[0m');
+      return { consume: true };
+    }
+    // Ctrl+C / Ctrl+D → 退出 viewport
     if (matchesKey(data, Key.ctrl('c')) || matchesKey(data, Key.ctrl('d'))) {
       resolveExit();
       return { consume: true };

@@ -10,6 +10,7 @@ import type { StreamWriter } from './stream-writer.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
+  agentDir: string;                      // agent 根目录，用于监听 interrupt 信号
   inboxPendingDir: string;
   label: string;                         // 日志前缀，如 '[motion daemon]' 或 '[daemon]'
   onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调
@@ -55,7 +56,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
+  const { runtime, agentDir, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? 30000;
   let stopped = false;
 
@@ -63,13 +64,15 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
   const promise = (async () => {
     while (!stopped) {
+      let turnStarted = false;
+      let currentSources: string[] = [];
+      let interruptPoller: ReturnType<typeof setInterval> | null = null;
+
       try {
         // 获取流式回调（如果有 streamWriter）
         const callbacks = streamWriter?.createCallbacks();
         
         // 包装回调：拦截 onInboxDrained 获取 sources，在 onBeforeLLMCall 写 turn_start
-        let turnStarted = false;
-        let currentSources: string[] = [];
         const wrappedCallbacks = callbacks ? {
           ...callbacks,
           onInboxDrained: (sources: string[]) => {
@@ -88,26 +91,59 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             callbacks.onBeforeLLMCall?.();
           },
         } : undefined;
-        
-        const injected = await runtime.processBatch(wrappedCallbacks);
-        if (injected > 0) {
-          // chain reaction：处理到无积压为止
-          let more = injected;
-          while (more > 0 && !stopped) {
-            more = await runtime.processBatch(wrappedCallbacks);
+
+        // 启动 interrupt 文件轮询
+        const interruptFile = path.join(agentDir, 'interrupt');
+        interruptPoller = setInterval(() => {
+          try {
+            if (fsNative.existsSync(interruptFile)) {
+              fsNative.unlinkSync(interruptFile);
+              runtime.abort();
+            }
+          } catch { /* best-effort */ }
+        }, 200);
+
+        try {
+          const injected = await runtime.processBatch(wrappedCallbacks);
+          if (injected > 0) {
+            // chain reaction：处理到无积压为止
+            let more = injected;
+            while (more > 0 && !stopped) {
+              more = await runtime.processBatch(wrappedCallbacks);
+            }
+            
+            // 一轮结束（非中断）
+            if (turnStarted) {
+              streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
+            }
+            await onBatchComplete?.();
+          } else {
+            await waitForInbox(inboxPendingDir, fallbackTimeout);
           }
-          
-          // 一轮结束
-          if (turnStarted) {
-            streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
+        } finally {
+          if (interruptPoller) {
+            clearInterval(interruptPoller);
+            interruptPoller = null;
           }
-          await onBatchComplete?.();
-        } else {
-          await waitForInbox(inboxPendingDir, fallbackTimeout);
         }
       } catch (err) {
-        console.error(`${label} processBatch error:`, err);
-        await waitForInbox(inboxPendingDir, fallbackTimeout);
+        // 清理轮询
+        if (interruptPoller) {
+          clearInterval(interruptPoller);
+          interruptPoller = null;
+        }
+
+        // 区分用户中断和真正错误
+        if (err instanceof Error && err.message === 'Execution aborted') {
+          // 用户中断
+          if (turnStarted) {
+            streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted' });
+          }
+          // 正常继续循环，等待下一条 inbox
+        } else {
+          console.error(`${label} processBatch error:`, err);
+          await waitForInbox(inboxPendingDir, fallbackTimeout);
+        }
       }
     }
   })();

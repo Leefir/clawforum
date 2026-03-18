@@ -24,7 +24,7 @@ export class Heartbeat {
   constructor(baseDir: string, options: HeartbeatOptions = {}) {
     this.baseDir = baseDir;
     this.interval = (options.interval ?? 300) * 1000;
-    this.lastRun = 0;
+    this.lastRun = Date.now();  // 启动后等满一个 interval 再首次触发
   }
 
   /**
