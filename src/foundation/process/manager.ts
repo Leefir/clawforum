@@ -178,6 +178,7 @@ export class ProcessManager {
       const proc = spawn('node', finalArgs, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
+        env: { ...process.env, CLAWFORUM_DAEMON_MODE: '1' },
       });
       
       // 让子进程独立运行，不阻塞父进程退出
