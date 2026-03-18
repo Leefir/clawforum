@@ -9,10 +9,10 @@ if (!process.env.CLAWFORUM_ROOT) {
 
 import { program } from 'commander';
 import { initCommand } from './commands/init.js';
+import * as path from 'path';
 import { 
   createCommand, 
   chatCommand, 
-  startCommand, 
   stopCommand, 
   listCommand, 
   healthCommand,
@@ -76,19 +76,6 @@ clawCmd
   .action(async (name: string) => {
     try {
       await chatCommand(name);
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
-  });
-
-// claw start
-clawCmd
-  .command('start <name>')
-  .description('Start Claw daemon')
-  .action(async (name: string) => {
-    try {
-      await startCommand(name);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
@@ -168,13 +155,35 @@ clawCmd
     }
   });
 
-// claw daemon (internal command, spawned by ProcessManager)
+// claw daemon (auto-backgrounds)
 clawCmd
   .command('daemon <name>')
-  .description('Run Claw as daemon (internal)')
+  .description('Start Claw daemon (auto-backgrounds)')
   .action(async (name: string) => {
     try {
-      await daemonCommand(name);
+      if (process.env.CLAWFORUM_DAEMON_MODE) {
+        await daemonCommand(name);
+        return;
+      }
+      // 前台入口：后台启动
+      const { loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath } = await import('./config.js');
+      const { NodeFileSystem } = await import('../foundation/fs/node-fs.js');
+      const { ProcessManager } = await import('../foundation/process/manager.js');
+      loadGlobalConfig();
+      if (!clawExists(name)) {
+        console.error(`Error: Claw "${name}" does not exist`);
+        process.exit(1);
+      }
+      const clawDir = getClawDir(name);
+      const baseDir = path.dirname(getGlobalConfigPath());
+      const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+      const pm = new ProcessManager(nodeFs, baseDir);
+      if (pm.isAlive(name)) {
+        console.log(`Claw "${name}" is already running`);
+        return;
+      }
+      const pid = await pm.spawn(name, clawDir);
+      console.log(`Started Claw "${name}" (PID: ${pid})`);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

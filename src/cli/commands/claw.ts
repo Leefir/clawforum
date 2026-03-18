@@ -136,39 +136,6 @@ export async function chatCommand(name: string): Promise<void> {
 // ============================================================================
 
 /**
- * 启动 Claw 守护进程
- */
-export async function startCommand(name: string): Promise<void> {
-  loadGlobalConfig();
-  
-  if (!clawExists(name)) {
-    console.error(`Error: Claw "${name}" does not exist`);
-    process.exit(1);
-  }
-
-  const clawDir = getClawDir(name);
-  const globalConfigPath = getGlobalConfigPath();
-  const baseDir = path.dirname(globalConfigPath);
-  
-  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const processManager = new ProcessManager(fs, baseDir);
-
-  // 检查是否已运行
-  if (processManager.isAlive(name)) {
-    console.log(`Claw "${name}" is already running`);
-    return;
-  }
-
-  try {
-    const pid = await processManager.spawn(name, clawDir);
-    console.log(`Started Claw "${name}" (PID: ${pid})`);
-  } catch (error) {
-    console.error('Failed to start:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
-}
-
-/**
  * 停止 Claw 守护进程
  */
 export async function stopCommand(name: string): Promise<void> {
