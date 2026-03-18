@@ -117,8 +117,27 @@ describe('Heartbeat', () => {
       const inboxDir = path.join(tempDir, 'motion', 'inbox', 'pending');
       const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
 
-      expect(files.length).toBe(2);
-      expect(files[0]).not.toBe(files[1]);
+      // 第一次 fire 生成文件，第二次被去重跳过
+      expect(files.length).toBe(1);
+    });
+
+    it('should generate new file after previous heartbeat is consumed', async () => {
+      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+
+      // 第一次 fire
+      heartbeat.fire();
+      const inboxDir = path.join(tempDir, 'motion', 'inbox', 'pending');
+      let files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
+      expect(files.length).toBe(1);
+
+      // 模拟消费（移走文件）
+      fs.unlinkSync(path.join(inboxDir, files[0]));
+
+      // 第二次 fire 应该生成新文件
+      await new Promise(resolve => setTimeout(resolve, 50));
+      heartbeat.fire();
+      files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
+      expect(files.length).toBe(1);
     });
 
     it('should create inbox directory if not exists', () => {

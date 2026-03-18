@@ -133,7 +133,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         // 只显示系统消息类 source（以 [ 开头），不显示用户消息原文（viewport 已显示过 > 前缀）
         if (event.source && typeof event.source === 'string' && event.source.startsWith('[')) {
-          appendOutput(`\x1b[33m> ${event.source}\x1b[0m`);
+          appendOutput(`\x1b[33m> ${event.source.slice(0, 80)}\x1b[0m`);
         }
         break;
 

@@ -217,22 +217,23 @@ describe('ProcessManager', () => {
   });
 
   describe('spawn', () => {
-    it('should throw EEXIST error when pid file already exists', async () => {
-      // 预先创建 PID 文件（模拟已运行状态）
+    it('should throw error when pid file already exists and process is alive', async () => {
+      // 预先创建 PID 文件，使用真实运行的进程 PID
       const statusDir = path.join(tempDir, 'claws', 'existing-claw', 'status');
       fs.mkdirSync(statusDir, { recursive: true });
-      fs.writeFileSync(path.join(statusDir, 'pid'), '12345');
+      fs.writeFileSync(path.join(statusDir, 'pid'), String(process.pid));
 
-      // spawn 应该抛出错误
+      // spawn 应该抛出 already running 错误
       await expect(
         processManager.spawn('existing-claw', tempDir)
       ).rejects.toThrow(/already running/);
     });
 
-    it('should throw error with correct message when EEXIST', async () => {
+    it('should throw error with correct message when process is alive', async () => {
       const statusDir = path.join(tempDir, 'claws', 'busy-claw', 'status');
       fs.mkdirSync(statusDir, { recursive: true });
-      fs.writeFileSync(path.join(statusDir, 'pid'), '99999');
+      // 使用真实运行的进程 PID
+      fs.writeFileSync(path.join(statusDir, 'pid'), String(process.pid));
 
       try {
         await processManager.spawn('busy-claw', tempDir);

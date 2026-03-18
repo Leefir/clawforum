@@ -45,6 +45,10 @@ export class Heartbeat {
       const inboxDir = path.join(this.baseDir, 'motion', 'inbox', 'pending');
       fsNative.mkdirSync(inboxDir, { recursive: true });
 
+      // 去重：已有未处理心跳则跳过
+      const existing = fsNative.readdirSync(inboxDir);
+      if (existing.some(f => f.includes('_heartbeat_'))) return;
+
       const now = new Date();
       const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
       const uuid8 = randomUUID().slice(0, 8);

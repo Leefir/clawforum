@@ -10,6 +10,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, openSync, mkdirSync, closeSync } from 'fs';
+import { fileURLToPath } from 'url';
 import type { IFileSystem } from '../fs/types.js';
 import { 
   PROCESS_SPAWN_CONFIRM_MS,
@@ -150,13 +151,22 @@ export class ProcessManager {
       await handle.close(); // 关闭句柄，后续用 writeFile 写入实际 PID
     } catch (err: any) {
       if (err.code === 'EEXIST') {
-        throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
+        // 检查是真实运行还是残留 PID 文件
+        if (this.isAlive(clawId)) {
+          throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
+        }
+        // stale PID 文件，清理后重新创建
+        await this.removePid(clawId).catch(() => {});
+        const handle = await fs.open(pidFile, 'wx');
+        await handle.close();
+      } else {
+        throw err;
       }
-      throw err;
     }
 
-    // 启动守护进程
-    const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
+    // 启动守护进程（使用基于模块的绝对路径，不依赖 process.cwd()）
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const cliPath = path.resolve(__dirname, '..', '..', '..', 'dist', 'cli.js');
     const finalArgs = args ?? [cliPath, 'claw', 'daemon', clawId];
     
     // 创建日志目录和日志文件
@@ -168,8 +178,10 @@ export class ProcessManager {
       const proc = spawn('node', finalArgs, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
-        cwd: process.cwd(),
       });
+      
+      // 让子进程独立运行，不阻塞父进程退出
+      proc.unref();
 
       const pid = proc.pid;
       if (!pid) {
@@ -181,6 +193,11 @@ export class ProcessManager {
 
       // 等待进程启动确认（非阻塞）
       await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
+      
+      // 验证进程存活
+      if (!this.isAlive(clawId)) {
+        throw new Error(`Daemon process failed to start. Check logs at: ${path.join(clawDir, 'logs', 'daemon.log')}`);
+      }
 
       return pid;
     } catch (err) {

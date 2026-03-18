@@ -136,16 +136,16 @@ describe('ProcessManager', () => {
   });
 
   describe('spawn - wx 排他锁', () => {
-    it('should throw error when PID file already exists', async () => {
+    it('should throw error when PID file already exists and process is alive', async () => {
       const pm = new ProcessManager(nodeFs, tempDir);
       const clawDir = path.join(tempDir, 'claws', 'existing-claw');
       const pidFile = path.join(clawDir, 'status', 'pid');
 
-      // 预先创建 PID 文件（模拟已运行）
+      // 预先创建 PID 文件，使用真实运行的进程 PID
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
-      await fs.writeFile(pidFile, '12345', 'utf-8');
+      await fs.writeFile(pidFile, String(process.pid), 'utf-8');
 
-      // spawn 应抛出 EEXIST 错误
+      // spawn 应抛出 already running 错误
       await expect(pm.spawn('existing-claw', clawDir)).rejects.toThrow(/already running/);
     });
 
@@ -155,7 +155,8 @@ describe('ProcessManager', () => {
       const pidFile = path.join(clawDir, 'status', 'pid');
 
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
-      await fs.writeFile(pidFile, '99999', 'utf-8');
+      // 使用真实运行的进程 PID
+      await fs.writeFile(pidFile, String(process.pid), 'utf-8');
 
       try {
         await pm.spawn('busy-claw', clawDir);
