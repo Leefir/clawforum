@@ -23,7 +23,6 @@ import { daemonCommand } from './commands/daemon.js';
 import { 
   initCommand as motionInitCommand,
   chatCommand as motionChatCommand,
-  startCommand as motionStartCommand,
   stopCommand as motionStopCommand,
 } from './commands/motion.js';
 import { contractCreateCommand } from './commands/contract.js';
@@ -221,19 +220,6 @@ motionCmd
     }
   });
 
-// motion start
-motionCmd
-  .command('start')
-  .description('Start Motion daemon')
-  .action(async () => {
-    try {
-      await motionStartCommand();
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
-  });
-
 // motion stop
 motionCmd
   .command('stop')
@@ -247,13 +233,34 @@ motionCmd
     }
   });
 
-// motion daemon (internal command, spawned by startCommand)
+// motion daemon (auto-backgrounds)
 motionCmd
   .command('daemon')
-  .description('Run Motion as daemon (internal)')
+  .description('Start Motion daemon (auto-backgrounds)')
   .action(async () => {
     try {
-      await daemonCommand('motion');
+      if (process.env.CLAWFORUM_DAEMON_MODE) {
+        await daemonCommand('motion');
+        return;
+      }
+      // 前台入口
+      const { loadGlobalConfig, getMotionDir } = await import('./config.js');
+      const { NodeFileSystem } = await import('../foundation/fs/node-fs.js');
+      const { ProcessManager } = await import('../foundation/process/manager.js');
+      loadGlobalConfig();
+      const motionDir = getMotionDir();
+      const baseDir = path.dirname(motionDir);
+      const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+      const pm = new ProcessManager(nodeFs, baseDir, (id) => {
+        if (id === 'motion') return path.join(baseDir, 'motion');
+        return path.join(baseDir, 'claws', id);
+      });
+      if (pm.isAlive('motion')) {
+        console.log('Motion is already running');
+        return;
+      }
+      const pid = await pm.spawn('motion', motionDir);
+      console.log(`Started Motion daemon (PID: ${pid})`);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

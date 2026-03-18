@@ -11,9 +11,10 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { fileURLToPath } from 'url';
-import { loadGlobalConfig, getMotionDir } from '../config.js';
+import { loadGlobalConfig, getMotionDir, getGlobalConfigPath } from '../config.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
+import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
 
@@ -156,42 +157,16 @@ export async function chatCommand(): Promise<void> {
     agentDir: motionDir,
     label: 'motion',
     ensureDaemon: async () => {
-      if (!createMotionPM().isAlive('motion')) {
+      const pm = createMotionPM();
+      if (!pm.isAlive('motion')) {
         console.log('Starting Motion daemon...');
-        await startCommand();
+        const motionDir = getMotionDir();
+        const pid = await pm.spawn('motion', motionDir);
+        console.log(`Started (PID: ${pid})`);
+        await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
     },
   });
-}
-
-// ============================================================================
-// Motion Daemon Commands
-// ============================================================================
-
-/**
- * motion start - 启动 Motion 守护进程
- */
-export async function startCommand(): Promise<void> {
-  loadGlobalConfig();
-  const motionDir = getMotionDir();
-
-  // 检查 Motion 是否已初始化
-  try {
-    await fs.access(path.join(motionDir, 'AGENTS.md'));
-  } catch {
-    console.error('Motion not initialized. Run: clawforum motion init');
-    process.exit(1);
-  }
-
-  const pm = createMotionPM();
-  if (pm.isAlive('motion')) {
-    console.log('Motion is already running');
-    return;
-  }
-
-  const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
-  const pid = await pm.spawn('motion', motionDir, [cliPath, 'motion', 'daemon']);
-  console.log(`Started Motion daemon (PID: ${pid})`);
 }
 
 /**

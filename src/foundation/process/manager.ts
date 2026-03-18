@@ -167,7 +167,9 @@ export class ProcessManager {
     // 启动守护进程（使用基于模块的绝对路径，不依赖 process.cwd()）
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const cliPath = path.resolve(__dirname, '..', '..', '..', 'dist', 'cli.js');
-    const finalArgs = args ?? [cliPath, 'claw', 'daemon', clawId];
+    const finalArgs = args ?? (clawId === 'motion'
+      ? [cliPath, 'motion', 'daemon']
+      : [cliPath, 'claw', 'daemon', clawId]);
     
     // 创建日志目录和日志文件
     const logsDir = path.join(clawDir, 'logs');
