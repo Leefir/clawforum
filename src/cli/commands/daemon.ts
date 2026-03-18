@@ -95,6 +95,13 @@ export async function daemonCommand(name: string): Promise<void> {
 
   // 配置
   const dir = isMotion ? getMotionDir() : getClawDir(name);
+  
+  // 写 PID 文件（兜底：无论启动方式都确保 PID 可查）
+  const statusDir = path.join(dir, 'status');
+  fsNative.mkdirSync(statusDir, { recursive: true });
+  const pidFile = path.join(statusDir, 'pid');
+  fsNative.writeFileSync(pidFile, String(process.pid));
+  
   const clawConfig = isMotion ? null : loadClawConfig(name);
   const llmConfig = isMotion
     ? buildLLMConfig(globalConfig)
@@ -167,6 +174,8 @@ export async function daemonCommand(name: string): Promise<void> {
     if (!isMotion && hasContract(dir)) {
       notifyMotionExit(name, signal);
     }
+    // 清理 PID 文件
+    try { fsNative.unlinkSync(pidFile); } catch {}
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
