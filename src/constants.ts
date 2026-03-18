@@ -84,3 +84,10 @@ export const THINKING_TOKEN_RESERVE = 1024;
 
 /** Interval for heartbeat health checks (ms) */
 export const HEARTBEAT_CHECK_INTERVAL_MS = 5000;
+
+// ----------------------------------------------------------------------------
+// LLM Stream
+// ----------------------------------------------------------------------------
+
+/** Maximum duration for a single LLM stream call (ms) - 5 minutes */
+export const STREAM_MAX_DURATION_MS = 5 * 60 * 1000;

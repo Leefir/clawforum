@@ -22,7 +22,7 @@ import type {
   IProviderAdapter,
   StreamChunk,
 } from './types.js';
-import { THINKING_TOKEN_RESERVE } from '../../constants.js';
+import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS } from '../../constants.js';
 
 /**
  * Anthropic API request body
@@ -224,7 +224,13 @@ export class AnthropicAdapter implements IProviderAdapter {
       // fetch 成功，清除初始 timeout，由 parseSSEStream 管理 idle timeout
       clearTimeout(timeoutId);
 
-      yield* this.parseSSEStream(response, controller, timeout);
+      // 总超时兜底：无论 idle timer 是否生效，N 分钟后强制 abort
+      const maxTimer = setTimeout(() => controller.abort(), STREAM_MAX_DURATION_MS);
+      try {
+        yield* this.parseSSEStream(response, controller, timeout);
+      } finally {
+        clearTimeout(maxTimer);
+      }
     } catch (error) {
       // 与 call() 相同的错误处理
       if (error instanceof DOMException && error.name === 'AbortError') {
