@@ -41,6 +41,7 @@ import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { LocalTransport } from '../../foundation/transport/local.js';
 import { randomUUID } from 'crypto';
+import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 export async function createCommand(name: string): Promise<void> {
   // Load global config (ensures initialized)
@@ -48,7 +49,7 @@ export async function createCommand(name: string): Promise<void> {
   
   // Check if claw already exists
   if (clawExists(name)) {
-    console.error(`❌ Claw "${name}" already exists`);
+    console.error(`Error: Claw "${name}" already exists`);
     process.exit(1);
   }
   
@@ -64,6 +65,8 @@ export async function createCommand(name: string): Promise<void> {
     name,
     max_steps: 100,
     tool_profile: 'full' as const,
+    subagent_max_steps: 20,
+    max_concurrent_tasks: 3,
   };
   
   saveClawConfig(name, config);
@@ -84,7 +87,7 @@ export async function createCommand(name: string): Promise<void> {
 done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
 \`\`\`
 
-⚠️ **禁止直接修改 progress.json**——直接写文件会绕过验收和通知机制，Motion 不会收到完成通知。
+**警告：禁止直接修改 progress.json**——直接写文件会绕过验收和通知机制，Motion 不会收到完成通知。
 
 ### 工作目录
 
@@ -103,7 +106,7 @@ export async function chatCommand(name: string): Promise<void> {
   loadGlobalConfig();
 
   if (!clawExists(name)) {
-    console.error(`❌ Claw "${name}" does not exist`);
+    console.error(`Error: Claw "${name}" does not exist`);
     process.exit(1);
   }
 
@@ -120,9 +123,9 @@ export async function chatCommand(name: string): Promise<void> {
       if (!pm.isAlive(name)) {
         console.log(`Starting Claw "${name}" daemon...`);
         const pid = await pm.spawn(name, clawDir);
-        console.log(`✅ Started (PID: ${pid})`);
+        console.log(`Started (PID: ${pid})`);
         // 等待 daemon 初始化
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
     },
   });
@@ -139,7 +142,7 @@ export async function startCommand(name: string): Promise<void> {
   loadGlobalConfig();
   
   if (!clawExists(name)) {
-    console.error(`❌ Claw "${name}" does not exist`);
+    console.error(`Error: Claw "${name}" does not exist`);
     process.exit(1);
   }
 
@@ -152,15 +155,15 @@ export async function startCommand(name: string): Promise<void> {
 
   // 检查是否已运行
   if (processManager.isAlive(name)) {
-    console.log(`ℹ️  Claw "${name}" is already running`);
+    console.log(`Claw "${name}" is already running`);
     return;
   }
 
   try {
     const pid = await processManager.spawn(name, clawDir);
-    console.log(`✅ Started Claw "${name}" (PID: ${pid})`);
+    console.log(`Started Claw "${name}" (PID: ${pid})`);
   } catch (error) {
-    console.error('❌ Failed to start:', error instanceof Error ? error.message : String(error));
+    console.error('Failed to start:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
@@ -172,7 +175,7 @@ export async function stopCommand(name: string): Promise<void> {
   loadGlobalConfig();
   
   if (!clawExists(name)) {
-    console.error(`❌ Claw "${name}" does not exist`);
+    console.error(`Error: Claw "${name}" does not exist`);
     process.exit(1);
   }
 
@@ -184,17 +187,17 @@ export async function stopCommand(name: string): Promise<void> {
 
   // 检查是否运行
   if (!processManager.isAlive(name)) {
-    console.log(`ℹ️  Claw "${name}" is not running`);
+    console.log(`Claw "${name}" is not running`);
     return;
   }
 
-  console.log(`🛑 Stopping Claw "${name}"...`);
+  console.log(`Stopping Claw "${name}"...`);
   
   const success = await processManager.stop(name);
   if (success) {
-    console.log(`✅ Stopped Claw "${name}"`);
+    console.log(`Stopped Claw "${name}"`);
   } else {
-    console.error(`❌ Failed to stop Claw "${name}"`);
+    console.error(`Failed to stop Claw "${name}"`);
     process.exit(1);
   }
 }
@@ -289,13 +292,13 @@ export async function listCommand(): Promise<void> {
     }
 
     // 打印表格
-    console.log('\n📋 Claw List:');
+    console.log('\nClaw List:');
     console.log('─'.repeat(80));
     console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)} ${'Contract'.padEnd(10)} ${'Outbox'.padEnd(8)} ${'LastActive'.padEnd(10)}`);
     console.log('─'.repeat(80));
 
     for (const claw of claws) {
-      const statusIcon = claw.status === 'running' ? '🟢' : '⚪';
+      const statusIcon = claw.status === 'running' ? '[running]' : '[stopped]';
       const pidStr = claw.pid || '-';
       console.log(`${claw.name.padEnd(20)} ${statusIcon} ${claw.status.padEnd(10)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)}`);
     }
@@ -303,7 +306,7 @@ export async function listCommand(): Promise<void> {
     console.log('─'.repeat(80));
     console.log(`\nTotal: ${claws.length} claws (${claws.filter(c => c.status === 'running').length} running)\n`);
   } catch (error) {
-    console.error('❌ Failed to list claws:', error instanceof Error ? error.message : String(error));
+    console.error('Failed to list claws:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
@@ -315,7 +318,7 @@ export async function healthCommand(name: string): Promise<void> {
   loadGlobalConfig();
 
   if (!clawExists(name)) {
-    console.error(`❌ Claw "${name}" does not exist`);
+    console.error(`Error: Claw "${name}" does not exist`);
     process.exit(1);
   }
 
@@ -362,9 +365,9 @@ export async function healthCommand(name: string): Promise<void> {
     lastActive = formatRelativeTime(age);
   } catch { /* skip */ }
 
-  console.log(`\n🏥 Health Check: ${name}`);
+  console.log(`\nHealth Check: ${name}`);
   console.log('─'.repeat(40));
-  console.log(`status: ${isRunning ? '🟢 running' : '⚪ stopped'}`);
+  console.log(`status: ${isRunning ? 'running' : 'stopped'}`);
   console.log(`inbox_pending: ${inboxPending}`);
   console.log(`outbox_pending: ${outboxPending}`);
   console.log(`contract: ${contractStatus}`);
@@ -386,7 +389,7 @@ export async function sendCommand(
   loadGlobalConfig();
   
   if (!clawExists(name)) {
-    console.error(`❌ Claw "${name}" does not exist`);
+    console.error(`Error: Claw "${name}" does not exist`);
     process.exit(1);
   }
 
@@ -408,7 +411,7 @@ export async function sendCommand(
       timestamp: new Date().toISOString(),
     });
 
-    console.log(`✅ Message sent to "${name}"`);
+    console.log(`Message sent to "${name}"`);
   } finally {
     await transport.close();
   }
@@ -428,7 +431,7 @@ export async function outboxCommand(
   loadGlobalConfig();
 
   if (!clawExists(name)) {
-    console.error(`❌ Claw "${name}" does not exist`);
+    console.error(`Error: Claw "${name}" does not exist`);
     process.exit(1);
   }
 

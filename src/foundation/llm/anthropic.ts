@@ -22,6 +22,7 @@ import type {
   IProviderAdapter,
   StreamChunk,
 } from './types.js';
+import { THINKING_TOKEN_RESERVE } from '../../constants.js';
 
 /**
  * Anthropic API request body
@@ -107,7 +108,7 @@ export class AnthropicAdapter implements IProviderAdapter {
     
     // Extended thinking (requires no temperature)
     if (this.config.thinking) {
-      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - 1024);
+      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - THINKING_TOKEN_RESERVE);
       body.thinking = { type: 'enabled', budget_tokens: budget };
       delete body.temperature;
     }
@@ -194,7 +195,7 @@ export class AnthropicAdapter implements IProviderAdapter {
 
     // Extended thinking (requires no temperature)
     if (this.config.thinking) {
-      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - 1024);
+      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - THINKING_TOKEN_RESERVE);
       body.thinking = { type: 'enabled', budget_tokens: budget };
       delete body.temperature;
     }
@@ -323,13 +324,13 @@ export class AnthropicAdapter implements IProviderAdapter {
   /**
    * Format messages for Anthropic API
    * 
-   * ⚠️ CRITICAL: This logic was refined through 5 iterations (hotfix #1, #2, #5).
+   * CRITICAL: This logic was refined through 5 iterations (hotfix #1, #2, #5).
    * DO NOT simplify to pass-through without understanding the consequences.
    * 
    * History:
    * - v1: Filter text only → lost tool blocks
    * - v2: Pass-through all → MiniMax rejected pure arrays for text-only messages
-   * - v3: Conditional: tool blocks→array, text→string → ✅ correct
+   * - v3: Conditional: tool blocks→array, text→string → correct
    * - v4 (Step 20): Pass-through all → REGRESSION: pure thinking blocks caused empty responses
    * - v5 (hotfix #5): Restore v3 logic with better comments
    * 

@@ -138,6 +138,8 @@ export interface ExecContext {
   stepNumber: number;
   maxSteps: number;
   signal?: AbortSignal;
+  /** Max steps for subagents created via spawn tool */
+  subagentMaxSteps?: number;
   getElapsedMs(): number;
   incrementStep(): void;
 }
@@ -201,13 +203,16 @@ export interface IToolExecutor {
  * Tool execution implementation
  */
 export class ToolExecutorImpl implements IToolExecutor {
-  constructor(private registry: IToolRegistry) {}
+  constructor(
+    private registry: IToolRegistry,
+    private defaultTimeoutMs = 60000
+  ) {}
 
   /**
    * Execute a single tool
    */
   async execute(options: ExecuteOptions): Promise<ToolResult> {
-    const { toolName, args, ctx, timeoutMs = 60000 } = options;
+    const { toolName, args, ctx, timeoutMs = this.defaultTimeoutMs } = options;
     const startTime = Date.now();
 
     // 1. Find tool

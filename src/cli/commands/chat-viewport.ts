@@ -42,8 +42,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     await options.ensureDaemon();
   }
 
-  const { TUI, Text, Input, Key, matchesKey } = await import('@mariozechner/pi-tui');
+  const { TUI, Text, Input, Key, matchesKey, EditorKeybindingsManager, setEditorKeybindings } = await import('@mariozechner/pi-tui');
   const { ProcessTerminal } = await import('@mariozechner/pi-tui');
+
+  // 移除 Ctrl+C 从 Input 的 selectCancel，让 TUI listener 处理
+  setEditorKeybindings(new EditorKeybindingsManager({
+    selectCancel: 'escape',  // 只绑 ESC
+  }));
 
   const streamPath = path.join(options.agentDir, 'stream.jsonl');
   const terminal = new ProcessTerminal();
@@ -265,19 +270,37 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const exitPromise = new Promise<void>(r => { resolveExit = r; });
 
   tui.addInputListener((data: string) => {
+    // Ctrl+C / Ctrl+D → 退出 viewport（优先检查，避免被 ESC 逻辑抢先）
+    // 使用 includes 匹配批量输入（如 \x03\x03\x1b\x1b）
+    if (data.includes('\x03') || data.includes('\x04')) {
+      resolveExit();
+      return { consume: true };
+    }
     // ESC → 中断 daemon react（只在活跃 turn 时有效）
-    if (matchesKey(data, Key.escape)) {
-      if (!inTurn) return { consume: true };  // 空闲时忽略
+    // 快速连按时 data 可能是多个 \x1b，需检查是否包含 ESC 字节
+    // 排除 CSI 序列（\x1b[ 开头的是方向键等）
+    if (data.includes('\x1b') && !data.includes('\x1b[')) {
+      if (!inTurn) {
+        // 防御性清理：如果 spinner 还在转，强制停止
+        stopSpinner();
+        streamingSuffix = '';
+        updateDisplay();
+        return { consume: true };
+      }
       const interruptFile = path.join(options.agentDir, 'interrupt');
       try {
         fsNative.writeFileSync(interruptFile, '');
       } catch { /* best-effort */ }
       appendOutput('\x1b[33m⏎ Interrupting...\x1b[0m');
-      return { consume: true };
-    }
-    // Ctrl+C / Ctrl+D → 退出 viewport
-    if (matchesKey(data, Key.ctrl('c')) || matchesKey(data, Key.ctrl('d'))) {
-      resolveExit();
+      // 5 秒超时保护：如果 daemon 没响应，强制清理
+      setTimeout(() => {
+        if (inTurn) {
+          inTurn = false;
+          stopSpinner();
+          streamingSuffix = '';
+          updateDisplay();
+        }
+      }, 5000);
       return { consume: true };
     }
     return undefined;
@@ -287,6 +310,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   tui.addChild(input);
   tui.setFocus(input);
   tui.start();
+
+  // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
+  process.on('SIGINT', () => resolveExit());
 
   await exitPromise;
 

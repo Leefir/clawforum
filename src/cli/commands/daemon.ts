@@ -15,6 +15,7 @@ import type { ClawRuntimeOptions } from '../../core/runtime.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
+import { HEARTBEAT_CHECK_INTERVAL_MS } from '../../constants.js';
 
 /**
  * 检查是否有活跃契约（active/ 或 paused/ 中存在子目录）
@@ -107,6 +108,9 @@ export async function daemonCommand(name: string): Promise<void> {
         llmConfig,
         maxSteps: 100,
         toolProfile: 'full',
+        toolTimeoutMs: globalConfig.tool_timeout_ms,
+        subagentMaxSteps: 20, // motion 用默认值
+        maxConcurrentTasks: 3,
       })
     : new ClawRuntime({
         clawId: name,
@@ -114,6 +118,9 @@ export async function daemonCommand(name: string): Promise<void> {
         llmConfig,
         maxSteps: clawConfig!.max_steps,
         toolProfile: clawConfig!.tool_profile,
+        toolTimeoutMs: globalConfig.tool_timeout_ms,
+        subagentMaxSteps: clawConfig!.subagent_max_steps,
+        maxConcurrentTasks: clawConfig!.max_concurrent_tasks,
       } as ClawRuntimeOptions);
 
   await runtime.initialize();
@@ -129,7 +136,7 @@ export async function daemonCommand(name: string): Promise<void> {
     });
     heartbeatInterval = setInterval(() => {
       if (heartbeat.isDue()) heartbeat.fire();
-    }, 5000);
+    }, HEARTBEAT_CHECK_INTERVAL_MS);
   }
 
   // 通用：有契约+空 inbox → 注入启动消息

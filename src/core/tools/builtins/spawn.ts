@@ -74,7 +74,9 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
     const skills = (args.skills as string[]) ?? [];
     const tools = (args.tools as string[]) ?? SUBAGENT_TOOLS;
     const timeout = typeof args.timeout === 'number' ? args.timeout : 300;
-    const maxSteps = typeof args.maxSteps === 'number' ? args.maxSteps : 20;
+    const maxSteps = typeof args.maxSteps === 'number' 
+      ? args.maxSteps 
+      : (ctx.subagentMaxSteps ?? 20);
 
     try {
       const taskId = await taskSystem.scheduleSubAgent({

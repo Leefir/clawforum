@@ -35,6 +35,12 @@ export const ClawGlobalConfigSchema = z.object({
   motion: z.object({
     heartbeat_interval_ms: z.number().default(300000),
   }).optional(),
+  tool_timeout_ms: z.number().default(60000),
+  watchdog: z.object({
+    interval_ms: z.number().default(30000),
+    disk_warning_mb: z.number().default(500),
+    log_archive_days: z.number().default(30),
+  }).optional(),
 });
 
 export const ClawConfigSchema = z.object({
@@ -44,6 +50,8 @@ export const ClawConfigSchema = z.object({
   }).optional(),
   max_steps: z.number().default(100),
   tool_profile: z.enum(['full', 'readonly', 'subagent']).default('full'),
+  subagent_max_steps: z.number().default(20),
+  max_concurrent_tasks: z.number().default(3),
 });
 
 export type ClawGlobalConfig = z.infer<typeof ClawGlobalConfigSchema>;

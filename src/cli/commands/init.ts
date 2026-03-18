@@ -14,7 +14,7 @@ export async function initCommand(): Promise<void> {
     return;
   }
   
-  console.log('🔧 Initializing clawforum...\n');
+  console.log('Initializing clawforum...\n');
   
   // Interactive prompts
   const rl = readline.createInterface({
@@ -47,7 +47,7 @@ export async function initCommand(): Promise<void> {
     // API Key (required)
     const apiKey = await passwordQuestion('API Key');
     if (!apiKey) {
-      console.error('❌ API Key is required');
+      console.error('API Key is required');
       process.exit(1);
     }
     
@@ -75,6 +75,15 @@ export async function initCommand(): Promise<void> {
         retry_attempts: 3,
         retry_delay_ms: 1000,
       },
+      tool_timeout_ms: 60000,
+      watchdog: {
+        interval_ms: 30000,
+        disk_warning_mb: 500,
+        log_archive_days: 30,
+      },
+      motion: {
+        heartbeat_interval_ms: 300000,
+      },
     };
     
     // Save config
@@ -93,7 +102,7 @@ export async function initCommand(): Promise<void> {
     
   } catch (error) {
     rl.close();
-    console.error('❌ Init failed:', error instanceof Error ? error.message : String(error));
+    console.error('Init failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

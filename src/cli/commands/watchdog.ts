@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { setTimeout } from 'timers/promises';
-import { getMotionDir } from '../config.js';
+import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { randomUUID } from 'node:crypto';
@@ -103,6 +103,15 @@ ${body}
 let lastArchiveDate: string | null = null;
 let lastDiskCheckHour: number = -1;
 
+// Global config (loaded lazily on first access)
+let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
+function getGlobalConfig() {
+  if (!globalConfigCache) {
+    globalConfigCache = loadGlobalConfig();
+  }
+  return globalConfigCache;
+}
+
 // 日志归档（每日 00:00）
 function maybeCronArchive(): void {
   const now = new Date();
@@ -113,7 +122,8 @@ function maybeCronArchive(): void {
   
   log('[watchdog] Running daily archive...');
   
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const archiveDays = getGlobalConfig().watchdog?.log_archive_days ?? 30;
+  const thirtyDaysAgo = Date.now() - archiveDays * 24 * 60 * 60 * 1000;
   const archiveDir = path.join(process.cwd(), '.clawforum', 'logs', 'archive');
   fs.mkdirSync(archiveDir, { recursive: true });
   
@@ -173,7 +183,7 @@ function maybeCronDiskCheck(): void {
   }
   
   const totalMB = Math.round(totalSize / 1024 / 1024);
-  const limitMB = 500;
+  const limitMB = getGlobalConfig().watchdog?.disk_warning_mb ?? 500;
   
   if (totalMB > limitMB) {
     log(`[watchdog] WARNING: Disk usage ${totalMB}MB > ${limitMB}MB`);
@@ -249,8 +259,9 @@ export async function daemonCommand(): Promise<void> {
     maybeCronArchive();
     maybeCronDiskCheck();
     
-    // 3. 休眠 30s
-    await setTimeout(30000);
+    // 3. 休眠（间隔可配置）
+    const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;
+    await setTimeout(intervalMs);
   }
 }
 
@@ -258,7 +269,7 @@ export async function daemonCommand(): Promise<void> {
 export async function startCommand(): Promise<void> {
   if (isWatchdogAlive()) {
     const pid = getWatchdogPid();
-    console.log(`⚠️  Watchdog is already running (PID: ${pid})`);
+    console.log(`Watchdog is already running (PID: ${pid})`);
     console.log('   Use "watchdog stop" first if you want to restart.');
     return;
   }
@@ -280,9 +291,9 @@ export async function startCommand(): Promise<void> {
   
   const pid = getWatchdogPid();
   if (pid) {
-    console.log(`✅ Watchdog started (PID: ${pid})`);
+    console.log(`Watchdog started (PID: ${pid})`);
   } else {
-    console.log('⚠️  Watchdog may have failed to start');
+    console.log('Watchdog may have failed to start');
   }
 }
 
@@ -291,7 +302,7 @@ export async function stopCommand(): Promise<void> {
   const pid = getWatchdogPid();
   
   if (!pid || !isWatchdogAlive()) {
-    console.log('ℹ️  Watchdog is not running');
+    console.log('Watchdog is not running');
     removeWatchdogPid();
     return;
   }
@@ -301,7 +312,7 @@ export async function stopCommand(): Promise<void> {
   try {
     process.kill(pid, 'SIGTERM');
   } catch (err) {
-    console.log('⚠️  Failed to send SIGTERM:', err);
+    console.log('Failed to send SIGTERM:', err);
   }
   
   // 等待 5s
@@ -316,7 +327,7 @@ export async function stopCommand(): Promise<void> {
     try {
       process.kill(pid, 'SIGKILL');
     } catch (err) {
-      console.log('⚠️  Failed to send SIGKILL:', err);
+      console.log('Failed to send SIGKILL:', err);
     }
     await setTimeout(500);
   }
@@ -324,8 +335,8 @@ export async function stopCommand(): Promise<void> {
   removeWatchdogPid();
   
   if (isWatchdogAlive()) {
-    console.log('❌ Failed to stop watchdog');
+    console.log('Failed to stop watchdog');
   } else {
-    console.log('✅ Watchdog stopped');
+    console.log('Watchdog stopped');
   }
 }

@@ -6,6 +6,12 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import { 
+  EXEC_TIMEOUT_MIN_MS, 
+  EXEC_TIMEOUT_MAX_MS,
+  EXEC_MAX_STDOUT,
+  EXEC_MAX_STDERR,
+} from '../../../constants.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -31,9 +37,12 @@ export const execTool: ITool = {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const command = args.command as string;
-    // Clamp timeout between 1s and 120s (MVP: 120s hard limit)
+    // Clamp timeout between EXEC_TIMEOUT_MIN_MS and EXEC_TIMEOUT_MAX_MS
     const requestedTimeout = (args.timeout as number) ?? 30000;
-    const timeout = Math.min(Math.max(requestedTimeout, 1000), 120000);
+    const timeout = Math.min(
+      Math.max(requestedTimeout, EXEC_TIMEOUT_MIN_MS),
+      EXEC_TIMEOUT_MAX_MS
+    );
 
     // Sandbox directory: clawDir (AGENTS.md 规范)
     const workDir = ctx.clawDir;
@@ -50,17 +59,14 @@ export const execTool: ITool = {
       });
 
       // Design doc: separate truncation for stdout/stderr
-      const MAX_STDOUT = 8000;
-      const MAX_STDERR = 500;
-      
       let output = stdout || '';
-      if (output.length > MAX_STDOUT) {
-        output = output.slice(0, MAX_STDOUT) + '\n[stdout truncated]';
+      if (output.length > EXEC_MAX_STDOUT) {
+        output = output.slice(0, EXEC_MAX_STDOUT) + '\n[stdout truncated]';
       }
       
       let errOutput = stderr || '';
-      if (errOutput.length > MAX_STDERR) {
-        errOutput = errOutput.slice(0, MAX_STDERR) + '\n[stderr truncated]';
+      if (errOutput.length > EXEC_MAX_STDERR) {
+        errOutput = errOutput.slice(0, EXEC_MAX_STDERR) + '\n[stderr truncated]';
       }
       
       const fullOutput = output + (errOutput ? '\n[stderr]: ' + errOutput : '') || '(no output)';

@@ -15,6 +15,7 @@ import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { Contract, SubTask, ContractStatus } from '../../types/contract.js';
 import { ToolError } from '../../types/errors.js';
 import { execSync } from 'child_process';
+import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS } from '../../constants.js';
 
 // 契约默认值常量
 const CONTRACT_DEFAULTS = {
@@ -65,8 +66,6 @@ export class ContractManager {
   private fs: IFileSystem;
   private clawDir: string;
   private monitor?: IMonitor;
-  private lockRetries = 3;
-  private lockDelay = 100; // ms
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
@@ -98,7 +97,7 @@ export class ContractManager {
    * 使用 writeAtomic + exists 检查模拟排他创建
    */
   private async acquireLock(lockPath: string): Promise<void> {
-    for (let i = 0; i < this.lockRetries; i++) {
+    for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
       try {
         // 检查锁是否已存在
         const exists = await this.fs.exists(lockPath);
@@ -110,12 +109,12 @@ export class ContractManager {
         return; // 成功获取锁
       } catch {
         // 锁已存在或竞争失败，等待后重试
-        if (i < this.lockRetries - 1) {
-          await new Promise(r => setTimeout(r, this.lockDelay));
+        if (i < LOCK_MAX_RETRIES - 1) {
+          await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY_MS));
         }
       }
     }
-    throw new ToolError(`Failed to acquire lock after ${this.lockRetries} retries: ${lockPath}`);
+    throw new ToolError(`Failed to acquire lock after ${LOCK_MAX_RETRIES} retries: ${lockPath}`);
   }
 
   /**

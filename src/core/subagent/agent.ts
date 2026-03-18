@@ -11,6 +11,7 @@ import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import { ToolTimeoutError } from '../../types/errors.js';
+import { SUBAGENT_TIMEOUT_MS } from '../../constants.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -47,7 +48,7 @@ export class SubAgent {
     this.fs = options.fs;
     this.monitor = options.monitor;
     this.maxSteps = options.maxSteps ?? 20;
-    this.timeoutMs = options.timeoutMs ?? 300000; // 5 min default
+    this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
     this.logPath = `tasks/results/${this.agentId}.log`;
   }

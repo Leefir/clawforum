@@ -8,6 +8,7 @@
 
 import * as nodePath from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import { READ_MAX_LINES, READ_MAX_CHARS } from '../../../constants.js';
 
 // Allowed paths/prefixes for read tool (MVP aligned)
 const READ_ALLOWLIST = [
@@ -87,9 +88,7 @@ export const readTool: ITool = {
       };
     }
 
-    // Safety limits
-    const MAX_LINES = 200;
-    const MAX_CHARS = 8000;
+    // Safety limits (from constants.ts)
 
     try {
       let content = await ctx.fs.read(normalized);
@@ -107,13 +106,13 @@ export const readTool: ITool = {
       const totalChars = content.length;
       const lines = content.split('\n');
       
-      if (lines.length > MAX_LINES) {
-        content = lines.slice(0, MAX_LINES).join('\n') + 
-          `\n[显示第1-${MAX_LINES}行，共${totalLines}行。用 offset=${MAX_LINES+1} 读取更多]`;
+      if (lines.length > READ_MAX_LINES) {
+        content = lines.slice(0, READ_MAX_LINES).join('\n') + 
+          `\n[显示第1-${READ_MAX_LINES}行，共${totalLines}行。用 offset=${READ_MAX_LINES+1} 读取更多]`;
       }
-      if (content.length > MAX_CHARS) {
-        const shownChars = content.slice(0, MAX_CHARS).length;
-        content = content.slice(0, MAX_CHARS) + 
+      if (content.length > READ_MAX_CHARS) {
+        const shownChars = content.slice(0, READ_MAX_CHARS).length;
+        content = content.slice(0, READ_MAX_CHARS) + 
           `\n[显示前${shownChars}字符，共${totalChars}字符]`;
       }
 

@@ -144,7 +144,7 @@ clawCmd
       // 验证 priority 值
       const validPriorities = ['critical', 'high', 'normal', 'low'];
       if (!validPriorities.includes(opts.priority)) {
-        console.error(`❌ Invalid priority: ${opts.priority}. Must be one of: ${validPriorities.join(', ')}`);
+        console.error(`Invalid priority: ${opts.priority}. Must be one of: ${validPriorities.join(', ')}`);
         process.exit(1);
       }
       await sendCommand(name, message, { priority: opts.priority as any });

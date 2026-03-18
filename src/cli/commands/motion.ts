@@ -110,13 +110,13 @@ export async function initCommand(): Promise<void> {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`❌ 无法读取模板 ${name}: ${errorMsg}`);
+      console.error(`无法读取模板 ${name}: ${errorMsg}`);
       failed.push(name);
     }
   }
   
   if (failed.length > 0) {
-    console.error(`\n❌ Failed to process templates: ${failed.join(', ')}`);
+    console.error(`\nFailed to process templates: ${failed.join(', ')}`);
     process.exit(1);
   }
   
@@ -179,19 +179,19 @@ export async function startCommand(): Promise<void> {
   try {
     await fs.access(path.join(motionDir, 'AGENTS.md'));
   } catch {
-    console.error('❌ Motion not initialized. Run: clawforum motion init');
+    console.error('Motion not initialized. Run: clawforum motion init');
     process.exit(1);
   }
 
   const pm = createMotionPM();
   if (pm.isAlive('motion')) {
-    console.log('ℹ️  Motion is already running');
+    console.log('Motion is already running');
     return;
   }
 
   const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
   const pid = await pm.spawn('motion', motionDir, [cliPath, 'motion', 'daemon']);
-  console.log(`✅ Started Motion daemon (PID: ${pid})`);
+  console.log(`Started Motion daemon (PID: ${pid})`);
 }
 
 /**
@@ -202,11 +202,11 @@ export async function stopCommand(): Promise<void> {
   const pm = createMotionPM();
 
   if (!pm.isAlive('motion')) {
-    console.log('ℹ️  Motion is not running');
+    console.log('Motion is not running');
     return;
   }
 
-  console.log('🛑 Stopping Motion daemon...');
+  console.log('Stopping Motion daemon...');
   const stopped = await pm.stop('motion');
-  console.log(stopped ? '✅ Stopped Motion daemon' : '❌ Failed to stop Motion');
+  console.log(stopped ? 'Stopped Motion daemon' : 'Failed to stop Motion');
 }

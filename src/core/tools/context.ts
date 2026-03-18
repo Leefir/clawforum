@@ -57,6 +57,9 @@ export interface ExecContextImplOptions {
   
   /** Optional contract manager for done tool */
   contractManager?: ContractManager;
+  
+  /** Max steps for subagents created via spawn tool */
+  subagentMaxSteps?: number;
 }
 
 /**
@@ -77,6 +80,7 @@ export class ExecContextImpl implements ExecContext {
   taskSystem?: TaskSystem;
   skillRegistry?: SkillRegistry;
   contractManager?: ContractManager;
+  subagentMaxSteps: number;
   
   private startTime: number;
 
@@ -94,6 +98,7 @@ export class ExecContextImpl implements ExecContext {
     this.taskSystem = options.taskSystem;
     this.skillRegistry = options.skillRegistry;
     this.contractManager = options.contractManager;
+    this.subagentMaxSteps = options.subagentMaxSteps ?? 20;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

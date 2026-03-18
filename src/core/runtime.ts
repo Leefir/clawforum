@@ -45,6 +45,9 @@ export interface ClawRuntimeOptions {
   monitorDir?: string;
   maxSteps?: number;
   toolProfile?: ToolProfile;
+  toolTimeoutMs?: number;
+  subagentMaxSteps?: number;
+  maxConcurrentTasks?: number;
 }
 
 /** daemon 流式回调（processBatch / _runReact 使用） */
@@ -97,6 +100,9 @@ export class ClawRuntime {
     this.options = {
       maxSteps: 100,
       toolProfile: 'full',
+      toolTimeoutMs: 60000,
+      subagentMaxSteps: 20,
+      maxConcurrentTasks: 3,
       ...options,
     };
   }
@@ -144,7 +150,9 @@ export class ClawRuntime {
     registerBuiltinTools(this.toolRegistry);
 
     // 8. 创建 TaskSystem
-    this.taskSystem = new TaskSystem(clawDir, this.systemFs, this.transport);
+    this.taskSystem = new TaskSystem(clawDir, this.systemFs, this.transport, {
+      maxConcurrent: this.options.maxConcurrentTasks,
+    });
     await this.taskSystem.initialize();
     this.taskSystem.setLLMService(this.llm);
 
@@ -175,10 +183,11 @@ export class ClawRuntime {
       taskSystem: this.taskSystem,
       skillRegistry: this.skillRegistry,
       contractManager: this.contractManager,
+      subagentMaxSteps: this.options.subagentMaxSteps,
     });
 
     // 13. 创建 ToolExecutorImpl
-    this.toolExecutor = new ToolExecutorImpl(this.toolRegistry);
+    this.toolExecutor = new ToolExecutorImpl(this.toolRegistry, this.options.toolTimeoutMs);
 
     // 14. 创建 InboxWatcher + OutboxWriter（系统组件使用 systemFs）
     this.inboxWatcher = new InboxWatcher(clawDir, this.systemFs);

@@ -17,7 +17,8 @@ import { PRIORITY_VALUES } from '../../types/contract.js';
 import { createWatcher } from '../../foundation/fs/watcher.js';
 import type { Watcher } from '../../foundation/fs/types.js';
 import { parseFrontmatter } from '../../utils/frontmatter.js';
-const MAX_QUEUE_SIZE = 1000;  // Queue size limit to prevent memory exhaustion
+import { INBOX_MAX_QUEUE_SIZE } from '../../constants.js';
+// Queue size limit to prevent memory exhaustion (from constants.ts)
 
 const VALID_PRIORITIES: Priority[] = ['critical', 'high', 'normal', 'low'];
 const VALID_TYPES = ['message', 'crash', 'contract', 'report', 'notification'];
@@ -159,7 +160,7 @@ export class InboxWatcher {
     this.processedFiles.add(filePath);
     
     // Queue size limit: drop lowest priority if exceeded
-    if (this.queue.length >= MAX_QUEUE_SIZE) {
+    if (this.queue.length >= INBOX_MAX_QUEUE_SIZE) {
       this.sortQueue();
       const dropped = this.queue.pop();  // Remove lowest priority
       console.warn(`[inbox] Queue full, dropped message: ${dropped?.message.id}`);

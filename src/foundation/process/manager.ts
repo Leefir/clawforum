@@ -11,6 +11,11 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, openSync, mkdirSync, closeSync } from 'fs';
 import type { IFileSystem } from '../fs/types.js';
+import { 
+  PROCESS_SPAWN_CONFIRM_MS,
+  SIGTERM_GRACE_MS,
+  RESTART_DELAY_MS,
+} from '../../constants.js';
 
 export interface ProcessStatus {
   pid: number;
@@ -175,7 +180,7 @@ export class ProcessManager {
       await fs.writeFile(pidFile, String(pid), 'utf-8');
 
       // 等待进程启动确认（非阻塞）
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
 
       return pid;
     } catch (err) {
@@ -209,8 +214,8 @@ export class ProcessManager {
       // 发送 SIGTERM
       process.kill(pid, 'SIGTERM');
 
-      // 等待5秒
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // 等待优雅关闭时间
+      await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
 
       // 检查是否还在运行
       if (this.isAlive(clawId)) {
@@ -240,7 +245,7 @@ export class ProcessManager {
   async restart(clawId: string, clawDir: string, args?: string[]): Promise<number> {
     await this.stop(clawId);
     // 等待一小段时间确保端口等资源释放
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, RESTART_DELAY_MS));
     return this.spawn(clawId, clawDir, args);
   }
 
