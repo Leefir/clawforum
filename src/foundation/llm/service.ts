@@ -178,12 +178,11 @@ export class LLMService implements ILLMService {
   }
   
   /**
-   * Stream LLM response
-   * For Phase 0: delegates to primary provider, no failover for streams
+   * Stream LLM response with fallback support
+   * If primary fails mid-stream, attempts to failover to fallback provider
+   * Note: fallback restarts from beginning (may duplicate content), but better than total failure
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
-    // Use primary provider for streaming
-    // Failover for streams is complex (need to restart stream), skip for Phase 0
     const provider = this.usingFallback && this.fallback 
       ? this.fallback 
       : this.primary;
@@ -192,7 +191,17 @@ export class LLMService implements ILLMService {
       throw new LLMError('Streaming not supported by provider', { provider: provider.name });
     }
     
-    yield* provider.stream(options);
+    try {
+      yield* provider.stream(options);
+    } catch (error) {
+      // 尝试 fallback provider
+      if (this.fallback && provider !== this.fallback && this.fallback.stream) {
+        this.usingFallback = true;
+        yield* this.fallback.stream(options);
+      } else {
+        throw error;
+      }
+    }
   }
   
   /**
