@@ -1,72 +1,195 @@
 /**
- * ProcessManager 测试 - 进程管理信号处理
+ * ProcessManager 测试 - 进程管理核心逻辑
+ *
+ * 测试通过 public API 进行，不直接调用 private 方法
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
 import { ProcessManager } from '../../src/foundation/process/manager.js';
+import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
-const TEST_DIR = '.test-process-manager';
+async function createTempDir(): Promise<string> {
+  const tempDir = path.join(tmpdir(), `pm-test-${randomUUID()}`);
+  await fs.mkdir(tempDir, { recursive: true });
+  return tempDir;
+}
+
+async function cleanupTempDir(tempDir: string): Promise<void> {
+  try {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  } catch {
+    // Ignore
+  }
+}
 
 describe('ProcessManager', () => {
-  let manager: ProcessManager;
+  let tempDir: string;
+  let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true });
-    await fs.mkdir(path.join(TEST_DIR, 'claws', 'test-claw', 'status'), { recursive: true });
-    // ProcessManager 构造函数接受 fs 对象
-    manager = new ProcessManager({
-      ensureDir: async (p: string) => fs.mkdir(p, { recursive: true }),
-      read: async (p: string) => fs.readFile(p, 'utf-8'),
-      write: async (p: string, content: string) => {
-        await fs.mkdir(path.dirname(p), { recursive: true });
-        await fs.writeFile(p, content, 'utf-8');
-      },
-      writeAtomic: async (p: string, content: string) => {
-        await fs.mkdir(path.dirname(p), { recursive: true });
-        await fs.writeFile(p, content, 'utf-8');
-      },
-    } as any, TEST_DIR);
+    tempDir = await createTempDir();
+    nodeFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true });
+    await cleanupTempDir(tempDir);
   });
 
-  it('should return false for non-existent PID', () => {
-    expect(manager.isAlive('test-claw')).toBe(false);
+  describe('dirResolver - 默认路径', () => {
+    it('should use claws/{id}/status/pid as default path', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const pidFile = path.join(tempDir, 'claws', 'test-claw', 'status', 'pid');
+
+      // 写入 PID 文件
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, process.pid.toString(), 'utf-8');
+
+      expect(pm.isAlive('test-claw')).toBe(true);
+    });
+
+    it('should return false when PID file does not exist', () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      expect(pm.isAlive('nonexistent')).toBe(false);
+    });
   });
 
-  it('should detect running process', async () => {
-    // 写入一个真实存在的 PID（自己）
-    const pidFile = path.join(TEST_DIR, 'claws', 'test-claw', 'status', 'pid');
-    await fs.writeFile(pidFile, process.pid.toString(), 'utf-8');
+  describe('dirResolver - 自定义路径', () => {
+    it('should use custom resolver for motion path', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir, (id) => {
+        if (id === 'motion') return path.join(tempDir, 'motion');
+        return path.join(tempDir, 'claws', id);
+      });
 
-    expect(manager.isAlive('test-claw')).toBe(true);
+      // motion PID 文件在 motion/status/pid
+      const motionPidFile = path.join(tempDir, 'motion', 'status', 'pid');
+      await fs.mkdir(path.dirname(motionPidFile), { recursive: true });
+      await fs.writeFile(motionPidFile, process.pid.toString(), 'utf-8');
+
+      // claw PID 文件在 claws/{id}/status/pid
+      const clawPidFile = path.join(tempDir, 'claws', 'test-claw', 'status', 'pid');
+      await fs.mkdir(path.dirname(clawPidFile), { recursive: true });
+      await fs.writeFile(clawPidFile, '999999', 'utf-8');
+
+      expect(pm.isAlive('motion')).toBe(true);
+      expect(pm.isAlive('test-claw')).toBe(false); // 死进程
+    });
   });
 
-  it('should detect dead process and clean PID file', async () => {
-    const pidFile = path.join(TEST_DIR, 'claws', 'test-claw', 'status', 'pid');
-    // 写入一个不可能存在的 PID
-    await fs.writeFile(pidFile, '999999', 'utf-8');
+  describe('isAlive - 进程检测', () => {
+    it('should return true for current process PID', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const pidFile = path.join(tempDir, 'claws', 'live-claw', 'status', 'pid');
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, process.pid.toString(), 'utf-8');
 
-    expect(manager.isAlive('test-claw')).toBe(false);
-    // Note: isAlive 会尝试清理 PID 文件，但使用 mock fs 时可能不生效
-    // 实际实现中 ESRCH 时会调用 removePid
+      expect(pm.isAlive('live-claw')).toBe(true);
+    });
+
+    it('should return false and clean stale PID for dead process', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const pidFile = path.join(tempDir, 'claws', 'dead-claw', 'status', 'pid');
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, '999999', 'utf-8'); // 不存在的进程
+
+      expect(pm.isAlive('dead-claw')).toBe(false);
+
+      // 等待异步清理完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // PID 文件应被清理
+      expect(fsSync.existsSync(pidFile)).toBe(false);
+    });
+
+    it('should return false for invalid PID content', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const pidFile = path.join(tempDir, 'claws', 'invalid-claw', 'status', 'pid');
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, 'not-a-number', 'utf-8');
+
+      expect(pm.isAlive('invalid-claw')).toBe(false);
+    });
   });
 
-  it('should write and read PID correctly', async () => {
-    await manager.writePid('test-claw', 12345);
+  describe('stop - 停止进程', () => {
+    it('should return false when PID file does not exist', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const result = await pm.stop('nonexistent');
+      expect(result).toBe(false);
+    });
 
-    const pid = await manager.readPid('test-claw');
-    expect(pid).toBe(12345);
+    it('should return true and clean stale PID for dead process', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const pidFile = path.join(tempDir, 'claws', 'stale-claw', 'status', 'pid');
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, '999998', 'utf-8');
+
+      const result = await pm.stop('stale-claw');
+      expect(result).toBe(true);
+
+      // PID 文件应被清理
+      expect(fsSync.existsSync(pidFile)).toBe(false);
+    });
   });
 
-  it('should remove PID file', async () => {
-    await manager.writePid('test-claw', 12345);
-    await manager.removePid('test-claw');
+  describe('spawn - wx 排他锁', () => {
+    it('should throw error when PID file already exists', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const clawDir = path.join(tempDir, 'claws', 'existing-claw');
+      const pidFile = path.join(clawDir, 'status', 'pid');
 
-    // 验证 removePid 被调用（使用 mock，实际文件仍存在）
-    // 实际行为：文件被删除，readPid 返回 null
+      // 预先创建 PID 文件（模拟已运行）
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, '12345', 'utf-8');
+
+      // spawn 应抛出 EEXIST 错误
+      await expect(pm.spawn('existing-claw', clawDir)).rejects.toThrow(/already running/);
+    });
+
+    it('should throw error with claw name in message', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const clawDir = path.join(tempDir, 'claws', 'busy-claw');
+      const pidFile = path.join(clawDir, 'status', 'pid');
+
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, '99999', 'utf-8');
+
+      try {
+        await pm.spawn('busy-claw', clawDir);
+        expect.fail('should have thrown');
+      } catch (err: any) {
+        expect(err.message).toContain('busy-claw');
+        expect(err.message).toContain('already running');
+      }
+    });
+  });
+
+  describe('listRunning', () => {
+    it('should return empty array when no claws running', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const result = await pm.listRunning();
+      expect(result).toEqual([]);
+    });
+
+    it('should return running claw IDs', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+
+      // 创建两个 claw 目录，一个运行中，一个未运行
+      const runningPidFile = path.join(tempDir, 'claws', 'running-claw', 'status', 'pid');
+      const stoppedPidFile = path.join(tempDir, 'claws', 'stopped-claw', 'status', 'pid');
+
+      await fs.mkdir(path.dirname(runningPidFile), { recursive: true });
+      await fs.writeFile(runningPidFile, process.pid.toString(), 'utf-8');
+
+      await fs.mkdir(path.dirname(stoppedPidFile), { recursive: true });
+      await fs.writeFile(stoppedPidFile, '999997', 'utf-8'); // 死进程
+
+      const result = await pm.listRunning();
+      expect(result).toContain('running-claw');
+      expect(result).not.toContain('stopped-claw');
+    });
   });
 });
