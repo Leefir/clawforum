@@ -80,16 +80,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     updateDisplay();
   };
 
-  const startSpinner = () => {
+  const startSpinner = (text = 'Thinking...') => {
     stopSpinner();
     let frame = 0;
     spinnerTimer = setInterval(() => {
-      streamingSuffix = `${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} Thinking...`;
+      streamingSuffix = `${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${text}`;
       updateDisplay();
       frame++;
     }, 80);
     // 立即显示第一帧
-    setStreamingSuffix(`${SPINNER_FRAMES[0]} Thinking...`);
+    setStreamingSuffix(`${SPINNER_FRAMES[0]} ${text}`);
   };
 
   const stopSpinner = () => {
@@ -161,11 +161,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        setStreamingSuffix(`→ ${event.name}...`);
         appendOutput(`\x1b[36m→ ${event.name}\x1b[0m`);
+        startSpinner(`→ ${event.name}...`);
         break;
 
       case 'tool_result': {
+        stopSpinner();
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
