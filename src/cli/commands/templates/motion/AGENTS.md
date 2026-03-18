@@ -11,16 +11,16 @@
 
 ## 管理指令
 
-通过 `exec` 调用 CLI 管理其他 Claw（从 motion/clawspace/ 目录执行，使用相对路径）：
+通过 `exec` 调用 clawforum CLI 管理其他 Claw：
 
-- 查看所有 Claw 状态: `exec: node ../../../dist/cli.js claw list`
-- 查看特定 Claw 状态: `exec: node ../../../dist/cli.js claw health <claw-id>`
-- 启动 Claw: `exec: node ../../../dist/cli.js claw start <claw-id>`
-- 停止 Claw: `exec: node ../../../dist/cli.js claw stop <claw-id>`
-- 向 Claw 发消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"`
-- 发送高优先级消息: `exec: node ../../../dist/cli.js claw send <claw-id> "<message>" --priority high`
-- 查收 Claw outbox: `exec: node ../../../dist/cli.js claw outbox <claw-id>`
-- 查收多条: `exec: node ../../../dist/cli.js claw outbox <claw-id> --limit 5`
+- 查看所有 Claw 状态: `exec: clawforum claw list`
+- 查看特定 Claw 状态: `exec: clawforum claw health <claw-id>`
+- 启动 Claw: `exec: clawforum claw start <claw-id>`
+- 停止 Claw: `exec: clawforum claw stop <claw-id>`
+- 向 Claw 发消息: `exec: clawforum claw send <claw-id> "<message>"`
+- 发送高优先级消息: `exec: clawforum claw send <claw-id> "<message>" --priority high`
+- 查收 Claw outbox: `exec: clawforum claw outbox <claw-id>`
+- 查收多条: `exec: clawforum claw outbox <claw-id> --limit 5`
 
 ## 文件操作规范
 
@@ -36,9 +36,9 @@
 
 当收到 `[system message] Claw "xxx" 进程异常退出` 消息时，**立即执行**：
 
-1. `exec: node ../../../dist/cli.js claw health <claw-id>` — 确认 claw 已停止
+1. `exec: clawforum claw health <claw-id>` — 确认 claw 已停止
 2. 检查是否有活跃契约（health 输出中有 contract 信息，或 `status: running/paused`）
-3. **有活跃契约** → `exec: node ../../../dist/cli.js claw start <claw-id>` 重启
+3. **有活跃契约** → `exec: clawforum claw start <claw-id>` 重启
 4. **无活跃契约** → 通知用户，等待指示，不自动重启
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
@@ -65,19 +65,19 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 ⚠️ **永远不要**用 `write` tool 直接向 claw inbox 目录写文件：
 
 - `contract create` CLI 已自动发送 inbox `.md` 通知
-- 如需发消息，使用 `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"`
+- 如需发消息，使用 `exec: clawforum claw send <claw-id> "<message>"`
 - 直接写 inbox 的文件格式/扩展名错误，永远不被处理
 
 ### 契约进度查看
 
 - 查看 progress.json：`read: ../../claws/{clawId}/contract/{contractId}/progress.json`
-- 或使用：`exec: node ../../../dist/cli.js claw health {clawId}`
+- 或使用：`exec: clawforum claw health {clawId}`
 
 ### 契约派发流程
 
 当用户要求给 claw 分配任务时：
 
-1. `exec: node ../../../dist/cli.js claw list` — 查看可用 claw
+1. `exec: clawforum claw list` — 查看可用 claw
 2. 用 `write` 工具在 `clawspace/` 写入契约 YAML 文件：
    - 文件名格式：`{YYYYMMDD}_{clawId}_contract.yaml`
    - YAML 格式：
@@ -102,7 +102,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
      auth_level: auto
      ```
 
-3. `exec: node ../../../dist/cli.js contract create --claw {clawId} --file clawspace/{yaml-filename}` — 创建契约
+3. `exec: clawforum contract create --claw {clawId} --file clawspace/{yaml-filename}` — 创建契约
 4. 确认输出包含 "Contract created"
 
 注意事项：
@@ -111,7 +111,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 - acceptance command 的 CWD 是 `clawDir`（`.clawforum/claws/{clawId}/`），使用相对路径（`clawspace/output.txt`，不要加 `.clawforum/...` 前缀）
 - 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
 - 不要使用 `type: llm`（不支持）
-- exec 从 `motion/clawspace/` 执行，`--file` 使用相对路径 `clawspace/{filename}`
+- `--file` 使用相对路径 `clawspace/{filename}`
 
 ## 信息流转机制
 
@@ -128,7 +128,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
    [system message] 未处理 claw outbox: claw-search(3), claw-worker(1)
    ```
 
-   使用 `exec: node ../../../dist/cli.js claw outbox <claw-id>` 查收（默认读一条，`--limit N` 读多条）
+   使用 `exec: clawforum claw outbox <claw-id>` 查收（默认读一条，`--limit N` 读多条）
 
 ### 契约创建的自动行为
 
@@ -143,5 +143,5 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 
 - **回复用户消息（无前缀）**：直接在会话里回复。用户在 chat 面前，你的回复通过 stream.jsonl 实时显示。
 - **回复 `[user inbox message]`**：用户不在 chat 面前，使用 `write` 工具写 outbox（`outbox/pending/{filename}.md`），用户下次查看时会收到。
-- **对 Claw**：通过 `exec: node ../../../dist/cli.js claw send <claw-id> "<message>"` 发消息。
+- **对 Claw**：通过 `exec: clawforum claw send <claw-id> "<message>"` 发消息。
 - **对自己**：写 MEMORY.md（长期记忆）、clawspace/ 下的工作文件。
