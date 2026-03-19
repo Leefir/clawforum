@@ -81,7 +81,7 @@ export const lsTool: ITool = {
       } catch (error) {
         return {
           success: false,
-          content: `Error listing directory: ${error instanceof Error ? error.message : String(error)}`,
+          content: `Error listing directory: ${error instanceof Error ? error.message : String(error)}\nTip: To list another claw's directory, use the "claw" parameter: { "path": "contract/", "claw": "<claw-id>" }`,
         };
       }
     } else {
@@ -91,7 +91,7 @@ export const lsTool: ITool = {
       } catch (error) {
         return {
           success: false,
-          content: `Error listing directory: ${error instanceof Error ? error.message : String(error)}`,
+          content: `Error listing directory: ${error instanceof Error ? error.message : String(error)}\nTip: To list another claw's directory, use the "claw" parameter: { "path": "contract/", "claw": "<claw-id>" }`,
         };
       }
     }

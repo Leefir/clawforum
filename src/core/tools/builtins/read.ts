@@ -140,7 +140,7 @@ export const readTool: ITool = {
       } catch (error) {
         return {
           success: false,
-          content: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
+          content: `Error reading file: ${error instanceof Error ? error.message : String(error)}\nTip: To read another claw's file, use the "claw" parameter: { "path": "contract/xxx.json", "claw": "<claw-id>" }`,
         };
       }
     }
