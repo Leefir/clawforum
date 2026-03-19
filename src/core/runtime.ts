@@ -276,13 +276,12 @@ export class ClawRuntime {
 
   /**
    * 读取并 drain 自身 inbox/pending/*.md
-   * 只读取，不移动文件。移动推迟到 _runReact 成功后通过 _commitInbox 执行。
+   * 读取后立即移动到 done 目录（消息已在内存中）
    * @protected 供子类 MotionRuntime 复用
    */
   protected async _drainOwnInbox(): Promise<{
     injected: Message[];
     count: number;
-    pendingFiles: Array<{ src: string; dst: string }>;
   }> {
     const inboxDir = path.join(this.options.clawDir, 'inbox');
     const pendingDir = path.join(inboxDir, 'pending');
@@ -299,10 +298,10 @@ export class ClawRuntime {
       }
       files = allFiles.filter(f => f.endsWith('.md'));
     } catch {
-      return { injected: [], count: 0, pendingFiles: [] };
+      return { injected: [], count: 0 };
     }
 
-    if (files.length === 0) return { injected: [], count: 0, pendingFiles: [] };
+    if (files.length === 0) return { injected: [], count: 0 };
 
     // 按 priority + filename 排序
     const PRIORITY_ORDER: Record<string, number> = {
@@ -330,13 +329,15 @@ export class ClawRuntime {
       return a.name.localeCompare(b.name);
     });
 
-    // 记录待移动文件（在 _runReact 成功后移动）
-    const pendingFiles: Array<{ src: string; dst: string }> = [];
+    // 读完即移到 done（消息已在内存中，不再需要原文件）
+    await fs.mkdir(doneDir, { recursive: true });
     for (const info of fileInfos) {
-      pendingFiles.push({
-        src: path.join(pendingDir, info.name),
-        dst: path.join(doneDir, `${Date.now()}_${info.name}`),
-      });
+      try {
+        await fs.rename(
+          path.join(pendingDir, info.name),
+          path.join(doneDir, `${Date.now()}_${info.name}`)
+        );
+      } catch { /* 文件可能已被移动 */ }
     }
 
     // 构建消息注入（按 type 选择模板）
@@ -365,20 +366,7 @@ export class ClawRuntime {
       fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(() => {});
     }
 
-    return { injected, count: fileInfos.length, pendingFiles };
-  }
-
-  /**
-   * 提交 inbox 移动：在 _runReact 成功后执行
-   */
-  protected async _commitInbox(pendingFiles: Array<{ src: string; dst: string }>): Promise<void> {
-    for (const { src, dst } of pendingFiles) {
-      try {
-        await fs.rename(src, dst);
-      } catch {
-        // 文件可能已被移动（重复调用），忽略
-      }
-    }
+    return { injected, count: fileInfos.length };
   }
 
   /**
@@ -419,7 +407,7 @@ export class ClawRuntime {
       await this.initialize();
     }
 
-    const { injected, count, pendingFiles } = await this._drainOwnInbox();
+    const { injected, count } = await this._drainOwnInbox();
     if (count === 0) return 0;
 
     // 通知 daemon-loop 注入了哪些消息
@@ -442,8 +430,6 @@ export class ClawRuntime {
       await this._runReact(messages, callbacks);
       return count;
     } finally {
-      // 无论成功/中断都移走 inbox 消息（已注入 dialog，避免重复处理）
-      await this._commitInbox(pendingFiles);
       this.currentAbortController = null;
       this.execContext.signal = undefined;
     }

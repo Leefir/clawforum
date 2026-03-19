@@ -161,8 +161,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        appendOutput(`\x1b[36m→ ${event.name}\x1b[0m`);
-        startSpinner(`→ ${event.name}...`);
+        appendOutput(`\x1b[36m${event.name}\x1b[0m`);
+        startSpinner(`${event.name}...`);
         break;
 
       case 'tool_result': {
