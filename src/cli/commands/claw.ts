@@ -95,6 +95,12 @@ done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
   - \`read\` 有路径白名单、行数上限（200行）、字符上限（8000字符）三层保护
   - \`exec: cat\` 绕过所有保护，可能把超大文件整个灌进 context
 - \`exec\` 仅用于：shell 命令执行、进程管理
+  - **同步模式**（默认）：阻塞等待结果，最长 120 秒
+  - **异步模式**：加 \`"async": true\`，立即返回 taskId，结果经由 inbox 送达
+    - 适用场景：下载大文件、长时间脚本（>30 秒）
+    - 示例：\`exec: { "command": "curl -o report.pdf https://...", "async": true }\`
+    - 结果消息：from=task_system，content 含 taskId + 执行结果
+  - ⚠️ exec 为**非幂等**操作——异步重试可能导致命令重复执行，确认幂等再重试
 
 ## 与 Motion 通信
 
