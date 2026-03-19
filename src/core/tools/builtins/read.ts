@@ -4,9 +4,12 @@
  * Path restrictions (MVP aligned):
  * - Whitelist: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/
  * - Blacklist: dialog/ (system files)
+ * 
+ * Motion-only: can read other claws' files via `claw` parameter
  */
 
 import * as nodePath from 'path';
+import * as fsNative from 'fs';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from '../../../constants.js';
 
@@ -44,7 +47,7 @@ function isPathAllowed(filePath: string): boolean {
 
 export const readTool: ITool = {
   name: 'read',
-  description: 'Read the contents of a file. Allowed paths: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.',
+  description: 'Read the contents of a file. Allowed paths: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/. Motion can read other claws via `claw` parameter.',
   schema: {
     type: 'object',
     properties: {
@@ -60,6 +63,10 @@ export const readTool: ITool = {
         type: 'number',
         description: 'Maximum number of lines to read (optional)',
       },
+      claw: {
+        type: 'string',
+        description: 'Target claw ID (Motion only) - read from another claw\'s directory',
+      },
     },
     required: ['path'],
   },
@@ -70,6 +77,7 @@ export const readTool: ITool = {
     const filePath = args.path as string;
     const offset = args.offset as number | undefined;
     const limit = args.limit as number | undefined;
+    const clawParam = args.claw as string | undefined;
 
     // Path normalization for security (defense-in-depth)
     const normalized = nodePath.normalize(filePath);
@@ -80,18 +88,65 @@ export const readTool: ITool = {
       };
     }
 
-    // Path restriction check (MVP aligned)
-    if (!isPathAllowed(normalized)) {
-      return {
-        success: false,
-        content: `Error: Path "${filePath}" is not allowed for read. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.`,
-      };
+    // Motion-only: read from another claw's directory
+    let content: string;
+    if (clawParam !== undefined) {
+      // Only Motion can use this feature
+      if (ctx.clawId !== 'motion') {
+        return {
+          success: false,
+          content: 'Error: Only Motion can read files from other claws',
+        };
+      }
+      // Validate clawParam (no path traversal)
+      if (clawParam.includes('/') || clawParam.includes('..') || clawParam === '' || clawParam === '.' || clawParam.startsWith('.')) {
+        return {
+          success: false,
+          content: `Error: Invalid claw ID: "${clawParam}"`,
+        };
+      }
+      // Resolve path to target claw's directory
+      const targetPath = nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam, normalized);
+      // Escape check: must be within the target claw's directory
+      const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
+      if (!targetPath.startsWith(nodePath.join(clawsDir, clawParam))) {
+        return {
+          success: false,
+          content: `Error: Path escapes target claw directory: "${filePath}"`,
+        };
+      }
+      // Read directly using native fs (skip ctx.fs permissions)
+      try {
+        content = fsNative.readFileSync(targetPath, 'utf-8');
+      } catch (error) {
+        return {
+          success: false,
+          content: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    } else {
+      // Normal read (with whitelist/blacklist)
+      // Path restriction check (MVP aligned)
+      if (!isPathAllowed(normalized)) {
+        return {
+          success: false,
+          content: `Error: Path "${filePath}" is not allowed for read. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.`,
+        };
+      }
+      // Safety limits (from constants.ts)
+      try {
+        content = await ctx.fs.read(normalized);
+      } catch (error) {
+        return {
+          success: false,
+          content: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
     }
 
-    // Safety limits (from constants.ts)
-
+    // Post-processing (offset/limit/truncation) - shared for both paths
     try {
-      let content = await ctx.fs.read(normalized);
+      // Apply line range if specified
 
       // Apply line range if specified
       if (offset !== undefined || limit !== undefined) {

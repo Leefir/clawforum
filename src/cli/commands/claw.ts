@@ -260,7 +260,7 @@ export async function listCommand(): Promise<void> {
     for (const claw of claws) {
       const statusIcon = claw.status === 'running' ? '[running]' : '[stopped]';
       const pidStr = claw.pid || '-';
-      console.log(`${claw.name.padEnd(20)} ${statusIcon} ${claw.status.padEnd(10)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)}`);
+      console.log(`${claw.name.padEnd(20)} ${statusIcon.padEnd(12)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)}`);
     }
 
     console.log('─'.repeat(80));
