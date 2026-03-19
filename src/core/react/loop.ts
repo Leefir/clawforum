@@ -316,7 +316,8 @@ async function collectStreamResponse(
     let parsedInput: Record<string, unknown>;
     try {
       parsedInput = JSON.parse(currentToolUse.input || '{}');
-    } catch {
+    } catch (err) {
+      console.warn(`[loop] Failed to parse tool input for "${currentToolUse.name}": ${err instanceof Error ? err.message : String(err)}`);
       parsedInput = {};
     }
     contentBlocks.push({
