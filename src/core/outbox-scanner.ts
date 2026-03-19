@@ -63,7 +63,7 @@ priority: normal
 timestamp: ${now.toISOString()}
 ---
 
-[system message] 未处理 claw outbox: ${summary}
+未处理 claw outbox: ${summary}
 `;
     fsNative.writeFileSync(path.join(inboxDir, filename), content);
   } catch (error) {

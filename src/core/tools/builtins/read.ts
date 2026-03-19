@@ -147,8 +147,6 @@ export const readTool: ITool = {
     // Post-processing (offset/limit/truncation) - shared for both paths
     try {
       // Apply line range if specified
-
-      // Apply line range if specified
       if (offset !== undefined || limit !== undefined) {
         const lines = content.split('\n');
         let start = (offset ?? 1) - 1;

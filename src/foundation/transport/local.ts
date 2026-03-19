@@ -31,7 +31,7 @@ import { parseFrontmatter } from '../../utils/frontmatter.js';
 
 // Validation helpers (duplicated from inbox.ts - consider moving to shared utils)
 const VALID_PRIORITIES: InboxMessage['priority'][] = ['critical', 'high', 'normal', 'low'];
-const VALID_TYPES = ['message', 'crash', 'contract', 'report', 'notification'];
+const VALID_TYPES = ['message', 'user_chat', 'user_inbox_message', 'crash_notification', 'heartbeat', 'claw_outbox'];
 
 function validatePriority(value: unknown): InboxMessage['priority'] {
   if (typeof value === 'string' && VALID_PRIORITIES.includes(value as InboxMessage['priority'])) {
@@ -41,9 +41,10 @@ function validatePriority(value: unknown): InboxMessage['priority'] {
 }
 
 function validateType(value: unknown): InboxMessage['type'] {
-  if (typeof value === 'string' && VALID_TYPES.includes(value)) {
-    return value as InboxMessage['type'];
-  }
+  if (typeof value !== 'string') return 'message';
+  if (VALID_TYPES.includes(value)) return value as InboxMessage['type'];
+  if (value.startsWith('watchdog_')) return value; // 动态 watchdog 类型
+  console.warn(`[inbox] Unknown type: ${value}, using 'message'`);
   return 'message';
 }
 
