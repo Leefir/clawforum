@@ -9,6 +9,7 @@ import type { ClawRuntime } from '../../core/runtime.js';
 import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
+import { scanClawOutboxes } from '../../core/outbox-scanner.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -70,6 +71,11 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       // 心跳检查（移入 daemon loop，避免 setInterval 竞态）
       if (options.heartbeat?.isDue()) {
         options.heartbeat.fire();
+      }
+
+      // motion: 扫描 claw outbox 未读消息
+      if (options.heartbeat) {
+        scanClawOutboxes(path.join(agentDir, '..'));
       }
 
       let turnStarted = false;

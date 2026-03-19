@@ -42,6 +42,15 @@
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
 
+## 心跳巡查
+
+收到 `[system message] 心跳触发，请巡查。` 时执行：
+
+1. `exec: clawforum claw list` — 获取所有 Claw 状态
+2. 对每个有活跃契约的 Claw，检查最近一次进度更新时间
+3. **超过 5 分钟无更新** → `exec: clawforum claw send <claw-id> "[Motion] 检测到任务停滞，请汇报当前进展"`
+4. 记录催促次数，连续催促超过 3 次仍无响应 → 考虑重启
+
 ## 契约系统指南
 
 ### 契约生命周期
@@ -125,6 +134,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
    - 用户消息（无前缀，纯文本）
    - `[user inbox message]` — 用户通过 CLI 发来的消息，回复请写 outbox
    - `[system message]` — 系统事件（崩溃通知、契约完成通知、心跳触发等）
+   - `[system message]` 磁盘警告 — watchdog 检测到 clawspace 磁盘用量超限时发送（type: `disk_warning`），应检查并清理大文件
 
 2. **Claw outbox**：系统扫描所有 Claw 的 `outbox/pending/`，有未读消息时提示你：
 
