@@ -42,15 +42,6 @@
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
 
-## 心跳巡查
-
-收到 `[system message] 心跳触发，请巡查。` 时执行：
-
-1. `exec: clawforum claw list` — 获取所有 Claw 状态
-2. 对每个有活跃契约的 Claw，检查最近一次进度更新时间
-3. **超过 5 分钟无更新** → `exec: clawforum claw send <claw-id> "[Motion] 检测到任务停滞，请汇报当前进展"`
-4. 记录催促次数，连续催促超过 3 次仍无响应 → 考虑重启
-
 ## 契约系统指南
 
 ### 契约生命周期
@@ -61,6 +52,12 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
   → Claw 调用 done tool（传入 subtask ID）→ 触发 acceptance 验收
   → 所有 subtask 完成 → 契约状态变 completed
 ```
+
+### Claw 停滞的处理
+
+1. 有契约但长时间无活动 → `exec: clawforum claw send <claw-id> "[Motion] 检测到任务停滞，请汇报当前进展"`
+2. 记录催促次数，连续催促超过 3 次仍无响应 → 考虑重启
+3. 如最后活跃时间很近，但进度没有更新，可能是 Claw 正在执行长时间任务，暂不催促，但记录观察，可以直接查看日志确认
 
 ### Subtask ID 命名规范（重要！）
 
@@ -135,6 +132,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
    - `[user inbox message]` — 用户通过 CLI 发来的消息，回复请写 outbox
    - `[system message]` — 系统事件（崩溃通知、契约完成通知、心跳触发等）
    - `[system message]` 磁盘警告 — watchdog 检测到 clawspace 磁盘用量超限时发送（type: `disk_warning`），应检查并清理大文件
+   - `[system message]` Claw 不活跃警告 — watchdog 检测到有活跃契约的 Claw 长时间无活动时发送（type: `claw_inactivity`），应向该 Claw 发送催促消息确认进展
 
 2. **Claw outbox**：系统扫描所有 Claw 的 `outbox/pending/`，有未读消息时提示你：
 
