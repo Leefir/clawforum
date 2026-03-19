@@ -300,7 +300,10 @@ export class ClawRuntime {
         console.warn(`[inbox] Skipping non-.md files: ${skipped.join(', ')}`);
       }
       files = allFiles.filter(f => f.endsWith('.md'));
-    } catch {
+    } catch (err: any) {
+      if (err?.code !== 'ENOENT') {
+        console.warn(`[inbox] Failed to read pending dir: ${err?.message}`);
+      }
       return { injected: [], count: 0 };
     }
 
