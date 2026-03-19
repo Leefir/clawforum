@@ -54,7 +54,8 @@ export class SessionManager {
       this.createdAt = data.createdAt;
       return data;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      const code = (err as any).code;
+      if (code === 'ENOENT' || code === 'FS_NOT_FOUND') {
         // 冷启动，文件不存在是正常的
       } else {
         console.error('[session] current.json corrupted:', err);
