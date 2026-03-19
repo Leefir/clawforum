@@ -82,6 +82,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
 
     try {
       const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
         prompt,
         skills,
         tools,

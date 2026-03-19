@@ -110,6 +110,7 @@ describe('Task System + SubAgent', () => {
   describe('TaskSystem', () => {
     it('should schedule subagent and return taskId', async () => {
       const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
         prompt: 'Test task',
         skills: [],
         tools: ['read'],
@@ -131,6 +132,7 @@ describe('Task System + SubAgent', () => {
       await mockFs.ensureDir('claws/parent-claw/inbox/pending');
 
       const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
         prompt: 'Simple task',
         skills: [],
         tools: [],
@@ -153,6 +155,7 @@ describe('Task System + SubAgent', () => {
 
     it('should cancel task', async () => {
       const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
         prompt: 'Long running task',
         skills: [],
         tools: [],

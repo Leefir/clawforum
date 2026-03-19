@@ -13,8 +13,10 @@ import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
+import type { ToolResult } from '../tools/executor.js';
 
 export interface SubAgentTask {
+  kind: 'subagent';
   id: string;
   prompt: string;
   skills: string[];
@@ -25,8 +27,16 @@ export interface SubAgentTask {
   createdAt: string;
 }
 
+export interface ToolTask {
+  kind: 'tool';
+  id: string;
+  toolName: string;
+  parentClawId: string;
+  createdAt: string;
+}
+
 interface TaskState {
-  task: SubAgentTask;
+  task: SubAgentTask | ToolTask;
   abortController: AbortController;
   promise: Promise<void>;
 }
@@ -100,6 +110,48 @@ export class TaskSystem {
   }
 
   /**
+   * Schedule a new tool task for async execution
+   * Returns taskId immediately, task executes asynchronously (fire-and-forget)
+   */
+  async scheduleTool(
+    toolName: string,
+    executeCallback: () => Promise<ToolResult>,
+    parentClawId: string,
+  ): Promise<string> {
+    if (this.runningTasks.size >= this.maxConcurrent) {
+      throw new Error(`Max concurrent tasks (${this.maxConcurrent}) reached`);
+    }
+
+    const taskId = randomUUID();
+    const task: ToolTask = {
+      kind: 'tool',
+      id: taskId,
+      toolName,
+      parentClawId,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Save to running directory
+    const taskPath = `tasks/running/${taskId}.json`;
+    await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
+
+    // Start execution (fire-and-forget)
+    const abortController = new AbortController();
+    const promise = this.executeToolTask(task, executeCallback, abortController.signal);
+
+    this.runningTasks.set(taskId, { task, abortController, promise });
+
+    // Log
+    this.monitor.log('tool_task_spawned', {
+      taskId,
+      parentClawId,
+      toolName,
+    });
+
+    return taskId;
+  }
+
+  /**
    * Execute a task - internal method
    */
   private async executeTask(task: SubAgentTask, signal: AbortSignal): Promise<void> {
@@ -145,6 +197,94 @@ export class TaskSystem {
       // Move from running to done
       await this.moveTaskToDone(task.id);
       this.runningTasks.delete(task.id);
+    }
+  }
+
+  /**
+   * Execute a tool task - internal method
+   */
+  private async executeToolTask(
+    task: ToolTask,
+    executeCallback: () => Promise<ToolResult>,
+    signal: AbortSignal,
+  ): Promise<void> {
+    try {
+      const result = await executeCallback();
+      // Send success result to parent inbox
+      await this.sendToolResult(task, result, false);
+
+      this.monitor.log('tool_task_completed', {
+        taskId: task.id,
+        parentClawId: task.parentClawId,
+        toolName: task.toolName,
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Send error result to parent inbox
+      await this.sendToolResult(task, errorMsg, true);
+
+      this.monitor.log('error', {
+        taskId: task.id,
+        parentClawId: task.parentClawId,
+        toolName: task.toolName,
+        error: errorMsg,
+      });
+    } finally {
+      // Move from running to done
+      await this.moveTaskToDone(task.id);
+      this.runningTasks.delete(task.id);
+    }
+  }
+
+  /**
+   * Send tool task result to parent claw's inbox
+   */
+  private async sendToolResult(task: ToolTask, result: ToolResult | string, isError: boolean): Promise<void> {
+    try {
+      const resultContent = typeof result === 'string' ? result : JSON.stringify(result);
+      const message: InboxMessage = {
+        id: randomUUID(),
+        type: 'message',
+        from: 'task_system',
+        to: task.parentClawId,
+        content: JSON.stringify({ taskId: task.id, toolName: task.toolName, result: resultContent, is_error: isError }),
+        priority: isError ? 'high' : 'normal',
+        timestamp: new Date().toISOString(),
+      };
+
+      await this.transport.sendInboxMessage(task.parentClawId, message);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.monitor.log('error', {
+        taskId: task.id,
+        parentClawId: task.parentClawId,
+        error: errMsg,
+      });
+      // 回退：transport 投递失败时，直接写文件到 inbox
+      try {
+        const fallbackMsg = {
+          type: 'tool_task_result',
+          taskId: task.id,
+          toolName: task.toolName,
+          result: typeof result === 'string' ? result : JSON.stringify(result),
+          is_error: isError,
+          parentClawId: task.parentClawId,
+          error_note: 'transport_failed',
+        };
+        await this.fs.ensureDir('inbox/pending');
+        await this.fs.writeAtomic(
+          `inbox/pending/${Date.now()}_tool_result_${task.id}.json`,
+          JSON.stringify(fallbackMsg, null, 2)
+        );
+      } catch (fallbackErr) {
+        const fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+        console.error(`[task] Both transport and fallback failed for tool task ${task.id}:`, fallbackErr);
+        this.monitor.log('error', {
+          taskId: task.id,
+          parentClawId: task.parentClawId,
+          error: `Both transport and fallback failed: ${fallbackErrMsg}`,
+        });
+      }
     }
   }
 

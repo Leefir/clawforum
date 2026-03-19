@@ -77,6 +77,8 @@ export class JsonlMonitor implements IMonitor {
       'contract_failed': 'contracts.jsonl',
       'subagent_spawned': 'subagents.jsonl',
       'subagent_completed': 'subagents.jsonl',
+      'tool_task_spawned': 'tool-tasks.jsonl',
+      'tool_task_completed': 'tool-tasks.jsonl',
       'file_operation': 'file-ops.jsonl',
       'error': 'errors.jsonl',
       'system': 'events.jsonl',  // Map 'system' to 'events.jsonl'

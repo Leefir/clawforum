@@ -13,6 +13,8 @@ export type MonitorEventType =
   | 'contract_failed'
   | 'subagent_spawned'
   | 'subagent_completed'
+  | 'tool_task_spawned'
+  | 'tool_task_completed'
   | 'file_operation'
   | 'error'
   | 'system';
