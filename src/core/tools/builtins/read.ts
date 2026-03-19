@@ -53,7 +53,7 @@ export const readTool: ITool = {
     properties: {
       path: {
         type: 'string',
-        description: 'Path to the file to read (allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/)',
+        description: 'Path to the file to read, relative to YOUR OWN claw directory (allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/). To read another claw\'s files, use the "claw" parameter.',
       },
       offset: {
         type: 'number',

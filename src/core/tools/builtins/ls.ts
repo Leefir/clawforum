@@ -17,7 +17,7 @@ export const lsTool: ITool = {
     properties: {
       path: {
         type: 'string',
-        description: 'Directory path to list (defaults to current directory)',
+        description: 'Directory path to list, relative to YOUR OWN claw directory. To list another claw\'s files, use the "claw" parameter instead of putting their path here.',
       },
       claw: {
         type: 'string',
