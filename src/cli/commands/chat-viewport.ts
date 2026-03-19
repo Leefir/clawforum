@@ -202,8 +202,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   try {
     const stat = fsNative.statSync(streamPath);
     fileSize = stat.size;  // 从当前末尾开始（不 replay 历史）
-  } catch {
-    // 文件不存在，从 0 开始
+  } catch (err: any) {
+    if (err?.code !== 'ENOENT') {
+      console.warn(`[chat] Failed to stat stream file: ${err?.message}`);
+    }
+    // ENOENT: 文件不存在，从 0 开始
   }
 
   const pollStream = () => {
@@ -224,7 +227,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const event = JSON.parse(line);
           handleEvent(event);
         } catch {
-          // 跳过无效行
+          // 跳过无效行（可能是流截断产生的半行，正常现象）
+          // 只在非空行时 warn，避免末尾空行误报
+          if (line.trim().length > 2) {
+            console.warn(`[chat] Failed to parse stream event: ${line.slice(0, 80)}`);
+          }
         }
       }
     } catch {
