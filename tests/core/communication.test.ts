@@ -281,7 +281,7 @@ describe('Communication', () => {
       const outboxDir = path.join(tempDir, 'outbox', 'pending');
       const files = await fs.readdir(outboxDir);
       expect(files.length).toBe(1);
-      expect(files[0]).toContain('STATUS_REPORT');
+      expect(files[0]).toContain('status_report');
     });
   });
 });

@@ -56,7 +56,7 @@ export class OutboxWriter {
 
     // Generate filename: {timestamp}_{type}_{uuid}.md
     const timestamp = Date.now();
-    const typeSlug = options.type.toUpperCase();
+    const typeSlug = options.type.toLowerCase();
     const filename = `${timestamp}_${typeSlug}_${message.id.slice(0, 8)}.md`;
     const filePath = path.join(this.outboxDir, filename);
 
