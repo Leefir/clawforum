@@ -142,6 +142,22 @@ export class ProcessManager {
    * @returns 进程 PID
    */
   async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+    // 检查并清理旧 daemon 的 lockfile
+    const lockFile = path.join(this.getStatusDir(clawId), 'daemon.lock');
+    try {
+      const lockContent = readFileSync(lockFile, 'utf-8');
+      const lockPid = parseInt(lockContent.trim(), 10);
+      if (!isNaN(lockPid)) {
+        try {
+          process.kill(lockPid, 'SIGTERM');
+          // 等待优雅退出
+          await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
+        } catch { /* ESRCH = 已死 */ }
+      }
+      // 清理 stale lockfile
+      try { await this.fs.delete(lockFile); } catch {}
+    } catch { /* lockfile 不存在，正常 */ }
+    
     // 排他创建 PID 文件（避免竞态）
     const pidFile = this.getPidFile(clawId);
     await this.ensureStatusDir(clawId);

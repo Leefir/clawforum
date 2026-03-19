@@ -95,10 +95,38 @@ export async function daemonCommand(name: string): Promise<void> {
   // 配置
   const dir = isMotion ? getMotionDir() : getClawDir(name);
   
-  // 写 PID 文件（兜底：无论启动方式都确保 PID 可查）
+  // lockfile 单实例保护
   const statusDir = path.join(dir, 'status');
   fsNative.mkdirSync(statusDir, { recursive: true });
+  const lockFile = path.join(statusDir, 'daemon.lock');
   const pidFile = path.join(statusDir, 'pid');
+  
+  // 尝试获取排他锁
+  try {
+    const fd = fsNative.openSync(lockFile, 'wx');
+    fsNative.writeFileSync(fd, String(process.pid));
+    fsNative.closeSync(fd);
+  } catch (err: any) {
+    if (err.code === 'EEXIST') {
+      // lockfile 存在 → 检查持有者是否存活
+      try {
+        const lockPid = parseInt(fsNative.readFileSync(lockFile, 'utf-8').trim(), 10);
+        process.kill(lockPid, 0); // 存活
+        console.error(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
+        process.exit(1);
+      } catch {
+        // 持有者已死，删除 stale lock 并重试
+        fsNative.unlinkSync(lockFile);
+        const fd = fsNative.openSync(lockFile, 'wx');
+        fsNative.writeFileSync(fd, String(process.pid));
+        fsNative.closeSync(fd);
+      }
+    } else {
+      throw err;
+    }
+  }
+  
+  // 写 PID 文件（兜底：无论启动方式都确保 PID 可查）
   fsNative.writeFileSync(pidFile, String(process.pid));
   
   const clawConfig = isMotion ? null : loadClawConfig(name);
@@ -181,8 +209,9 @@ export async function daemonCommand(name: string): Promise<void> {
     if (!isMotion && hasContract(dir)) {
       notifyMotionExit(name, signal);
     }
-    // 清理 PID 文件
+    // 清理 PID 文件和 lockfile
     try { fsNative.unlinkSync(pidFile); } catch {}
+    try { fsNative.unlinkSync(lockFile); } catch {}
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
