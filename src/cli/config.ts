@@ -52,13 +52,16 @@ export const ClawConfigSchema = z.object({
     primary: LLMProviderSchema.optional(),
   }).optional(),
   max_steps: z.number().default(100),
-  tool_profile: z.enum(['full', 'readonly', 'subagent']).default('full'),
+  tool_profile: z.enum(['full', 'readonly', 'subagent', 'dream']).default('full'),
   subagent_max_steps: z.number().default(20),
   max_concurrent_tasks: z.number().default(3),
 });
 
 export type ClawGlobalConfig = z.infer<typeof ClawGlobalConfigSchema>;
 export type ClawConfig = z.infer<typeof ClawConfigSchema>;
+
+// Tool profile for tool permission management
+export type ToolProfile = 'full' | 'readonly' | 'subagent' | 'dream';
 
 // Workspace root - 优先从环境变量获取（供 exec 子进程继承）
 function getWorkspaceRoot(): string {

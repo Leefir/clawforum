@@ -28,24 +28,7 @@ export type {
 } from './contract.js';
 
 // Config types
-export {
-  LLMProviderSchema,
-  LLMConfigSchema,
-  ToolProfileSchema,
-  MotionConfigSchema,
-  ClawConfigSchema,
-  ClawGlobalConfigSchema,
-} from './config.js';
-
-export type {
-  LLMProvider,
-  LLMConfig,
-  ToolProfile,
-  MotionConfig,
-  ClawConfig,
-  ClawGlobalConfig,
-  ClawConfigRuntime,
-} from './config.js';
+export type { ToolProfile } from './config.js';
 
 // Error types
 export type {
