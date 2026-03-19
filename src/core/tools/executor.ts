@@ -247,7 +247,7 @@ export class ToolExecutorImpl implements IToolExecutor {
 
     // 4. Async path: submit to TaskSystem, return immediately
     if (options.async) {
-      const taskSystem = (ctx as any).taskSystem as TaskSystem | undefined;
+      const taskSystem = ctx.taskSystem;
       if (!taskSystem) {
         return { success: false, content: 'Async mode requires TaskSystem (not available).' };
       }
