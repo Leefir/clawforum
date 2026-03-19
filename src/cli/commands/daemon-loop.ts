@@ -151,6 +151,10 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
           console.error(`${label} processBatch error:`, err);
+          if (turnStarted) {
+            const msg = err instanceof Error ? err.message : String(err);
+            streamWriter?.write({ ts: Date.now(), type: 'turn_error', error: msg });
+          }
           await waitForInbox(inboxPendingDir, fallbackTimeout);
         }
       }

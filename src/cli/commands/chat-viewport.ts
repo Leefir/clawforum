@@ -194,6 +194,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         updateDisplay();
         appendOutput('\x1b[33m⏎ Interrupted\x1b[0m');
         break;
+
+      case 'turn_error':
+        inTurn = false;
+        stopSpinner();
+        flushThinking();
+        flushStreaming();
+        streamingSuffix = '';
+        updateDisplay();
+        appendOutput(`\x1b[31m✗ Error: ${event.error}\x1b[0m`);
+        break;
     }
   };
 
