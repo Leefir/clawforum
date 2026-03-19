@@ -350,6 +350,21 @@ export class ClawRuntime {
       });
     }
 
+    // audit log: 记录每条 inbox 消息注入
+    const auditPath = path.join(this.options.clawDir, 'logs', 'audit.log');
+    await fs.mkdir(path.dirname(auditPath), { recursive: true });
+    for (const info of fileInfos) {
+      const entry = {
+        ts: new Date().toISOString(),
+        event: 'inbox_inject',
+        file: info.name,
+        type: info.meta.type ?? 'message',
+        source: info.meta.source ?? info.meta.from ?? 'unknown',
+        priority: info.meta.priority ?? 'unknown',
+      };
+      fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(() => {});
+    }
+
     return { injected, count: fileInfos.length, pendingFiles };
   }
 

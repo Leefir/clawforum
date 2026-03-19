@@ -6,7 +6,7 @@
 
 // TODO(phase3): 僵尸进程检测 - MVP 用 `ps` 命令检测僵尸，TS 只用 kill(0)，macOS/Linux 行为差异
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, openSync, mkdirSync, closeSync, existsSync } from 'fs';
@@ -92,8 +92,8 @@ export class ProcessManager {
       const pidFile = this.getPidFile(clawId);
       await this.fs.delete(pidFile);
     } catch (err: any) {
-      // 仅忽略 ENOENT（文件不存在），其他错误需要记录
-      if (err.code !== 'ENOENT') {
+      // 忽略文件不存在（ENOENT 或 NodeFileSystem 的 FS_NOT_FOUND）
+      if (err.code !== 'ENOENT' && err.code !== 'FS_NOT_FOUND') {
         console.warn(`[ProcessManager] Failed to remove PID file for ${clawId}:`, err);
       }
     }
@@ -142,6 +142,21 @@ export class ProcessManager {
    * @returns 进程 PID
    */
   async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+    // 杀掉所有同名 daemon 孤儿进程（pgrep 扫描）
+    const pattern = clawId === 'motion'
+      ? 'cli.js motion daemon'
+      : `cli.js claw daemon ${clawId}`;
+    try {
+      const output = execSync(`pgrep -f "${pattern}"`, { encoding: 'utf-8' });
+      const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
+      for (const pid of pids) {
+        try { process.kill(pid, 'SIGTERM'); } catch {}
+      }
+      if (pids.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
+      }
+    } catch { /* pgrep 无匹配返回 exit code 1 */ }
+
     // 检查并清理旧 daemon 的 lockfile
     const lockFile = path.join(this.getStatusDir(clawId), 'daemon.lock');
     try {
