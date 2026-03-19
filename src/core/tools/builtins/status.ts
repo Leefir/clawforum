@@ -4,7 +4,6 @@
  * Enhanced with (MVP aligned):
  * - Active contract progress
  * - Task queue status
- * - Inbox/outbox pending counts
  * - MEMORY.md size, clawspace file count
  */
 
@@ -68,34 +67,6 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
   }
 }
 
-async function getInboxOutboxStatus(ctx: ExecContext): Promise<string[]> {
-  const lines: string[] = [];
-  
-  try {
-    // Check inbox pending (ENOENT = 目录不存在，正常返回空)
-    const inboxEntries = await ctx.fs.list('inbox/pending', { includeDirs: false }).catch((err: any) => {
-      if (err?.code === 'ENOENT') return [];
-      throw err;
-    });
-    lines.push(`Inbox: ${inboxEntries.length} pending`);
-  } catch (err: any) {
-    lines.push(`Inbox: Error (${err?.message || 'unknown'})`);
-  }
-  
-  try {
-    // Check outbox pending
-    const outboxEntries = await ctx.fs.list('outbox/pending', { includeDirs: false }).catch((err: any) => {
-      if (err?.code === 'ENOENT') return [];
-      throw err;
-    });
-    lines.push(`Outbox: ${outboxEntries.length} pending`);
-  } catch (err: any) {
-    lines.push(`Outbox: Error (${err?.message || 'unknown'})`);
-  }
-  
-  return lines;
-}
-
 async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
   const lines: string[] = [];
   
@@ -127,7 +98,7 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
 
 export const statusTool: ITool = {
   name: 'status',
-  description: 'Get comprehensive status: Claw ID, profile, step count, active contract, tasks, inbox/outbox, storage (MEMORY.md, clawspace).',
+  description: 'Get comprehensive status: Claw ID, profile, step count, active contract, tasks, storage (MEMORY.md, clawspace).',
   schema: {
     type: 'object',
     properties: {},
@@ -149,9 +120,6 @@ export const statusTool: ITool = {
     
     // Add task status (MVP aligned)
     lines.push(await getTaskStatus(ctx));
-    
-    // Add inbox/outbox status (MVP aligned)
-    lines.push(...await getInboxOutboxStatus(ctx));
     
     // Add storage status (MVP aligned)
     lines.push(...await getStorageStatus(ctx));
