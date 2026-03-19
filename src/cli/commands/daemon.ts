@@ -15,6 +15,7 @@ import type { ClawRuntimeOptions } from '../../core/runtime.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
+import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 /**
  * 检查是否有活跃契约（active/ 或 paused/ 中存在子目录）

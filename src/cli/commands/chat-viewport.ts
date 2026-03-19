@@ -6,6 +6,7 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir

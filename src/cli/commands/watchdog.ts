@@ -11,6 +11,7 @@ import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { randomUUID } from 'node:crypto';
+import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 // PID 文件路径
 function getWatchdogPidFile(): string {

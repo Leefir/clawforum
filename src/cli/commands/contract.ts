@@ -10,6 +10,7 @@ import * as yaml from 'js-yaml';
 import { ContractManager, type ContractYaml } from '../../core/contract/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { getClawDir } from '../config.js';
+import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 /**
  * Create a contract for a claw
