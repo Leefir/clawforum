@@ -100,7 +100,7 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
       const remainingList = remaining.map(s => `- ${s.id}: ${s.description}`).join('\n');
       return {
         success: true,
-        content: `子任务 ${subtaskId} 验收通过。剩余 ${remaining.length} 个子任务：\n${remainingList}`,
+        content: `子任务 ${subtaskId} 验收通过。剩余 ${remaining.length} 个子任务：\n${remainingList}\n\n注意：只有所有子任务全部验收通过，系统才会向 Motion 发送契约完成通知。`,
         metadata: { contractId: active.id, subtaskId },
       };
     } else {
