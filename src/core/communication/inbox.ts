@@ -257,6 +257,8 @@ export class InboxWatcher {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[inbox] Failed to move ${filePath} to done:`, msg);
+    } finally {
+      this.processedFiles.delete(filePath);
     }
   }
 
@@ -272,6 +274,8 @@ export class InboxWatcher {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[inbox] Failed to move ${filePath} to failed:`, msg);
+    } finally {
+      this.processedFiles.delete(filePath);
     }
   }
 }

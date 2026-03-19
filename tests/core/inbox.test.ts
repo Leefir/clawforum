@@ -209,7 +209,7 @@ Test message content`;
     expect(processedFiles).toBeInstanceOf(Set);
   });
 
-  it('should add file path to processedFiles Set', async () => {
+  it('should add and cleanup file path in processedFiles Set', async () => {
     const clawDir = path.join(TEST_DIR, 'processed-set-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
@@ -220,14 +220,18 @@ Test message content`;
     const msgFile = path.join(pendingDir, 'test.md');
     await fs.writeFile(msgFile, '---\ntype: normal\nid: test-1\n---\nBody', 'utf-8');
 
+    const processedFiles = (inbox as any).processedFiles;
+
+    // 处理文件前，Set 为空
+    expect(processedFiles.has(msgFile)).toBe(false);
+
     // 处理文件
     await inbox.start(async () => {});
     await (inbox as any).handleNewFile(msgFile);
     await new Promise(r => setTimeout(r, 50));
 
-    // 验证文件路径在 Set 中
-    const processedFiles = (inbox as any).processedFiles;
-    expect(processedFiles.has(msgFile)).toBe(true);
+    // 处理完成后，Set 应被清理（防止内存泄漏）
+    expect(processedFiles.has(msgFile)).toBe(false);
 
     await inbox.stop();
   });
