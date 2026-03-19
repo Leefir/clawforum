@@ -28,6 +28,7 @@ export const lsTool: ITool = {
   },
   requiredPermissions: ['read'],
   readonly: true,
+  idempotent: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const path = (args.path as string) ?? '.';

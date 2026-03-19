@@ -50,6 +50,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
   },
   requiredPermissions: ['spawn'],
   readonly: false,
+  idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     // Prevent recursive spawning from subagents

@@ -56,6 +56,7 @@ export const searchTool: ITool = {
   },
   requiredPermissions: ['read'],
   readonly: true,
+  idempotent: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const query = (args.query as string).toLowerCase();

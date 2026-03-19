@@ -72,6 +72,7 @@ export const readTool: ITool = {
   },
   requiredPermissions: ['read'],
   readonly: true,
+  idempotent: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const filePath = args.path as string;

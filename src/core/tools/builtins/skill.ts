@@ -28,6 +28,7 @@ export const skillTool: ITool & { skillRegistry?: SkillRegistry } = {
   },
   requiredPermissions: ['read'],
   readonly: true,
+  idempotent: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const skillRegistry = (ctx as { skillRegistry?: SkillRegistry }).skillRegistry;
