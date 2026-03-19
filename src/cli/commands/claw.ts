@@ -386,7 +386,7 @@ export async function sendCommand(
     await transport.sendInboxMessage(name, {
       id: randomUUID(),
       type: 'user_inbox_message',
-      from: 'motion',
+      from: 'user',
       to: name,
       content: message,
       priority: options?.priority ?? 'normal',
