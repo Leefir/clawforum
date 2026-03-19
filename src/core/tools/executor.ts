@@ -186,6 +186,7 @@ export interface ExecuteOptions {
   args: Record<string, unknown>;
   ctx: ExecContext;
   timeoutMs?: number;
+  async?: boolean;   // 新增：true 时走异步路径
 }
 
 /**
@@ -242,7 +243,25 @@ export class ToolExecutorImpl implements IToolExecutor {
       throw new ToolInvalidInputError(toolName, validation.errors?.[0] ?? 'Invalid input');
     }
 
-    // 4. Execute with timeout using Promise.race
+    // 4. Async path: submit to TaskSystem, return immediately
+    if (options.async) {
+      const taskSystem = (ctx as any).taskSystem as TaskSystem | undefined;
+      if (!taskSystem) {
+        return { success: false, content: 'Async mode requires TaskSystem (not available).' };
+      }
+      if (!tool.supportsAsync) {
+        return { success: false, content: `Tool "${toolName}" does not support async mode.` };
+      }
+      const executeCallback = () => tool.execute(args, ctx);
+      const taskId = await taskSystem.scheduleTool(toolName, executeCallback, ctx.clawId);
+      return {
+        success: true,
+        content: `Async task queued. Task ID: ${taskId}. Result will be delivered to inbox when complete.`,
+        metadata: { taskId, async: true },
+      };
+    }
+
+    // 5. Execute with timeout using Promise.race (sync path)
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
