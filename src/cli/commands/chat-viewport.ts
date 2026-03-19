@@ -253,6 +253,31 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // watch 失败，靠 pollInterval
   }
 
+  // Daemon 存活检测（每 3 秒一次）
+  let daemonDead = false;
+  const pidFile = path.join(options.agentDir, 'status', 'pid');
+  const checkDaemonAlive = () => {
+    if (daemonDead) return;
+    try {
+      const pid = parseInt(fsNative.readFileSync(pidFile, 'utf-8').trim(), 10);
+      if (isNaN(pid)) return;
+      try {
+        process.kill(pid, 0); // 检测存活
+      } catch {
+        // 进程不存在
+        daemonDead = true;
+        inTurn = false;
+        stopSpinner();
+        streamingSuffix = '';
+        updateDisplay();
+        appendOutput('\x1b[31m✗ Daemon 已停止\x1b[0m');
+      }
+    } catch {
+      // PID 文件不存在或读取失败，忽略
+    }
+  };
+  const daemonCheckInterval = setInterval(checkDaemonAlive, 3000);
+
   // 输入提交处理
   input.onSubmit = (text: string) => {
     const trimmed = text.trim();
@@ -329,6 +354,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 清理
   stopSpinner();
   clearInterval(pollInterval);
+  clearInterval(daemonCheckInterval);
   watcher?.close();
   tui.stop();
   await terminal.drainInput();
