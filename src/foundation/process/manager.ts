@@ -142,6 +142,11 @@ export class ProcessManager {
    * @returns 进程 PID
    */
   async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+    // Fast-path：已运行则直接报错，避免后续 pgrep 等待
+    if (this.isAlive(clawId)) {
+      throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
+    }
+
     // 杀掉所有同名 daemon 孤儿进程（pgrep 扫描）
     const pattern = clawId === 'motion'
       ? 'cli.js motion daemon'
