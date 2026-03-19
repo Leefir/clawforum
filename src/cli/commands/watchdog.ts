@@ -195,6 +195,7 @@ function maybeCronDiskCheck(): void {
 function getDirSize(dir: string): number {
   let size = 0;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;  // 跳过 symlink 防循环
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       size += getDirSize(fullPath);
