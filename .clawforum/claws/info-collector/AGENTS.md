@@ -16,7 +16,7 @@ done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
 
 ### 工作目录
 
-你的工作目录是 claw 根目录。输出文件写到 `clawspace/` 下。
+你的工作目录是 `clawspace/`。直接用相对路径写文件（如 `curl -o file.pdf URL`）。
 
 ## 文件操作规范
 
