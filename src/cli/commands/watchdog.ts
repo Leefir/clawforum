@@ -94,6 +94,7 @@ function writeWatchdogInboxMessage(type: string, content: Record<string, unknown
 // Cron 状态
 let lastArchiveDate: string | null = null;
 let lastDiskCheckHour: number = -1;
+const lastInactivityNotified: Map<string, number> = new Map();
 
 // Global config (loaded lazily on first access)
 let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
@@ -102,6 +103,54 @@ function getGlobalConfig() {
     globalConfigCache = loadGlobalConfig();
   }
   return globalConfigCache;
+}
+
+// 读取 claw 最后活动时间（stream.jsonl 的 mtime）
+function getClawLastActivity(clawDir: string): number | null {
+  const streamFile = path.join(clawDir, 'stream.jsonl');
+  try {
+    return fs.statSync(streamFile).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+// 检查有活跃契约但长时间无活动的 claw，发送提醒
+function maybeCronClawInactivity(): void {
+  const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
+  const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
+  if (!fs.existsSync(clawsDir)) return;
+
+  const now = Date.now();
+  for (const clawId of fs.readdirSync(clawsDir)) {
+    const clawDir = path.join(clawsDir, clawId);
+
+    // 有活跃契约？
+    const activeDir = path.join(clawDir, 'contract', 'active');
+    if (!fs.existsSync(activeDir)) continue;
+    if (!fs.readdirSync(activeDir).some(f => f.endsWith('.yaml'))) continue;
+
+    // 最后活动时间
+    const lastActivity = getClawLastActivity(clawDir);
+    if (lastActivity === null) continue;
+
+    // 未超时
+    if (now - lastActivity < timeoutMs) continue;
+
+    // 去重
+    const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
+    if (now - lastNotified < timeoutMs) continue;
+
+    // 发通知
+    const inactiveMin = Math.round((now - lastActivity) / 60000);
+    log(`[watchdog] Claw ${clawId} inactive ${inactiveMin}m with active contract`);
+    writeWatchdogInboxMessage('claw_inactivity', {
+      message: `Claw ${clawId} 有活跃契约但已 ${inactiveMin} 分钟无活动，请检查`,
+      claw_id: clawId,
+      inactive_ms: now - lastActivity,
+    });
+    lastInactivityNotified.set(clawId, now);
+  }
 }
 
 // 日志归档（每日 00:00）
@@ -251,6 +300,7 @@ export async function daemonCommand(): Promise<void> {
     // 2. 简易 cron
     maybeCronArchive();
     maybeCronDiskCheck();
+    maybeCronClawInactivity();
     
     // 3. 休眠（间隔可配置）
     const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;
