@@ -551,8 +551,8 @@ contract_id: ${contractId}
 契约「${contractTitle}」已完成，请对 claw ${clawId} 进行复盘分析。
 `;
       fsNative.writeFileSync(path.join(motionInbox, filename), content);
-    } catch {
-      // best-effort，失败不影响契约完成
+    } catch (err) {
+      console.warn(`[contract] Failed to notify motion of completion (${contractId}): ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }
