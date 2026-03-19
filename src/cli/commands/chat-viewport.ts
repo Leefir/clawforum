@@ -292,7 +292,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       try {
         fsNative.writeFileSync(interruptFile, '');
       } catch { /* best-effort */ }
-      appendOutput('\x1b[33m⏎ Interrupting...\x1b[0m');
       // 5 秒超时保护：如果 daemon 没响应，强制清理
       setTimeout(() => {
         if (inTurn) {

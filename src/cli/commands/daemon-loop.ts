@@ -139,7 +139,8 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           if (turnStarted) {
             streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted' });
           }
-          // 正常继续循环，等待下一条 inbox
+          // 中断后短暂等待，避免立即处理下一条 inbox 消息（如心跳）
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
           console.error(`${label} processBatch error:`, err);
           await waitForInbox(inboxPendingDir, fallbackTimeout);
