@@ -7,6 +7,7 @@
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
+import { SPAWN_DEFAULT_TIMEOUT_S } from '../../../constants.js';
 
 // Default tools available to subagents
 const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec'];
@@ -73,7 +74,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
     const prompt = String(args.prompt);
     const skills = (args.skills as string[]) ?? [];
     const tools = (args.tools as string[]) ?? SUBAGENT_TOOLS;
-    const timeout = typeof args.timeout === 'number' ? args.timeout : 300;
+    const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
     const maxSteps = typeof args.maxSteps === 'number' 
       ? args.maxSteps 
       : (ctx.subagentMaxSteps ?? 20);

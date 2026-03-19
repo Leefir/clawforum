@@ -10,6 +10,7 @@ import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
+import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS } from '../../constants.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -17,7 +18,7 @@ export interface DaemonLoopOptions {
   inboxPendingDir: string;
   label: string;                         // 日志前缀，如 '[motion daemon]' 或 '[daemon]'
   onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调
-  fallbackTimeoutMs?: number;            // fs.watch fallback 超时（默认 30s）
+  fallbackTimeoutMs?: number;            // fs.watch fallback 超时（默认 30000ms）
   streamWriter?: StreamWriter;           // 流式事件写入
   heartbeat?: Heartbeat;                 // 心跳实例（motion 专用）
 }
@@ -61,7 +62,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   stop: () => void;
 } {
   const { runtime, agentDir, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
-  const fallbackTimeout = options.fallbackTimeoutMs ?? 30000;
+  const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   let stopped = false;
 
   const stop = () => { stopped = true; };
@@ -154,7 +155,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted' });
           }
           // 中断后短暂等待，避免立即处理下一条 inbox 消息（如心跳）
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else {
           console.error(`${label} processBatch error:`, err);
           if (turnStarted) {

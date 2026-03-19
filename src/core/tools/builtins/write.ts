@@ -9,23 +9,16 @@
 
 import * as path from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
-
-// Size limits by location (MVP aligned): [soft_limit, hard_limit] in bytes
-const SIZE_LIMITS: Record<string, [number, number]> = {
-  'MEMORY.md': [50 * 1024, 200 * 1024],
-  'memory/': [100 * 1024, 500 * 1024],
-  'clawspace/': [5 * 1024 * 1024, 20 * 1024 * 1024],
-  'default': [1 * 1024 * 1024, 5 * 1024 * 1024], // 1MB/5MB default
-};
+import { WRITE_SIZE_LIMITS, WRITE_VERSION_RETENTION } from '../../../constants.js';
 
 function getSizeLimits(filePath: string): [number, number] {
-  for (const [prefix, limits] of Object.entries(SIZE_LIMITS)) {
+  for (const [prefix, limits] of Object.entries(WRITE_SIZE_LIMITS)) {
     if (prefix === 'default') continue;
     if (filePath === prefix || filePath.startsWith(prefix)) {
       return limits;
     }
   }
-  return SIZE_LIMITS['default'];
+  return WRITE_SIZE_LIMITS['default'];
 }
 
 async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<void> {
@@ -63,7 +56,7 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<v
           return getTs(b.name) - getTs(a.name); // Newest first
         });
       
-      for (let i = 10; i < versionFiles.length; i++) {
+      for (let i = WRITE_VERSION_RETENTION; i < versionFiles.length; i++) {
         await fs.delete(versionFiles[i].path);
       }
     } catch {

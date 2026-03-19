@@ -11,6 +11,7 @@ import {
   EXEC_TIMEOUT_MAX_MS,
   EXEC_MAX_STDOUT,
   EXEC_MAX_STDERR,
+  EXEC_DEFAULT_TIMEOUT_MS,
 } from '../../../constants.js';
 
 const execFileAsync = promisify(execFile);
@@ -27,7 +28,7 @@ export const execTool: ITool = {
       },
       timeout: {
         type: 'number',
-        description: 'Timeout in milliseconds (default 30000)',
+        description: `Timeout in milliseconds (default ${EXEC_DEFAULT_TIMEOUT_MS})`,
       },
     },
     required: ['command'],
@@ -38,7 +39,7 @@ export const execTool: ITool = {
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const command = args.command as string;
     // Clamp timeout between EXEC_TIMEOUT_MIN_MS and EXEC_TIMEOUT_MAX_MS
-    const requestedTimeout = (args.timeout as number) ?? 30000;
+    const requestedTimeout = (args.timeout as number) ?? EXEC_DEFAULT_TIMEOUT_MS;
     const timeout = Math.min(
       Math.max(requestedTimeout, EXEC_TIMEOUT_MIN_MS),
       EXEC_TIMEOUT_MAX_MS

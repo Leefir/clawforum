@@ -34,6 +34,9 @@ export const ClawGlobalConfigSchema = z.object({
   }),
   motion: z.object({
     heartbeat_interval_ms: z.number().default(300000),
+    max_steps: z.number().default(100),
+    subagent_max_steps: z.number().default(20),
+    max_concurrent_tasks: z.number().default(3),
   }).optional(),
   tool_timeout_ms: z.number().default(60000),
   watchdog: z.object({

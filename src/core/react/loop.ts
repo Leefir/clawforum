@@ -15,6 +15,7 @@ import type { ILLMService, LLMCallOptions } from '../../foundation/llm/index.js'
 import type { StreamChunk } from '../../foundation/llm/types.js';
 import type { IToolExecutor, ExecContext, ToolResult } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
+import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
 
 /**
  * Options for runReact
@@ -113,7 +114,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       messages,
       system: systemPrompt,
       tools: options.tools,
-      maxTokens: 4096,
+      maxTokens: REACT_DEFAULT_MAX_TOKENS,
       signal: ctx.signal,
     }, options.onTextDelta, options.onThinkingDelta);
 
