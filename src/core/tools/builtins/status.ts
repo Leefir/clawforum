@@ -22,7 +22,8 @@ async function getContractStatus(ctx: ExecContext): Promise<string> {
     const total = contract.subtasks.length;
     const done = contract.subtasks.filter(s => s.status === 'completed').length;
     return `Contract: ${contract.title} (${done}/${total} subtasks done)`;
-  } catch {
+  } catch (err) {
+    console.warn('[status] contract error:', err);
     return 'Contract: Error loading';
   }
 }
@@ -43,15 +44,17 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
     try {
       const pending = await ctx.fs.list(pendingDir, { includeDirs: false });
       pendingCount = pending.length;
-    } catch {
+    } catch (err) {
       // Pending dir might not exist
+      console.warn('[status] task pending error:', err);
     }
     
     try {
       const running = await ctx.fs.list(runningDir, { includeDirs: false });
       runningCount = running.length;
-    } catch {
+    } catch (err) {
       // Running dir might not exist
+      console.warn('[status] task running error:', err);
     }
     
     if (runningCount > 0) {

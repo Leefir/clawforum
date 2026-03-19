@@ -21,7 +21,7 @@ export const lsTool: ITool = {
       },
       claw: {
         type: 'string',
-        description: 'Target claw ID (Motion only) - list directory in another claw',
+        description: '目标 claw ID（仅 Motion 可用）。例：{ path: "contract/archive", claw: "claw1" }',
       },
     },
     required: [],
@@ -65,12 +65,17 @@ export const lsTool: ITool = {
       }
       // Read directly using native fs (skip ctx.fs permissions)
       try {
-        const dirents = fsNative.readdirSync(targetPath, { withFileTypes: true });
-        entries = dirents.map(d => ({
-          path: d.name,
-          isDirectory: d.isDirectory(),
-          isFile: d.isFile(),
-          size: d.isFile() ? fsNative.statSync(nodePath.join(targetPath, d.name)).size : undefined,
+        const dirents = await fsNative.promises.readdir(targetPath, { withFileTypes: true });
+        entries = await Promise.all(dirents.map(async d => {
+          const stat = d.isFile() 
+            ? await fsNative.promises.stat(nodePath.join(targetPath, d.name))
+            : undefined;
+          return {
+            path: d.name,
+            isDirectory: d.isDirectory(),
+            isFile: d.isFile(),
+            size: stat?.size,
+          };
         }));
       } catch (error) {
         return {

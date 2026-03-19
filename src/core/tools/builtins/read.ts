@@ -65,7 +65,7 @@ export const readTool: ITool = {
       },
       claw: {
         type: 'string',
-        description: 'Target claw ID (Motion only) - read from another claw\'s directory',
+        description: '目标 claw ID（仅 Motion 可用）。例：{ path: "contract/xxx/progress.json", claw: "claw1" }',
       },
     },
     required: ['path'],
@@ -117,7 +117,7 @@ export const readTool: ITool = {
       }
       // Read directly using native fs (skip ctx.fs permissions)
       try {
-        content = fsNative.readFileSync(targetPath, 'utf-8');
+        content = await fsNative.promises.readFile(targetPath, 'utf-8');
       } catch (error) {
         return {
           success: false,

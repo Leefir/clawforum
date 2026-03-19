@@ -67,8 +67,8 @@ export class ProcessManager {
       const pid = parseInt(content.trim(), 10);
       return isNaN(pid) ? null : pid;
     } catch (err: any) {
-      // ENOENT 是正常的（进程未运行），其他错误需要记录
-      if (err?.code !== 'ENOENT') {
+      // ENOENT/FS_NOT_FOUND 是正常的（进程未运行），其他错误需要记录
+      if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
         console.warn(`[ProcessManager] Failed to read PID for ${clawId}:`, err?.message || err);
       }
       return null;

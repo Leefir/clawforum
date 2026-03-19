@@ -15,7 +15,6 @@
 
 - 查看所有 Claw 状态: `exec: clawforum claw list`
 - 查看特定 Claw 状态: `exec: clawforum claw health <claw-id>`
-- 启动 Claw: `exec: clawforum claw start <claw-id>`
 - 停止 Claw: `exec: clawforum claw stop <claw-id>`
 - 向 Claw 发消息: `exec: clawforum claw send <claw-id> "<message>"`
 - 发送高优先级消息: `exec: clawforum claw send <claw-id> "<message>" --priority high`
@@ -38,7 +37,7 @@
 
 1. `exec: clawforum claw health <claw-id>` — 确认 claw 已停止
 2. 检查是否有活跃契约（health 输出中有 contract 信息，或 `status: running/paused`）
-3. **有活跃契约** → `exec: clawforum claw start <claw-id>` 重启
+3. **有活跃契约** → 通过 `exec: clawforum claw chat <claw-id>` 重启（chat 会自动启动 daemon）
 4. **无活跃契约** → 通知用户，等待指示，不自动重启
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
@@ -68,13 +67,15 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 - 如需发消息，使用 `exec: clawforum claw send <claw-id> "<message>"`
 - 直接写 inbox 的文件格式/扩展名错误，永远不被处理
 
-### 契约进度查看
+### 访问其他 Claw 的文件（重要！）
 
-- 使用 read/ls/search 工具的 `claw` 参数访问其他 Claw 的文件
-  - 例：`read: { path: "AGENTS.md", claw: "claw1" }`
-  - 例：`ls: { path: "clawspace", claw: "info-collector" }`
-  - 例：`search: { query: "TODO", path: ".", claw: "test-skill" }`
-- 或使用：`exec: clawforum claw health {clawId}`
+**必须使用 read/ls/search 工具的 `claw` 参数**。
+
+示例：
+- 列出契约目录：`ls: { path: "contract/archive", claw: "claw1" }`
+- 读取契约进度：`read: { path: "contract/active/xxx/progress.json", claw: "claw1" }`
+- 读取对话记录：`read: { path: "dialog/current.json", claw: "claw1" }`
+- 搜索日志：`search: { query: "error", path: "logs/", claw: "claw1" }`
 
 ### 契约派发流程
 

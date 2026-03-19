@@ -49,7 +49,7 @@ export const searchTool: ITool = {
       },
       claw: {
         type: 'string',
-        description: 'Target claw ID (Motion only) - search files in another claw',
+        description: '目标 claw ID（仅 Motion 可用）。例：{ query: "error", path: "logs/", claw: "claw1" }',
       },
     },
     required: ['query'],
@@ -114,20 +114,20 @@ export const searchTool: ITool = {
       let entries: { path: string; isDirectory: boolean; isFile: boolean }[];
       
       if (useNativeFs) {
-        // Native fs recursive walk
+        // Native fs recursive walk (async)
         entries = [];
-        function walkDir(dir: string, prefix: string = '') {
-          const dirents = fsNative.readdirSync(dir, { withFileTypes: true });
+        async function walkDir(dir: string, prefix: string = '') {
+          const dirents = await fsNative.promises.readdir(dir, { withFileTypes: true });
           for (const d of dirents) {
             const relPath = prefix ? `${prefix}/${d.name}` : d.name;
             if (d.isDirectory()) {
-              walkDir(nodePath.join(dir, d.name), relPath);
+              await walkDir(nodePath.join(dir, d.name), relPath);
             } else {
               entries.push({ path: relPath, isDirectory: false, isFile: true });
             }
           }
         }
-        walkDir(baseDir);
+        await walkDir(baseDir);
       } else {
         entries = await ctx.fs.list(baseDir, { recursive: true, includeDirs: false });
       }
@@ -138,7 +138,7 @@ export const searchTool: ITool = {
         try {
           let content: string;
           if (useNativeFs) {
-            content = fsNative.readFileSync(nodePath.join(baseDir, entry.path), 'utf-8');
+            content = await fsNative.promises.readFile(nodePath.join(baseDir, entry.path), 'utf-8');
           } else {
             content = await ctx.fs.read(entry.path);
           }

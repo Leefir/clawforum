@@ -72,11 +72,35 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
 
     if (result.passed) {
       const complete = await contractManager.isComplete(active.id);
+      if (complete) {
+        return {
+          success: true,
+          content: `子任务 ${subtaskId} 验收通过。所有子任务已完成！`,
+          metadata: { contractId: active.id, subtaskId },
+        };
+      }
+      // 重新加载契约获取最新状态（包含刚完成的子任务）
+      const updated = await contractManager.loadActive();
+      if (!updated) {
+        return {
+          success: true,
+          content: `子任务 ${subtaskId} 验收通过。`,
+          metadata: { contractId: active.id, subtaskId },
+        };
+      }
+      // 统计剩余未完成
+      const remaining = updated.subtasks.filter(s => s.status !== 'completed');
+      if (remaining.length === 0) {
+        return {
+          success: true,
+          content: `子任务 ${subtaskId} 验收通过。所有子任务已完成！`,
+          metadata: { contractId: active.id, subtaskId },
+        };
+      }
+      const remainingList = remaining.map(s => `- ${s.id}: ${s.description}`).join('\n');
       return {
         success: true,
-        content: complete
-          ? `子任务 ${subtaskId} 验收通过。所有子任务已完成！`
-          : `子任务 ${subtaskId} 验收通过。`,
+        content: `子任务 ${subtaskId} 验收通过。剩余 ${remaining.length} 个子任务：\n${remainingList}`,
         metadata: { contractId: active.id, subtaskId },
       };
     } else {

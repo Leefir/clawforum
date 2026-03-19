@@ -178,9 +178,12 @@ export class LLMService implements ILLMService {
   }
   
   /**
-   * Stream LLM response with fallback support
-   * If primary fails mid-stream, attempts to failover to fallback provider
-   * Note: fallback restarts from beginning (may duplicate content), but better than total failure
+   * Stream LLM response with retry and fallback support
+   * 
+   * - Retries with exponential backoff on connection failures (same as call())
+   * - Falls back to fallback provider if all retries exhausted
+   * - Note: retry only applies before stream starts; once chunks are flowing, 
+   *         mid-stream errors will fail over without retry
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
     const provider = this.usingFallback && this.fallback 
@@ -191,16 +194,31 @@ export class LLMService implements ILLMService {
       throw new LLMError('Streaming not supported by provider', { provider: provider.name });
     }
     
-    try {
-      yield* provider.stream(options);
-    } catch (error) {
-      // 尝试 fallback provider
-      if (this.fallback && provider !== this.fallback && this.fallback.stream) {
-        this.usingFallback = true;
-        yield* this.fallback.stream(options);
-      } else {
-        throw error;
+    // Retry loop (aligns with call())
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
+      try {
+        yield* provider.stream(options);
+        return; // Success, exit generator
+      } catch (error) {
+        lastError = error as Error;
+        // Don't wait after the last attempt
+        if (attempt < this.config.maxAttempts - 1) {
+          const backoffMs = Math.min(
+            this.config.retryDelayMs * Math.pow(2, attempt),
+            30000,
+          );
+          await delay(backoffMs);
+        }
       }
+    }
+    
+    // Retries exhausted on primary, try fallback
+    if (this.fallback && provider !== this.fallback && this.fallback.stream) {
+      this.usingFallback = true;
+      yield* this.fallback.stream(options);
+    } else {
+      throw lastError!;
     }
   }
   
