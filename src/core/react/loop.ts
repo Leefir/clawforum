@@ -313,11 +313,17 @@ async function collectStreamResponse(
     contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
   }
   if (currentToolUse) {
+    let parsedInput: Record<string, unknown>;
+    try {
+      parsedInput = JSON.parse(currentToolUse.input || '{}');
+    } catch {
+      parsedInput = {};
+    }
     contentBlocks.push({
       type: 'tool_use',
       id: currentToolUse.id,
       name: currentToolUse.name,
-      input: JSON.parse(currentToolUse.input || '{}'),
+      input: parsedInput,
     } as ContentBlock);
     currentToolUse = null;
   }
