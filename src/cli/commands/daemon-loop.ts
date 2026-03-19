@@ -8,6 +8,8 @@ import * as path from 'path';
 import type { ClawRuntime } from '../../core/runtime.js';
 import type { StreamWriter } from './stream-writer.js';
 
+import type { Heartbeat } from '../../core/heartbeat.js';
+
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
   agentDir: string;                      // agent 根目录，用于监听 interrupt 信号
@@ -16,6 +18,7 @@ export interface DaemonLoopOptions {
   onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调
   fallbackTimeoutMs?: number;            // fs.watch fallback 超时（默认 30s）
   streamWriter?: StreamWriter;           // 流式事件写入
+  heartbeat?: Heartbeat;                 // 心跳实例（motion 专用）
 }
 
 /**
@@ -64,6 +67,11 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
   const promise = (async () => {
     while (!stopped) {
+      // 心跳检查（移入 daemon loop，避免 setInterval 竞态）
+      if (options.heartbeat?.isDue()) {
+        options.heartbeat.fire();
+      }
+
       let turnStarted = false;
       let currentSources: string[] = [];
       let interruptPoller: ReturnType<typeof setInterval> | null = null;

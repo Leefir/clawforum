@@ -15,7 +15,6 @@ import type { ClawRuntimeOptions } from '../../core/runtime.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
-import { HEARTBEAT_CHECK_INTERVAL_MS } from '../../constants.js';
 
 /**
  * 检查是否有活跃契约（active/ 或 paused/ 中存在子目录）
@@ -134,16 +133,13 @@ export async function daemonCommand(name: string): Promise<void> {
   await runtime.resumeContractIfPaused();
 
   // motion 专属：heartbeat
-  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  let heartbeat: Heartbeat | null = null;
   if (isMotion) {
     // 从配置读取心跳间隔，默认 5 分钟（300 秒）
     const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 300000;
-    const heartbeat = new Heartbeat(path.join(dir, '..'), {
+    heartbeat = new Heartbeat(path.join(dir, '..'), {
       interval: heartbeatIntervalMs / 1000  // 转换为秒
     });
-    heartbeatInterval = setInterval(() => {
-      if (heartbeat.isDue()) heartbeat.fire();
-    }, HEARTBEAT_CHECK_INTERVAL_MS);
   }
 
   // 清理残留心跳（上次 daemon 的遗留，重启后无需立即巡查）
@@ -170,13 +166,13 @@ export async function daemonCommand(name: string): Promise<void> {
     inboxPendingDir,
     label: isMotion ? '[motion daemon]' : '[daemon]',
     streamWriter,
+    heartbeat: heartbeat ?? undefined,  // 传入心跳实例
   });
 
   // shutdown
   const shutdown = async (signal: string) => {
     stop();
     streamWriter.close();
-    if (heartbeatInterval) clearInterval(heartbeatInterval);
     try {
       await runtime.stop();
     } catch {
