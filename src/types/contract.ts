@@ -85,11 +85,12 @@ export interface InboxMessage {
 
 export interface OutboxMessage {
   id: string;
-  type: 'response' | 'contract_update' | 'status_report';
+  type: 'response' | 'contract_update' | 'status_report' | 'report' | 'question' | 'result' | 'error';
   from: string;        // Sender Claw ID
   to: string;          // Recipient Claw/Motion ID
   content: string;
   timestamp: string;
+  priority: 'critical' | 'high' | 'normal' | 'low';
   contract_id?: string;
   in_reply_to?: string;
 }

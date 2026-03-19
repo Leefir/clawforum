@@ -13,10 +13,11 @@ import type { OutboxMessage, Priority } from '../../types/contract.js';
  * Outbox writer options
  */
 export interface OutboxWriteOptions {
-  type: 'response' | 'contract_update' | 'status_report';
+  type: 'response' | 'contract_update' | 'status_report' | 'report' | 'question' | 'result' | 'error';
   to: string;
   content: string;
   contract_id?: string;
+  priority?: 'critical' | 'high' | 'normal' | 'low';
 }
 
 /**
@@ -49,7 +50,7 @@ export class OutboxWriter {
       to: options.to,
       content: options.content,
       timestamp: new Date().toISOString(),
-
+      priority: options.priority ?? 'normal',
       contract_id: options.contract_id,
     };
 

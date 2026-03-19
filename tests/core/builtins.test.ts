@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySearchTool, execTool, spawnTool } from '../../src/core/tools/builtins/index.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
+import { OutboxWriter } from '../../src/core/communication/outbox.js';
 
 async function createTempDir(): Promise<string> {
   const tempDir = path.join(tmpdir(), `clawforum-builtin-test-${randomUUID()}`);
@@ -30,15 +31,18 @@ describe('Builtin Tools', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
   let ctx: ExecContextImpl;
+  let outboxWriter: OutboxWriter;
 
   beforeEach(async () => {
     tempDir = await createTempDir();
     mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+    outboxWriter = new OutboxWriter('test-claw', tempDir, mockFs);
     ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
       profile: 'full',
       fs: mockFs,
+      outboxWriter,
     });
   });
 

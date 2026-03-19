@@ -170,7 +170,10 @@ export class ClawRuntime {
       contractManager: this.contractManager,
     });
 
-    // 12. 创建 ExecContextImpl（注入所有依赖，工具使用 clawFs）
+    // 12. 先创建 OutboxWriter（供 ExecContextImpl 使用）
+    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs);
+
+    // 13. 创建 ExecContextImpl（注入所有依赖，工具使用 clawFs）
     this.execContext = new ExecContextImpl({
       clawId,
       clawDir,
@@ -184,14 +187,14 @@ export class ClawRuntime {
       skillRegistry: this.skillRegistry,
       contractManager: this.contractManager,
       subagentMaxSteps: this.options.subagentMaxSteps,
+      outboxWriter: this.outboxWriter,
     });
 
-    // 13. 创建 ToolExecutorImpl
+    // 14. 创建 ToolExecutorImpl
     this.toolExecutor = new ToolExecutorImpl(this.toolRegistry, this.options.toolTimeoutMs);
 
-    // 14. 创建 InboxWatcher + OutboxWriter（系统组件使用 systemFs）
+    // 15. 创建 InboxWatcher
     this.inboxWatcher = new InboxWatcher(clawDir, this.systemFs);
-    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs);
 
     this.initialized = true;
   }

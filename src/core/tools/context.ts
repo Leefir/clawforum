@@ -17,6 +17,7 @@ import { PERMISSION_PRESETS } from './executor.js';
 import type { TaskSystem } from '../task/system.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { ContractManager } from '../contract/manager.js';
+import type { OutboxWriter } from '../communication/outbox.js';
 
 /**
  * Options for creating execution context
@@ -60,6 +61,9 @@ export interface ExecContextImplOptions {
   
   /** Max steps for subagents created via spawn tool */
   subagentMaxSteps?: number;
+  
+  /** Outbox writer for send tool */
+  outboxWriter?: OutboxWriter;
 }
 
 /**
@@ -81,6 +85,7 @@ export class ExecContextImpl implements ExecContext {
   skillRegistry?: SkillRegistry;
   contractManager?: ContractManager;
   subagentMaxSteps: number;
+  outboxWriter?: OutboxWriter;
   
   private startTime: number;
 
@@ -99,6 +104,7 @@ export class ExecContextImpl implements ExecContext {
     this.skillRegistry = options.skillRegistry;
     this.contractManager = options.contractManager;
     this.subagentMaxSteps = options.subagentMaxSteps ?? 20;
+    this.outboxWriter = options.outboxWriter;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

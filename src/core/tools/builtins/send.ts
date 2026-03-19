@@ -2,8 +2,6 @@
  * send tool - Send message to outbox
  */
 
-import * as path from 'path';
-import { randomUUID } from 'crypto';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
 export const sendTool: ITool = {
@@ -57,18 +55,19 @@ export const sendTool: ITool = {
     }
 
     try {
-      // Create outbox/pending directory
-      const outboxDir = path.join('outbox', 'pending');
-      await ctx.fs.ensureDir(outboxDir);
+      if (!ctx.outboxWriter) {
+        return {
+          success: false,
+          content: 'Outbox writer not available',
+        };
+      }
 
-      // Generate filename: {timestamp}_{priority}_{type}_{uuid}.md (MVP aligned)
-      const timestamp = Date.now();
-      const filename = `${timestamp}_${priority}_${type}_${randomUUID().slice(0, 8)}.md`;
-      const filePath = path.join(outboxDir, filename);
-
-      // Write message
-      const messageContent = `# ${type.toUpperCase()}\n\n${content}\n\n---\nTimestamp: ${new Date().toISOString()}\n`;
-      await ctx.fs.writeAtomic(filePath, messageContent);
+      await ctx.outboxWriter.write({
+        type: type as 'report' | 'question' | 'result' | 'error',
+        to: 'motion',
+        content,
+        priority: priority as 'critical' | 'high' | 'normal' | 'low',
+      });
 
       return {
         success: true,

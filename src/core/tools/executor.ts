@@ -13,6 +13,7 @@ import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { TaskSystem } from '../task/system.js';
+import type { OutboxWriter } from '../communication/outbox.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
@@ -140,6 +141,8 @@ export interface ExecContext {
   signal?: AbortSignal;
   /** Max steps for subagents created via spawn tool */
   subagentMaxSteps?: number;
+  /** Outbox writer for send tool */
+  outboxWriter?: OutboxWriter;
   getElapsedMs(): number;
   incrementStep(): void;
 }
@@ -361,6 +364,7 @@ export interface ToolExecutorOptions {
   llm?: ILLMService;
   taskSystem?: TaskSystem;
   profile?: ToolProfile;
+  outboxWriter?: OutboxWriter;
 }
 
 /**
@@ -374,6 +378,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private llm?: ILLMService;
   private taskSystem?: TaskSystem;
   private profile: ToolProfile;
+  private outboxWriter?: OutboxWriter;
 
   constructor(options: ToolExecutorOptions) {
     super(options.registry);
@@ -383,6 +388,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     this.llm = options.llm;
     this.taskSystem = options.taskSystem;
     this.profile = options.profile ?? 'full';
+    this.outboxWriter = options.outboxWriter;
   }
 
   /**
@@ -403,6 +409,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       maxSteps: options.maxSteps ?? 100,
       signal: options.signal,
       taskSystem: this.taskSystem,
+      outboxWriter: this.outboxWriter,
     });
   }
 }
