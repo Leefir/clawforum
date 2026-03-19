@@ -30,6 +30,10 @@ export const execTool: ITool = {
         type: 'number',
         description: `Timeout in milliseconds (default ${EXEC_DEFAULT_TIMEOUT_MS})`,
       },
+      async: {
+        type: 'boolean',
+        description: 'If true, run command in background. Result delivered to inbox when complete. Use for long-running commands (>30s).',
+      },
     },
     required: ['command'],
   },

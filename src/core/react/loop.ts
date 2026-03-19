@@ -147,10 +147,14 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
         // Execute tool with error handling (P0 fix: prevent daemon crash)
         let result: ToolResult;
         try {
+          // 提取 async 标志（meta 参数，不传给工具本身）
+          const { async: asyncMode, ...toolArgs } = toolCall.input as Record<string, unknown>;
+
           result = await executor.execute({
             toolName: toolCall.name,
-            args: toolCall.input,
+            args: toolArgs,          // 不含 async 字段
             ctx,
+            async: asyncMode === true,  // 传给 executor
           });
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err);
