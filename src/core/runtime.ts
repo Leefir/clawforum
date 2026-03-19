@@ -366,7 +366,9 @@ export class ClawRuntime {
         source: info.meta.source ?? info.meta.from ?? 'unknown',
         priority: info.meta.priority ?? 'unknown',
       };
-      fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(() => {});
+      fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(e =>
+        console.warn(`[audit] write failed: ${e instanceof Error ? e.message : String(e)}`)
+      );
     }
 
     return { injected, count: fileInfos.length };
