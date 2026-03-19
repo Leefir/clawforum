@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as fsNative from 'fs';
 import { randomUUID } from 'crypto';
+import { writeInboxMessage } from '../utils/inbox-writer.js';
 
 /**
  * 扫描所有 claw outbox/pending，有未读则写通知到 motion inbox。
@@ -50,22 +51,13 @@ export function scanClawOutboxes(baseDir: string): void {
       .map(([id, n]) => `${id}(${n})`)
       .join(', ');
 
-    const now = new Date();
-    const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-    const uuid8 = randomUUID().slice(0, 8);
-    const filename = `${ts}_claw_outbox_${uuid8}.md`;
-
-    const content = `---
-id: outbox-${now.getTime()}
-type: claw_outbox
-source: system
-priority: normal
-timestamp: ${now.toISOString()}
----
-
-未处理 claw outbox: ${summary}
-`;
-    fsNative.writeFileSync(path.join(inboxDir, filename), content);
+    writeInboxMessage({
+      inboxDir,
+      type: 'claw_outbox',
+      source: 'system',
+      priority: 'normal',
+      body: `未处理 claw outbox: ${summary}`,
+    });
   } catch (error) {
     process.stderr.write(`[OutboxScanner] scan failed: ${error}\n`);
   }

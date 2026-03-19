@@ -1,0 +1,62 @@
+/**
+ * Inbox message writer - Unified inbox message creation
+ * 
+ * Centralizes inbox message format to ensure consistency across all writers.
+ * Eliminates duplicate timestamp/UUID/YAML generation code.
+ */
+
+import * as fsNative from 'fs';
+import * as path from 'path';
+import { randomUUID } from 'node:crypto';
+
+export interface InboxMessageOptions {
+  /** inbox/pending directory path */
+  inboxDir: string;
+  /** Message type */
+  type: string;
+  /** Message source */
+  source: string;
+  /** Priority level */
+  priority: 'critical' | 'high' | 'normal' | 'low';
+  /** Message body content */
+  body: string;
+  /** ID prefix (default: type) */
+  idPrefix?: string;
+  /** Filename tag (default: type) */
+  filenameTag?: string;
+  /** Extra YAML frontmatter fields */
+  extraFields?: Record<string, string>;
+}
+
+/**
+ * Write an inbox message with standardized YAML frontmatter format.
+ * Creates the inbox directory if it doesn't exist.
+ */
+export function writeInboxMessage(opts: InboxMessageOptions): void {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+  const uuid8 = randomUUID().slice(0, 8);
+  const idPrefix = opts.idPrefix ?? opts.type;
+  const tag = opts.filenameTag ?? opts.type;
+
+  let yaml = `---
+id: ${idPrefix}-${now.getTime()}
+type: ${opts.type}
+source: ${opts.source}
+priority: ${opts.priority}
+timestamp: ${now.toISOString()}`;
+
+  if (opts.extraFields) {
+    for (const [k, v] of Object.entries(opts.extraFields)) {
+      yaml += `\n${k}: ${v}`;
+    }
+  }
+
+  yaml += `\n---\n\n${opts.body}\n`;
+
+  fsNative.mkdirSync(opts.inboxDir, { recursive: true });
+  fsNative.writeFileSync(
+    path.join(opts.inboxDir, `${ts}_${tag}_${uuid8}.md`),
+    yaml
+  );
+}

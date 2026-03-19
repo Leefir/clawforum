@@ -45,12 +45,15 @@ function injectStartupMessage(dir: string): void {
       hasRunning = entries.some(e => e.isDirectory());
     } catch { /* no active dir */ }
     if (inboxEmpty && hasRunning) {
-      fsNative.mkdirSync(inboxPending, { recursive: true });
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-      const uuid8 = randomUUID().slice(0, 8);
-      const content = `---\nid: startup-${now.getTime()}\ntype: message\nsource: system\npriority: high\ntimestamp: ${now.toISOString()}\n---\n\n系统启动。请检查活跃契约并继续执行。\n`;
-      fsNative.writeFileSync(path.join(inboxPending, `${ts}_startup_${uuid8}.md`), content);
+      writeInboxMessage({
+        inboxDir: inboxPending,
+        type: 'message',
+        source: 'system',
+        priority: 'high',
+        body: '系统启动。请检查活跃契约并继续执行。',
+        idPrefix: 'startup',
+        filenameTag: 'startup',
+      });
     }
   } catch { /* best-effort */ }
 }
@@ -62,24 +65,15 @@ function injectStartupMessage(dir: string): void {
 function notifyMotionExit(clawId: string, reason: string): void {
   try {
     const motionInbox = path.join(getMotionDir(), 'inbox', 'pending');
-    fsNative.mkdirSync(motionInbox, { recursive: true });
-    const now = new Date();
-    const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-    const uuid8 = randomUUID().slice(0, 8);
-    
-    // YAML frontmatter 格式（MVP 对齐）
-    const content = `---
-id: crash-${now.getTime()}-${clawId}
-type: crash_notification
-source: claw_daemon
-priority: high
-timestamp: ${now.toISOString()}
-claw_id: ${clawId}
----
-
-Claw "${clawId}" exited (${reason}).
-`;
-    fsNative.writeFileSync(path.join(motionInbox, `${ts}_crash_${uuid8}.md`), content);
+    writeInboxMessage({
+      inboxDir: motionInbox,
+      type: 'crash_notification',
+      source: 'claw_daemon',
+      priority: 'high',
+      body: `Claw "${clawId}" exited (${reason}).`,
+      idPrefix: `crash-${clawId}`,
+      extraFields: { claw_id: clawId },
+    });
   } catch (err) {
     console.warn(`[daemon] Failed to notify motion of exit:`, err);
   }

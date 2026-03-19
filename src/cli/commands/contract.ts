@@ -34,12 +34,14 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
   try {
     const inboxDir = path.join(clawDir, 'inbox', 'pending');
-    fsNative.mkdirSync(inboxDir, { recursive: true });
-    const now = new Date();
-    const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-    const uuid8 = randomUUID().slice(0, 8);
-    const content = `---\nid: contract-new-${now.getTime()}\ntype: message\nsource: system\npriority: high\ntimestamp: ${now.toISOString()}\n---\n\n新契约已创建（${contractId}）：${contractYaml.title}\n目标：${contractYaml.goal}\n请开始执行。\n`;
-    fsNative.writeFileSync(path.join(inboxDir, `${ts}_contract_${uuid8}.md`), content);
+    writeInboxMessage({
+      inboxDir,
+      type: 'message',
+      source: 'system',
+      priority: 'high',
+      body: `新契约已创建（${contractId}）：${contractYaml.title}\n目标：${contractYaml.goal}\n请开始执行。`,
+      idPrefix: 'contract-new',
+    });
   } catch {
     // best-effort，不影响契约创建成功
   }

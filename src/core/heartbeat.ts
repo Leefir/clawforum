@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as fsNative from 'fs';
-import { randomUUID } from 'crypto';
+import { writeInboxMessage } from '../utils/inbox-writer.js';
 
 export interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
@@ -49,22 +49,14 @@ export class Heartbeat {
       const existing = fsNative.readdirSync(inboxDir);
       if (existing.some(f => f.includes('_heartbeat_'))) return;
 
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-      const uuid8 = randomUUID().slice(0, 8);
-      const filename = `${ts}_heartbeat_${uuid8}.md`;
-
-      const content = `---
-id: hb-${now.getTime()}
-type: heartbeat
-source: system
-priority: low
-timestamp: ${now.toISOString()}
----
-
-[system message] 心跳触发，请巡查。
-`;
-      fsNative.writeFileSync(path.join(inboxDir, filename), content);
+      writeInboxMessage({
+        inboxDir,
+        type: 'heartbeat',
+        source: 'system',
+        priority: 'low',
+        body: '[system message] 心跳触发，请巡查。',
+        idPrefix: 'hb',
+      });
     } catch (error) {
       process.stderr.write(`[Heartbeat] fire failed: ${error}\n`);
     }

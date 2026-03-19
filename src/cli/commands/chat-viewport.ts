@@ -15,25 +15,14 @@ export interface ChatViewportOptions {
 
 function writeUserChat(agentDir: string, message: string): void {
   const inboxDir = path.join(agentDir, 'inbox', 'pending');
-  fsNative.mkdirSync(inboxDir, { recursive: true });
-
-  const now = new Date();
-  const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-  const uuid8 = randomUUID().slice(0, 8);
-  const filename = `${ts}_user_chat_${uuid8}.md`;
-
-  const content = `---
-id: chat-${now.getTime()}-${uuid8}
-type: user_chat
-source: user
-priority: high
-timestamp: ${now.toISOString()}
----
-
-${message}
-`;
-
-  fsNative.writeFileSync(path.join(inboxDir, filename), content);
+  writeInboxMessage({
+    inboxDir,
+    type: 'user_chat',
+    source: 'user',
+    priority: 'high',
+    body: message,
+    idPrefix: 'chat',
+  });
 }
 
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {

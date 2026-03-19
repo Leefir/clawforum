@@ -76,27 +76,18 @@ function log(message: string): void {
 }
 
 // 写入 inbox 消息（YAML frontmatter .md 格式）
-function writeInboxMessage(type: string, content: Record<string, unknown>): void {
+function writeWatchdogInboxMessage(type: string, content: Record<string, unknown>): void {
   const inboxDir = path.join(getMotionDir(), 'inbox', 'pending');
-  fs.mkdirSync(inboxDir, { recursive: true });
-  const now = new Date();
-  const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-  const uuid8 = randomUUID().slice(0, 8);
-  const filename = `${ts}_watchdog_${type}_${uuid8}.md`;
-  
-  // YAML frontmatter 格式
   const body = content.message ?? JSON.stringify(content);
-  const yamlContent = `---
-id: ${now.getTime()}_${type}
-type: watchdog_${type}
-source: watchdog
-priority: high
-timestamp: ${now.toISOString()}
----
-
-${body}
-`;
-  fs.writeFileSync(path.join(inboxDir, filename), yamlContent, 'utf-8');
+  writeInboxMessage({
+    inboxDir,
+    type: `watchdog_${type}`,
+    source: 'watchdog',
+    priority: 'high',
+    body,
+    idPrefix: `${Date.now()}_${type}`,
+    filenameTag: `watchdog_${type}`,
+  });
 }
 
 // Cron 状态
@@ -187,7 +178,7 @@ function maybeCronDiskCheck(): void {
   
   if (totalMB > limitMB) {
     log(`[watchdog] WARNING: Disk usage ${totalMB}MB > ${limitMB}MB`);
-    writeInboxMessage('disk_warning', {
+    writeWatchdogInboxMessage('disk_warning', {
       message: `Clawspace disk usage exceeded limit`,
       usage_mb: totalMB,
       limit_mb: limitMB,
