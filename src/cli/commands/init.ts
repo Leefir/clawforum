@@ -80,9 +80,13 @@ export async function initCommand(): Promise<void> {
         interval_ms: 30000,
         disk_warning_mb: 500,
         log_archive_days: 30,
+        claw_inactivity_timeout_ms: 300000,
       },
       motion: {
         heartbeat_interval_ms: 300000,
+        max_steps: 100,
+        subagent_max_steps: 20,
+        max_concurrent_tasks: 3,
       },
     };
     

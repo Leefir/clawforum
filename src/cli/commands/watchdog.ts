@@ -79,7 +79,7 @@ function log(message: string): void {
 // 写入 inbox 消息（YAML frontmatter .md 格式）
 function writeWatchdogInboxMessage(type: string, content: Record<string, unknown>): void {
   const inboxDir = path.join(getMotionDir(), 'inbox', 'pending');
-  const body = content.message ?? JSON.stringify(content);
+  const body = (content.message as string) ?? JSON.stringify(content);
   writeInboxMessage({
     inboxDir,
     type: `watchdog_${type}`,
