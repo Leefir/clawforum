@@ -46,7 +46,7 @@ export async function readJsonl<T = Record<string, unknown>>(
         const record = JSON.parse(trimmed) as T;
         records.push(record);
       } catch {
-        // Skip invalid JSON lines
+        console.warn(`[monitor] Skipping invalid JSONL line: ${trimmed.slice(0, 80)}`);
         continue;
       }
     }

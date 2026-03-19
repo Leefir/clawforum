@@ -210,7 +210,10 @@ export class ContractManager {
         if (!latest || startedAt > latest.startedAt) {
           latest = { name: entry.name, startedAt };
         }
-      } catch { continue; }
+      } catch (err) {
+        console.warn(`[contract] Failed to parse progress for ${entry.name}: ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
     }
 
     return latest ? this.loadContract(latest.name) : null;

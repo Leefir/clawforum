@@ -128,7 +128,10 @@ export class InboxWatcher {
       const entries = await this.fs.list(this.pendingDir, { includeDirs: false });
       const fileCount = entries.filter(e => e.name.endsWith('.md')).length;
       return Math.max(fileCount, this.queue.length);
-    } catch {
+    } catch (err: any) {
+      if (err?.code !== 'ENOENT') {
+        console.warn(`[inbox] Failed to list pending dir: ${err?.message}`);
+      }
       return this.queue.length;
     }
   }

@@ -150,7 +150,11 @@ export class ProcessManager {
       const output = execSync(`pgrep -f "${pattern}"`, { encoding: 'utf-8' });
       const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
       for (const pid of pids) {
-        try { process.kill(pid, 'SIGTERM'); } catch {}
+        try { process.kill(pid, 'SIGTERM'); } catch (err: any) {
+          if (err?.code !== 'ESRCH') {
+            console.warn(`[process] Failed to SIGTERM PID ${pid}: ${err?.message}`);
+          }
+        }
       }
       if (pids.length > 0) {
         await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
@@ -167,10 +171,16 @@ export class ProcessManager {
           process.kill(lockPid, 'SIGTERM');
           // 等待优雅退出
           await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
-        } catch { /* ESRCH = 已死 */ }
+        } catch (err: any) {
+          if (err?.code !== 'ESRCH') {
+            console.warn(`[process] Failed to SIGTERM lock PID ${lockPid}: ${err?.message}`);
+          }
+        }
       }
       // 清理 stale lockfile
-      try { await this.fs.delete(lockFile); } catch {}
+      try { await this.fs.delete(lockFile); } catch (err) {
+        console.warn(`[process] Failed to delete lockfile ${lockFile}: ${err instanceof Error ? err.message : String(err)}`);
+      }
     } catch { /* lockfile 不存在，正常 */ }
     
     // 排他创建 PID 文件（避免竞态）
