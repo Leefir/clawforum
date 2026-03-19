@@ -10,6 +10,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, openSync, mkdirSync, closeSync } from 'fs';
+import { fileURLToPath } from 'url';
 
 import type { IFileSystem } from '../fs/types.js';
 import { 
@@ -164,8 +165,13 @@ export class ProcessManager {
       }
     }
 
-    // 启动守护进程（使用 process.argv[1] 获取入口脚本路径，兼容 bundle 模式）
-    const cliPath = process.argv[1];
+    // 启动守护进程（兼容 bundle 和非 bundle 模式）
+    const thisFile = fileURLToPath(import.meta.url);
+    // Bundle: import.meta.url 就是 dist/cli.js
+    // 非 Bundle: import.meta.url 是 dist/foundation/process/manager.js
+    const cliPath = path.basename(thisFile) === 'cli.js'
+      ? thisFile
+      : path.resolve(path.dirname(thisFile), '..', '..', '..', 'dist', 'cli.js');
     const finalArgs = args ?? (clawId === 'motion'
       ? [cliPath, 'motion', 'daemon']
       : [cliPath, 'claw', 'daemon', clawId]);
