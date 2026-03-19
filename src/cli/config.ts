@@ -17,11 +17,11 @@ export const LLMProviderSchema = z.object({
   api_key: z.string(),
   base_url: z.string().optional(),
   model: z.string(),
-  max_tokens: z.number().default(4096),
-  temperature: z.number().default(0.7),
-  timeout_ms: z.number().default(60000),
+  max_tokens: z.number().min(1).max(128000).default(4096),
+  temperature: z.number().min(0).max(2).default(0.7),
+  timeout_ms: z.number().min(1000).max(600000).default(60000),
   thinking: z.boolean().optional(),
-  thinking_budget_tokens: z.number().optional(),
+  thinking_budget_tokens: z.number().min(1).optional(),
 });
 
 export const ClawGlobalConfigSchema = z.object({
@@ -29,20 +29,20 @@ export const ClawGlobalConfigSchema = z.object({
   llm: z.object({
     primary: LLMProviderSchema,
     fallback: LLMProviderSchema.optional(),
-    retry_attempts: z.number().default(3),
-    retry_delay_ms: z.number().default(1000),
+    retry_attempts: z.number().min(0).max(10).default(3),
+    retry_delay_ms: z.number().min(0).max(60000).default(1000),
   }),
   motion: z.object({
-    heartbeat_interval_ms: z.number().default(300000),
-    max_steps: z.number().default(100),
-    subagent_max_steps: z.number().default(20),
-    max_concurrent_tasks: z.number().default(3),
+    heartbeat_interval_ms: z.number().min(10000).default(300000),
+    max_steps: z.number().min(1).max(1000).default(100),
+    subagent_max_steps: z.number().min(1).max(200).default(20),
+    max_concurrent_tasks: z.number().min(1).max(20).default(3),
   }).optional(),
-  tool_timeout_ms: z.number().default(60000),
+  tool_timeout_ms: z.number().min(1000).max(600000).default(60000),
   watchdog: z.object({
-    interval_ms: z.number().default(30000),
-    disk_warning_mb: z.number().default(500),
-    log_archive_days: z.number().default(30),
+    interval_ms: z.number().min(5000).default(30000),
+    disk_warning_mb: z.number().min(10).default(500),
+    log_archive_days: z.number().min(1).max(365).default(30),
   }).optional(),
 });
 
@@ -51,10 +51,10 @@ export const ClawConfigSchema = z.object({
   llm: z.object({
     primary: LLMProviderSchema.optional(),
   }).optional(),
-  max_steps: z.number().default(100),
+  max_steps: z.number().min(1).max(1000).default(100),
   tool_profile: z.enum(['full', 'readonly', 'subagent', 'dream']).default('full'),
-  subagent_max_steps: z.number().default(20),
-  max_concurrent_tasks: z.number().default(3),
+  subagent_max_steps: z.number().min(1).max(200).default(20),
+  max_concurrent_tasks: z.number().min(1).max(20).default(3),
 });
 
 export type ClawGlobalConfig = z.infer<typeof ClawGlobalConfigSchema>;
