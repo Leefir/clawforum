@@ -90,6 +90,7 @@ export const writeTool: ITool = {
   },
   requiredPermissions: ['write'],
   readonly: false,
+  idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const filePath = args.path as string;

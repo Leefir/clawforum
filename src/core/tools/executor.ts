@@ -156,6 +156,8 @@ export interface ITool {
   schema: JSONSchema7;
   requiredPermissions: (keyof ToolPermissions)[];
   readonly: boolean;
+  idempotent: boolean;        // 多次调用结果相同（只读工具均为 true）
+  supportsAsync?: boolean;    // 是否支持异步调用（默认 false）
   execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult>;
 }
 

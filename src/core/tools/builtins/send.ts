@@ -30,6 +30,7 @@ export const sendTool: ITool = {
   },
   requiredPermissions: ['send'],
   readonly: false,
+  idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const content = args.content as string;

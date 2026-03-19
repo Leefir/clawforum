@@ -35,6 +35,8 @@ export const execTool: ITool = {
   },
   requiredPermissions: ['execute'],
   readonly: false,
+  idempotent: false,
+  supportsAsync: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const command = args.command as string;

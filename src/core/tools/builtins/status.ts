@@ -109,6 +109,7 @@ export const statusTool: ITool = {
   },
   requiredPermissions: ['read'],
   readonly: true,
+  idempotent: true,
 
   async execute(_args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const lines = [

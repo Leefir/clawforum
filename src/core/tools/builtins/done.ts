@@ -38,6 +38,7 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
   },
   requiredPermissions: ['write'],
   readonly: false,
+  idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const contractManager = (ctx as { contractManager?: ContractManager }).contractManager;
