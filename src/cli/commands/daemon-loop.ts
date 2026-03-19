@@ -109,13 +109,20 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
         // 启动 interrupt 文件轮询
         const interruptFile = path.join(agentDir, 'interrupt');
+        let interruptErrCount = 0;
         interruptPoller = setInterval(() => {
           try {
             if (fsNative.existsSync(interruptFile)) {
               fsNative.unlinkSync(interruptFile);
               runtime.abort();
+              interruptErrCount = 0;
             }
-          } catch { /* best-effort */ }
+          } catch (err) {
+            interruptErrCount++;
+            if (interruptErrCount % 5 === 1) {
+              console.warn(`${label} interrupt poll error: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
         }, 200);
 
         try {
