@@ -70,7 +70,10 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 
 ### 契约进度查看
 
-- 查看 progress.json：`read: ../../claws/{clawId}/contract/{contractId}/progress.json`
+- 使用 read/ls/search 工具的 `claw` 参数访问其他 Claw 的文件
+  - 例：`read: { path: "AGENTS.md", claw: "claw1" }`
+  - 例：`ls: { path: "clawspace", claw: "info-collector" }`
+  - 例：`search: { query: "TODO", path: ".", claw: "test-skill" }`
 - 或使用：`exec: clawforum claw health {clawId}`
 
 ### 契约派发流程
