@@ -10,7 +10,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, openSync, mkdirSync, closeSync } from 'fs';
-import { fileURLToPath } from 'url';
+
 import type { IFileSystem } from '../fs/types.js';
 import { 
   PROCESS_SPAWN_CONFIRM_MS,
@@ -164,9 +164,8 @@ export class ProcessManager {
       }
     }
 
-    // 启动守护进程（使用基于模块的绝对路径，不依赖 process.cwd()）
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const cliPath = path.resolve(__dirname, '..', '..', '..', 'dist', 'cli.js');
+    // 启动守护进程（使用 process.argv[1] 获取入口脚本路径，兼容 bundle 模式）
+    const cliPath = process.argv[1];
     const finalArgs = args ?? (clawId === 'motion'
       ? [cliPath, 'motion', 'daemon']
       : [cliPath, 'claw', 'daemon', clawId]);
