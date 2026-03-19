@@ -146,6 +146,17 @@ export async function daemonCommand(name: string): Promise<void> {
     }, HEARTBEAT_CHECK_INTERVAL_MS);
   }
 
+  // 清理残留心跳（上次 daemon 的遗留，重启后无需立即巡查）
+  try {
+    const pendingDir = path.join(dir, 'inbox', 'pending');
+    const files = fsNative.readdirSync(pendingDir);
+    for (const f of files) {
+      if (f.includes('_heartbeat_')) {
+        fsNative.unlinkSync(path.join(pendingDir, f));
+      }
+    }
+  } catch {}
+
   // 通用：有契约+空 inbox → 注入启动消息
   injectStartupMessage(dir);
 
