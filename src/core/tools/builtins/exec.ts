@@ -77,9 +77,13 @@ export const execTool: ITool = {
         content: fullOutput,
       };
     } catch (error) {
+      const err = error as any;
+      const msg = err.message || String(error);
+      const stderr = err.stderr ? `\n[stderr]: ${(err.stderr as string).slice(0, EXEC_MAX_STDERR)}` : '';
+      const stdout = err.stdout ? `\n[stdout]: ${(err.stdout as string).slice(0, EXEC_MAX_STDOUT)}` : '';
       return {
         success: false,
-        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        content: `Error: ${msg}${stderr}${stdout}`,
       };
     }
   },
