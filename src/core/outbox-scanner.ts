@@ -40,7 +40,9 @@ export function scanClawOutboxes(baseDir: string): void {
       const existing = fsNative.readdirSync(inboxDir);
       for (const f of existing) {
         if (f.includes('_claw_outbox_')) {
-          try { fsNative.unlinkSync(path.join(inboxDir, f)); } catch {}
+          try { fsNative.unlinkSync(path.join(inboxDir, f)); } catch (err) {
+            console.warn(`[outbox-scanner] Failed to remove old notification ${f}: ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       }
     } catch {}

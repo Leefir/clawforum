@@ -453,8 +453,8 @@ export async function outboxCommand(
       try {
         await fs.promises.mkdir(doneDir, { recursive: true });
         await fs.promises.rename(filePath, path.join(doneDir, `${Date.now()}_${fileName}`));
-      } catch {
-        // 移动失败不阻止
+      } catch (err) {
+        console.warn(`[outbox] Failed to move ${fileName} to done: ${err instanceof Error ? err.message : String(err)}`);
       }
     } catch {
       // 读取失败跳过

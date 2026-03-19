@@ -249,7 +249,8 @@ export class LocalTransport implements ITransport {
           found = true;
           break;
         }
-      } catch {
+      } catch (err) {
+        console.warn(`[transport] Failed to ack message, file: ${file}, err: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
     }
