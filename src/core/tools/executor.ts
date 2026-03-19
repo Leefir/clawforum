@@ -143,6 +143,8 @@ export interface ExecContext {
   subagentMaxSteps?: number;
   /** Outbox writer for send tool */
   outboxWriter?: OutboxWriter;
+  /** TaskSystem for async tool execution */
+  taskSystem?: TaskSystem;
   getElapsedMs(): number;
   incrementStep(): void;
 }
