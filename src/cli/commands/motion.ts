@@ -160,7 +160,6 @@ export async function chatCommand(): Promise<void> {
       const pm = createMotionPM();
       if (!pm.isAlive('motion')) {
         console.log('Starting Motion daemon...');
-        const motionDir = getMotionDir();
         const pid = await pm.spawn('motion', motionDir);
         console.log(`Started (PID: ${pid})`);
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));

@@ -1,7 +1,7 @@
 /**
- * daemon command - 守护进程内部命令
+ * daemon command - 守护进程主入口
  *
- * 由 ProcessManager.spawn 调用，不对用户暴露
+ * 支持前台运行（CLAWFORUM_DAEMON_MODE）和通过 CLI 自动后台启动
  * 负责启动 ClawRuntime 并保持运行直到收到 SIGTERM
  */
 

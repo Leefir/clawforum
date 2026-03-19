@@ -3,7 +3,6 @@
  */
 
 import * as fs from 'fs';
-import * as fsNative from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 
@@ -31,12 +30,6 @@ function formatRelativeTime(ms: number): string {
   return `${hours}h`;
 }
 
-function isAbortError(error: unknown): boolean {
-  if (error instanceof Error) {
-    return error.name === 'AbortError' || error.message === 'Execution aborted';
-  }
-  return false;
-}
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { LocalTransport } from '../../foundation/transport/local.js';
@@ -57,7 +50,7 @@ export async function createCommand(name: string): Promise<void> {
   
   // Create directory structure (使用共享常量)
   for (const dir of CLAW_SUBDIRS) {
-    fsNative.mkdirSync(path.join(clawDir, dir), { recursive: true });
+    fs.mkdirSync(path.join(clawDir, dir), { recursive: true });
   }
   
   // Create claw config (inherits from global)
@@ -149,8 +142,8 @@ export async function stopCommand(name: string): Promise<void> {
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
   
-  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const processManager = new ProcessManager(fs, baseDir);
+  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(nodeFs, baseDir);
 
   // 检查是否运行
   if (!processManager.isAlive(name)) {
@@ -179,14 +172,14 @@ export async function listCommand(): Promise<void> {
   const baseDir = path.dirname(globalConfigPath);
   const clawsDir = path.join(baseDir, 'claws');
 
-  const fs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const processManager = new ProcessManager(fs, baseDir);
+  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const processManager = new ProcessManager(nodeFs, baseDir);
 
   // 辅助：检查契约状态
   function getContractStatus(clawPath: string): string {
     for (const sub of ['active', 'paused']) {
       try {
-        const entries = fsNative.readdirSync(path.join(clawPath, 'contract', sub), { withFileTypes: true });
+        const entries = fs.readdirSync(path.join(clawPath, 'contract', sub), { withFileTypes: true });
         if (entries.some(e => e.isDirectory())) return sub;
       } catch { /* skip */ }
     }
@@ -196,14 +189,14 @@ export async function listCommand(): Promise<void> {
   // 辅助：统计 outbox 未读
   function getOutboxCount(clawPath: string): number {
     try {
-      return fsNative.readdirSync(path.join(clawPath, 'outbox', 'pending')).length;
+      return fs.readdirSync(path.join(clawPath, 'outbox', 'pending')).length;
     } catch { return 0; }
   }
 
   // 辅助：格式化相对时间
   function formatLastActive(clawPath: string): string {
     try {
-      const stat = fsNative.statSync(path.join(clawPath, 'dialog', 'current.json'));
+      const stat = fs.statSync(path.join(clawPath, 'dialog', 'current.json'));
       const ms = Date.now() - stat.mtimeMs;
       const mins = Math.floor(ms / 60000);
       if (mins < 1) return '<1m';
@@ -215,10 +208,10 @@ export async function listCommand(): Promise<void> {
 
   try {
     // 确保 claws 目录存在
-    if (!fsNative.existsSync(clawsDir)) {
-      fsNative.mkdirSync(clawsDir, { recursive: true });
+    if (!fs.existsSync(clawsDir)) {
+      fs.mkdirSync(clawsDir, { recursive: true });
     }
-    const entries = fsNative.readdirSync(clawsDir);
+    const entries = fs.readdirSync(clawsDir);
     const claws: Array<{
       name: string;
       status: string;
@@ -231,14 +224,14 @@ export async function listCommand(): Promise<void> {
     for (const entry of entries) {
       const clawPath = path.join(clawsDir, entry);
       const configPath = path.join(clawPath, 'config.yaml');
-      if (fsNative.existsSync(configPath)) {
+      if (fs.existsSync(configPath)) {
         const isRunning = processManager.isAlive(entry);
         let pid: string | undefined;
 
         if (isRunning) {
           try {
             const pidFile = path.join(clawPath, 'status', 'pid');
-            pid = fsNative.readFileSync(pidFile, 'utf-8').trim();
+            pid = fs.readFileSync(pidFile, 'utf-8').trim();
           } catch { /* 忽略读取错误 */ }
         }
 
@@ -302,11 +295,11 @@ export async function healthCommand(name: string): Promise<void> {
   let inboxPending = 0;
   let outboxPending = 0;
   try {
-    const entries = fsNative.readdirSync(path.join(clawDir, 'inbox', 'pending'));
+    const entries = fs.readdirSync(path.join(clawDir, 'inbox', 'pending'));
     inboxPending = entries.length;
   } catch { /* 目录不存在 */ }
   try {
-    const entries = fsNative.readdirSync(path.join(clawDir, 'outbox', 'pending'));
+    const entries = fs.readdirSync(path.join(clawDir, 'outbox', 'pending'));
     outboxPending = entries.length;
   } catch { /* 目录不存在 */ }
 
@@ -314,7 +307,7 @@ export async function healthCommand(name: string): Promise<void> {
   let contractStatus = 'none';
   for (const sub of ['active', 'paused']) {
     try {
-      const entries = fsNative.readdirSync(
+      const entries = fs.readdirSync(
         path.join(clawDir, 'contract', sub), { withFileTypes: true }
       );
       if (entries.some(e => e.isDirectory())) {
@@ -327,7 +320,7 @@ export async function healthCommand(name: string): Promise<void> {
   // 最后活跃时间
   let lastActive = '-';
   try {
-    const stat = fsNative.statSync(path.join(clawDir, 'dialog', 'current.json'));
+    const stat = fs.statSync(path.join(clawDir, 'dialog', 'current.json'));
     const age = Date.now() - stat.mtimeMs;
     lastActive = formatRelativeTime(age);
   } catch { /* skip */ }
