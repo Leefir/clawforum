@@ -114,6 +114,39 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(true);
       expect(result.content).toContain('共10000字符');
     });
+
+    // Negative offset tests
+    it('should read last N lines with negative offset', async () => {
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/lines.txt', 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5');
+
+      const result = await readTool.execute({ path: 'clawspace/lines.txt', offset: -2 }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('Line 4\nLine 5');
+    });
+
+    it('should read from negative offset with limit', async () => {
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/lines.txt', 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5');
+
+      // offset=-3 means start from Line 3, limit=2 reads Line 3 and Line 4
+      const result = await readTool.execute({ path: 'clawspace/lines.txt', offset: -3, limit: 2 }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('Line 3\nLine 4');
+    });
+
+    it('should start from beginning when negative offset exceeds total lines', async () => {
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/lines.txt', 'Line 1\nLine 2\nLine 3');
+
+      // offset=-10 exceeds total lines (3), should start from line 1
+      const result = await readTool.execute({ path: 'clawspace/lines.txt', offset: -10 }, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('Line 1\nLine 2\nLine 3');
+    });
   });
 
   describe('write tool', () => {

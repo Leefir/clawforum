@@ -57,7 +57,7 @@ export const readTool: ITool = {
       },
       offset: {
         type: 'number',
-        description: 'Starting line number (1-indexed, optional)',
+        description: 'Starting line number (1-indexed). Negative values count from end: -10 = last 10 lines',
       },
       limit: {
         type: 'number',
@@ -151,7 +151,8 @@ export const readTool: ITool = {
       // Apply line range if specified
       if (offset !== undefined || limit !== undefined) {
         const lines = content.split('\n');
-        const start = (offset ?? 1) - 1; // Convert to 0-indexed
+        let start = (offset ?? 1) - 1;
+        if (start < 0) start = Math.max(0, lines.length + start + 1);
         const end = limit !== undefined ? start + limit : lines.length;
         content = lines.slice(start, end).join('\n');
       }
