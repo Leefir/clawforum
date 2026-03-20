@@ -51,8 +51,8 @@ export interface LLMServiceConfig {
   /** Primary provider */
   primary: ProviderConfig;
   
-  /** Fallback provider (optional) */
-  fallback?: ProviderConfig;
+  /** Fallback providers (optional, 0-N, tried in order) */
+  fallbacks?: ProviderConfig[];
   
   /** 
    * Maximum total attempts for primary (including initial call + retries)

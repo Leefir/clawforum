@@ -46,13 +46,13 @@ function delay(ms: number): Promise<void> {
  */
 export class LLMService implements ILLMService {
   private primary: IProviderAdapter;
-  private fallback?: IProviderAdapter;
+  private fallbacks: IProviderAdapter[];
   private config: LLMServiceConfig;
   private monitor?: IMonitor;
   private clawId?: string;
   
-  // Track if we're using fallback
-  private usingFallback = false;
+  // Track current provider: -1 = primary, 0..N = fallbacks[i]
+  private currentProviderIndex = -1;
   
   constructor(
     config: LLMServiceConfig,
@@ -61,7 +61,7 @@ export class LLMService implements ILLMService {
   ) {
     this.config = config;
     this.primary = createProvider(config.primary);
-    this.fallback = config.fallback ? createProvider(config.fallback) : undefined;
+    this.fallbacks = (config.fallbacks ?? []).map(createProvider);
     this.monitor = monitor;
     this.clawId = clawId;
   }
@@ -88,12 +88,12 @@ export class LLMService implements ILLMService {
           latencyMs: Date.now() - startTime,
           inputTokens: response.usage?.input_tokens,
           outputTokens: response.usage?.output_tokens,
-          isFallback: this.usingFallback,
+          isFallback: false,
           retryCount,
         });
         
-        // Reset fallback status on primary success
-        this.usingFallback = false;
+        // Reset to primary
+        this.currentProviderIndex = -1;
         return response;
         
       } catch (error) {
@@ -122,16 +122,21 @@ export class LLMService implements ILLMService {
       }
     }
     
-    // Primary failed, try fallback if available
-    if (this.fallback) {
+    // Primary failed, try fallbacks in order
+    const failures: Array<{ provider: string; error: Error }> = [
+      { provider: this.primary.name, error: lastError! }
+    ];
+    
+    for (let i = 0; i < this.fallbacks.length; i++) {
+      const fb = this.fallbacks[i];
       try {
-        const response = await this.fallback.call(options);
+        const response = await fb.call(options);
         
         // Log fallback success
         this.logLLMCall({
           timestamp: new Date().toISOString(),
-          provider: this.fallback.name,
-          model: this.fallback.model,
+          provider: fb.name,
+          model: fb.model,
           success: true,
           latencyMs: Date.now() - startTime,
           inputTokens: response.usage?.input_tokens,
@@ -140,15 +145,15 @@ export class LLMService implements ILLMService {
           retryCount,
         });
         
-        this.usingFallback = true;
+        this.currentProviderIndex = i;
         return response;
         
       } catch (fallbackError) {
         // Log fallback failure
         this.logLLMCall({
           timestamp: new Date().toISOString(),
-          provider: this.fallback.name,
-          model: this.fallback.model,
+          provider: fb.name,
+          model: fb.model,
           success: false,
           latencyMs: Date.now() - startTime,
           isFallback: true,
@@ -156,30 +161,12 @@ export class LLMService implements ILLMService {
           error: (fallbackError as Error).message,
         });
         
-        // Both failed
-        throw new LLMAllProvidersFailedError([
-          { provider: this.primary.name, error: lastError! },
-          { provider: this.fallback.name, error: fallbackError as Error },
-        ]);
+        failures.push({ provider: fb.name, error: fallbackError as Error });
       }
     }
     
-    // No fallback, primary failed
-    // Log failure
-    this.logLLMCall({
-      timestamp: new Date().toISOString(),
-      provider: this.primary.name,
-      model: this.primary.model,
-      success: false,
-      latencyMs: Date.now() - startTime,
-      isFallback: false,
-      retryCount,
-      error: lastError!.message,
-    });
-    
-    throw new LLMAllProvidersFailedError([
-      { provider: this.primary.name, error: lastError! },
-    ]);
+    // All providers failed
+    throw new LLMAllProvidersFailedError(failures);
   }
   
   /**
@@ -191,9 +178,10 @@ export class LLMService implements ILLMService {
    *         mid-stream errors will fail over without retry
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
-    const provider = this.usingFallback && this.fallback 
-      ? this.fallback 
-      : this.primary;
+    const providerIndex = this.currentProviderIndex;
+    const provider = providerIndex === -1 
+      ? this.primary 
+      : this.fallbacks[providerIndex];
     
     if (!provider.stream) {
       throw new LLMError('Streaming not supported by provider', { provider: provider.name });
@@ -220,13 +208,25 @@ export class LLMService implements ILLMService {
       }
     }
     
-    // Retries exhausted on primary, try fallback
-    if (this.fallback && provider !== this.fallback && this.fallback.stream) {
-      this.usingFallback = true;
-      yield* this.fallback.stream(options);
-    } else {
-      throw lastError!;
+    // Retries exhausted on primary, try fallbacks in order
+    let fallbackError: Error | undefined = lastError;
+    const startFallbackIndex = providerIndex === -1 ? 0 : providerIndex + 1;
+    
+    for (let i = startFallbackIndex; i < this.fallbacks.length; i++) {
+      const fb = this.fallbacks[i];
+      if (!fb.stream) continue;
+      
+      try {
+        this.currentProviderIndex = i;
+        yield* fb.stream(options);
+        return;
+      } catch (err) {
+        fallbackError = err as Error;
+        // Continue to next fallback
+      }
     }
+    
+    throw fallbackError!;
   }
   
   /**
@@ -237,14 +237,14 @@ export class LLMService implements ILLMService {
     model: string;
     isFallback: boolean;
   } {
-    const provider = this.usingFallback && this.fallback
-      ? this.fallback
-      : this.primary;
+    const provider = this.currentProviderIndex === -1
+      ? this.primary
+      : this.fallbacks[this.currentProviderIndex];
     
     return {
       name: provider.name,
       model: provider.model,
-      isFallback: this.usingFallback,
+      isFallback: this.currentProviderIndex !== -1,
     };
   }
   

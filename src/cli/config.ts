@@ -31,7 +31,8 @@ export const ClawGlobalConfigSchema = z.object({
   version: z.string().default('1'),
   llm: z.object({
     primary: LLMProviderSchema,
-    fallback: LLMProviderSchema.optional(),
+    fallback: LLMProviderSchema.optional(),          // 保留，向后兼容
+    fallbacks: z.array(LLMProviderSchema).optional(), // 新增：多级 fallback 链
     retry_attempts: z.number().min(0).max(10).default(3),
     retry_delay_ms: z.number().min(0).max(60000).default(1000),
   }),
@@ -217,14 +218,15 @@ export function buildLLMConfig(
     ? toProviderConfig(clawConfig.llm.primary)
     : toProviderConfig(globalConfig.llm.primary);
   
-  // Fallback always from global
-  const fallbackProvider = globalConfig.llm.fallback
-    ? toProviderConfig(globalConfig.llm.fallback)
-    : undefined;
+  // Merge fallbacks + fallback（旧字段自动并入列表末尾，向后兼容）
+  const fallbackList = [
+    ...(globalConfig.llm.fallbacks ?? []),
+    ...(globalConfig.llm.fallback ? [globalConfig.llm.fallback] : []),
+  ];
   
   return {
     primary: primaryProvider,
-    fallback: fallbackProvider,
+    fallbacks: fallbackList.map(toProviderConfig),
     maxAttempts: globalConfig.llm.retry_attempts,
     retryDelayMs: globalConfig.llm.retry_delay_ms,
   };

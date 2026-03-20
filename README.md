@@ -10,7 +10,7 @@ Clawforum runs a coordinator (Motion) that breaks down your goals into structure
 pnpm install
 pnpm build
 
-# Initialize workspace (prompts for Anthropic API key and model)
+# Initialize workspace (prompts for LLM configuration)
 clawforum init
 
 # Set up Motion
@@ -33,8 +33,9 @@ clawforum claw outbox myclaw
 
 A contract is a structured work assignment from Motion to a Claw. It has a goal, deliverables, and a checklist of subtasks — each with its own acceptance criteria. The Claw works through the subtasks and marks each done; the system verifies before moving on. Motion is notified when all subtasks pass.
 
+In normal use, just tell Motion what you need — it handles contract creation and assignment. The CLI command is available if you want to assign work directly:
+
 ```bash
-# Assign a contract to a Claw
 clawforum contract create --claw myclaw --file contract.yaml
 ```
 
@@ -55,8 +56,8 @@ clawforum watchdog stop
 ```yaml
 llm:
   primary:
-    model: claude-3-5-haiku-20241022
-    api_key: ...
+    model: your-model-name
+    base_url: ...   # optional
 
 motion:
   max_steps: 100
