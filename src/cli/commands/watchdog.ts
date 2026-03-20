@@ -105,17 +105,48 @@ function getGlobalConfig() {
   return globalConfigCache;
 }
 
-// 读取 claw 最后活动时间（stream.jsonl 的 mtime）
-function getClawLastActivity(clawDir: string): number | null {
+// 解析 stream.jsonl，返回最后一次事件时间戳和最后一次错误信息
+interface ClawActivityInfo {
+  lastEventMs: number | null;  // 任意事件的最新 ts（防长 react 误判）
+  lastError: string | null;    // 最后一个终止事件是 turn_error 时的错误信息
+                               // 只有 turn_end 才清除
+}
+
+function getClawActivityInfo(clawDir: string): ClawActivityInfo {
   const streamFile = path.join(clawDir, 'stream.jsonl');
   try {
-    return fs.statSync(streamFile).mtimeMs;
+    const content = fs.readFileSync(streamFile, 'utf-8');
+    const lines = content.trim().split('\n').filter(Boolean);
+
+    let lastEventMs: number | null = null;
+    let lastError: string | null = null;
+
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line) as { type: string; ts?: number; error?: string };
+        const ts = typeof event.ts === 'number' ? event.ts : null;
+        if (!ts) continue;
+
+        // 任意事件都更新最近活动时间
+        if (lastEventMs === null || ts > lastEventMs) lastEventMs = ts;
+
+        // 只追踪终止事件来判断错误状态
+        if (event.type === 'turn_end') {
+          lastError = null;         // 真正完成一轮，清除错误
+        } else if (event.type === 'turn_error') {
+          lastError = event.error ?? 'unknown error';
+        }
+        // turn_interrupted：不清除错误，不设置错误
+      } catch { /* skip */ }
+    }
+
+    return { lastEventMs, lastError };
   } catch {
-    return null;
+    return { lastEventMs: null, lastError: null };
   }
 }
 
-// 检查有活跃契约但长时间无活动的 claw，发送提醒
+// 检查有活跃契约但长时间无进展的 claw，发送提醒
 function maybeCronClawInactivity(): void {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
   const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
@@ -130,27 +161,43 @@ function maybeCronClawInactivity(): void {
     if (!fs.existsSync(activeDir)) continue;
     if (!fs.readdirSync(activeDir).some(f => f.endsWith('.yaml'))) continue;
 
-    // 最后活动时间
-    const lastActivity = getClawLastActivity(clawDir);
-    if (lastActivity === null) continue;
+    // 解析 stream.jsonl 获取真实进展
+    const { lastEventMs, lastError } = getClawActivityInfo(clawDir);
+
+    // 直接用 lastEventMs 作为参考基准（任意事件都更新）
+    const referenceMs = lastEventMs;
+    if (referenceMs === null) continue;
 
     // 未超时
-    if (now - lastActivity < timeoutMs) continue;
+    if (now - referenceMs < timeoutMs) continue;
 
     // 去重
     const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
     if (now - lastNotified < timeoutMs) continue;
 
-    // 发通知
-    const inactiveMin = Math.round((now - lastActivity) / 60000);
-    log(`[watchdog] Claw ${clawId} inactive ${inactiveMin}m with active contract`);
+    // 发通知（附带错误原因）
+    const inactiveMin = Math.round((now - referenceMs) / 60000);
+    const errorSuffix = lastError ? `，最后错误：${lastError}` : '';
+    log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
     writeWatchdogInboxMessage('claw_inactivity', {
-      message: `Claw ${clawId} 有活跃契约但已 ${inactiveMin} 分钟无活动，请检查`,
+      message: `Claw ${clawId} 有活跃契约但已 ${inactiveMin} 分钟无进展${errorSuffix}，请检查`,
       claw_id: clawId,
-      inactive_ms: now - lastActivity,
+      inactive_ms: now - referenceMs,
+      ...(lastError ? { last_error: lastError } : {}),
     });
     lastInactivityNotified.set(clawId, now);
   }
+}
+
+// 检查 claw 是否有活跃或暂停的契约
+function clawHasContract(clawDir: string): boolean {
+  for (const sub of ['active', 'paused']) {
+    try {
+      const entries = fs.readdirSync(path.join(clawDir, 'contract', sub), { withFileTypes: true });
+      if (entries.some(e => e.isDirectory())) return true;
+    } catch { /* skip */ }
+  }
+  return false;
 }
 
 // 检测 claw 进程崩溃并通知 motion
@@ -159,10 +206,17 @@ function maybeCronClawCrash(pm: ProcessManager): void {
   if (!fs.existsSync(clawsDir)) return;
 
   for (const clawId of fs.readdirSync(clawsDir)) {
+    const clawDir = path.join(clawsDir, clawId);
     const currentlyAlive = pm.isAlive(clawId);
     const wasAlive = clawPreviouslyAlive.get(clawId);
 
     if (wasAlive === true && !currentlyAlive) {
+      // 只在有活跃/暂停契约时通知 motion（无契约的 claw 停止无需通知）
+      if (!clawHasContract(clawDir)) {
+        log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification)`);
+        clawPreviouslyAlive.set(clawId, currentlyAlive);
+        continue;
+      }
       log(`[watchdog] Claw ${clawId} crashed (was alive, now stopped)`);
       writeInboxMessage({
         inboxDir: path.join(getMotionDir(), 'inbox', 'pending'),

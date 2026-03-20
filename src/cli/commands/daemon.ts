@@ -59,26 +59,6 @@ function injectStartupMessage(dir: string): void {
   } catch { /* best-effort */ }
 }
 
-/**
- * 通知 motion claw 已退出（best-effort 同步写 .md YAML）
- * 在 process.exit 前调用，确保消息写入 motion inbox
- */
-function notifyMotionExit(clawId: string, reason: string): void {
-  try {
-    const motionInbox = path.join(getMotionDir(), 'inbox', 'pending');
-    writeInboxMessage({
-      inboxDir: motionInbox,
-      type: 'crash_notification',
-      source: 'claw_daemon',
-      priority: 'high',
-      body: `Claw "${clawId}" exited (${reason}).`,
-      idPrefix: `crash-${clawId}`,
-      extraFields: { claw_id: clawId },
-    });
-  } catch (err) {
-    console.warn(`[daemon] Failed to notify motion of exit:`, err);
-  }
-}
 
 /**
  * 守护进程主函数（支持 claw 和 motion）
@@ -200,9 +180,6 @@ export async function daemonCommand(name: string): Promise<void> {
       await runtime.stop();
     } catch {
       // 忽略停止错误
-    }
-    if (!isMotion && hasContract(dir)) {
-      notifyMotionExit(name, signal);
     }
     // 清理 PID 文件和 lockfile
     try { fsNative.unlinkSync(pidFile); } catch {}
