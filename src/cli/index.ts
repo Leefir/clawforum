@@ -9,6 +9,7 @@ if (!process.env.CLAWFORUM_ROOT) {
 
 import { program } from 'commander';
 import { initCommand } from './commands/init.js';
+import { startCommand } from './commands/start.js';
 import * as path from 'path';
 import { 
   createCommand, 
@@ -40,6 +41,19 @@ program
 
 // config command
 program.addCommand(configCommand);
+
+// start command
+program
+  .command('start')
+  .description('Start the system (initializes if needed) and open Motion chat')
+  .action(async () => {
+    try {
+      await startCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
 
 // init command
 program

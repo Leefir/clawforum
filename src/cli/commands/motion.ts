@@ -21,7 +21,7 @@ import { runChatViewport } from './chat-viewport.js';
 /**
  * 创建 Motion 专用的 ProcessManager
  */
-function createMotionPM(): ProcessManager {
+export function createMotionPM(): ProcessManager {
   const baseDir = path.dirname(getMotionDir()); // .clawforum
   const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
   return new ProcessManager(nodeFs, baseDir, (id) => {

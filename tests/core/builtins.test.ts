@@ -102,8 +102,7 @@ describe('Builtin Tools', () => {
       const result = await readTool.execute({ path: 'clawspace/large.txt' }, ctx);
 
       expect(result.success).toBe(true);
-      expect(result.content).toContain('显示第1-200行');
-      expect(result.content).toContain('共300行');
+      expect(result.content).toContain('Showing lines 1-200 of 300');
       expect(result.content).toContain('offset=201');
     });
 
