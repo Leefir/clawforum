@@ -13,7 +13,7 @@
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse, ToolDefinition } from '../../types/message.js';
 import type { ILLMService, LLMCallOptions } from '../../foundation/llm/index.js';
 import type { StreamChunk } from '../../foundation/llm/types.js';
-import type { IToolExecutor, ExecContext, ToolResult } from '../tools/executor.js';
+import type { IToolExecutor, ExecContext, ToolResult, IToolRegistry } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
 
@@ -53,6 +53,9 @@ export interface ReactOptions {
   
   /** Tool definitions to pass to LLM for native tool_use */
   tools?: ToolDefinition[];
+  
+  /** Tool registry for checking readonly property (optional, enables parallel execution) */
+  registry?: IToolRegistry;
   
   /** Callback for streaming text deltas (for real-time display) */
   onTextDelta?: (delta: string) => void;
@@ -137,46 +140,17 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       // Append assistant's tool_use message
       appendAssistantMessage(messages, response.content);
 
-      // Execute each tool call sequentially
-      const toolResults: ToolResultBlock[] = [];
-      
-      for (const toolCall of toolCalls) {
-        // Notify UI
-        onToolCall?.(toolCall.name);
-
-        // Execute tool with error handling (P0 fix: prevent daemon crash)
-        let result: ToolResult;
-        try {
-          // 提取 async 标志（meta 参数，不传给工具本身）
-          const { async: asyncMode, ...toolArgs } = toolCall.input as Record<string, unknown>;
-
-          result = await executor.execute({
-            toolName: toolCall.name,
-            args: toolArgs,          // 不含 async 字段
-            ctx,
-            async: asyncMode === true,  // 传给 executor
-          });
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          console.error(`[react/loop] Tool ${toolCall.name} execution failed:`, errorMsg);
-          result = { 
-            success: false, 
-            content: `工具执行失败: ${errorMsg}` 
-          };
-        }
-
-        // Notify tool result (for displaying output summary)
-        onToolResult?.(toolCall.name, result, stepCount, maxSteps);
-
-        // Format result as ToolResultBlock
-        const resultBlock: ToolResultBlock = {
-          type: 'tool_result',
-          tool_use_id: toolCall.id,
-          content: result.content,
-          is_error: !result.success,
-        };
-        toolResults.push(resultBlock);
-      }
+      // Execute tool calls: read-only tools in parallel, write tools sequentially
+      const toolResults = await executeToolCalls(
+        toolCalls,
+        executor,
+        ctx,
+        options.registry,
+        onToolCall,
+        onToolResult,
+        stepCount,
+        maxSteps
+      );
 
       // 检查是否被中断（工具执行后）
       if (ctx.signal?.aborted) {
@@ -198,15 +172,14 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
           console.error('[react] Step completion callback failed:', err);
         }
       }
-
+      
       continue;
     }
 
-    // Handle end_turn stop reason
+    // Handle end_turn stop reason (final answer)
     if (response.stop_reason === 'end_turn' || response.stop_reason === 'stop') {
       const text = extractText(response.content);
       appendAssistantMessage(messages, response.content);
-      
       return {
         finalText: text,
         stepsUsed: stepCount,
@@ -214,22 +187,20 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       };
     }
 
-    // Handle max_tokens (treat as end_turn with partial response)
+    // Handle max_tokens stop reason
     if (response.stop_reason === 'max_tokens') {
       const text = extractText(response.content);
       appendAssistantMessage(messages, response.content);
-      
       return {
-        finalText: text + '\n[Response truncated due to length]',
+        finalText: text + '\n\n[Response truncated due to length limit]',
         stepsUsed: stepCount,
         stopReason: 'end_turn',
       };
     }
 
-    // Unknown stop reason - treat as end_turn
+    // Unknown stop reason, treat as end_turn
     const text = extractText(response.content);
     appendAssistantMessage(messages, response.content);
-    
     return {
       finalText: text,
       stepsUsed: stepCount,
@@ -242,7 +213,134 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 }
 
 /**
- * 流式调用 LLM，逐块推送 text delta，收集完整 LLMResponse
+ * Execute tool calls with parallel optimization for read-only tools
+ * 
+ * - Read-only tools: executed in parallel
+ * - Write tools: executed sequentially
+ * - Results are assembled in original order
+ */
+async function executeToolCalls(
+  toolCalls: ToolUseBlock[],
+  executor: IToolExecutor,
+  ctx: ExecContext,
+  registry: IToolRegistry | undefined,
+  onToolCall?: (toolName: string) => void,
+  onToolResult?: (toolName: string, result: ToolResult, step: number, maxSteps: number) => void,
+  stepCount: number = 0,
+  maxSteps: number = 20,
+): Promise<ToolResultBlock[]> {
+  // If no registry, fall back to sequential execution
+  if (!registry) {
+    const toolResults: ToolResultBlock[] = [];
+    for (const toolCall of toolCalls) {
+      onToolCall?.(toolCall.name);
+      const result = await executeSingleTool(toolCall, executor, ctx);
+      onToolResult?.(toolCall.name, result, stepCount, maxSteps);
+      toolResults.push(toToolResultBlock(toolCall.id, result));
+    }
+    return toolResults;
+  }
+
+  // Group tool calls by readonly property (keeping original index)
+  const readonlyCalls: { call: ToolUseBlock; index: number }[] = [];
+  const writeCalls: { call: ToolUseBlock; index: number }[] = [];
+
+  for (const [i, call] of toolCalls.entries()) {
+    const tool = registry.get(call.name);
+    if (tool?.readonly === true) {
+      readonlyCalls.push({ call, index: i });
+    } else {
+      writeCalls.push({ call, index: i });
+    }
+  }
+
+  // Results map: index -> ToolResultBlock
+  const results = new Map<number, ToolResultBlock>();
+
+  // Execute read-only tools in parallel
+  if (readonlyCalls.length > 0) {
+    // Notify UI for all readonly calls (before parallel execution)
+    for (const { call } of readonlyCalls) {
+      onToolCall?.(call.name);
+    }
+
+    // Prepare batch for parallel execution
+    const batch = readonlyCalls.map(({ call }) => {
+      // Note: async flag extracted but not passed to executeParallel
+      // executeParallel does not support async mode; readonly tools rarely need it.
+      const { async: _asyncMode, ...toolArgs } = call.input as Record<string, unknown>;
+      return {
+        toolName: call.name,
+        args: toolArgs,
+      };
+    });
+
+    // Execute parallel batch
+    const parallelResults = await executor.executeParallel(batch, ctx);
+
+    // Notify UI and store results in original order
+    for (let i = 0; i < readonlyCalls.length; i++) {
+      const { call, index } = readonlyCalls[i];
+      const result = parallelResults[i];
+      onToolResult?.(call.name, result, stepCount, maxSteps);
+      results.set(index, toToolResultBlock(call.id, result));
+    }
+  }
+
+  // Execute write tools sequentially
+  for (const { call, index } of writeCalls) {
+    onToolCall?.(call.name);
+    const result = await executeSingleTool(call, executor, ctx);
+    onToolResult?.(call.name, result, stepCount, maxSteps);
+    results.set(index, toToolResultBlock(call.id, result));
+  }
+
+  // Assemble results in original order
+  return toolCalls.map((_, i) => results.get(i)!);
+}
+
+/**
+ * Execute a single tool with error handling
+ */
+async function executeSingleTool(
+  toolCall: ToolUseBlock,
+  executor: IToolExecutor,
+  ctx: ExecContext,
+): Promise<ToolResult> {
+  try {
+    // Extract async flag (meta parameter, not passed to tool)
+    const { async: asyncMode, ...toolArgs } = toolCall.input as Record<string, unknown>;
+
+    return await executor.execute({
+      toolName: toolCall.name,
+      args: toolArgs,
+      ctx,
+      async: asyncMode === true,
+    });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[react/loop] Tool ${toolCall.name} execution failed:`, errorMsg);
+    return {
+      success: false,
+      content: `工具执行失败: ${errorMsg}`,
+    };
+  }
+}
+
+/**
+ * Convert ToolResult to ToolResultBlock
+ */
+function toToolResultBlock(toolUseId: string, result: ToolResult): ToolResultBlock {
+  return {
+    type: 'tool_result',
+    tool_use_id: toolUseId,
+    content: result.content,
+    is_error: !result.success,
+  };
+}
+
+/**
+ * Collect stream chunks into a complete response
  */
 async function collectStreamResponse(
   llm: ILLMService,
@@ -283,6 +381,15 @@ async function collectStreamResponse(
         if (currentText) {
           contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
           currentText = '';
+        }
+        // 保存之前的 tool_use（如果有多个）
+        if (currentToolUse) {
+          contentBlocks.push({
+            type: 'tool_use',
+            id: currentToolUse.id,
+            name: currentToolUse.name,
+            input: JSON.parse(currentToolUse.input || '{}'),
+          } as ContentBlock);
         }
         currentToolUse = {
           id: chunk.toolUse!.id,
@@ -344,14 +451,18 @@ async function collectStreamResponse(
  * Extract tool_use blocks from content
  */
 function extractToolCalls(content: ContentBlock[]): ToolUseBlock[] {
-  return content.filter((block): block is ToolUseBlock => 
-    block.type === 'tool_use'
-  );
+  return content
+    .filter((block): block is ToolUseBlock => block.type === 'tool_use')
+    .map(block => ({
+      type: 'tool_use',
+      id: block.id,
+      name: block.name,
+      input: block.input as Record<string, unknown>,
+    }));
 }
 
 /**
- * Extract text from content blocks
- * MVP aligned: join with space and trim, not newline
+ * Extract text content from response
  */
 function extractText(content: ContentBlock[]): string {
   return content

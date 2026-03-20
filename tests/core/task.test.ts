@@ -79,6 +79,25 @@ function createMockLLM(responses: LLMResponse[]): ILLMService {
   } as unknown as ILLMService;
 }
 
+/**
+ * Create a mock LLM that never resolves - useful for keeping tasks in running state
+ */
+function createHangingMockLLM(): ILLMService {
+  // Create an async generator that never yields
+  async function* hangingStream(): AsyncIterableIterator<StreamChunk> {
+    await new Promise(() => {}); // Never resolves
+    yield { type: 'done' };
+  }
+  
+  return {
+    call: vi.fn(() => new Promise(() => {})), // Never resolves
+    stream: vi.fn().mockReturnValue(hangingStream()),
+    close: vi.fn(),
+    healthCheck: vi.fn().mockResolvedValue(true),
+    getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),
+  } as unknown as ILLMService;
+}
+
 describe('Task System + SubAgent', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
@@ -109,6 +128,9 @@ describe('Task System + SubAgent', () => {
 
   describe('TaskSystem', () => {
     it('should schedule subagent and return taskId', async () => {
+      // Use hanging LLM so task stays in running state for verification
+      taskSystem.setLLMService(createHangingMockLLM());
+      
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Test task',
@@ -122,7 +144,10 @@ describe('Task System + SubAgent', () => {
       expect(taskId).toBeDefined();
       expect(typeof taskId).toBe('string');
 
-      // Check task file exists
+      // Wait for dispatch to move from pending to running
+      await new Promise(r => setTimeout(r, 100));
+
+      // Check task file exists in running directory
       const runningExists = await mockFs.exists(`tasks/running/${taskId}.json`);
       expect(runningExists).toBe(true);
     });
@@ -130,6 +155,12 @@ describe('Task System + SubAgent', () => {
     it('should move task to done when completed', async () => {
       // Create parent claw inbox
       await mockFs.ensureDir('claws/parent-claw/inbox/pending');
+      
+      // Set mock LLM that returns quickly
+      taskSystem.setLLMService(createMockLLM([{
+        content: [{ type: 'text', text: 'Task result' }],
+        stop_reason: 'end_turn',
+      }]));
 
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -154,19 +185,50 @@ describe('Task System + SubAgent', () => {
     });
 
     it('should cancel task', async () => {
+      // Use a slow but cancellable mock LLM
+      // It yields text slowly so we can cancel mid-execution
+      async function* slowStream(): AsyncIterableIterator<StreamChunk> {
+        yield { type: 'text_delta', delta: 'Starting' };
+        // Wait a bit, then check for abort
+        await new Promise(r => setTimeout(r, 50));
+        yield { type: 'text_delta', delta: '...' };
+        await new Promise(r => setTimeout(r, 50));
+        yield { type: 'text_delta', delta: '...' };
+        await new Promise(r => setTimeout(r, 50));
+        yield { type: 'done' };
+      }
+      
+      taskSystem.setLLMService({
+        call: vi.fn().mockResolvedValue({
+          content: [{ type: 'text', text: 'Completed' }],
+          stop_reason: 'end_turn',
+        }),
+        stream: vi.fn().mockReturnValue(slowStream()),
+        close: vi.fn(),
+        healthCheck: vi.fn().mockResolvedValue(true),
+        getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),
+      } as unknown as ILLMService);
+      
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Long running task',
         skills: [],
         tools: [],
         timeout: 300,
-        maxSteps: 100,
+        maxSteps: 10,
         parentClawId: 'parent-claw',
       });
+
+      // Wait for task to be dispatched to running
+      await new Promise(r => setTimeout(r, 50));
+
+      // Verify task is in running state
+      expect(taskSystem.listRunning()).toContain(taskId);
 
       await taskSystem.cancel(taskId);
 
       // Task should be removed from running
+      expect(taskSystem.listRunning()).not.toContain(taskId);
       const runningExists = await mockFs.exists(`tasks/running/${taskId}.json`);
       expect(runningExists).toBe(false);
     });

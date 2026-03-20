@@ -4,7 +4,7 @@
  */
 
 // Event types for monitoring
-export type MonitorEventType = 
+export type MonitorEventType =
   | 'llm_call'
   | 'tool_call'
   | 'contract_created'
@@ -12,9 +12,13 @@ export type MonitorEventType =
   | 'contract_completed'
   | 'contract_failed'
   | 'subagent_spawned'
+  | 'subagent_scheduled'
   | 'subagent_completed'
   | 'tool_task_spawned'
+  | 'tool_task_scheduled'
   | 'tool_task_completed'
+  | 'task_recovered'
+  | 'task_recovery_complete'
   | 'file_operation'
   | 'error'
   | 'system';

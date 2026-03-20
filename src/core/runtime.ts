@@ -155,6 +155,8 @@ export class ClawRuntime {
     });
     await this.taskSystem.initialize();
     this.taskSystem.setLLMService(this.llm);
+    // 恢复的任务需要在 LLM 设置后才能调度
+    this.taskSystem.startDispatch();
 
     // 9. 创建 SkillRegistry（懒加载技能）
     this.skillRegistry = new SkillRegistry(this.systemFs, 'skills');
@@ -393,6 +395,7 @@ export class ClawRuntime {
       executor: this.toolExecutor,
       ctx: this.execContext,
       tools,
+      registry: this.toolRegistry,  // Enable parallel execution for readonly tools
       maxSteps: this.options.maxSteps,
       onStepComplete: async () => {
         await this.sessionManager.save(messages);
@@ -487,6 +490,7 @@ export class ClawRuntime {
         executor: this.toolExecutor,
         ctx: this.execContext,
         tools,
+        registry: this.toolRegistry,  // Enable parallel execution for readonly tools
         maxSteps: this.options.maxSteps,
         onToolCall: options?.onToolCall,
         onBeforeLLMCall: options?.onBeforeLLMCall,

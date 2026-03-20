@@ -4,7 +4,7 @@
  * Tests for async tool execution via TaskSystem:
  * - scheduleTool success/failure paths
  * - executor async routing
- * - maxConcurrent limit
+ * - pending queue with dispatcher pattern
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -120,16 +120,16 @@ describe('TaskSystem Tool Tasks', () => {
       
       expect(taskId).toBeDefined();
       expect(typeof taskId).toBe('string');
-      expect(taskSystem.listRunning()).toContain(taskId);
     });
 
-    it('should save task to tasks/running/', async () => {
+    it('should save task to tasks/pending/ initially', async () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'ok' });
       
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
+      // Task should be in pending directory (before dispatch)
       const taskFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
         'utf-8'
       );
       const taskData = JSON.parse(taskFile);
@@ -138,7 +138,35 @@ describe('TaskSystem Tool Tasks', () => {
       expect(taskData.parentClawId).toBe('parent-claw');
     });
 
-    it('should execute callback and send result to inbox', async () => {
+    it('should move task to tasks/running/ when dispatched', async () => {
+      // Use a slow callback so we can check the running state before completion
+      const slowCallback = async () => {
+        await new Promise(r => setTimeout(r, 200));
+        return { success: true, content: 'slow' };
+      };
+      
+      const taskId = await taskSystem.scheduleTool('testTool', slowCallback, 'parent-claw');
+      
+      // Wait a bit for dispatch to happen (move from pending to running)
+      await new Promise(r => setTimeout(r, 50));
+      
+      // Task should be in running directory after dispatch
+      const taskFile = await fs.readFile(
+        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        'utf-8'
+      );
+      const taskData = JSON.parse(taskFile);
+      expect(taskData.kind).toBe('tool');
+      expect(taskData.toolName).toBe('testTool');
+      expect(taskData.parentClawId).toBe('parent-claw');
+      
+      // Should no longer be in pending
+      expect(taskSystem.listPending()).not.toContain(taskId);
+      // Should be in running list
+      expect(taskSystem.listRunning()).toContain(taskId);
+    });
+
+    it('should execute callback and send summary + resultRef to inbox', async () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'async result' });
       
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
@@ -158,9 +186,36 @@ describe('TaskSystem Tool Tasks', () => {
       expect(content.taskId).toBe(taskId);
       expect(content.toolName).toBe('testTool');
       expect(content.is_error).toBe(false);
+      // Should have summary and resultRef instead of full result
+      expect(content.summary).toBeDefined();
+      expect(content.resultRef).toBe(`tasks/results/${taskId}.txt`);
+      expect(content.result).toBeUndefined(); // Full result should not be in inbox
     });
 
-    it('should send error result when callback throws', async () => {
+    it('should save full result to tasks/results/', async () => {
+      const longResult = 'x'.repeat(1000); // Long result to test truncation
+      const executeCallback = vi.fn().mockResolvedValue({ success: true, content: longResult });
+      
+      const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
+      
+      // Wait for async execution
+      await new Promise(r => setTimeout(r, 100));
+      
+      // Full result should be in results directory
+      const resultFile = await fs.readFile(
+        path.join(testClawDir, 'tasks', 'results', `${taskId}.txt`),
+        'utf-8'
+      );
+      expect(resultFile).toContain(longResult);
+      
+      // Inbox should have truncated summary
+      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
+      const content = JSON.parse(callArg.content);
+      expect(content.summary.length).toBeLessThanOrEqual(201); // 200 + '…'
+      expect(content.summary.endsWith('…')).toBe(true);
+    });
+
+    it('should send error result with summary + resultRef', async () => {
       const executeCallback = vi.fn().mockRejectedValue(new Error('Execution failed'));
       
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
@@ -175,7 +230,10 @@ describe('TaskSystem Tool Tasks', () => {
       
       const content = JSON.parse(callArg.content);
       expect(content.taskId).toBe(taskId);
+      expect(content.toolName).toBe('testTool');
       expect(content.is_error).toBe(true);
+      expect(content.summary).toBeDefined();
+      expect(content.resultRef).toBe(`tasks/results/${taskId}.txt`);
     });
 
     it('should move task to done after completion', async () => {
@@ -200,21 +258,241 @@ describe('TaskSystem Tool Tasks', () => {
     });
   });
 
-  describe('maxConcurrent limit', () => {
-    it('should throw when max concurrent reached', async () => {
-      // Fill up to max concurrent (3)
-      const promises: Promise<string>[] = [];
-      for (let i = 0; i < 3; i++) {
-        const slowCallback = () => new Promise<ToolResult>(r => setTimeout(() => r({ success: true, content: 'slow' }), 5000));
-        promises.push(taskSystem.scheduleTool(`slowTool${i}`, slowCallback, 'parent-claw'));
-      }
-      await Promise.all(promises);
+  describe('pending queue with dispatcher', () => {
+    it('should queue tasks when max concurrent reached and dispatch when slots free', async () => {
+      // Fill up to max concurrent (3) with slow tasks
+      const slowCallback = () => new Promise<ToolResult>(r => setTimeout(() => r({ success: true, content: 'slow' }), 500));
       
-      // 4th should throw
-      const fourthCallback = vi.fn().mockResolvedValue({ success: true, content: 'ok' });
-      await expect(
-        taskSystem.scheduleTool('fourthTool', fourthCallback, 'parent-claw')
-      ).rejects.toThrow('Max concurrent tasks (3) reached');
+      // Schedule 3 slow tasks
+      const taskIds: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const id = await taskSystem.scheduleTool(`slowTool${i}`, slowCallback, 'parent-claw');
+        taskIds.push(id);
+      }
+      
+      // Wait for all to be dispatched
+      await new Promise(r => setTimeout(r, 50));
+      
+      // All 3 should be running
+      expect(taskSystem.listRunning().length).toBe(3);
+      expect(taskSystem.listPending().length).toBe(0);
+      
+      // Schedule a 4th task - should go to pending
+      const fastCallback = vi.fn().mockResolvedValue({ success: true, content: 'fast' });
+      const fourthId = await taskSystem.scheduleTool('fourthTool', fastCallback, 'parent-claw');
+      
+      // Should be in pending, not running
+      expect(taskSystem.listPending()).toContain(fourthId);
+      expect(taskSystem.listRunning()).not.toContain(fourthId);
+      
+      // Wait for slow tasks to complete (need more than 500ms)
+      await new Promise(r => setTimeout(r, 600));
+      
+      // Now fourth should be dispatched and completed
+      expect(taskSystem.listRunning()).not.toContain(fourthId); // Should be done now
+      expect(taskSystem.listPending()).not.toContain(fourthId);
+      
+      // Fast callback should have been executed
+      expect(fastCallback).toHaveBeenCalled();
+      
+      // Should be in done
+      const doneFile = await fs.readFile(
+        path.join(testClawDir, 'tasks', 'done', `${fourthId}.json`),
+        'utf-8'
+      ).catch(() => null);
+      expect(doneFile).not.toBeNull();
+    });
+
+    it('should queue multiple tasks and dispatch in FIFO order', async () => {
+      // Create 5 tasks with maxConcurrent=3
+      const executionOrder: number[] = [];
+      const createCallback = (n: number) => async () => {
+        executionOrder.push(n);
+        await new Promise(r => setTimeout(r, 50));
+        return { success: true, content: `task-${n}` };
+      };
+      
+      // Schedule all 5 tasks quickly
+      const taskIds: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const id = await taskSystem.scheduleTool(`tool${i}`, createCallback(i), 'parent-claw');
+        taskIds.push(id);
+      }
+      
+      // Wait for initial dispatch (first 3)
+      await new Promise(r => setTimeout(r, 20));
+      expect(taskSystem.listRunning().length).toBeLessThanOrEqual(3);
+      expect(taskSystem.listPending().length).toBeGreaterThanOrEqual(2);
+      
+      // Wait for all to complete
+      await new Promise(r => setTimeout(r, 500));
+      
+      // All 5 tasks should have been executed
+      expect(executionOrder.length).toBe(5);
+      // First 3 should start in order (but completion order may vary due to async)
+      expect(executionOrder.slice(0, 3)).toEqual([0, 1, 2]);
+    });
+  });
+
+  describe('cold-start recovery', () => {
+    it('should recover tasks from pending/ on initialize', async () => {
+      // Directly write a pending file without going through scheduleTool
+      const taskId = 'recovered-task-id';
+      const task = { 
+        kind: 'tool', 
+        id: taskId, 
+        toolName: 'recoverTool', 
+        parentClawId: 'parent', 
+        createdAt: new Date().toISOString() 
+      };
+      await fs.writeFile(
+        path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
+        JSON.stringify(task)
+      );
+
+      // Re-initialize (simulating restart)
+      const taskSystem2 = new TaskSystem(
+        testClawDir,
+        {
+          read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+          write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+          writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+          append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+          delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+          exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+          list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
+            entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+          ),
+          ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+          isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+        } as any,
+        mockTransport as any,
+        { maxConcurrent: 3 }
+      );
+      await taskSystem2.initialize();
+
+      // Task should be in pendingQueue
+      expect(taskSystem2.listPending()).toContain(taskId);
+
+      await taskSystem2.shutdown(100).catch(() => {});
+    });
+
+    it('should move running/ tasks back to pending/ on initialize (crash recovery)', async () => {
+      // Directly write a running file without going through scheduleTool (simulating crash residue)
+      const taskId = 'crashed-task-id';
+      const task = { 
+        kind: 'tool', 
+        id: taskId, 
+        toolName: 'crashTool', 
+        parentClawId: 'parent', 
+        createdAt: new Date().toISOString() 
+      };
+      await fs.writeFile(
+        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        JSON.stringify(task)
+      );
+
+      const taskSystem2 = new TaskSystem(
+        testClawDir,
+        {
+          read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+          write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+          writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+          append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+          delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+          exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+          list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
+            entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+          ),
+          ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+          isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+        } as any,
+        mockTransport as any,
+        { maxConcurrent: 3 }
+      );
+      await taskSystem2.initialize();
+
+      // Running file should be moved away, task enters pendingQueue
+      expect(taskSystem2.listPending()).toContain(taskId);
+      const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(runningExists).toBe(false);
+
+      await taskSystem2.shutdown(100).catch(() => {});
+    });
+  });
+
+  describe('sendToolResult', () => {
+    it('should use result.content for summary, not full JSON', async () => {
+      const longContent = 'output-' + 'x'.repeat(300);
+      const executeCallback = vi.fn().mockResolvedValue({ success: true, content: longContent });
+
+      const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
+      await new Promise(r => setTimeout(r, 100));
+
+      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
+      const content = JSON.parse(callArg.content);
+
+      // Summary should start with 'output-xxx...', not contain '{"success":true'
+      expect(content.summary).not.toContain('"success"');
+      expect(content.summary).not.toContain('"content"');
+      // Content comes from result.content
+      expect(content.summary.startsWith('output-')).toBe(true);
+    });
+
+    it('should fall back to full content in inbox when results/ write fails', async () => {
+      const mockTransport2 = createMockTransport();
+      
+      // Create an fs where writeAtomic fails for results/ path
+      const failingFs = {
+        read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+        write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        writeAtomic: async (p: string, c: string) => {
+          if (p.includes('tasks/results')) throw new Error('Disk full');
+          return fs.writeFile(path.join(testClawDir, p), c);
+        },
+        append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+        delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+        list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
+          entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+        ),
+        ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+        isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+      } as any;
+
+      const taskSystem2 = new TaskSystem(testClawDir, failingFs, mockTransport2 as any, { maxConcurrent: 3 });
+      await taskSystem2.initialize();
+
+      const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
+      await taskSystem2.scheduleTool('testTool', executeCallback, 'parent-claw');
+      await new Promise(r => setTimeout(r, 100));
+
+      const callArg = mockTransport2.sendInboxMessage.mock.calls[0][1];
+      const content = JSON.parse(callArg.content);
+
+      // Fallback: no resultRef, has result field
+      expect(content.resultRef).toBeUndefined();
+      expect(content.result).toBeDefined();
+
+      await taskSystem2.shutdown(100).catch(() => {});
+    });
+  });
+
+  describe('cancel', () => {
+    it('should not attempt double moveTaskToDone after cancel', async () => {
+      const slowCallback = () => new Promise<ToolResult>(r => setTimeout(() => r({ success: true, content: 'slow' }), 1000));
+      const taskId = await taskSystem.scheduleTool('slowTool', slowCallback, 'parent-claw');
+      await new Promise(r => setTimeout(r, 50)); // Wait for dispatch
+
+      await taskSystem.cancel(taskId);
+
+      // Task should be in done directory (via _startTask.finally -> executeToolTask.finally)
+      // And running directory should not have the file (deleted only once)
+      const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(runningExists).toBe(false);
+      // No longer running or pending
+      expect(taskSystem.listRunning()).not.toContain(taskId);
+      expect(taskSystem.listPending()).not.toContain(taskId);
     });
   });
 });

@@ -111,6 +111,7 @@ Work efficiently and return a clear, concise result.`;
           callerType: 'subagent',
         }),
         maxSteps: this.maxSteps,
+        registry: this.registry,  // Enable parallel execution for readonly tools
         onToolCall: (name) => {
           this.appendToLog(`Tool called: ${name}\n`);
         },

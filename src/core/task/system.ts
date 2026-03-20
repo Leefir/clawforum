@@ -2,6 +2,7 @@
  * TaskSystem - SubAgent task lifecycle management
  * 
  * Manages subagent task queue and execution using directory-based persistence.
+ * Uses a pending queue + dispatcher pattern for concurrency control.
  */
 
 import { randomUUID } from 'crypto';
@@ -47,6 +48,11 @@ export class TaskSystem {
   private monitor: JsonlMonitor;
   private registry: ToolRegistry;
   private llm?: ILLMService;
+  
+  // Pending queue for tasks waiting to be executed
+  private pendingQueue: Array<SubAgentTask | ToolTask> = [];
+  // Store tool callbacks separately (not serializable to disk)
+  private pendingCallbacks: Map<string, () => Promise<ToolResult>> = new Map();
 
   constructor(
     private clawDir: string,
@@ -67,6 +73,89 @@ export class TaskSystem {
     await this.fs.ensureDir('tasks/running');
     await this.fs.ensureDir('tasks/done');
     await this.fs.ensureDir('tasks/results');
+    
+    // Cold-start recovery: load existing pending and running tasks
+    await this.recoverTasks();
+    
+    // Note: startDispatch() should be called after setLLMService() to avoid race conditions
+  }
+
+  /**
+   * Start dispatching pending tasks.
+   * Must be called after setLLMService() for subagent tasks to work correctly.
+   */
+  startDispatch(): void {
+    this._dispatch();
+  }
+
+  /**
+   * Recover tasks from filesystem on startup
+   * - Pending tasks: load into queue
+   * - Running tasks: move back to pending (they need to be re-executed)
+   */
+  private async recoverTasks(): Promise<void> {
+    try {
+      // First, move any running tasks back to pending (they were interrupted)
+      const runningEntries = await this.fs.list('tasks/running');
+      for (const entry of runningEntries) {
+        if (entry.name.endsWith('.json')) {
+          try {
+            const content = await this.fs.read(entry.path);
+            const task = JSON.parse(content) as SubAgentTask | ToolTask;
+            // Move to pending
+            const pendingPath = `tasks/pending/${task.id}.json`;
+            await this.fs.writeAtomic(pendingPath, content);
+            await this.fs.delete(entry.path);
+            this.pendingQueue.push(task);
+            this.monitor.log('task_recovered', {
+              taskId: task.id,
+              kind: task.kind,
+              from: 'running',
+              to: 'pending',
+            });
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.monitor.log('error', {
+              error: `Failed to recover running task: ${errMsg}`,
+              path: entry.path,
+            });
+          }
+        }
+      }
+      
+      // Load pending tasks
+      const pendingEntries = await this.fs.list('tasks/pending');
+      for (const entry of pendingEntries) {
+        if (entry.name.endsWith('.json')) {
+          try {
+            const content = await this.fs.read(entry.path);
+            const task = JSON.parse(content) as SubAgentTask | ToolTask;
+            this.pendingQueue.push(task);
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.monitor.log('error', {
+              error: `Failed to load pending task: ${errMsg}`,
+              path: entry.path,
+            });
+          }
+        }
+      }
+      
+      // Sort pending queue by createdAt to maintain order
+      this.pendingQueue.sort((a, b) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      
+      this.monitor.log('task_recovery_complete', {
+        pendingCount: this.pendingQueue.length,
+        runningCount: this.runningTasks.size,
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.monitor.log('error', {
+        error: `Task recovery failed: ${errMsg}`,
+      });
+    }
   }
 
   setLLMService(llm: ILLMService): void {
@@ -75,13 +164,9 @@ export class TaskSystem {
 
   /**
    * Schedule a new subagent task
-   * Returns taskId immediately, task executes asynchronously
+   * Returns taskId immediately, task enters pending queue and will be dispatched
    */
   async scheduleSubAgent(taskData: Omit<SubAgentTask, 'id' | 'createdAt'>): Promise<string> {
-    if (this.runningTasks.size >= this.maxConcurrent) {
-      throw new Error(`Max concurrent tasks (${this.maxConcurrent}) reached`);
-    }
-
     const taskId = randomUUID();
     const task: SubAgentTask = {
       ...taskData,
@@ -89,39 +174,36 @@ export class TaskSystem {
       createdAt: new Date().toISOString(),
     };
 
-    // Save to running directory
-    const taskPath = `tasks/running/${taskId}.json`;
+    // Save to pending directory
+    const taskPath = `tasks/pending/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
 
-    // Start execution
-    const abortController = new AbortController();
-    const promise = this.executeTask(task, abortController.signal);
-
-    this.runningTasks.set(taskId, { task, abortController, promise });
+    // Add to pending queue
+    this.pendingQueue.push(task);
 
     // Log
-    this.monitor.log('subagent_spawned', {
+    this.monitor.log('subagent_scheduled', {
       taskId,
       parentClawId: task.parentClawId,
       maxSteps: task.maxSteps,
+      queuePosition: this.pendingQueue.length,
     });
+
+    // Trigger dispatch
+    this._dispatch();
 
     return taskId;
   }
 
   /**
    * Schedule a new tool task for async execution
-   * Returns taskId immediately, task executes asynchronously (fire-and-forget)
+   * Returns taskId immediately, task enters pending queue and will be dispatched
    */
   async scheduleTool(
     toolName: string,
     executeCallback: () => Promise<ToolResult>,
     parentClawId: string,
   ): Promise<string> {
-    if (this.runningTasks.size >= this.maxConcurrent) {
-      throw new Error(`Max concurrent tasks (${this.maxConcurrent}) reached`);
-    }
-
     const taskId = randomUUID();
     const task: ToolTask = {
       kind: 'tool',
@@ -131,24 +213,110 @@ export class TaskSystem {
       createdAt: new Date().toISOString(),
     };
 
-    // Save to running directory
-    const taskPath = `tasks/running/${taskId}.json`;
+    // Store callback first (before any async operations)
+    this.pendingCallbacks.set(taskId, executeCallback);
+
+    // Save to pending directory
+    const taskPath = `tasks/pending/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
 
-    // Start execution (fire-and-forget)
-    const abortController = new AbortController();
-    const promise = this.executeToolTask(task, executeCallback, abortController.signal);
-
-    this.runningTasks.set(taskId, { task, abortController, promise });
+    // Add to pending queue
+    this.pendingQueue.push(task);
 
     // Log
-    this.monitor.log('tool_task_spawned', {
+    this.monitor.log('tool_task_scheduled', {
       taskId,
       parentClawId,
       toolName,
+      queuePosition: this.pendingQueue.length,
     });
 
+    // Trigger dispatch
+    this._dispatch();
+
     return taskId;
+  }
+
+  /**
+   * Dispatch pending tasks to running state
+   * This is the core dispatcher that manages concurrency
+   * 
+   * CRITICAL: Must immediately occupy slot in runningTasks before any async
+   * operation to prevent race conditions where _dispatch is called again.
+   */
+  private _dispatch(): void {
+    // While we have capacity and pending tasks, move them to running
+    while (this.runningTasks.size < this.maxConcurrent && this.pendingQueue.length > 0) {
+      const task = this.pendingQueue.shift();
+      if (!task) break;
+      
+      const abortController = new AbortController();
+      
+      // Start the task (this will handle file move + execution)
+      const promise = this._startTask(task, abortController.signal);
+      
+      // IMMEDIATELY occupy slot - critical to prevent race conditions
+      this.runningTasks.set(task.id, { task, abortController, promise });
+    }
+  }
+
+  /**
+   * Start a task: move from pending to running, then execute
+   */
+  private async _startTask(
+    task: SubAgentTask | ToolTask,
+    signal: AbortSignal
+  ): Promise<void> {
+    try {
+      // Move file from pending to running (async operation)
+      await this.movePendingToRunning(task.id);
+      
+      // Execute the task
+      if (task.kind === 'tool') {
+        const callback = this.pendingCallbacks.get(task.id);
+        this.pendingCallbacks.delete(task.id); // Clean up
+        
+        if (callback) {
+          await this.executeToolTask(task, callback, signal);
+        } else {
+          // Recovery case: callback lost after restart
+          await this.sendToolResult(
+            task, 
+            'Task failed: daemon restarted while task was pending. Please re-submit the task.', 
+            true
+          );
+          // Move to done
+          await this.moveTaskToDone(task.id);
+        }
+      } else {
+        await this.executeTask(task, signal);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.monitor.log('error', {
+        taskId: task.id,
+        error: `Task start/execution failed: ${errorMsg}`,
+      });
+      
+      // Clean up callback if present
+      this.pendingCallbacks.delete(task.id);
+    } finally {
+      // Remove from running and trigger next dispatch
+      this.runningTasks.delete(task.id);
+      this._dispatch();
+    }
+  }
+
+  /**
+   * Move task file from pending to running directory
+   */
+  private async movePendingToRunning(taskId: string): Promise<void> {
+    const pendingPath = `tasks/pending/${taskId}.json`;
+    const runningPath = `tasks/running/${taskId}.json`;
+    
+    const content = await this.fs.read(pendingPath);
+    await this.fs.writeAtomic(runningPath, content);
+    await this.fs.delete(pendingPath);
   }
 
   /**
@@ -196,7 +364,6 @@ export class TaskSystem {
     } finally {
       // Move from running to done
       await this.moveTaskToDone(task.id);
-      this.runningTasks.delete(task.id);
     }
   }
 
@@ -232,22 +399,60 @@ export class TaskSystem {
     } finally {
       // Move from running to done
       await this.moveTaskToDone(task.id);
-      this.runningTasks.delete(task.id);
     }
   }
 
   /**
    * Send tool task result to parent claw's inbox
+   * Large outputs are offloaded to tasks/results/{taskId}.txt
    */
   private async sendToolResult(task: ToolTask, result: ToolResult | string, isError: boolean): Promise<void> {
+    const fullContent = typeof result === 'string' ? result : result.content;
+    
+    // Try to write full result to tasks/results/
+    let resultRef: string | undefined;
     try {
-      const resultContent = typeof result === 'string' ? result : JSON.stringify(result);
+      const resultPath = `tasks/results/${task.id}.txt`;
+      await this.fs.writeAtomic(resultPath, fullContent);
+      resultRef = resultPath;
+    } catch (writeErr) {
+      // Degrade gracefully: resultRef remains undefined, send full content in inbox
+      const errMsg = writeErr instanceof Error ? writeErr.message : String(writeErr);
+      this.monitor.log('error', {
+        taskId: task.id,
+        parentClawId: task.parentClawId,
+        error: `Failed to write result to file: ${errMsg}`,
+      });
+    }
+
+    // Build summary based on error status
+    const summary = isError
+      ? fullContent.slice(0, 500)
+      : fullContent.slice(0, 200) + (fullContent.length > 200 ? '…' : '');
+
+    // Prepare inbox message
+    const messageContent = resultRef
+      ? JSON.stringify({
+          taskId: task.id,
+          toolName: task.toolName,
+          summary,
+          resultRef,
+          is_error: isError,
+        })
+      : JSON.stringify({
+          taskId: task.id,
+          toolName: task.toolName,
+          result: fullContent,
+          is_error: isError,
+        });
+
+    try {
       const message: InboxMessage = {
         id: randomUUID(),
         type: 'message',
         from: 'task_system',
         to: task.parentClawId,
-        content: JSON.stringify({ taskId: task.id, toolName: task.toolName, result: resultContent, is_error: isError }),
+        content: messageContent,
         priority: isError ? 'high' : 'normal',
         timestamp: new Date().toISOString(),
       };
@@ -266,7 +471,7 @@ export class TaskSystem {
           type: 'tool_task_result',
           taskId: task.id,
           toolName: task.toolName,
-          result: typeof result === 'string' ? result : JSON.stringify(result),
+          result: fullContent,
           is_error: isError,
           parentClawId: task.parentClawId,
           error_note: 'transport_failed',
@@ -290,15 +495,51 @@ export class TaskSystem {
 
   /**
    * Send task result to parent claw's inbox
+   * Large outputs are offloaded to tasks/results/{taskId}.txt
    */
   private async sendResult(task: SubAgentTask, result: string, isError: boolean): Promise<void> {
+    // Try to write full result to tasks/results/
+    let resultRef: string | undefined;
+    try {
+      const resultPath = `tasks/results/${task.id}.txt`;
+      await this.fs.writeAtomic(resultPath, result);
+      resultRef = resultPath;
+    } catch (writeErr) {
+      // Degrade gracefully: resultRef remains undefined, send full content in inbox
+      const errMsg = writeErr instanceof Error ? writeErr.message : String(writeErr);
+      this.monitor.log('error', {
+        taskId: task.id,
+        parentClawId: task.parentClawId,
+        error: `Failed to write result to file: ${errMsg}`,
+      });
+    }
+
+    // Build summary based on error status
+    const summary = isError
+      ? result.slice(0, 500)
+      : result.slice(0, 200) + (result.length > 200 ? '…' : '');
+
+    // Prepare inbox message
+    const messageContent = resultRef
+      ? JSON.stringify({
+          taskId: task.id,
+          summary,
+          resultRef,
+          is_error: isError,
+        })
+      : JSON.stringify({
+          taskId: task.id,
+          result,
+          is_error: isError,
+        });
+
     try {
       const message: InboxMessage = {
         id: randomUUID(),
         type: 'message',
         from: 'subagent',
         to: task.parentClawId,
-        content: JSON.stringify({ taskId: task.id, result, is_error: isError }),
+        content: messageContent,
         priority: isError ? 'high' : 'normal',
         timestamp: new Date().toISOString(),
       };
@@ -362,6 +603,13 @@ export class TaskSystem {
   listRunning(): string[] {
     return Array.from(this.runningTasks.keys());
   }
+  
+  /**
+   * List pending task IDs (for testing/monitoring)
+   */
+  listPending(): string[] {
+    return this.pendingQueue.map(task => task.id);
+  }
 
   /**
    * Cancel a running task
@@ -375,14 +623,12 @@ export class TaskSystem {
     state.abortController.abort();
     
     try {
-      await state.promise;
+      await state.promise;  // Wait for _startTask to complete (includes delete + moveTaskToDone + _dispatch)
     } catch {
       // Expected on abort
     }
 
-    await this.moveTaskToDone(taskId);
-    this.runningTasks.delete(taskId);
-
+    // Note: moveTaskToDone and runningTasks.delete are handled by _startTask.finally
     this.monitor.log('error', { taskId, reason: 'cancelled' });
   }
 
@@ -390,7 +636,7 @@ export class TaskSystem {
    * Shutdown - wait for all tasks to complete or timeout
    */
   async shutdown(timeoutMs: number = 30000): Promise<void> {
-    // Signal all tasks to stop
+    // Signal all running tasks to stop
     for (const state of this.runningTasks.values()) {
       state.abortController.abort();
     }
@@ -408,6 +654,8 @@ export class TaskSystem {
     }
 
     this.runningTasks.clear();
+    this.pendingQueue = [];
+    this.pendingCallbacks.clear();
     await this.monitor.close();
   }
 }
