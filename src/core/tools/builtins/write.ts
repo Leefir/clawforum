@@ -9,7 +9,6 @@
 
 import * as path from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
-import { resolveClawspacePath } from './path-utils.js';
 import { WRITE_SIZE_LIMITS, WRITE_VERSION_RETENTION } from '../../../constants.js';
 
 function getSizeLimits(filePath: string): [number, number] {
@@ -94,7 +93,7 @@ export const writeTool: ITool = {
   idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const filePath = resolveClawspacePath(args.path as string);
+    const filePath = args.path as string;
     const content = args.content as string;
     const append = args.append === true;
 

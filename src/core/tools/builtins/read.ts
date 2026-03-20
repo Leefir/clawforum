@@ -11,7 +11,6 @@
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
-import { resolveClawspacePath } from './path-utils.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from '../../../constants.js';
 
 // Allowed paths/prefixes for read tool (MVP aligned)
@@ -81,7 +80,7 @@ export const readTool: ITool = {
   supportsAsync: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const filePath = resolveClawspacePath(args.path as string);
+    const filePath = args.path as string;
     const offset = args.offset as number | undefined;
     const limit = args.limit as number | undefined;
     const clawParam = args.claw as string | undefined;

@@ -51,8 +51,8 @@ export const execTool: ITool = {
       EXEC_TIMEOUT_MAX_MS
     );
 
-    // Sandbox directory: clawspace/ (AGENTS.md 规范)
-    const workDir = path.join(ctx.clawDir, 'clawspace');
+    // Working directory: clawDir root (all tools use clawDir as base)
+    const workDir = ctx.clawDir;
 
     try {
       // Use shell mode to properly handle quoted arguments (MVP aligned)
