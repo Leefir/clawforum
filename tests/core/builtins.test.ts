@@ -336,6 +336,122 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(false);
       expect(result.content).toContain('not allowed');
     });
+
+    it('should reject claw param for non-Motion', async () => {
+      // ctx.clawId is 'test-claw', not 'motion'
+      const result = await searchTool.execute({ query: 'test', path: 'clawspace', claw: 'other-claw' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Only Motion can search files from other claws');
+    });
+
+    it('should search all claws with claw: "*" (Motion only)', async () => {
+      // Create proper claws directory structure:
+      // tempDir/claws/
+      //   motion/      <- motion clawDir
+      //   claw1/
+      //   claw2/
+      const clawsDir = path.join(tempDir, 'claws');
+      await fs.mkdir(clawsDir, { recursive: true });
+      
+      // Create Motion's own directory (as motion's clawDir)
+      const motionDir = path.join(clawsDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      
+      // Create Motion context with motion's clawDir
+      const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+      const motionOutboxWriter = new OutboxWriter('motion', motionDir, motionFs);
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+        outboxWriter: motionOutboxWriter,
+      });
+      
+      // Create claw1 with test file
+      const claw1Dir = path.join(clawsDir, 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'note.txt'), 'Error in claw1: disk full');
+      
+      // Create claw2 with test file
+      const claw2Dir = path.join(clawsDir, 'claw2', 'clawspace');
+      await fs.mkdir(claw2Dir, { recursive: true });
+      await fs.writeFile(path.join(claw2Dir, 'log.txt'), 'Error in claw2: timeout');
+      
+      // Create claw3 without clawspace (should be skipped gracefully)
+      const claw3Dir = path.join(clawsDir, 'claw3');
+      await fs.mkdir(claw3Dir, { recursive: true });
+
+      const result = await searchTool.execute({ query: 'error', path: 'clawspace/', claw: '*' }, motionCtx);
+
+      expect(result.success).toBe(true);
+      // Results should have [clawId] prefix
+      expect(result.content).toContain('[claw1]');
+      expect(result.content).toContain('[claw2]');
+      expect(result.content).toContain('disk full');
+      expect(result.content).toContain('timeout');
+      // Format: [clawId] clawspace/file.txt:line: content
+      expect(result.content).toMatch(/\[claw1\] clawspace\/note\.txt:\d+:/);
+      expect(result.content).toMatch(/\[claw2\] clawspace\/log\.txt:\d+:/);
+    });
+
+    it('should return no results when no claws directory exists (claw: "*")', async () => {
+      // Create Motion context with a clawDir whose parent doesn't exist
+      const nonExistentDir = path.join(tempDir, 'nonexistent', 'motion');
+      const motionFs = new NodeFileSystem({ baseDir: nonExistentDir, enforcePermissions: false });
+      const motionOutboxWriter = new OutboxWriter('motion', nonExistentDir, motionFs);
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: nonExistentDir,
+        profile: 'full',
+        fs: motionFs,
+        outboxWriter: motionOutboxWriter,
+      });
+
+      const result = await searchTool.execute({ query: 'test', path: 'clawspace/', claw: '*' }, motionCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('未找到');
+      expect(result.content).toContain('无 claw 目录');
+    });
+
+    it('should respect max_results with claw: "*" across all claws', async () => {
+      // Create proper claws directory structure
+      const clawsDir = path.join(tempDir, 'claws');
+      await fs.mkdir(clawsDir, { recursive: true });
+      
+      // Create Motion's own directory (as motion's clawDir)
+      const motionDir = path.join(clawsDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      
+      // Create Motion context with motion's clawDir
+      const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+      const motionOutboxWriter = new OutboxWriter('motion', motionDir, motionFs);
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+        outboxWriter: motionOutboxWriter,
+      });
+      
+      // Create claw1 with multiple matches
+      const claw1Dir = path.join(clawsDir, 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'many.txt'), 'target\ntarget\ntarget');
+      
+      // Create claw2 with multiple matches
+      const claw2Dir = path.join(clawsDir, 'claw2', 'clawspace');
+      await fs.mkdir(claw2Dir, { recursive: true });
+      await fs.writeFile(path.join(claw2Dir, 'many.txt'), 'target\ntarget\ntarget');
+
+      const result = await searchTool.execute({ query: 'target', path: 'clawspace/', claw: '*', max_results: 4 }, motionCtx);
+
+      expect(result.success).toBe(true);
+      const lines = result.content.split('\n').filter(l => l.trim());
+      expect(lines.length).toBe(4);
+    });
   });
 
   describe('status tool', () => {
