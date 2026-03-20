@@ -29,7 +29,7 @@ describe('ContractManager', () => {
     manager = new ContractManager(CLAW_DIR, nodeFs, undefined);
   });
 
-  it('should create contract with running status and pending subtasks', async () => {
+  it('should create contract with running status and todo subtasks', async () => {
     // Note: create() 创建契约后立即设为 running 状态（manager.ts:141）
     const contractYaml = {
       schema_version: 1 as const,
@@ -52,7 +52,7 @@ describe('ContractManager', () => {
     // FIX: create() 直接设为 running，不是 pending（符合设计：契约一创建就开始执行）
     expect(progress.status).toBe('running');
     // FIX: subtasks 是 Record<string, {...}>，不是数组
-    expect(progress.subtasks['task-1'].status).toBe('pending');
+    expect(progress.subtasks['task-1'].status).toBe('todo');
   });
 
   it('should pause and resume contract', async () => {
@@ -254,7 +254,7 @@ describe('ContractManager', () => {
 
     const progress = await manager.getProgress(contractId);
     expect(progress.subtasks['task-1'].status).toBe('completed');
-    expect(progress.subtasks['task-2'].status).toBe('pending');
+    expect(progress.subtasks['task-2'].status).toBe('todo');
   });
 
   it('should reject unknown subtaskId in completeSubtask with valid IDs', async () => {
@@ -282,9 +282,9 @@ describe('ContractManager', () => {
     expect(result.feedback).toContain('Unknown subtask');
     expect(result.feedback).toContain('task-1');
 
-    // 真正的 task-1 应该仍是 pending
+    // 真正的 task-1 应该仍是 todo
     const progress = await manager.getProgress(contractId);
-    expect(progress.subtasks['task-1'].status).toBe('pending');
+    expect(progress.subtasks['task-1'].status).toBe('todo');
   });
 
   it('should mark contract completed when all subtasks done', async () => {

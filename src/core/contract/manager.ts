@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fsNative from 'fs';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
-import type { Contract, SubTask, ContractStatus } from '../../types/contract.js';
+import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../types/contract.js';
 import { ToolError } from '../../types/errors.js';
 import { execSync } from 'child_process';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS } from '../../constants.js';
@@ -48,7 +48,7 @@ export interface ProgressData {
   contract_id: string;
   status: ContractStatus;
   subtasks: Record<string, {
-    status: ContractStatus;
+    status: SubtaskStatus;
     completed_at?: string;
     evidence?: string;
     artifacts?: string[];
@@ -252,7 +252,7 @@ export class ContractManager {
       contract_id: contractId,
       status: 'running',
       subtasks: Object.fromEntries(
-        contractYaml.subtasks.map(st => [st.id, { status: 'pending' }])
+        contractYaml.subtasks.map(st => [st.id, { status: 'todo' as SubtaskStatus }])
       ),
       started_at: new Date().toISOString(),
       checkpoint: null,
@@ -471,7 +471,7 @@ export class ContractManager {
       subtasks: yamlContract.subtasks.map(st => ({
         id: st.id,
         description: st.description,
-        status: progress.subtasks[st.id]?.status || 'pending',
+        status: progress.subtasks[st.id]?.status || 'todo',
         created_at: progress.started_at || new Date().toISOString(),
         updated_at: progress.subtasks[st.id]?.completed_at || new Date().toISOString(),
       })),

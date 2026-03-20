@@ -3,13 +3,18 @@
  * Phase 0: Interface definitions only
  */
 
-export type ContractStatus = 
+export type ContractStatus =
   | 'pending'    // Waiting to be picked up
   | 'running'    // Currently being executed
   | 'paused'     // Temporarily suspended
   | 'completed'  // Successfully finished
   | 'failed'     // Execution failed
   | 'cancelled'; // Manually cancelled
+
+export type SubtaskStatus =
+  | 'todo'       // Not yet started (within a running contract)
+  | 'completed'  // Successfully finished
+  | 'failed';    // Execution failed
 
 export type Priority = 'low' | 'normal' | 'high' | 'critical';
 
@@ -26,7 +31,7 @@ export const PRIORITY_VALUES: Record<Priority, number> = {
 export interface SubTask {
   id: string;
   description: string;
-  status: ContractStatus;
+  status: SubtaskStatus;
   assignee?: string;  // Claw ID
   result?: string;
   error?: string;

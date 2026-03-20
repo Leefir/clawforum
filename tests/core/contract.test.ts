@@ -59,8 +59,8 @@ auth_level: notify
     contract_id: contractId,
     status,
     subtasks: {
-      'st-001': { status: 'pending' },
-      'st-002': { status: 'pending' },
+      'st-001': { status: 'todo' },
+      'st-002': { status: 'todo' },
     },
     started_at: new Date().toISOString(),
     checkpoint: null,
@@ -141,7 +141,7 @@ auth_level: auto
       const progress = {
         contract_id: 'contract-002',
         status: 'running',
-        subtasks: { 'st-001': { status: 'pending' } },
+        subtasks: { 'st-001': { status: 'todo' } },
         started_at: new Date().toISOString(),
       };
       await fs.writeFile(path.join(contractDir, 'progress.json'), JSON.stringify(progress));
@@ -183,7 +183,7 @@ auth_level: auto
       const progress = {
         contract_id: 'contract-003',
         status: 'running',
-        subtasks: { 'st-001': { status: 'pending' } },
+        subtasks: { 'st-001': { status: 'todo' } },
         started_at: new Date().toISOString(),
       };
       await fs.writeFile(path.join(contractDir, 'progress.json'), JSON.stringify(progress));
@@ -222,7 +222,7 @@ auth_level: auto
       const progress = {
         contract_id: 'contract-004',
         status: 'running',
-        subtasks: { 'st-001': { status: 'pending' } },
+        subtasks: { 'st-001': { status: 'todo' } },
         started_at: new Date().toISOString(),
       };
       await fs.writeFile(path.join(contractDir, 'progress.json'), JSON.stringify(progress));
@@ -260,8 +260,8 @@ auth_level: auto
         contract_id: 'contract-005',
         status: 'running',
         subtasks: {
-          'st-001': { status: 'pending' },
-          'st-002': { status: 'pending' },
+          'st-001': { status: 'todo' },
+          'st-002': { status: 'todo' },
         },
         started_at: new Date().toISOString(),
       };

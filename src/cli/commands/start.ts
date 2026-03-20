@@ -44,7 +44,7 @@ export async function startCommand(): Promise<void> {
   // Step 4: first run → system creates Bootstrap contract and notifies Motion
   if (isFirstRun) {
     const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-    const manager = new ContractManager(motionFs);
+    const manager = new ContractManager(motionDir, motionFs);
     const contractId = await manager.create({
       title: 'Bootstrap',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',

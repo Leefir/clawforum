@@ -7,7 +7,7 @@ import { Command } from 'commander';
 import {
   loadGlobalConfig,
   saveGlobalConfig,
-  ClawGlobalConfig,
+  type ClawGlobalConfig,
   LLMProviderSchema,
 } from '../config.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
@@ -142,6 +142,8 @@ async function providerAdd(): Promise<void> {
       api_key: apiKey,
       model,
       max_tokens,
+      temperature: 0.7,
+      timeout_ms: 60000,
     };
     if (baseUrl) {
       providerConfig.base_url = baseUrl;
@@ -200,17 +202,19 @@ async function providerList(): Promise<void> {
   console.log();
   
   // Primary
-  const pLabel = primary.label || primary.preset;
-  const pModel = primary.model || PRESETS[primary.preset]?.defaultModel || 'unknown';
-  const pBaseUrl = primary.base_url || PRESETS[primary.preset]?.defaultBaseUrl || '-';
-  console.log(`  PRIMARY   ${primary.preset.padEnd(10)} ${pLabel.padEnd(15)} ${pModel.padEnd(18)} ${pBaseUrl.slice(0, 30)}`);
-  
+  const pPreset = primary.preset ?? '';
+  const pLabel = primary.label || pPreset || '(unknown)';
+  const pModel = primary.model || PRESETS[pPreset]?.defaultModel || 'unknown';
+  const pBaseUrl = primary.base_url || PRESETS[pPreset]?.defaultBaseUrl || '-';
+  console.log(`  PRIMARY   ${pPreset.padEnd(10)} ${pLabel.padEnd(15)} ${pModel.padEnd(18)} ${pBaseUrl.slice(0, 30)}`);
+
   // Fallbacks
   fallbacks.forEach((f, i) => {
-    const fLabel = f.label || f.preset;
-    const fModel = f.model || PRESETS[f.preset]?.defaultModel || 'unknown';
-    const fBaseUrl = f.base_url || PRESETS[f.preset]?.defaultBaseUrl || '-';
-    console.log(`  #${i + 1}       ${f.preset.padEnd(10)} ${fLabel.padEnd(15)} ${fModel.padEnd(18)} ${fBaseUrl.slice(0, 30)}`);
+    const fPreset = f.preset ?? '';
+    const fLabel = f.label || fPreset || '(unknown)';
+    const fModel = f.model || PRESETS[fPreset]?.defaultModel || 'unknown';
+    const fBaseUrl = f.base_url || PRESETS[fPreset]?.defaultBaseUrl || '-';
+    console.log(`  #${i + 1}       ${fPreset.padEnd(10)} ${fLabel.padEnd(15)} ${fModel.padEnd(18)} ${fBaseUrl.slice(0, 30)}`);
   });
   
   console.log();
