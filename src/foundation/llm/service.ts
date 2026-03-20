@@ -305,10 +305,8 @@ export class LLMService implements ILLMService {
       if (success) {
         // Circuit breaker: record success
         breaker?.onSuccess();
-        // Update current provider index (skip primary at 0)
-        if (pi > 0) {
-          this.currentProviderIndex = pi - 1;
-        }
+        // Update current provider index (-1 = primary, 0..N = fallbacks)
+        this.currentProviderIndex = pi === 0 ? -1 : pi - 1;
         return; // Success, exit generator
       } else {
         // Circuit breaker: record failure

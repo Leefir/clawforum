@@ -54,7 +54,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     apiFormat: 'anthropic',
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.minimax.io/anthropic',
-    defaultModel: 'claude-3-7-sonnet-20250219',
+    defaultModel: 'MiniMax-M1',
   },
   'ollama': {
     id: 'ollama',
