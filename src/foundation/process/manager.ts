@@ -148,9 +148,7 @@ export class ProcessManager {
     }
 
     // 杀掉所有同名 daemon 孤儿进程（pgrep 扫描）
-    const pattern = clawId === 'motion'
-      ? 'cli.js motion daemon'
-      : `cli.js claw daemon ${clawId}`;
+    const pattern = `daemon-entry.js ${clawId}`;
     try {
       const output = execSync(`pgrep -f "${pattern}"`, { encoding: 'utf-8' });
       const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
@@ -211,27 +209,24 @@ export class ProcessManager {
       }
     }
 
-    // 启动守护进程（兼容 bundle、chunk 和源码模式）
+    // 启动守护进程（使用独立 entry 文件）
     const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    // 检查同目录下是否有 cli.js（bundle/chunk 模式 cli.js 与 chunk 文件在同一目录）
-    const bundleCli = path.join(thisDir, 'cli.js');
-    const cliPath = existsSync(bundleCli)
-      ? bundleCli
-      : path.resolve(thisDir, '..', '..', '..', 'dist', 'cli.js');
-    const finalArgs = args ?? (clawId === 'motion'
-      ? [cliPath, 'motion', 'daemon']
-      : [cliPath, 'claw', 'daemon', clawId]);
-    
+    const bundleEntry = path.join(thisDir, 'daemon-entry.js');
+    const daemonEntryPath = existsSync(bundleEntry)
+      ? bundleEntry
+      : path.resolve(thisDir, '..', '..', '..', 'dist', 'daemon-entry.js');
+    const finalArgs = args ?? [daemonEntryPath, clawId];
+
     // 创建日志目录和日志文件
     const logsDir = path.join(clawDir, 'logs');
     mkdirSync(logsDir, { recursive: true });
     const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
-    
+
     try {
       const proc = spawn('node', finalArgs, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
-        env: { ...process.env, CLAWFORUM_DAEMON_MODE: '1' },
+        env: { ...process.env },
       });
       
       // 让子进程独立运行，不阻塞父进程退出
