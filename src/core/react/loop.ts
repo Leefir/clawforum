@@ -241,14 +241,21 @@ async function executeToolCalls(
     return toolResults;
   }
 
-  // Group tool calls by readonly property (keeping original index)
-  const readonlyCalls: { call: ToolUseBlock; index: number }[] = [];
+  // Group tool calls into three categories:
+  // 1. Readonly + async:true → executeSingleTool (preserves async routing)
+  // 2. Readonly + sync → executeParallel (parallel optimization)
+  // 3. Write → executeSingleTool (sequential, for safety)
+  const readonlyAsyncCalls: { call: ToolUseBlock; index: number }[] = [];
+  const readonlySyncCalls: { call: ToolUseBlock; index: number }[] = [];
   const writeCalls: { call: ToolUseBlock; index: number }[] = [];
 
   for (const [i, call] of toolCalls.entries()) {
     const tool = registry.get(call.name);
-    if (tool?.readonly === true) {
-      readonlyCalls.push({ call, index: i });
+    const wantsAsync = (call.input as Record<string, unknown>)?.async === true;
+    if (tool?.readonly === true && !wantsAsync) {
+      readonlySyncCalls.push({ call, index: i });
+    } else if (tool?.readonly === true && wantsAsync) {
+      readonlyAsyncCalls.push({ call, index: i });
     } else {
       writeCalls.push({ call, index: i });
     }
@@ -257,17 +264,23 @@ async function executeToolCalls(
   // Results map: index -> ToolResultBlock
   const results = new Map<number, ToolResultBlock>();
 
-  // Execute read-only tools in parallel
-  if (readonlyCalls.length > 0) {
+  // Execute readonly + async tools sequentially (preserve async routing)
+  for (const { call, index } of readonlyAsyncCalls) {
+    onToolCall?.(call.name);
+    const result = await executeSingleTool(call, executor, ctx);
+    onToolResult?.(call.name, result, stepCount, maxSteps);
+    results.set(index, toToolResultBlock(call.id, result));
+  }
+
+  // Execute readonly sync tools in parallel
+  if (readonlySyncCalls.length > 0) {
     // Notify UI for all readonly calls (before parallel execution)
-    for (const { call } of readonlyCalls) {
+    for (const { call } of readonlySyncCalls) {
       onToolCall?.(call.name);
     }
 
     // Prepare batch for parallel execution
-    const batch = readonlyCalls.map(({ call }) => {
-      // Note: async flag extracted but not passed to executeParallel
-      // executeParallel does not support async mode; readonly tools rarely need it.
+    const batch = readonlySyncCalls.map(({ call }) => {
       const { async: _asyncMode, ...toolArgs } = call.input as Record<string, unknown>;
       return {
         toolName: call.name,
@@ -279,8 +292,8 @@ async function executeToolCalls(
     const parallelResults = await executor.executeParallel(batch, ctx);
 
     // Notify UI and store results in original order
-    for (let i = 0; i < readonlyCalls.length; i++) {
-      const { call, index } = readonlyCalls[i];
+    for (let i = 0; i < readonlySyncCalls.length; i++) {
+      const { call, index } = readonlySyncCalls[i];
       const result = parallelResults[i];
       onToolResult?.(call.name, result, stepCount, maxSteps);
       results.set(index, toToolResultBlock(call.id, result));
