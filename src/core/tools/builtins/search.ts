@@ -120,7 +120,7 @@ export const searchTool: ITool = {
 
       // claw: "*" - search all claws
       if (clawParam === '*') {
-        const clawsDir = nodePath.resolve(ctx.clawDir, '..');
+        const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
         let clawIds: string[];
         try {
           clawIds = fsNative.readdirSync(clawsDir).filter(name =>

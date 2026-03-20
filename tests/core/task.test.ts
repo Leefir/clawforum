@@ -153,9 +153,6 @@ describe('Task System + SubAgent', () => {
     });
 
     it('should move task to done when completed', async () => {
-      // Create parent claw inbox
-      await mockFs.ensureDir('claws/parent-claw/inbox/pending');
-      
       // Set mock LLM that returns quickly
       taskSystem.setLLMService(createMockLLM([{
         content: [{ type: 'text', text: 'Task result' }],
@@ -182,6 +179,38 @@ describe('Task System + SubAgent', () => {
       // Running file should not exist
       const runningExists = await mockFs.exists(`tasks/running/${taskId}.json`);
       expect(runningExists).toBe(false);
+    });
+
+    it('should deliver subagent result to inbox/pending/*.md (bypass transport)', async () => {
+      taskSystem.setLLMService(createMockLLM([{
+        content: [{ type: 'text', text: 'Subagent output' }],
+        stop_reason: 'end_turn',
+      }]));
+
+      const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: 'Deliver result',
+        skills: [],
+        tools: [],
+        timeout: 60,
+        maxSteps: 5,
+        parentClawId: 'motion',
+      });
+
+      await new Promise(r => setTimeout(r, 500));
+
+      // Result must be in inbox/pending/ (relative to clawDir=tempDir), NOT in claws/motion/inbox
+      const inboxDir = path.join(tempDir, 'inbox', 'pending');
+      const inboxFiles = await fs.readdir(inboxDir).catch(() => [] as string[]);
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      expect(inboxFiles.every((f: string) => f.endsWith('.md'))).toBe(true);
+
+      // Parse the message and verify frontmatter
+      const { promises: nodeFs } = await import('fs');
+      const content = await nodeFs.readFile(path.join(inboxDir, inboxFiles[0]), 'utf-8');
+      expect(content).toContain('from: subagent');
+      expect(content).toContain('to: motion');
+      expect(content).toContain(`"resultRef":"tasks/results/${taskId}.txt"`);
     });
 
     it('should cancel task', async () => {

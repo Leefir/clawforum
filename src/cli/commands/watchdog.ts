@@ -10,7 +10,6 @@ import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { randomUUID } from 'node:crypto';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 // PID 文件路径
@@ -95,6 +94,7 @@ function writeWatchdogInboxMessage(type: string, content: Record<string, unknown
 let lastArchiveDate: string | null = null;
 let lastDiskCheckHour: number = -1;
 const lastInactivityNotified: Map<string, number> = new Map();
+const clawPreviouslyAlive: Map<string, boolean> = new Map();
 
 // Global config (loaded lazily on first access)
 let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
@@ -150,6 +150,31 @@ function maybeCronClawInactivity(): void {
       inactive_ms: now - lastActivity,
     });
     lastInactivityNotified.set(clawId, now);
+  }
+}
+
+// 检测 claw 进程崩溃并通知 motion
+function maybeCronClawCrash(pm: ProcessManager): void {
+  const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
+  if (!fs.existsSync(clawsDir)) return;
+
+  for (const clawId of fs.readdirSync(clawsDir)) {
+    const currentlyAlive = pm.isAlive(clawId);
+    const wasAlive = clawPreviouslyAlive.get(clawId);
+
+    if (wasAlive === true && !currentlyAlive) {
+      log(`[watchdog] Claw ${clawId} crashed (was alive, now stopped)`);
+      writeInboxMessage({
+        inboxDir: path.join(getMotionDir(), 'inbox', 'pending'),
+        type: 'crash_notification',
+        source: clawId,
+        priority: 'high',
+        body: '',
+        filenameTag: 'claw_crash',
+      });
+    }
+
+    clawPreviouslyAlive.set(clawId, currentlyAlive);
   }
 }
 
@@ -301,6 +326,7 @@ export async function daemonCommand(): Promise<void> {
     maybeCronArchive();
     maybeCronDiskCheck();
     maybeCronClawInactivity();
+    maybeCronClawCrash(pm);
     
     // 3. 休眠（间隔可配置）
     const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;

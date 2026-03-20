@@ -84,7 +84,8 @@ done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
 
 ### 工作目录
 
-你的工作目录是 \`clawspace/\`。直接用相对路径写文件（如 \`curl -o file.pdf URL\`）。
+- **exec 工具**：CWD 是 \`clawspace/\`，命令中直接用文件名（如 \`curl -o file.pdf URL\`）
+- **read/write/ls 工具**：路径从 clawDir 根目录开始，访问 clawspace/ 下的文件需加前缀（如 \`read: clawspace/file.pdf\`）
 
 ## 文件操作规范
 

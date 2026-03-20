@@ -178,14 +178,24 @@ describe('TaskSystem Tool Tasks', () => {
       await new Promise(r => setTimeout(r, 100));
       
       expect(executeCallback).toHaveBeenCalled();
-      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
       
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      expect(callArg.from).toBe('task_system');
-      expect(callArg.to).toBe('parent-claw');
-      expect(callArg.priority).toBe('normal');
+      // Check inbox/pending/ for the result message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
       
-      const content = JSON.parse(callArg.content);
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      // Parse frontmatter + content
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      expect(match![1]).toContain('from: task_system');
+      expect(match![1]).toContain('to: parent-claw');
+      expect(match![1]).toContain('priority: normal');
+      
+      const content = JSON.parse(match![2]);
       expect(content.taskId).toBe(taskId);
       expect(content.toolName).toBe('testTool');
       expect(content.is_error).toBe(false);
@@ -212,8 +222,17 @@ describe('TaskSystem Tool Tasks', () => {
       expect(resultFile).toContain(longResult);
       
       // Inbox should have truncated summary
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      const content = JSON.parse(callArg.content);
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      const content = JSON.parse(match![2]);
       expect(content.summary.length).toBeLessThanOrEqual(201); // 200 + '…'
       expect(content.summary.endsWith('…')).toBe(true);
     });
@@ -226,12 +245,21 @@ describe('TaskSystem Tool Tasks', () => {
       // Wait for async execution
       await new Promise(r => setTimeout(r, 100));
       
-      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
+      // Check inbox/pending/ for the error result message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
       
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      expect(callArg.priority).toBe('high'); // Errors are high priority
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
       
-      const content = JSON.parse(callArg.content);
+      // Parse frontmatter + content
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      expect(match![1]).toContain('priority: high'); // Errors are high priority
+      
+      const content = JSON.parse(match![2]);
       expect(content.taskId).toBe(taskId);
       expect(content.toolName).toBe('testTool');
       expect(content.is_error).toBe(true);
@@ -432,8 +460,18 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       await new Promise(r => setTimeout(r, 100));
 
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      const content = JSON.parse(callArg.content);
+      // Check inbox/pending/ for the result message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      const content = JSON.parse(match![2]);
 
       // Summary should start with 'output-xxx...', not contain '{"success":true'
       expect(content.summary).not.toContain('"success"');
@@ -442,9 +480,22 @@ describe('TaskSystem Tool Tasks', () => {
       expect(content.summary.startsWith('output-')).toBe(true);
     });
 
+    it('should NOT call transport.sendInboxMessage (bypass transport)', async () => {
+      const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'direct result' });
+
+      await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
+      await new Promise(r => setTimeout(r, 100));
+
+      // Transport must not be used - TaskSystem writes directly to inbox/pending/
+      expect(mockTransport.sendInboxMessage).not.toHaveBeenCalled();
+
+      // Inbox file must be .md (not .json or other)
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      expect(inboxFiles.every(f => f.endsWith('.md'))).toBe(true);
+    });
+
     it('should fall back to full content in inbox when results/ write fails', async () => {
-      const mockTransport2 = createMockTransport();
-      
       // Create an fs where writeAtomic fails for results/ path
       const failingFs = {
         read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
@@ -463,15 +514,25 @@ describe('TaskSystem Tool Tasks', () => {
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingFs, mockTransport2 as any, { maxConcurrent: 3 });
+      const taskSystem2 = new TaskSystem(testClawDir, failingFs, mockTransport as any, { maxConcurrent: 3 });
       await taskSystem2.initialize();
 
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
       await taskSystem2.scheduleTool('testTool', executeCallback, 'parent-claw');
       await new Promise(r => setTimeout(r, 100));
 
-      const callArg = mockTransport2.sendInboxMessage.mock.calls[0][1];
-      const content = JSON.parse(callArg.content);
+      // Check inbox/pending/ for the result message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      const content = JSON.parse(match![2]);
 
       // Fallback: no resultRef, has result field
       expect(content.resultRef).toBeUndefined();
@@ -535,8 +596,18 @@ describe('TaskSystem Tool Tasks', () => {
 
       expect(flakyCallback).toHaveBeenCalledTimes(2);
 
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      const content = JSON.parse(callArg.content);
+      // Check inbox/pending/ for the result message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      const content = JSON.parse(match![2]);
       expect(content.is_error).toBe(false);
       expect(content.summary).toContain('recovered');
     });
@@ -555,9 +626,19 @@ describe('TaskSystem Tool Tasks', () => {
       // Should have been called 3 times (1 initial + 2 retries)
       expect(alwaysFailCallback).toHaveBeenCalledTimes(3);
 
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      expect(callArg.priority).toBe('high');
-      const content = JSON.parse(callArg.content);
+      // Check inbox/pending/ for the result message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      expect(match![1]).toContain('priority: high');
+      const content = JSON.parse(match![2]);
       expect(content.is_error).toBe(true);
       expect(content.summary).toContain('retries');
 
@@ -581,8 +662,18 @@ describe('TaskSystem Tool Tasks', () => {
       // Called exactly once, no retry
       expect(failCallback).toHaveBeenCalledTimes(1);
 
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      const content = JSON.parse(callArg.content);
+      // Check inbox/pending/ for the error message
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles.length).toBeGreaterThan(0);
+      
+      const inboxFile = await fs.readFile(
+        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
+        'utf-8'
+      );
+      
+      const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
+      expect(match).toBeTruthy();
+      const content = JSON.parse(match![2]);
       expect(content.is_error).toBe(true);
       // No "retries" mention in error message
       expect(content.summary).not.toContain('retries');

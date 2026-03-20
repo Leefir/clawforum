@@ -346,16 +346,15 @@ describe('Builtin Tools', () => {
     });
 
     it('should search all claws with claw: "*" (Motion only)', async () => {
-      // Create proper claws directory structure:
-      // tempDir/claws/
-      //   motion/      <- motion clawDir
-      //   claw1/
-      //   claw2/
-      const clawsDir = path.join(tempDir, 'claws');
-      await fs.mkdir(clawsDir, { recursive: true });
+      // Create proper directory structure (matches real .clawforum layout):
+      // tempDir/           <- workDir (.clawforum equivalent)
+      //   motion/          <- motion clawDir
+      //   claws/           <- other claws directory
+      //     claw1/
+      //     claw2/
       
-      // Create Motion's own directory (as motion's clawDir)
-      const motionDir = path.join(clawsDir, 'motion');
+      // Motion's own directory (as motion's clawDir)
+      const motionDir = path.join(tempDir, 'motion');
       await fs.mkdir(motionDir, { recursive: true });
       
       // Create Motion context with motion's clawDir
@@ -368,6 +367,9 @@ describe('Builtin Tools', () => {
         fs: motionFs,
         outboxWriter: motionOutboxWriter,
       });
+      
+      // Create other claws directory and test claws
+      const clawsDir = path.join(tempDir, 'claws');
       
       // Create claw1 with test file
       const claw1Dir = path.join(clawsDir, 'claw1', 'clawspace');
@@ -417,12 +419,8 @@ describe('Builtin Tools', () => {
     });
 
     it('should respect max_results with claw: "*" across all claws', async () => {
-      // Create proper claws directory structure
-      const clawsDir = path.join(tempDir, 'claws');
-      await fs.mkdir(clawsDir, { recursive: true });
-      
-      // Create Motion's own directory (as motion's clawDir)
-      const motionDir = path.join(clawsDir, 'motion');
+      // Motion's own directory (as motion's clawDir)
+      const motionDir = path.join(tempDir, 'motion');
       await fs.mkdir(motionDir, { recursive: true });
       
       // Create Motion context with motion's clawDir
@@ -435,6 +433,9 @@ describe('Builtin Tools', () => {
         fs: motionFs,
         outboxWriter: motionOutboxWriter,
       });
+      
+      // Create other claws
+      const clawsDir = path.join(tempDir, 'claws');
       
       // Create claw1 with multiple matches
       const claw1Dir = path.join(clawsDir, 'claw1', 'clawspace');

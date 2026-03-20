@@ -37,7 +37,7 @@
 
 1. `exec: clawforum claw health <claw-id>` — 确认 claw 已停止
 2. 检查是否有活跃契约（health 输出中有 contract 信息，或 `status: running/paused`）
-3. **有活跃契约** → 通过 `exec: clawforum claw chat <claw-id>` 重启（chat 会自动启动 daemon）
+3. **有活跃契约** → 通过 `exec: clawforum claw daemon <claw-id>` 重启（daemon 在后台启动，不需要 TTY）
 4. **无活跃契约** → 通知用户，等待指示，不自动重启
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
@@ -112,7 +112,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
      auth_level: auto
      ```
 
-3. `exec: clawforum contract create --claw {clawId} --file clawspace/{yaml-filename}` — 创建契约
+3. `exec: clawforum contract create --claw {clawId} --file {yaml-filename}` — 创建契约
 4. 确认输出包含 "Contract created"
 
 注意事项：
@@ -121,7 +121,7 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 - acceptance command 的 CWD 是 `clawDir`（`.clawforum/claws/{clawId}/`），使用相对路径（`clawspace/output.txt`，不要加 `.clawforum/...` 前缀）
 - 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
 - 不要使用 `type: llm`（不支持）
-- `--file` 使用相对路径 `clawspace/{filename}`
+- `--file` 使用文件名（exec CWD 已是 `clawspace/`，不需要加前缀）
 
 ## 信息流转机制
 

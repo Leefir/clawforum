@@ -8,7 +8,7 @@
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { ITransport, InboxMessage } from '../../foundation/transport/index.js';
+import type { ITransport } from '../../foundation/transport/index.js';
 import { JsonlMonitor } from '../../foundation/monitor/index.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -487,6 +487,7 @@ export class TaskSystem {
   /**
    * Send tool task result to parent claw's inbox
    * Large outputs are offloaded to tasks/results/{taskId}.txt
+   * Writes directly to inbox/pending/ in .md format (LocalTransport compatible)
    */
   private async sendToolResult(task: ToolTask, result: ToolResult | string, isError: boolean): Promise<void> {
     const fullContent = typeof result === 'string' ? result : result.content;
@@ -512,7 +513,7 @@ export class TaskSystem {
       ? fullContent.slice(0, 500)
       : fullContent.slice(0, 200) + (fullContent.length > 200 ? '…' : '');
 
-    // Prepare inbox message
+    // Prepare message content
     const messageContent = resultRef
       ? JSON.stringify({
           taskId: task.id,
@@ -528,56 +529,41 @@ export class TaskSystem {
           is_error: isError,
         });
 
+    // Write directly to inbox/pending/ in .md format (bypass transport path issues)
     try {
-      const message: InboxMessage = {
-        id: randomUUID(),
-        type: 'message',
-        from: 'task_system',
-        to: task.parentClawId,
-        content: messageContent,
-        priority: isError ? 'high' : 'normal',
-        timestamp: new Date().toISOString(),
-      };
+      const msgId = randomUUID();
+      const priority = isError ? 'high' : 'normal';
+      const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
+      const fileContent = [
+        '---',
+        `id: ${msgId}`,
+        `type: message`,
+        `from: task_system`,
+        `to: ${task.parentClawId}`,
+        `priority: ${priority}`,
+        `timestamp: ${new Date().toISOString()}`,
+        '---',
+        '',
+        messageContent,
+      ].join('\n');
 
-      await this.transport.sendInboxMessage(task.parentClawId, message);
+      await this.fs.ensureDir('inbox/pending');
+      await this.fs.writeAtomic(`inbox/pending/${filename}`, fileContent);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[task] Failed to write inbox message for tool task ${task.id}:`, err);
       this.monitor.log('error', {
         taskId: task.id,
         parentClawId: task.parentClawId,
-        error: errMsg,
+        error: `Failed to write inbox message: ${errMsg}`,
       });
-      // 回退：transport 投递失败时，直接写文件到 inbox
-      try {
-        const fallbackMsg = {
-          type: 'tool_task_result',
-          taskId: task.id,
-          toolName: task.toolName,
-          result: fullContent,
-          is_error: isError,
-          parentClawId: task.parentClawId,
-          error_note: 'transport_failed',
-        };
-        await this.fs.ensureDir('inbox/pending');
-        await this.fs.writeAtomic(
-          `inbox/pending/${Date.now()}_tool_result_${task.id}.json`,
-          JSON.stringify(fallbackMsg, null, 2)
-        );
-      } catch (fallbackErr) {
-        const fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-        console.error(`[task] Both transport and fallback failed for tool task ${task.id}:`, fallbackErr);
-        this.monitor.log('error', {
-          taskId: task.id,
-          parentClawId: task.parentClawId,
-          error: `Both transport and fallback failed: ${fallbackErrMsg}`,
-        });
-      }
     }
   }
 
   /**
    * Send task result to parent claw's inbox
    * Large outputs are offloaded to tasks/results/{taskId}.txt
+   * Writes directly to inbox/pending/ in .md format (LocalTransport compatible)
    */
   private async sendResult(task: SubAgentTask, result: string, isError: boolean): Promise<void> {
     // Try to write full result to tasks/results/
@@ -601,7 +587,7 @@ export class TaskSystem {
       ? result.slice(0, 500)
       : result.slice(0, 200) + (result.length > 200 ? '…' : '');
 
-    // Prepare inbox message
+    // Prepare message content
     const messageContent = resultRef
       ? JSON.stringify({
           taskId: task.id,
@@ -615,50 +601,34 @@ export class TaskSystem {
           is_error: isError,
         });
 
+    // Write directly to inbox/pending/ in .md format (bypass transport path issues)
     try {
-      const message: InboxMessage = {
-        id: randomUUID(),
-        type: 'message',
-        from: 'subagent',
-        to: task.parentClawId,
-        content: messageContent,
-        priority: isError ? 'high' : 'normal',
-        timestamp: new Date().toISOString(),
-      };
+      const msgId = randomUUID();
+      const priority = isError ? 'high' : 'normal';
+      const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
+      const fileContent = [
+        '---',
+        `id: ${msgId}`,
+        `type: message`,
+        `from: subagent`,
+        `to: ${task.parentClawId}`,
+        `priority: ${priority}`,
+        `timestamp: ${new Date().toISOString()}`,
+        '---',
+        '',
+        messageContent,
+      ].join('\n');
 
-      await this.transport.sendInboxMessage(task.parentClawId, message);
+      await this.fs.ensureDir('inbox/pending');
+      await this.fs.writeAtomic(`inbox/pending/${filename}`, fileContent);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[task] Failed to write inbox message for task ${task.id}:`, err);
       this.monitor.log('error', {
         taskId: task.id,
         parentClawId: task.parentClawId,
-        error: errMsg,
+        error: `Failed to write inbox message: ${errMsg}`,
       });
-      // 回退：transport 投递失败时，直接写文件到 inbox（绕过 transport，保证 claw 能收到反馈）
-      try {
-        const fallbackMsg = {
-          type: 'task_result',
-          taskId: task.id,
-          result,
-          is_error: isError,
-          parentClawId: task.parentClawId,
-          error_note: 'transport_failed',
-        };
-        await this.fs.ensureDir('inbox/pending');
-        await this.fs.writeAtomic(
-          `inbox/pending/${Date.now()}_task_result_${task.id}.json`,
-          JSON.stringify(fallbackMsg, null, 2)
-        );
-      } catch (fallbackErr) {
-        // best-effort fallback，transport 和文件系统都失败时才完全丢失
-        const fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-        console.error(`[task] Both transport and fallback failed for ${task.id}:`, fallbackErr);
-        this.monitor.log('error', {
-          taskId: task.id,
-          parentClawId: task.parentClawId,
-          error: `Both transport and fallback failed: ${fallbackErrMsg}`,
-        });
-      }
     }
   }
 
