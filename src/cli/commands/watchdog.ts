@@ -4,8 +4,10 @@
  */
 
 import * as fs from 'fs';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
@@ -454,11 +456,14 @@ export async function startCommand(): Promise<void> {
     return;
   }
   
-  const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
-  const proc = spawn('node', [cliPath, 'watchdog', 'daemon'], {
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
+  const watchdogEntryPath = existsSync(bundleEntry)
+    ? bundleEntry
+    : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+  const proc = spawn('node', [watchdogEntryPath], {
     detached: true,
     stdio: 'ignore',
-    cwd: process.cwd(),
   });
   proc.unref();
   
