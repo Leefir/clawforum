@@ -115,7 +115,7 @@ describe('Builtin Tools', () => {
       const result = await readTool.execute({ path: 'clawspace/huge.txt' }, ctx);
 
       expect(result.success).toBe(true);
-      expect(result.content).toContain('共10000字符');
+      expect(result.content).toContain('Showing first');
     });
 
     // Negative offset tests
@@ -158,8 +158,8 @@ describe('Builtin Tools', () => {
       const result = await writeTool.execute({ path: 'clawspace/output.txt', content: 'New content' }, ctx);
 
       expect(result.success).toBe(true);
-      expect(result.content).toContain('成功写入');
-      expect(result.content).toContain('字符');
+      expect(result.content).toContain('Written:');
+      expect(result.content).toContain('chars');
 
       const content = await mockFs.read('clawspace/output.txt');
       expect(content).toBe('New content');
@@ -227,7 +227,7 @@ describe('Builtin Tools', () => {
 
       expect(result.success).toBe(true);
       expect(result.content).toContain(`${content.length}`);
-      expect(result.content).toContain('字符');
+      expect(result.content).toContain('chars');
     });
   });
 
@@ -251,7 +251,7 @@ describe('Builtin Tools', () => {
       const result = await lsTool.execute({ path: 'empty' }, ctx);
 
       expect(result.success).toBe(true);
-      expect(result.content).toBe('目录为空');
+      expect(result.content).toBe('Directory is empty');
     });
 
     it('should default to current directory', async () => {
@@ -274,7 +274,7 @@ describe('Builtin Tools', () => {
 
       expect(result.success).toBe(true);
       // Should show pagination indicator
-      expect(result.content).toContain('共');
+      expect(result.content).toContain('entries total');
       expect(result.content).toContain('120');
     });
 
@@ -474,7 +474,7 @@ describe('Builtin Tools', () => {
       }, ctx);
 
       expect(result.success).toBe(true);
-      expect(result.content).toContain('消息已发送');
+      expect(result.content).toContain('Message sent');
 
       // Verify file was created
       const outboxDir = path.join(tempDir, 'outbox', 'pending');

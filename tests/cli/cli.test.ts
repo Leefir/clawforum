@@ -82,7 +82,7 @@ describe('CLI Config', () => {
 
       const result = toProviderConfig(input);
 
-      expect(result.baseUrl).toBeUndefined();
+      expect(result.baseUrl).toBe('https://api.anthropic.com');
     });
   });
 

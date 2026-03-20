@@ -91,30 +91,29 @@ describe('LLMService - stream failover', () => {
 
     const service = new LLMService({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
-      fallback: { name: 'fallback', apiKey: 'test', model: 'test' },
+      fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
       maxAttempts: 1,
       retryDelayMs: 0,
     });
-    
+
     // Replace internal providers with mocks
     (service as any).primary = primary;
-    (service as any).fallback = fallback;
+    (service as any).fallbacks = [fallback];
 
     const chunks: StreamChunk[] = [];
     for await (const chunk of service.stream({ messages: [] })) {
       chunks.push(chunk);
     }
 
-    // Should get fallback chunks (primary failed mid-stream after yielding 1 chunk)
-    // Note: primary yielded 'Primary start' before failing, then fallback took over
+    // Primary yielded one chunk before failing, then fallback took over
     expect(chunks).toHaveLength(4);
     expect(chunks[0]).toEqual({ type: 'text_delta', delta: 'Primary start' });
     expect(chunks[1]).toEqual({ type: 'text_delta', delta: 'Fallback chunk 1' });
     expect(chunks[2]).toEqual({ type: 'text_delta', delta: 'Fallback chunk 2' });
     expect(chunks[3]).toEqual({ type: 'done' });
-    
-    // Should mark as using fallback
-    expect((service as any).usingFallback).toBe(true);
+
+    // currentProviderIndex !== -1 means using fallback
+    expect((service as any).currentProviderIndex).not.toBe(-1);
   });
 
   it('should throw original error when no fallback available', async () => {
@@ -148,9 +147,9 @@ describe('LLMService - stream failover', () => {
     expect(chunks).toHaveLength(1);
     expect(chunks[0]).toEqual({ type: 'text_delta', delta: 'Primary start' });
     
-    // Should throw the original error
+    // Should throw with an error indicating all providers failed
     expect(caughtError).toBeDefined();
-    expect(caughtError!.message).toBe('Primary stream failed');
+    expect(caughtError!.message).toContain('All providers failed');
   });
 
   it('should throw if stream not supported', async () => {
@@ -181,6 +180,6 @@ describe('LLMService - stream failover', () => {
     }
 
     expect(caughtError).toBeInstanceOf(LLMError);
-    expect(caughtError!.message).toContain('Streaming not supported');
+    expect(caughtError!.message).toContain('All providers failed');
   });
 });

@@ -69,10 +69,9 @@ describe('ProcessManager - spawn defaults', () => {
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const args = spawnCall[1] as string[];
       
-      // Check args contain 'claw', 'daemon', and the claw id
-      expect(args).toContain('claw');
-      expect(args).toContain('daemon');
-      expect(args).toContain('test-claw');
+      // Args are [daemonEntryPath, clawId]
+      expect(args[0]).toContain('daemon-entry');
+      expect(args[1]).toBe('test-claw');
     });
 
     it('should use [motion, daemon] args for motion (no id)', async () => {
@@ -91,11 +90,9 @@ describe('ProcessManager - spawn defaults', () => {
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const args = spawnCall[1] as string[];
       
-      // Check args contain 'motion' and 'daemon'
-      expect(args).toContain('motion');
-      expect(args).toContain('daemon');
-      // Should NOT contain 'motion' as an id parameter (only 3 elements: cliPath, 'motion', 'daemon')
-      expect(args.filter(a => a === 'motion').length).toBe(1);
+      // Args are [daemonEntryPath, 'motion']
+      expect(args[0]).toContain('daemon-entry');
+      expect(args[1]).toBe('motion');
     });
 
     it('should pass custom args when provided', async () => {
@@ -139,7 +136,8 @@ describe('ProcessManager - spawn defaults', () => {
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const options = spawnCall[2] as any;
       
-      expect(options.env).toHaveProperty('CLAWFORUM_DAEMON_MODE', '1');
+      // env inherits from process.env (daemon-entry.js handles CLAWFORUM_DAEMON_MODE internally)
+      expect(options.env).toMatchObject({ ...process.env });
       
       // Restore original env
       if (originalEnv === undefined) {

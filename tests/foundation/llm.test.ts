@@ -306,7 +306,7 @@ describe('LLM Service', () => {
 
       const service = new LLMService({
         primary: primaryConfig,
-        fallback: fallbackConfig,
+        fallbacks: [fallbackConfig],
         maxAttempts: 1,
         retryDelayMs: 100,
       });
@@ -431,7 +431,7 @@ describe('LLM Service', () => {
 
       const service = new LLMService({
         primary: primaryConfig,
-        fallback: fallbackConfig,
+        fallbacks: [fallbackConfig],
         maxAttempts: 1,
         retryDelayMs: 10,
       });
