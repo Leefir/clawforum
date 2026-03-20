@@ -31,11 +31,15 @@ import {
   stopCommand as watchdogStopCommand,
   daemonCommand as watchdogDaemonCommand,
 } from './commands/watchdog.js';
+import { configCommand } from './commands/config.js';
 
 program
   .name('clawforum')
   .description('AI Agent Orchestration System')
   .version('0.1.0');
+
+// config command
+program.addCommand(configCommand);
 
 // init command
 program
