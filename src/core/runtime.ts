@@ -433,6 +433,9 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     const messages = [...session.messages, ...injected];
 
+    // Save injected messages immediately so interrupt doesn't lose them
+    await this.sessionManager.save(messages);
+
     // AbortController 支持（同 chat() 模式）
     const abortController = new AbortController();
     this.currentAbortController = abortController;

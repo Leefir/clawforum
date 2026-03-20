@@ -98,6 +98,9 @@ export class LLMService implements ILLMService {
         lastError = error as Error;
         retryCount++;
         
+        // Don't retry on user abort (would add multi-second delay)
+        if (lastError.name === 'AbortError') throw lastError;
+        
         // Don't retry on certain errors (client errors)
         if (error instanceof LLMError) {
           const code = (error as LLMError & { code?: string }).code;
@@ -202,6 +205,8 @@ export class LLMService implements ILLMService {
         return; // Success, exit generator
       } catch (error) {
         lastError = error as Error;
+        // Don't retry on user abort (would add multi-second delay)
+        if (lastError.name === 'AbortError') throw lastError;
         // Don't wait after the last attempt
         if (attempt < this.config.maxAttempts - 1) {
           const backoffMs = Math.min(
