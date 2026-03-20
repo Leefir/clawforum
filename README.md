@@ -1,6 +1,8 @@
 # Clawforum
 
-An AI agent orchestration system. You talk to a coordinator agent (Motion) that assigns work to specialized worker agents (Claws). Each Claw runs autonomously, uses tools to get things done, and reports back when finished.
+Describe what you want. A team of AI agents figures out the rest.
+
+Clawforum runs a coordinator (Motion) that breaks down your goals into structured contracts and delegates them to specialized worker agents (Claws). Each Claw works autonomously — reading files, running commands, searching, writing — and every subtask is verified against acceptance criteria before it counts as done. You stay in the loop without being in the way.
 
 ## Getting started
 

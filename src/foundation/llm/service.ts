@@ -22,13 +22,15 @@ import type {
 } from './types.js';
 import type { ILLMService } from './index.js';
 import { AnthropicAdapter } from './anthropic.js';
+import { OpenAIAdapter } from './openai.js';
 
 /**
  * Provider factory - creates appropriate adapter for config
  */
 function createProvider(config: ProviderConfig): IProviderAdapter {
-  // Currently only Anthropic is supported
-  // Could be extended to detect provider type from config
+  if (config.apiFormat === 'openai') {
+    return new OpenAIAdapter(config);
+  }
   return new AnthropicAdapter(config);
 }
 
