@@ -95,6 +95,7 @@ let lastArchiveDate: string | null = null;
 let lastDiskCheckHour: number = -1;
 const lastInactivityNotified: Map<string, number> = new Map();
 const clawPreviouslyAlive: Map<string, boolean> = new Map();
+const inactivityNotifyCount: Map<string, number> = new Map();  // 连续通知计数，用于退避
 
 // Global config (loaded lazily on first access)
 let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
@@ -202,19 +203,28 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
     // 未超时
     if (now - referenceMs < timeoutMs) continue;
 
-    // 去重
+    // 重置计数：若 claw 有新进展（lastEventMs > 上次通知时间）
     const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
-    if (now - lastNotified < timeoutMs) continue;
+    if (lastEventMs !== null && lastEventMs > lastNotified) {
+      inactivityNotifyCount.set(clawId, 0);
+    }
+
+    const notifyCount = inactivityNotifyCount.get(clawId) ?? 0;
+
+    // 退避间隔：前 2 次用 timeoutMs，第 3 次起用 3x
+    const effectiveInterval = notifyCount >= 2 ? timeoutMs * 3 : timeoutMs;
+    if (now - lastNotified < effectiveInterval) continue;
 
     // 收集快照信息
     const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
     const inactiveMin = Math.round((now - referenceMs) / 60000);
 
-    // 无指令的 body：纯事实数据
-    let body = `Claw ${clawId} 无进展 ${inactiveMin}m。状态：${snapshot.status}，契约：${snapshot.contract}，inbox_pending：${snapshot.inboxPending}，outbox_pending：${snapshot.outboxPending}`;
+    // 无指令的 body：纯事实数据（含第几次通知）
+    const displayCount = notifyCount + 1;
+    let body = `Claw ${clawId} 无进展 ${inactiveMin}m（第 ${displayCount} 次通知）。状态：${snapshot.status}，契约：${snapshot.contract}，inbox_pending：${snapshot.inboxPending}，outbox_pending：${snapshot.outboxPending}`;
     if (lastError) body += `，最后错误：${lastError}`;
 
-    log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
+    log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m (notify #${displayCount}) with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
     writeWatchdogInboxMessage('claw_inactivity', {
       message: body,
       claw_id: clawId,
@@ -223,8 +233,10 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
       contract: snapshot.contract,
       inbox_pending: snapshot.inboxPending,
       outbox_pending: snapshot.outboxPending,
+      notify_count: displayCount,
       ...(lastError ? { last_error: lastError } : {}),
     });
+    inactivityNotifyCount.set(clawId, displayCount);
     lastInactivityNotified.set(clawId, now);
   }
 }
