@@ -13,7 +13,11 @@ export default defineConfig([
   },
   // CLI build
   {
-    entry: { cli: 'src/cli/index.ts' },
+    entry: {
+      cli: 'src/cli/index.ts',
+      'daemon-entry': 'src/daemon-entry.ts',
+      'watchdog-entry': 'src/watchdog-entry.ts',
+    },
     format: ['esm'],
     banner: {
       js: '#!/usr/bin/env node',
