@@ -426,9 +426,8 @@ export async function daemonCommand(): Promise<void> {
       try {
         // 先清理可能存在的 stale PID 文件
         await pm.stop('motion').catch(() => {});
-        const cliPath = path.resolve(process.cwd(), 'dist', 'cli.js');
         const motionDir = getMotionDir();
-        const pid = await pm.spawn('motion', motionDir, [cliPath, 'motion', 'daemon']);
+        const pid = await pm.spawn('motion', motionDir);  // 使用默认 daemon-entry.js
         log(`[watchdog] motion restarted, PID=${pid}`);
       } catch (err) {
         log(`[watchdog] FAILED to restart motion: ${err}`);
