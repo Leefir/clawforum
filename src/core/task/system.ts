@@ -386,7 +386,6 @@ export class TaskSystem {
   ): Promise<void> {
     let lastError: string | undefined;
     let success = false;
-    let retriesUsed = 0;
     const maxAttempts = task.maxRetries + 1; // Initial + retries
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -401,7 +400,6 @@ export class TaskSystem {
         // Success - send result and mark success
         await this.sendToolResult(task, result, false);
         success = true;
-        retriesUsed = attempt;
         this.monitor.log('tool_task_completed', {
           taskId: task.id,
           parentClawId: task.parentClawId,
@@ -454,27 +452,29 @@ export class TaskSystem {
     }
 
     // If not successful after all attempts, send error result
-    if (!success) {
-      const finalError = lastError || 'Unknown error';
-      await this.sendToolResult(
-        task,
-        task.maxRetries > 0 
-          ? `Execution failed after ${task.retryCount} retries: ${finalError}`
-          : finalError,
-        true
-      );
+    try {
+      if (!success) {
+        const finalError = lastError || 'Unknown error';
+        await this.sendToolResult(
+          task,
+          task.maxRetries > 0 
+            ? `Execution failed after ${task.retryCount} retries: ${finalError}`
+            : finalError,
+          true
+        );
 
-      this.monitor.log('error', {
-        taskId: task.id,
-        parentClawId: task.parentClawId,
-        toolName: task.toolName,
-        error: finalError,
-        retriesExhausted: task.maxRetries > 0,
-      });
+        this.monitor.log('error', {
+          taskId: task.id,
+          parentClawId: task.parentClawId,
+          toolName: task.toolName,
+          error: finalError,
+          retriesExhausted: task.maxRetries > 0,
+        });
+      }
+    } finally {
+      // Always move from running to done, even if sendToolResult throws
+      await this.moveTaskToDone(task.id);
     }
-
-    // Move from running to done (always executed)
-    await this.moveTaskToDone(task.id);
   }
 
   /**
