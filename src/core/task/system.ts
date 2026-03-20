@@ -336,6 +336,12 @@ export class TaskSystem {
         throw new Error('LLM service not set. Call setLLMService() before scheduling tasks.');
       }
 
+      // Filter tools based on task.tools whitelist
+      const allowedTools = task.tools.length > 0
+        ? this.registry.getAll().filter(t => task.tools.includes(t.name))
+        : this.registry.getAll();
+      const toolsForLLM = this.registry.formatForLLM(allowedTools);
+
       const subAgent = new SubAgent({
         agentId: task.id,
         prompt: task.prompt,
@@ -346,6 +352,7 @@ export class TaskSystem {
         maxSteps: task.maxSteps,
         timeoutMs: task.timeout * 1000,
         signal,
+        toolsForLLM,
       });
 
       const result = await subAgent.run();

@@ -10,6 +10,7 @@ import { ToolRegistry } from '../tools/registry.js';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
+import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { SUBAGENT_TIMEOUT_MS } from '../../constants.js';
 
@@ -24,6 +25,7 @@ export interface SubAgentOptions {
   maxSteps?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
+  toolsForLLM?: ToolDefinition[];  // Pre-filtered tool list for LLM, overrides registry.getAll()
 }
 
 export class SubAgent {
@@ -38,6 +40,7 @@ export class SubAgent {
   private timeoutMs: number;
   private signal?: AbortSignal;
   private logPath: string;
+  private toolsForLLM?: ToolDefinition[];
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -51,6 +54,7 @@ export class SubAgent {
     this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
     this.logPath = `tasks/results/${this.agentId}.log`;
+    this.toolsForLLM = options.toolsForLLM;
   }
 
   /**
@@ -98,8 +102,9 @@ You have access to tools: read, write, ls, search, exec, status.
 You CANNOT spawn other subagents - use your available tools to complete the task yourself.
 Work efficiently and return a clear, concise result.`;
 
-      // Format tools for LLM native tool_use
-      const tools = this.registry.formatForLLM(this.registry.getAll());
+      // Format tools for LLM native tool_use (use pre-filtered list if provided)
+      const tools = this.toolsForLLM
+        ?? this.registry.formatForLLM(this.registry.getAll());
 
       // Run ReAct loop
       const result = await runReact({
