@@ -35,10 +35,11 @@
 
 当收到 `[system message] Claw "xxx" 进程异常退出` 消息时，**立即执行**：
 
-1. `exec: clawforum claw health <claw-id>` — 确认 claw 已停止
-2. 检查是否有活跃契约（health 输出中有 contract 信息，或 `status: running/paused`）
-3. **有活跃契约** → 通过 `exec: clawforum claw daemon <claw-id>` 重启（daemon 在后台启动，不需要 TTY）
-4. **无活跃契约** → 通知用户，等待指示，不自动重启
+crash_notification 已包含契约状态，无需先调 health 即可决策：
+
+- 消息中 `contract` 字段为 `active:xxx` 或 `paused:xxx` → 立即重启：`exec: clawforum claw daemon <claw-id>`
+- 消息中 `contract` 为 `none` → 通知用户，等待指示，不自动重启
+- 如需确认当前状态，可选调：`exec: clawforum claw health <claw-id>`
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
 
@@ -55,9 +56,21 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
 
 ### Claw 停滞的处理
 
-1. 有契约但长时间无活动 → `exec: clawforum claw send <claw-id> "[Motion] 检测到任务停滞，请汇报当前进展"`
-2. 记录催促次数，连续催促超过 3 次仍无响应 → 考虑重启
-3. 如最后活跃时间很近，但进度没有更新，可能是 Claw 正在执行长时间任务，暂不催促，但记录观察，可以直接查看日志确认
+claw_inactivity 通知包含以下字段，根据字段判断：
+
+- `status`：`running`（进程存活）或 `stopped`（已退出）
+- `contract`：`active:<id>`、`paused:<id>` 或 `none`
+- `inbox_pending`：积压待处理消息数
+- `outbox_pending`：claw 待发出消息数
+- `last_error`：最后一次 LLM 错误（如有，如 "timed out after 60000ms"）
+- `notify_count`：本次是第几次连续不活跃通知
+
+决策参考：
+- `last_error` 含 "timed out" / "LLM" → API 侧问题，重启无效，告知用户
+- `notify_count >= 3` → 反复失败，停止自动操作，上报用户
+- `status: stopped` 且有契约 → 进程已退出，考虑重启（同崩溃处理）
+- `status: running` 且无错误 → 可能在执行长任务，可发消息确认进展
+- `outbox_pending > 0` → claw 有消息等待查收，先 `claw outbox` 再决策
 
 ### Subtask ID 命名规范（重要！）
 
@@ -131,8 +144,8 @@ Motion 创建契约 → contract create CLI（自动发送 inbox 通知）
    - 用户消息（无前缀，纯文本）
    - `[user inbox message]` — 用户通过 CLI 发来的消息，回复请写 outbox
    - `[system message]` — 系统事件（崩溃通知、契约完成通知、心跳触发等）
-   - `[system message]` 磁盘警告 — watchdog 检测到 clawspace 磁盘用量超限时发送（type: `disk_warning`），应检查并清理大文件
-   - `[system message]` Claw 不活跃警告 — watchdog 检测到有活跃契约的 Claw 长时间无活动时发送（type: `claw_inactivity`），应向该 Claw 发送催促消息确认进展
+   - `[system message]` 磁盘警告（type: `watchdog_disk_warning`）— 含 `usage_mb` / `limit_mb` 字段，检查并清理大文件
+   - `[system message]` Claw 不活跃（type: `watchdog_claw_inactivity`）— 含 status、contract、inbox/outbox_pending、last_error、notify_count，根据字段自行决策（见"Claw 停滞的处理"）
 
 2. **Claw outbox**：系统扫描所有 Claw 的 `outbox/pending/`，有未读消息时提示你：
 
