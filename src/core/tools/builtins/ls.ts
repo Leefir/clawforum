@@ -23,12 +23,17 @@ export const lsTool: ITool = {
         type: 'string',
         description: '目标 claw ID（仅 Motion 可用）。例：{ path: "contract/archive", claw: "claw1" }',
       },
+      async: {
+        type: 'boolean',
+        description: 'If true, run in background. Result delivered to inbox when complete. Use for large directories or non-blocking listings.',
+      },
     },
     required: [],
   },
   requiredPermissions: ['read'],
   readonly: true,
   idempotent: true,
+  supportsAsync: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const path = (args.path as string) ?? '.';

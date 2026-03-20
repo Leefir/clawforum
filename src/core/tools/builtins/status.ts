@@ -104,12 +104,18 @@ export const statusTool: ITool = {
   description: 'Get comprehensive status: Claw ID, profile, step count, active contract, tasks, storage (MEMORY.md, clawspace).',
   schema: {
     type: 'object',
-    properties: {},
+    properties: {
+      async: {
+        type: 'boolean',
+        description: 'If true, run in background. Result delivered to inbox when complete. Use for non-blocking status checks.',
+      },
+    },
     required: [],
   },
   requiredPermissions: ['read'],
   readonly: true,
   idempotent: true,
+  supportsAsync: true,
 
   async execute(_args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const lines = [

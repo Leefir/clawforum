@@ -28,12 +28,17 @@ export const memorySearchTool: ITool = {
         type: 'number',
         description: '最大返回数（默认 10）',
       },
+      async: {
+        type: 'boolean',
+        description: 'If true, run in background. Result delivered to inbox when complete. Use for large memory searches or non-blocking queries.',
+      },
     },
     // query 和 filter 至少一个必填，用 description 约束而非 required
   },
   requiredPermissions: ['read'],
   readonly: true,
   idempotent: true,
+  supportsAsync: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const query = ((args.query as string) ?? '').toLowerCase().trim();
