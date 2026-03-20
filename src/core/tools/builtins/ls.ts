@@ -8,6 +8,7 @@ import * as nodePath from 'path';
 import * as fsNative from 'fs';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import { LS_MAX_ENTRIES } from '../../../constants.js';
+import { resolveClawspacePath } from './path-utils.js';
 
 export const lsTool: ITool = {
   name: 'ls',
@@ -36,7 +37,7 @@ export const lsTool: ITool = {
   supportsAsync: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const path = (args.path as string) ?? '.';
+    const path = resolveClawspacePath((args.path as string) ?? 'clawspace/');
     const clawParam = args.claw as string | undefined;
     // From constants.ts: pagination limit
 
