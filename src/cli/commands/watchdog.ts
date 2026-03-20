@@ -151,6 +151,9 @@ function gatherClawSnapshot(clawDir: string, pm: ProcessManager, clawId: string)
   return { status, contract, inboxPending, outboxPending };
 }
 
+// 只计 LLM 直接输出事件（排除 llm_start/tool_result 等基础设施事件）
+const LLM_OUTPUT_EVENTS = new Set(['thinking_delta', 'text_delta', 'tool_call']);
+
 function getClawActivityInfo(clawDir: string): ClawActivityInfo {
   const streamFile = path.join(clawDir, 'stream.jsonl');
   try {
@@ -166,8 +169,10 @@ function getClawActivityInfo(clawDir: string): ClawActivityInfo {
         const ts = typeof event.ts === 'number' ? event.ts : null;
         if (!ts) continue;
 
-        // 任意事件都更新最近活动时间
-        if (lastEventMs === null || ts > lastEventMs) lastEventMs = ts;
+        // 只有 LLM 直接输出才算活跃
+        if (LLM_OUTPUT_EVENTS.has(event.type) && (lastEventMs === null || ts > lastEventMs)) {
+          lastEventMs = ts;
+        }
 
         // 只追踪终止事件来判断错误状态
         if (event.type === 'turn_end') {
