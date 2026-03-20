@@ -19,7 +19,7 @@ import {
   sendCommand,
   outboxCommand,
 } from './commands/claw.js';
-import { daemonCommand } from './commands/daemon.js';
+
 import { 
   initCommand as motionInitCommand,
   chatCommand as motionChatCommand,
@@ -160,10 +160,6 @@ clawCmd
   .description('Start Claw daemon (auto-backgrounds)')
   .action(async (name: string) => {
     try {
-      if (process.env.CLAWFORUM_DAEMON_MODE) {
-        await daemonCommand(name);
-        return;
-      }
       // 前台入口：后台启动
       const { loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath } = await import('./config.js');
       const { NodeFileSystem } = await import('../foundation/fs/node-fs.js');
@@ -239,10 +235,6 @@ motionCmd
   .description('Start Motion daemon (auto-backgrounds)')
   .action(async () => {
     try {
-      if (process.env.CLAWFORUM_DAEMON_MODE) {
-        await daemonCommand('motion');
-        return;
-      }
       // 前台入口
       const { loadGlobalConfig, getMotionDir } = await import('./config.js');
       const { NodeFileSystem } = await import('../foundation/fs/node-fs.js');
