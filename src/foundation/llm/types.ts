@@ -62,6 +62,9 @@ export interface LLMServiceConfig {
   
   /** Delay between retries (exponential backoff base) */
   retryDelayMs: number;
+
+  /** Circuit breaker configuration (optional) */
+  circuitBreaker?: { failureThreshold: number; resetTimeoutMs: number };
 }
 
 /**

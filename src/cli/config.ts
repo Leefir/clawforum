@@ -27,6 +27,11 @@ export const LLMProviderSchema = z.object({
   thinking_budget_tokens: z.number().min(1).optional(),
 });
 
+export const CircuitBreakerSchema = z.object({
+  failure_threshold: z.number().min(1).max(20).default(3),
+  reset_timeout_ms: z.number().min(1000).max(3600000).default(60000),
+});
+
 export const ClawGlobalConfigSchema = z.object({
   version: z.string().default('1'),
   llm: z.object({
@@ -35,6 +40,7 @@ export const ClawGlobalConfigSchema = z.object({
     fallbacks: z.array(LLMProviderSchema).optional(), // 新增：多级 fallback 链
     retry_attempts: z.number().min(0).max(10).default(3),
     retry_delay_ms: z.number().min(0).max(60000).default(1000),
+    circuit_breaker: CircuitBreakerSchema.optional(), // 新增：熔断器配置
   }),
   motion: z.object({
     heartbeat_interval_ms: z.number().min(10000).default(300000),
@@ -224,10 +230,17 @@ export function buildLLMConfig(
     ...(globalConfig.llm.fallback ? [globalConfig.llm.fallback] : []),
   ];
   
+  // Circuit breaker config
+  const cb = globalConfig.llm.circuit_breaker;
+  
   return {
     primary: primaryProvider,
     fallbacks: fallbackList.map(toProviderConfig),
     maxAttempts: globalConfig.llm.retry_attempts,
     retryDelayMs: globalConfig.llm.retry_delay_ms,
+    circuitBreaker: cb ? {
+      failureThreshold: cb.failure_threshold,
+      resetTimeoutMs: cb.reset_timeout_ms,
+    } : undefined,
   };
 }

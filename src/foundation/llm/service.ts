@@ -42,6 +42,50 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Circuit Breaker for provider health
+ * 
+ * State machine:
+ * closed --(连续失败 N 次)--> open --(resetTimeoutMs 后)--> half-open
+ *   ^                            |
+ *   └────────(探测成功)──────────┘
+ *             (探测失败) → 回 open
+ */
+class CircuitBreaker {
+  private state: 'closed' | 'open' | 'half-open' = 'closed';
+  private failures = 0;
+  private openedAt?: number;
+
+  constructor(
+    private readonly threshold: number,
+    private readonly resetTimeoutMs: number,
+  ) {}
+
+  isOpen(): boolean {
+    if (this.state === 'open') {
+      if (Date.now() - this.openedAt! >= this.resetTimeoutMs) {
+        this.state = 'half-open';
+        return false; // 允许一次探测
+      }
+      return true; // 仍在冷却
+    }
+    return false;
+  }
+
+  onSuccess(): void {
+    this.failures = 0;
+    this.state = 'closed';
+  }
+
+  onFailure(): void {
+    this.failures++;
+    if (this.state === 'half-open' || this.failures >= this.threshold) {
+      this.state = 'open';
+      this.openedAt = Date.now();
+    }
+  }
+}
+
+/**
  * LLM Service implementation
  */
 export class LLMService implements ILLMService {
@@ -54,6 +98,9 @@ export class LLMService implements ILLMService {
   // Track current provider: -1 = primary, 0..N = fallbacks[i]
   private currentProviderIndex = -1;
   
+  // Circuit breakers for each provider (primary + fallbacks)
+  private breakers: CircuitBreaker[];
+  
   constructor(
     config: LLMServiceConfig,
     monitor?: IMonitor,
@@ -64,6 +111,12 @@ export class LLMService implements ILLMService {
     this.fallbacks = (config.fallbacks ?? []).map(createProvider);
     this.monitor = monitor;
     this.clawId = clawId;
+    
+    // Initialize circuit breakers if configured
+    const cb = config.circuitBreaker;
+    this.breakers = cb
+      ? [this.primary, ...this.fallbacks].map(() => new CircuitBreaker(cb.failureThreshold, cb.resetTimeoutMs))
+      : [];
   }
   
   /**
@@ -71,66 +124,92 @@ export class LLMService implements ILLMService {
    */
   async call(options: LLMCallOptions): Promise<LLMResponse> {
     const startTime = Date.now();
-    let lastError: Error | undefined;
     let retryCount = 0;
     
+    // Helper to check circuit breaker
+    const isBreakerOpen = (index: number): boolean => {
+      const breaker = this.breakers[index];
+      return breaker ? breaker.isOpen() : false;
+    };
+    
     // Try primary provider with retries
-    for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
-      try {
-        const response = await this.primary.call(options);
-        
-        // Log successful call
-        this.logLLMCall({
-          timestamp: new Date().toISOString(),
-          provider: this.primary.name,
-          model: this.primary.model,
-          success: true,
-          latencyMs: Date.now() - startTime,
-          inputTokens: response.usage?.input_tokens,
-          outputTokens: response.usage?.output_tokens,
-          isFallback: false,
-          retryCount,
-        });
-        
-        // Reset to primary
-        this.currentProviderIndex = -1;
-        return response;
-        
-      } catch (error) {
-        lastError = error as Error;
-        retryCount++;
-        
-        // Don't retry on user abort (would add multi-second delay)
-        if (lastError.name === 'AbortError') throw lastError;
-        
-        // Don't retry on certain errors (client errors)
-        if (error instanceof LLMError) {
-          const code = (error as LLMError & { code?: string }).code;
-          if (code === 'LLM_INVALID_RESPONSE') {
-            break; // Don't retry invalid response
+    if (!isBreakerOpen(0)) {
+      let lastError: Error | undefined;
+      
+      for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
+        try {
+          const response = await this.primary.call(options);
+          
+          // Circuit breaker: record success
+          this.breakers[0]?.onSuccess();
+          
+          // Log successful call
+          this.logLLMCall({
+            timestamp: new Date().toISOString(),
+            provider: this.primary.name,
+            model: this.primary.model,
+            success: true,
+            latencyMs: Date.now() - startTime,
+            inputTokens: response.usage?.input_tokens,
+            outputTokens: response.usage?.output_tokens,
+            isFallback: false,
+            retryCount,
+          });
+          
+          // Reset to primary
+          this.currentProviderIndex = -1;
+          return response;
+          
+        } catch (error) {
+          lastError = error as Error;
+          retryCount++;
+          
+          // Don't retry on user abort (would add multi-second delay)
+          if (lastError.name === 'AbortError') throw lastError;
+          
+          // Don't retry on certain errors (client errors)
+          if (error instanceof LLMError) {
+            const code = (error as LLMError & { code?: string }).code;
+            if (code === 'LLM_INVALID_RESPONSE') {
+              break; // Don't retry invalid response
+            }
+          }
+          
+          // Wait before retry (exponential backoff with 30s max)
+          if (attempt < this.config.maxAttempts - 1) {
+            const backoffMs = Math.min(
+              this.config.retryDelayMs * Math.pow(2, attempt),
+              30_000  // Max 30 seconds
+            );
+            await delay(backoffMs);
           }
         }
-        
-        // Wait before retry (exponential backoff with 30s max)
-        if (attempt < this.config.maxAttempts - 1) {
-          const backoffMs = Math.min(
-            this.config.retryDelayMs * Math.pow(2, attempt),
-            30_000  // Max 30 seconds
-          );
-          await delay(backoffMs);
-        }
       }
+      
+      // Circuit breaker: record failure
+      this.breakers[0]?.onFailure();
+      
+      // Primary failed, continue to fallbacks
     }
     
-    // Primary failed, try fallbacks in order
+    // Primary failed or breaker open, try fallbacks in order
     const failures: Array<{ provider: string; error: Error }> = [
-      { provider: this.primary.name, error: lastError! }
+      { provider: this.primary.name, error: new Error(isBreakerOpen(0) ? 'Circuit breaker open' : 'All retries failed') }
     ];
     
     for (let i = 0; i < this.fallbacks.length; i++) {
+      // Skip if breaker is open
+      if (isBreakerOpen(i + 1)) {
+        failures.push({ provider: this.fallbacks[i].name, error: new Error('Circuit breaker open') });
+        continue;
+      }
+      
       const fb = this.fallbacks[i];
       try {
         const response = await fb.call(options);
+        
+        // Circuit breaker: record success
+        this.breakers[i + 1]?.onSuccess();
         
         // Log fallback success
         this.logLLMCall({
@@ -149,6 +228,9 @@ export class LLMService implements ILLMService {
         return response;
         
       } catch (fallbackError) {
+        // Circuit breaker: record failure
+        this.breakers[i + 1]?.onFailure();
+        
         // Log fallback failure
         this.logLLMCall({
           timestamp: new Date().toISOString(),
@@ -178,55 +260,65 @@ export class LLMService implements ILLMService {
    *         mid-stream errors will fail over without retry
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
-    const providerIndex = this.currentProviderIndex;
-    const provider = providerIndex === -1 
-      ? this.primary 
-      : this.fallbacks[providerIndex];
+    const providers: Array<{ adapter: IProviderAdapter; breakerIndex: number }> = [
+      { adapter: this.primary, breakerIndex: 0 },
+      ...this.fallbacks.map((fb, i) => ({ adapter: fb, breakerIndex: i + 1 })),
+    ];
     
-    if (!provider.stream) {
-      throw new LLMError('Streaming not supported by provider', { provider: provider.name });
-    }
+    // Get starting index based on current provider
+    const startIndex = this.currentProviderIndex === -1 ? 0 : this.currentProviderIndex + 1;
     
-    // Retry loop (aligns with call())
-    let lastError: Error | undefined;
-    for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
-      try {
-        yield* provider.stream(options);
-        return; // Success, exit generator
-      } catch (error) {
-        lastError = error as Error;
-        // Don't retry on user abort (would add multi-second delay)
-        if (lastError.name === 'AbortError') throw lastError;
-        // Don't wait after the last attempt
-        if (attempt < this.config.maxAttempts - 1) {
-          const backoffMs = Math.min(
-            this.config.retryDelayMs * Math.pow(2, attempt),
-            30000,
-          );
-          await delay(backoffMs);
+    for (let pi = startIndex; pi < providers.length; pi++) {
+      const { adapter: provider, breakerIndex } = providers[pi];
+      
+      if (!provider.stream) continue;
+      
+      // Check circuit breaker
+      const breaker = this.breakers[breakerIndex];
+      if (breaker?.isOpen()) {
+        continue; // Skip if breaker open
+      }
+      
+      // Retry loop (aligns with call())
+      let success = false;
+      for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
+        try {
+          yield* provider.stream(options);
+          success = true;
+          break; // Success, exit retry loop
+        } catch (error) {
+          const err = error as Error;
+          // Don't retry on user abort
+          if (err.name === 'AbortError') throw err;
+          
+          // Don't wait after the last attempt
+          if (attempt < this.config.maxAttempts - 1) {
+            const backoffMs = Math.min(
+              this.config.retryDelayMs * Math.pow(2, attempt),
+              30000,
+            );
+            await delay(backoffMs);
+          }
         }
       }
-    }
-    
-    // Retries exhausted on primary, try fallbacks in order
-    let fallbackError: Error | undefined = lastError;
-    const startFallbackIndex = providerIndex === -1 ? 0 : providerIndex + 1;
-    
-    for (let i = startFallbackIndex; i < this.fallbacks.length; i++) {
-      const fb = this.fallbacks[i];
-      if (!fb.stream) continue;
       
-      try {
-        this.currentProviderIndex = i;
-        yield* fb.stream(options);
-        return;
-      } catch (err) {
-        fallbackError = err as Error;
-        // Continue to next fallback
+      if (success) {
+        // Circuit breaker: record success
+        breaker?.onSuccess();
+        // Update current provider index (skip primary at 0)
+        if (pi > 0) {
+          this.currentProviderIndex = pi - 1;
+        }
+        return; // Success, exit generator
+      } else {
+        // Circuit breaker: record failure
+        breaker?.onFailure();
+        // Continue to next provider
       }
     }
     
-    throw fallbackError!;
+    // All providers failed
+    throw new LLMError('All providers failed for streaming', { provider: 'LLMService' });
   }
   
   /**
