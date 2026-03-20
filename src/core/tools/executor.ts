@@ -255,7 +255,12 @@ export class ToolExecutorImpl implements IToolExecutor {
         return { success: false, content: `Tool "${toolName}" does not support async mode.` };
       }
       const executeCallback = () => tool.execute(args, ctx);
-      const taskId = await taskSystem.scheduleTool(toolName, executeCallback, ctx.clawId);
+      const taskId = await taskSystem.scheduleTool(
+        toolName,
+        executeCallback,
+        ctx.clawId,
+        { isIdempotent: tool.idempotent }
+      );
       return {
         success: true,
         content: `Async task queued. Task ID: ${taskId}. Result will be delivered to inbox when complete.`,

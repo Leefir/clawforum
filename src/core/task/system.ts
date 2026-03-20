@@ -34,6 +34,9 @@ export interface ToolTask {
   toolName: string;
   parentClawId: string;
   createdAt: string;
+  isIdempotent: boolean;  // Determines if retry is allowed
+  maxRetries: number;     // Max retry attempts (default 2)
+  retryCount: number;     // Current retry count (initial 0)
 }
 
 interface TaskState {
@@ -203,14 +206,19 @@ export class TaskSystem {
     toolName: string,
     executeCallback: () => Promise<ToolResult>,
     parentClawId: string,
+    options?: { isIdempotent?: boolean; maxRetries?: number }
   ): Promise<string> {
     const taskId = randomUUID();
+    const isIdempotent = options?.isIdempotent ?? false;
     const task: ToolTask = {
       kind: 'tool',
       id: taskId,
       toolName,
       parentClawId,
       createdAt: new Date().toISOString(),
+      isIdempotent,
+      maxRetries: isIdempotent ? (options?.maxRetries ?? 2) : 0,
+      retryCount: 0,
     };
 
     // Store callback first (before any async operations)
@@ -369,37 +377,104 @@ export class TaskSystem {
 
   /**
    * Execute a tool task - internal method
+   * Implements retry logic for idempotent tools with exponential backoff
    */
   private async executeToolTask(
     task: ToolTask,
     executeCallback: () => Promise<ToolResult>,
     signal: AbortSignal,
   ): Promise<void> {
-    try {
-      const result = await executeCallback();
-      // Send success result to parent inbox
-      await this.sendToolResult(task, result, false);
+    let lastError: string | undefined;
+    let success = false;
+    let retriesUsed = 0;
+    const maxAttempts = task.maxRetries + 1; // Initial + retries
 
-      this.monitor.log('tool_task_completed', {
-        taskId: task.id,
-        parentClawId: task.parentClawId,
-        toolName: task.toolName,
-      });
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      // Send error result to parent inbox
-      await this.sendToolResult(task, errorMsg, true);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Check abort signal before each attempt
+      if (signal.aborted) {
+        lastError = 'Execution aborted';
+        break;
+      }
+
+      try {
+        const result = await executeCallback();
+        // Success - send result and mark success
+        await this.sendToolResult(task, result, false);
+        success = true;
+        retriesUsed = attempt;
+        this.monitor.log('tool_task_completed', {
+          taskId: task.id,
+          parentClawId: task.parentClawId,
+          toolName: task.toolName,
+          retriesUsed: attempt,
+        });
+        break; // Exit retry loop on success
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        lastError = errorMsg;
+
+        // Check if we should retry
+        if (attempt < task.maxRetries) {
+          // Update retry count in task and persist to running file
+          task.retryCount = attempt + 1;
+          try {
+            await this.fs.writeAtomic(
+              `tasks/running/${task.id}.json`,
+              JSON.stringify(task, null, 2)
+            );
+          } catch (writeErr) {
+            // Non-critical: just log
+            this.monitor.log('error', {
+              taskId: task.id,
+              error: `Failed to update retry count: ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
+            });
+          }
+
+          this.monitor.log('tool_task_retry', {
+            taskId: task.id,
+            toolName: task.toolName,
+            parentClawId: task.parentClawId,
+            attempt: attempt + 1,
+            maxRetries: task.maxRetries,
+            error: errorMsg,
+          });
+
+          // Exponential backoff: 500ms, 1000ms, etc.
+          const backoffMs = 500 * (attempt + 1);
+          await new Promise(r => setTimeout(r, backoffMs));
+          
+          // Check abort signal after sleep
+          if (signal.aborted) {
+            lastError = 'Execution aborted during retry wait';
+            break;
+          }
+        }
+        // Continue to next retry attempt
+      }
+    }
+
+    // If not successful after all attempts, send error result
+    if (!success) {
+      const finalError = lastError || 'Unknown error';
+      await this.sendToolResult(
+        task,
+        task.maxRetries > 0 
+          ? `Execution failed after ${task.retryCount} retries: ${finalError}`
+          : finalError,
+        true
+      );
 
       this.monitor.log('error', {
         taskId: task.id,
         parentClawId: task.parentClawId,
         toolName: task.toolName,
-        error: errorMsg,
+        error: finalError,
+        retriesExhausted: task.maxRetries > 0,
       });
-    } finally {
-      // Move from running to done
-      await this.moveTaskToDone(task.id);
     }
+
+    // Move from running to done (always executed)
+    await this.moveTaskToDone(task.id);
   }
 
   /**

@@ -495,6 +495,88 @@ describe('TaskSystem Tool Tasks', () => {
       expect(taskSystem.listPending()).not.toContain(taskId);
     });
   });
+
+  describe('retry mechanism', () => {
+    it('should retry idempotent tool on failure and succeed on second attempt', async () => {
+      let callCount = 0;
+      const failingThenSucceedingCallback = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error('First attempt failed'));
+        }
+        return Promise.resolve({ success: true, content: 'success after retry' });
+      });
+
+      const taskId = await taskSystem.scheduleTool(
+        'retryTool',
+        failingThenSucceedingCallback,
+        'parent-claw',
+        { isIdempotent: true, maxRetries: 2 }
+      );
+
+      // Wait for execution with retry
+      await new Promise(r => setTimeout(r, 800));
+
+      // Should be called twice (initial + 1 retry)
+      expect(callCount).toBe(2);
+      expect(failingThenSucceedingCallback).toHaveBeenCalledTimes(2);
+
+      // Check success result in inbox
+      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
+      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
+      const content = JSON.parse(callArg.content);
+      expect(content.is_error).toBe(false);
+      expect(content.summary).toContain('success after retry');
+    });
+
+    it('should not retry non-idempotent tool on failure', async () => {
+      const failingCallback = vi.fn().mockRejectedValue(new Error('Non-idempotent failure'));
+
+      const taskId = await taskSystem.scheduleTool(
+        'noRetryTool',
+        failingCallback,
+        'parent-claw',
+        { isIdempotent: false }
+      );
+
+      // Wait for execution
+      await new Promise(r => setTimeout(r, 200));
+
+      // Should be called only once (no retry for non-idempotent)
+      expect(failingCallback).toHaveBeenCalledTimes(1);
+
+      // Check error result in inbox
+      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
+      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
+      const content = JSON.parse(callArg.content);
+      expect(content.is_error).toBe(true);
+    });
+
+    it('should exhaust all retries and report failure', async () => {
+      const alwaysFailingCallback = vi.fn().mockRejectedValue(new Error('Persistent failure'));
+
+      const taskId = await taskSystem.scheduleTool(
+        'exhaustedTool',
+        alwaysFailingCallback,
+        'parent-claw',
+        { isIdempotent: true, maxRetries: 2 }
+      );
+
+      // Wait for all retries (initial + 2 retries with backoff: 0 + 500ms + 1000ms)
+      await new Promise(r => setTimeout(r, 1800));
+
+      // Should be called 3 times (initial + 2 retries)
+      expect(alwaysFailingCallback).toHaveBeenCalledTimes(3);
+
+      // Check error result mentions retries
+      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
+      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
+      const content = JSON.parse(callArg.content);
+      expect(content.is_error).toBe(true);
+      expect(content.summary).toContain('2 retries');
+      expect(content.summary).toContain('Persistent failure');
+    });
+  });
 });
 
 describe('ToolExecutor async routing', () => {
@@ -614,7 +696,8 @@ describe('ToolExecutor async routing', () => {
     expect(mockTaskSystem.scheduleTool).toHaveBeenCalledWith(
       'asyncTool',
       expect.any(Function),
-      'test-claw'
+      'test-claw',
+      { isIdempotent: false }
     );
   });
 

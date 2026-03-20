@@ -17,6 +17,7 @@ export type MonitorEventType =
   | 'tool_task_spawned'
   | 'tool_task_scheduled'
   | 'tool_task_completed'
+  | 'tool_task_retry'
   | 'task_recovered'
   | 'task_recovery_complete'
   | 'file_operation'
