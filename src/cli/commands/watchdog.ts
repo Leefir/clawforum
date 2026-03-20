@@ -112,6 +112,37 @@ interface ClawActivityInfo {
                                // 只有 turn_end 才清除
 }
 
+// Claw 健康快照（用于通知 motion 决策）
+interface ClawSnapshot {
+  status: 'running' | 'stopped';
+  contract: string;       // 'active:<contractId>' | 'paused:<contractId>' | 'none'
+  inboxPending: number;
+  outboxPending: number;
+}
+
+function gatherClawSnapshot(clawDir: string, pm: ProcessManager, clawId: string): ClawSnapshot {
+  const status = pm.isAlive(clawId) ? 'running' : 'stopped';
+
+  // 找 contract（active 优先）
+  let contract = 'none';
+  for (const sub of ['active', 'paused']) {
+    try {
+      const entries = fs.readdirSync(path.join(clawDir, 'contract', sub), { withFileTypes: true });
+      const dir = entries.find(e => e.isDirectory());
+      if (dir) { contract = `${sub}:${dir.name}`; break; }
+    } catch { /* skip */ }
+  }
+
+  // inbox/outbox pending 数量
+  const countMd = (dir: string) => {
+    try { return fs.readdirSync(dir).filter(f => f.endsWith('.md')).length; } catch { return 0; }
+  };
+  const inboxPending = countMd(path.join(clawDir, 'inbox', 'pending'));
+  const outboxPending = countMd(path.join(clawDir, 'outbox', 'pending'));
+
+  return { status, contract, inboxPending, outboxPending };
+}
+
 function getClawActivityInfo(clawDir: string): ClawActivityInfo {
   const streamFile = path.join(clawDir, 'stream.jsonl');
   try {
@@ -147,7 +178,7 @@ function getClawActivityInfo(clawDir: string): ClawActivityInfo {
 }
 
 // 检查有活跃契约但长时间无进展的 claw，发送提醒
-function maybeCronClawInactivity(): void {
+function maybeCronClawInactivity(pm: ProcessManager): void {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
   const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
   if (!fs.existsSync(clawsDir)) return;
@@ -175,14 +206,23 @@ function maybeCronClawInactivity(): void {
     const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
     if (now - lastNotified < timeoutMs) continue;
 
-    // 发通知（附带错误原因）
+    // 收集快照信息
+    const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
     const inactiveMin = Math.round((now - referenceMs) / 60000);
-    const errorSuffix = lastError ? `，最后错误：${lastError}` : '';
+
+    // 无指令的 body：纯事实数据
+    let body = `Claw ${clawId} 无进展 ${inactiveMin}m。状态：${snapshot.status}，契约：${snapshot.contract}，inbox_pending：${snapshot.inboxPending}，outbox_pending：${snapshot.outboxPending}`;
+    if (lastError) body += `，最后错误：${lastError}`;
+
     log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
     writeWatchdogInboxMessage('claw_inactivity', {
-      message: `Claw ${clawId} 有活跃契约但已 ${inactiveMin} 分钟无进展${errorSuffix}，请检查`,
+      message: body,
       claw_id: clawId,
       inactive_ms: now - referenceMs,
+      status: snapshot.status,
+      contract: snapshot.contract,
+      inbox_pending: snapshot.inboxPending,
+      outbox_pending: snapshot.outboxPending,
       ...(lastError ? { last_error: lastError } : {}),
     });
     lastInactivityNotified.set(clawId, now);
@@ -218,12 +258,17 @@ function maybeCronClawCrash(pm: ProcessManager): void {
         continue;
       }
       log(`[watchdog] Claw ${clawId} crashed (was alive, now stopped)`);
+
+      // 收集快照信息
+      const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
+      const body = `契约：${snapshot.contract}，outbox_pending：${snapshot.outboxPending}`;
+
       writeInboxMessage({
         inboxDir: path.join(getMotionDir(), 'inbox', 'pending'),
         type: 'crash_notification',
         source: clawId,
         priority: 'high',
-        body: '',
+        body,
         filenameTag: 'claw_crash',
       });
     }
@@ -308,7 +353,7 @@ function maybeCronDiskCheck(): void {
   if (totalMB > limitMB) {
     log(`[watchdog] WARNING: Disk usage ${totalMB}MB > ${limitMB}MB`);
     writeWatchdogInboxMessage('disk_warning', {
-      message: `Clawspace disk usage exceeded limit`,
+      message: `磁盘用量 ${totalMB}MB，限制 ${limitMB}MB`,
       usage_mb: totalMB,
       limit_mb: limitMB,
       timestamp: new Date().toISOString(),
@@ -379,7 +424,7 @@ export async function daemonCommand(): Promise<void> {
     // 2. 简易 cron
     maybeCronArchive();
     maybeCronDiskCheck();
-    maybeCronClawInactivity();
+    maybeCronClawInactivity(pm);
     maybeCronClawCrash(pm);
     
     // 3. 休眠（间隔可配置）
