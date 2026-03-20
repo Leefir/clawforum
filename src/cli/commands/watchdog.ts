@@ -14,9 +14,14 @@ import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
+// 获取 .clawforum/ 目录（优先使用 CLAWFORUM_ROOT）
+function getClawforumDir(): string {
+  return path.dirname(getMotionDir());
+}
+
 // PID 文件路径
 function getWatchdogPidFile(): string {
-  return path.join(process.cwd(), '.clawforum', 'watchdog.pid');
+  return path.join(getClawforumDir(), 'watchdog.pid');
 }
 
 /**
@@ -72,7 +77,7 @@ function log(message: string): void {
   const logLine = `[${timestamp}] ${message}\n`;
   console.log(logLine.trim());
   
-  const logDir = path.join(process.cwd(), '.clawforum', 'logs');
+  const logDir = path.join(getClawforumDir(), 'logs');
   fs.mkdirSync(logDir, { recursive: true });
   fs.appendFileSync(path.join(logDir, 'watchdog.log'), logLine, 'utf-8');
 }
@@ -183,7 +188,7 @@ function getClawActivityInfo(clawDir: string): ClawActivityInfo {
 // 检查有活跃契约但长时间无进展的 claw，发送提醒
 function maybeCronClawInactivity(pm: ProcessManager): void {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
-  const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
+  const clawsDir = path.join(getClawforumDir(), 'claws');
   if (!fs.existsSync(clawsDir)) return;
 
   const now = Date.now();
@@ -256,7 +261,7 @@ function clawHasContract(clawDir: string): boolean {
 
 // 检测 claw 进程崩溃并通知 motion
 function maybeCronClawCrash(pm: ProcessManager): void {
-  const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
+  const clawsDir = path.join(getClawforumDir(), 'claws');
   if (!fs.existsSync(clawsDir)) return;
 
   for (const clawId of fs.readdirSync(clawsDir)) {
@@ -303,7 +308,7 @@ function maybeCronArchive(): void {
   
   const archiveDays = getGlobalConfig().watchdog?.log_archive_days ?? 30;
   const thirtyDaysAgo = Date.now() - archiveDays * 24 * 60 * 60 * 1000;
-  const archiveDir = path.join(process.cwd(), '.clawforum', 'logs', 'archive');
+  const archiveDir = path.join(getClawforumDir(), 'logs', 'archive');
   fs.mkdirSync(archiveDir, { recursive: true });
   
   // 扫描 motion/dialog/archive/
@@ -320,7 +325,7 @@ function maybeCronArchive(): void {
   }
   
   // 扫描 claws/*/dialog/archive/
-  const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
+  const clawsDir = path.join(getClawforumDir(), 'claws');
   if (fs.existsSync(clawsDir)) {
     for (const clawId of fs.readdirSync(clawsDir)) {
       const clawArchiveDir = path.join(clawsDir, clawId, 'dialog', 'archive');
@@ -352,7 +357,7 @@ function maybeCronDiskCheck(): void {
   
   // 计算 claws/*/clawspace/ 总大小
   let totalSize = 0;
-  const clawsDir = path.join(process.cwd(), '.clawforum', 'claws');
+  const clawsDir = path.join(getClawforumDir(), 'claws');
   if (fs.existsSync(clawsDir)) {
     for (const clawId of fs.readdirSync(clawsDir)) {
       const clawspaceDir = path.join(clawsDir, clawId, 'clawspace');
