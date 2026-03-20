@@ -164,6 +164,9 @@ export async function chatCommand(): Promise<void> {
         console.log(`Started (PID: ${pid})`);
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
+      // 确保 watchdog 在运行（idempotent）
+      const { startCommand: startWatchdog } = await import('./watchdog.js');
+      await startWatchdog();
     },
   });
 }
