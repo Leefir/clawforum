@@ -98,6 +98,9 @@ You have access to tools: read, write, ls, search, exec, status.
 You CANNOT spawn other subagents - use your available tools to complete the task yourself.
 Work efficiently and return a clear, concise result.`;
 
+      // Format tools for LLM native tool_use
+      const tools = this.registry.formatForLLM(this.registry.getAll());
+
       // Run ReAct loop
       const result = await runReact({
         messages,
@@ -112,6 +115,7 @@ Work efficiently and return a clear, concise result.`;
         }),
         maxSteps: this.maxSteps,
         registry: this.registry,  // Enable parallel execution for readonly tools
+        tools,                    // Enable native tool_use
         onToolCall: (name) => {
           this.appendToLog(`Tool called: ${name}\n`);
         },
