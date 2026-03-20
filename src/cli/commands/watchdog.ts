@@ -196,9 +196,7 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
     const clawDir = path.join(clawsDir, clawId);
 
     // 有活跃契约？
-    const activeDir = path.join(clawDir, 'contract', 'active');
-    if (!fs.existsSync(activeDir)) continue;
-    if (!fs.readdirSync(activeDir).some(f => f.endsWith('.yaml'))) continue;
+    if (!clawHasContract(clawDir)) continue;
 
     // 解析 stream.jsonl 获取真实进展
     const { lastEventMs, lastError } = getClawActivityInfo(clawDir);
