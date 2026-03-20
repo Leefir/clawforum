@@ -66,7 +66,7 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return `Tasks: 不可用 (${msg})`;
+    return `Tasks: unavailable (${msg})`;
   }
 }
 

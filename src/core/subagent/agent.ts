@@ -98,7 +98,6 @@ export class SubAgent {
 
       // System prompt for subagent
       const systemPrompt = `You are a subagent assigned to complete a specific task.
-You have access to tools: read, write, ls, search, exec, status.
 You CANNOT spawn other subagents - use your available tools to complete the task yourself.
 Work efficiently and return a clear, concise result.`;
 

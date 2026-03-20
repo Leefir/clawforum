@@ -21,7 +21,7 @@ export const lsTool: ITool = {
       },
       claw: {
         type: 'string',
-        description: '目标 claw ID（仅 Motion 可用）。例：{ path: "contract/archive", claw: "claw1" }',
+        description: 'Target claw ID (Motion only). e.g. { "path": "contract/archive", "claw": "claw1" }',
       },
       async: {
         type: 'boolean',
@@ -104,7 +104,7 @@ export const lsTool: ITool = {
     if (entries.length === 0) {
       return {
         success: true,
-        content: '目录为空',
+        content: 'Directory is empty',
       };
     }
 
@@ -117,7 +117,7 @@ export const lsTool: ITool = {
       return `${type} ${e.path}${size}`;
     });
 
-    const suffix = total > LS_MAX_ENTRIES ? `\n...共 ${total} 项` : '';
+    const suffix = total > LS_MAX_ENTRIES ? `\n... ${total} entries total` : '';
 
     return {
       success: true,

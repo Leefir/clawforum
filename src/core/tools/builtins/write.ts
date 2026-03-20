@@ -127,7 +127,7 @@ export const writeTool: ITool = {
       const warningMsg = warnings.length > 0 ? `\n${warnings.join('\n')}` : '';
       return {
         success: true,
-        content: `成功写入 ${filePath}（${content.length} 字符）${warningMsg}`,
+        content: `Written: ${filePath} (${content.length} chars)${warningMsg}`,
       };
     } catch (error) {
       return {

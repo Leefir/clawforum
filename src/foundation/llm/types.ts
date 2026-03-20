@@ -4,6 +4,7 @@
  */
 
 import type { Message, ToolDefinition, LLMResponse } from '../../types/message.js';
+import type { ApiFormat } from './presets.js';
 
 // Re-export from central types for convenience
 export type { Message, ToolDefinition, LLMResponse };
@@ -38,6 +39,9 @@ export interface ProviderConfig {
   
   /** Extended thinking budget tokens (defaults to max_tokens - 1024) */
   thinkingBudgetTokens?: number;
+
+  /** API format, resolved from preset */
+  apiFormat: ApiFormat;
 }
 
 /**

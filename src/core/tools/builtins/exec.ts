@@ -18,13 +18,13 @@ const execFileAsync = promisify(execFile);
 
 export const execTool: ITool = {
   name: 'exec',
-  description: 'Execute a shell command in the claw root directory. Use with caution.',
+  description: 'Execute a shell command in the claw root directory. Runs via `sh -c`, so shell features (pipes, redirects, quotes) work normally.',
   schema: {
     type: 'object',
     properties: {
       command: {
         type: 'string',
-        description: 'Command to execute (arguments are space-separated)',
+        description: 'Shell command string to execute, e.g. "ls -la" or "grep -r foo ./clawspace | head -20"',
       },
       timeout: {
         type: 'number',

@@ -8,25 +8,25 @@ import { parseFrontmatter } from '../../../utils/frontmatter.js';
 
 export const memorySearchTool: ITool = {
   name: 'memory_search',
-  description: '在 memory/ 目录中全文检索记忆文件。支持关键词搜索、文件名正则过滤、frontmatter元数据过滤。query 和 filter 至少一个必填。',
+  description: 'Full-text search across memory/ files. Supports keyword search, filename regex filtering, and frontmatter metadata filtering. At least one of query or filter is required.',
   schema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: '全文搜索关键词（大小写不敏感）',
+        description: 'Full-text search keyword (case-insensitive). Returns matching lines with file path and line number.',
       },
       pattern: {
         type: 'string',
-        description: '文件名正则过滤，如 "2026.*\\.md"',
+        description: 'Regex to filter by filename, e.g. "2026.*\\.md"',
       },
       filter: {
         type: 'object',
-        description: 'frontmatter 字段过滤，AND 逻辑，如 {"type":"feedback"}',
+        description: 'Filter by frontmatter fields (AND logic), e.g. {"type":"feedback"}. Can be used alone without query.',
       },
       max_results: {
         type: 'number',
-        description: '最大返回数（默认 10）',
+        description: 'Maximum number of results to return (default 10)',
       },
       async: {
         type: 'boolean',

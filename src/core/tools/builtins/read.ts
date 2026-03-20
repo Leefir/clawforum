@@ -65,7 +65,7 @@ export const readTool: ITool = {
       },
       claw: {
         type: 'string',
-        description: '目标 claw ID（仅 Motion 可用）。例：{ path: "contract/xxx/progress.json", claw: "claw1" }',
+        description: 'Target claw ID (Motion only). e.g. { "path": "contract/xxx/progress.json", "claw": "claw1" }',
       },
       async: {
         type: 'boolean',
@@ -167,13 +167,13 @@ export const readTool: ITool = {
       const lines = content.split('\n');
       
       if (lines.length > READ_MAX_LINES) {
-        content = lines.slice(0, READ_MAX_LINES).join('\n') + 
-          `\n[显示第1-${READ_MAX_LINES}行，共${totalLines}行。用 offset=${READ_MAX_LINES+1} 读取更多]`;
+        content = lines.slice(0, READ_MAX_LINES).join('\n') +
+          `\n[Showing lines 1-${READ_MAX_LINES} of ${totalLines}. Use offset=${READ_MAX_LINES+1} to read more]`;
       }
       if (content.length > READ_MAX_CHARS) {
         const shownChars = content.slice(0, READ_MAX_CHARS).length;
-        content = content.slice(0, READ_MAX_CHARS) + 
-          `\n[显示前${shownChars}字符，共${totalChars}字符]`;
+        content = content.slice(0, READ_MAX_CHARS) +
+          `\n[Showing first ${shownChars} of ${totalChars} chars. Use offset/limit to read more]`;
       }
 
       return {

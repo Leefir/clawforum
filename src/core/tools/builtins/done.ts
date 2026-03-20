@@ -46,7 +46,7 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
     if (!contractManager) {
       return {
         success: false,
-        content: '无活跃契约',
+        content: 'No contract manager configured',
         error: 'ContractManager not configured',
       };
     }
@@ -55,7 +55,7 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
     if (!active) {
       return {
         success: false,
-        content: '当前没有活跃的契约',
+        content: 'No active contract',
         error: 'No active contract',
       };
     }
@@ -76,38 +76,37 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
       if (complete) {
         return {
           success: true,
-          content: `子任务 ${subtaskId} 验收通过。所有子任务已完成！`,
+          content: `Subtask ${subtaskId} accepted. All subtasks complete!`,
           metadata: { contractId: active.id, subtaskId },
         };
       }
-      // 重新加载契约获取最新状态（包含刚完成的子任务）
+      // Reload contract to get latest state (including just-completed subtask)
       const updated = await contractManager.loadActive();
       if (!updated) {
         return {
           success: true,
-          content: `子任务 ${subtaskId} 验收通过。`,
+          content: `Subtask ${subtaskId} accepted.`,
           metadata: { contractId: active.id, subtaskId },
         };
       }
-      // 统计剩余未完成
       const remaining = updated.subtasks.filter(s => s.status !== 'completed');
       if (remaining.length === 0) {
         return {
           success: true,
-          content: `子任务 ${subtaskId} 验收通过。所有子任务已完成！`,
+          content: `Subtask ${subtaskId} accepted. All subtasks complete!`,
           metadata: { contractId: active.id, subtaskId },
         };
       }
       const remainingList = remaining.map(s => `- ${s.id}: ${s.description}`).join('\n');
       return {
         success: true,
-        content: `子任务 ${subtaskId} 验收通过。剩余 ${remaining.length} 个子任务：\n${remainingList}\n\n注意：只有所有子任务全部验收通过，系统才会向 Motion 发送契约完成通知。`,
+        content: `Subtask ${subtaskId} accepted. ${remaining.length} subtask(s) remaining:\n${remainingList}\n\nNote: contract completion is notified to Motion only when all subtasks are accepted.`,
         metadata: { contractId: active.id, subtaskId },
       };
     } else {
       return {
         success: false,
-        content: `子任务 ${subtaskId} 验收未通过：\n${result.feedback}`,
+        content: `Subtask ${subtaskId} rejected:\n${result.feedback}`,
         error: result.feedback,
         metadata: { contractId: active.id, subtaskId },
       };

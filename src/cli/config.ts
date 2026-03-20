@@ -7,13 +7,16 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 import type { LLMServiceConfig, ProviderConfig } from '../foundation/llm/types.js';
+import { resolvePreset } from '../foundation/llm/presets.js';
 
 // Re-export shared constants
 export { CLAW_SUBDIRS } from '../types/paths.js';
 
 // Zod Schemas (snake_case for YAML compatibility)
 export const LLMProviderSchema = z.object({
-  name: z.string(),
+  preset: z.string().optional(),         // 新：对应 PRESETS 中的 key
+  label: z.string().optional(),          // 新：显示用别名
+  name: z.string().optional(),           // 保留向后兼容，若无 preset 则用 name 作为 preset
   api_key: z.string(),
   base_url: z.string().optional(),
   model: z.string(),
@@ -86,6 +89,30 @@ export function getClawConfigPath(name: string): string {
   return path.join(getClawDir(name), 'config.yaml');
 }
 
+// Expand ${ENV_VAR} syntax in config values
+function expandEnvVars(obj: unknown): unknown {
+  if (typeof obj === 'string') {
+    return obj.replace(/\$\{([^}]+)\}/g, (_, varName) => {
+      const val = process.env[varName];
+      if (val === undefined) {
+        throw new Error(`Environment variable "${varName}" is not set`);
+      }
+      return val;
+    });
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(expandEnvVars);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = expandEnvVars(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
 // Load global config
 export function loadGlobalConfig(): ClawGlobalConfig {
   const configPath = getGlobalConfigPath();
@@ -99,8 +126,11 @@ export function loadGlobalConfig(): ClawGlobalConfig {
   const content = fs.readFileSync(configPath, 'utf-8');
   const parsed = yaml.load(content);
   
+  // Expand environment variables before validation
+  const expanded = expandEnvVars(parsed);
+  
   try {
-    return ClawGlobalConfigSchema.parse(parsed);
+    return ClawGlobalConfigSchema.parse(expanded);
   } catch (error) {
     throw new Error(
       `Invalid global config: ${error instanceof Error ? error.message : String(error)}`
@@ -154,18 +184,26 @@ export function clawExists(name: string): boolean {
   return fs.existsSync(getClawConfigPath(name));
 }
 
-// Convert snake_case to camelCase
+// Convert snake_case to camelCase, resolve preset
 export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): ProviderConfig {
+  const presetId = p.preset ?? p.name;  // 向后兼容：若无 preset 则用 name
+  if (!presetId) {
+    throw new Error('Provider config must have either "preset" or "name" field');
+  }
+  
+  const preset = resolvePreset(presetId);
+  
   return {
-    name: p.name,
+    name: p.label ?? presetId,
     apiKey: p.api_key,
-    baseUrl: p.base_url,
-    model: p.model,
+    baseUrl: p.base_url ?? preset.defaultBaseUrl,
+    model: p.model ?? preset.defaultModel ?? 'unknown',
     maxTokens: p.max_tokens,
     temperature: p.temperature,
     timeoutMs: p.timeout_ms,
     thinking: p.thinking,
     thinkingBudgetTokens: p.thinking_budget_tokens,
+    apiFormat: preset.apiFormat,
   };
 }
 

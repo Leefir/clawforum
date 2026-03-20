@@ -16,7 +16,7 @@ export const sendTool: ITool = {
       },
       type: {
         type: 'string',
-        description: 'Message type: report|question|result|error',
+        description: 'Message type: report (status update or progress), question (ask parent for input or clarification), result (final task output), error (failure or blocker)',
         enum: ['report', 'question', 'result', 'error'],
       },
       priority: {
@@ -72,7 +72,7 @@ export const sendTool: ITool = {
 
       return {
         success: true,
-        content: `消息已发送: ${type}`,
+        content: `Message sent: ${type}`,
       };
     } catch (error) {
       return {

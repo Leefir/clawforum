@@ -2,7 +2,7 @@
  * Clawforum CLI - Command line interface
  */
 
-// 设置工作区根路径，供 exec 子进程继承（子进程 CWD 是 clawspace/，无法直接找到 .clawforum）
+// 设置工作区根路径，供 exec 子进程继承（子进程 CWD 是 clawDir，但不一定在 .clawforum 下）
 if (!process.env.CLAWFORUM_ROOT) {
   process.env.CLAWFORUM_ROOT = process.cwd();
 }

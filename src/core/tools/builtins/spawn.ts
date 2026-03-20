@@ -43,7 +43,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
       },
       maxSteps: {
         type: 'number',
-        description: 'Maximum ReAct steps (default: 20)',
+        description: 'Maximum number of ReAct steps the subagent can take (default: 20). Increase for complex multi-file tasks; decrease for simple lookups.',
       },
     },
     required: ['prompt'],
