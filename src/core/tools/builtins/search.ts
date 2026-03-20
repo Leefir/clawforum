@@ -29,6 +29,42 @@ function isSearchPathAllowed(searchPath: string): boolean {
   );
 }
 
+/**
+ * Walk directory recursively and search for query in files.
+ * Calls onMatch for each match found, onSkip for files that can't be read.
+ */
+async function walkNative(
+  baseDir: string,
+  query: string,
+  remaining: number,
+  onMatch: (relPath: string, lineNo: number, line: string) => void,
+  onSkip: () => void,
+  prefix = ''
+): Promise<number> {
+  let rem = remaining;
+  const dirents = await fsNative.promises.readdir(baseDir, { withFileTypes: true });
+  for (const d of dirents) {
+    if (rem <= 0) return rem;
+    const relPath = prefix ? `${prefix}/${d.name}` : d.name;
+    if (d.isDirectory()) {
+      rem = await walkNative(nodePath.join(baseDir, d.name), query, rem, onMatch, onSkip, relPath);
+    } else {
+      try {
+        const lines = (await fsNative.promises.readFile(nodePath.join(baseDir, relPath), 'utf-8')).split('\n');
+        for (let i = 0; i < lines.length && rem > 0; i++) {
+          if (lines[i].toLowerCase().includes(query)) {
+            onMatch(relPath, i + 1, lines[i].trim());
+            rem--;
+          }
+        }
+      } catch {
+        onSkip();
+      }
+    }
+  }
+  return rem;
+}
+
 export const searchTool: ITool = {
   name: 'search',
   description: 'Search for text in files. Allowed paths: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/. Motion can search other claws via `claw` parameter.',
@@ -49,7 +85,7 @@ export const searchTool: ITool = {
       },
       claw: {
         type: 'string',
-        description: '目标 claw ID（仅 Motion 可用）。例：{ query: "error", path: "logs/", claw: "claw1" }',
+        description: '目标 claw ID（仅 Motion 可用）。"*" 表示搜索所有 claw，结果带 [clawId] 前缀。例：{ query: "error", path: "logs/", claw: "*" }',
       },
       async: {
         type: 'boolean',
@@ -81,6 +117,47 @@ export const searchTool: ITool = {
           content: 'Error: Only Motion can search files from other claws',
         };
       }
+
+      // claw: "*" - search all claws
+      if (clawParam === '*') {
+        const clawsDir = nodePath.resolve(ctx.clawDir, '..');
+        let clawIds: string[];
+        try {
+          clawIds = fsNative.readdirSync(clawsDir).filter(name =>
+            fsNative.statSync(nodePath.join(clawsDir, name)).isDirectory() && !name.startsWith('.')
+          );
+        } catch {
+          return { success: true, content: `未找到包含 "${args.query}" 的内容（无 claw 目录）` };
+        }
+
+        const allResults: string[] = [];
+        let totalSkipped = 0;
+
+        for (const clawId of clawIds) {
+          if (allResults.length >= maxResults) break;
+          const clawBaseDir = nodePath.join(clawsDir, clawId, searchPath);
+          if (!fsNative.existsSync(clawBaseDir)) continue;
+
+          try {
+            await walkNative(
+              clawBaseDir,
+              query,
+              maxResults - allResults.length,
+              (relPath, lineNo, line) => {
+                allResults.push(`[${clawId}] ${searchPath}${relPath}:${lineNo}: ${line}`);
+              },
+              () => { totalSkipped++; }
+            );
+          } catch { /* claw dir not accessible */ }
+        }
+
+        const skippedMsg = totalSkipped > 0 ? `（${totalSkipped} 个文件被跳过）` : '';
+        if (allResults.length === 0) {
+          return { success: true, content: `未找到包含 "${args.query}" 的内容${skippedMsg}` };
+        }
+        return { success: true, content: allResults.join('\n') + skippedMsg };
+      }
+
       // Validate clawParam (no path traversal)
       if (clawParam.includes('/') || clawParam.includes('..') || clawParam === '' || clawParam === '.' || clawParam.startsWith('.')) {
         return {
@@ -120,20 +197,28 @@ export const searchTool: ITool = {
       let entries: { path: string; isDirectory: boolean; isFile: boolean }[];
       
       if (useNativeFs) {
-        // Native fs recursive walk (async)
-        entries = [];
-        async function walkDir(dir: string, prefix: string = '') {
-          const dirents = await fsNative.promises.readdir(dir, { withFileTypes: true });
-          for (const d of dirents) {
-            const relPath = prefix ? `${prefix}/${d.name}` : d.name;
-            if (d.isDirectory()) {
-              await walkDir(nodePath.join(dir, d.name), relPath);
-            } else {
-              entries.push({ path: relPath, isDirectory: false, isFile: true });
-            }
-          }
+        // Use walkNative for single claw search
+        await walkNative(
+          baseDir,
+          query,
+          maxResults,
+          (relPath, lineNo, line) => {
+            results.push(`${relPath}:${lineNo}: ${line}`);
+          },
+          () => { skippedCount++; }
+        );
+        
+        const skippedMsg = skippedCount > 0 ? `（${skippedCount} 个文件被跳过）` : '';
+        if (results.length === 0) {
+          return {
+            success: true,
+            content: `未找到包含 "${args.query}" 的内容${skippedMsg}`,
+          };
         }
-        await walkDir(baseDir);
+        return {
+          success: true,
+          content: results.join('\n') + skippedMsg,
+        };
       } else {
         entries = await ctx.fs.list(baseDir, { recursive: true, includeDirs: false });
       }
@@ -143,11 +228,7 @@ export const searchTool: ITool = {
 
         try {
           let content: string;
-          if (useNativeFs) {
-            content = await fsNative.promises.readFile(nodePath.join(baseDir, entry.path), 'utf-8');
-          } else {
-            content = await ctx.fs.read(entry.path);
-          }
+          content = await ctx.fs.read(entry.path);
           const lines = content.split('\n');
 
           for (let i = 0; i < lines.length; i++) {
