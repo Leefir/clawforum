@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 
 export const execTool: ITool = {
   name: 'exec',
-  description: 'Execute a shell command in the clawspace directory. Use with caution.',
+  description: 'Execute a shell command in the claw root directory. Use with caution.',
   schema: {
     type: 'object',
     properties: {

@@ -125,7 +125,7 @@ claw_inactivity 通知包含以下字段，根据字段判断：
      auth_level: auto
      ```
 
-3. `exec: clawforum contract create --claw {clawId} --file {yaml-filename}` — 创建契约
+3. `exec: clawforum contract create --claw {clawId} --file clawspace/{yaml-filename}` — 创建契约
 4. 确认输出包含 "Contract created"
 
 注意事项：
@@ -134,7 +134,7 @@ claw_inactivity 通知包含以下字段，根据字段判断：
 - acceptance command 的 CWD 是 `clawDir`（`.clawforum/claws/{clawId}/`），使用相对路径（`clawspace/output.txt`，不要加 `.clawforum/...` 前缀）
 - 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
 - 不要使用 `type: llm`（不支持）
-- `--file` 使用文件名（exec CWD 已是 `clawspace/`，不需要加前缀）
+- `--file` 使用 `clawspace/{yaml-filename}`（exec CWD 是 clawDir 根，yaml 文件在 clawspace/ 下）
 
 ## 信息流转机制
 
