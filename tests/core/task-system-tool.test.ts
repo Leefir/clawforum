@@ -16,6 +16,9 @@ import type { JSONSchema7 } from '../../src/types/message.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { readTool } from '../../src/core/tools/builtins/read.js';
+import { lsTool } from '../../src/core/tools/builtins/ls.js';
+import { searchTool } from '../../src/core/tools/builtins/search.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEST_DIR = path.join(__dirname, '../../.test-task-system-tool');
@@ -496,85 +499,139 @@ describe('TaskSystem Tool Tasks', () => {
     });
   });
 
+  describe('readonly tools supportsAsync', () => {
+    it('read tool should have supportsAsync: true', () => {
+      expect(readTool.supportsAsync).toBe(true);
+      expect(readTool.schema.properties).toHaveProperty('async');
+    });
+
+    it('ls tool should have supportsAsync: true', () => {
+      expect(lsTool.supportsAsync).toBe(true);
+      expect(lsTool.schema.properties).toHaveProperty('async');
+    });
+
+    it('search tool should have supportsAsync: true', () => {
+      expect(searchTool.supportsAsync).toBe(true);
+      expect(searchTool.schema.properties).toHaveProperty('async');
+    });
+  });
+
   describe('retry mechanism', () => {
-    it('should retry idempotent tool on failure and succeed on second attempt', async () => {
+    it('should retry idempotent tool and succeed on second attempt', async () => {
       let callCount = 0;
-      const failingThenSucceedingCallback = vi.fn().mockImplementation(() => {
+      const flakyCallback = vi.fn().mockImplementation(async () => {
         callCount++;
-        if (callCount === 1) {
-          return Promise.reject(new Error('First attempt failed'));
-        }
-        return Promise.resolve({ success: true, content: 'success after retry' });
+        if (callCount === 1) throw new Error('Transient error');
+        return { success: true, content: 'recovered' };
       });
 
-      const taskId = await taskSystem.scheduleTool(
-        'retryTool',
-        failingThenSucceedingCallback,
-        'parent-claw',
-        { isIdempotent: true, maxRetries: 2 }
-      );
+      const taskId = await taskSystem.scheduleTool('flakyTool', flakyCallback, 'parent-claw', {
+        isIdempotent: true,
+        maxRetries: 2,
+      });
 
-      // Wait for execution with retry
+      // Wait for execution + backoff (500ms) + retry
       await new Promise(r => setTimeout(r, 800));
 
-      // Should be called twice (initial + 1 retry)
-      expect(callCount).toBe(2);
-      expect(failingThenSucceedingCallback).toHaveBeenCalledTimes(2);
+      expect(flakyCallback).toHaveBeenCalledTimes(2);
 
-      // Check success result in inbox
-      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
       const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
       const content = JSON.parse(callArg.content);
       expect(content.is_error).toBe(false);
-      expect(content.summary).toContain('success after retry');
+      expect(content.summary).toContain('recovered');
     });
 
-    it('should not retry non-idempotent tool on failure', async () => {
-      const failingCallback = vi.fn().mockRejectedValue(new Error('Non-idempotent failure'));
+    it('should exhaust retries for idempotent tool and send error', async () => {
+      const alwaysFailCallback = vi.fn().mockRejectedValue(new Error('Permanent error'));
 
-      const taskId = await taskSystem.scheduleTool(
-        'noRetryTool',
-        failingCallback,
-        'parent-claw',
-        { isIdempotent: false }
+      const taskId = await taskSystem.scheduleTool('failTool', alwaysFailCallback, 'parent-claw', {
+        isIdempotent: true,
+        maxRetries: 2,
+      });
+
+      // Wait for 3 attempts + backoffs (500ms + 1000ms) + margin
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Should have been called 3 times (1 initial + 2 retries)
+      expect(alwaysFailCallback).toHaveBeenCalledTimes(3);
+
+      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
+      expect(callArg.priority).toBe('high');
+      const content = JSON.parse(callArg.content);
+      expect(content.is_error).toBe(true);
+      expect(content.summary).toContain('retries');
+
+      // Task should be in done directory
+      const doneFile = await fs.readFile(
+        path.join(testClawDir, 'tasks', 'done', `${taskId}.json`),
+        'utf-8'
       );
+      expect(JSON.parse(doneFile).retryCount).toBe(2);
+    });
 
-      // Wait for execution
+    it('should not retry non-idempotent tool', async () => {
+      const failCallback = vi.fn().mockRejectedValue(new Error('Write failed'));
+
+      await taskSystem.scheduleTool('writeTool', failCallback, 'parent-claw', {
+        isIdempotent: false,
+      });
+
       await new Promise(r => setTimeout(r, 200));
 
-      // Should be called only once (no retry for non-idempotent)
-      expect(failingCallback).toHaveBeenCalledTimes(1);
+      // Called exactly once, no retry
+      expect(failCallback).toHaveBeenCalledTimes(1);
 
-      // Check error result in inbox
-      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
       const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
       const content = JSON.parse(callArg.content);
       expect(content.is_error).toBe(true);
+      // No "retries" mention in error message
+      expect(content.summary).not.toContain('retries');
     });
 
-    it('should exhaust all retries and report failure', async () => {
-      const alwaysFailingCallback = vi.fn().mockRejectedValue(new Error('Persistent failure'));
+    it('should move task to done even when sendToolResult transport fails', async () => {
+      // Transport that always throws
+      const failingTransport = {
+        ...mockTransport,
+        sendInboxMessage: vi.fn().mockRejectedValue(new Error('Transport down')),
+      };
 
-      const taskId = await taskSystem.scheduleTool(
-        'exhaustedTool',
-        alwaysFailingCallback,
-        'parent-claw',
-        { isIdempotent: true, maxRetries: 2 }
-      );
+      // Also mock fs.ensureDir/writeAtomic for inbox fallback to fail
+      const limitedFs = {
+        read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+        write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        writeAtomic: async (p: string, c: string) => {
+          if (p.includes('inbox/pending')) throw new Error('Disk error');
+          return fs.writeFile(path.join(testClawDir, p), c);
+        },
+        append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+        delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+        list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
+          entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+        ),
+        ensureDir: async (p: string) => {
+          if (p.includes('inbox')) throw new Error('Disk error');
+          return fs.mkdir(path.join(testClawDir, p), { recursive: true });
+        },
+        isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+      };
 
-      // Wait for all retries (initial + 2 retries with backoff: 0 + 500ms + 1000ms)
-      await new Promise(r => setTimeout(r, 1800));
+      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, failingTransport as any, { maxConcurrent: 3 });
+      await taskSystem2.initialize();
+      taskSystem2.startDispatch();
 
-      // Should be called 3 times (initial + 2 retries)
-      expect(alwaysFailingCallback).toHaveBeenCalledTimes(3);
+      const failCallback = vi.fn().mockRejectedValue(new Error('Tool error'));
+      const taskId = await taskSystem2.scheduleTool('tool', failCallback, 'parent', { isIdempotent: false });
 
-      // Check error result mentions retries
-      expect(mockTransport.sendInboxMessage).toHaveBeenCalled();
-      const callArg = mockTransport.sendInboxMessage.mock.calls[0][1];
-      const content = JSON.parse(callArg.content);
-      expect(content.is_error).toBe(true);
-      expect(content.summary).toContain('2 retries');
-      expect(content.summary).toContain('Persistent failure');
+      await new Promise(r => setTimeout(r, 200));
+
+      // Task should still end up in done despite transport failure
+      const doneExists = await fs.access(
+        path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)
+      ).then(() => true).catch(() => false);
+      expect(doneExists).toBe(true);
+
+      await taskSystem2.shutdown(100).catch(() => {});
     });
   });
 });
@@ -698,6 +755,27 @@ describe('ToolExecutor async routing', () => {
       expect.any(Function),
       'test-claw',
       { isIdempotent: false }
+    );
+  });
+
+  it('should route read tool to TaskSystem when async:true', async () => {
+    // Register real read tool, verify routing with mock taskSystem
+    registry.register(readTool);
+
+    const result = await executor.execute({
+      toolName: 'read',
+      args: { path: 'AGENTS.md' },
+      ctx: mockCtx,   // mockCtx.taskSystem = mockTaskSystem
+      async: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.content).toContain('Async task queued');
+    expect(mockTaskSystem.scheduleTool).toHaveBeenCalledWith(
+      'read',
+      expect.any(Function),
+      'test-claw',
+      { isIdempotent: true }  // read.idempotent = true
     );
   });
 
