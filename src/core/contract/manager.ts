@@ -100,16 +100,16 @@ export class ContractManager {
   private async acquireLock(lockPath: string): Promise<void> {
     for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
       try {
-        // Check if lock already exists
-        const exists = await this.fs.exists(lockPath);
-        if (exists) {
-          throw new Error('Lock exists');
-        }
-        // Attempt to create the lock file (atomic write)
-        await this.fs.writeAtomic(lockPath, JSON.stringify({ pid: process.pid, time: Date.now() }));
-        return; // Lock acquired successfully
-      } catch {
-        // Lock already exists or contention failed; wait and retry
+        // wx flag = O_EXCL: 文件存在时原子性失败，无 TOCTOU
+        await fsNative.promises.writeFile(
+          lockPath,
+          JSON.stringify({ pid: process.pid, time: Date.now() }),
+          { flag: 'wx' }
+        );
+        return; // 成功获取锁
+      } catch (err: any) {
+        if (err?.code !== 'EEXIST') throw err; // 非竞争错误，向上抛
+        // EEXIST = 锁被其他进程持有，等待重试
         if (i < LOCK_MAX_RETRIES - 1) {
           await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY_MS));
         }
