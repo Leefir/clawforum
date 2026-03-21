@@ -375,6 +375,10 @@ async function collectStreamResponse(
   let usage: { input_tokens: number; output_tokens: number } | undefined;
 
   for await (const chunk of llm.stream(callOptions)) {
+    // 每个 chunk 后检查 signal，确保及时响应 abort
+    if (callOptions.signal?.aborted) {
+      throw new Error('Execution aborted');
+    }
     switch (chunk.type) {
       case 'text_delta':
         // Flush thinking before text starts

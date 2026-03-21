@@ -303,6 +303,8 @@ export class TaskSystem {
         taskId: task.id,
         error: `Task start/execution failed: ${errorMsg}`,
       });
+      // 通知 parent，避免永久挂起
+      await this.sendFallbackError(task, `Task failed to start: ${errorMsg}`).catch(() => {});
       
       // Clean up callback if present
       this.pendingCallbacks.delete(task.id);
@@ -366,7 +368,12 @@ export class TaskSystem {
       const errorMsg = error instanceof Error ? error.message : String(error);
       
       // Send error result to parent inbox
-      await this.sendResult(task, errorMsg, true);
+      try {
+        await this.sendResult(task, errorMsg, true);
+      } catch (sendErr) {
+        // sendResult 本身失败：降级写最小通知，确保 parent 不被永远挂起
+        await this.sendFallbackError(task, errorMsg).catch(() => {/* best-effort */});
+      }
 
       this.monitor.log('error', {
         taskId: task.id,
@@ -627,6 +634,29 @@ export class TaskSystem {
         error: `Failed to write inbox message: ${errMsg}`,
       });
     }
+  }
+
+  /**
+   * Send fallback error message directly to inbox (bypassing results file)
+   * Used when sendResult fails to ensure parent is not left hanging
+   */
+  private async sendFallbackError(task: SubAgentTask | ToolTask, errorMsg: string): Promise<void> {
+    const msgId = randomUUID();
+    const filename = `${Date.now()}_high_${msgId.slice(0, 8)}.md`;
+    const content = [
+      '---',
+      `id: ${msgId}`,
+      `type: message`,
+      `from: task_system`,
+      `to: ${task.parentClawId}`,
+      `priority: high`,
+      `timestamp: ${new Date().toISOString()}`,
+      '---',
+      '',
+      JSON.stringify({ taskId: task.id, is_error: true, result: `Task failed: ${errorMsg.slice(0, 200)}` }),
+    ].join('\n');
+    await this.fs.ensureDir('inbox/pending');
+    await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
   }
 
   /**
