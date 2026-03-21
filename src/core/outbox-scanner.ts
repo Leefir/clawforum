@@ -45,7 +45,9 @@ export function scanClawOutboxes(baseDir: string): void {
           }
         }
       }
-    } catch {}
+    } catch (err) {
+      console.warn(`[outbox-scanner] Failed to read inbox dir for dedup: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     if (Object.keys(counts).length === 0) return;
 
