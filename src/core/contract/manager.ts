@@ -295,10 +295,16 @@ export class ContractManager {
       started_at: new Date().toISOString(),
       checkpoint: null,
     };
-    await this.fs.writeAtomic(
-      `${this.activeDir}/${contractId}/progress.json`,
-      JSON.stringify(progress, null, 2)
-    );
+    try {
+      await this.fs.writeAtomic(
+        `${this.activeDir}/${contractId}/progress.json`,
+        JSON.stringify(progress, null, 2)
+      );
+    } catch (err) {
+      // 清理孤立的 contract.yaml，避免残留在 active/
+      await this.fs.delete(`${this.activeDir}/${contractId}/contract.yaml`).catch(() => {});
+      throw err;
+    }
 
     this.monitor?.log('contract_created', { contractId });
     return contractId;

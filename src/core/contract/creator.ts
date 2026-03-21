@@ -110,6 +110,15 @@ Respond with valid JSON only, wrapped in markdown code block if needed.`;
     if (!Array.isArray(result.subtasks) || result.subtasks.length === 0) {
       throw new Error('LLM response missing or empty required field: subtasks');
     }
+    // 验证每个 subtask 有 id 和 description
+    for (const st of result.subtasks as Array<Record<string, unknown>>) {
+      if (!st.id || typeof st.id !== 'string') {
+        throw new Error('LLM response subtask missing required field: id');
+      }
+      if (!st.description || typeof st.description !== 'string') {
+        throw new Error('LLM response subtask missing required field: description');
+      }
+    }
 
     // Construct ContractYaml
     const yaml: ContractYaml = {

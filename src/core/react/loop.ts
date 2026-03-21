@@ -129,6 +129,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       
       if (toolCalls.length === 0) {
         // No actual tool calls found (unexpected), treat as end_turn
+        console.warn('[loop] stop_reason=tool_use but no tool calls found in response');
         const text = extractText(response.content);
         appendAssistantMessage(messages, response.content);
         return {
