@@ -95,6 +95,8 @@ export async function createCommand(name: string): Promise<void> {
 
 When you receive a contract task, the system will inject contract details (title, objectives, subtask list) into the prompt.
 
+**At turn start** (new contract inbox or daemon restart): call \`status\` first to confirm the current subtask list and identify the first \`todo\` item, then begin execution.
+
 ### Completing Subtasks
 
 After completing each subtask, **you must call the done tool**:
@@ -102,6 +104,8 @@ After completing each subtask, **you must call the done tool**:
 \`\`\`
 done: { "subtask": "<subtask-id>", "evidence": "completion description" }
 \`\`\`
+
+**If done returns "X subtask(s) remaining"**: do NOT end the turn — immediately continue to the next subtask in the list. Only end the turn when done returns "All subtasks complete!".
 
 **Warning: do not directly modify progress.json** — writing the file directly bypasses the acceptance and notification mechanism, and Motion will not receive a completion notification.
 
