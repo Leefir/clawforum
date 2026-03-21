@@ -340,7 +340,7 @@ describe('ContractManager Acceptance Flow', () => {
       await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'e' });
       await flushAsync();
 
-      expect(logSpy).toHaveBeenCalledWith('warn', expect.objectContaining({
+      expect(logSpy).toHaveBeenCalledWith('error', expect.objectContaining({
         context: 'ContractManager._runAcceptanceInBackground',
       }));
     });
@@ -514,7 +514,7 @@ describe('ContractManager Acceptance Flow', () => {
       await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'e' });
       await flushAsync();
 
-      expect(logSpy).toHaveBeenCalledWith('warn', expect.objectContaining({
+      expect(logSpy).toHaveBeenCalledWith('error', expect.objectContaining({
         context: 'ContractManager._runAcceptanceInBackground',
       }));
     });

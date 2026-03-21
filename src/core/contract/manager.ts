@@ -395,7 +395,7 @@ export class ContractManager {
       if (!progress.subtasks[subtaskId]) {
         const validIds = Object.keys(progress.subtasks).join(', ');
         result = { passed: false, feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}` };
-        this.monitor?.log('warn', {
+        this.monitor?.log('error', {
           context: 'ContractManager._completeSubtaskSync',
           contractId,
           subtaskId,
@@ -465,7 +465,7 @@ export class ContractManager {
       const scriptFile = acceptanceConfig.script_file;
       if (!scriptFile) {
         result = { passed: false, feedback: 'acceptance config script 类型缺少 script_file' };
-        this.monitor?.log('warn', {
+        this.monitor?.log('error', {
           context: 'ContractManager._runAcceptanceInBackground',
           contractId,
           subtaskId,
@@ -478,7 +478,7 @@ export class ContractManager {
       const promptFile = acceptanceConfig.prompt_file;
       if (!promptFile) {
         result = { passed: false, feedback: 'acceptance config llm 类型缺少 prompt_file' };
-        this.monitor?.log('warn', {
+        this.monitor?.log('error', {
           context: 'ContractManager._runAcceptanceInBackground',
           contractId,
           subtaskId,

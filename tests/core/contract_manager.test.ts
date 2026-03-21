@@ -508,7 +508,7 @@ describe('ContractManager', () => {
 
       expect(result.passed).toBe(false);
       expect(result.feedback).toContain('nonexistent-task');
-      expect(mockMonitor.log).toHaveBeenCalledWith('warn', expect.objectContaining({
+      expect(mockMonitor.log).toHaveBeenCalledWith('error', expect.objectContaining({
         context: 'ContractManager._completeSubtaskSync',
         subtaskId: 'nonexistent-task',
       }));
