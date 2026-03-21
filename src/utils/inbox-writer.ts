@@ -29,6 +29,17 @@ export interface InboxMessageOptions {
 }
 
 /**
+ * Quote a value for safe YAML insertion.
+ * Numbers and booleans pass through; strings are double-quoted with escapes.
+ */
+function yamlQuote(v: string): string {
+  // 如果是纯数字或 true/false，直接输出
+  if (/^-?\d+(\.\d+)?$/.test(v) || v === 'true' || v === 'false') return v;
+  // 否则双引号包裹，转义 \ " 和换行
+  return '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+}
+
+/**
  * Write an inbox message with standardized YAML frontmatter format.
  * Creates the inbox directory if it doesn't exist.
  */
@@ -48,7 +59,7 @@ timestamp: ${now.toISOString()}`;
 
   if (opts.extraFields) {
     for (const [k, v] of Object.entries(opts.extraFields)) {
-      yaml += `\n${k}: ${v}`;
+      yaml += `\n${k}: ${yamlQuote(v)}`;
     }
   }
 
