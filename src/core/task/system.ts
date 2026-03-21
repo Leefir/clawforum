@@ -305,7 +305,13 @@ export class TaskSystem {
         error: `Task start/execution failed: ${errorMsg}`,
       });
       // 通知 parent，避免永久挂起
-      await this.sendFallbackError(task, `Task failed to start: ${errorMsg}`).catch(() => {});
+      await this.sendFallbackError(task, `Task failed to start: ${errorMsg}`).catch((e) => {
+        this.monitor?.log('error', {
+          context: 'sendFallbackError',
+          taskId: task.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
       
       // Clean up callback if present
       this.pendingCallbacks.delete(task.id);
@@ -373,7 +379,13 @@ export class TaskSystem {
         await this.sendResult(task, errorMsg, true);
       } catch (sendErr) {
         // sendResult 本身失败：降级写最小通知，确保 parent 不被永远挂起
-        await this.sendFallbackError(task, errorMsg).catch(() => {/* best-effort */});
+        await this.sendFallbackError(task, errorMsg).catch((e) => {
+          this.monitor?.log('error', {
+            context: 'sendFallbackError',
+            taskId: task.id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
 
       this.monitor.log('error', {
@@ -414,7 +426,13 @@ export class TaskSystem {
           await this.sendToolResult(task, result, false);
         } catch (sendErr) {
           // sendToolResult 本身失败：降级写最小通知，不进入重试（执行已成功）
-          await this.sendFallbackError(task, 'Failed to send result').catch(() => {});
+          await this.sendFallbackError(task, 'Failed to send result').catch((e) => {
+            this.monitor?.log('error', {
+              context: 'sendFallbackError',
+              taskId: task.id,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          });
         }
         success = true;
         this.monitor.log('tool_task_completed', {
@@ -481,7 +499,13 @@ export class TaskSystem {
         );
       } catch (sendErr) {
         // sendToolResult 失败：降级写最小通知
-        await this.sendFallbackError(task, finalError).catch(() => {});
+        await this.sendFallbackError(task, finalError).catch((e) => {
+          this.monitor?.log('error', {
+            context: 'sendFallbackError',
+            taskId: task.id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
 
       this.monitor.log('error', {
