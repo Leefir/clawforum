@@ -345,7 +345,12 @@ export class ClawRuntime {
           path.join(pendingDir, info.name),
           path.join(doneDir, `${Date.now()}_${info.name}`)
         );
-      } catch { /* file may have already been moved */ }
+      } catch (err: any) {
+        if (err?.code !== 'ENOENT') {
+          console.warn(`[inbox] Failed to move ${info.name} to done:`, err?.message);
+        }
+        // ENOENT = 文件可能已被其他进程移走，正常情况
+      }
     }
 
     // Build message injections (choose template by type)

@@ -62,7 +62,9 @@ export class InboxWatcher {
   private processing = false;
   private stopped = false;
   private onMessage: ((msg: InboxMessage) => Promise<void>) | null = null;
-  private processedFiles = new Set<string>();  // Deduplication for watcher events
+  // 进程内去重：防止 watcher 重复触发同一文件
+  // 注意：内存结构，daemon 重启后消息最多被处理一次额外（at-least-once）
+  private processedFiles = new Set<string>();
 
   constructor(
     private clawDir: string,
@@ -167,7 +169,12 @@ export class InboxWatcher {
     if (this.queue.length >= INBOX_MAX_QUEUE_SIZE) {
       this.sortQueue();
       const dropped = this.queue.pop();  // Remove lowest priority
-      console.warn(`[inbox] Queue full, dropped message: ${dropped?.message.id}`);
+      if (dropped) {
+        console.warn(`[inbox] Queue full, dropping: ${dropped.message.id}`);
+        this.moveToFailed(dropped.filePath).catch(err =>
+          console.error('[inbox] Failed to move dropped message to failed:', err)
+        );
+      }
     }
     
     try {
@@ -254,11 +261,11 @@ export class InboxWatcher {
       const uuid8 = randomUUID().slice(0, 8);
       const targetPath = path.join(this.doneDir, `${Date.now()}_${uuid8}_${fileName}`);
       await this.fs.move(filePath, targetPath);
+      this.processedFiles.delete(filePath); // 仅成功时移除，防止 watcher 重复触发
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[inbox] Failed to move ${filePath} to done:`, msg);
-    } finally {
-      this.processedFiles.delete(filePath);
+      // 保留 processedFiles 记录，下次重启前不重复处理
     }
   }
 
@@ -271,11 +278,11 @@ export class InboxWatcher {
       const uuid8 = randomUUID().slice(0, 8);
       const targetPath = path.join(this.failedDir, `${Date.now()}_${uuid8}_${fileName}`);
       await this.fs.move(filePath, targetPath);
+      this.processedFiles.delete(filePath); // 仅成功时移除
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[inbox] Failed to move ${filePath} to failed:`, msg);
-    } finally {
-      this.processedFiles.delete(filePath);
+      // 保留 processedFiles 记录
     }
   }
 }
