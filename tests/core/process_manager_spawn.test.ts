@@ -1,0 +1,117 @@
+/**
+ * ProcessManager.spawn() Phase 19 路径测试
+ *
+ * 覆盖的新路径：
+ * - pgrep orphan scan 使用 daemon-entry.js 模式
+ * - 找到孤儿进程 → SIGTERM
+ * - stale 空 PID 文件 → 警告后继续
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
+
+// Mock constants to eliminate sleep delays in spawn()
+vi.mock('../../src/constants.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, SIGTERM_GRACE_MS: 0, PROCESS_SPAWN_CONFIRM_MS: 0 };
+});
+
+// Mock child_process so spawn() doesn't actually start a node process
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    execSync: vi.fn().mockImplementation(() => {
+      // Default: pgrep finds nothing (exit code 1 throws)
+      throw Object.assign(new Error('pgrep no match'), { status: 1 });
+    }),
+    spawn: vi.fn().mockReturnValue({ pid: process.pid, unref: vi.fn() }),
+  };
+});
+
+import { ProcessManager } from '../../src/foundation/process/manager.js';
+import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+
+let tempDir: string;
+let nodeFs: NodeFileSystem;
+
+beforeEach(async () => {
+  tempDir = path.join(tmpdir(), `pm-spawn-p19-${randomUUID()}`);
+  await fs.mkdir(tempDir, { recursive: true });
+  nodeFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+  vi.clearAllMocks();
+  // Restore default: pgrep throws (no orphans)
+  const { execSync, spawn } = await import('child_process');
+  vi.mocked(execSync).mockImplementation(() => {
+    throw Object.assign(new Error('pgrep no match'), { status: 1 });
+  });
+  vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
+});
+
+afterEach(async () => {
+  await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+});
+
+describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
+  it('should call execSync with daemon-entry.js ${clawId} pgrep pattern', async () => {
+    const { execSync } = await import('child_process');
+    const pm = new ProcessManager(nodeFs, tempDir);
+    const clawId = 'p19-claw';
+    const clawDir = path.join(tempDir, 'claws', clawId);
+    await fs.mkdir(clawDir, { recursive: true });
+
+    await pm.spawn(clawId, clawDir);
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
+      expect.stringContaining(`daemon-entry.js ${clawId}`),
+      expect.any(Object),
+    );
+  });
+
+  it('should SIGTERM orphaned processes found by pgrep', async () => {
+    const { execSync, spawn } = await import('child_process');
+    const orphanPid = 99991;
+
+    // pgrep returns one orphan PID, then throws on second call (lockfile check)
+    vi.mocked(execSync)
+      .mockReturnValueOnce(`${orphanPid}\n` as any)
+      .mockImplementation(() => { throw new Error('no match'); });
+    vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
+
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const pm = new ProcessManager(nodeFs, tempDir);
+    const clawId = 'orphan-claw';
+    const clawDir = path.join(tempDir, 'claws', clawId);
+    await fs.mkdir(clawDir, { recursive: true });
+
+    await pm.spawn(clawId, clawDir);
+
+    expect(killSpy).toHaveBeenCalledWith(orphanPid, 'SIGTERM');
+    killSpy.mockRestore();
+  });
+
+  it('should warn and continue when stale empty PID file exists', async () => {
+    const { execSync, spawn } = await import('child_process');
+    vi.mocked(execSync).mockImplementation(() => { throw new Error('no match'); });
+    vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
+
+    const clawId = 'stale-empty-claw';
+    const statusDir = path.join(tempDir, 'claws', clawId, 'status');
+    await fs.mkdir(statusDir, { recursive: true });
+    // Pre-create empty PID file (simulates concurrent spawn leaving an empty file)
+    await fs.writeFile(path.join(statusDir, 'pid'), '', 'utf-8');
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const pm = new ProcessManager(nodeFs, tempDir);
+    const clawDir = path.join(tempDir, 'claws', clawId);
+
+    await expect(pm.spawn(clawId, clawDir)).resolves.toBeDefined();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Empty PID file'));
+
+    warnSpy.mockRestore();
+  });
+});

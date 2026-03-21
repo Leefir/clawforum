@@ -127,17 +127,25 @@ describe('TaskSystem Tool Tasks', () => {
       expect(typeof taskId).toBe('string');
     });
 
-    it('should save task to tasks/pending/ initially', async () => {
+    it('should save task to tasks/pending/ or tasks/running/ (atomic move may complete immediately)', async () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'ok' });
-      
+
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
-      
-      // Task should be in pending directory (before dispatch)
-      const taskFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
-        'utf-8'
-      );
-      const taskData = JSON.parse(taskFile);
+
+      // Atomic fs.move() may complete before we read, so check both locations
+      let rawFile: string;
+      try {
+        rawFile = await fs.readFile(
+          path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
+          'utf-8'
+        );
+      } catch {
+        rawFile = await fs.readFile(
+          path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+          'utf-8'
+        );
+      }
+      const taskData = JSON.parse(rawFile);
       expect(taskData.kind).toBe('tool');
       expect(taskData.toolName).toBe('testTool');
       expect(taskData.parentClawId).toBe('parent-claw');

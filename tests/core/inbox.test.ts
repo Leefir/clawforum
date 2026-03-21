@@ -14,7 +14,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { InboxWatcher } from '../../src/core/communication/inbox.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
-import type { InboxMessage } from '../../src/types/message.js';
+import type { InboxMessage } from '../../src/types/contract.js';
+import { INBOX_MAX_QUEUE_SIZE } from '../../src/constants.js';
 
 // 使用真实 fs 但限制在测试目录
 const TEST_DIR = path.resolve('.test-inbox');
@@ -267,6 +268,49 @@ Test message content`;
     // 应该处理已存在的文件
     expect(processed).toContain('msg-1');
     expect(processed).toContain('msg-2');
+
+    await inbox.stop();
+  });
+
+  it('should drop lowest priority message when queue is full', async () => {
+    const clawDir = path.join(TEST_DIR, 'queue-limit-test');
+    const pendingDir = path.join(clawDir, 'inbox', 'pending');
+    const failedDir = path.join(clawDir, 'inbox', 'failed');
+    await fs.mkdir(pendingDir, { recursive: true });
+    await fs.mkdir(failedDir, { recursive: true });
+
+    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    const inbox = new InboxWatcher(clawDir, nodeFs);
+
+    // Fill internal queue to the limit with low-priority items
+    const queue = (inbox as any).queue;
+    for (let i = 0; i < INBOX_MAX_QUEUE_SIZE; i++) {
+      queue.push({
+        message: { id: `low-${i}`, priority: 'low' },
+        filePath: `/fake/low-${i}.md`,
+        priority: 1,
+        timestamp: 1000 + i,
+      });
+    }
+    expect(queue).toHaveLength(INBOX_MAX_QUEUE_SIZE);
+
+    // Add a high-priority message to trigger the drop path
+    const highFile = path.join(pendingDir, 'high.md');
+    await fs.writeFile(highFile, '---\ntype: normal\npriority: high\nid: high-msg\n---\nHigh', 'utf-8');
+
+    await inbox.start(async () => {});
+    await (inbox as any).handleNewFile(highFile);
+    await new Promise(r => setTimeout(r, 50));
+
+    // Queue should not exceed max (one was dropped, one was added)
+    expect((inbox as any).queue.length).toBeLessThanOrEqual(INBOX_MAX_QUEUE_SIZE);
+
+    // The dropped item is the last (lowest) priority; the new high-priority item should be present
+    const remaining = (inbox as any).queue as Array<{ message: { id: string }; priority: number }>;
+    const hasHighMsg = remaining.some(item => item.message.id === 'high-msg') ||
+      // may have already been dequeued and processed
+      (await fs.readdir(path.join(clawDir, 'inbox', 'done')).catch(() => [])).some((f: string) => f.includes('high'));
+    expect(hasHighMsg).toBe(true);
 
     await inbox.stop();
   });

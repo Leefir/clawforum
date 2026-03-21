@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LLMService } from '../../src/foundation/llm/service.js';
 import type { IProviderAdapter, StreamChunk } from '../../src/foundation/llm/types.js';
-import { LLMError } from '../../src/types/errors.js';
+import { LLMError, LLMAllProvidersFailedError } from '../../src/types/errors.js';
 
 // Mock provider factory
 function createMockProvider(name: string, streamImpl?: () => AsyncGenerator<StreamChunk>): IProviderAdapter {
@@ -152,6 +152,45 @@ describe('LLMService - stream failover', () => {
     expect(caughtError!.message).toContain('All providers failed');
   });
 
+  // Phase 20: getProviderInfo()
+  it('should getProviderInfo() return isFallback=false when primary succeeds', async () => {
+    const service = new LLMService({
+      primary: { name: 'primary', apiKey: 'test', model: 'test-model' },
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = createMockProvider('primary');
+    (service as any).fallbacks = [];
+
+    await service.call({ messages: [] });
+
+    const info = service.getProviderInfo();
+    expect(info.isFallback).toBe(false);
+    expect(info.name).toBe('primary');
+  });
+
+  it('should getProviderInfo() return isFallback=true after fallback takes over', async () => {
+    const badPrimary = createMockProvider('bad-primary');
+    (badPrimary as any).call = async () => { throw new Error('primary failed'); };
+
+    const goodFallback = createMockProvider('fb');
+
+    const service = new LLMService({
+      primary: { name: 'p', apiKey: 'test', model: 'test' },
+      fallbacks: [{ name: 'fb', apiKey: 'test', model: 'test' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = badPrimary;
+    (service as any).fallbacks = [goodFallback];
+
+    await service.call({ messages: [] });
+
+    const info = service.getProviderInfo();
+    expect(info.isFallback).toBe(true);
+    expect(info.name).toBe('fb');
+  });
+
   it('should throw if stream not supported', async () => {
     const primary = {
       name: 'no-stream-provider',
@@ -181,5 +220,111 @@ describe('LLMService - stream failover', () => {
 
     expect(caughtError).toBeInstanceOf(LLMError);
     expect(caughtError!.message).toContain('All providers failed');
+  });
+});
+
+// Phase 20: Circuit Breaker
+describe('LLMService - circuit breaker', () => {
+  it('should skip primary after threshold failures (circuit opens)', async () => {
+    // threshold=2: primary fails twice → breaker opens → 3rd call skips primary entirely
+    let primaryCallCount = 0;
+    const failingPrimary: IProviderAdapter = {
+      name: 'primary',
+      model: 'x',
+      async call() { primaryCallCount++; throw new Error('primary down'); },
+      async *stream() { throw new Error('primary down'); },
+    };
+
+    const goodFallback = createMockProvider('fallback');
+
+    const service = new LLMService({
+      primary: { name: 'p', apiKey: 'x', model: 'x' },
+      fallbacks: [{ name: 'fb', apiKey: 'x', model: 'x' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+      circuitBreaker: { failureThreshold: 2, resetTimeoutMs: 60000 },
+    });
+    (service as any).primary = failingPrimary;
+    (service as any).fallbacks = [goodFallback];
+
+    // Calls 1 and 2: primary fails, fallback saves — breaker accumulates 2 failures
+    await service.call({ messages: [] });
+    await service.call({ messages: [] });
+    expect(primaryCallCount).toBe(2);
+
+    // Call 3: breaker is now open → primary is skipped entirely
+    await service.call({ messages: [] });
+    expect(primaryCallCount).toBe(2); // primary NOT called on 3rd attempt
+  });
+
+  it('should allow probe in half-open state after resetTimeoutMs', async () => {
+    let primaryFailCount = 0;
+    let primaryShouldFail = true;
+    const probePrimary: IProviderAdapter = {
+      name: 'primary',
+      model: 'x',
+      async call() {
+        if (primaryShouldFail) {
+          primaryFailCount++;
+          throw new Error('down');
+        }
+        return { content: [{ type: 'text' as const, text: 'ok' }], stop_reason: 'end_turn' as const };
+      },
+      async *stream() { yield { type: 'done' as const }; },
+    };
+
+    const goodFallback = createMockProvider('fb');
+
+    const service = new LLMService({
+      primary: { name: 'p', apiKey: 'x', model: 'x' },
+      fallbacks: [{ name: 'fb', apiKey: 'x', model: 'x' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+      circuitBreaker: { failureThreshold: 2, resetTimeoutMs: 50 },
+    });
+    (service as any).primary = probePrimary;
+    (service as any).fallbacks = [goodFallback];
+
+    // Open the breaker
+    await service.call({ messages: [] }); // failure 1
+    await service.call({ messages: [] }); // failure 2 → breaker opens
+    expect(primaryFailCount).toBe(2);
+
+    // Wait past resetTimeoutMs → transitions to half-open on next isOpen() check
+    await new Promise(r => setTimeout(r, 60));
+    primaryShouldFail = false;
+
+    // Half-open probe: primary should be attempted and succeed → breaker closes
+    await service.call({ messages: [] });
+    expect(primaryFailCount).toBe(2); // no new failures (shouldFail=false)
+
+    // Provider should have returned to primary
+    const info = service.getProviderInfo();
+    expect(info.isFallback).toBe(false);
+  }, 2000);
+
+  it('should throw LLMAllProvidersFailedError when all providers fail', async () => {
+    const badPrimary: IProviderAdapter = {
+      name: 'p1', model: 'x',
+      async call() { throw new Error('p1 down'); },
+      async *stream() { throw new Error('p1 down'); },
+    };
+    const badFallback: IProviderAdapter = {
+      name: 'p2', model: 'x',
+      async call() { throw new Error('p2 down'); },
+      async *stream() { throw new Error('p2 down'); },
+    };
+
+    const service = new LLMService({
+      primary: { name: 'p1', apiKey: 'x', model: 'x' },
+      fallbacks: [{ name: 'p2', apiKey: 'x', model: 'x' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = badPrimary;
+    (service as any).fallbacks = [badFallback];
+
+    await expect(service.call({ messages: [] }))
+      .rejects.toBeInstanceOf(LLMAllProvidersFailedError);
   });
 });

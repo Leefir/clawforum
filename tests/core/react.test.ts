@@ -380,4 +380,239 @@ describe('ReAct Loop', () => {
     expect((toolResult as any).is_error).toBe(true);
     expect((toolResult as any).content).toContain('Disk full');
   });
+
+  // Phase 23: onStepComplete saveFailures counter
+  it('should propagate save error after 3 consecutive onStepComplete failures', async () => {
+    // Need 3 tool steps to trigger 3 consecutive failures
+    (mockLLM.call as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createTextResponse('done'));
+
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true, content: '',
+    });
+
+    const saveError = new Error('disk full');
+    const onStepComplete = vi.fn().mockRejectedValue(saveError);
+
+    await expect(
+      runReact({
+        messages: [{ role: 'user', content: 'go' }],
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+        onStepComplete,
+      })
+    ).rejects.toThrow('disk full');
+
+    expect(onStepComplete).toHaveBeenCalledTimes(3);
+  });
+
+  it('should reset failure counter after a successful onStepComplete', async () => {
+    // Step 1: fails, Step 2: succeeds (resets counter), Step 3: fails — should NOT throw (count < 3)
+    (mockLLM.call as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createTextResponse('all done'));
+
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true, content: '',
+    });
+
+    let callCount = 0;
+    const onStepComplete = vi.fn(async () => {
+      callCount++;
+      if (callCount === 1) throw new Error('transient error');
+      // Step 2 succeeds — resets counter — Step 3 fails but count is only 1
+      if (callCount === 3) throw new Error('another error');
+    });
+
+    // Counter resets after step 2 success, so step 3 failure is only count=1, not 3 → no throw
+    const result = await runReact({
+      messages: [{ role: 'user', content: 'go' }],
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      onStepComplete,
+    });
+
+    expect(result.finalText).toBe('all done');
+    expect(callCount).toBe(3);
+  });
+
+  // ============================================================
+  // collectStreamResponse path coverage
+  // ============================================================
+
+  it('should invoke onBeforeLLMCall before every LLM call', async () => {
+    (mockLLM.call as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createToolUseResponse('read', {}))
+      .mockResolvedValueOnce(createTextResponse('Done'));
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, content: '' });
+
+    let callCount = 0;
+    await runReact({
+      messages: [{ role: 'user', content: 'Go' }],
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      onBeforeLLMCall: () => { callCount++; },
+    });
+
+    // one before the tool-use call, one before the final answer
+    expect(callCount).toBe(2);
+  });
+
+  it('should invoke onToolResult after each tool execution', async () => {
+    (mockLLM.call as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createToolUseResponse('read', { path: 'a.txt' }))
+      .mockResolvedValueOnce(createTextResponse('Done'));
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, content: 'data' });
+
+    const calls: Array<{ name: string; step: number; maxSteps: number }> = [];
+    await runReact({
+      messages: [{ role: 'user', content: 'Read' }],
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      maxSteps: 10,
+      onToolResult: (name, _result, step, maxSteps) => calls.push({ name, step, maxSteps }),
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].name).toBe('read');
+    expect(calls[0].step).toBe(0);
+    expect(calls[0].maxSteps).toBe(10);
+  });
+
+  it('should invoke onTextDelta for each streamed text chunk', async () => {
+    // Override stream mock to emit explicit deltas
+    (mockLLM.stream as ReturnType<typeof vi.fn>).mockImplementationOnce(async function* () {
+      yield { type: 'text_delta', delta: 'Hello' };
+      yield { type: 'text_delta', delta: ' world' };
+      yield { type: 'done' };
+    });
+
+    const deltas: string[] = [];
+    await runReact({
+      messages: [{ role: 'user', content: 'Hi' }],
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      onTextDelta: (d) => deltas.push(d),
+    });
+
+    expect(deltas).toEqual(['Hello', ' world']);
+  });
+
+  it('should invoke onThinkingDelta and include thinking block in assistant content', async () => {
+    // Stream: thinking before text → thinking block flushed when text_delta arrives
+    (mockLLM.stream as ReturnType<typeof vi.fn>).mockImplementationOnce(async function* () {
+      yield { type: 'thinking_delta', delta: 'Let me think...' };
+      yield { type: 'text_delta', delta: 'The answer is 42' };
+      yield { type: 'done' };
+    });
+
+    const thinkingDeltas: string[] = [];
+    const messages: Message[] = [{ role: 'user', content: 'What is the answer?' }];
+
+    await runReact({
+      messages,
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      onThinkingDelta: (d) => thinkingDeltas.push(d),
+    });
+
+    expect(thinkingDeltas).toEqual(['Let me think...']);
+
+    // Assistant message content should contain a thinking block
+    const assistantMsg = messages.find(m => m.role === 'assistant');
+    const content = Array.isArray(assistantMsg?.content) ? assistantMsg!.content : [];
+    expect(content.some((b: ContentBlock) => b.type === 'thinking')).toBe(true);
+  });
+
+  it('should handle multiple tool_use blocks in one response (flushes previous tool_use)', async () => {
+    // Stream two tool_use blocks back-to-back
+    (mockLLM.stream as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(async function* () {
+        yield { type: 'tool_use_start', toolUse: { id: 'id-1', name: 'read', partialInput: '' } };
+        yield { type: 'tool_use_delta', toolUse: { id: 'id-1', name: 'read', partialInput: '{"path":"a.txt"}' } };
+        yield { type: 'tool_use_start', toolUse: { id: 'id-2', name: 'search', partialInput: '' } };
+        yield { type: 'tool_use_delta', toolUse: { id: 'id-2', name: 'search', partialInput: '{"query":"foo"}' } };
+        yield { type: 'done' };
+      })
+      .mockImplementationOnce(async function* () {
+        yield { type: 'text_delta', delta: 'Done' };
+        yield { type: 'done' };
+      });
+
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, content: 'ok' });
+
+    const messages: Message[] = [{ role: 'user', content: 'Search and read' }];
+    await runReact({
+      messages,
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+    });
+
+    // executor should have been called twice — once for each tool_use block
+    expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw when abort signal is already set before LLM call', async () => {
+    const controller = new AbortController();
+    controller.abort(); // already aborted
+
+    const ctx = {
+      ...mockCtx,
+      signal: controller.signal,
+    };
+
+    await expect(
+      runReact({
+        messages: [{ role: 'user', content: 'Go' }],
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: ctx as ExecContext,
+      })
+    ).rejects.toThrow('aborted');
+  });
+
+  it('should throw when abort signal fires after tool execution', async () => {
+    const controller = new AbortController();
+
+    (mockLLM.call as ReturnType<typeof vi.fn>).mockResolvedValue(
+      createToolUseResponse('read', {})
+    );
+    // Abort after the tool executes
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      controller.abort();
+      return { success: true, content: 'ok' };
+    });
+
+    const ctx = { ...mockCtx, signal: controller.signal };
+
+    await expect(
+      runReact({
+        messages: [{ role: 'user', content: 'Go' }],
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: ctx as ExecContext,
+      })
+    ).rejects.toThrow('aborted');
+  });
 });

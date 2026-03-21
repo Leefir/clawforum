@@ -18,6 +18,7 @@ import {
   ToolNotFoundError,
   PermissionError,
   ToolTimeoutError,
+  ToolInvalidInputError,
 } from '../../src/types/errors.js';
 
 describe('Tools', () => {
@@ -370,6 +371,35 @@ describe('Tools', () => {
       expect(result.content).toContain('timed out');
     });
 
+    it('should return error result (not re-throw) when tool throws a regular error', async () => {
+      registry.register({
+        name: 'explosive',
+        description: 'Tool that always throws',
+        schema: { type: 'object' },
+        requiredPermissions: [],
+        readonly: true,
+        execute: async () => {
+          throw new Error('something went badly wrong');
+        },
+      });
+
+      const ctx = new ExecContextImpl({
+        clawId: 'test',
+        clawDir: '/test',
+        profile: 'full',
+        fs: mockFs,
+      });
+
+      const result = await executor.execute({
+        toolName: 'explosive',
+        args: {},
+        ctx,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('something went badly wrong');
+    });
+
     it('should execute readonly tools in parallel', async () => {
       const executionOrder: number[] = [];
 
@@ -441,6 +471,177 @@ describe('Tools', () => {
 
       expect(starts).toHaveLength(3);
       expect(ends).toHaveLength(3);
+    });
+
+    it('should throw ToolInvalidInputError when required schema field is missing', async () => {
+      registry.register({
+        name: 'strict',
+        description: 'Needs path',
+        schema: {
+          type: 'object',
+          required: ['path'],
+          properties: { path: { type: 'string' } },
+        },
+        requiredPermissions: [],
+        readonly: true,
+        idempotent: true,
+        execute: async () => ({ success: true, content: 'ok' }),
+      });
+
+      const ctx = new ExecContextImpl({
+        clawId: 'test',
+        clawDir: '/test',
+        profile: 'full',
+        fs: mockFs,
+      });
+
+      await expect(
+        executor.execute({ toolName: 'strict', args: {}, ctx }) // missing 'path'
+      ).rejects.toThrow(ToolInvalidInputError);
+    });
+
+    it('should return error result when async=true but no taskSystem in ctx', async () => {
+      registry.register({
+        name: 'async-capable',
+        description: 'Supports async',
+        schema: { type: 'object' },
+        requiredPermissions: [],
+        readonly: true,
+        idempotent: true,
+        supportsAsync: true,
+        execute: async () => ({ success: true, content: 'sync result' }),
+      });
+
+      const ctx = new ExecContextImpl({
+        clawId: 'test',
+        clawDir: '/test',
+        profile: 'full',
+        fs: mockFs,
+        // no taskSystem
+      });
+
+      const result = await executor.execute({
+        toolName: 'async-capable',
+        args: {},
+        ctx,
+        async: true,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('TaskSystem');
+    });
+
+    it('should return error result when async=true but tool does not support async', async () => {
+      registry.register({
+        name: 'no-async',
+        description: 'No async support',
+        schema: { type: 'object' },
+        requiredPermissions: [],
+        readonly: false,
+        idempotent: false,
+        supportsAsync: false,
+        execute: async () => ({ success: true, content: 'sync' }),
+      });
+
+      const mockTaskSystem = {
+        scheduleTool: vi.fn().mockResolvedValue('task-id-123'),
+      } as unknown as import('../../src/core/task/system.js').TaskSystem;
+
+      const ctx = new ExecContextImpl({
+        clawId: 'test',
+        clawDir: '/test',
+        profile: 'full',
+        fs: mockFs,
+        taskSystem: mockTaskSystem,
+      });
+
+      const result = await executor.execute({
+        toolName: 'no-async',
+        args: {},
+        ctx,
+        async: true,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('does not support async');
+    });
+
+    it('should schedule task and return taskId when async=true with supporting tool and taskSystem', async () => {
+      registry.register({
+        name: 'long-task',
+        description: 'Long running task',
+        schema: { type: 'object' },
+        requiredPermissions: [],
+        readonly: false,
+        idempotent: true,
+        supportsAsync: true,
+        execute: async () => ({ success: true, content: 'done' }),
+      });
+
+      const mockTaskSystem = {
+        scheduleTool: vi.fn().mockResolvedValue('task-abc-123'),
+      } as unknown as import('../../src/core/task/system.js').TaskSystem;
+
+      const ctx = new ExecContextImpl({
+        clawId: 'test',
+        clawDir: '/test',
+        profile: 'full',
+        fs: mockFs,
+        taskSystem: mockTaskSystem,
+      });
+
+      const result = await executor.execute({
+        toolName: 'long-task',
+        args: { key: 'value' },
+        ctx,
+        async: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('task-abc-123');
+      expect(result.metadata?.async).toBe(true);
+      expect(mockTaskSystem.scheduleTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('should filter non-readonly tools in executeParallel', async () => {
+      registry.register({
+        name: 'read-op',
+        description: 'Read',
+        schema: { type: 'object' },
+        requiredPermissions: [],
+        readonly: true,
+        idempotent: true,
+        execute: async () => ({ success: true, content: 'read-result' }),
+      });
+
+      registry.register({
+        name: 'write-op',
+        description: 'Write',
+        schema: { type: 'object' },
+        requiredPermissions: [],
+        readonly: false,
+        idempotent: false,
+        execute: async () => ({ success: true, content: 'write-result' }),
+      });
+
+      const ctx = new ExecContextImpl({
+        clawId: 'test',
+        clawDir: '/test',
+        profile: 'full',
+        fs: mockFs,
+      });
+
+      // executeParallel only runs readonly tools; write-op is filtered out
+      const results = await executor.executeParallel(
+        [
+          { toolName: 'read-op', args: {} },
+          { toolName: 'write-op', args: {} },
+        ],
+        ctx
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].content).toBe('read-result');
     });
   });
 });

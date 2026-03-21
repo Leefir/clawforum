@@ -11,8 +11,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+
+vi.mock('child_process', () => ({
+  execSync: vi.fn(),
+}));
 
 const TEST_DIR = '.test-contract-manager';
 const CLAW_DIR = path.join(TEST_DIR, 'claws', 'test-claw');
@@ -22,9 +27,10 @@ describe('ContractManager', () => {
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(CLAW_DIR, { recursive: true });
-    
+
     nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
     manager = new ContractManager(CLAW_DIR, nodeFs, undefined);
   });
@@ -348,5 +354,166 @@ describe('ContractManager', () => {
 
     // 应该抛出包含解析错误的 ToolError
     await expect(manager.getProgress(contractId)).rejects.toThrow(/parse|JSON|Unexpected token/i);
+  });
+
+  // === Phase 22 H1: acquireLock EEXIST retry ===
+
+  it('should acquire lock after EEXIST retry when lock is released mid-wait', async () => {
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Lock Retry Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    // 预先写入锁文件，模拟另一个进程持有锁
+    const lockPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.lock');
+    await fs.writeFile(lockPath, '{}', 'utf-8');
+
+    // 50ms 后释放（< LOCK_RETRY_DELAY_MS=100ms 的一次等待），确保第二次重试能拿到锁
+    setTimeout(() => fs.unlink(lockPath).catch(() => {}), 50);
+
+    // pause() 内部走 acquireLock → 第一次 EEXIST → wait 100ms → 锁已释放 → 第二次成功
+    await expect(manager.pause(contractId, 'checkpoint')).resolves.not.toThrow();
+  }, 2000);
+
+  it('should throw ToolError when lock is never released and retries exhausted', async () => {
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Lock Exhaust Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    // 写入锁文件，不释放
+    const lockPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.lock');
+    await fs.writeFile(lockPath, '{}', 'utf-8');
+
+    // acquireLock retries LOCK_MAX_RETRIES=3 times then throws
+    await expect(manager.pause(contractId, 'checkpoint'))
+      .rejects.toThrow(/Failed to acquire lock after/);
+  }, 2000);
+
+  // === Phase 22 M3: runScriptAcceptance error classification ===
+
+  it('should classify script timeout (killed=true) as "Acceptance script timed out"', async () => {
+    vi.mocked(execSync).mockImplementationOnce(() => {
+      const err: any = new Error('process killed');
+      err.killed = true;
+      throw err;
+    });
+
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Timeout Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [{ subtask_id: 't1', type: 'script' as const, command: 'sleep 120' }],
+      auth_level: 'auto' as const,
+    });
+
+    const result = await manager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+    expect(result.passed).toBe(false);
+    expect(result.feedback).toMatch(/Acceptance script timed out/);
+  });
+
+  it('should classify EACCES error as "Acceptance script permission denied"', async () => {
+    vi.mocked(execSync).mockImplementationOnce(() => {
+      const err: any = new Error('permission denied');
+      err.code = 'EACCES';
+      throw err;
+    });
+
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Permission Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [{ subtask_id: 't1', type: 'script' as const, command: './restricted.sh' }],
+      auth_level: 'auto' as const,
+    });
+
+    const result = await manager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+    expect(result.passed).toBe(false);
+    expect(result.feedback).toMatch(/Acceptance script permission denied/);
+  });
+
+  it('should treat non-zero exit (no killed/EACCES) as normal "Acceptance failed"', async () => {
+    vi.mocked(execSync).mockImplementationOnce(() => {
+      const err: any = new Error('exit code 1');
+      err.status = 1;
+      throw err;
+    });
+
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Failure Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [{ subtask_id: 't1', type: 'script' as const, command: 'false' }],
+      auth_level: 'auto' as const,
+    });
+
+    const result = await manager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+    expect(result.passed).toBe(false);
+    expect(result.feedback).toMatch(/^Acceptance failed/);
+  });
+
+  // === Phase 22 C1+C2: completeSubtask allCompleted path ===
+
+  it('should return allCompleted=true and archive contract when last subtask completes', async () => {
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'AllCompleted Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],  // 无脚本，直接通过
+      auth_level: 'auto' as const,
+    });
+
+    const result = await manager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+
+    expect(result.passed).toBe(true);
+    expect(result.allCompleted).toBe(true);
+
+    // 契约已移入 archive（active/ 目录不再存在）
+    const archivePath = path.join(CLAW_DIR, 'contract', 'archive', contractId);
+    await expect(fs.access(archivePath)).resolves.not.toThrow();
+    const activePath = path.join(CLAW_DIR, 'contract', 'active', contractId);
+    await expect(fs.access(activePath)).rejects.toThrow();
+  });
+
+  it('should not set allCompleted when subtasks remain', async () => {
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Partial Test',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [
+        { id: 't1', description: 'T1' },
+        { id: 't2', description: 'T2' },
+      ],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    const result = await manager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+
+    expect(result.passed).toBe(true);
+    expect(result.allCompleted).toBeFalsy();
+
+    // 契约仍在 active/
+    const activePath = path.join(CLAW_DIR, 'contract', 'active', contractId);
+    await expect(fs.access(activePath)).resolves.not.toThrow();
   });
 });

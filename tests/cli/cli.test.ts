@@ -48,6 +48,44 @@ describe('CLI Config', () => {
   });
 
   describe('toProviderConfig', () => {
+    // Phase 20: preset field and apiFormat
+    it('should set apiFormat=openai when preset is openai', () => {
+      const result = toProviderConfig({
+        preset: 'openai',
+        api_key: 'sk-test',
+        model: 'gpt-4o',
+        max_tokens: 4096,
+        temperature: 0.7,
+        timeout_ms: 60000,
+      });
+      expect(result.apiFormat).toBe('openai');
+    });
+
+    it('should set apiFormat=anthropic when using name backward compat', () => {
+      const result = toProviderConfig({
+        name: 'anthropic',
+        api_key: 'test-key',
+        model: 'claude-3-5-haiku',
+        max_tokens: 4096,
+        temperature: 0.7,
+        timeout_ms: 60000,
+      });
+      expect(result.apiFormat).toBe('anthropic');
+    });
+
+    it('should use label as name when provided', () => {
+      const result = toProviderConfig({
+        preset: 'openai',
+        label: 'My OpenAI',
+        api_key: 'sk-test',
+        model: 'gpt-4o',
+        max_tokens: 4096,
+        temperature: 0.7,
+        timeout_ms: 60000,
+      });
+      expect(result.name).toBe('My OpenAI');
+    });
+
     it('should map snake_case to camelCase', () => {
       const input = {
         name: 'anthropic',
@@ -235,6 +273,33 @@ describe('CLI Config', () => {
       // 执行 list 命令应该自动创建目录
       await expect(listCommand()).resolves.toBeUndefined();
       expect(fs.existsSync(clawsDir)).toBe(true);
+    });
+  });
+
+  // Phase 20: expandEnvVars — exercised through loadGlobalConfig()
+  describe('loadGlobalConfig - expandEnvVars', () => {
+    it('should expand ${VAR} syntax in api_key', () => {
+      process.env.TEST_CLAW_API_KEY_EXPAND = 'resolved-secret-value';
+      const configPath = getGlobalConfigPath();
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      // Single-quoted string: no JS template interpolation, ${} written literally
+      const rawYaml = 'version: "1"\nllm:\n  primary:\n    name: anthropic\n    api_key: ${TEST_CLAW_API_KEY_EXPAND}\n    model: claude-3-5-haiku\n    max_tokens: 4096\n    temperature: 0.7\n    timeout_ms: 60000\n  retry_attempts: 3\n  retry_delay_ms: 1000\n';
+      fs.writeFileSync(configPath, rawYaml);
+
+      const loaded = loadGlobalConfig();
+      expect(loaded.llm.primary.api_key).toBe('resolved-secret-value');
+
+      delete process.env.TEST_CLAW_API_KEY_EXPAND;
+    });
+
+    it('should throw when referenced env var is not set', () => {
+      delete process.env.MISSING_CLAW_TEST_VAR_XYZ;
+      const configPath = getGlobalConfigPath();
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      const rawYaml = 'version: "1"\nllm:\n  primary:\n    name: anthropic\n    api_key: ${MISSING_CLAW_TEST_VAR_XYZ}\n    model: test\n    max_tokens: 4096\n    temperature: 0.7\n    timeout_ms: 60000\n  retry_attempts: 3\n  retry_delay_ms: 1000\n';
+      fs.writeFileSync(configPath, rawYaml);
+
+      expect(() => loadGlobalConfig()).toThrow(/MISSING_CLAW_TEST_VAR_XYZ/);
     });
   });
 });

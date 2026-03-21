@@ -9,19 +9,46 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { 
-  LLMResponse, 
-  Message, 
-  ToolDefinition 
+import type {
+  LLMResponse,
+  Message,
+  ToolDefinition
 } from '../../src/types/message.js';
 import type { LLMCallEvent } from '../../src/foundation/monitor/types.js';
+import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { AnthropicAdapter } from '../../src/foundation/llm/anthropic.js';
+import { OpenAIAdapter } from '../../src/foundation/llm/openai.js';
 import { LLMService } from '../../src/foundation/llm/service.js';
 import {
   LLMRateLimitError,
   LLMTimeoutError,
   LLMAllProvidersFailedError,
 } from '../../src/types/errors.js';
+
+/**
+ * Create a mock Response with SSE streaming body
+ */
+function createSSEStreamResponse(events: string[]): Response {
+  const sseText = events.map(e => `data: ${e}\n\n`).join('');
+  const encoder = new TextEncoder();
+  let sent = false;
+  const stream = new ReadableStream({
+    pull(controller) {
+      if (!sent) {
+        sent = true;
+        controller.enqueue(encoder.encode(sseText));
+      } else {
+        controller.close();
+      }
+    },
+  });
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: (_: string) => null } as unknown as Headers,
+    body: stream,
+  } as unknown as Response;
+}
 
 // Helper to create a mock Response
 function createMockResponse(body: object, status = 200): Response {
@@ -527,5 +554,249 @@ describe('LLM Service', () => {
       expect(body.max_tokens).toBe(500);
       expect(body.temperature).toBe(0.5);
     });
+  });
+});
+
+// ============================================================================
+// SSE Streaming tests — exercises parseSSEStream paths not covered by call()
+// ============================================================================
+
+describe('AnthropicAdapter.stream', () => {
+  const config = {
+    name: 'anthropic',
+    apiKey: 'test-key',
+    baseUrl: 'https://api.anthropic.com',
+    model: 'claude-3-sonnet',
+    maxTokens: 4096,
+    temperature: 0.7,
+    timeoutMs: 30000,
+    apiFormat: 'anthropic' as const,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('should carry currentToolId/Name in tool_use_delta (C1 fix)', async () => {
+    const events = [
+      JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'tool-abc123', name: 'read' } }),
+      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"path":' } }),
+      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '"test.txt"}' } }),
+      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5 } }),
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new AnthropicAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'read file' }] })) {
+      chunks.push(chunk);
+    }
+
+    const start = chunks.find(c => c.type === 'tool_use_start');
+    expect(start).toBeDefined();
+    expect(start!.toolUse!.id).toBe('tool-abc123');
+    expect(start!.toolUse!.name).toBe('read');
+
+    const deltas = chunks.filter(c => c.type === 'tool_use_delta');
+    expect(deltas.length).toBeGreaterThan(0);
+    // C1 fix: each delta must carry the correct id/name, not empty strings
+    for (const delta of deltas) {
+      expect(delta.toolUse!.id).toBe('tool-abc123');
+      expect(delta.toolUse!.name).toBe('read');
+    }
+  });
+
+  it('should emit text_delta chunks from text_delta events', async () => {
+    const events = [
+      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hello ' } }),
+      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'world' } }),
+      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} }),
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new AnthropicAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(chunk);
+    }
+
+    const textDeltas = chunks.filter(c => c.type === 'text_delta');
+    expect(textDeltas).toHaveLength(2);
+    expect(textDeltas[0].delta).toBe('Hello ');
+    expect(textDeltas[1].delta).toBe('world');
+  });
+
+  it('should emit thinking_delta chunks from thinking_delta events', async () => {
+    const events = [
+      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'I should think...' } }),
+      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} }),
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new AnthropicAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'think' }] })) {
+      chunks.push(chunk);
+    }
+
+    const thinkingDeltas = chunks.filter(c => c.type === 'thinking_delta');
+    expect(thinkingDeltas).toHaveLength(1);
+    expect(thinkingDeltas[0].delta).toBe('I should think...');
+  });
+
+  it('should skip malformed SSE JSON without throwing', async () => {
+    const events = [
+      'NOT_VALID_JSON{{{',
+      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'OK' } }),
+      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} }),
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new AnthropicAdapter(config);
+    const chunks: StreamChunk[] = [];
+    // Should not throw despite malformed JSON
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(chunk);
+    }
+
+    const textDeltas = chunks.filter(c => c.type === 'text_delta');
+    expect(textDeltas).toHaveLength(1); // malformed event skipped, valid event processed
+    expect(textDeltas[0].delta).toBe('OK');
+  });
+
+  it('should emit done chunk with usage from message_delta', async () => {
+    const events = [
+      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 42 } }),
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new AnthropicAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(chunk);
+    }
+
+    const done = chunks.find(c => c.type === 'done');
+    expect(done).toBeDefined();
+    expect(done!.usage).toBeDefined();
+    expect(done!.usage!.outputTokens).toBe(42);
+  });
+});
+
+describe('OpenAIAdapter.stream', () => {
+  const config = {
+    name: 'openai',
+    apiKey: 'test-key',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4',
+    maxTokens: 4096,
+    temperature: 0.7,
+    timeoutMs: 30000,
+    apiFormat: 'openai' as const,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('should emit text_delta from content field', async () => {
+    const events = [
+      JSON.stringify({ choices: [{ index: 0, delta: { content: 'Hello ' } }] }),
+      JSON.stringify({ choices: [{ index: 0, delta: { content: 'world' } }] }),
+      '[DONE]',
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new OpenAIAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(chunk);
+    }
+
+    const textDeltas = chunks.filter(c => c.type === 'text_delta');
+    expect(textDeltas).toHaveLength(2);
+    expect(textDeltas[0].delta).toBe('Hello ');
+    expect(textDeltas[1].delta).toBe('world');
+
+    expect(chunks.some(c => c.type === 'done')).toBe(true);
+  });
+
+  it('should delay tool_use_start until both id and name are present (H3 fix)', async () => {
+    const events = [
+      // First chunk: name present but id absent
+      JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { name: 'read', arguments: '' } }] } }] }),
+      // Second chunk: id arrives with first argument chunk
+      JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call-xyz', function: { arguments: '{"path":' } }] } }] }),
+      // Third chunk: more arguments
+      JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: '"test.txt"}' } }] } }] }),
+      '[DONE]',
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new OpenAIAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'read file' }] })) {
+      chunks.push(chunk);
+    }
+
+    const startChunks = chunks.filter(c => c.type === 'tool_use_start');
+    expect(startChunks).toHaveLength(1);
+    expect(startChunks[0].toolUse!.id).toBe('call-xyz');
+    expect(startChunks[0].toolUse!.name).toBe('read');
+
+    // No tool_use_delta should appear before tool_use_start
+    const startIdx = chunks.indexOf(startChunks[0]);
+    const deltasBefore = chunks.slice(0, startIdx).filter(c => c.type === 'tool_use_delta');
+    expect(deltasBefore).toHaveLength(0);
+  });
+
+  it('should not emit tool_use_delta before tool_use_start (started flag)', async () => {
+    // Chunk with arguments but no id yet — delta must be suppressed
+    const events = [
+      JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { name: 'write', arguments: '{"content":' } }] } }] }),
+      // id never arrives in this truncated stream (simulates partial stream)
+      '[DONE]',
+    ];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new OpenAIAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'write' }] })) {
+      chunks.push(chunk);
+    }
+
+    // No start emitted (id never arrived), no delta emitted either
+    expect(chunks.filter(c => c.type === 'tool_use_start')).toHaveLength(0);
+    expect(chunks.filter(c => c.type === 'tool_use_delta')).toHaveLength(0);
+  });
+
+  it('should emit done on [DONE] marker', async () => {
+    const events = ['[DONE]'];
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+
+    const adapter = new OpenAIAdapter(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.some(c => c.type === 'done')).toBe(true);
   });
 });

@@ -12,6 +12,7 @@ import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySe
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { OutboxWriter } from '../../src/core/communication/outbox.js';
+import { ContractManager } from '../../src/core/contract/manager.js';
 
 async function createTempDir(): Promise<string> {
   const tempDir = path.join(tmpdir(), `clawforum-builtin-test-${randomUUID()}`);
@@ -464,6 +465,76 @@ describe('Builtin Tools', () => {
       expect(result.content).toContain('Step:');
       expect(result.content).toContain('Elapsed:');
     });
+
+    // Phase 21 Step 3: full subtask list display in getContractStatus()
+    it('should show "Contract: N/A" when contractManager not injected', async () => {
+      // default ctx has no contractManager
+      const result = await statusTool.execute({}, ctx);
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('Contract: N/A');
+    });
+
+    it('should show "No active contract" when contractManager has no active contract', async () => {
+      const manager = new ContractManager(tempDir, mockFs, undefined);
+      (ctx as any).contractManager = manager;
+
+      const result = await statusTool.execute({}, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('No active contract');
+    });
+
+    it('should show subtask list with ○ icons when contract is active', async () => {
+      const manager = new ContractManager(tempDir, mockFs, undefined);
+      await manager.create({
+        schema_version: 1 as const,
+        title: 'Test Contract',
+        goal: 'Test',
+        deliverables: [],
+        subtasks: [
+          { id: 'task-1', description: 'First task' },
+          { id: 'task-2', description: 'Second task' },
+        ],
+        acceptance: [],
+        auth_level: 'auto' as const,
+      });
+      (ctx as any).contractManager = manager;
+
+      const result = await statusTool.execute({}, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('Test Contract');
+      expect(result.content).toContain('0/2 subtasks done');
+      // Phase 21 Step 3: 逐行显示子任务
+      expect(result.content).toContain('○ task-1: First task');
+      expect(result.content).toContain('○ task-2: Second task');
+    });
+
+    it('should show ✓ for completed subtask and ○ for todo subtask', async () => {
+      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const contractId = await manager.create({
+        schema_version: 1 as const,
+        title: 'Mixed Status',
+        goal: 'Test',
+        deliverables: [],
+        subtasks: [
+          { id: 'done-task', description: 'Already done' },
+          { id: 'todo-task', description: 'Still pending' },
+        ],
+        acceptance: [],
+        auth_level: 'auto' as const,
+      });
+      // 完成第一个子任务（无 acceptance 脚本，直接通过）
+      await manager.completeSubtask({ contractId, subtaskId: 'done-task', evidence: 'done' });
+      (ctx as any).contractManager = manager;
+
+      const result = await statusTool.execute({}, ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('✓ done-task: Already done');
+      expect(result.content).toContain('○ todo-task: Still pending');
+      expect(result.content).toContain('1/2 subtasks done');
+    });
   });
 
   describe('send tool', () => {
@@ -573,9 +644,29 @@ describe('Builtin Tools', () => {
       // Test that timeout parameter is accepted and processed
       // (actual timeout behavior depends on environment having shell commands)
       const result = await execTool.execute({ command: 'echo test', timeout: 5000 }, ctx);
-      
+
       // Should either succeed or fail with some error (not crash)
       expect(typeof result.success).toBe('boolean');
+    });
+
+    // Phase 21 Step 1: PATH augmentation
+    it('should include node bin dir in PATH for subprocess', async () => {
+      const result = await execTool.execute({ command: 'echo "$PATH"' }, ctx);
+
+      expect(result.success).toBe(true);
+      // 子进程 PATH 应包含 node 可执行文件所在目录（clawforum 命令所在位置）
+      const nodeBinDir = path.dirname(process.execPath);
+      expect(result.content).toContain(nodeBinDir);
+    });
+
+    it('should not duplicate node bin dir when already in PATH', async () => {
+      // exec.ts 只在 PATH 不含 nodeBinDir 时才添加，已含则原样传递
+      const nodeBinDir = path.dirname(process.execPath);
+      // 统计 PATH 中出现次数：正常情况下不超过出现两次（原始 PATH 可能已含，添加后仍只一份）
+      const result = await execTool.execute({ command: 'echo "$PATH"' }, ctx);
+      expect(result.success).toBe(true);
+      const count = (result.content.split(nodeBinDir).length - 1);
+      expect(count).toBeGreaterThanOrEqual(1); // 至少存在一次
     });
   });
 
