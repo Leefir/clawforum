@@ -26,6 +26,8 @@ export interface SubAgentOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
   toolsForLLM?: ToolDefinition[];  // Pre-filtered tool list for LLM, overrides registry.getAll()
+  idleTimeoutMs?: number;
+  onIdleTimeout?: () => void;
 }
 
 export class SubAgent {
@@ -41,6 +43,8 @@ export class SubAgent {
   private signal?: AbortSignal;
   private logPath: string;
   private toolsForLLM?: ToolDefinition[];
+  private idleTimeoutMs?: number;
+  private onIdleTimeout?: () => void;
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -55,6 +59,8 @@ export class SubAgent {
     this.signal = options.signal;
     this.logPath = `tasks/results/${this.agentId}.log`;
     this.toolsForLLM = options.toolsForLLM;
+    this.idleTimeoutMs = options.idleTimeoutMs;
+    this.onIdleTimeout = options.onIdleTimeout;
   }
 
   /**
@@ -68,6 +74,21 @@ export class SubAgent {
     const timeoutId = setTimeout(() => {
       timeoutController.abort();
     }, this.timeoutMs);
+
+    // Idle timeout: abort if no LLM activity for idleTimeoutMs
+    let idleTimerId: ReturnType<typeof setTimeout> | undefined;
+    const resetIdle = this.idleTimeoutMs
+      ? () => {
+          clearTimeout(idleTimerId);
+          idleTimerId = setTimeout(() => {
+            this.onIdleTimeout?.();
+            timeoutController.abort();
+          }, this.idleTimeoutMs!);
+        }
+      : undefined;
+
+    // 立即启动 idle 计时（等待第一个 chunk）
+    resetIdle?.();
 
     // Combine with external signal if provided
     if (this.signal) {
@@ -127,7 +148,10 @@ Work efficiently and return a clear, concise result.`;
           maxSteps: this.maxSteps,
           registry: this.registry,  // Enable parallel execution for readonly tools
           tools,                    // Enable native tool_use
+          onTextDelta: resetIdle ? () => resetIdle() : undefined,
+          onThinkingDelta: resetIdle ? () => resetIdle() : undefined,
           onToolCall: (name) => {
+            resetIdle?.();
             this.appendToLog(`Tool called: ${name}\n`);
           },
         }),
@@ -135,6 +159,7 @@ Work efficiently and return a clear, concise result.`;
       ]);
 
       clearTimeout(timeoutId);
+      clearTimeout(idleTimerId);
 
       // Log completion
       const duration = Date.now() - startTime;
@@ -146,6 +171,7 @@ Work efficiently and return a clear, concise result.`;
       return result.finalText || '[No output produced]';
     } catch (error) {
       clearTimeout(timeoutId);
+      clearTimeout(idleTimerId);
 
       if (timeoutController.signal.aborted && !(this.signal?.aborted)) {
         throw new ToolTimeoutError('subagent_run', this.timeoutMs);
