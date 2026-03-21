@@ -315,7 +315,11 @@ async function executeToolCalls(
   }
 
   // Assemble results in original order
-  return toolCalls.map((_, i) => results.get(i)!);
+  return toolCalls.map((_, i) => {
+    const r = results.get(i);
+    if (!r) throw new Error(`[loop] Missing result for tool call at index ${i}`);
+    return r;
+  });
 }
 
 /**
