@@ -365,7 +365,9 @@ describe('Tools', () => {
         timeoutMs: 50, // Tool takes 500ms, timeout at 50ms
       });
 
-      await expect(promise).rejects.toThrow(ToolTimeoutError);
+      const result = await promise;
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('timed out');
     });
 
     it('should execute readonly tools in parallel', async () => {

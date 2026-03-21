@@ -253,7 +253,7 @@ export class OpenAIAdapter implements IProviderAdapter {
     let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
     
     // Track tool calls across chunks (index -> partial data)
-    const toolCallBuffers = new Map<number, { id: string; name: string; arguments: string }>();
+    const toolCallBuffers = new Map<number, { id: string; name: string; arguments: string; started: boolean }>();
 
     try {
       while (true) {
@@ -305,31 +305,33 @@ export class OpenAIAdapter implements IProviderAdapter {
                   id: tc.id as string || '',
                   name: func?.name as string || '',
                   arguments: func?.arguments as string || '',
+                  started: false,
                 });
-                
-                // Emit tool_use_start when we have the name
-                if (func?.name) {
-                  yield {
-                    type: 'tool_use_start',
-                    toolUse: {
-                      id: tc.id as string || String(index),
-                      name: func.name as string,
-                      partialInput: '',
-                    },
-                  };
-                }
               } else {
                 // Existing tool call - accumulate arguments
                 const buf = toolCallBuffers.get(index)!;
                 if (tc.id) buf.id = tc.id as string;
                 if (func?.name) buf.name = func.name as string;
-                if (func?.arguments) {
-                  buf.arguments += func.arguments as string;
-                  yield {
-                    type: 'tool_use_delta',
-                    toolUse: { id: buf.id, name: buf.name, partialInput: func.arguments as string },
-                  };
-                }
+                if (func?.arguments) buf.arguments += func.arguments as string;
+              }
+
+              const buf = toolCallBuffers.get(index)!;
+
+              // Emit tool_use_start only when both id and name are available
+              if (!buf.started && buf.id && buf.name) {
+                buf.started = true;
+                yield {
+                  type: 'tool_use_start',
+                  toolUse: { id: buf.id, name: buf.name, partialInput: '' },
+                };
+              }
+
+              // Emit tool_use_delta for accumulated arguments
+              if (func?.arguments && buf.started) {
+                yield {
+                  type: 'tool_use_delta',
+                  toolUse: { id: buf.id, name: buf.name, partialInput: func.arguments as string },
+                };
               }
             }
           }

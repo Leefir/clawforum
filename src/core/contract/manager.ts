@@ -101,8 +101,10 @@ export class ContractManager {
     for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
       try {
         // wx flag = O_EXCL: 文件存在时原子性失败，无 TOCTOU
+        const absoluteLockPath = path.join(this.clawDir, lockPath);
+        await fsNative.promises.mkdir(path.dirname(absoluteLockPath), { recursive: true });
         await fsNative.promises.writeFile(
-          lockPath,
+          absoluteLockPath,
           JSON.stringify({ pid: process.pid, time: Date.now() }),
           { flag: 'wx' }
         );

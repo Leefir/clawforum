@@ -62,6 +62,7 @@ const createMockFs = () => ({
   writeAtomic: vi.fn().mockResolvedValue(undefined),
   append: vi.fn().mockResolvedValue(undefined),
   delete: vi.fn().mockResolvedValue(undefined),
+  move: vi.fn().mockResolvedValue(undefined),
   exists: vi.fn().mockResolvedValue(false),
   list: vi.fn().mockResolvedValue([]),
   ensureDir: vi.fn().mockResolvedValue(undefined),
@@ -95,6 +96,7 @@ describe('TaskSystem Tool Tasks', () => {
         writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
         append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
         delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
         exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
         list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
           entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
@@ -390,6 +392,7 @@ describe('TaskSystem Tool Tasks', () => {
           writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
           append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
           delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+          move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
           exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
           list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
             entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
@@ -431,6 +434,7 @@ describe('TaskSystem Tool Tasks', () => {
           writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
           append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
           delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+          move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
           exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
           list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
             entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
@@ -506,6 +510,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
         delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
         exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
         list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
           entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
@@ -696,6 +701,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
         delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
         exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
         list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
           entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))

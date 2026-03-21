@@ -5,7 +5,7 @@
  */
 
 import * as path from 'path';
-import { promises as fs } from 'fs';
+import { promises as fs, realpathSync } from 'fs';
 import type {
   IFileSystem,
   FileSystemOptions,
@@ -81,15 +81,47 @@ export class NodeFileSystem implements IFileSystem {
     }
     
     const absolute = path.resolve(this.options.baseDir, normalized);
-    
+
+    // Resolve symlinks to prevent traversal via symlinks
     if (this.enforcePermissions) {
+      const realBase = (() => {
+        try { return realpathSync(this.options.baseDir); } catch { return this.options.baseDir; }
+      })();
+
+      let realTarget: string | null = null;
+      try {
+        realTarget = realpathSync(absolute);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT' && operation === 'write') {
+          // File doesn't exist yet; check parent directory instead
+          try {
+            realTarget = realpathSync(path.dirname(absolute));
+          } catch {
+            // Parent also doesn't exist (will be created by ensureDir) — accept
+          }
+        }
+        // For read ENOENT: leave realTarget null, let caller handle missing file
+      }
+
+      if (realTarget !== null) {
+        const withinBase =
+          realTarget === realBase ||
+          realTarget.startsWith(realBase + path.sep);
+        if (!withinBase) {
+          throw new PermissionError(
+            `Symlink traversal detected: "${relativePath}" resolves outside base directory`,
+            { path: relativePath }
+          );
+        }
+      }
+
       if (operation === 'read') {
         this.permissionChecker.checkRead(absolute);
       } else {
         this.permissionChecker.checkWrite(absolute);
       }
     }
-    
+
     return absolute;
   }
   

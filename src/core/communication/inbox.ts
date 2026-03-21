@@ -147,7 +147,7 @@ export class InboxWatcher {
       
       for (const entry of entries) {
         if (entry.name.endsWith('.md')) {
-          await this.handleNewFile(entry.path);
+          await this.handleNewFile(path.join(this.pendingDir, entry.name));
         }
       }
     } catch {

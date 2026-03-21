@@ -89,7 +89,14 @@ export interface IFileSystem {
    * @throws FileNotFoundError if file doesn't exist
    */
   delete(path: string): Promise<void>;
-  
+
+  /**
+   * Move/rename a file atomically
+   * @param fromPath - Source path (relative within claw space)
+   * @param toPath - Destination path (relative within claw space)
+   */
+  move(fromPath: string, toPath: string): Promise<void>;
+
   // ========================================================================
   // Directory Operations
   // ========================================================================

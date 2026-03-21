@@ -408,4 +408,76 @@ describe('FileSystem', () => {
       }
     });
   });
+
+  describe('symlink traversal protection', () => {
+    let clawDir: string;
+    let outsideDir: string;
+
+    beforeEach(async () => {
+      clawDir = await createTempDir();
+      outsideDir = await createTempDir();
+    });
+
+    afterEach(async () => {
+      await cleanupTempDir(clawDir);
+      await cleanupTempDir(outsideDir);
+    });
+
+    it('should reject reads via symlink pointing outside clawDir', async () => {
+      // Write a "secret" file outside clawDir
+      await nativeFs.writeFile(path.join(outsideDir, 'secret.txt'), 'top secret');
+
+      // Create a symlink inside clawDir pointing to the outside file
+      await nativeFs.symlink(
+        path.join(outsideDir, 'secret.txt'),
+        path.join(clawDir, 'evil-link.txt')
+      );
+
+      const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
+
+      await expect(nodeFs.read('evil-link.txt')).rejects.toThrow(PermissionError);
+    });
+
+    it('should allow reads of normal files within clawDir', async () => {
+      await nativeFs.writeFile(path.join(clawDir, 'safe.txt'), 'safe content');
+
+      const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
+
+      const content = await nodeFs.read('safe.txt');
+      expect(content).toBe('safe content');
+    });
+
+    it('should allow reads via symlink pointing within clawDir', async () => {
+      // Target file inside clawDir
+      await nativeFs.writeFile(path.join(clawDir, 'real.txt'), 'real content');
+      // Symlink also inside clawDir
+      await nativeFs.symlink(
+        path.join(clawDir, 'real.txt'),
+        path.join(clawDir, 'link.txt')
+      );
+
+      const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
+
+      const content = await nodeFs.read('link.txt');
+      expect(content).toBe('real content');
+    });
+
+    it('should reject writes via symlink pointing outside clawDir', async () => {
+      const targetFile = path.join(outsideDir, 'target.txt');
+      await nativeFs.writeFile(targetFile, 'original');
+
+      await nativeFs.symlink(
+        targetFile,
+        path.join(clawDir, 'evil-write-link.txt')
+      );
+
+      const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
+
+      await expect(nodeFs.writeAtomic('evil-write-link.txt', 'pwned')).rejects.toThrow(PermissionError);
+
+      // Original file should be untouched
+      const original = await nativeFs.readFile(targetFile, 'utf-8');
+      expect(original).toBe('original');
+    });
+  });
 });

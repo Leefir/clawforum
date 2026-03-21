@@ -175,12 +175,12 @@ export async function daemonCommand(name: string): Promise<void> {
   // shutdown
   const shutdown = async (signal: string) => {
     stop();
-    streamWriter.close();
     try {
       await runtime.stop();
     } catch {
       // 忽略停止错误
     }
+    streamWriter.close();
     // 清理 PID 文件和 lockfile
     try { fsNative.unlinkSync(pidFile); } catch {}
     try { fsNative.unlinkSync(lockFile); } catch {}

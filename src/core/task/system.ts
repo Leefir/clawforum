@@ -319,12 +319,10 @@ export class TaskSystem {
    * Move task file from pending to running directory
    */
   private async movePendingToRunning(taskId: string): Promise<void> {
-    const pendingPath = `tasks/pending/${taskId}.json`;
-    const runningPath = `tasks/running/${taskId}.json`;
-    
-    const content = await this.fs.read(pendingPath);
-    await this.fs.writeAtomic(runningPath, content);
-    await this.fs.delete(pendingPath);
+    await this.fs.move(
+      `tasks/pending/${taskId}.json`,
+      `tasks/running/${taskId}.json`
+    );
   }
 
   /**
@@ -637,12 +635,10 @@ export class TaskSystem {
    */
   private async moveTaskToDone(taskId: string): Promise<void> {
     try {
-      const runningPath = `tasks/running/${taskId}.json`;
-      const donePath = `tasks/done/${taskId}.json`;
-      
-      const content = await this.fs.read(runningPath);
-      await this.fs.writeAtomic(donePath, content);
-      await this.fs.delete(runningPath);
+      await this.fs.move(
+        `tasks/running/${taskId}.json`,
+        `tasks/done/${taskId}.json`
+      );
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.monitor.log('error', { taskId, error: errMsg });
