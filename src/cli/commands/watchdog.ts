@@ -345,6 +345,23 @@ function maybeCronArchive(): void {
     }
   }
   
+  // 清理 claws/*/outbox/done/ 中的过期文件（M6）
+  if (fs.existsSync(clawsDir)) {
+    for (const clawId of fs.readdirSync(clawsDir)) {
+      const outboxDoneDir = path.join(clawsDir, clawId, 'outbox', 'done');
+      if (!fs.existsSync(outboxDoneDir)) continue;
+      for (const file of fs.readdirSync(outboxDoneDir)) {
+        const filePath = path.join(outboxDoneDir, file);
+        try {
+          const stat = fs.statSync(filePath);
+          if (stat.mtimeMs < thirtyDaysAgo) {
+            fs.unlinkSync(filePath);
+          }
+        } catch { /* skip */ }
+      }
+    }
+  }
+  
   lastArchiveDate = today;
   log('[watchdog] Daily archive complete');
 }
@@ -487,7 +504,7 @@ export async function startCommand(): Promise<void> {
   
   // Wait for PID file to be written
   let attempts = 0;
-  while (!isWatchdogAlive() && attempts < 10) {
+  while (!isWatchdogAlive() && attempts < 30) {
     await setTimeout(100);
     attempts++;
   }

@@ -526,9 +526,17 @@ export class ContractManager {
         cwd: this.clawDir,
       });
       return { passed: true, feedback: output };
-    } catch (error) {
+    } catch (error: any) {
+      // 区分：超时、权限错误 vs 脚本正常退出非零
+      const isTimeout = error?.killed === true || error?.signal === 'SIGKILL';
+      const isPermission = error?.code === 'EACCES';
+      const prefix = isTimeout
+        ? 'Acceptance script timed out'
+        : isPermission
+        ? 'Acceptance script permission denied'
+        : 'Acceptance failed';
       const stderr = error instanceof Error ? error.message : String(error);
-      return { passed: false, feedback: `Acceptance failed (cwd: ${this.clawDir}):\n${stderr}` };
+      return { passed: false, feedback: `${prefix} (cwd: ${this.clawDir}):\n${stderr}` };
     }
   }
 
