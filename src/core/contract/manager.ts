@@ -60,6 +60,7 @@ export interface ProgressData {
 export interface AcceptanceResult {
   passed: boolean;
   feedback: string;
+  allCompleted?: boolean;  // 新增：仅 passed=true 时有意义
 }
 
 export class ContractManager {
@@ -350,10 +351,18 @@ export class ContractManager {
 
       // Archive and notify Motion outside the lock (best-effort)
       if (allCompleted) {
-        await this.moveToArchive(contractId);
-        const yaml = await this.loadContractYaml(contractId);
-        this.notifyMotionCompletion(contractId, yaml.title);
+        const title = contractYaml.title;
+        try {
+          await this.moveToArchive(contractId);
+        } catch (err) {
+          console.error('[contract] moveToArchive failed:', err);
+          // 继续执行 notify，不让 archive 失败阻断通知
+        }
+        this.notifyMotionCompletion(contractId, title);
       }
+      
+      // 告知调用方最终状态
+      result = { ...result, allCompleted };
     }
 
     return result;

@@ -72,31 +72,16 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
     });
 
     if (result.passed) {
-      const complete = await contractManager.isComplete(active.id);
-      if (complete) {
+      if (result.allCompleted) {
         return {
           success: true,
           content: `Subtask ${subtaskId} accepted. All subtasks complete!`,
           metadata: { contractId: active.id, subtaskId },
         };
       }
-      // Reload contract to get latest state (including just-completed subtask)
+      // 从 active 契约中读取剩余列表（此时契约仍在 active/，未 archive）
       const updated = await contractManager.loadActive();
-      if (!updated) {
-        return {
-          success: true,
-          content: `Subtask ${subtaskId} accepted.`,
-          metadata: { contractId: active.id, subtaskId },
-        };
-      }
-      const remaining = updated.subtasks.filter(s => s.status !== 'completed');
-      if (remaining.length === 0) {
-        return {
-          success: true,
-          content: `Subtask ${subtaskId} accepted. All subtasks complete!`,
-          metadata: { contractId: active.id, subtaskId },
-        };
-      }
+      const remaining = updated?.subtasks.filter(s => s.status !== 'completed') ?? [];
       const remainingList = remaining.map(s => `- ${s.id}: ${s.description}`).join('\n');
       return {
         success: true,
