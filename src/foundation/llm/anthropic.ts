@@ -261,6 +261,8 @@ export class AnthropicAdapter implements IProviderAdapter {
     const decoder = new TextDecoder();
     let buffer = '';
     let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+    let currentToolId = '';
+    let currentToolName = '';
 
     try {
       while (true) {
@@ -289,11 +291,13 @@ export class AnthropicAdapter implements IProviderAdapter {
           if (event.type === 'content_block_start') {
             const block = event.content_block as Record<string, unknown>;
             if (block.type === 'tool_use') {
+              currentToolId = block.id as string ?? '';
+              currentToolName = block.name as string ?? '';
               yield {
                 type: 'tool_use_start',
                 toolUse: {
-                  id: block.id as string,
-                  name: block.name as string,
+                  id: currentToolId,
+                  name: currentToolName,
                   partialInput: '',
                 },
               };
@@ -307,7 +311,7 @@ export class AnthropicAdapter implements IProviderAdapter {
             } else if (delta.type === 'input_json_delta') {
               yield {
                 type: 'tool_use_delta',
-                toolUse: { id: '', name: '', partialInput: delta.partial_json as string },
+                toolUse: { id: currentToolId, name: currentToolName, partialInput: delta.partial_json as string },
               };
             }
           } else if (event.type === 'message_delta') {

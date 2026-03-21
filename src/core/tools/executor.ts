@@ -282,12 +282,12 @@ export class ToolExecutorImpl implements IToolExecutor {
     try {
       result = await Promise.race([executionPromise, timeoutPromise]);
     } catch (err) {
-      // Execution failed - create error result for audit
+      // Execution failed - create error result for LLM
       result = {
         success: false,
         content: err instanceof Error ? err.message : String(err),
       };
-      throw err; // Re-throw after audit
+      // finally 块完成 audit logging 后走 return result!
     } finally {
       // Clean up timeout timer
       if (timeoutId !== undefined) {
