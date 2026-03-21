@@ -133,6 +133,7 @@ Work efficiently and return a clear, concise result.`;
           reject(new ToolTimeoutError('subagent_run', this.timeoutMs));
         }, { once: true });
       });
+      timeoutPromise.catch(() => {}); // 防止 race 胜出后的孤立 rejection
 
       const result = await Promise.race([
         runReact({

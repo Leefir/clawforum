@@ -104,10 +104,9 @@ export class TaskSystem {
           try {
             const content = await this.fs.read(entry.path);
             const task = JSON.parse(content) as SubAgentTask | ToolTask;
-            // Move to pending
+            // Move to pending (atomic rename)
             const pendingPath = `tasks/pending/${task.id}.json`;
-            await this.fs.writeAtomic(pendingPath, content);
-            await this.fs.delete(entry.path);
+            await this.fs.move(entry.path, pendingPath);
             this.pendingQueue.push(task);
             this.monitor.log('task_recovered', {
               taskId: task.id,
