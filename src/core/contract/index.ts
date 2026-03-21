@@ -7,3 +7,5 @@ export {
   type ProgressData,
   type AcceptanceResult,
 } from './manager.js';
+
+export { ContractCreator } from './creator.js';
