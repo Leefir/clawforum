@@ -1,27 +1,27 @@
 /**
- * MotionRuntime - 管理者运行时
- * 
- * Motion 是 Clawforum 的管理者，通过 exec 调用 CLI 管理其他 Claw。
- * 系统提示注入顺序与 Claw 不同：
+ * MotionRuntime - manager runtime
+ *
+ * Motion is the manager of Clawforum. It manages other Claws via CLI calls through exec.
+ * The system prompt injection order differs from regular Claws:
  * AGENTS.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
- * 
- * 注：HEARTBEAT.md 不在 system prompt 中，只在心跳触发时通过 inbox 消息注入
+ *
+ * Note: HEARTBEAT.md is not included in the system prompt; it is injected only via inbox message when a heartbeat fires.
  */
 
 import { ClawRuntime, type ClawRuntimeOptions } from '../runtime.js';
 
 /**
- * MotionRuntime 选项（继承 ClawRuntimeOptions）
+ * MotionRuntime options (extends ClawRuntimeOptions)
  */
 export interface MotionRuntimeOptions extends ClawRuntimeOptions {}
 
 /**
- * MotionRuntime - 管理者运行时
- * 
- * 特点：
- * - 系统提示注入顺序包含 SOUL.md 和 REVIEW.md
- * - 使用与其他 Claw 相同的工具集（exec 是核心）
- * - 无专属工具，通过 exec 调用 CLI 管理其他 Claw
+ * MotionRuntime - manager runtime
+ *
+ * Characteristics:
+ * - System prompt injection order includes SOUL.md and REVIEW.md
+ * - Uses the same toolset as other Claws (exec is the core tool)
+ * - No dedicated tools; manages other Claws via CLI through exec
  */
 export class MotionRuntime extends ClawRuntime {
   constructor(options: MotionRuntimeOptions) {

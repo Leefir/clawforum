@@ -20,7 +20,7 @@ import {
 import { runChatViewport } from './chat-viewport.js';
 
 /**
- * 格式化相对时间（毫秒转为可读字符串）
+ * Format relative time (milliseconds to a human-readable string)
  */
 function formatRelativeTime(ms: number): string {
   const mins = Math.floor(ms / 60000);
@@ -28,6 +28,29 @@ function formatRelativeTime(ms: number): string {
   if (mins < 60) return `${mins}m`;
   const hours = Math.floor(mins / 60);
   return `${hours}h`;
+}
+
+// LLM 输出事件类型（与 watchdog 一致）
+const LLM_OUTPUT_EVENTS = new Set(['thinking_delta', 'text_delta', 'tool_call']);
+
+/**
+ * 从 stream.jsonl 读取最后活跃时间（统一与 watchdog 指标）
+ */
+function getLastActiveMs(clawDir: string): number | undefined {
+  const streamFile = path.join(clawDir, 'dialog', 'stream.jsonl');
+  try {
+    const lines = fs.readFileSync(streamFile, 'utf-8').trim().split('\n').filter(Boolean);
+    let last: number | undefined;
+    for (const line of lines) {
+      try {
+        const ev = JSON.parse(line);
+        if (LLM_OUTPUT_EVENTS.has(ev.type) && typeof ev.ts === 'number') {
+          last = ev.ts;
+        }
+      } catch { /* skip */ }
+    }
+    return last;
+  } catch { return undefined; }
 }
 
 import { ProcessManager } from '../../foundation/process/manager.js';
@@ -48,7 +71,7 @@ export async function createCommand(name: string): Promise<void> {
   
   const clawDir = getClawDir(name);
   
-  // Create directory structure (使用共享常量)
+  // Create directory structure (using shared constants)
   for (const dir of CLAW_SUBDIRS) {
     fs.mkdirSync(path.join(clawDir, dir), { recursive: true });
   }
@@ -66,57 +89,57 @@ export async function createCommand(name: string): Promise<void> {
   
   // Create AGENTS.md template
   const agentsMdPath = path.join(clawDir, 'AGENTS.md');
-  const agentsTemplate = `你是 ${name}，一个 AI 助手。
+  const agentsTemplate = `You are ${name}, an AI assistant.
 
-## 契约工作流
+## Contract Workflow
 
-当你收到契约任务时，系统会在 prompt 中注入契约详情（标题、目标、子任务列表）。
+When you receive a contract task, the system will inject contract details (title, objectives, subtask list) into the prompt.
 
-### 完成子任务
+### Completing Subtasks
 
-每完成一个子任务，**必须调用 done tool**：
+After completing each subtask, **you must call the done tool**:
 
 \`\`\`
-done: { "subtask": "<subtask-id>", "evidence": "完成说明" }
+done: { "subtask": "<subtask-id>", "evidence": "completion description" }
 \`\`\`
 
-**警告：禁止直接修改 progress.json**——直接写文件会绕过验收和通知机制，Motion 不会收到完成通知。
+**Warning: do not directly modify progress.json** — writing the file directly bypasses the acceptance and notification mechanism, and Motion will not receive a completion notification.
 
-### 工作目录
+### Working Directory
 
-- **所有工具**：路径均从 clawDir 根目录开始，访问工作文件需加 \`clawspace/\` 前缀
-  - exec：\`exec: curl -o clawspace/file.pdf URL\`
-  - read/write/ls：\`read: clawspace/file.pdf\`
+- **All tools**: paths are relative to the clawDir root; prefix working files with \`clawspace/\`
+  - exec: \`exec: curl -o clawspace/file.pdf URL\`
+  - read/write/ls: \`read: clawspace/file.pdf\`
 
-## 文件操作规范
+## File Operation Guidelines
 
-- **写文件**：始终使用 \`write\` 工具，不要用 \`exec: cat/echo/tee\` 写文件
-  - \`write\` 自动备份到 .versions/，exec 不会
-  - \`write\` 有大小限制保护，exec 没有
-- **读文件**：使用 \`read\` 工具，不要用 \`exec: cat\`
-  - \`read\` 有路径白名单、行数上限（200行）、字符上限（8000字符）三层保护
-  - \`exec: cat\` 绕过所有保护，可能把超大文件整个灌进 context
-- \`exec\` 仅用于：shell 命令执行、进程管理
-  - **同步模式**（默认）：阻塞等待结果，最长 120 秒
-  - **异步模式**：加 \`"async": true\`，立即返回 taskId，结果经由 inbox 送达
-    - 适用场景：下载大文件、长时间脚本（>30 秒）
-    - 示例：\`exec: { "command": "curl -o report.pdf https://...", "async": true }\`
-    - 结果消息：from=task_system，content 含 taskId + 执行结果
-  - ⚠️ exec 为**非幂等**操作——异步重试可能导致命令重复执行，确认幂等再重试
+- **Writing files**: always use the \`write\` tool, do not write files with \`exec: cat/echo/tee\`
+  - \`write\` automatically backs up to .versions/; exec does not
+  - \`write\` enforces size limits; exec does not
+- **Reading files**: use the \`read\` tool, do not use \`exec: cat\`
+  - \`read\` has three layers of protection: path allowlist, line limit (200 lines), and character limit (8000 chars)
+  - \`exec: cat\` bypasses all protections and may dump an oversized file entirely into the context
+- \`exec\` is only for: shell command execution and process management
+  - **Synchronous mode** (default): blocks until result, up to 120 seconds
+  - **Async mode**: add \`"async": true\` to return a taskId immediately; results are delivered via inbox
+    - Use cases: downloading large files, long-running scripts (>30 seconds)
+    - Example: \`exec: { "command": "curl -o report.pdf https://...", "async": true }\`
+    - Result message: from=task_system, content contains taskId + execution result
+  - ⚠️ exec is a **non-idempotent** operation — async retries may cause the command to run multiple times; confirm idempotency before retrying
 
-## 与 Motion 通信
+## Communicating with Motion
 
-使用 \`send\` 工具向 Motion 发送消息，消息写入 \`outbox/pending/\`，Motion 会定期查收。
+Use the \`send\` tool to send messages to Motion; messages are written to \`outbox/pending/\` and Motion polls them periodically.
 
-类型：\`report\`（进展汇报）、\`question\`（请求帮助）、\`result\`（任务结果）、\`error\`（错误报告）
+Types: \`report\` (progress update), \`question\` (request for help), \`result\` (task result), \`error\` (error report)
 
-示例：
+Examples:
 \`\`\`
-send: { "type": "report", "content": "子任务 create-script 已完成" }
-send: { "type": "question", "content": "找不到目标文件，请确认路径", "priority": "high" }
+send: { "type": "report", "content": "subtask create-script completed" }
+send: { "type": "question", "content": "Cannot find target file, please confirm the path", "priority": "high" }
 \`\`\`
 
-请高效、准确地完成任务。
+Complete tasks efficiently and accurately.
 `;
   fs.writeFileSync(agentsMdPath, agentsTemplate);
   
@@ -147,7 +170,7 @@ export async function chatCommand(name: string): Promise<void> {
         console.log(`Starting Claw "${name}" daemon...`);
         const pid = await pm.spawn(name, clawDir);
         console.log(`Started (PID: ${pid})`);
-        // 等待 daemon 初始化
+        // Wait for daemon to initialize
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
     },
@@ -159,7 +182,7 @@ export async function chatCommand(name: string): Promise<void> {
 // ============================================================================
 
 /**
- * 停止 Claw 守护进程
+ * Stop the Claw daemon process
  */
 export async function stopCommand(name: string): Promise<void> {
   loadGlobalConfig();
@@ -175,7 +198,7 @@ export async function stopCommand(name: string): Promise<void> {
   const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
   const processManager = new ProcessManager(nodeFs, baseDir);
 
-  // 检查是否运行
+  // Check if running
   if (!processManager.isAlive(name)) {
     console.log(`Claw "${name}" is not running`);
     return;
@@ -193,7 +216,7 @@ export async function stopCommand(name: string): Promise<void> {
 }
 
 /**
- * 列出所有 Claw 及其状态
+ * List all Claws and their status
  */
 export async function listCommand(): Promise<void> {
   loadGlobalConfig();
@@ -205,7 +228,7 @@ export async function listCommand(): Promise<void> {
   const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
   const processManager = new ProcessManager(nodeFs, baseDir);
 
-  // 辅助：检查契约状态
+  // Helper: check contract status
   function getContractStatus(clawPath: string): string {
     for (const sub of ['active', 'paused']) {
       try {
@@ -216,28 +239,27 @@ export async function listCommand(): Promise<void> {
     return '-';
   }
 
-  // 辅助：统计 outbox 未读
+  // Helper: count unread outbox messages
   function getOutboxCount(clawPath: string): number {
     try {
       return fs.readdirSync(path.join(clawPath, 'outbox', 'pending')).length;
     } catch { return 0; }
   }
 
-  // 辅助：格式化相对时间
+  // Helper: format relative last-active time
   function formatLastActive(clawPath: string): string {
-    try {
-      const stat = fs.statSync(path.join(clawPath, 'dialog', 'current.json'));
-      const ms = Date.now() - stat.mtimeMs;
-      const mins = Math.floor(ms / 60000);
-      if (mins < 1) return '<1m';
-      if (mins < 60) return `${mins}m`;
-      const hours = Math.floor(mins / 60);
-      return `${hours}h`;
-    } catch { return '-'; }
+    const ms = getLastActiveMs(clawPath);
+    if (ms === undefined) return '-';
+    const age = Date.now() - ms;
+    const mins = Math.floor(age / 60000);
+    if (mins < 1) return '<1m';
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    return `${hours}h`;
   }
 
   try {
-    // 确保 claws 目录存在
+    // Ensure claws directory exists
     if (!fs.existsSync(clawsDir)) {
       fs.mkdirSync(clawsDir, { recursive: true });
     }
@@ -262,7 +284,7 @@ export async function listCommand(): Promise<void> {
           try {
             const pidFile = path.join(clawPath, 'status', 'pid');
             pid = fs.readFileSync(pidFile, 'utf-8').trim();
-          } catch { /* 忽略读取错误 */ }
+          } catch { /* ignore read errors */ }
         }
 
         claws.push({
@@ -281,7 +303,7 @@ export async function listCommand(): Promise<void> {
       return;
     }
 
-    // 打印表格
+    // Print table
     console.log('\nClaw List:');
     console.log('─'.repeat(80));
     console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)} ${'Contract'.padEnd(10)} ${'Outbox'.padEnd(8)} ${'LastActive'.padEnd(10)}`);
@@ -302,7 +324,7 @@ export async function listCommand(): Promise<void> {
 }
 
 /**
- * 显示 Claw 健康状态（实时读取目录）
+ * Display Claw health status (reads directory in real time)
  */
 export async function healthCommand(name: string): Promise<void> {
   loadGlobalConfig();
@@ -321,19 +343,19 @@ export async function healthCommand(name: string): Promise<void> {
 
   const isRunning = processManager.isAlive(name);
 
-  // 实时读 inbox/outbox pending
+  // Read inbox/outbox pending counts in real time
   let inboxPending = 0;
   let outboxPending = 0;
   try {
     const entries = fs.readdirSync(path.join(clawDir, 'inbox', 'pending'));
     inboxPending = entries.length;
-  } catch { /* 目录不存在 */ }
+  } catch { /* directory does not exist */ }
   try {
     const entries = fs.readdirSync(path.join(clawDir, 'outbox', 'pending'));
     outboxPending = entries.length;
-  } catch { /* 目录不存在 */ }
+  } catch { /* directory does not exist */ }
 
-  // 检查契约状态
+  // Check contract status
   let contractStatus = 'none';
   for (const sub of ['active', 'paused']) {
     try {
@@ -347,13 +369,12 @@ export async function healthCommand(name: string): Promise<void> {
     } catch { /* skip */ }
   }
 
-  // 最后活跃时间
+  // Last active time（统一使用 stream.jsonl 指标）
   let lastActive = '-';
-  try {
-    const stat = fs.statSync(path.join(clawDir, 'dialog', 'current.json'));
-    const age = Date.now() - stat.mtimeMs;
-    lastActive = formatRelativeTime(age);
-  } catch { /* skip */ }
+  const lastMs = getLastActiveMs(clawDir);
+  if (lastMs !== undefined) {
+    lastActive = formatRelativeTime(Date.now() - lastMs);
+  }
 
   console.log(`\nHealth Check: ${name}`);
   console.log('─'.repeat(40));
@@ -362,6 +383,7 @@ export async function healthCommand(name: string): Promise<void> {
   console.log(`outbox_pending: ${outboxPending}`);
   console.log(`contract: ${contractStatus}`);
   console.log(`last_active: ${lastActive}`);
+  console.log(`as_of: ${new Date().toISOString()}`);
 }
 
 // ============================================================================
@@ -369,7 +391,7 @@ export async function healthCommand(name: string): Promise<void> {
 // ============================================================================
 
 /**
- * 向 Claw 发送 inbox 消息
+ * Send an inbox message to a Claw
  */
 export async function sendCommand(
   name: string, 
@@ -386,7 +408,7 @@ export async function sendCommand(
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
   
-  // 创建 transport（workspaceDir = baseDir，即 ~/.clawforum）
+  // Create transport (workspaceDir = baseDir, i.e. ~/.clawforum)
   const transport = new LocalTransport({ workspaceDir: baseDir });
   await transport.initialize();
 
@@ -412,7 +434,7 @@ export async function sendCommand(
 // ============================================================================
 
 /**
- * 读取并消费 Claw outbox 消息
+ * Read and consume Claw outbox messages
  */
 export async function outboxCommand(
   name: string,
@@ -429,27 +451,27 @@ export async function outboxCommand(
   const pendingDir = path.join(clawDir, 'outbox', 'pending');
   const doneDir = path.join(clawDir, 'outbox', 'done');
 
-  // 读取 pending 文件
+  // Read pending files
   let files: string[] = [];
   try {
     const allFiles = await fs.promises.readdir(pendingDir);
     files = allFiles.filter(f => f.endsWith('.md')).sort();
   } catch {
-    console.log('outbox 为空');
+    console.log('outbox is empty');
     return;
   }
 
   if (files.length === 0) {
-    console.log('outbox 为空');
+    console.log('outbox is empty');
     return;
   }
 
-  // 限制读取数量（默认 1）
+  // Limit number of messages read (default 1)
   const limit = options?.limit ?? 1;
   const toRead = files.slice(0, limit);
   const remaining = files.length - toRead.length;
 
-  // 读取并输出
+  // Read and output
   const results: string[] = [];
   for (const fileName of toRead) {
     const filePath = path.join(pendingDir, fileName);
@@ -457,7 +479,7 @@ export async function outboxCommand(
       const content = await fs.promises.readFile(filePath, 'utf-8');
       results.push(content);
 
-      // 移入 done/
+      // Move to done/
       try {
         await fs.promises.mkdir(doneDir, { recursive: true });
         await fs.promises.rename(filePath, path.join(doneDir, `${Date.now()}_${fileName}`));
@@ -465,17 +487,17 @@ export async function outboxCommand(
         console.warn(`[outbox] Failed to move ${fileName} to done: ${err instanceof Error ? err.message : String(err)}`);
       }
     } catch {
-      // 读取失败跳过
+      // skip on read failure
     }
   }
 
-  // 输出
+  // Output
   for (const content of results) {
     console.log(content);
     console.log('---');
   }
 
   if (remaining > 0) {
-    console.log(`（还有 ${remaining} 条未读消息）`);
+    console.log(`(${remaining} more unread message(s))`);
   }
 }

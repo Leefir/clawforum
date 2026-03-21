@@ -1,10 +1,10 @@
 /**
- * ContractManager - 契约生命周期管理
- * 
- * 管理契约的加载、进度追踪、验收和状态转换。
+ * ContractManager - Contract lifecycle management
+ *
+ * Manages contract loading, progress tracking, acceptance, and status transitions.
  */
 
-// TODO(phase3): 实现契约依赖检查 - MVP 有 check_dependencies() 方法（契约 A 完成后才启动 B）
+// TODO(phase3): Implement contract dependency checks - MVP has check_dependencies() method (contract B starts only after contract A completes)
 
 import * as yaml from 'js-yaml';
 import { randomUUID } from 'crypto';
@@ -17,14 +17,14 @@ import { ToolError } from '../../types/errors.js';
 import { execSync } from 'child_process';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS } from '../../constants.js';
 
-// 契约默认值常量
+// Contract default value constants
 const CONTRACT_DEFAULTS = {
   schema_version: 1,
   auth_level: 'auto' as const,
   deliverables: [] as string[],
 };
 
-// YAML 契约文件结构（导出供 CLI 使用）
+// YAML contract file structure (exported for CLI use)
 export interface ContractYaml {
   schema_version?: number;
   id?: string;
@@ -43,7 +43,7 @@ export interface ContractYaml {
   auth_level?: 'auto' | 'notify' | 'confirm';
 }
 
-// 进度数据结构
+// Progress data structure
 export interface ProgressData {
   contract_id: string;
   status: ContractStatus;
@@ -77,7 +77,7 @@ export class ContractManager {
   }
 
   /**
-   * 返回契约实际所在目录前缀（active、paused 或 archive）
+   * Returns the directory prefix where the contract currently resides (active, paused, or archive)
    */
   private async contractDir(contractId: string): Promise<string> {
     if (await this.fs.exists(`${this.activeDir}/${contractId}/progress.json`)) {
@@ -93,22 +93,22 @@ export class ContractManager {
   }
 
   /**
-   * 获取文件锁（排他创建模式）
-   * 使用 writeAtomic + exists 检查模拟排他创建
+   * Acquire a file lock (exclusive creation mode)
+   * Uses writeAtomic + exists check to simulate exclusive creation
    */
   private async acquireLock(lockPath: string): Promise<void> {
     for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
       try {
-        // 检查锁是否已存在
+        // Check if lock already exists
         const exists = await this.fs.exists(lockPath);
         if (exists) {
           throw new Error('Lock exists');
         }
-        // 尝试创建锁文件（原子写入）
+        // Attempt to create the lock file (atomic write)
         await this.fs.writeAtomic(lockPath, JSON.stringify({ pid: process.pid, time: Date.now() }));
-        return; // 成功获取锁
+        return; // Lock acquired successfully
       } catch {
-        // 锁已存在或竞争失败，等待后重试
+        // Lock already exists or contention failed; wait and retry
         if (i < LOCK_MAX_RETRIES - 1) {
           await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY_MS));
         }
@@ -118,18 +118,18 @@ export class ContractManager {
   }
 
   /**
-   * 释放文件锁
+   * Release the file lock
    */
   private async releaseLock(lockPath: string): Promise<void> {
     try {
       await this.fs.delete(lockPath);
     } catch {
-      // 忽略删除失败（可能已被其他进程清理）
+      // Ignore deletion failure (may have already been cleaned up by another process)
     }
   }
 
   /**
-   * 带锁保护的 progress.json 更新
+   * Lock-protected progress.json update
    */
   private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
     const dir = await this.contractDir(contractId);
@@ -143,13 +143,13 @@ export class ContractManager {
   }
 
   /**
-   * 加载当前活跃契约（返回 active/ 目录中最新的契约）
+   * Load the currently active contract (returns the most recent contract in the active/ directory)
    */
   async loadActive(): Promise<Contract | null> {
     const exists = await this.fs.exists(this.activeDir);
     if (!exists) return null;
 
-    // 扫描 contract/active/ 目录——里面的契约就是活跃的（不检查 status 字段）
+    // Scan the contract/active/ directory — contracts inside are active (do not check the status field)
     const entries = await this.fs.list(this.activeDir, { includeDirs: true });
     
     let latest: { name: string; startedAt: string } | null = null;
@@ -163,13 +163,13 @@ export class ContractManager {
 
       try {
         const progressData = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
-        // active/ 目录里的契约就是活跃的——信任目录位置，不检查 status 字段
+        // Contracts in the active/ directory are active — trust directory location, do not check the status field
         const startedAt = progressData.started_at ?? '';
         if (!latest || startedAt > latest.startedAt) {
           latest = { name: entry.name, startedAt };
         }
       } catch (error) {
-        // 区分文件不存在（ENOENT，正常跳过）vs 其他错误（JSON 解析失败、损坏等）
+        // Distinguish file-not-found (ENOENT, skip normally) from other errors (JSON parse failure, corruption, etc.)
         const code = (error as NodeJS.ErrnoException).code;
         if (code !== 'ENOENT') {
           console.warn(`[contract] progress.json corrupted: ${entry.name}`, error);
@@ -189,7 +189,7 @@ export class ContractManager {
   }
 
   /**
-   * 加载当前暂停的契约（返回 paused/ 目录中最新的契约）
+   * Load the currently paused contract (returns the most recent contract in the paused/ directory)
    */
   async loadPaused(): Promise<Contract | null> {
     const exists = await this.fs.exists(this.pausedDir);
@@ -220,12 +220,12 @@ export class ContractManager {
   }
 
   /**
-   * 创建新契约
+   * Create a new contract
    */
   async create(contractYaml: ContractYaml): Promise<string> {
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
 
-    // 归档已有的活跃契约（避免多个 running 契约冲突）
+    // Archive any existing active contract (prevents conflicts with multiple running contracts)
     const existing = await this.loadActive();
     if (existing && existing.id !== contractId) {
       console.log(`[contract] Archiving existing contract ${existing.id} for new contract ${contractId}`);
@@ -234,7 +234,7 @@ export class ContractManager {
 
     await this.fs.ensureDir(`${this.activeDir}/${contractId}`);
 
-    // 写 contract.yaml（填充默认值，id 写入确保一致）
+    // Write contract.yaml (populate defaults; write id to ensure consistency)
     const content = yaml.dump({
       schema_version: contractYaml.schema_version ?? CONTRACT_DEFAULTS.schema_version,
       id: contractId,
@@ -247,7 +247,7 @@ export class ContractManager {
     });
     await this.fs.writeAtomic(`${this.activeDir}/${contractId}/contract.yaml`, content);
 
-    // 写初始 progress.json
+    // Write initial progress.json
     const progress: ProgressData = {
       contract_id: contractId,
       status: 'running',
@@ -267,7 +267,7 @@ export class ContractManager {
   }
 
   /**
-   * 读取契约的进度
+   * Read the progress of a contract
    */
   async getProgress(contractId: string): Promise<ProgressData> {
     const dir = await this.contractDir(contractId);
@@ -277,7 +277,7 @@ export class ContractManager {
   }
 
   /**
-   * 标记子任务完成，触发验收
+   * Mark a subtask as complete and trigger acceptance
    */
   async completeSubtask(params: {
     contractId: string;
@@ -287,34 +287,34 @@ export class ContractManager {
   }): Promise<AcceptanceResult> {
     const { contractId, subtaskId, evidence, artifacts } = params;
 
-    // 加载契约 YAML 获取验收配置
+    // Load contract YAML to get acceptance configuration
     const contractYaml = await this.loadContractYaml(contractId);
     
-    // 执行验收
+    // Run acceptance check
     const acceptanceConfig = contractYaml.acceptance?.find(
       a => a.subtask_id === subtaskId
     );
 
     let result: AcceptanceResult;
     if (!acceptanceConfig) {
-      // 无验收配置，直接通过
+      // No acceptance criteria configured; pass immediately
       result = { passed: true, feedback: 'No acceptance criteria configured' };
     } else if (acceptanceConfig.type === 'script') {
       result = await this.runScriptAcceptance(acceptanceConfig.command || '');
     } else {
-      // llm 类型 - Phase 2 实现
+      // llm type - implemented in Phase 2
       result = { passed: true, feedback: 'LLM acceptance not implemented in Phase 1' };
     }
 
     if (result.passed) {
       let allCompleted = false;
       
-      // 使用文件锁保护 read-modify-write
+      // Use file lock to protect read-modify-write
       await this.withProgressLock(contractId, async () => {
-        // 重新读取进度（在锁内获取最新状态）
+        // Re-read progress inside the lock to get the latest state
         const progress = await this.getProgress(contractId);
         
-        // 检查 subtaskId 是否存在
+        // Verify subtaskId exists
         if (!progress.subtasks[subtaskId]) {
           const validIds = Object.keys(progress.subtasks).join(', ');
           result = {
@@ -331,11 +331,11 @@ export class ContractManager {
           artifacts,
         };
 
-        // 检查所有子任务是否完成
+        // Check whether all subtasks are complete
         allCompleted = await this.checkAllCompleted(contractId, progress);
         if (allCompleted) {
           progress.status = 'completed';
-          // 更新契约状态
+          // Update contract status
           await this.updateContractStatus(contractId, 'completed');
         }
 
@@ -348,7 +348,7 @@ export class ContractManager {
         });
       });
 
-      // 锁外归档和通知 Motion（best-effort）
+      // Archive and notify Motion outside the lock (best-effort)
       if (allCompleted) {
         await this.moveToArchive(contractId);
         const yaml = await this.loadContractYaml(contractId);
@@ -360,21 +360,21 @@ export class ContractManager {
   }
 
   /**
-   * 暂停契约（从 active/ 移到 paused/）
+   * Pause a contract (move from active/ to paused/)
    */
   async pause(contractId: string, checkpointNote: string): Promise<void> {
     const dir = await this.contractDir(contractId);
     if (dir !== this.activeDir) {
       throw new ToolError(`Cannot pause contract "${contractId}": not in active/`);
     }
-    // 锁内更新 progress
+    // Update progress inside the lock
     await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
       progress.status = 'paused';
       progress.checkpoint = checkpointNote;
       await this.saveProgress(contractId, progress);
     });
-    // 移动目录表达状态
+    // Move directory to reflect the new status
     await this.fs.ensureDir(this.pausedDir);
     await this.fs.move(
       `${this.activeDir}/${contractId}`,
@@ -384,7 +384,7 @@ export class ContractManager {
   }
 
   /**
-   * 恢复契约（从 paused/ 移到 active/）
+   * Resume a contract (move from paused/ to active/)
    */
   async resume(contractId: string): Promise<Contract> {
     const dir = await this.contractDir(contractId);
@@ -406,7 +406,7 @@ export class ContractManager {
   }
 
   /**
-   * 取消契约（从 active/ 或 paused/ 移到 archive/）
+   * Cancel a contract (move from active/ or paused/ to archive/)
    */
   async cancel(contractId: string, reason: string): Promise<void> {
     const dir = await this.contractDir(contractId);
@@ -425,18 +425,18 @@ export class ContractManager {
   }
 
   /**
-   * 将契约从 active/ 或 paused/ 移到 archive/
+   * Move a contract from active/ or paused/ to archive/
    */
   private async moveToArchive(contractId: string): Promise<void> {
     const dir = await this.contractDir(contractId);
-    if (dir === this.archiveDir) return; // 已在 archive
+    if (dir === this.archiveDir) return; // Already in archive
     const dst = `${this.archiveDir}/${contractId}`;
     await this.fs.ensureDir(this.archiveDir);
     await this.fs.move(`${dir}/${contractId}`, dst);
   }
 
   /**
-   * 检查所有子任务是否完成
+   * Check whether all subtasks are complete
    */
   async isComplete(contractId: string): Promise<boolean> {
     const progress = await this.getProgress(contractId);
@@ -458,7 +458,7 @@ export class ContractManager {
     const yamlContract = await this.loadContractYaml(contractId);
     const progress = await this.getProgress(contractId);
 
-    // 将 YAML 格式转换为 Contract 接口（使用统一默认值）
+    // Convert YAML format to the Contract interface (using unified defaults)
     return {
       id: yamlContract.id ?? contractId,
       title: yamlContract.title,
@@ -488,8 +488,8 @@ export class ContractManager {
   }
 
   private async updateContractStatus(contractId: string, status: ContractStatus): Promise<void> {
-    // 在 Phase 1，契约 YAML 是只读的，状态变化记录在 progress.json 中
-    // 实际项目中可能需要更新契约文件本身的 status 字段
+    // In Phase 1, the contract YAML is read-only; status changes are recorded in progress.json
+    // In a real project, you may need to update the status field in the contract file itself
     this.monitor?.log(status === 'completed' ? 'contract_completed' : 'contract_updated', {
       contractId,
       status,
@@ -524,8 +524,8 @@ export class ContractManager {
   }
 
   /**
-   * 契约完成后通知 Motion（best-effort）
-   * MVP 对齐：_write_motion_review_request
+   * Notify Motion of contract completion (best-effort)
+   * MVP alignment: _write_motion_review_request
    */
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
     try {
@@ -551,7 +551,7 @@ claw_id: ${clawId}
 contract_id: ${contractId}
 ---
 
-契约「${contractTitle}」已完成，请对 claw ${clawId} 进行复盘分析。
+Contract "${contractTitle}" has completed. Please perform a retrospective analysis for claw ${clawId}.
 `;
       fsNative.writeFileSync(path.join(motionInbox, filename), content);
     } catch (err) {

@@ -1,8 +1,8 @@
 /**
- * daemon command - 守护进程主入口
+ * daemon command - main daemon entry point
  *
- * 支持前台运行（CLAWFORUM_DAEMON_MODE）和通过 CLI 自动后台启动
- * 负责启动 ClawRuntime 并保持运行直到收到 SIGTERM
+ * Supports foreground execution (CLAWFORUM_DAEMON_MODE) and automatic background launch via CLI
+ * Responsible for starting ClawRuntime and keeping it running until SIGTERM is received
  */
 
 import * as path from 'path';
@@ -18,7 +18,7 @@ import { Heartbeat } from '../../core/heartbeat.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 /**
- * 检查是否有活跃契约（active/ 或 paused/ 中存在子目录）
+ * Check whether there is an active contract (subdirectory exists under active/ or paused/)
  */
 function hasContract(dir: string): boolean {
   const contractDir = path.join(dir, 'contract');
@@ -32,7 +32,7 @@ function hasContract(dir: string): boolean {
 }
 
 /**
- * 注入启动消息：若有活跃契约但 inbox 为空，写启动消息触发执行
+ * Inject a startup message: if there is an active contract but the inbox is empty, write a startup message to trigger execution
  */
 function injectStartupMessage(dir: string): void {
   try {

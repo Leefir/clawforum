@@ -1,11 +1,11 @@
 /**
- * Motion CLI 命令
- * 
- * 命令：
- * - motion init: 创建 .clawforum/motion/ 目录并写入模板文件
- * - motion chat: 启动交互式对话
- * 
- * Motion 是管理者，通过 exec 调用 CLI 管理其他 Claw，无专属工具。
+ * Motion CLI commands
+ *
+ * Commands:
+ * - motion init: create the .clawforum/motion/ directory and write template files
+ * - motion chat: start an interactive chat session
+ *
+ * Motion is the manager; it manages other Claws by calling the CLI via exec and has no dedicated tools.
  */
 
 import * as path from 'path';
@@ -19,7 +19,7 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 import { runChatViewport } from './chat-viewport.js';
 
 /**
- * 创建 Motion 专用的 ProcessManager
+ * Create a ProcessManager dedicated to Motion
  */
 export function createMotionPM(): ProcessManager {
   const baseDir = path.dirname(getMotionDir()); // .clawforum
@@ -30,57 +30,57 @@ export function createMotionPM(): ProcessManager {
   });
 }
 
-// 获取当前文件目录（ESM 兼容）
+// Get current file directory (ESM compatible)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 模板文件路径（支持构建产物和源码双模式）
+// Template file names (supports both build artifacts and source directory)
 const TEMPLATE_FILES = ['AGENTS.md', 'SOUL.md', 'AUTH_POLICY.md', 'HEARTBEAT.md', 'REVIEW.md'];
 
 /**
- * 读取模板文件内容（支持构建产物或源码目录回退）
+ * Read template file content (falls back from build artifacts to source directory)
  */
 async function readTemplate(name: string): Promise<string> {
-  // 优先尝试 dist 路径
+  // Try dist path first
   const distPath = path.join(__dirname, 'templates', 'motion', name);
   try {
     return await fs.readFile(distPath, 'utf-8');
   } catch {
-    // 回退到 src 路径（开发时）
+    // Fall back to src path (during development)
     const srcPath = path.join(__dirname, '..', '..', '..', '..', 'src', 'cli', 'commands', 'templates', 'motion', name);
     return await fs.readFile(srcPath, 'utf-8');
   }
 }
 
 /**
- * 获取 Motion 配置目录
+ * Get Motion configuration directory
  */
 function getMotionConfigDir(): string {
   return path.join(process.env.HOME || process.env.USERPROFILE || '.', '.clawforum');
 }
 
 /**
- * 确保目录存在
+ * Ensure directory exists
  */
 async function ensureDir(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
 /**
- * 写入文件（如果不存在）
+ * Write file (only if it does not already exist)
  */
 async function writeTemplate(filePath: string, content: string): Promise<boolean> {
   try {
     await fs.access(filePath);
-    return false; // 文件已存在
+    return false; // file already exists
   } catch {
     await fs.writeFile(filePath, content, 'utf-8');
-    return true; // 新创建
+    return true; // newly created
   }
 }
 
 /**
- * motion init - 创建 Motion 配置目录和模板文件
+ * motion init - create Motion configuration directory and template files
  */
 export async function initCommand(): Promise<void> {
   const motionDir = getMotionDir();
@@ -88,13 +88,13 @@ export async function initCommand(): Promise<void> {
   
   console.log(`Initializing Motion at: ${motionDir}`);
   
-  // 创建目录结构
+  // Create directory structure
   await ensureDir(motionDir);
   await ensureDir(path.join(motionDir, 'logs'));
   await ensureDir(path.join(motionDir, 'status'));
   await ensureDir(path.join(motionConfigDir, 'claws'));
   
-  // 读取并写入模板文件
+  // Read and write template files
   const created: string[] = [];
   const existed: string[] = [];
   const failed: string[] = [];
@@ -111,7 +111,7 @@ export async function initCommand(): Promise<void> {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`无法读取模板 ${name}: ${errorMsg}`);
+      console.error(`Failed to read template ${name}: ${errorMsg}`);
       failed.push(name);
     }
   }
@@ -121,7 +121,7 @@ export async function initCommand(): Promise<void> {
     process.exit(1);
   }
   
-  // 输出结果
+  // Output results
   console.log('\n✓ Motion initialized successfully');
   if (created.length > 0) {
     console.log(`\nCreated files:`);
@@ -139,13 +139,13 @@ export async function initCommand(): Promise<void> {
 }
 
 /**
- * motion chat - 启动交互式对话（viewport 模式）
+ * motion chat - start interactive chat session (viewport mode)
  */
 export async function chatCommand(): Promise<void> {
   loadGlobalConfig();
   const motionDir = getMotionDir();
 
-  // 检查 Motion 是否已初始化
+  // Check whether Motion has been initialized
   try {
     await fs.access(path.join(motionDir, 'AGENTS.md'));
   } catch {

@@ -1,10 +1,10 @@
 /**
- * ProcessManager - Claw 进程管理器
+ * ProcessManager - Claw process manager
  *
- * 管理守护进程的启动、停止和状态检查
+ * Manages daemon process startup, shutdown, and status checks
  */
 
-// TODO(phase3): 僵尸进程检测 - MVP 用 `ps` 命令检测僵尸，TS 只用 kill(0)，macOS/Linux 行为差异
+// TODO(phase3): zombie process detection - MVP uses `ps` command to detect zombies, TS only uses kill(0), macOS/Linux behavior differs
 
 import { spawn, execSync } from 'child_process';
 import * as path from 'path';
@@ -36,21 +36,21 @@ export class ProcessManager {
   }
 
   /**
-   * 获取 claw 的 status 目录路径
+   * Get the status directory path for a claw
    */
   private getStatusDir(clawId: string): string {
     return path.join(this.resolveDir(clawId), 'status');
   }
 
   /**
-   * 获取 pid 文件路径
+   * Get the pid file path
    */
   private getPidFile(clawId: string): string {
     return path.join(this.getStatusDir(clawId), 'pid');
   }
 
   /**
-   * 确保 status 目录存在
+   * Ensure the status directory exists
    */
   private async ensureStatusDir(clawId: string): Promise<void> {
     const statusDir = this.getStatusDir(clawId);
@@ -58,7 +58,7 @@ export class ProcessManager {
   }
 
   /**
-   * 读取 pid 文件
+   * Read the pid file
    */
   private async readPid(clawId: string): Promise<number | null> {
     try {
@@ -67,7 +67,7 @@ export class ProcessManager {
       const pid = parseInt(content.trim(), 10);
       return isNaN(pid) ? null : pid;
     } catch (err: any) {
-      // ENOENT/FS_NOT_FOUND 是正常的（进程未运行），其他错误需要记录
+      // ENOENT/FS_NOT_FOUND is expected (process not running); other errors should be logged
       if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
         console.warn(`[ProcessManager] Failed to read PID for ${clawId}:`, err?.message || err);
       }
@@ -76,7 +76,7 @@ export class ProcessManager {
   }
 
   /**
-   * 写入 pid 文件
+   * Write the pid file
    */
   private async writePid(clawId: string, pid: number): Promise<void> {
     await this.ensureStatusDir(clawId);
@@ -85,14 +85,14 @@ export class ProcessManager {
   }
 
   /**
-   * 删除 pid 文件
+   * Delete the pid file
    */
   private async removePid(clawId: string): Promise<void> {
     try {
       const pidFile = this.getPidFile(clawId);
       await this.fs.delete(pidFile);
     } catch (err: any) {
-      // 忽略文件不存在（ENOENT 或 NodeFileSystem 的 FS_NOT_FOUND）
+      // Ignore file-not-found (ENOENT or NodeFileSystem's FS_NOT_FOUND)
       if (err.code !== 'ENOENT' && err.code !== 'FS_NOT_FOUND') {
         console.warn(`[ProcessManager] Failed to remove PID file for ${clawId}:`, err);
       }
@@ -100,11 +100,11 @@ export class ProcessManager {
   }
 
   /**
-   * 检查进程是否存活
-   * 使用 process.kill(pid, 0) 检测进程是否存在
+   * Check whether the process is alive
+   * Uses process.kill(pid, 0) to detect process existence
    */
   isAlive(clawId: string): boolean {
-    // 使用同步方式读取 pid，因为在某些场景下 async/await 会有问题
+    // Read pid synchronously because async/await can be problematic in some scenarios
     try {
       const pidFile = this.getPidFile(clawId);
       const content = readFileSync(pidFile, 'utf-8');
@@ -115,15 +115,15 @@ export class ProcessManager {
         process.kill(pid, 0);
         return true;
       } catch (err: any) {
-        // ESRCH = 进程不存在
+        // ESRCH = process does not exist
         if (err.code === 'ESRCH') {
-          // 清理 stale pid 文件（异步，不等待）
+          // Clean up stale pid file (async, fire-and-forget)
           this.removePid(clawId).catch(err => {
             console.warn(`[ProcessManager] Failed to clean stale PID for ${clawId}:`, err);
           });
           return false;
         }
-        // EPERM = 进程存在但没有权限（通常是其他用户的进程）
+        // EPERM = process exists but no permission (typically another user's process)
         if (err.code === 'EPERM') {
           return true;
         }
@@ -135,19 +135,19 @@ export class ProcessManager {
   }
 
   /**
-   * 启动守护进程
-   * @param clawId 进程 ID
-   * @param clawDir 工作目录
-   * @param args 可选的 spawn 参数（默认启动 claw daemon）
-   * @returns 进程 PID
+   * Spawn the daemon process
+   * @param clawId process ID
+   * @param clawDir working directory
+   * @param args optional spawn arguments (defaults to starting the claw daemon)
+   * @returns process PID
    */
   async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
-    // Fast-path：已运行则直接报错，避免后续 pgrep 等待
+    // Fast-path: if already running, fail immediately to avoid waiting on pgrep
     if (this.isAlive(clawId)) {
       throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
     }
 
-    // 杀掉所有同名 daemon 孤儿进程（pgrep 扫描）
+    // Kill all orphaned daemon processes with the same name (pgrep scan)
     const pattern = `daemon-entry.js ${clawId}`;
     try {
       const output = execSync(`pgrep -f "${pattern}"`, { encoding: 'utf-8' });
@@ -162,9 +162,9 @@ export class ProcessManager {
       if (pids.length > 0) {
         await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
       }
-    } catch { /* pgrep 无匹配返回 exit code 1 */ }
+    } catch { /* pgrep returns exit code 1 when no match found */ }
 
-    // 检查并清理旧 daemon 的 lockfile
+    // Check and clean up the old daemon's lockfile
     const lockFile = path.join(this.getStatusDir(clawId), 'daemon.lock');
     try {
       const lockContent = readFileSync(lockFile, 'utf-8');
@@ -172,7 +172,7 @@ export class ProcessManager {
       if (!isNaN(lockPid)) {
         try {
           process.kill(lockPid, 'SIGTERM');
-          // 等待优雅退出
+          // Wait for graceful exit
           await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
         } catch (err: any) {
           if (err?.code !== 'ESRCH') {
@@ -180,27 +180,27 @@ export class ProcessManager {
           }
         }
       }
-      // 清理 stale lockfile
+      // Clean up stale lockfile
       try { await this.fs.delete(lockFile); } catch (err) {
         console.warn(`[process] Failed to delete lockfile ${lockFile}: ${err instanceof Error ? err.message : String(err)}`);
       }
-    } catch { /* lockfile 不存在，正常 */ }
+    } catch { /* lockfile does not exist, this is normal */ }
     
-    // 排他创建 PID 文件（避免竞态）
+    // Exclusively create the PID file (avoid race conditions)
     const pidFile = this.getPidFile(clawId);
     await this.ensureStatusDir(clawId);
     
     try {
-      // 'wx' = write + exclusive，文件存在则抛出 EEXIST
+      // 'wx' = write + exclusive, throws EEXIST if the file already exists
       const handle = await fs.open(pidFile, 'wx');
-      await handle.close(); // 关闭句柄，后续用 writeFile 写入实际 PID
+      await handle.close(); // Close the handle; actual PID will be written with writeFile later
     } catch (err: any) {
       if (err.code === 'EEXIST') {
-        // 检查是真实运行还是残留 PID 文件
+        // Check whether the process is genuinely running or this is a stale PID file
         if (this.isAlive(clawId)) {
           throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
         }
-        // stale PID 文件，清理后重新创建
+        // Stale PID file — clean it up and recreate
         await this.removePid(clawId).catch(() => {});
         const handle = await fs.open(pidFile, 'wx');
         await handle.close();
@@ -209,7 +209,7 @@ export class ProcessManager {
       }
     }
 
-    // 启动守护进程（使用独立 entry 文件）
+    // Spawn the daemon process (using a dedicated entry file)
     const thisDir = path.dirname(fileURLToPath(import.meta.url));
     const bundleEntry = path.join(thisDir, 'daemon-entry.js');
     const daemonEntryPath = existsSync(bundleEntry)
@@ -217,7 +217,7 @@ export class ProcessManager {
       : path.resolve(thisDir, '..', '..', '..', 'dist', 'daemon-entry.js');
     const finalArgs = args ?? [daemonEntryPath, clawId];
 
-    // 创建日志目录和日志文件
+    // Create the logs directory and log file
     const logsDir = path.join(clawDir, 'logs');
     mkdirSync(logsDir, { recursive: true });
     const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
@@ -229,7 +229,7 @@ export class ProcessManager {
         env: { ...process.env },
       });
       
-      // 让子进程独立运行，不阻塞父进程退出
+      // Let the child process run independently, without blocking the parent from exiting
       proc.unref();
 
       const pid = proc.pid;
@@ -237,20 +237,20 @@ export class ProcessManager {
         throw new Error('Failed to spawn daemon process');
       }
 
-      // 写入 pid 文件
+      // Write the pid file
       await fs.writeFile(pidFile, String(pid), 'utf-8');
 
-      // 等待进程启动确认（非阻塞）
+      // Wait for spawn confirmation (non-blocking)
       await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
-      
-      // 验证进程存活
+
+      // Verify that the process is alive
       if (!this.isAlive(clawId)) {
         throw new Error(`Daemon process failed to start. Check logs at: ${path.join(clawDir, 'logs', 'daemon.log')}`);
       }
 
       return pid;
     } catch (err) {
-      // 启动失败，清理 PID 文件
+      // Startup failed — clean up the PID file
       await this.removePid(clawId).catch(() => {});
       throw err;
     } finally {
@@ -260,9 +260,9 @@ export class ProcessManager {
   }
 
   /**
-   * 优雅停止进程
-   * SIGTERM → 等待5秒 → SIGKILL
-   * @returns 是否成功停止
+   * Gracefully stop the process
+   * SIGTERM → wait 5 seconds → SIGKILL
+   * @returns whether the process was successfully stopped
    */
   async stop(clawId: string): Promise<boolean> {
     const pid = await this.readPid(clawId);
@@ -270,29 +270,29 @@ export class ProcessManager {
       return false;
     }
 
-    // 检查进程是否还在运行
+    // Check whether the process is still running
     if (!this.isAlive(clawId)) {
       await this.removePid(clawId);
       return true;
     }
 
     try {
-      // 发送 SIGTERM
+      // Send SIGTERM
       process.kill(pid, 'SIGTERM');
 
-      // 等待优雅关闭时间
+      // Wait for graceful shutdown
       await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
 
-      // 检查是否还在运行
+      // Check whether still running
       if (this.isAlive(clawId)) {
-        // 强制终止
+        // Force kill
         process.kill(pid, 'SIGKILL');
       }
 
       await this.removePid(clawId);
       return true;
     } catch (err: any) {
-      // 进程已经不存在
+      // Process no longer exists
       if (err.code === 'ESRCH') {
         await this.removePid(clawId);
         return true;
@@ -302,22 +302,22 @@ export class ProcessManager {
   }
 
   /**
-   * 重启守护进程
-   * @param clawId 进程 ID
-   * @param clawDir 工作目录
-   * @param args 可选的 spawn 参数
-   * @returns 新进程 PID
+   * Restart the daemon process
+   * @param clawId process ID
+   * @param clawDir working directory
+   * @param args optional spawn arguments
+   * @returns new process PID
    */
   async restart(clawId: string, clawDir: string, args?: string[]): Promise<number> {
     await this.stop(clawId);
-    // 等待一小段时间确保端口等资源释放
+    // Brief wait to ensure resources such as ports are released
     await new Promise(resolve => setTimeout(resolve, RESTART_DELAY_MS));
     return this.spawn(clawId, clawDir, args);
   }
 
   /**
-   * 列出所有运行的 Claw
-   * @returns 运行中的 claw ID 列表
+   * List all running Claws
+   * @returns list of running claw IDs
    */
   async listRunning(): Promise<string[]> {
     try {

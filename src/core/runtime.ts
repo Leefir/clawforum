@@ -1,7 +1,7 @@
 /**
- * ClawRuntime - 组装所有模块的可运行 Claw 实例
- * 
- * 这是 Phase 1 的最终组装层，将以下模块整合为统一运行时：
+ * ClawRuntime - assembles all modules into a runnable Claw instance
+ *
+ * This is the final assembly layer for Phase 1, integrating the following modules into a unified runtime:
  * - Foundation: NodeFileSystem, LLMService, JsonlMonitor, LocalTransport
  * - Core: Dialog, Tools, ReAct, Communication, Task, Skill, Contract
  */
@@ -36,7 +36,7 @@ import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 
 /**
- * ClawRuntime 构造选项
+ * ClawRuntime constructor options
  */
 export interface ClawRuntimeOptions {
   clawId: string;
@@ -50,18 +50,18 @@ export interface ClawRuntimeOptions {
   maxConcurrentTasks?: number;
 }
 
-/** daemon 流式回调（processBatch / _runReact 使用） */
+/** daemon streaming callbacks (used by processBatch / _runReact) */
 export interface StreamCallbacks {
   onTextDelta?: (delta: string) => void;
   onThinkingDelta?: (delta: string) => void;
   onToolCall?: (toolName: string) => void;
   onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
-  onInboxDrained?: (sources: string[]) => void;  // inbox 已清空，传入消息摘要
+  onInboxDrained?: (sources: string[]) => void;  // inbox has been drained; passes message summaries
 }
 
 /**
- * ClawRuntime - 完整的 Claw 运行时实例
+ * ClawRuntime - fully assembled Claw runtime instance
  */
 export class ClawRuntime {
   protected options: ClawRuntimeOptions;
@@ -71,11 +71,11 @@ export class ClawRuntime {
 
   // Foundation
   /**
-   * @protected 允许 MotionRuntime 等子类读取系统文件（SOUL.md, REVIEW.md 等）
-   * 注意：子类不应直接写入，保持运行时封装性
+   * @protected allows subclasses such as MotionRuntime to read system files (SOUL.md, REVIEW.md, etc.)
+   * Note: subclasses should not write directly; preserve runtime encapsulation
    */
-  protected systemFs!: NodeFileSystem;  // 系统组件使用（无权限检查）
-  private clawFs!: NodeFileSystem;    // 工具使用（有权限检查）
+  protected systemFs!: NodeFileSystem;  // used by system components (no permission check)
+  private clawFs!: NodeFileSystem;    // used by tools (with permission check)
   private monitor!: JsonlMonitor;
   protected llm!: LLMService;
   private transport!: LocalTransport;
@@ -83,8 +83,8 @@ export class ClawRuntime {
   // Core
   protected sessionManager!: SessionManager;
   /**
-   * @protected 允许 MotionRuntime 等子类调用 buildParts() 自定义提示词注入顺序
-   * 注意：子类只读使用，不应修改 injector 状态
+   * @protected allows subclasses such as MotionRuntime to call buildParts() to customize prompt injection order
+   * Note: subclasses should treat this as read-only and must not modify injector state
    */
   protected contextInjector!: ContextInjector;
   protected toolRegistry!: ToolRegistry;
@@ -108,74 +108,74 @@ export class ClawRuntime {
   }
 
   /**
-   * 初始化所有模块
+   * Initialize all modules
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     const { clawId, clawDir, llmConfig, monitorDir, maxSteps, toolProfile } = this.options;
 
-    // 1. 创建目录结构
+    // 1. Create directory structure
     await this.ensureDirectories(clawDir);
 
-    // 2. 创建两个 NodeFileSystem 实例
-    // systemFs: 系统组件使用（dialog/, contract/ 等），不强制权限
+    // 2. Create two NodeFileSystem instances
+    // systemFs: used by system components (dialog/, contract/, etc.), no permission enforcement
     this.systemFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    // clawFs: 工具使用，强制权限检查
+    // clawFs: used by tools, enforces permission checks
     this.clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: true });
 
-    // 2.5 启动时清理孤立临时文件（best-effort）
+    // 2.5 Clean up orphaned temp files at startup (best-effort)
     this.systemFs.cleanupTempFiles().catch(err => {
       console.warn('[runtime] Failed to cleanup temp files:', err);
     });
 
-    // 3. 创建 JsonlMonitor
+    // 3. Create JsonlMonitor
     const logsDir = monitorDir || path.join(clawDir, 'logs');
     this.monitor = new JsonlMonitor({ logsDir });
 
-    // 4. 创建 LLMService
+    // 4. Create LLMService
     this.llm = new LLMService(llmConfig, this.monitor, clawId);
 
-    // 5. 创建 LocalTransport（workspaceDir = clawDir 的上两级目录）
-    // clawDir = ~/.clawforum/claws/{name}，workspaceDir 应该是 ~/.clawforum
+    // 5. Create LocalTransport (workspaceDir = two levels up from clawDir)
+    // clawDir = ~/.clawforum/claws/{name}, workspaceDir should be ~/.clawforum
     const workspaceDir = path.resolve(clawDir, '..', '..');
     this.transport = new LocalTransport({ workspaceDir });
     await this.transport.initialize();
 
-    // 6. 创建 SessionManager（使用 systemFs，系统组件需要写 dialog/）
+    // 6. Create SessionManager (uses systemFs; system components need to write to dialog/)
     this.sessionManager = new SessionManager(this.systemFs, 'dialog', clawId);
 
-    // 7. 创建 ToolRegistry + 注册内置工具
+    // 7. Create ToolRegistry and register built-in tools
     this.toolRegistry = new ToolRegistry();
     registerBuiltinTools(this.toolRegistry);
 
-    // 8. 创建 TaskSystem
+    // 8. Create TaskSystem
     this.taskSystem = new TaskSystem(clawDir, this.systemFs, this.transport, {
       maxConcurrent: this.options.maxConcurrentTasks,
     });
     await this.taskSystem.initialize();
     this.taskSystem.setLLMService(this.llm);
-    // 恢复的任务需要在 LLM 设置后才能调度
+    // Restored tasks can only be dispatched after the LLM service is set
     this.taskSystem.startDispatch();
 
-    // 9. 创建 SkillRegistry（懒加载技能）
+    // 9. Create SkillRegistry (lazy-loads skills)
     this.skillRegistry = new SkillRegistry(this.systemFs, 'skills');
     await this.skillRegistry.loadAll();
 
-    // 10. 创建 ContractManager
+    // 10. Create ContractManager
     this.contractManager = new ContractManager(clawDir, this.systemFs, this.monitor);
 
-    // 11. 创建 ContextInjector（注入 skillRegistry 和 contractManager）
+    // 11. Create ContextInjector (inject skillRegistry and contractManager)
     this.contextInjector = new ContextInjector({
       fs: this.systemFs,
       skillRegistry: this.skillRegistry,
       contractManager: this.contractManager,
     });
 
-    // 12. 先创建 OutboxWriter（供 ExecContextImpl 使用）
+    // 12. Create OutboxWriter first (needed by ExecContextImpl)
     this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs);
 
-    // 13. 创建 ExecContextImpl（注入所有依赖，工具使用 clawFs）
+    // 13. Create ExecContextImpl (inject all dependencies; tools use clawFs)
     this.execContext = new ExecContextImpl({
       clawId,
       clawDir,
@@ -192,17 +192,17 @@ export class ClawRuntime {
       outboxWriter: this.outboxWriter,
     });
 
-    // 14. 创建 ToolExecutorImpl
+    // 14. Create ToolExecutorImpl
     this.toolExecutor = new ToolExecutorImpl(this.toolRegistry, this.options.toolTimeoutMs);
 
-    // 15. 创建 InboxWatcher
+    // 15. Create InboxWatcher
     this.inboxWatcher = new InboxWatcher(clawDir, this.systemFs);
 
     this.initialized = true;
   }
 
   /**
-   * 启动后台事件循环
+   * Start the background event loop
    */
   async start(): Promise<void> {
     if (this.running) return;
@@ -210,10 +210,10 @@ export class ClawRuntime {
       await this.initialize();
     }
 
-    // 启动 InboxWatcher
+    // Start InboxWatcher
     await this.inboxWatcher.start(this.handleMessage.bind(this));
 
-    // 如果有暂停的契约，恢复执行
+    // Resume execution if there is a paused contract
     const paused = await this.contractManager.loadPaused();
     if (paused) {
       await this.contractManager.resume(paused.id);
@@ -223,25 +223,25 @@ export class ClawRuntime {
   }
 
   /**
-   * 优雅停止
+   * Graceful shutdown
    */
   async stop(): Promise<void> {
     if (!this.running) return;
 
-    // 停止 InboxWatcher
+    // Stop InboxWatcher
     await this.inboxWatcher.stop();
 
-    // 关闭 TaskSystem
+    // Shut down TaskSystem
     await this.taskSystem.shutdown(30_000);
 
-    // 关闭 LLMService
+    // Close LLMService
     await this.llm.close();
 
     this.running = false;
   }
 
   /**
-   * MVP 对齐：恢复暂停的契约（抽取自 start()）
+   * MVP alignment: resume a paused contract (extracted from start())
    */
   async resumeContractIfPaused(): Promise<void> {
     const paused = await this.contractManager.loadPaused();
@@ -251,10 +251,10 @@ export class ClawRuntime {
   }
 
   /**
-   * 按 inbox 消息 type 格式化注入文本。
-   * user_chat: 无前缀（用户在 chat 输入）
-   * user_inbox_message: [user inbox message] 前缀（用户通过 CLI 发消息）
-   * 系统事件: [system message] 前缀
+   * Format the injection text for an inbox message by its type.
+   * user_chat: no prefix (user typed in the chat)
+   * user_inbox_message: [user inbox message] prefix (user sent a message via CLI)
+   * system events: [system message] prefix
    */
   protected async formatInboxMessage(type: string, from: string, body: string): Promise<string> {
     switch (type) {
@@ -263,9 +263,9 @@ export class ClawRuntime {
       case 'user_inbox_message':
         return `[user inbox message]\n${body}`;
       case 'crash_notification':
-        return `[system message] Claw "${from}" 进程异常退出。\n${body}`;
+        return `[system message] Claw "${from}" process exited abnormally.\n${body}`;
       case 'heartbeat': {
-        const base = '[system message] 心跳触发，请巡查。';
+        const base = '[system message] Heartbeat triggered. Please perform a routine check.';
         try {
           const checklist = (await this.systemFs.read('HEARTBEAT.md')).trim();
           return checklist ? `${base}\n\n${checklist}` : base;
@@ -280,9 +280,9 @@ export class ClawRuntime {
   }
 
   /**
-   * 读取并 drain 自身 inbox/pending/*.md
-   * 读取后立即移动到 done 目录（消息已在内存中）
-   * @protected 供子类 MotionRuntime 复用
+   * Read and drain inbox/pending/*.md for this instance.
+   * Files are moved to the done directory immediately after reading (messages are already in memory).
+   * @protected available for reuse by subclass MotionRuntime
    */
   protected async _drainOwnInbox(): Promise<{
     injected: Message[];
@@ -292,11 +292,11 @@ export class ClawRuntime {
     const pendingDir = path.join(inboxDir, 'pending');
     const doneDir = path.join(inboxDir, 'done');
 
-    // 读取所有待处理消息
+    // Read all pending messages
     let files: string[] = [];
     try {
       const allFiles = await fs.readdir(pendingDir);
-      // 记录非 .md 文件以便运维排查
+      // Log non-.md files for operational troubleshooting
       const skipped = allFiles.filter(f => !f.endsWith('.md') && !f.startsWith('.'));
       if (skipped.length > 0) {
         console.warn(`[inbox] Skipping non-.md files: ${skipped.join(', ')}`);
@@ -311,7 +311,7 @@ export class ClawRuntime {
 
     if (files.length === 0) return { injected: [], count: 0 };
 
-    // 按 priority + filename 排序
+    // Sort by priority then filename
     const PRIORITY_ORDER: Record<string, number> = {
       critical: 0,
       high: 1,
@@ -331,13 +331,13 @@ export class ClawRuntime {
       }
     }
 
-    // 排序：priority 升序，然后 filename 升序
+    // Sort: priority ascending, then filename ascending
     fileInfos.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.name.localeCompare(b.name);
     });
 
-    // 读完即移到 done（消息已在内存中，不再需要原文件）
+    // Move to done immediately after reading (messages are in memory; original files no longer needed)
     await fs.mkdir(doneDir, { recursive: true });
     for (const info of fileInfos) {
       try {
@@ -345,10 +345,10 @@ export class ClawRuntime {
           path.join(pendingDir, info.name),
           path.join(doneDir, `${Date.now()}_${info.name}`)
         );
-      } catch { /* 文件可能已被移动 */ }
+      } catch { /* file may have already been moved */ }
     }
 
-    // 构建消息注入（按 type 选择模板）
+    // Build message injections (choose template by type)
     const injected: Message[] = [];
     for (const info of fileInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
@@ -359,7 +359,7 @@ export class ClawRuntime {
       });
     }
 
-    // audit log: 记录每条 inbox 消息注入
+    // audit log: record each inbox message injection
     const auditPath = path.join(this.options.clawDir, 'logs', 'audit.log');
     await fs.mkdir(path.dirname(auditPath), { recursive: true });
     for (const info of fileInfos) {
@@ -380,8 +380,8 @@ export class ClawRuntime {
   }
 
   /**
-   * 在给定 messages 上执行 LLM react 循环并保存 session
-   * @protected 供子类 MotionRuntime 复用
+   * Run the LLM ReAct loop over the given messages and save the session.
+   * @protected available for reuse by subclass MotionRuntime
    */
   protected async _runReact(messages: Message[], callbacks?: StreamCallbacks): Promise<void> {
     const tools = this.toolRegistry.formatForLLM(
@@ -410,8 +410,8 @@ export class ClawRuntime {
   }
 
   /**
-   * MVP 对齐：批量处理 inbox 消息（批处理轮询代替事件驱动）
-   * @returns 注入的消息数（0 = 无待处理）
+   * MVP alignment: batch-process inbox messages (polling-based batch instead of event-driven)
+   * @returns number of injected messages (0 = nothing pending)
    */
   async processBatch(callbacks?: StreamCallbacks): Promise<number> {
     if (!this.initialized) {
@@ -421,7 +421,7 @@ export class ClawRuntime {
     const { injected, count } = await this._drainOwnInbox();
     if (count === 0) return 0;
 
-    // 通知 daemon-loop 注入了哪些消息
+    // Notify daemon-loop which messages were injected
     if (callbacks?.onInboxDrained) {
       const sources = injected.map(m => {
         const text = typeof m.content === 'string' ? m.content : '';
@@ -436,7 +436,7 @@ export class ClawRuntime {
     // Save injected messages immediately so interrupt doesn't lose them
     await this.sessionManager.save(messages);
 
-    // AbortController 支持（同 chat() 模式）
+    // AbortController support (same as chat() mode)
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
@@ -450,38 +450,38 @@ export class ClawRuntime {
   }
 
   /**
-   * 交互式对话（CLI 使用）
+   * Interactive conversation (used by CLI)
    */
   async chat(
-    userMessage: string, 
-    options?: { 
+    userMessage: string,
+    options?: {
       onToolCall?: (toolName: string) => void;
       onBeforeLLMCall?: () => void;
       onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
-      onTextDelta?: (delta: string) => void;  // 新增：流式文本增量
-      onThinkingDelta?: (delta: string) => void;  // 新增：流式 thinking 增量
+      onTextDelta?: (delta: string) => void;  // streaming text delta
+      onThinkingDelta?: (delta: string) => void;  // streaming thinking delta
     }
   ): Promise<string> {
     if (!this.initialized) {
       await this.initialize();
     }
 
-    // 1. 加载当前会话
+    // 1. Load the current session
     const session = await this.sessionManager.load();
     const messages = [...session.messages];
 
-    // 2. 构建 systemPrompt（已包含 AGENTS.md + MEMORY.md + skills + contract）
+    // 2. Build systemPrompt (already includes AGENTS.md + MEMORY.md + skills + contract)
     const systemPrompt = await this.buildSystemPrompt();
 
-    // 3. 追加 user 消息
+    // 3. Append the user message
     messages.push({ role: 'user', content: userMessage });
 
-    // 4. 获取工具定义
+    // 4. Get tool definitions
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
 
-    // 5. 运行 ReAct 循环（带增量存盘）
+    // 5. Run the ReAct loop (with incremental session saves)
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
@@ -498,18 +498,18 @@ export class ClawRuntime {
         onToolCall: options?.onToolCall,
         onBeforeLLMCall: options?.onBeforeLLMCall,
         onToolResult: options?.onToolResult,
-        onTextDelta: options?.onTextDelta,  // 透传流式文本增量
-        onThinkingDelta: options?.onThinkingDelta,  // 透传流式 thinking 增量
+        onTextDelta: options?.onTextDelta,  // pass through streaming text delta
+        onThinkingDelta: options?.onThinkingDelta,  // pass through streaming thinking delta
         onStepComplete: async () => {
-          // 增量存盘
+          // Incremental session save
           await this.sessionManager.save(messages);
         },
       });
 
-      // 保存最终会话
+      // Save the final session
       await this.sessionManager.save(messages);
 
-      // 返回最终文本
+      // Return the final text
       return result.finalText;
     } finally {
       this.currentAbortController = null;
@@ -518,23 +518,23 @@ export class ClawRuntime {
   }
 
   /**
-   * 中断当前正在进行的 chat() 调用
+   * Abort the currently running chat() call
    */
   abort(): void {
     this.currentAbortController?.abort();
   }
 
   /**
-   * 处理 inbox 消息（内部方法）
+   * Handle an inbox message (internal method)
    */
   private async handleMessage(msg: InboxMessage): Promise<void> {
-    // 将消息转为对话
+    // Convert message to conversation input
     const userMessage = `[${msg.from}] ${msg.content}`;
-    
+
     try {
       const response = await this.chat(userMessage);
-      
-      // 写入 outbox
+
+      // Write to outbox
       await this.outboxWriter.write({
         type: 'response',
         to: msg.from,
@@ -544,7 +544,7 @@ export class ClawRuntime {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       
-      // 写入错误响应
+      // Write error response
       await this.outboxWriter.write({
         type: 'response',
         to: msg.from,
@@ -555,7 +555,7 @@ export class ClawRuntime {
   }
 
   /**
-   * 获取运行时状态（用于诊断）
+   * Get runtime status (for diagnostics)
    */
   getStatus(): {
     initialized: boolean;
@@ -570,12 +570,12 @@ export class ClawRuntime {
   }
 
   // ============================================================================
-  // Protected methods (可被子类覆盖)
+  // Protected methods (may be overridden by subclasses)
   // ============================================================================
 
   /**
-   * 构建系统提示词（可被子类覆盖以自定义注入顺序）
-   * 默认行为：AGENTS.md + MEMORY.md + skills + contract
+   * Build the system prompt (may be overridden by subclasses to customize injection order).
+   * Default behavior: AGENTS.md + MEMORY.md + skills + contract
    */
   protected async buildSystemPrompt(): Promise<string> {
     return this.contextInjector.buildSystemPrompt();
@@ -586,8 +586,8 @@ export class ClawRuntime {
   // ============================================================================
 
   private async ensureDirectories(clawDir: string): Promise<void> {
-    // 使用共享常量（与 createCommand 保持一致）
-    // 使用 Node fs 直接创建目录（因为 NodeFileSystem 还未初始化）
+    // Use the shared constant (consistent with createCommand)
+    // Use Node fs directly to create directories (NodeFileSystem is not yet initialized)
     const { promises: nodeFs } = await import('fs');
     for (const dir of CLAW_SUBDIRS) {
       await nodeFs.mkdir(path.join(clawDir, dir), { recursive: true });

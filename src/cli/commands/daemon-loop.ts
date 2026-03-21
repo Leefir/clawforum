@@ -1,6 +1,6 @@
 /**
- * 通用 daemon 事件循环
- * motion 和 claw 共用
+ * Generic daemon event loop
+ * Shared by both motion and claw
  */
 
 import * as fsNative from 'fs';
@@ -14,17 +14,17 @@ import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS } from '../../c
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
-  agentDir: string;                      // agent 根目录，用于监听 interrupt 信号
+  agentDir: string;                      // agent root directory, used to listen for interrupt signals
   inboxPendingDir: string;
-  label: string;                         // 日志前缀，如 '[motion daemon]' 或 '[daemon]'
-  onBatchComplete?: () => Promise<void>; // chain reaction 结束后回调
-  fallbackTimeoutMs?: number;            // fs.watch fallback 超时（默认 30000ms）
-  streamWriter?: StreamWriter;           // 流式事件写入
-  heartbeat?: Heartbeat;                 // 心跳实例（motion 专用）
+  label: string;                         // log prefix, e.g. '[motion daemon]' or '[daemon]'
+  onBatchComplete?: () => Promise<void>; // callback invoked after a chain reaction finishes
+  fallbackTimeoutMs?: number;            // fs.watch fallback timeout (default 30000ms)
+  streamWriter?: StreamWriter;           // streaming event writer
+  heartbeat?: Heartbeat;                 // heartbeat instance (motion only)
 }
 
 /**
- * 等待 inbox 目录出现新文件，或超时。
+ * Wait for a new file to appear in the inbox directory, or until timeout.
  */
 function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promise<void> {
   return new Promise(resolve => {
@@ -54,8 +54,8 @@ function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promise<void>
 }
 
 /**
- * 运行 daemon 事件循环。
- * 返回 promise 和 stop 函数。
+ * Run the daemon event loop.
+ * Returns a promise and a stop function.
  */
 export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
@@ -69,12 +69,12 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
   const promise = (async () => {
     while (!stopped) {
-      // 心跳检查（移入 daemon loop，避免 setInterval 竞态）
+      // Heartbeat check (moved into daemon loop to avoid setInterval race conditions)
       if (options.heartbeat?.isDue()) {
         options.heartbeat.fire();
       }
 
-      // motion: 扫描 claw outbox 未读消息
+      // motion: scan claw outboxes for unread messages
       if (options.heartbeat) {
         scanClawOutboxes(path.join(agentDir, '..'));
       }
@@ -84,10 +84,10 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
 
       try {
-        // 获取流式回调（如果有 streamWriter）
+        // Get streaming callbacks (if streamWriter is provided)
         const callbacks = streamWriter?.createCallbacks();
         
-        // 包装回调：拦截 onInboxDrained 获取 sources，在 onBeforeLLMCall 写 turn_start
+        // Wrap callbacks: intercept onInboxDrained to capture sources, write turn_start in onBeforeLLMCall
         const wrappedCallbacks = callbacks ? {
           ...callbacks,
           onInboxDrained: (sources: string[]) => {
@@ -107,7 +107,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           },
         } : undefined;
 
-        // 启动 interrupt 文件轮询
+        // Start polling for the interrupt file
         const interruptFile = path.join(agentDir, 'interrupt');
         let interruptErrCount = 0;
         interruptPoller = setInterval(() => {
@@ -128,13 +128,13 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         try {
           const injected = await runtime.processBatch(wrappedCallbacks);
           if (injected > 0) {
-            // chain reaction：处理到无积压为止
+            // chain reaction: keep processing until the backlog is clear
             let more = injected;
             while (more > 0 && !stopped) {
               more = await runtime.processBatch(wrappedCallbacks);
             }
             
-            // 一轮结束（非中断）
+            // Turn finished (not interrupted)
             if (turnStarted) {
               streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
             }
@@ -149,19 +149,19 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           }
         }
       } catch (err) {
-        // 清理轮询
+        // Clean up the poller
         if (interruptPoller) {
           clearInterval(interruptPoller);
           interruptPoller = null;
         }
 
-        // 区分用户中断和真正错误
+        // Distinguish user interrupts from genuine errors
         if (err instanceof Error && err.message === 'Execution aborted') {
-          // 用户中断
+          // User interrupt
           if (turnStarted) {
             streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted' });
           }
-          // 中断后短暂等待，避免立即处理下一条 inbox 消息（如心跳）
+          // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else {
           console.error(`${label} processBatch error:`, err);

@@ -1,6 +1,6 @@
 /**
- * Watchdog 守护进程
- * 每 30s 检查 motion 存活，内置简易 cron
+ * Watchdog daemon
+ * Checks motion liveness every 30s, with a built-in simple cron
  */
 
 import * as fs from 'fs';
@@ -14,18 +14,18 @@ import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
-// 获取 .clawforum/ 目录（优先使用 CLAWFORUM_ROOT）
+// Get the .clawforum/ directory (CLAWFORUM_ROOT takes priority)
 function getClawforumDir(): string {
   return path.dirname(getMotionDir());
 }
 
-// PID 文件路径
+// PID file path
 function getWatchdogPidFile(): string {
   return path.join(getClawforumDir(), 'watchdog.pid');
 }
 
 /**
- * 创建 Motion 专用的 ProcessManager
+ * Create a ProcessManager dedicated to Motion
  */
 function createMotionPM(): ProcessManager {
   const baseDir = path.dirname(getMotionDir());
@@ -36,7 +36,7 @@ function createMotionPM(): ProcessManager {
   });
 }
 
-// Watchdog PID 管理
+// Watchdog PID management
 function writeWatchdogPid(pid: number): void {
   fs.writeFileSync(getWatchdogPidFile(), pid.toString(), 'utf-8');
 }
@@ -45,7 +45,7 @@ function removeWatchdogPid(): void {
   try {
     fs.unlinkSync(getWatchdogPidFile());
   } catch {
-    // 忽略
+    // ignore
   }
 }
 
@@ -71,7 +71,7 @@ function isWatchdogAlive(): boolean {
   }
 }
 
-// 日志
+// Logging
 function log(message: string): void {
   const timestamp = new Date().toISOString();
   const logLine = `[${timestamp}] ${message}\n`;
@@ -82,7 +82,7 @@ function log(message: string): void {
   fs.appendFileSync(path.join(logDir, 'watchdog.log'), logLine, 'utf-8');
 }
 
-// 写入 inbox 消息（YAML frontmatter .md 格式）
+// Write an inbox message (YAML frontmatter .md format)
 function writeWatchdogInboxMessage(type: string, content: Record<string, unknown>): void {
   const inboxDir = path.join(getMotionDir(), 'inbox', 'pending');
   const body = (content.message as string) ?? JSON.stringify(content);
@@ -97,12 +97,12 @@ function writeWatchdogInboxMessage(type: string, content: Record<string, unknown
   });
 }
 
-// Cron 状态
+// Cron state
 let lastArchiveDate: string | null = null;
 let lastDiskCheckHour: number = -1;
 const lastInactivityNotified: Map<string, number> = new Map();
 const clawPreviouslyAlive: Map<string, boolean> = new Map();
-const inactivityNotifyCount: Map<string, number> = new Map();  // 连续通知计数，用于退避
+const inactivityNotifyCount: Map<string, number> = new Map();  // consecutive notification count, used for backoff
 
 // Global config (loaded lazily on first access)
 let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
@@ -113,14 +113,14 @@ function getGlobalConfig() {
   return globalConfigCache;
 }
 
-// 解析 stream.jsonl，返回最后一次事件时间戳和最后一次错误信息
+// Parse stream.jsonl, return the timestamp of the last event and the last error message
 interface ClawActivityInfo {
-  lastEventMs: number | null;  // 任意事件的最新 ts（防长 react 误判）
-  lastError: string | null;    // 最后一个终止事件是 turn_error 时的错误信息
-                               // 只有 turn_end 才清除
+  lastEventMs: number | null;  // most recent ts from any event (prevents false positives from long react cycles)
+  lastError: string | null;    // error message when the last terminal event was turn_error
+                               // only cleared by turn_end
 }
 
-// Claw 健康快照（用于通知 motion 决策）
+// Claw health snapshot (used to inform motion decisions)
 interface ClawSnapshot {
   status: 'running' | 'stopped';
   contract: string;       // 'active:<contractId>' | 'paused:<contractId>' | 'none'
@@ -131,7 +131,7 @@ interface ClawSnapshot {
 function gatherClawSnapshot(clawDir: string, pm: ProcessManager, clawId: string): ClawSnapshot {
   const status = pm.isAlive(clawId) ? 'running' : 'stopped';
 
-  // 找 contract（active 优先）
+  // Find contract (active takes priority)
   let contract = 'none';
   for (const sub of ['active', 'paused']) {
     try {
@@ -141,7 +141,7 @@ function gatherClawSnapshot(clawDir: string, pm: ProcessManager, clawId: string)
     } catch { /* skip */ }
   }
 
-  // inbox/outbox pending 数量
+  // inbox/outbox pending count
   const countMd = (dir: string) => {
     try { return fs.readdirSync(dir).filter(f => f.endsWith('.md')).length; } catch { return 0; }
   };
@@ -151,7 +151,7 @@ function gatherClawSnapshot(clawDir: string, pm: ProcessManager, clawId: string)
   return { status, contract, inboxPending, outboxPending };
 }
 
-// 只计 LLM 直接输出事件（排除 llm_start/tool_result 等基础设施事件）
+// Only count direct LLM output events (excludes infrastructure events like llm_start/tool_result)
 const LLM_OUTPUT_EVENTS = new Set(['thinking_delta', 'text_delta', 'tool_call']);
 
 function getClawActivityInfo(clawDir: string): ClawActivityInfo {
@@ -169,18 +169,18 @@ function getClawActivityInfo(clawDir: string): ClawActivityInfo {
         const ts = typeof event.ts === 'number' ? event.ts : null;
         if (!ts) continue;
 
-        // 只有 LLM 直接输出才算活跃
+        // Only direct LLM output counts as activity
         if (LLM_OUTPUT_EVENTS.has(event.type) && (lastEventMs === null || ts > lastEventMs)) {
           lastEventMs = ts;
         }
 
-        // 只追踪终止事件来判断错误状态
+        // Only track terminal events to determine error state
         if (event.type === 'turn_end') {
-          lastError = null;         // 真正完成一轮，清除错误
+          lastError = null;         // turn properly completed, clear error
         } else if (event.type === 'turn_error') {
           lastError = event.error ?? 'unknown error';
         }
-        // turn_interrupted：不清除错误，不设置错误
+        // turn_interrupted: neither clear nor set error
       } catch { /* skip */ }
     }
 
@@ -190,7 +190,7 @@ function getClawActivityInfo(clawDir: string): ClawActivityInfo {
   }
 }
 
-// 检查有活跃契约但长时间无进展的 claw，发送提醒
+// Check for claws with an active contract but no progress for a long time, and send a reminder
 function maybeCronClawInactivity(pm: ProcessManager): void {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
   const clawsDir = path.join(getClawforumDir(), 'claws');
@@ -200,20 +200,20 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
   for (const clawId of fs.readdirSync(clawsDir)) {
     const clawDir = path.join(clawsDir, clawId);
 
-    // 有活跃契约？
+    // Has an active contract?
     if (!clawHasContract(clawDir)) continue;
 
-    // 解析 stream.jsonl 获取真实进展
+    // Parse stream.jsonl to get real progress
     const { lastEventMs, lastError } = getClawActivityInfo(clawDir);
 
-    // 直接用 lastEventMs 作为参考基准（任意事件都更新）
+    // Use lastEventMs directly as the reference baseline (any event updates it)
     const referenceMs = lastEventMs;
     if (referenceMs === null) continue;
 
-    // 未超时
+    // Not yet timed out
     if (now - referenceMs < timeoutMs) continue;
 
-    // 重置计数：若 claw 有新进展（lastEventMs > 上次通知时间）
+    // Reset count if claw has made new progress (lastEventMs > last notification time)
     const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
     if (lastEventMs !== null && lastEventMs > lastNotified) {
       inactivityNotifyCount.set(clawId, 0);
@@ -221,18 +221,18 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
 
     const notifyCount = inactivityNotifyCount.get(clawId) ?? 0;
 
-    // 退避间隔：前 2 次用 timeoutMs，第 3 次起用 3x
+    // Backoff interval: first 2 notifications use timeoutMs, from the 3rd onward use 3x
     const effectiveInterval = notifyCount >= 2 ? timeoutMs * 3 : timeoutMs;
     if (now - lastNotified < effectiveInterval) continue;
 
-    // 收集快照信息
+    // Collect snapshot info
     const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
     const inactiveMin = Math.round((now - referenceMs) / 60000);
 
-    // 无指令的 body：纯事实数据（含第几次通知）
+    // Body without directives: pure factual data (including notification number)
     const displayCount = notifyCount + 1;
-    let body = `Claw ${clawId} 无进展 ${inactiveMin}m（第 ${displayCount} 次通知）。状态：${snapshot.status}，契约：${snapshot.contract}，inbox_pending：${snapshot.inboxPending}，outbox_pending：${snapshot.outboxPending}`;
-    if (lastError) body += `，最后错误：${lastError}`;
+    let body = `Claw ${clawId} no progress for ${inactiveMin}m (notification #${displayCount}). Status: ${snapshot.status}, contract: ${snapshot.contract}, inbox_pending: ${snapshot.inboxPending}, outbox_pending: ${snapshot.outboxPending}`;
+    if (lastError) body += `, last error: ${lastError}`;
 
     log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m (notify #${displayCount}) with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
     writeWatchdogInboxMessage('claw_inactivity', {
@@ -244,6 +244,7 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
       inbox_pending: snapshot.inboxPending,
       outbox_pending: snapshot.outboxPending,
       notify_count: displayCount,
+      as_of: new Date().toISOString(),
       ...(lastError ? { last_error: lastError } : {}),
     });
     inactivityNotifyCount.set(clawId, displayCount);
@@ -251,7 +252,7 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
   }
 }
 
-// 检查 claw 是否有活跃或暂停的契约
+// Check if a claw has an active or paused contract
 function clawHasContract(clawDir: string): boolean {
   for (const sub of ['active', 'paused']) {
     try {
@@ -262,7 +263,7 @@ function clawHasContract(clawDir: string): boolean {
   return false;
 }
 
-// 检测 claw 进程崩溃并通知 motion
+// Detect claw process crashes and notify motion
 function maybeCronClawCrash(pm: ProcessManager): void {
   const clawsDir = path.join(getClawforumDir(), 'claws');
   if (!fs.existsSync(clawsDir)) return;
@@ -273,7 +274,7 @@ function maybeCronClawCrash(pm: ProcessManager): void {
     const wasAlive = clawPreviouslyAlive.get(clawId);
 
     if (wasAlive === true && !currentlyAlive) {
-      // 只在有活跃/暂停契约时通知 motion（无契约的 claw 停止无需通知）
+      // Only notify motion when there is an active/paused contract (no notification needed if claw stops without a contract)
       if (!clawHasContract(clawDir)) {
         log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification)`);
         clawPreviouslyAlive.set(clawId, currentlyAlive);
@@ -281,9 +282,9 @@ function maybeCronClawCrash(pm: ProcessManager): void {
       }
       log(`[watchdog] Claw ${clawId} crashed (was alive, now stopped)`);
 
-      // 收集快照信息
+      // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
-      const body = `契约：${snapshot.contract}，outbox_pending：${snapshot.outboxPending}`;
+      const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}`;
 
       writeInboxMessage({
         inboxDir: path.join(getMotionDir(), 'inbox', 'pending'),
@@ -299,7 +300,7 @@ function maybeCronClawCrash(pm: ProcessManager): void {
   }
 }
 
-// 日志归档（每日 00:00）
+// Log archival (daily at 00:00)
 function maybeCronArchive(): void {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -314,7 +315,7 @@ function maybeCronArchive(): void {
   const archiveDir = path.join(getClawforumDir(), 'logs', 'archive');
   fs.mkdirSync(archiveDir, { recursive: true });
   
-  // 扫描 motion/dialog/archive/
+  // Scan motion/dialog/archive/
   const motionArchiveDir = path.join(getMotionDir(), 'dialog', 'archive');
   if (fs.existsSync(motionArchiveDir)) {
     for (const file of fs.readdirSync(motionArchiveDir)) {
@@ -327,7 +328,7 @@ function maybeCronArchive(): void {
     }
   }
   
-  // 扫描 claws/*/dialog/archive/
+  // Scan claws/*/dialog/archive/
   const clawsDir = path.join(getClawforumDir(), 'claws');
   if (fs.existsSync(clawsDir)) {
     for (const clawId of fs.readdirSync(clawsDir)) {
@@ -348,7 +349,7 @@ function maybeCronArchive(): void {
   log('[watchdog] Daily archive complete');
 }
 
-// 磁盘检查（每小时）
+// Disk check (hourly)
 function maybeCronDiskCheck(): void {
   const now = new Date();
   const currentHour = now.getHours();
@@ -358,7 +359,7 @@ function maybeCronDiskCheck(): void {
   
   log('[watchdog] Running hourly disk check...');
   
-  // 计算 claws/*/clawspace/ 总大小
+  // Calculate total size of claws/*/clawspace/
   let totalSize = 0;
   const clawsDir = path.join(getClawforumDir(), 'claws');
   if (fs.existsSync(clawsDir)) {
@@ -375,7 +376,7 @@ function maybeCronDiskCheck(): void {
   if (totalMB > limitMB) {
     log(`[watchdog] WARNING: Disk usage ${totalMB}MB > ${limitMB}MB`);
     writeWatchdogInboxMessage('disk_warning', {
-      message: `磁盘用量 ${totalMB}MB，限制 ${limitMB}MB`,
+      message: `Disk usage ${totalMB}MB, limit ${limitMB}MB`,
       usage_mb: totalMB,
       limit_mb: limitMB,
       timestamp: new Date().toISOString(),
@@ -387,11 +388,11 @@ function maybeCronDiskCheck(): void {
   lastDiskCheckHour = currentHour;
 }
 
-// 递归计算目录大小
+// Recursively calculate directory size
 function getDirSize(dir: string): number {
   let size = 0;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isSymbolicLink()) continue;  // 跳过 symlink 防循环
+    if (entry.isSymbolicLink()) continue;  // skip symlinks to prevent cycles
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       size += getDirSize(fullPath);
@@ -402,7 +403,7 @@ function getDirSize(dir: string): number {
   return size;
 }
 
-// Daemon 主循环
+// Daemon main loop
 export async function daemonCommand(): Promise<void> {
   log('[watchdog] Daemon starting...');
   
@@ -410,7 +411,7 @@ export async function daemonCommand(): Promise<void> {
   
   let stopped = false;
   
-  // 创建 Motion ProcessManager（循环外复用）
+  // Create Motion ProcessManager (reused across loop iterations)
   const pm = createMotionPM();
   
   process.on('SIGTERM', () => {
@@ -428,27 +429,27 @@ export async function daemonCommand(): Promise<void> {
   });
   
   while (!stopped) {
-    // 1. 检查 motion 存活
+    // 1. Check motion liveness
     if (!pm.isAlive('motion')) {
       log('[watchdog] motion crashed, restarting...');
       try {
-        // 先清理可能存在的 stale PID 文件
+        // First clean up any stale PID file that may exist
         await pm.stop('motion').catch(() => {});
         const motionDir = getMotionDir();
-        const pid = await pm.spawn('motion', motionDir);  // 使用默认 daemon-entry.js
+        const pid = await pm.spawn('motion', motionDir);  // use default daemon-entry.js
         log(`[watchdog] motion restarted, PID=${pid}`);
       } catch (err) {
         log(`[watchdog] FAILED to restart motion: ${err}`);
       }
     }
     
-    // 2. 简易 cron
+    // 2. Simple cron
     maybeCronArchive();
     maybeCronDiskCheck();
     maybeCronClawInactivity(pm);
     maybeCronClawCrash(pm);
     
-    // 3. 休眠（间隔可配置）
+    // 3. Sleep (interval is configurable)
     const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;
     await setTimeout(intervalMs);
   }
@@ -474,7 +475,7 @@ export async function startCommand(): Promise<void> {
   });
   proc.unref();
   
-  // 等待 PID 文件写入
+  // Wait for PID file to be written
   let attempts = 0;
   while (!isWatchdogAlive() && attempts < 10) {
     await setTimeout(100);
@@ -507,7 +508,7 @@ export async function stopCommand(): Promise<void> {
     console.log('Failed to send SIGTERM:', err);
   }
   
-  // 等待 5s
+  // Wait up to 5s
   let attempts = 0;
   while (isWatchdogAlive() && attempts < 50) {
     await setTimeout(100);
