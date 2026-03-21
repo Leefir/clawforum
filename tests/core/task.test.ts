@@ -338,6 +338,89 @@ describe('Task System + SubAgent', () => {
       const logContent = await fs.readFile(logPath, 'utf-8').catch(() => '');
       expect(logContent).toContain(taskId);
     });
+
+    it('should write fallback inbox message when main sendResult fails', async () => {
+      // 第一次对 inbox/pending 的写入失败，第二次（fallback）成功
+      let inboxWriteAttempts = 0;
+      const patchedFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+      const originalWriteAtomic = patchedFs.writeAtomic.bind(patchedFs);
+      patchedFs.writeAtomic = async (filePath: string, content: string) => {
+        if (filePath.startsWith('inbox/pending/') && inboxWriteAttempts++ === 0) {
+          throw new Error('Simulated inbox write failure');
+        }
+        return originalWriteAtomic(filePath, content);
+      };
+
+      const failSystem = new TaskSystem(tempDir, patchedFs);
+      await failSystem.initialize();
+      failSystem.setLLMService(createMockLLM([{
+        content: [{ type: 'text', text: 'done' }],
+        stop_reason: 'end_turn',
+      }]));
+
+      const taskId = await failSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: 'test fallback',
+        tools: [],
+        timeout: 10,
+        maxSteps: 5,
+        parentClawId: 'test-claw',
+      });
+
+      await new Promise(r => setTimeout(r, 800));
+      await failSystem.shutdown(1000);
+
+      // fallback 消息应该存在于 inbox
+      const inboxDir = path.join(tempDir, 'inbox', 'pending');
+      const files = await fs.readdir(inboxDir).catch(() => [] as string[]);
+      const mdFiles = (files as string[]).filter(f => f.endsWith('.md'));
+      expect(mdFiles.length).toBeGreaterThan(0);
+
+      // fallback 消息包含 taskId 和 is_error
+      const content = await fs.readFile(path.join(inboxDir, mdFiles[0]), 'utf-8');
+      expect(content).toContain(taskId);
+      expect(content).toContain('is_error');
+    });
+
+    it('should write fallback inbox message when movePendingToRunning fails', async () => {
+      const patchedFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+      const originalMove = patchedFs.move.bind(patchedFs);
+      patchedFs.move = async (from: string, to: string) => {
+        if (from.startsWith('tasks/pending/') && to.startsWith('tasks/running/')) {
+          throw new Error('Simulated move failure');
+        }
+        return originalMove(from, to);
+      };
+
+      const failSystem = new TaskSystem(tempDir, patchedFs);
+      await failSystem.initialize();
+      failSystem.setLLMService(createMockLLM([{
+        content: [{ type: 'text', text: 'done' }],
+        stop_reason: 'end_turn',
+      }]));
+
+      const taskId = await failSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: 'test move failure',
+        tools: [],
+        timeout: 10,
+        maxSteps: 5,
+        parentClawId: 'test-claw',
+      });
+
+      await new Promise(r => setTimeout(r, 500));
+      await failSystem.shutdown(1000);
+
+      // _startTask catch 应该发了 fallback 通知
+      const inboxDir = path.join(tempDir, 'inbox', 'pending');
+      const files = await fs.readdir(inboxDir).catch(() => [] as string[]);
+      const mdFiles = (files as string[]).filter(f => f.endsWith('.md'));
+      expect(mdFiles.length).toBeGreaterThan(0);
+
+      const content = await fs.readFile(path.join(inboxDir, mdFiles[0]), 'utf-8');
+      expect(content).toContain(taskId);
+      expect(content).toContain('is_error');
+    });
   });
 
   describe('SubAgent', () => {

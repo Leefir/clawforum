@@ -633,6 +633,7 @@ export class TaskSystem {
         parentClawId: task.parentClawId,
         error: `Failed to write inbox message: ${errMsg}`,
       });
+      throw err;  // Re-throw to allow caller fallback
     }
   }
 
