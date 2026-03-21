@@ -152,7 +152,7 @@ export class ClawRuntime {
     registerBuiltinTools(this.toolRegistry);
 
     // 8. Create TaskSystem
-    this.taskSystem = new TaskSystem(clawDir, this.systemFs, this.transport, {
+    this.taskSystem = new TaskSystem(clawDir, this.systemFs, {
       maxConcurrent: this.options.maxConcurrentTasks,
     });
     await this.taskSystem.initialize();

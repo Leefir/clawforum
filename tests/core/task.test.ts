@@ -127,7 +127,6 @@ function createAbortableHangingMockLLM(): ILLMService {
 describe('Task System + SubAgent', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
-  let transport: LocalTransport;
   let taskSystem: TaskSystem;
   let registry: ToolRegistry;
 
@@ -136,10 +135,7 @@ describe('Task System + SubAgent', () => {
     mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
     await mockFs.ensureDir('tasks');
     
-    transport = new LocalTransport({ workspaceDir: tempDir });
-    await transport.initialize();
-    
-    taskSystem = new TaskSystem(tempDir, mockFs, transport);
+    taskSystem = new TaskSystem(tempDir, mockFs);
     await taskSystem.initialize();
 
     registry = new ToolRegistry();
@@ -148,7 +144,6 @@ describe('Task System + SubAgent', () => {
 
   afterEach(async () => {
     await taskSystem.shutdown(1000);
-    await transport.close();
     await cleanupTempDir(tempDir);
   });
 
@@ -160,7 +155,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Test task',
-        skills: [],
+        
         tools: ['read'],
         timeout: 60,
         maxSteps: 10,
@@ -188,7 +183,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Simple task',
-        skills: [],
+        
         tools: [],
         timeout: 60,
         maxSteps: 5,
@@ -216,7 +211,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Deliver result',
-        skills: [],
+        
         tools: [],
         timeout: 60,
         maxSteps: 5,
@@ -267,7 +262,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Long running task',
-        skills: [],
+        
         tools: [],
         timeout: 300,
         maxSteps: 10,
@@ -297,7 +292,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'Simple task',
-        skills: [],
+        
         tools: [],
         timeout: 30,
         maxSteps: 5,
@@ -320,7 +315,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt: 'This will time out',
-        skills: [],
+        
         tools: [],
         timeout: 0.3,   // 0.3 秒，触发 SubAgent timeout
         maxSteps: 5,

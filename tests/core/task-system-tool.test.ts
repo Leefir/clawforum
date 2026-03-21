@@ -44,17 +44,6 @@ const createMockTool = (supportsAsync: boolean): ITool => ({
   },
 });
 
-// Mock transport
-const createMockTransport = () => ({
-  sendInboxMessage: vi.fn().mockResolvedValue(undefined),
-  sendOutboxMessage: vi.fn().mockResolvedValue(undefined),
-  readInbox: vi.fn().mockResolvedValue([]),
-  readOutbox: vi.fn().mockResolvedValue([]),
-  acknowledgeMessage: vi.fn().mockResolvedValue(undefined),
-  listInbox: vi.fn().mockResolvedValue([]),
-  listOutbox: vi.fn().mockResolvedValue([]),
-});
-
 // Mock fs
 const createMockFs = () => ({
   read: vi.fn(),
@@ -71,7 +60,6 @@ const createMockFs = () => ({
 
 describe('TaskSystem Tool Tasks', () => {
   let taskSystem: TaskSystem;
-  let mockTransport: ReturnType<typeof createMockTransport>;
   let mockFs: ReturnType<typeof createMockFs>;
   let testClawDir: string;
 
@@ -85,8 +73,6 @@ describe('TaskSystem Tool Tasks', () => {
     await fs.mkdir(path.join(testClawDir, 'inbox', 'pending'), { recursive: true });
     await fs.mkdir(path.join(testClawDir, 'logs'), { recursive: true });
 
-    mockTransport = createMockTransport();
-    
     // Use real fs for integration-like testing
     taskSystem = new TaskSystem(
       testClawDir,
@@ -104,7 +90,6 @@ describe('TaskSystem Tool Tasks', () => {
         ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       } as any,
-      mockTransport as any,
       { maxConcurrent: 3 }
     );
     
@@ -408,7 +393,6 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        mockTransport as any,
         { maxConcurrent: 3 }
       );
       await taskSystem2.initialize();
@@ -450,7 +434,6 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        mockTransport as any,
         { maxConcurrent: 3 }
       );
       await taskSystem2.initialize();
@@ -498,9 +481,6 @@ describe('TaskSystem Tool Tasks', () => {
       await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       await new Promise(r => setTimeout(r, 100));
 
-      // Transport must not be used - TaskSystem writes directly to inbox/pending/
-      expect(mockTransport.sendInboxMessage).not.toHaveBeenCalled();
-
       // Inbox file must be .md (not .json or other)
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
       expect(inboxFiles.length).toBeGreaterThan(0);
@@ -527,7 +507,7 @@ describe('TaskSystem Tool Tasks', () => {
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingFs, mockTransport as any, { maxConcurrent: 3 });
+      const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3 });
       await taskSystem2.initialize();
 
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
@@ -692,14 +672,8 @@ describe('TaskSystem Tool Tasks', () => {
       expect(content.summary).not.toContain('retries');
     });
 
-    it('should move task to done even when sendToolResult transport fails', async () => {
-      // Transport that always throws
-      const failingTransport = {
-        ...mockTransport,
-        sendInboxMessage: vi.fn().mockRejectedValue(new Error('Transport down')),
-      };
-
-      // Also mock fs.ensureDir/writeAtomic for inbox fallback to fail
+    it('should move task to done even when inbox write fails', async () => {
+      // Mock fs where inbox write fails (simulate disk error)
       const limitedFs = {
         read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
         write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
@@ -721,7 +695,7 @@ describe('TaskSystem Tool Tasks', () => {
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       };
 
-      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, failingTransport as any, { maxConcurrent: 3 });
+      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3 });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -778,7 +752,6 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(freshDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(freshDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        mockTransport as any,
         { maxConcurrent: 3 },
       );
 

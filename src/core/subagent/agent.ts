@@ -121,7 +121,6 @@ Work efficiently and return a clear, concise result.`;
           executor,
           ctx: executor.getExecContext('subagent', { 
             clawId: this.agentId,
-            dialogId: this.agentId,
             signal: timeoutController.signal,
             callerType: 'subagent',
           }),

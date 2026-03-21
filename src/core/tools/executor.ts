@@ -91,7 +91,7 @@ export const PERMISSION_PRESETS: Record<ToolProfile, ToolPermissions> = {
     write: true,
     execute: true,
     spawn: false,
-    send: true,
+    send: false,
     network: false,
     system: false,
   },
@@ -328,7 +328,10 @@ export class ToolExecutorImpl implements IToolExecutor {
 
     // Execute all in parallel
     const promises = readOnlyCalls.map(({ toolName, args }) =>
-      this.execute({ toolName, args, ctx })
+      this.execute({ toolName, args, ctx }).catch(err => ({
+        success: false,
+        content: err instanceof Error ? err.message : String(err),
+      } as ToolResult))
     );
 
     return Promise.all(promises);
@@ -423,7 +426,7 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: string; dialogId?: string; maxSteps?: number; signal?: AbortSignal; callerType?: 'claw' | 'subagent' }
+    options: { clawId: string; maxSteps?: number; signal?: AbortSignal; callerType?: 'claw' | 'subagent' }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,

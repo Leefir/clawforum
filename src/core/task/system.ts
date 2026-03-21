@@ -8,7 +8,7 @@
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { ITransport } from '../../foundation/transport/index.js';
+
 import { JsonlMonitor } from '../../foundation/monitor/index.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -20,7 +20,6 @@ export interface SubAgentTask {
   kind: 'subagent';
   id: string;
   prompt: string;
-  skills: string[];
   tools: string[];
   timeout: number;
   maxSteps: number;
@@ -60,7 +59,6 @@ export class TaskSystem {
   constructor(
     private clawDir: string,
     private fs: IFileSystem,
-    private transport: ITransport,
     options: { maxConcurrent?: number } = {}
   ) {
     this.maxConcurrent = options.maxConcurrent ?? 3;

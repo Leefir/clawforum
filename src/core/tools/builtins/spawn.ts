@@ -27,11 +27,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
         type: 'string',
         description: 'The task description for the subagent',
       },
-      skills: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Skills the subagent can use (default: empty)',
-      },
+
       tools: {
         type: 'array',
         items: { type: 'string' },
@@ -73,7 +69,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
     }
 
     const prompt = String(args.prompt);
-    const skills = (args.skills as string[]) ?? [];
+
     const tools = (args.tools as string[]) ?? SUBAGENT_TOOLS;
     const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
     const maxSteps = typeof args.maxSteps === 'number' 
@@ -84,7 +80,6 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt,
-        skills,
         tools,
         timeout,
         maxSteps,
