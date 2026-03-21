@@ -27,6 +27,10 @@ import { ToolRegistry } from './tools/registry.js';
 import { ToolExecutorImpl } from './tools/executor.js';
 import { ExecContextImpl } from './tools/context.js';
 import { registerBuiltinTools } from './tools/builtins/index.js';
+import { readTool } from './tools/builtins/read.js';
+import { lsTool } from './tools/builtins/ls.js';
+import { searchTool } from './tools/builtins/search.js';
+import { execTool } from './tools/builtins/exec.js';
 import { runReact } from './react/loop.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
@@ -164,8 +168,13 @@ export class ClawRuntime {
     this.skillRegistry = new SkillRegistry(this.systemFs, 'skills');
     await this.skillRegistry.loadAll();
 
-    // 10. Create ContractManager
-    this.contractManager = new ContractManager(clawDir, this.systemFs, this.monitor);
+    // 10. Create ContractManager (with LLM and verifier registry for acceptance)
+    const verifierRegistry = new ToolRegistry();
+    verifierRegistry.register(readTool);
+    verifierRegistry.register(lsTool);
+    verifierRegistry.register(searchTool);
+    verifierRegistry.register(execTool);
+    this.contractManager = new ContractManager(clawDir, this.systemFs, this.monitor, this.llm, verifierRegistry);
 
     // 11. Create ContextInjector (inject skillRegistry and contractManager)
     this.contextInjector = new ContextInjector({
