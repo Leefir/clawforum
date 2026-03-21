@@ -130,6 +130,38 @@ describe('ToolExecutor', () => {
       expect(results[0].success).toBe(false);
       expect(results[0].content).toContain('boom');
     });
+
+    it('should return error result when readonly tool has unmet permission requirement', async () => {
+      // 注册一个 readonly 但需要 execute 权限的工具
+      registry.register({
+        name: 'perm-tool',
+        description: 'requires execute permission',
+        schema: { type: 'object', properties: {}, required: [] },
+        requiredPermissions: ['execute'],
+        readonly: true,
+        idempotent: true,
+        async execute() { return { success: true, content: 'ran' }; },
+      });
+
+      // ctx 用 readonly profile（execute: false）
+      const readonlyCtx = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'readonly',
+        fs: mockFs,
+      });
+
+      // 修复前：Promise.all reject，整批失败
+      // 修复后：.catch() 兜住，返回 error ToolResult
+      const results = await executor.executeParallel(
+        [{ toolName: 'perm-tool', args: {} }],
+        readonlyCtx,
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(false);
+      expect(results[0].content).toContain('execute');  // PermissionError 消息含 "execute"
+    });
   });
 
   // Phase 2 质量审查：audit.log 测试

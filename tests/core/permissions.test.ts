@@ -132,6 +132,11 @@ describe('Permission Matrix', () => {
       const ctx = createContext('subagent');
       expect(ctx.hasPermission('spawn')).toBe(false);
     });
+
+    it('should deny send permission (PERMISSION_PRESETS aligned with TOOL_PROFILES)', () => {
+      const ctx = createContext('subagent');
+      expect(ctx.hasPermission('send')).toBe(false);
+    });
   });
 
   describe('dream profile', () => {
@@ -201,6 +206,7 @@ describe('Permission Matrix', () => {
       expect(toolNames).toContain('write');
       expect(toolNames).toContain('exec');
       expect(toolNames).toContain('skill');
+      expect(toolNames).toContain('status');
       
       expect(toolNames).not.toContain('send');
       expect(toolNames).not.toContain('spawn');
