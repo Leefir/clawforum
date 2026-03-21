@@ -104,10 +104,9 @@ describe('Permission Matrix', () => {
       expect(ctx.hasPermission('write')).toBe(true);
     });
 
-    it('should allow exec tool via TOOL_PROFILES', () => {
-      // Note: PERMISSION_PRESETS.subagent has execute: false,
-      // but TOOL_PROFILES.subagent includes 'exec'
-      // The actual check is done via TOOL_PROFILES in getForProfile
+    it('should allow exec tool', () => {
+      const ctx = createContext('subagent');
+      expect(ctx.hasPermission('execute')).toBe(true);
       const subagentTools = registry.getForProfile('subagent');
       const toolNames = subagentTools.map(t => t.name);
       expect(toolNames).toContain('exec');

@@ -151,6 +151,15 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(true);
       expect(result.content).toBe('Line 1\nLine 2\nLine 3');
     });
+
+    // Phase 16: error path Tip about claw parameter
+    it('should include claw parameter Tip in error when reading non-existent file', async () => {
+      const result = await readTool.execute({ path: 'clawspace/no-such-file.txt' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Tip');
+      expect(result.content).toContain('"claw"');
+    });
   });
 
   describe('write tool', () => {
@@ -292,6 +301,15 @@ describe('Builtin Tools', () => {
       // Should have 100 entries plus possibly pagination line
       const fileLines = lines.filter(l => l.includes('[FILE]') || l.includes('[DIR]'));
       expect(fileLines.length).toBeLessThanOrEqual(100);
+    });
+
+    // Phase 16: error path Tip about claw parameter
+    it('should include claw parameter Tip in error when listing non-existent path', async () => {
+      const result = await lsTool.execute({ path: 'nonexistent/path/xyz' }, ctx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Tip');
+      expect(result.content).toContain('"claw"');
     });
   });
 
@@ -667,6 +685,29 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(true);
       const count = (result.content.split(nodeBinDir).length - 1);
       expect(count).toBeGreaterThanOrEqual(1); // 至少存在一次
+    });
+
+    // Phase 16: stderr/stdout capture in error path
+    it('should include stderr in error result when command writes to stderr and exits non-zero', async () => {
+      const result = await execTool.execute(
+        { command: "sh -c 'echo \"stderr output\" >&2; exit 1'" },
+        ctx,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('[stderr]');
+      expect(result.content).toContain('stderr output');
+    });
+
+    it('should include stdout in error result when command writes to stdout and exits non-zero', async () => {
+      const result = await execTool.execute(
+        { command: "sh -c 'echo \"stdout output\"; exit 1'" },
+        ctx,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('[stdout]');
+      expect(result.content).toContain('stdout output');
     });
   });
 

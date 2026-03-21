@@ -347,6 +347,7 @@ export class TaskSystem {
         llm: this.llm,
         registry: this.registry,
         fs: this.fs,
+        monitor: this.monitor,
         maxSteps: task.maxSteps,
         timeoutMs: task.timeout * 1000,
         signal,

@@ -89,7 +89,7 @@ export const PERMISSION_PRESETS: Record<ToolProfile, ToolPermissions> = {
   subagent: {
     read: true,
     write: true,
-    execute: false,
+    execute: true,
     spawn: false,
     send: true,
     network: false,
@@ -127,7 +127,6 @@ export interface ExecContext {
   clawId: string;
   clawDir: string;
   contractId?: string;
-  parentClawId?: string;
   /** Caller type for spawn recursion prevention */
   callerType: 'claw' | 'subagent';
   fs: IFileSystem;

@@ -98,6 +98,32 @@ function createHangingMockLLM(): ILLMService {
   } as unknown as ILLMService;
 }
 
+/**
+ * Create a mock LLM that aborts when signal is triggered - for timeout testing
+ */
+function createAbortableHangingMockLLM(): ILLMService {
+  async function* hangingStream(signal?: AbortSignal): AsyncIterableIterator<StreamChunk> {
+    // Wait indefinitely but check for abort
+    await new Promise<void>((resolve, reject) => {
+      const checkInterval = setInterval(() => {
+        if (signal?.aborted) {
+          clearInterval(checkInterval);
+          reject(new Error('Aborted'));
+        }
+      }, 10);
+    });
+    yield { type: 'done' };
+  }
+  
+  return {
+    call: vi.fn(() => new Promise(() => {})),
+    stream: vi.fn((opts: { signal?: AbortSignal }) => hangingStream(opts?.signal)),
+    close: vi.fn(),
+    healthCheck: vi.fn().mockResolvedValue(true),
+    getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),
+  } as unknown as ILLMService;
+}
+
 describe('Task System + SubAgent', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
@@ -261,6 +287,62 @@ describe('Task System + SubAgent', () => {
       const runningExists = await mockFs.exists(`tasks/running/${taskId}.json`);
       expect(runningExists).toBe(false);
     });
+
+    it('should write subagent_completed event to monitor log', async () => {
+      taskSystem.setLLMService(createMockLLM([{
+        content: [{ type: 'text', text: 'task done' }],
+        stop_reason: 'end_turn',
+      }]));
+
+      const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: 'Simple task',
+        skills: [],
+        tools: [],
+        timeout: 30,
+        maxSteps: 5,
+        parentClawId: 'test-claw',
+      });
+
+      // 等待任务完成 + monitor 异步写入
+      await new Promise(r => setTimeout(r, 500));
+
+      // subagent_completed → logs/subagents.jsonl
+      const logPath = path.join(tempDir, 'logs', 'subagents.jsonl');
+      const logContent = await fs.readFile(logPath, 'utf-8').catch(() => '');
+      expect(logContent).toContain('subagent_completed');
+      expect(logContent).toContain(taskId);
+    });
+
+    it('should write error event to monitor log when subagent times out', async () => {
+      taskSystem.setLLMService(createAbortableHangingMockLLM());
+
+      const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: 'This will time out',
+        skills: [],
+        tools: [],
+        timeout: 0.3,   // 0.3 秒，触发 SubAgent timeout
+        maxSteps: 5,
+        parentClawId: 'test-claw',
+      });
+
+      // 等待超时触发 + 任务完成 + monitor 异步写入
+      await new Promise(r => setTimeout(r, 1500));
+
+      // inbox 中有 is_error: true 的消息（验证 executeTask catch 被执行）
+      const inboxDir = path.join(tempDir, 'inbox', 'pending');
+      const inboxFiles = await fs.readdir(inboxDir).catch(() => [] as string[]);
+      const mdFiles = inboxFiles.filter((f: string) => f.endsWith('.md'));
+      expect(mdFiles.length).toBeGreaterThan(0);
+      const inboxContent = await fs.readFile(path.join(inboxDir, mdFiles[0]), 'utf-8');
+      expect(inboxContent).toContain('"is_error":true');
+
+      // error 事件 → logs/errors.jsonl（验证 monitor.log 被调用）
+      const logPath = path.join(tempDir, 'logs', 'errors.jsonl');
+      const logContent = await fs.readFile(logPath, 'utf-8').catch(() => '');
+      expect(logContent).toContain(taskId);
+    });
   });
 
   describe('SubAgent', () => {
@@ -319,6 +401,40 @@ describe('Task System + SubAgent', () => {
 
       expect(mockLLM.call).toHaveBeenCalledTimes(2);
       expect(result).toContain('File content');
+    });
+
+    it('should execute exec tool in subagent profile (previously blocked by execute: false)', async () => {
+      const mockLLM = createMockLLM([
+        {
+          content: [
+            { type: 'text', text: 'I will run a command' },
+            { type: 'tool_use', id: 'c1', name: 'exec', input: { command: 'echo subagent-exec-ok' } },
+          ],
+          stop_reason: 'tool_use',
+        },
+        {
+          content: [{ type: 'text', text: 'Command output: subagent-exec-ok' }],
+          stop_reason: 'end_turn',
+        },
+      ]);
+
+      const agent = new SubAgent({
+        agentId: 'test-agent-exec',
+        prompt: 'Run echo command',
+        clawDir: tempDir,
+        llm: mockLLM,
+        registry,
+        fs: mockFs,
+        maxSteps: 10,
+        timeoutMs: 5000,
+      });
+
+      const result = await agent.run();
+
+      // 两次 LLM call：第一次返回 tool_use，第二次收到工具结果后返回 end_turn
+      expect(mockLLM.call).toHaveBeenCalledTimes(2);
+      // 结果来自第二次 LLM 返回（不是 PermissionError）
+      expect(result).toContain('Command output');
     });
 
     it('should have spawn permission disabled', async () => {
