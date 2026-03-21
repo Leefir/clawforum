@@ -14,8 +14,11 @@ import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../types/contract.js';
 import { ToolError } from '../../types/errors.js';
-import { execSync } from 'child_process';
-import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS } from '../../constants.js';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS } from '../../constants.js';
+
+const execFileAsync = promisify(execFile);
 
 // Contract default value constants
 const CONTRACT_DEFAULTS = {
@@ -38,9 +41,13 @@ export interface ContractYaml {
   acceptance?: Array<{
     subtask_id: string;
     type: 'script' | 'llm';
-    command?: string;
+    script_file?: string;   // 相对于契约目录的 .sh 路径（script 类型）
+    prompt_file?: string;   // 相对于契约目录的 .txt 路径（llm 类型）
   }>;
   auth_level?: 'auto' | 'notify' | 'confirm';
+  escalation?: {
+    max_retries?: number;  // 默认 3
+  };
 }
 
 // Progress data structure
@@ -52,6 +59,8 @@ export interface ProgressData {
     completed_at?: string;
     evidence?: string;
     artifacts?: string[];
+    retry_count?: number;           // 默认 0，每次验收失败 +1
+    last_failed_feedback?: string;  // 截断到 200 字符
   }>;
   started_at?: string;
   checkpoint?: string | null;
@@ -404,14 +413,15 @@ export class ContractManager {
   private async _runAcceptanceInBackground(
     params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
     contractYaml: ContractYaml,
-    acceptanceConfig: { subtask_id: string; type: 'script' | 'llm'; command?: string },
+    acceptanceConfig: { subtask_id: string; type: 'script' | 'llm'; script_file?: string; prompt_file?: string },
   ): Promise<void> {
     const { contractId, subtaskId, evidence, artifacts } = params;
     
     // Run acceptance check
+    const contractAbsDir = path.join(this.clawDir, await this.contractDir(contractId), contractId);
     let result: AcceptanceResult;
     if (acceptanceConfig.type === 'script') {
-      result = await this.runScriptAcceptance(acceptanceConfig.command || '');
+      result = await this.runScriptAcceptance(acceptanceConfig.script_file ?? '', contractAbsDir);
     } else {
       // llm type - implemented in Phase 2
       result = { passed: true, feedback: 'LLM acceptance not implemented in Phase 1' };
@@ -451,9 +461,9 @@ export class ContractManager {
           this.notifyMotionCompletion(contractId, contractYaml.title);
         }
       } else {
-        // Rejected - track retry count
-        const retryCount = (subtask as any).retry_count || 0;
-        (subtask as any).retry_count = retryCount + 1;
+        // Rejected - track retry count and feedback
+        subtask.retry_count = (subtask.retry_count || 0) + 1;
+        subtask.last_failed_feedback = result.feedback.slice(0, 200);
         
         // Reset to todo for retry
         subtask.status = 'todo';
@@ -461,10 +471,11 @@ export class ContractManager {
         await this.saveProgress(contractId, progress);
         
         // Write inbox rejection notification
-        await this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, result.feedback, retryCount + 1);
+        await this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, result.feedback, subtask.retry_count);
         
-        // Escalate if too many retries
-        if (retryCount + 1 >= 3) {
+        // Escalate if too many retries (read max_retries from contract, default 3)
+        const maxRetries = contractYaml.escalation?.max_retries ?? 3;
+        if (subtask.retry_count >= maxRetries) {
           this.notifyMotionEscalation(contractId, subtaskId, result.feedback);
         }
       }
@@ -754,31 +765,30 @@ ${feedback}
     );
   }
 
-  private async runScriptAcceptance(command: string): Promise<AcceptanceResult> {
-    // Phase 1: Command comes from contract YAML created by Motion (trusted)
-    // Phase 2+: Consider adding command whitelist for untrusted contracts
-    console.log(`[contract] Running acceptance script: ${command.slice(0, 100)} (cwd: ${this.clawDir})`);
+  private async runScriptAcceptance(
+    scriptFile: string,
+    contractAbsDir: string,
+  ): Promise<AcceptanceResult> {
+    // 路径安全：script_file 必须在契约目录内
+    const resolved = path.resolve(contractAbsDir, scriptFile);
+    if (!resolved.startsWith(contractAbsDir + path.sep)) {
+      return { passed: false, feedback: `路径安全拒绝: script_file 必须在契约目录内` };
+    }
+
+    console.log(`[contract] Running acceptance script: ${scriptFile} (cwd: ${contractAbsDir})`);
     
     try {
-      const output = execSync(command, {
+      await execFileAsync('sh', [resolved], {
+        cwd: contractAbsDir,
+        timeout: CONTRACT_SCRIPT_TIMEOUT_MS,
         encoding: 'utf-8',
-        timeout: 60000,
-        maxBuffer: 10 * 1024 * 1024,  // 10MB
-        killSignal: 'SIGKILL',
-        cwd: this.clawDir,
       });
-      return { passed: true, feedback: output };
-    } catch (error: any) {
-      // 区分：超时、权限错误 vs 脚本正常退出非零
-      const isTimeout = error?.killed === true || error?.signal === 'SIGKILL';
-      const isPermission = error?.code === 'EACCES';
-      const prefix = isTimeout
-        ? 'Acceptance script timed out'
-        : isPermission
-        ? 'Acceptance script permission denied'
-        : 'Acceptance failed';
-      const stderr = error instanceof Error ? error.message : String(error);
-      return { passed: false, feedback: `${prefix} (cwd: ${this.clawDir}):\n${stderr}` };
+      return { passed: true, feedback: 'Script acceptance passed' };
+    } catch (err: any) {
+      const stderr = err?.stderr ?? err?.message ?? String(err);
+      const isTimeout = err?.killed === true;
+      const prefix = isTimeout ? '验收脚本超时' : '验收失败';
+      return { passed: false, feedback: `${prefix}:\n${stderr}` };
     }
   }
 
