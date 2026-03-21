@@ -43,8 +43,8 @@ export interface ContractYaml {
     description: string;
   }>;
   acceptance?: Array<
-    | { subtask_id: string; type: 'script'; script_file: string }
-    | { subtask_id: string; type: 'llm'; prompt_file: string }
+    | { subtask_id: string; type: 'script'; script_file?: string }
+    | { subtask_id: string; type: 'llm'; prompt_file?: string }
   >;
   auth_level?: 'auto' | 'notify' | 'confirm';
   escalation?: {
@@ -448,7 +448,7 @@ export class ContractManager {
   private async _runAcceptanceInBackground(
     params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
     contractYaml: ContractYaml,
-    acceptanceConfig: { subtask_id: string; type: 'script'; script_file: string } | { subtask_id: string; type: 'llm'; prompt_file: string },
+    acceptanceConfig: { subtask_id: string; type: 'script'; script_file?: string } | { subtask_id: string; type: 'llm'; prompt_file?: string },
   ): Promise<void> {
     const { contractId, subtaskId, evidence, artifacts = [] } = params;
     
@@ -561,8 +561,8 @@ export class ContractManager {
         // Format rejection feedback
         const maxRetries = contractYaml.escalation?.max_retries ?? 3;
         const acceptanceFile = acceptanceConfig.type === 'script' 
-          ? acceptanceConfig.script_file 
-          : acceptanceConfig.prompt_file;
+          ? acceptanceConfig.script_file ?? 'unknown'
+          : acceptanceConfig.prompt_file ?? 'unknown';
         const formattedFeedback = structuredResult
           ? this.formatRejectionFeedback(
               subtaskId,
