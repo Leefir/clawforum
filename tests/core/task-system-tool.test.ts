@@ -799,11 +799,11 @@ describe('TaskSystem Tool Tasks', () => {
     });
 
     it('should resolve shutdown even when a running task does not finish (timeout path)', async () => {
-      let unblock!: () => void;
-      const blockingPromise = new Promise<void>(resolve => { unblock = resolve; });
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const neverResolve = new Promise<void>(() => {});
 
       const slowCb = vi.fn().mockImplementation(async () => {
-        await blockingPromise;
+        await neverResolve; // hangs forever — shutdown must use timeout path
         return { success: true, content: 'done' };
       });
 
@@ -811,11 +811,9 @@ describe('TaskSystem Tool Tasks', () => {
       await new Promise(r => setTimeout(r, 50)); // let dispatch start the task
 
       // shutdown(50) — task won't finish, Promise.race timeout fires
+      // The hanging promise is intentionally never resolved to avoid post-shutdown monitor errors
       const shutdownPromise = taskSystem.shutdown(50);
       await expect(shutdownPromise).resolves.toBeUndefined();
-
-      // Unblock to allow cleanup
-      unblock();
     });
   });
 });
