@@ -34,6 +34,7 @@ import { TaskSystem } from './task/system.js';
 import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
+import { MaxStepsExceededError } from '../types/errors.js';
 
 /**
  * ClawRuntime constructor options
@@ -448,6 +449,25 @@ export class ClawRuntime {
     try {
       await this._runReact(messages, callbacks);
       return count;
+    } catch (err) {
+      // Save partial progress before re-throwing
+      await this.sessionManager.save(messages).catch(e =>
+        console.error('[runtime] Failed to save session on error:', e)
+      );
+      // Notify each inbox sender so they're not left hanging
+      if (err instanceof MaxStepsExceededError) {
+        const errorMsg = err.message;
+        for (const msg of injected) {
+          const inboxMeta = msg as Message & { from?: string; contract_id?: string };
+          await this.outboxWriter.write({
+            type: 'response',
+            to: inboxMeta.from ?? 'unknown',
+            content: `Error: ${errorMsg}`,
+            contract_id: inboxMeta.contract_id,
+          }).catch(e => console.error('[runtime] Failed to write error response:', e));
+        }
+      }
+      throw err;
     } finally {
       this.currentAbortController = null;
       this.execContext.signal = undefined;

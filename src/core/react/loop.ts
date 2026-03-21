@@ -99,6 +99,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   } = options;
 
   let stepCount = 0;
+  let saveFailures = 0;
 
   while (stepCount < maxSteps) {
     // Sync step counter to context
@@ -168,8 +169,13 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       if (onStepComplete) {
         try {
           await onStepComplete();
+          saveFailures = 0;  // reset on success
         } catch (err) {
-          console.error('[react] Step completion callback failed:', err);
+          saveFailures++;
+          console.error(`[react] Step completion callback failed (${saveFailures}):`, err);
+          if (saveFailures >= 3) {
+            throw err;  // surface persistent I/O failures
+          }
         }
       }
       
