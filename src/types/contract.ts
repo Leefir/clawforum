@@ -12,9 +12,10 @@ export type ContractStatus =
   | 'cancelled'; // Manually cancelled
 
 export type SubtaskStatus =
-  | 'todo'       // Not yet started (within a running contract)
-  | 'completed'  // Successfully finished
-  | 'failed';    // Execution failed
+  | 'todo'         // Not yet started (within a running contract)
+  | 'in_progress'  // Undergoing acceptance verification
+  | 'completed'    // Successfully finished
+  | 'failed';      // Execution failed
 
 export type Priority = 'low' | 'normal' | 'high' | 'critical';
 

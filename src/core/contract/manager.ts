@@ -60,7 +60,8 @@ export interface ProgressData {
 export interface AcceptanceResult {
   passed: boolean;
   feedback: string;
-  allCompleted?: boolean;  // 新增：仅 passed=true 时有意义
+  allCompleted?: boolean;  // 仅 passed=true 时有意义
+  async?: boolean;         // true 时代表验收已提交后台，结果由 inbox 通知
 }
 
 export class ContractManager {
@@ -281,6 +282,9 @@ export class ContractManager {
 
   /**
    * Mark a subtask as complete and trigger acceptance
+   * 
+   * If acceptance is configured, runs asynchronously and returns { async: true }
+   * Result will be delivered via inbox message
    */
   async completeSubtask(params: {
     contractId: string;
@@ -298,76 +302,312 @@ export class ContractManager {
       a => a.subtask_id === subtaskId
     );
 
-    let result: AcceptanceResult;
+    // No acceptance criteria configured: pass immediately (sync)
     if (!acceptanceConfig) {
-      // No acceptance criteria configured; pass immediately
-      result = { passed: true, feedback: 'No acceptance criteria configured' };
-    } else if (acceptanceConfig.type === 'script') {
+      return this._completeSubtaskSync(contractId, subtaskId, evidence, artifacts);
+    }
+
+    // Has acceptance config: verify subtask exists, mark in_progress, then async
+    await this.withProgressLock(contractId, async () => {
+      const progress = await this.getProgress(contractId);
+      
+      // Verify subtaskId exists
+      if (!progress.subtasks[subtaskId]) {
+        const validIds = Object.keys(progress.subtasks).join(', ');
+        throw new ToolError(`Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`);
+      }
+      
+      // Mark as in_progress during acceptance verification
+      progress.subtasks[subtaskId] = {
+        status: 'in_progress',
+        evidence,
+        artifacts,
+      };
+      
+      await this.saveProgress(contractId, progress);
+      
+      this.monitor?.log('contract_acceptance_started', {
+        contractId,
+        subtaskId,
+      });
+    });
+
+    // Start background acceptance (fire-and-forget)
+    this._runAcceptanceInBackground(params, contractYaml, acceptanceConfig)
+      .catch(err => this._writeAcceptanceError(contractId, subtaskId, err));
+
+    // Return immediately with async flag
+    return { passed: false, feedback: '', async: true };
+  }
+
+  /**
+   * Synchronous completion (no acceptance configured)
+   */
+  private async _completeSubtaskSync(
+    contractId: string,
+    subtaskId: string,
+    evidence: string,
+    artifacts?: string[],
+  ): Promise<AcceptanceResult> {
+    let allCompleted = false;
+    const contractYaml = await this.loadContractYaml(contractId);
+    
+    await this.withProgressLock(contractId, async () => {
+      const progress = await this.getProgress(contractId);
+      
+      // Verify subtaskId exists
+      if (!progress.subtasks[subtaskId]) {
+        const validIds = Object.keys(progress.subtasks).join(', ');
+        throw new ToolError(`Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`);
+      }
+      
+      progress.subtasks[subtaskId] = {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        evidence,
+        artifacts,
+      };
+
+      // Check whether all subtasks are complete
+      allCompleted = await this.checkAllCompleted(contractId, progress);
+      if (allCompleted) {
+        progress.status = 'completed';
+        await this.updateContractStatus(contractId, 'completed');
+      }
+
+      await this.saveProgress(contractId, progress);
+      
+      this.monitor?.log('contract_updated', {
+        contractId,
+        subtaskId,
+        status: allCompleted ? 'completed' : 'running',
+      });
+    });
+
+    // Archive and notify Motion outside the lock (best-effort)
+    if (allCompleted) {
+      const title = contractYaml.title;
+      try {
+        await this.moveToArchive(contractId);
+      } catch (err) {
+        console.error('[contract] moveToArchive failed:', err);
+      }
+      this.notifyMotionCompletion(contractId, title);
+    }
+    
+    return { passed: true, feedback: 'No acceptance criteria configured', allCompleted };
+  }
+
+  /**
+   * Run acceptance verification in background
+   */
+  private async _runAcceptanceInBackground(
+    params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
+    contractYaml: ContractYaml,
+    acceptanceConfig: { subtask_id: string; type: 'script' | 'llm'; command?: string },
+  ): Promise<void> {
+    const { contractId, subtaskId, evidence, artifacts } = params;
+    
+    // Run acceptance check
+    let result: AcceptanceResult;
+    if (acceptanceConfig.type === 'script') {
       result = await this.runScriptAcceptance(acceptanceConfig.command || '');
     } else {
       // llm type - implemented in Phase 2
       result = { passed: true, feedback: 'LLM acceptance not implemented in Phase 1' };
     }
 
-    if (result.passed) {
-      let allCompleted = false;
+    // Handle acceptance result
+    await this.withProgressLock(contractId, async () => {
+      const progress = await this.getProgress(contractId);
+      const subtask = progress.subtasks[subtaskId];
       
-      // Use file lock to protect read-modify-write
-      await this.withProgressLock(contractId, async () => {
-        // Re-read progress inside the lock to get the latest state
-        const progress = await this.getProgress(contractId);
+      if (!subtask) return; // Should not happen
+      
+      if (result.passed) {
+        // Mark completed
+        subtask.status = 'completed';
+        subtask.completed_at = new Date().toISOString();
         
-        // Verify subtaskId exists
-        if (!progress.subtasks[subtaskId]) {
-          const validIds = Object.keys(progress.subtasks).join(', ');
-          result = {
-            passed: false,
-            feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`,
-          };
-          return;
-        }
-        
-        progress.subtasks[subtaskId] = {
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          evidence,
-          artifacts,
-        };
-
-        // Check whether all subtasks are complete
-        allCompleted = await this.checkAllCompleted(contractId, progress);
+        // Check all completed
+        const allCompleted = await this.checkAllCompleted(contractId, progress);
         if (allCompleted) {
           progress.status = 'completed';
-          // Update contract status
           await this.updateContractStatus(contractId, 'completed');
         }
-
+        
         await this.saveProgress(contractId, progress);
         
-        this.monitor?.log('contract_updated', {
-          contractId,
-          subtaskId,
-          status: allCompleted ? 'completed' : 'running',
-        });
-      });
-
-      // Archive and notify Motion outside the lock (best-effort)
-      if (allCompleted) {
-        const title = contractYaml.title;
-        try {
-          await this.moveToArchive(contractId);
-        } catch (err) {
-          console.error('[contract] moveToArchive failed:', err);
-          // 继续执行 notify，不让 archive 失败阻断通知
+        // Write inbox notification to claw
+        await this._writeAcceptanceInbox(contractId, subtaskId, 'passed', allCompleted);
+        
+        // Notify Motion if all completed
+        if (allCompleted) {
+          try {
+            await this.moveToArchive(contractId);
+          } catch (err) {
+            console.error('[contract] moveToArchive failed:', err);
+          }
+          this.notifyMotionCompletion(contractId, contractYaml.title);
         }
-        this.notifyMotionCompletion(contractId, title);
+      } else {
+        // Rejected - track retry count
+        const retryCount = (subtask as any).retry_count || 0;
+        (subtask as any).retry_count = retryCount + 1;
+        
+        // Reset to todo for retry
+        subtask.status = 'todo';
+        
+        await this.saveProgress(contractId, progress);
+        
+        // Write inbox rejection notification
+        await this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, result.feedback, retryCount + 1);
+        
+        // Escalate if too many retries
+        if (retryCount + 1 >= 3) {
+          this.notifyMotionEscalation(contractId, subtaskId, result.feedback);
+        }
       }
-      
-      // 告知调用方最终状态
-      result = { ...result, allCompleted };
-    }
+    });
+  }
 
-    return result;
+  /**
+   * Write acceptance result to claw inbox
+   */
+  private async _writeAcceptanceInbox(
+    contractId: string,
+    subtaskId: string,
+    verdict: 'passed' | 'rejected',
+    allCompleted: boolean,
+    feedback?: string,
+    retryCount?: number,
+  ): Promise<void> {
+    const msgId = randomUUID();
+    const now = new Date();
+    const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+    const uuid8 = msgId.slice(0, 8);
+    const filename = `${ts}_${verdict === 'rejected' ? 'high' : 'normal'}_${uuid8}.md`;
+    
+    const extraFields: Record<string, string> = {
+      contract_id: contractId,
+      subtask_id: subtaskId,
+      verdict,
+    };
+    if (retryCount !== undefined) extraFields.retry_count = String(retryCount);
+    
+    let body: string;
+    if (verdict === 'passed') {
+      body = allCompleted 
+        ? `Subtask ${subtaskId} accepted. All subtasks complete!`
+        : `Subtask ${subtaskId} accepted.`;
+    } else {
+      body = this.formatRejectionFeedback(feedback || 'No feedback provided');
+    }
+    
+    const content = [
+      '---',
+      `id: ${ts}-${uuid8}`,
+      `type: ${verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection'}`,
+      `from: contract_system`,
+      `to: claw`,
+      `priority: ${verdict === 'rejected' ? 'high' : 'normal'}`,
+      `timestamp: ${now.toISOString()}`,
+      ...Object.entries(extraFields).map(([k, v]) => `${k}: ${v}`),
+      '---',
+      '',
+      body,
+    ].join('\n');
+    
+    await this.fs.ensureDir('inbox/pending');
+    await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
+  }
+
+  /**
+   * Write acceptance error to claw inbox (best-effort)
+   */
+  private async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
+    try {
+      const msgId = randomUUID();
+      const now = new Date();
+      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+      const uuid8 = msgId.slice(0, 8);
+      const filename = `${ts}_high_${uuid8}.md`;
+      
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      
+      const content = [
+        '---',
+        `id: ${ts}-${uuid8}`,
+        `type: acceptance_error`,
+        `from: contract_system`,
+        `to: claw`,
+        `priority: high`,
+        `timestamp: ${now.toISOString()}`,
+        `contract_id: ${contractId}`,
+        `subtask_id: ${subtaskId}`,
+        '---',
+        '',
+        `Acceptance verification failed with error: ${errorMsg.slice(0, 500)}`,
+      ].join('\n');
+      
+      await this.fs.ensureDir('inbox/pending');
+      await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
+    } catch (e) {
+      // Best-effort: log but don't throw
+      console.error('[contract] Failed to write acceptance error to inbox:', e);
+    }
+  }
+
+  /**
+   * Format rejection feedback for claw
+   */
+  private formatRejectionFeedback(feedback: string): string {
+    return [
+      'Acceptance Rejected',
+      '==================',
+      '',
+      feedback,
+      '',
+      'Please review the feedback and resubmit when ready.',
+    ].join('\n');
+  }
+
+  /**
+   * Notify Motion of subtask escalation (too many retries)
+   */
+  private notifyMotionEscalation(contractId: string, subtaskId: string, feedback: string): void {
+    try {
+      const clawId = path.basename(this.clawDir);
+      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      fsNative.mkdirSync(motionInbox, { recursive: true });
+
+      const now = new Date();
+      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+      const uuid8 = randomUUID().slice(0, 8);
+      const filename = `${ts}_escalation_${uuid8}.md`;
+
+      const content = `---
+id: ${ts}-${clawId}-${uuid8}
+type: escalation
+from: ${clawId}
+to: motion
+priority: high
+timestamp: ${now.toISOString()}
+contract_id: ${contractId}
+subtask_id: ${subtaskId}
+---
+
+Subtask ${subtaskId} has been rejected 3+ times and requires escalation.
+
+Feedback:
+${feedback}
+`;
+
+      fsNative.writeFileSync(path.join(motionInbox, filename), content);
+      console.log(`[contract] Escalation notification written to ${filename}`);
+    } catch (err) {
+      console.error('[contract] Failed to write escalation notification:', err);
+    }
   }
 
   /**

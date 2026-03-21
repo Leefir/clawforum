@@ -11,6 +11,7 @@ export type MonitorEventType =
   | 'contract_updated'
   | 'contract_completed'
   | 'contract_failed'
+  | 'contract_acceptance_started'
   | 'subagent_spawned'
   | 'subagent_scheduled'
   | 'subagent_completed'

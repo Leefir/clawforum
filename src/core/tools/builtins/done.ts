@@ -15,8 +15,9 @@ import type { ContractManager } from '../../contract/manager.js';
  */
 export const doneTool: ITool & { contractManager?: ContractManager } = {
   name: 'done',
-  description: 'Mark a subtask as complete and trigger acceptance verification. ' +
-    'The acceptance criteria defined in the contract (script or llm) will be evaluated.',
+  description: 'Mark a subtask as complete and submit it for acceptance verification. ' +
+    'Acceptance runs asynchronously — the result (pass or reject) will be ' +
+    'delivered to your inbox. Check inbox for feedback before proceeding.',
   schema: {
     type: 'object',
     properties: {
@@ -80,6 +81,16 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
       artifacts,
     });
 
+    // Async acceptance path (has acceptance config)
+    if (result.async) {
+      return {
+        success: true,
+        content: `Subtask ${subtaskId} submitted for acceptance verification.\nResult will arrive via inbox — check inbox before starting the next subtask.`,
+        metadata: { contractId: active.id, subtaskId, async: true },
+      };
+    }
+
+    // Sync acceptance path (no acceptance config)
     if (result.passed) {
       if (result.allCompleted) {
         return {

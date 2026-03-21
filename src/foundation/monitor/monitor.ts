@@ -75,6 +75,7 @@ export class JsonlMonitor implements IMonitor {
       'contract_updated': 'contracts.jsonl',
       'contract_completed': 'contracts.jsonl',
       'contract_failed': 'contracts.jsonl',
+      'contract_acceptance_started': 'contracts.jsonl',
       'subagent_spawned': 'subagents.jsonl',
       'subagent_scheduled': 'subagents.jsonl',
       'subagent_completed': 'subagents.jsonl',
