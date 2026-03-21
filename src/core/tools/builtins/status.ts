@@ -21,7 +21,12 @@ async function getContractStatus(ctx: ExecContext): Promise<string> {
     
     const total = contract.subtasks.length;
     const done = contract.subtasks.filter(s => s.status === 'completed').length;
-    return `Contract: ${contract.title} (${done}/${total} subtasks done)`;
+    const lines = [`Contract: "${contract.title}" (${done}/${total} subtasks done)`];
+    for (const s of contract.subtasks) {
+      const icon = s.status === 'completed' ? '✓' : s.status === 'failed' ? '✗' : '○';
+      lines.push(`  ${icon} ${s.id}: ${s.description}`);
+    }
+    return lines.join('\n');
   } catch (err) {
     console.warn('[status] contract error:', err);
     return 'Contract: Error loading';
@@ -101,7 +106,7 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
 
 export const statusTool: ITool = {
   name: 'status',
-  description: 'Get comprehensive status: Claw ID, profile, step count, active contract, tasks, storage (MEMORY.md, clawspace).',
+  description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
   schema: {
     type: 'object',
     properties: {
