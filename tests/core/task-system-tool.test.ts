@@ -739,6 +739,85 @@ describe('TaskSystem Tool Tasks', () => {
       await taskSystem2.shutdown(100).catch(() => {});
     });
   });
+
+  // Phase 17: callback 丢失恢复路径 + shutdown
+  describe('Phase 17 untested paths', () => {
+    it('should send error inbox message when ToolTask has no registered callback (daemon restart recovery)', async () => {
+      // Simulate daemon restart: ToolTask written to tasks/pending/ but no callback registered
+      const freshDir = path.join(TEST_DIR, `callback-loss-${Date.now()}`);
+      await fs.mkdir(path.join(freshDir, 'tasks', 'pending'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'running'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'done'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'results'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'inbox', 'pending'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'logs'), { recursive: true });
+
+      const taskId = 'lost-callback-task';
+      await fs.writeFile(
+        path.join(freshDir, 'tasks', 'pending', `${taskId}.json`),
+        JSON.stringify({
+          id: taskId, kind: 'tool', toolName: 'testTool',
+          isIdempotent: false, maxRetries: 0, retryCount: 0,
+          parentClawId: 'test-claw', createdAt: new Date().toISOString(), status: 'pending',
+        }, null, 2),
+      );
+
+      const freshSystem = new TaskSystem(
+        freshDir,
+        {
+          read: (p: string) => fs.readFile(path.join(freshDir, p), 'utf-8'),
+          write: (p: string, c: string) => fs.writeFile(path.join(freshDir, p), c),
+          writeAtomic: (p: string, c: string) => fs.writeFile(path.join(freshDir, p), c),
+          append: (p: string, c: string) => fs.appendFile(path.join(freshDir, p), c),
+          delete: (p: string) => fs.unlink(path.join(freshDir, p)),
+          move: (from: string, to: string) => fs.rename(path.join(freshDir, from), path.join(freshDir, to)),
+          exists: (p: string) => fs.access(path.join(freshDir, p)).then(() => true).catch(() => false),
+          list: (p: string) => fs.readdir(path.join(freshDir, p), { withFileTypes: true }).then(entries =>
+            entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() })),
+          ),
+          ensureDir: (p: string) => fs.mkdir(path.join(freshDir, p), { recursive: true }),
+          isDirectory: (p: string) => fs.stat(path.join(freshDir, p)).then(s => s.isDirectory()).catch(() => false),
+        } as any,
+        mockTransport as any,
+        { maxConcurrent: 3 },
+      );
+
+      await freshSystem.initialize();
+      freshSystem.startDispatch(); // recoverTasks() loaded the task; dispatch now runs it
+
+      await new Promise(r => setTimeout(r, 200));
+
+      const inboxFiles = await fs.readdir(path.join(freshDir, 'inbox', 'pending'));
+      const mdFiles = inboxFiles.filter((f: string) => f.endsWith('.md'));
+      expect(mdFiles.length).toBeGreaterThan(0);
+
+      const content = await fs.readFile(path.join(freshDir, 'inbox', 'pending', mdFiles[0]), 'utf-8');
+      expect(content).toContain('daemon restarted');
+
+      await freshSystem.shutdown(500).catch(() => {});
+      await fs.rm(freshDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    it('should resolve shutdown even when a running task does not finish (timeout path)', async () => {
+      let unblock!: () => void;
+      const blockingPromise = new Promise<void>(resolve => { unblock = resolve; });
+
+      const slowCb = vi.fn().mockImplementation(async () => {
+        await blockingPromise;
+        return { success: true, content: 'done' };
+      });
+
+      await taskSystem.scheduleTool('slowTool', slowCb, 'test-claw');
+      await new Promise(r => setTimeout(r, 50)); // let dispatch start the task
+
+      // shutdown(50) — task won't finish, Promise.race timeout fires
+      const shutdownPromise = taskSystem.shutdown(50);
+      await expect(shutdownPromise).resolves.toBeUndefined();
+
+      // Unblock to allow cleanup
+      unblock();
+    });
+  });
 });
 
 describe('ToolExecutor async routing', () => {

@@ -53,6 +53,85 @@ describe('ToolExecutor', () => {
     await cleanupTempDir(tempDir);
   });
 
+  // Phase 17: executeParallel
+  describe('executeParallel', () => {
+    it('should execute batch of readonly tools in parallel and return results in original order', async () => {
+      registry.register({
+        name: 'echo-a',
+        description: 'echo a',
+        schema: { type: 'object', properties: {}, required: [] },
+        requiredPermissions: [],
+        readonly: true,
+        async execute() { return { success: true, content: 'result-a' }; },
+      });
+      registry.register({
+        name: 'echo-b',
+        description: 'echo b',
+        schema: { type: 'object', properties: {}, required: [] },
+        requiredPermissions: [],
+        readonly: true,
+        async execute() { return { success: true, content: 'result-b' }; },
+      });
+
+      const results = await executor.executeParallel(
+        [{ toolName: 'echo-b', args: {} }, { toolName: 'echo-a', args: {} }],
+        ctx,
+      );
+
+      expect(results).toHaveLength(2);
+      expect(results[0].content).toBe('result-b');
+      expect(results[1].content).toBe('result-a');
+    });
+
+    it('should silently filter out non-readonly tools, returning shorter array', async () => {
+      registry.register({
+        name: 'write-tool',
+        description: 'write',
+        schema: { type: 'object', properties: {}, required: [] },
+        requiredPermissions: [],
+        readonly: false,
+        async execute() { return { success: true, content: 'written' }; },
+      });
+      registry.register({
+        name: 'read-tool',
+        description: 'read',
+        schema: { type: 'object', properties: {}, required: [] },
+        requiredPermissions: [],
+        readonly: true,
+        async execute() { return { success: true, content: 'read-result' }; },
+      });
+
+      // batch has 2 items but only 1 is readonly
+      const results = await executor.executeParallel(
+        [{ toolName: 'write-tool', args: {} }, { toolName: 'read-tool', args: {} }],
+        ctx,
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].content).toBe('read-result');
+    });
+
+    it('should return error result when readonly tool throws', async () => {
+      registry.register({
+        name: 'exploding-tool',
+        description: 'explodes',
+        schema: { type: 'object', properties: {}, required: [] },
+        requiredPermissions: [],
+        readonly: true,
+        async execute() { throw new Error('boom'); },
+      });
+
+      const results = await executor.executeParallel(
+        [{ toolName: 'exploding-tool', args: {} }],
+        ctx,
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(false);
+      expect(results[0].content).toContain('boom');
+    });
+  });
+
   // Phase 2 质量审查：audit.log 测试
   describe('audit logging', () => {
     it('should write audit log on successful tool execution', async () => {

@@ -13,7 +13,7 @@ import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
-import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract } from './watchdog-utils.js';
+import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
 
 // Get the .clawforum/ directory (CLAWFORUM_ROOT takes priority)
 function getClawforumDir(): string {
@@ -114,37 +114,6 @@ function getGlobalConfig() {
   return globalConfigCache;
 }
 
-// Claw health snapshot (used to inform motion decisions)
-interface ClawSnapshot {
-  status: 'running' | 'stopped';
-  contract: string;       // 'active:<contractId>' | 'paused:<contractId>' | 'none'
-  inboxPending: number;
-  outboxPending: number;
-}
-
-function gatherClawSnapshot(clawDir: string, pm: ProcessManager, clawId: string): ClawSnapshot {
-  const status = pm.isAlive(clawId) ? 'running' : 'stopped';
-
-  // Find contract (active takes priority)
-  let contract = 'none';
-  for (const sub of ['active', 'paused']) {
-    try {
-      const entries = fs.readdirSync(path.join(clawDir, 'contract', sub), { withFileTypes: true });
-      const dir = entries.find(e => e.isDirectory());
-      if (dir) { contract = `${sub}:${dir.name}`; break; }
-    } catch { /* skip */ }
-  }
-
-  // inbox/outbox pending count
-  const countMd = (dir: string) => {
-    try { return fs.readdirSync(dir).filter(f => f.endsWith('.md')).length; } catch { return 0; }
-  };
-  const inboxPending = countMd(path.join(clawDir, 'inbox', 'pending'));
-  const outboxPending = countMd(path.join(clawDir, 'outbox', 'pending'));
-
-  return { status, contract, inboxPending, outboxPending };
-}
-
 // Check for claws with an active contract but no progress for a long time, and send a reminder
 function maybeCronClawInactivity(pm: ProcessManager): void {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
@@ -170,14 +139,14 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
 
     // Reset count if claw has made new progress after full timeout cycle
     const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
-    if (lastEventMs !== null && lastEventMs > lastNotified + timeoutMs) {
+    if (shouldResetNotifyCount(lastEventMs, lastNotified, timeoutMs)) {
       inactivityNotifyCount.set(clawId, 0);
     }
 
     const notifyCount = inactivityNotifyCount.get(clawId) ?? 0;
 
     // Backoff interval: first 2 notifications use timeoutMs, from the 3rd onward use 3x
-    const effectiveInterval = notifyCount >= 2 ? timeoutMs * 3 : timeoutMs;
+    const effectiveInterval = getEffectiveInterval(notifyCount, timeoutMs);
     if (now - lastNotified < effectiveInterval) continue;
 
     // Collect snapshot info

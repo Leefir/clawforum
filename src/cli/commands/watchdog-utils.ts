@@ -61,3 +61,54 @@ export function clawHasContract(clawDir: string): boolean {
   }
   return false;
 }
+
+// ---- Phase 18: gatherClawSnapshot ----
+
+export interface ClawSnapshot {
+  status: 'running' | 'stopped';
+  contract: string;       // 'active:<id>' | 'paused:<id>' | 'none'
+  inboxPending: number;
+  outboxPending: number;
+}
+
+/** Duck-typed subset of ProcessManager used by gatherClawSnapshot */
+export interface ProcessLiveness {
+  isAlive(id: string): boolean;
+}
+
+export function gatherClawSnapshot(clawDir: string, pm: ProcessLiveness, clawId: string): ClawSnapshot {
+  const status = pm.isAlive(clawId) ? 'running' : 'stopped';
+
+  let contract = 'none';
+  for (const sub of ['active', 'paused']) {
+    try {
+      const entries = fs.readdirSync(path.join(clawDir, 'contract', sub), { withFileTypes: true });
+      const dir = entries.find(e => e.isDirectory());
+      if (dir) { contract = `${sub}:${dir.name}`; break; }
+    } catch { /* skip */ }
+  }
+
+  const countMd = (dir: string) => {
+    try { return fs.readdirSync(dir).filter(f => f.endsWith('.md')).length; } catch { return 0; }
+  };
+  const inboxPending = countMd(path.join(clawDir, 'inbox', 'pending'));
+  const outboxPending = countMd(path.join(clawDir, 'outbox', 'pending'));
+
+  return { status, contract, inboxPending, outboxPending };
+}
+
+// ---- Phase 18: inactivity backoff pure helpers ----
+
+/** Returns effective notification interval (3x after first 2 notifications) */
+export function getEffectiveInterval(notifyCount: number, timeoutMs: number): number {
+  return notifyCount >= 2 ? timeoutMs * 3 : timeoutMs;
+}
+
+/** Returns true if claw made new progress that should reset the notify counter */
+export function shouldResetNotifyCount(
+  lastEventMs: number | null,
+  lastNotified: number,
+  timeoutMs: number,
+): boolean {
+  return lastEventMs !== null && lastEventMs > lastNotified + timeoutMs;
+}
