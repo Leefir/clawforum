@@ -451,4 +451,39 @@ describe('ContractManager', () => {
     const activePath = path.join(CLAW_DIR, 'contract', 'active', contractId);
     await expect(fs.access(activePath)).resolves.not.toThrow();
   });
+
+  describe('monitor error reporting', () => {
+    it('should log error to monitor when loadActive finds corrupted progress.json', async () => {
+      const mockMonitor = { log: vi.fn() };
+      const monitorManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+
+      // 写入损坏的 progress.json
+      const contractId = 'corrupt-contract';
+      const contractDir = path.join(CLAW_DIR, 'contract', 'active', contractId);
+      await fs.mkdir(contractDir, { recursive: true });
+      await fs.writeFile(path.join(contractDir, 'progress.json'), '{ invalid json !!');
+
+      const result = await monitorManager.loadActive();
+      expect(result).toBeNull(); // 损坏的契约被跳过，返回 null
+      expect(mockMonitor.log).toHaveBeenCalledWith('error', expect.objectContaining({
+        context: 'ContractManager.loadActive',
+      }));
+    });
+
+    it('should log error to monitor when loadPaused finds corrupted progress.json', async () => {
+      const mockMonitor = { log: vi.fn() };
+      const monitorManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+
+      const contractId = 'corrupt-paused-contract';
+      const contractDir = path.join(CLAW_DIR, 'contract', 'paused', contractId);
+      await fs.mkdir(contractDir, { recursive: true });
+      await fs.writeFile(path.join(contractDir, 'progress.json'), '{ bad json ]');
+
+      const result = await monitorManager.loadPaused();
+      expect(result).toBeNull();
+      expect(mockMonitor.log).toHaveBeenCalledWith('error', expect.objectContaining({
+        context: 'ContractManager.loadPaused',
+      }));
+    });
+  });
 });

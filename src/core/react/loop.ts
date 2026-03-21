@@ -40,7 +40,7 @@ export interface ReactOptions {
   maxSteps?: number;
   
   /** Callback when a tool is called (for UI updates) */
-  onToolCall?: (toolName: string) => void;
+  onToolCall?: (toolName: string) => void | Promise<void>;
   
   /** Callback before LLM call (for showing "Thinking...") */
   onBeforeLLMCall?: () => void;
@@ -230,7 +230,7 @@ async function executeToolCalls(
   executor: IToolExecutor,
   ctx: ExecContext,
   registry: IToolRegistry | undefined,
-  onToolCall?: (toolName: string) => void,
+  onToolCall?: (toolName: string) => void | Promise<void>,
   onToolResult?: (toolName: string, result: ToolResult, step: number, maxSteps: number) => void,
   stepCount: number = 0,
   maxSteps: number = 20,
@@ -239,7 +239,7 @@ async function executeToolCalls(
   if (!registry) {
     const toolResults: ToolResultBlock[] = [];
     for (const toolCall of toolCalls) {
-      onToolCall?.(toolCall.name);
+      await onToolCall?.(toolCall.name);
       const result = await executeSingleTool(toolCall, executor, ctx);
       onToolResult?.(toolCall.name, result, stepCount, maxSteps);
       toolResults.push(toToolResultBlock(toolCall.id, result));
@@ -272,7 +272,7 @@ async function executeToolCalls(
 
   // Execute readonly + async tools sequentially (preserve async routing)
   for (const { call, index } of readonlyAsyncCalls) {
-    onToolCall?.(call.name);
+    await onToolCall?.(call.name);
     const result = await executeSingleTool(call, executor, ctx);
     onToolResult?.(call.name, result, stepCount, maxSteps);
     results.set(index, toToolResultBlock(call.id, result));
@@ -282,7 +282,7 @@ async function executeToolCalls(
   if (readonlySyncCalls.length > 0) {
     // Notify UI for all readonly calls (before parallel execution)
     for (const { call } of readonlySyncCalls) {
-      onToolCall?.(call.name);
+      await onToolCall?.(call.name);
     }
 
     // Prepare batch for parallel execution
@@ -308,7 +308,7 @@ async function executeToolCalls(
 
   // Execute write tools sequentially
   for (const { call, index } of writeCalls) {
-    onToolCall?.(call.name);
+    await onToolCall?.(call.name);
     const result = await executeSingleTool(call, executor, ctx);
     onToolResult?.(call.name, result, stepCount, maxSteps);
     results.set(index, toToolResultBlock(call.id, result));

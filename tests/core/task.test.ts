@@ -558,5 +558,68 @@ describe('Task System + SubAgent', () => {
 
       await expect(agent.run()).rejects.toThrow();
     });
+
+    it('should call onIdleTimeout callback when idle timeout triggers', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      const onIdleTimeout = vi.fn();
+      
+      // Mock LLM that never yields any delta → idle timer never reset
+      const hangingLLM = {
+        call: vi.fn().mockImplementation(() => {
+          return new Promise(() => {}); // never resolves
+        }),
+        stream: vi.fn(),
+      } as unknown as ILLMService;
+
+      const agent = new SubAgent({
+        agentId: 'test-idle',
+        prompt: 'Test idle',
+        clawDir: tempDir,
+        llm: hangingLLM,
+        registry,
+        fs: mockFs,
+        timeoutMs: 10000, // main timeout is long
+        idleTimeoutMs: 100, // idle timeout is short
+        onIdleTimeout,
+      });
+
+      const runPromise = agent.run().catch(() => {}); // 预期抛 ToolTimeoutError
+
+      await vi.advanceTimersByTimeAsync(150); // 超过 idleTimeoutMs
+      await runPromise;
+
+      expect(onIdleTimeout).toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('should log error to monitor when appendToLog fs.append throws', async () => {
+      const mockMonitor = { log: vi.fn() };
+
+      // FS mock：append 始终失败，其余方法正常
+      const throwingFs = Object.create(mockFs);
+      throwingFs.append = vi.fn().mockRejectedValue(new Error('Disk full'));
+
+      const agent = new SubAgent({
+        agentId: 'test-append-fail',
+        prompt: 'Test',
+        clawDir: tempDir,
+        llm: createMockLLM([{
+          content: [{ type: 'text', text: 'Task done' }],
+          stopReason: 'end_turn',
+        }]),
+        registry,
+        fs: throwingFs,
+        monitor: mockMonitor as any,
+      });
+
+      // run 应该正常完成，appendToLog 失败不影响主流程
+      await agent.run();
+
+      expect(mockMonitor.log).toHaveBeenCalledWith('error', expect.objectContaining({
+        context: 'SubAgent.appendToLog',
+      }));
+    });
   });
 });

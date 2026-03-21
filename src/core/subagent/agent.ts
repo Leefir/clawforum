@@ -150,16 +150,13 @@ Work efficiently and return a clear, concise result.`;
           tools,                    // Enable native tool_use
           onTextDelta: resetIdle ? () => resetIdle() : undefined,
           onThinkingDelta: resetIdle ? () => resetIdle() : undefined,
-          onToolCall: (name) => {
+          onToolCall: async (name) => {
             resetIdle?.();
-            this.appendToLog(`Tool called: ${name}\n`);
+            await this.appendToLog(`Tool called: ${name}\n`);
           },
         }),
         timeoutPromise,
       ]);
-
-      clearTimeout(timeoutId);
-      clearTimeout(idleTimerId);
 
       // Log completion
       const duration = Date.now() - startTime;
@@ -170,9 +167,6 @@ Work efficiently and return a clear, concise result.`;
       // Extract final text result
       return result.finalText || '[No output produced]';
     } catch (error) {
-      clearTimeout(timeoutId);
-      clearTimeout(idleTimerId);
-
       if (timeoutController.signal.aborted && !(this.signal?.aborted)) {
         throw new ToolTimeoutError('subagent_run', this.timeoutMs);
       }
@@ -182,6 +176,10 @@ Work efficiently and return a clear, concise result.`;
       await this.appendToLog(`=== Error: ${errMsg} ===\n`);
 
       throw error;
+    } finally {
+      // 统一清理所有 timer，避免内存泄漏
+      clearTimeout(timeoutId);
+      clearTimeout(idleTimerId);
     }
   }
 
@@ -192,8 +190,13 @@ Work efficiently and return a clear, concise result.`;
     try {
       // 使用 IFileSystem.append 实现原子追加，避免竞态
       await this.fs.append(this.logPath, text);
-    } catch {
+    } catch (e) {
       // Log failures are non-fatal
+      this.monitor?.log('error', {
+        context: 'SubAgent.appendToLog',
+        agentId: this.agentId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 }

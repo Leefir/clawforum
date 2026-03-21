@@ -74,6 +74,7 @@ export class TaskSystem {
     await this.fs.ensureDir('tasks/running');
     await this.fs.ensureDir('tasks/done');
     await this.fs.ensureDir('tasks/results');
+    await this.fs.ensureDir('inbox/pending');
     
     // Cold-start recovery: load existing pending and running tasks
     await this.recoverTasks();

@@ -26,7 +26,7 @@ import {
   chatCommand as motionChatCommand,
   stopCommand as motionStopCommand,
 } from './commands/motion.js';
-import { contractCreateCommand } from './commands/contract.js';
+import { contractCreateCommand, contractCreateFromGoalCommand } from './commands/contract.js';
 import {
   startCommand as watchdogStartCommand,
   stopCommand as watchdogStopCommand,
@@ -285,12 +285,23 @@ const contractCmd = program
 // contract create
 contractCmd
   .command('create')
-  .description('Create a contract for a claw')
+  .description('Create a contract (--goal: LLM-generated, --file: import YAML)')
   .requiredOption('--claw <id>', 'Target claw ID')
-  .requiredOption('--file <path>', 'Path to contract YAML file')
-  .action(async (opts: { claw: string; file: string }) => {
+  .option('--goal <text>', 'Goal description (LLM generates subtasks and acceptance criteria)')
+  .option('--file <path>', 'Path to contract YAML file')
+  .action(async (opts: { claw: string; goal?: string; file?: string }) => {
     try {
-      await contractCreateCommand(opts.claw, opts.file);
+      if (opts.goal && opts.file) {
+        console.error('Error: --goal and --file cannot be used together');
+        process.exit(1);
+      } else if (opts.goal) {
+        await contractCreateFromGoalCommand(opts.claw, opts.goal);
+      } else if (opts.file) {
+        await contractCreateCommand(opts.claw, opts.file);
+      } else {
+        console.error('Error: must provide --goal or --file');
+        process.exit(1);
+      }
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

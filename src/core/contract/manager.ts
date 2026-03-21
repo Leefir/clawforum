@@ -42,12 +42,10 @@ export interface ContractYaml {
     id: string;
     description: string;
   }>;
-  acceptance?: Array<{
-    subtask_id: string;
-    type: 'script' | 'llm';
-    script_file?: string;   // 相对于契约目录的 .sh 路径（script 类型）
-    prompt_file?: string;   // 相对于契约目录的 .txt 路径（llm 类型）
-  }>;
+  acceptance?: Array<
+    | { subtask_id: string; type: 'script'; script_file: string }
+    | { subtask_id: string; type: 'llm'; prompt_file: string }
+  >;
   auth_level?: 'auto' | 'notify' | 'confirm';
   escalation?: {
     max_retries?: number;  // 默认 3
@@ -150,8 +148,13 @@ export class ContractManager {
   private async releaseLock(lockPath: string): Promise<void> {
     try {
       await this.fs.delete(lockPath);
-    } catch {
+    } catch (e) {
       // Ignore deletion failure (may have already been cleaned up by another process)
+      this.monitor?.log('error', {
+        context: 'ContractManager.releaseLock',
+        lockPath,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
@@ -237,8 +240,16 @@ export class ContractManager {
         if (!latest || startedAt > latest.startedAt) {
           latest = { name: entry.name, startedAt };
         }
-      } catch (err) {
-        console.warn(`[contract] Failed to parse progress for ${entry.name}: ${err instanceof Error ? err.message : String(err)}`);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT') {
+          console.warn(`[contract] progress.json corrupted: ${entry.name}`, error);
+          this.monitor?.log('error', {
+            context: 'ContractManager.loadPaused',
+            contract: entry.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
         continue;
       }
     }
@@ -342,6 +353,7 @@ export class ContractManager {
       
       // Mark as in_progress during acceptance verification
       progress.subtasks[subtaskId] = {
+        ...progress.subtasks[subtaskId], // 保留 retry_count / last_failed_feedback
         status: 'in_progress',
         evidence,
         artifacts,
@@ -429,7 +441,7 @@ export class ContractManager {
   private async _runAcceptanceInBackground(
     params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
     contractYaml: ContractYaml,
-    acceptanceConfig: { subtask_id: string; type: 'script' | 'llm'; script_file?: string; prompt_file?: string },
+    acceptanceConfig: { subtask_id: string; type: 'script'; script_file: string } | { subtask_id: string; type: 'llm'; prompt_file: string },
   ): Promise<void> {
     const { contractId, subtaskId, evidence, artifacts = [] } = params;
     
@@ -443,27 +455,36 @@ export class ContractManager {
     let structuredResult: { passed: boolean; reason: string; issues?: string[] } | undefined;
 
     if (acceptanceConfig.type === 'script') {
-      result = await this.runScriptAcceptance(acceptanceConfig.script_file ?? '', contractAbsDir);
+      const scriptFile = acceptanceConfig.script_file;
+      if (!scriptFile) {
+        result = { passed: false, feedback: 'acceptance config script 类型缺少 script_file' };
+      } else {
+        result = await this.runScriptAcceptance(scriptFile, contractAbsDir);
+      }
     } else {
-      // LLM acceptance
-      result = await this.runLLMAcceptance(
-        acceptanceConfig.prompt_file ?? '',
-        contractAbsDir,
-        contractId,
-        subtaskId,
-        subtaskDesc,
-        evidence,
-        artifacts,
-      );
-      // Try to parse structured result from feedback for better formatting
-      try {
-        const jsonMatch = result.feedback.match(/```json\s*([\s\S]*?)\s*```/) || result.feedback.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const jsonStr = jsonMatch[1] || jsonMatch[0];
-          structuredResult = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
+      const promptFile = acceptanceConfig.prompt_file;
+      if (!promptFile) {
+        result = { passed: false, feedback: 'acceptance config llm 类型缺少 prompt_file' };
+      } else {
+        result = await this.runLLMAcceptance(
+          promptFile,
+          contractAbsDir,
+          contractId,
+          subtaskId,
+          subtaskDesc,
+          evidence,
+          artifacts,
+        );
+        // Try to parse structured result from feedback for better formatting
+        try {
+          const jsonMatch = result.feedback.match(/```json\s*([\s\S]*?)\s*```/) || result.feedback.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const jsonStr = jsonMatch[1] || jsonMatch[0];
+            structuredResult = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
+          }
+        } catch {
+          // Ignore parse errors, use simple feedback
         }
-      } catch {
-        // Ignore parse errors, use simple feedback
       }
     }
 
@@ -472,7 +493,15 @@ export class ContractManager {
       const progress = await this.getProgress(contractId);
       const subtask = progress.subtasks[subtaskId];
       
-      if (!subtask) return; // Should not happen
+      if (!subtask) {
+        this.monitor?.log('error', {
+          context: 'ContractManager._runAcceptanceInBackground',
+          contractId,
+          subtaskId,
+          error: 'subtask missing from progress after in_progress mark',
+        });
+        return;
+      }
       
       if (result.passed) {
         // Mark completed
@@ -512,7 +541,9 @@ export class ContractManager {
         
         // Format rejection feedback
         const maxRetries = contractYaml.escalation?.max_retries ?? 3;
-        const acceptanceFile = acceptanceConfig.script_file || acceptanceConfig.prompt_file || 'unknown';
+        const acceptanceFile = acceptanceConfig.type === 'script' 
+          ? acceptanceConfig.script_file 
+          : acceptanceConfig.prompt_file;
         const formattedFeedback = structuredResult
           ? this.formatRejectionFeedback(
               subtaskId,
@@ -621,6 +652,12 @@ export class ContractManager {
     } catch (e) {
       // Best-effort: log but don't throw
       console.error('[contract] Failed to write acceptance error to inbox:', e);
+      this.monitor?.log('error', {
+        context: 'ContractManager._writeAcceptanceError',
+        contractId,
+        subtaskId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
@@ -683,8 +720,13 @@ export class ContractManager {
         },
         body: `Subtask "${subtaskId}" has failed ${retryCount} times.\n\nLast feedback:\n${lastFeedback}`,
       });
-    } catch {
-      // Best-effort
+    } catch (e) {
+      this.monitor?.log('error', {
+        context: 'ContractManager.notifyMotionEscalation',
+        contractId,
+        subtaskId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
@@ -704,8 +746,13 @@ export class ContractManager {
         extraFields: { contract_id: contractId, subtask_id: subtaskId },
         body: `LLM acceptance verifier timed out for subtask "${subtaskId}".`,
       });
-    } catch {
-      // Best-effort
+    } catch (e) {
+      this.monitor?.log('error', {
+        context: 'ContractManager.notifyMotionAcceptanceTimeout',
+        contractId,
+        subtaskId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
@@ -905,7 +952,11 @@ export class ContractManager {
 
     try {
       // Read prompt template
-      const promptTemplate = await this.fs.read(path.relative(this.clawDir, resolved));
+      const relativePath = path.relative(this.clawDir, resolved);
+      if (relativePath.startsWith('..')) {
+        return { passed: false, feedback: '路径安全拒绝: prompt_file 解析后逃出 claw 目录' };
+      }
+      const promptTemplate = await this.fs.read(relativePath);
 
       // Inject variables
       const filledPrompt = promptTemplate
@@ -939,7 +990,7 @@ export class ContractManager {
 
       return {
         passed: result.passed,
-        feedback: result.reason,
+        feedback: jsonStr, // 返回完整 JSON，供上层解析 structuredResult
       };
     } catch (err) {
       if (err instanceof ToolTimeoutError) {
@@ -966,8 +1017,12 @@ export class ContractManager {
         extraFields: { claw_id: clawId, contract_id: contractId },
         body: `Contract "${contractTitle}" has completed. Please perform a retrospective analysis.`,
       });
-    } catch {
-      // Best-effort
+    } catch (e) {
+      this.monitor?.log('error', {
+        context: 'ContractManager.notifyMotionCompletion',
+        contractId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 }

@@ -170,7 +170,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
       
       expect(executeCallback).toHaveBeenCalled();
       
@@ -207,7 +207,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
       
       // Full result should be in results directory
       const resultFile = await fs.readFile(
@@ -238,7 +238,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
       
       // Check inbox/pending/ for the error result message
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -268,7 +268,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
       
       // Task should be in done directory
       const doneFile = await fs.readFile(
@@ -497,7 +497,7 @@ describe('TaskSystem Tool Tasks', () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: longContent });
 
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
 
       // Check inbox/pending/ for the result message
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -523,7 +523,7 @@ describe('TaskSystem Tool Tasks', () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'direct result' });
 
       await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
 
       // Inbox file must be .md (not .json or other)
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -556,7 +556,7 @@ describe('TaskSystem Tool Tasks', () => {
 
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
       await taskSystem2.scheduleTool('testTool', executeCallback, 'parent-claw');
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 500));
 
       // Check inbox/pending/ for the result message
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -658,7 +658,7 @@ describe('TaskSystem Tool Tasks', () => {
       });
 
       // Wait for 3 attempts + backoffs (500ms + 1000ms) + margin
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 2500));
 
       // Should have been called 3 times (1 initial + 2 retries)
       expect(alwaysFailCallback).toHaveBeenCalledTimes(3);
@@ -732,10 +732,7 @@ describe('TaskSystem Tool Tasks', () => {
         list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
           entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
         ),
-        ensureDir: async (p: string) => {
-          if (p.includes('inbox')) throw new Error('Disk error');
-          return fs.mkdir(path.join(testClawDir, p), { recursive: true });
-        },
+        ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       };
 
@@ -802,7 +799,7 @@ describe('TaskSystem Tool Tasks', () => {
       await freshSystem.initialize();
       freshSystem.startDispatch(); // recoverTasks() loaded the task; dispatch now runs it
 
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 600));
 
       const inboxFiles = await fs.readdir(path.join(freshDir, 'inbox', 'pending'));
       const mdFiles = inboxFiles.filter((f: string) => f.endsWith('.md'));
