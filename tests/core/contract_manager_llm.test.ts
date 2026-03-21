@@ -327,6 +327,23 @@ describe('ContractManager Acceptance Flow', () => {
       expect(rejections.length).toBeGreaterThan(0);
       expect(rejections[0].content).toContain('缺少 script_file');
     });
+
+    it('should log warn to monitor when script acceptance config has no script_file', async () => {
+      const logSpy = vi.spyOn(mockMonitor, 'log');
+      const contractId = 'test-script-no-file-monitor';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1, title: 'Test', goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'script' }], // 故意缺 script_file
+      });
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'e' });
+      await flushAsync();
+
+      expect(logSpy).toHaveBeenCalledWith('warn', expect.objectContaining({
+        context: 'ContractManager._runAcceptanceInBackground',
+      }));
+    });
   });
 
   describe('LLM Acceptance', () => {
@@ -483,6 +500,23 @@ describe('ContractManager Acceptance Flow', () => {
       const rejections = inbox.filter(m => m.content.includes('acceptance_rejection'));
       expect(rejections.length).toBeGreaterThan(0);
       expect(rejections[0].content).toContain('LLM 验收未配置');
+    });
+
+    it('should log warn to monitor when llm acceptance config has no prompt_file', async () => {
+      const logSpy = vi.spyOn(mockMonitor, 'log');
+      const contractId = 'test-llm-no-prompt-monitor';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1, title: 'Test', goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'llm' }], // 故意缺 prompt_file
+      });
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'e' });
+      await flushAsync();
+
+      expect(logSpy).toHaveBeenCalledWith('warn', expect.objectContaining({
+        context: 'ContractManager._runAcceptanceInBackground',
+      }));
     });
   });
 

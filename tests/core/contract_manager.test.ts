@@ -485,5 +485,33 @@ describe('ContractManager', () => {
         context: 'ContractManager.loadPaused',
       }));
     });
+
+    it('should log warn to monitor when unknown subtaskId is used in completeSubtask', async () => {
+      const mockMonitor = { log: vi.fn() };
+      const monitorManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+
+      const contractId = await monitorManager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 'real-task', description: 'Real task' }],
+        acceptance: [],
+        auth_level: 'auto' as const,
+      });
+
+      const result = await monitorManager.completeSubtask({
+        contractId,
+        subtaskId: 'nonexistent-task',
+        evidence: 'evidence',
+      });
+
+      expect(result.passed).toBe(false);
+      expect(result.feedback).toContain('nonexistent-task');
+      expect(mockMonitor.log).toHaveBeenCalledWith('warn', expect.objectContaining({
+        context: 'ContractManager._completeSubtaskSync',
+        subtaskId: 'nonexistent-task',
+      }));
+    });
   });
 });

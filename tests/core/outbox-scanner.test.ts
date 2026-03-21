@@ -2,7 +2,7 @@
  * Outbox Scanner tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
 import { scanClawOutboxes } from '../../src/core/outbox-scanner.js';
@@ -158,5 +158,25 @@ describe('OutboxScanner', () => {
 
     const content = fs.readFileSync(path.join(motionInbox, files[0]), 'utf-8');
     expect(content).toContain('claw1(2)'); // Only .md files counted
+  });
+
+  it('should log warning when removing old outbox notification fails', () => {
+    // 创建一个有消息的 claw
+    const clawDir = path.join(tempDir, 'claws', 'claw1');
+    fs.mkdirSync(path.join(clawDir, 'outbox', 'pending'), { recursive: true });
+    fs.writeFileSync(path.join(clawDir, 'outbox', 'pending', 'msg.md'), 'content');
+
+    // 在 inboxDir 中放一个名称含 _claw_outbox_ 的【目录】
+    // → unlinkSync 会抛 EISDIR → 触发内层 console.warn
+    const inboxDir = path.join(tempDir, 'motion', 'inbox', 'pending');
+    fs.mkdirSync(inboxDir, { recursive: true });
+    fs.mkdirSync(path.join(inboxDir, '20240101T000000_claw_outbox_abc'), { recursive: true });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    scanClawOutboxes(tempDir);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to remove old notification')
+    );
+    warnSpy.mockRestore();
   });
 });
