@@ -373,6 +373,7 @@ export class ContractManager {
     artifacts?: string[],
   ): Promise<AcceptanceResult> {
     let allCompleted = false;
+    let result: AcceptanceResult = { passed: true, feedback: 'No acceptance criteria configured' };
     const contractYaml = await this.loadContractYaml(contractId);
     
     await this.withProgressLock(contractId, async () => {
@@ -381,7 +382,8 @@ export class ContractManager {
       // Verify subtaskId exists
       if (!progress.subtasks[subtaskId]) {
         const validIds = Object.keys(progress.subtasks).join(', ');
-        throw new ToolError(`Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`);
+        result = { passed: false, feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}` };
+        return;
       }
       
       progress.subtasks[subtaskId] = {
@@ -418,7 +420,7 @@ export class ContractManager {
       this.notifyMotionCompletion(contractId, title);
     }
     
-    return { passed: true, feedback: 'No acceptance criteria configured', allCompleted };
+    return { ...result, allCompleted };
   }
 
   /**

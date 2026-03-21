@@ -175,7 +175,7 @@ subtasks:
 acceptance:
   - subtask_id: st-001
     type: script
-    command: "echo 'success'"
+    script_file: "acceptance/st-001.sh"
 auth_level: auto
 `;
       await fs.writeFile(path.join(contractDir, 'contract.yaml'), yamlContent);
@@ -195,8 +195,9 @@ auth_level: auto
         evidence: 'Done',
       });
 
-      expect(result.passed).toBe(true);
-      expect(result.feedback).toContain('success');
+      // Async acceptance: returns { async: true, passed: false } immediately
+      expect(result.async).toBe(true);
+      // Actual result will arrive via inbox notification
     });
 
     it('should fail subtask with script acceptance (command fails)', async () => {
@@ -214,7 +215,7 @@ subtasks:
 acceptance:
   - subtask_id: st-001
     type: script
-    command: "exit 1"
+    script_file: "acceptance/st-001.sh"
 auth_level: auto
 `;
       await fs.writeFile(path.join(contractDir, 'contract.yaml'), yamlContent);
