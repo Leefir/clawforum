@@ -67,10 +67,10 @@ export async function startCommand(): Promise<void> {
         },
       ],
       acceptance: [
-        { subtask_id: 'identity', type: 'llm' },
-        { subtask_id: 'user', type: 'llm' },
-        { subtask_id: 'soul', type: 'llm' },
-        { subtask_id: 'ready', type: 'llm' },
+        { subtask_id: 'identity', type: 'llm', prompt_file: 'acceptance/identity.prompt.txt' },
+        { subtask_id: 'user', type: 'llm', prompt_file: 'acceptance/user.prompt.txt' },
+        { subtask_id: 'soul', type: 'llm', prompt_file: 'acceptance/soul.prompt.txt' },
+        { subtask_id: 'ready', type: 'llm', prompt_file: 'acceptance/ready.prompt.txt' },
       ],
     });
 

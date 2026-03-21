@@ -102,7 +102,7 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
   console.log(`Subtasks (${contractYaml.subtasks.length}):`);
   for (const st of contractYaml.subtasks) {
     const acc = contractYaml.acceptance?.find(a => a.subtask_id === st.id);
-    const accStr = acc ? ` [${acc.type}: ${acc.script_file ?? acc.prompt_file ?? ''}]` : ' [no acceptance]';
+    const accStr = acc ? ` [${acc.type}: ${acc.type === 'script' ? acc.script_file : acc.prompt_file}]` : ' [no acceptance]';
     console.log(`  - ${st.id}: ${st.description}${accStr}`);
   }
 }
