@@ -12,11 +12,15 @@ import * as path from 'path';
 import * as fsNative from 'fs';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { ILLMService } from '../../foundation/llm/index.js';
 import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../types/contract.js';
-import { ToolError } from '../../types/errors.js';
+import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS } from '../../constants.js';
+import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONTRACT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
+import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { SubAgent } from '../subagent/agent.js';
+import { ToolRegistry } from '../tools/registry.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -77,14 +81,24 @@ export class ContractManager {
   private fs: IFileSystem;
   private clawDir: string;
   private monitor?: IMonitor;
+  private llm?: ILLMService;
+  private verifierRegistry?: ToolRegistry;
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
 
-  constructor(clawDir: string, fs: IFileSystem, monitor?: IMonitor) {
+  constructor(
+    clawDir: string,
+    fs: IFileSystem,
+    monitor?: IMonitor,
+    llm?: ILLMService,
+    verifierRegistry?: ToolRegistry,
+  ) {
     this.clawDir = clawDir;
     this.fs = fs;
     this.monitor = monitor;
+    this.llm = llm;
+    this.verifierRegistry = verifierRegistry;
   }
 
   /**
@@ -415,16 +429,40 @@ export class ContractManager {
     contractYaml: ContractYaml,
     acceptanceConfig: { subtask_id: string; type: 'script' | 'llm'; script_file?: string; prompt_file?: string },
   ): Promise<void> {
-    const { contractId, subtaskId, evidence, artifacts } = params;
+    const { contractId, subtaskId, evidence, artifacts = [] } = params;
+    
+    // Get subtask description from contract YAML
+    const subtaskDef = contractYaml.subtasks.find(st => st.id === subtaskId);
+    const subtaskDesc = subtaskDef?.description || subtaskId;
     
     // Run acceptance check
     const contractAbsDir = path.join(this.clawDir, await this.contractDir(contractId), contractId);
     let result: AcceptanceResult;
+    let structuredResult: { passed: boolean; reason: string; issues?: string[] } | undefined;
+
     if (acceptanceConfig.type === 'script') {
       result = await this.runScriptAcceptance(acceptanceConfig.script_file ?? '', contractAbsDir);
     } else {
-      // llm type - implemented in Phase 2
-      result = { passed: true, feedback: 'LLM acceptance not implemented in Phase 1' };
+      // LLM acceptance
+      result = await this.runLLMAcceptance(
+        acceptanceConfig.prompt_file ?? '',
+        contractAbsDir,
+        contractId,
+        subtaskId,
+        subtaskDesc,
+        evidence,
+        artifacts,
+      );
+      // Try to parse structured result from feedback for better formatting
+      try {
+        const jsonMatch = result.feedback.match(/```json\s*([\s\S]*?)\s*```/) || result.feedback.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonStr = jsonMatch[1] || jsonMatch[0];
+          structuredResult = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
+        }
+      } catch {
+        // Ignore parse errors, use simple feedback
+      }
     }
 
     // Handle acceptance result
@@ -470,13 +508,28 @@ export class ContractManager {
         
         await this.saveProgress(contractId, progress);
         
-        // Write inbox rejection notification
-        await this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, result.feedback, subtask.retry_count);
-        
-        // Escalate if too many retries (read max_retries from contract, default 3)
+        // Format rejection feedback
         const maxRetries = contractYaml.escalation?.max_retries ?? 3;
+        const acceptanceFile = acceptanceConfig.script_file || acceptanceConfig.prompt_file || 'unknown';
+        const formattedFeedback = structuredResult
+          ? this.formatRejectionFeedback(
+              subtaskId,
+              subtaskDesc,
+              structuredResult.reason,
+              structuredResult.issues || [],
+              subtask.retry_count,
+              maxRetries,
+              acceptanceConfig.type,
+              acceptanceFile,
+            )
+          : result.feedback;
+        
+        // Write inbox rejection notification
+        await this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, formattedFeedback, subtask.retry_count);
+        
+        // Escalate if too many retries
         if (subtask.retry_count >= maxRetries) {
-          this.notifyMotionEscalation(contractId, subtaskId, result.feedback);
+          this.notifyMotionEscalation(contractId, subtaskId, result.feedback, subtask.retry_count);
         }
       }
     });
@@ -512,7 +565,7 @@ export class ContractManager {
         ? `Subtask ${subtaskId} accepted. All subtasks complete!`
         : `Subtask ${subtaskId} accepted.`;
     } else {
-      body = this.formatRejectionFeedback(feedback || 'No feedback provided');
+      body = feedback || 'No feedback provided';
     }
     
     const content = [
@@ -570,54 +623,87 @@ export class ContractManager {
   }
 
   /**
-   * Format rejection feedback for claw
+   * Format rejection feedback for claw with structured information
    */
-  private formatRejectionFeedback(feedback: string): string {
+  private formatRejectionFeedback(
+    subtaskId: string,
+    subtaskDesc: string,
+    reason: string,
+    issues: string[],
+    retryCount: number,
+    maxRetries: number,
+    acceptanceType: string,
+    acceptanceFile: string,
+  ): string {
+    const issuesList = issues.length > 0
+      ? issues.map(i => `- ${i}`).join('\n')
+      : '- (未提供具体问题)';
+
     return [
-      'Acceptance Rejected',
-      '==================',
+      `## 验收失败 — ${subtaskId}`,
       '',
-      feedback,
+      `**子任务：** ${subtaskDesc}`,
       '',
-      'Please review the feedback and resubmit when ready.',
+      '**失败原因：**',
+      reason,
+      '',
+      '**需要修正的问题：**',
+      issuesList,
+      '',
+      `**验收标准：** ${acceptanceType} (${acceptanceFile})`,
+      '',
+      `已失败 ${retryCount}/${maxRetries} 次。`,
     ].join('\n');
   }
 
   /**
    * Notify Motion of subtask escalation (too many retries)
    */
-  private notifyMotionEscalation(contractId: string, subtaskId: string, feedback: string): void {
+  private notifyMotionEscalation(
+    contractId: string,
+    subtaskId: string,
+    lastFeedback: string,
+    retryCount: number,
+  ): void {
     try {
       const clawId = path.basename(this.clawDir);
       const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
-      fsNative.mkdirSync(motionInbox, { recursive: true });
 
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-      const uuid8 = randomUUID().slice(0, 8);
-      const filename = `${ts}_escalation_${uuid8}.md`;
+      writeInboxMessage({
+        inboxDir: motionInbox,
+        type: 'contract_escalation',
+        source: clawId,
+        priority: 'high',
+        extraFields: {
+          contract_id: contractId,
+          subtask_id: subtaskId,
+          retry_count: String(retryCount),
+        },
+        body: `Subtask "${subtaskId}" has failed ${retryCount} times.\n\nLast feedback:\n${lastFeedback}`,
+      });
+    } catch {
+      // Best-effort
+    }
+  }
 
-      const content = `---
-id: ${ts}-${clawId}-${uuid8}
-type: escalation
-from: ${clawId}
-to: motion
-priority: high
-timestamp: ${now.toISOString()}
-contract_id: ${contractId}
-subtask_id: ${subtaskId}
----
+  /**
+   * Notify Motion of LLM acceptance timeout
+   */
+  private notifyMotionAcceptanceTimeout(contractId: string, subtaskId: string): void {
+    try {
+      const clawId = path.basename(this.clawDir);
+      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
 
-Subtask ${subtaskId} has been rejected 3+ times and requires escalation.
-
-Feedback:
-${feedback}
-`;
-
-      fsNative.writeFileSync(path.join(motionInbox, filename), content);
-      console.log(`[contract] Escalation notification written to ${filename}`);
-    } catch (err) {
-      console.error('[contract] Failed to write escalation notification:', err);
+      writeInboxMessage({
+        inboxDir: motionInbox,
+        type: 'acceptance_timeout',
+        source: clawId,
+        priority: 'high',
+        extraFields: { contract_id: contractId, subtask_id: subtaskId },
+        body: `LLM acceptance verifier timed out for subtask "${subtaskId}".`,
+      });
+    } catch {
+      // Best-effort
     }
   }
 
@@ -793,38 +879,93 @@ ${feedback}
   }
 
   /**
+   * Run LLM acceptance verification using SubAgent
+   */
+  private async runLLMAcceptance(
+    promptFile: string,
+    contractAbsDir: string,
+    contractId: string,
+    subtaskId: string,
+    subtaskDesc: string,
+    evidence: string,
+    artifacts: string[],
+  ): Promise<AcceptanceResult> {
+    // LLM not injected
+    if (!this.llm) {
+      return { passed: false, feedback: 'LLM 验收未配置（llm 未注入）' };
+    }
+
+    // Path security check
+    const resolved = path.resolve(contractAbsDir, promptFile);
+    if (!resolved.startsWith(contractAbsDir + path.sep)) {
+      return { passed: false, feedback: '路径安全拒绝: prompt_file 必须在契约目录内' };
+    }
+
+    try {
+      // Read prompt template
+      const promptTemplate = await this.fs.read(path.relative(this.clawDir, resolved));
+
+      // Inject variables
+      const filledPrompt = promptTemplate
+        .replace(/\{\{evidence\}\}/g, evidence)
+        .replace(/\{\{artifacts\}\}/g, artifacts.join(', '))
+        .replace(/\{\{subtask_description\}\}/g, subtaskDesc);
+
+      // Create SubAgent for verification
+      const agent = new SubAgent({
+        agentId: `verifier-${contractId}-${subtaskId}`,
+        prompt: filledPrompt,
+        clawDir: this.clawDir,
+        llm: this.llm,
+        registry: this.verifierRegistry || new ToolRegistry(),
+        fs: this.fs as any,
+        idleTimeoutMs: CONTRACT_LLM_IDLE_TIMEOUT_MS,
+        onIdleTimeout: () => this.notifyMotionAcceptanceTimeout(contractId, subtaskId),
+      });
+
+      // Run verification
+      const text = await agent.run();
+
+      // Extract JSON from response (supports ```json ... ``` wrapping)
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON\n${text.slice(0, 500)}` };
+      }
+
+      const jsonStr = jsonMatch[1] || jsonMatch[0];
+      const result = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
+
+      return {
+        passed: result.passed,
+        feedback: result.reason,
+      };
+    } catch (err) {
+      if (err instanceof ToolTimeoutError) {
+        return { passed: false, feedback: '验收子代理超时' };
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      return { passed: false, feedback: `LLM 验收失败: ${msg}` };
+    }
+  }
+
+  /**
    * Notify Motion of contract completion (best-effort)
-   * MVP alignment: _write_motion_review_request
    */
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
     try {
-      // clawDir = ~/.clawforum/claws/{clawId}
-      // Motion inbox = ~/.clawforum/motion/inbox/pending/
       const clawId = path.basename(this.clawDir);
       const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
 
-      fsNative.mkdirSync(motionInbox, { recursive: true });
-
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-      const uuid8 = randomUUID().slice(0, 8);
-      const filename = `${ts}_review_${uuid8}.md`;
-
-      const content = `---
-id: ${ts}-${clawId}-${uuid8}
-type: review_request
-source: ${clawId}
-priority: low
-timestamp: ${now.toISOString()}
-claw_id: ${clawId}
-contract_id: ${contractId}
----
-
-Contract "${contractTitle}" has completed. Please perform a retrospective analysis for claw ${clawId}.
-`;
-      fsNative.writeFileSync(path.join(motionInbox, filename), content);
-    } catch (err) {
-      console.warn(`[contract] Failed to notify motion of completion (${contractId}): ${err instanceof Error ? err.message : String(err)}`);
+      writeInboxMessage({
+        inboxDir: motionInbox,
+        type: 'review_request',
+        source: clawId,
+        priority: 'low',
+        extraFields: { claw_id: clawId, contract_id: contractId },
+        body: `Contract "${contractTitle}" has completed. Please perform a retrospective analysis.`,
+      });
+    } catch {
+      // Best-effort
     }
   }
 }
