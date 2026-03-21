@@ -282,6 +282,50 @@ describe('TaskSystem Tool Tasks', () => {
       // Should not be in running
       expect(taskSystem.listRunning()).not.toContain(taskId);
     });
+
+    it('should write fallback inbox message when sendToolResult inbox write fails', async () => {
+      // 第一次 inbox/pending 写入失败，第二次（fallback）成功
+      let inboxWriteCount = 0;
+      const failingInboxFs = {
+        read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+        write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        writeAtomic: async (p: string, c: string) => {
+          if (p.startsWith('inbox/pending/') && inboxWriteCount++ === 0) {
+            throw new Error('Simulated inbox write failure');
+          }
+          return fs.writeFile(path.join(testClawDir, p), c);
+        },
+        append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+        delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
+        exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+        list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries =>
+          entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+        ),
+        ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+        isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+      } as any;
+
+      const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3 });
+      await taskSystem2.initialize();
+
+      const taskId = await taskSystem2.scheduleTool(
+        'testTool',
+        async () => ({ success: true, content: 'result' }),
+        'parent-claw',
+      );
+
+      await new Promise(r => setTimeout(r, 300));
+      await taskSystem2.shutdown(500).catch(() => {});
+
+      // fallback 消息应该存在
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      const mdFiles = inboxFiles.filter(f => f.endsWith('.md'));
+      expect(mdFiles.length).toBeGreaterThan(0);
+      const content = await fs.readFile(path.join(testClawDir, 'inbox', 'pending', mdFiles[0]), 'utf-8');
+      expect(content).toContain(taskId);
+      expect(content).toContain('is_error');
+    });
   });
 
   describe('pending queue with dispatcher', () => {

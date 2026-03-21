@@ -409,7 +409,12 @@ export class TaskSystem {
       try {
         const result = await executeCallback();
         // Success - send result and mark success
-        await this.sendToolResult(task, result, false);
+        try {
+          await this.sendToolResult(task, result, false);
+        } catch (sendErr) {
+          // sendToolResult 本身失败：降级写最小通知，不进入重试（执行已成功）
+          await this.sendFallbackError(task, 'Failed to send result').catch(() => {});
+        }
         success = true;
         this.monitor.log('tool_task_completed', {
           taskId: task.id,
@@ -463,9 +468,9 @@ export class TaskSystem {
     }
 
     // If not successful after all attempts, send error result
-    try {
-      if (!success) {
-        const finalError = lastError || 'Unknown error';
+    if (!success) {
+      const finalError = lastError || 'Unknown error';
+      try {
         await this.sendToolResult(
           task,
           task.maxRetries > 0 
@@ -473,19 +478,22 @@ export class TaskSystem {
             : finalError,
           true
         );
-
-        this.monitor.log('error', {
-          taskId: task.id,
-          parentClawId: task.parentClawId,
-          toolName: task.toolName,
-          error: finalError,
-          retriesExhausted: task.maxRetries > 0,
-        });
+      } catch (sendErr) {
+        // sendToolResult 失败：降级写最小通知
+        await this.sendFallbackError(task, finalError).catch(() => {});
       }
-    } finally {
-      // Always move from running to done, even if sendToolResult throws
-      await this.moveTaskToDone(task.id);
+
+      this.monitor.log('error', {
+        taskId: task.id,
+        parentClawId: task.parentClawId,
+        toolName: task.toolName,
+        error: finalError,
+        retriesExhausted: task.maxRetries > 0,
+      });
     }
+
+    // Always move from running to done
+    await this.moveTaskToDone(task.id);
   }
 
   /**
@@ -561,6 +569,7 @@ export class TaskSystem {
         parentClawId: task.parentClawId,
         error: `Failed to write inbox message: ${errMsg}`,
       });
+      throw err;  // Re-throw to allow caller fallback
     }
   }
 

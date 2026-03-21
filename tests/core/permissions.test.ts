@@ -137,6 +137,32 @@ describe('Permission Matrix', () => {
       const ctx = createContext('subagent');
       expect(ctx.hasPermission('send')).toBe(false);
     });
+
+    it('should block done tool when callerType is subagent', async () => {
+      // executor 直接调用 done 工具，ctx.callerType = 'subagent'
+      const { ToolExecutorImpl } = await import('../../src/core/tools/executor.js');
+      const { doneTool } = await import('../../src/core/tools/builtins/done.js');
+      const subagentRegistry = new ToolRegistry();
+      subagentRegistry.register(doneTool);
+      const subagentExecutor = new ToolExecutorImpl(subagentRegistry);
+      const subagentCtx = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'subagent',
+        callerType: 'subagent',
+        fs: mockFs,
+      });
+
+      const result = await subagentExecutor.execute({
+        toolName: 'done',
+        args: { subtask: 'test', evidence: 'test evidence' },
+        ctx: subagentCtx,
+      });
+
+      // done 工具在 subagent 调用时应返回 error result（不是 PermissionError）
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('subagent');
+    });
   });
 
   describe('dream profile', () => {

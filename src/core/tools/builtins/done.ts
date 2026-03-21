@@ -41,6 +41,15 @@ export const doneTool: ITool & { contractManager?: ContractManager } = {
   idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
+    // done 工具仅限 claw 本身使用，防止子代理意外调用
+    if (ctx.callerType === 'subagent') {
+      return {
+        success: false,
+        content: 'done tool is not available to subagents',
+        error: 'CallerType not allowed',
+      };
+    }
+
     const contractManager = (ctx as { contractManager?: ContractManager }).contractManager;
     
     if (!contractManager) {
