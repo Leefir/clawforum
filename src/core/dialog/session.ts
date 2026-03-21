@@ -163,6 +163,44 @@ export class SessionManager {
   }
 
   /**
+   * Truncate messages to stay within context token limit (sliding window).
+   * Scans from the front until under limit, landing on a safe starting message
+   * (a user message that isn't purely tool_results).
+   * Returns the same array reference if no truncation needed.
+   */
+  truncateForContext(messages: Message[], maxTokens: number): { result: Message[]; pruned: number } {
+    if (this.estimateTokens(messages) <= maxTokens) {
+      return { result: messages, pruned: 0 };
+    }
+
+    // Find the first index where the tail fits in maxTokens
+    let cutIdx = 0;
+    while (cutIdx < messages.length - 2 &&
+           this.estimateTokens(messages.slice(cutIdx)) > maxTokens) {
+      cutIdx++;
+    }
+
+    // Advance to a safe starting point: first user message that isn't pure tool_results
+    while (cutIdx < messages.length - 2) {
+      const msg = messages[cutIdx];
+      if (msg.role === 'user') {
+        const isPureToolResult =
+          Array.isArray(msg.content) &&
+          msg.content.length > 0 &&
+          msg.content.every((b: any) => b.type === 'tool_result');
+        if (!isPureToolResult) break;
+      }
+      cutIdx++;
+    }
+
+    const pruned = cutIdx;
+    if (pruned > 0) {
+      console.warn(`[session] Pruned ${pruned} messages to fit context window (${maxTokens} tokens)`);
+    }
+    return { result: messages.slice(cutIdx), pruned };
+  }
+
+  /**
    * Load latest archive for crash recovery
    */
   private async loadLatestArchive(): Promise<SessionData | null> {

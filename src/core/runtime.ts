@@ -35,6 +35,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { MaxStepsExceededError } from '../types/errors.js';
+import { SESSION_CONTEXT_MAX_TOKENS } from '../constants.js';
 
 /**
  * ClawRuntime constructor options
