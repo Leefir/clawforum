@@ -607,7 +607,7 @@ describe('Task System + SubAgent', () => {
         clawDir: tempDir,
         llm: createMockLLM([{
           content: [{ type: 'text', text: 'Task done' }],
-          stopReason: 'end_turn',
+          stop_reason: 'end_turn',
         }]),
         registry,
         fs: throwingFs,
