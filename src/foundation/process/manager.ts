@@ -200,7 +200,14 @@ export class ProcessManager {
         if (this.isAlive(clawId)) {
           throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
         }
-        // Stale PID file — clean it up and recreate
+        // 区分：空文件 = spawn 进行中；有 PID 内容 = 陈旧文件
+        let existingContent = '';
+        try { existingContent = readFileSync(pidFile, 'utf-8').trim(); } catch {}
+        if (existingContent === '') {
+          // 空文件：可能有并发 spawn，记录警告后继续（接受极小概率重复启动）
+          console.warn(`[ProcessManager] Empty PID file for "${clawId}", possible concurrent spawn`);
+        }
+        // 清理陈旧文件并重建
         await this.removePid(clawId).catch(() => {});
         const handle = await fs.open(pidFile, 'wx');
         await handle.close();
