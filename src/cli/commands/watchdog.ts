@@ -213,9 +213,9 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
     // Not yet timed out
     if (now - referenceMs < timeoutMs) continue;
 
-    // Reset count if claw has made new progress (lastEventMs > last notification time)
+    // Reset count if claw has made new progress after full timeout cycle
     const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
-    if (lastEventMs !== null && lastEventMs > lastNotified) {
+    if (lastEventMs !== null && lastEventMs > lastNotified + timeoutMs) {
       inactivityNotifyCount.set(clawId, 0);
     }
 
@@ -306,7 +306,7 @@ function maybeCronArchive(): void {
   const today = now.toISOString().split('T')[0];
   
   if (lastArchiveDate === today) return;
-  if (now.getHours() !== 0 || now.getMinutes() >= 5) return;
+  if (now.getUTCHours() !== 0 || now.getUTCMinutes() >= 5) return;
   
   log('[watchdog] Running daily archive...');
   
@@ -428,19 +428,26 @@ export async function daemonCommand(): Promise<void> {
     process.exit(0);
   });
   
+  // Motion restart failure tracking for backoff
+  let motionRestartFailures = 0;
+
   while (!stopped) {
     // 1. Check motion liveness
     if (!pm.isAlive('motion')) {
-      log('[watchdog] motion crashed, restarting...');
+      log('[watchdog] motion down, restarting...');
       try {
         // First clean up any stale PID file that may exist
         await pm.stop('motion').catch(() => {});
         const motionDir = getMotionDir();
         const pid = await pm.spawn('motion', motionDir);  // use default daemon-entry.js
-        log(`[watchdog] motion restarted, PID=${pid}`);
+        log(`[watchdog] motion restarted (PID=${pid})`);
+        motionRestartFailures = 0;  // Success, reset counter
       } catch (err) {
-        log(`[watchdog] FAILED to restart motion: ${err}`);
+        motionRestartFailures++;
+        log(`[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
       }
+    } else {
+      motionRestartFailures = 0;  // Motion healthy, reset counter
     }
     
     // 2. Simple cron
@@ -449,9 +456,12 @@ export async function daemonCommand(): Promise<void> {
     maybeCronClawInactivity(pm);
     maybeCronClawCrash(pm);
     
-    // 3. Sleep (interval is configurable)
+    // 3. Sleep with backoff on consecutive failures (max 5 minutes)
     const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;
-    await setTimeout(intervalMs);
+    const backoffMs = motionRestartFailures > 0
+      ? Math.min(intervalMs * Math.pow(2, motionRestartFailures - 1), 5 * 60 * 1000)
+      : intervalMs;
+    await setTimeout(backoffMs);
   }
 }
 
