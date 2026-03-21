@@ -105,25 +105,35 @@ Work efficiently and return a clear, concise result.`;
       const tools = this.toolsForLLM
         ?? this.registry.formatForLLM(this.registry.getAll());
 
-      // Run ReAct loop
-      const result = await runReact({
-        messages,
-        systemPrompt,
-        llm: this.llm,
-        executor,
-        ctx: executor.getExecContext('subagent', { 
-          clawId: this.agentId,
-          dialogId: this.agentId,
-          signal: timeoutController.signal,
-          callerType: 'subagent',
-        }),
-        maxSteps: this.maxSteps,
-        registry: this.registry,  // Enable parallel execution for readonly tools
-        tools,                    // Enable native tool_use
-        onToolCall: (name) => {
-          this.appendToLog(`Tool called: ${name}\n`);
-        },
+      // Run ReAct loop，用 Promise.race 强制超时
+      // （不能只靠 signal 传播：collectStreamResponse 内部阻塞时检查不到 signal）
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutController.signal.addEventListener('abort', () => {
+          reject(new ToolTimeoutError('subagent_run', this.timeoutMs));
+        }, { once: true });
       });
+
+      const result = await Promise.race([
+        runReact({
+          messages,
+          systemPrompt,
+          llm: this.llm,
+          executor,
+          ctx: executor.getExecContext('subagent', { 
+            clawId: this.agentId,
+            dialogId: this.agentId,
+            signal: timeoutController.signal,
+            callerType: 'subagent',
+          }),
+          maxSteps: this.maxSteps,
+          registry: this.registry,  // Enable parallel execution for readonly tools
+          tools,                    // Enable native tool_use
+          onToolCall: (name) => {
+            this.appendToLog(`Tool called: ${name}\n`);
+          },
+        }),
+        timeoutPromise,
+      ]);
 
       clearTimeout(timeoutId);
 

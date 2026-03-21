@@ -10,7 +10,7 @@ import type { ToolProfile } from '../../types/config.js';
 export const TOOL_PROFILES: Record<ToolProfile, string[]> = {
   full:     ['read', 'write', 'search', 'ls', 'send', 'done', 'spawn', 'skill', 'exec', 'status', 'memory_search'],
   readonly: ['read', 'search', 'ls', 'status', 'memory_search'],
-  subagent: ['read', 'write', 'search', 'ls', 'exec', 'skill', 'memory_search'],
+  subagent: ['read', 'write', 'search', 'ls', 'exec', 'skill', 'status', 'memory_search'],
   dream:    ['read', 'search', 'ls', 'memory_search'],
 };
 

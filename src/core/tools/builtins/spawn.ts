@@ -10,7 +10,7 @@ import type { TaskSystem } from '../../task/system.js';
 import { SPAWN_DEFAULT_TIMEOUT_S } from '../../../constants.js';
 
 // Default tools available to subagents
-const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec'];
+const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec', 'skill', 'memory_search'];
 
 /**
  * Spawn tool implementation
