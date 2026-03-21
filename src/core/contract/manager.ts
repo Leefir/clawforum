@@ -399,6 +399,7 @@ export class ContractManager {
       }
       
       progress.subtasks[subtaskId] = {
+        ...progress.subtasks[subtaskId],
         status: 'completed',
         completed_at: new Date().toISOString(),
         evidence,
