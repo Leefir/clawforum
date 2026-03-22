@@ -44,18 +44,18 @@ export async function initCommand(): Promise<void> {
   };
   
   try {
+    // Base URL (optional)
+    const baseUrl = await question('Base URL (optional, press Enter for default)');
+
     // API Key (required)
     const apiKey = await passwordQuestion('API Key');
     if (!apiKey) {
       console.error('API Key is required');
       process.exit(1);
     }
-    
+
     // Model (default provided)
     const model = await question('Model', 'claude-3-5-haiku-20241022');
-    
-    // Base URL (optional)
-    const baseUrl = await question('Base URL (optional, press Enter for default)');
     
     rl.close();
     

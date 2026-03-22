@@ -9,6 +9,7 @@ Clawforum runs a coordinator (Motion) that breaks down your goals into structure
 ```bash
 pnpm install
 pnpm build
+npm link
 
 # Initialize workspace (prompts for LLM configuration)
 clawforum init
