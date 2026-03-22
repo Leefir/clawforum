@@ -21,6 +21,15 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 export async function startCommand(): Promise<void> {
+  try {
+    await _start();
+  } catch (error) {
+    console.error('clawforum start failed:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
+
+async function _start(): Promise<void> {
   // Step 1: workspace not initialized → run interactive init (prompts for LLM config)
   if (!isInitialized()) {
     await initCommand();
@@ -66,12 +75,7 @@ export async function startCommand(): Promise<void> {
           description: 'Bootstrap is complete. Let them know you are ready, and ask what they want to do first.',
         },
       ],
-      acceptance: [
-        { subtask_id: 'identity', type: 'llm' },
-        { subtask_id: 'user', type: 'llm' },
-        { subtask_id: 'soul', type: 'llm' },
-        { subtask_id: 'ready', type: 'llm' },
-      ],
+      acceptance: [],
     });
 
     writeInboxMessage({
@@ -88,3 +92,4 @@ export async function startCommand(): Promise<void> {
   // Step 5: open Motion chat
   await motionChatCommand();
 }
+

@@ -134,6 +134,10 @@ export class ContractManager {
       try {
         // wx flag = O_EXCL: 文件存在时原子性失败，无 TOCTOU
         const absoluteLockPath = path.join(this.clawDir, lockPath);
+        // 路径安全：确保解析后的路径仍在 clawDir 内
+        if (!absoluteLockPath.startsWith(this.clawDir + path.sep) && absoluteLockPath !== this.clawDir) {
+          throw new ToolError(`Lock path escapes clawDir: ${lockPath}`);
+        }
         await fsNative.promises.mkdir(path.dirname(absoluteLockPath), { recursive: true });
         await fsNative.promises.writeFile(
           absoluteLockPath,

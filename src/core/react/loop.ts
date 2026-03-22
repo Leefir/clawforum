@@ -340,11 +340,12 @@ async function executeSingleTool(
       async: asyncMode === true,
     });
   } catch (err) {
+    const errorType = err instanceof Error ? err.constructor.name : 'Error';
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error(`[react/loop] Tool ${toolCall.name} execution failed:`, errorMsg);
     return {
       success: false,
-      content: `工具执行失败: ${errorMsg}`,
+      content: `[${errorType}] 工具执行失败: ${errorMsg}`,
     };
   }
 }
@@ -499,7 +500,7 @@ function extractText(content: ContentBlock[]): string {
       block.type === 'text'
     )
     .map(block => block.text)
-    .join(' ')
+    .join('')
     .trim();
 }
 
