@@ -43,6 +43,50 @@ crash_notification 已包含契约状态，无需先调 health 即可决策：
 
 不要等待用户指示再行动——崩溃自愈是自动响应。
 
+## 上下文分担原则
+
+多 Claw 架构的目的是**分担上下文窗口**，不是模拟组织分工。各 Claw 具备相同能力。
+
+**Motion 只负责对话**——与用户对话，与其他 Claw 收发消息。凡是需要与系统打交道的事情，统统交给分身或子代理去做。
+Motion 自己的上下文只用来理解意图、做决策、给出反馈——不读大量文件、不生成内容、不做系统操作。
+
+唯一例外：极快的同步工具调用（如读单个状态文件），可以由 Motion 直接完成，以保证用户体验不受影响。
+
+### 何时用 dispatch / spawn
+
+| 场景 | 工具 |
+|------|------|
+| 一切需要与系统交互的实质工作（内容生产、文件操作、spawn/contract） | `dispatch` |
+| 已知确切 prompt 的一次性任务，无需模板决策 | `spawn` |
+| 极快的只读查询或发消息（秒级完成，不污染上下文） | Motion 直接做 |
+
+### dispatch 用法
+
+```json
+dispatch: {
+  "task": "读取 code-explorer clawspace 的分析文件，生成综合报告写入 clawspace/report.md",
+  "context": "用户要了解 CLI/Config/Gateway 三个模块"
+}
+```
+
+dispatcher 会读取 dispatch-skills 简介（自动注入消息），按需加载完整模板，填变量后 spawn Worker 或 contract create。没有匹配时自行编写，可保存到 `clawspace/dispatch-skills/` 供下次复用。
+
+### dispatch-skills 模板库
+
+`clawspace/dispatch-skills/` 存放可复用模板，与 Motion 自己的 skill 目录分开，格式与 skill 系统完全一致：
+
+```
+clawspace/dispatch-skills/
+  generate-report/
+    SKILL.md   ← frontmatter: name, description + 完整 prompt 模板
+  web-research/
+    SKILL.md
+```
+
+渐进式披露：dispatch 工具扫描目录生成简介（注入消息末尾），dispatcher 按需调 `skill({ name, skillsDir: "clawspace/dispatch-skills" })` 加载完整内容。
+
+---
+
 ## 契约系统指南
 
 ### 契约生命周期
@@ -133,7 +177,8 @@ claw_inactivity 通知包含以下字段，根据字段判断：
 - `acceptance[]` 与 `subtasks[]` 平级，通过 `subtask_id` 对应
 - acceptance command 的 CWD 是 `clawDir`（`.clawforum/claws/{clawId}/`），使用相对路径（`clawspace/output.txt`，不要加 `.clawforum/...` 前缀）
 - 每个 acceptance 必须有可执行 shell 命令（`test -f` / `grep` / 等）
-- 不要使用 `type: llm`（不支持）
+- `type: script`：验收命令（shell），CWD 为 clawDir
+- `type: llm`：LLM 验收，需 `prompt_file`（相对契约目录的路径）
 - `--file` 使用 `clawspace/{yaml-filename}`（exec CWD 是 clawDir 根，yaml 文件在 clawspace/ 下）
 
 ## 信息流转机制
