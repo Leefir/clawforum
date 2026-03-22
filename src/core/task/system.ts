@@ -15,6 +15,7 @@ import { ToolRegistry } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolResult } from '../tools/executor.js';
+import type { Message } from '../../types/message.js';
 
 export interface SubAgentTask {
   kind: 'subagent';
@@ -28,6 +29,7 @@ export interface SubAgentTask {
   systemPrompt?: string;                    // dispatcher 用 Motion 的 system prompt
   callerType?: 'subagent' | 'dispatcher';  // 传给 SubAgent，决定 executorProfile
   idleTimeoutMs?: number;                  // LLM 静默超时阈值（用户可配置）
+  messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
 }
 
 export interface ToolTask {
@@ -364,6 +366,7 @@ export class TaskSystem {
         systemPrompt: task.systemPrompt,
         callerType: task.callerType,
         idleTimeoutMs: task.idleTimeoutMs,
+        messages: task.messages,
       });
 
       const result = await subAgent.run();

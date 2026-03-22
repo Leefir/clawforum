@@ -18,6 +18,7 @@ import type { TaskSystem } from '../task/system.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { OutboxWriter } from '../communication/outbox.js';
+import type { Message } from '../../types/message.js';
 
 /**
  * Options for creating execution context
@@ -64,6 +65,9 @@ export interface ExecContextImplOptions {
   
   /** Outbox writer for send tool */
   outboxWriter?: OutboxWriter;
+  
+  /** 当前对话 messages（供 dispatch 工具读取） */
+  dialogMessages?: Message[];
 }
 
 /**
@@ -86,6 +90,7 @@ export class ExecContextImpl implements ExecContext {
   contractManager?: ContractManager;
   subagentMaxSteps: number;
   outboxWriter?: OutboxWriter;
+  dialogMessages?: Message[];
   
   private startTime: number;
 
@@ -105,6 +110,7 @@ export class ExecContextImpl implements ExecContext {
     this.contractManager = options.contractManager;
     this.subagentMaxSteps = options.subagentMaxSteps ?? options.maxSteps ?? 100;
     this.outboxWriter = options.outboxWriter;
+    this.dialogMessages = options.dialogMessages;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

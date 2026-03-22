@@ -414,6 +414,7 @@ export class ClawRuntime {
    * @protected available for reuse by subclass MotionRuntime
    */
   protected async _runReact(messages: Message[], callbacks?: StreamCallbacks): Promise<void> {
+    this.execContext.dialogMessages = messages;  // 注入完整对话上下文供 dispatch 工具读取
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );

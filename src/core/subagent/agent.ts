@@ -16,6 +16,7 @@ import { SUBAGENT_TIMEOUT_MS } from '../../constants.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
+import type { Message } from '../../types/message.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -37,6 +38,7 @@ export interface SubAgentOptions {
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
   subagentMaxSteps?: number;                 // 传给子 SubAgent
+  messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
 }
 
 export class SubAgent {
@@ -60,6 +62,7 @@ export class SubAgent {
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
   private subagentMaxSteps?: number;
+  private messages?: Message[];
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -82,6 +85,7 @@ export class SubAgent {
     this.outboxWriter = options.outboxWriter;
     this.contractManager = options.contractManager;
     this.subagentMaxSteps = options.subagentMaxSteps;
+    this.messages = options.messages;
   }
 
   /**
@@ -135,10 +139,10 @@ export class SubAgent {
         profile: executorProfile,
       });
 
-      // Setup messages
-      const messages = [
-        { role: 'user' as const, content: this.prompt },
-      ];
+      // Setup messages（若传入 messages 则直接使用，否则从 prompt 构建）
+      const messages: Message[] = this.messages
+        ? [...this.messages]   // 浅拷贝，避免 runReact 原地 mutate 污染原数组
+        : [{ role: 'user' as const, content: this.prompt }];
 
       // Log start
       await this.appendToLog(`=== SubAgent ${this.agentId} started ===\n`);

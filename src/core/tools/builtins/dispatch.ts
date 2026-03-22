@@ -1,5 +1,6 @@
 import type { ITool, ToolResult, ExecContext, ToolPermissions } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
+import type { Message } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import type { ToolRegistry } from '../registry.js';
 
@@ -88,11 +89,19 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
       ? args.idleTimeoutMs
       : 30000;
 
+    // 构造包含完整对话上下文的 messages 数组
+    const dialogMessages = ctx.dialogMessages ?? [];
+    const dispatcherMessages: Message[] = [
+      ...dialogMessages,
+      { role: 'user' as const, content: prompt },
+    ];
+
     const taskId = await taskSystem.scheduleSubAgent({
       kind: 'subagent',
-      prompt,
-      tools: [],           // 空 = 使用 registry 全部工具（spawn/skill/exec 均可用）
-      timeout: 3600,       // 总超时 1 小时（idle timeout 会更早触发终止）
+      messages: dispatcherMessages,  // 完整对话上下文
+      prompt,                         // 保留（兼容 fallback）
+      tools: [],                     // 空 = 使用 registry 全部工具
+      timeout: 3600,                 // 总超时 1 小时
       maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? 100,
       parentClawId: ctx.clawId,
       systemPrompt,

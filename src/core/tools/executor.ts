@@ -14,6 +14,7 @@ import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
+import type { Message } from '../../types/message.js';
 import type { ContractManager } from '../contract/manager.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -145,6 +146,8 @@ export interface ExecContext {
   outboxWriter?: OutboxWriter;
   /** TaskSystem for async tool execution */
   taskSystem?: TaskSystem;
+  /** 当前对话 messages（由 runtime._runReact 注入，供 dispatch 工具读取） */
+  dialogMessages?: Message[];
   getElapsedMs(): number;
   incrementStep(): void;
 }
