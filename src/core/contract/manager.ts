@@ -330,6 +330,11 @@ export class ContractManager {
       throw err;
     }
 
+    this.onNotify?.('contract_created', {
+      contractId,
+      title: contractYaml.title,
+      subtaskCount: contractYaml.subtasks.length,
+    });
     this.monitor?.log('contract_created', { contractId });
     return contractId;
   }

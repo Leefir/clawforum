@@ -208,11 +208,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'user_notify': {
         const sub = event.subtype as string;
         const subtaskId = event.subtaskId as string;
-        if (sub === 'subtask_completed') {
-          appendOutput(`\x1b[32m✓ [contract] ${subtaskId} accepted\x1b[0m`);
+        if (sub === 'contract_created') {
+          const title = (event.title as string) ?? '';
+          const count = event.subtaskCount as number;
+          appendOutput(`\x1b[2m  ✓ [contract] "${title}" created (${count} subtasks)\x1b[0m`);
+        } else if (sub === 'subtask_completed') {
+          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} accepted\x1b[0m`);
         } else if (sub === 'acceptance_failed') {
           const fb = (event.feedback as string) ?? '';
-          appendOutput(`\x1b[33m⚠ [contract] ${subtaskId} rejected: ${fb}\x1b[0m`);
+          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb}\x1b[0m`);
         }
         break;
       }
