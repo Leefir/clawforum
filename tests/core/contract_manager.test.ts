@@ -513,5 +513,33 @@ describe('ContractManager', () => {
         subtaskId: 'nonexistent-task',
       }));
     });
+
+    it('should clean up contract.yaml if progress.json write fails', async () => {
+      // spy writeAtomic，对 progress.json 抛错
+      vi.spyOn(nodeFs, 'writeAtomic').mockImplementation(async (p: string, c: string) => {
+        if (p.includes('progress.json')) throw new Error('disk full');
+        // 其他调用走真实实现
+        return fs.writeFile(path.join(CLAW_DIR, p), c);
+      });
+
+      const failManager = new ContractManager(CLAW_DIR, nodeFs);
+      await expect(failManager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 't1', description: 'T1' }],
+        acceptance: [],
+        auth_level: 'auto',
+      })).rejects.toThrow('disk full');
+
+      // active/ 下不应存在任何 contract.yaml
+      const activeDir = path.join(CLAW_DIR, 'contract', 'active');
+      const dirs = await fs.readdir(activeDir).catch(() => [] as string[]);
+      for (const dir of dirs) {
+        const yamlPath = path.join(activeDir, dir, 'contract.yaml');
+        await expect(fs.access(yamlPath)).rejects.toThrow(); // ENOENT
+      }
+    });
   });
 });

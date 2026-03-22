@@ -179,5 +179,25 @@ describe('ContractCreator', () => {
 
       await expect(creator.generate('Some goal')).rejects.toThrow();
     });
+
+    it('should throw when subtask is missing id field', async () => {
+      const mockLLM = createMockLLM(JSON.stringify({
+        title: 'Test',
+        goal: 'Test goal',
+        subtasks: [{ description: 'No ID here' }],  // 缺 id
+      }));
+      const creator = new ContractCreator(mockLLM);
+      await expect(creator.generate('test')).rejects.toThrow('subtask missing required field: id');
+    });
+
+    it('should throw when subtask is missing description field', async () => {
+      const mockLLM = createMockLLM(JSON.stringify({
+        title: 'Test',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1' }],  // 缺 description
+      }));
+      const creator = new ContractCreator(mockLLM);
+      await expect(creator.generate('test')).rejects.toThrow('subtask missing required field: description');
+    });
   });
 });
