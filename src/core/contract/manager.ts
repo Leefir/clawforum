@@ -936,11 +936,11 @@ export class ContractManager {
       return { passed: false, feedback: `路径安全拒绝: script_file 必须在契约目录内` };
     }
 
-    console.log(`[contract] Running acceptance script: ${scriptFile} (cwd: ${contractAbsDir})`);
+    console.log(`[contract] Running acceptance script: ${scriptFile} (cwd: ${this.clawDir})`);
     
     try {
       await execFileAsync('sh', [resolved], {
-        cwd: contractAbsDir,
+        cwd: this.clawDir,   // 从 claw 根目录执行，脚本可用 clawspace/ 相对路径
         timeout: CONTRACT_SCRIPT_TIMEOUT_MS,
         encoding: 'utf-8',
       });

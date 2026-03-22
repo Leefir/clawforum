@@ -56,6 +56,12 @@ Rules:
 5. All placeholders {{evidence}} and {{artifacts}} must be present in prompts
 6. Keep subtasks small (typically 3-7 subtasks per contract)
 
+Path convention for scripts:
+- Scripts run from clawDir (not contract directory)
+- Check deliverables with: if [ -f "clawspace/<filename>" ]
+- Use "clawspace/" prefix, not bare filenames
+- Do not use absolute paths
+
 Respond with valid JSON only, wrapped in markdown code block if needed.`;
 
     // Build user message with optional context
