@@ -106,6 +106,8 @@ done: { "subtask": "<subtask-id>", "evidence": "completion description" }
 
 **If done returns "X subtask(s) remaining"**: do NOT end the turn — immediately continue to the next subtask in the list. Only end the turn when done returns "All subtasks complete!".
 
+**When done returns "All subtasks complete!"**: the system automatically notifies Motion. Do NOT send a manual \`result\` message — it would be a duplicate.
+
 **Warning: do not directly modify progress.json** — writing the file directly bypasses the acceptance and notification mechanism, and Motion will not receive a completion notification.
 
 ### Working Directory

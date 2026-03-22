@@ -319,7 +319,7 @@ describe('ReAct Loop', () => {
     expect(stepCount).toBe(2); // 2 tool calls
   });
 
-  it('should continue loop even if onStepComplete fails', async () => {
+  it('should propagate onStepComplete failure immediately (audit log must succeed)', async () => {
     (mockLLM.call as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce(createToolUseResponse('read', { path: 'test.txt' }))
       .mockResolvedValueOnce(createTextResponse('Done'));
@@ -329,19 +329,18 @@ describe('ReAct Loop', () => {
       content: 'content',
     });
 
-    await runReact({
-      messages: [{ role: 'user', content: 'Read' }],
-      systemPrompt: '',
-      llm: mockLLM,
-      executor: mockExecutor,
-      ctx: mockCtx,
-      onStepComplete: async () => {
-        throw new Error('Save failed');
-      },
-    });
-
-    // Should complete despite onStepComplete failing
-    expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+    await expect(
+      runReact({
+        messages: [{ role: 'user', content: 'Read' }],
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+        onStepComplete: async () => {
+          throw new Error('Save failed');
+        },
+      })
+    ).rejects.toThrow('Save failed');
   });
 
   // Phase 2 质量审查补充：P0 修复验证 - executor.execute() 抛出异常处理
@@ -381,12 +380,9 @@ describe('ReAct Loop', () => {
     expect((toolResult as any).content).toContain('Disk full');
   });
 
-  // Phase 23: onStepComplete saveFailures counter
-  it('should propagate save error after 3 consecutive onStepComplete failures', async () => {
-    // Need 3 tool steps to trigger 3 consecutive failures
+  // Phase 36: onStepComplete 失败立即停止（审计日志必须成功）
+  it('should propagate save error on first onStepComplete failure (no tolerance)', async () => {
     (mockLLM.call as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(createToolUseResponse('read', {}))
-      .mockResolvedValueOnce(createToolUseResponse('read', {}))
       .mockResolvedValueOnce(createToolUseResponse('read', {}))
       .mockResolvedValueOnce(createTextResponse('done'));
 
@@ -408,41 +404,8 @@ describe('ReAct Loop', () => {
       })
     ).rejects.toThrow('disk full');
 
-    expect(onStepComplete).toHaveBeenCalledTimes(3);
-  });
-
-  it('should reset failure counter after a successful onStepComplete', async () => {
-    // Step 1: fails, Step 2: succeeds (resets counter), Step 3: fails — should NOT throw (count < 3)
-    (mockLLM.call as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(createToolUseResponse('read', {}))
-      .mockResolvedValueOnce(createToolUseResponse('read', {}))
-      .mockResolvedValueOnce(createToolUseResponse('read', {}))
-      .mockResolvedValueOnce(createTextResponse('all done'));
-
-    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({
-      success: true, content: '',
-    });
-
-    let callCount = 0;
-    const onStepComplete = vi.fn(async () => {
-      callCount++;
-      if (callCount === 1) throw new Error('transient error');
-      // Step 2 succeeds — resets counter — Step 3 fails but count is only 1
-      if (callCount === 3) throw new Error('another error');
-    });
-
-    // Counter resets after step 2 success, so step 3 failure is only count=1, not 3 → no throw
-    const result = await runReact({
-      messages: [{ role: 'user', content: 'go' }],
-      systemPrompt: '',
-      llm: mockLLM,
-      executor: mockExecutor,
-      ctx: mockCtx,
-      onStepComplete,
-    });
-
-    expect(result.finalText).toBe('all done');
-    expect(callCount).toBe(3);
+    // Fails on first call, not third
+    expect(onStepComplete).toHaveBeenCalledTimes(1);
   });
 
   // ============================================================

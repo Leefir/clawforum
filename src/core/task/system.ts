@@ -564,7 +564,13 @@ export class TaskSystem {
       ? fullContent.slice(0, 500)
       : fullContent.slice(0, 200) + (fullContent.length > 200 ? '…' : '');
 
-    // Prepare message content
+    // Pre-compute both versions of message content (ref and inline)
+    const inlineContent = JSON.stringify({
+      taskId: task.id,
+      toolName: task.toolName,
+      result: fullContent,
+      is_error: isError,
+    });
     const messageContent = resultRef
       ? JSON.stringify({
           taskId: task.id,
@@ -573,34 +579,39 @@ export class TaskSystem {
           resultRef,
           is_error: isError,
         })
-      : JSON.stringify({
-          taskId: task.id,
-          toolName: task.toolName,
-          result: fullContent,
-          is_error: isError,
-        });
+      : inlineContent;
 
     // Write directly to inbox/pending/ in .md format (bypass transport path issues)
-    try {
-      const msgId = randomUUID();
-      const priority = isError ? 'high' : 'normal';
-      const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
-      const fileContent = [
-        '---',
-        `id: ${msgId}`,
-        `type: message`,
-        `from: task_system`,
-        `to: ${task.parentClawId}`,
-        `priority: ${priority}`,
-        `timestamp: ${new Date().toISOString()}`,
-        '---',
-        '',
-        messageContent,
-      ].join('\n');
+    const msgId = randomUUID();
+    const priority = isError ? 'high' : 'normal';
+    const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
+    const buildFileContent = (body: string) => [
+      '---',
+      `id: ${msgId}`,
+      `type: message`,
+      `from: task_system`,
+      `to: ${task.parentClawId}`,
+      `priority: ${priority}`,
+      `timestamp: ${new Date().toISOString()}`,
+      '---',
+      '',
+      body,
+    ].join('\n');
 
+    try {
       await this.fs.ensureDir('inbox/pending');
-      await this.fs.writeAtomic(`inbox/pending/${filename}`, fileContent);
+      await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(messageContent));
     } catch (err) {
+      if (resultRef) {
+        // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
+        await this.fs.delete(resultRef).catch(() => {});
+        try {
+          await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(inlineContent));
+          return;
+        } catch {
+          // 降级也失败，继续抛出原始错误
+        }
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[task] Failed to write inbox message for tool task ${task.id}:`, err);
       this.monitor.log('error', {
@@ -639,7 +650,12 @@ export class TaskSystem {
       ? result.slice(0, 500)
       : result.slice(0, 200) + (result.length > 200 ? '…' : '');
 
-    // Prepare message content
+    // Pre-compute both versions of message content (ref and inline)
+    const inlineContent = JSON.stringify({
+      taskId: task.id,
+      result,
+      is_error: isError,
+    });
     const messageContent = resultRef
       ? JSON.stringify({
           taskId: task.id,
@@ -647,33 +663,39 @@ export class TaskSystem {
           resultRef,
           is_error: isError,
         })
-      : JSON.stringify({
-          taskId: task.id,
-          result,
-          is_error: isError,
-        });
+      : inlineContent;
 
     // Write directly to inbox/pending/ in .md format (bypass transport path issues)
-    try {
-      const msgId = randomUUID();
-      const priority = isError ? 'high' : 'normal';
-      const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
-      const fileContent = [
-        '---',
-        `id: ${msgId}`,
-        `type: message`,
-        `from: subagent`,
-        `to: ${task.parentClawId}`,
-        `priority: ${priority}`,
-        `timestamp: ${new Date().toISOString()}`,
-        '---',
-        '',
-        messageContent,
-      ].join('\n');
+    const msgId = randomUUID();
+    const priority = isError ? 'high' : 'normal';
+    const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
+    const buildFileContent = (body: string) => [
+      '---',
+      `id: ${msgId}`,
+      `type: message`,
+      `from: subagent`,
+      `to: ${task.parentClawId}`,
+      `priority: ${priority}`,
+      `timestamp: ${new Date().toISOString()}`,
+      '---',
+      '',
+      body,
+    ].join('\n');
 
+    try {
       await this.fs.ensureDir('inbox/pending');
-      await this.fs.writeAtomic(`inbox/pending/${filename}`, fileContent);
+      await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(messageContent));
     } catch (err) {
+      if (resultRef) {
+        // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
+        await this.fs.delete(resultRef).catch(() => {});
+        try {
+          await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(inlineContent));
+          return;
+        } catch {
+          // 降级也失败，继续抛出原始错误
+        }
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[task] Failed to write inbox message for task ${task.id}:`, err);
       this.monitor.log('error', {

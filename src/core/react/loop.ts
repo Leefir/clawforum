@@ -102,7 +102,6 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   } = options;
 
   let stepCount = 0;
-  let saveFailures = 0;
 
   while (stepCount < maxSteps) {
     // Sync step counter to context
@@ -169,18 +168,9 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       ctx.incrementStep();
       stepCount = ctx.stepNumber;
 
-      // Call step completion callback (don't let it break the loop)
+      // Call step completion callback (audit log must succeed)
       if (onStepComplete) {
-        try {
-          await onStepComplete();
-          saveFailures = 0;  // reset on success
-        } catch (err) {
-          saveFailures++;
-          console.error(`[react] Step completion callback failed (${saveFailures}):`, err);
-          if (saveFailures >= 3) {
-            throw err;  // surface persistent I/O failures
-          }
-        }
+        await onStepComplete();
       }
       
       continue;

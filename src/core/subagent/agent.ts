@@ -151,6 +151,12 @@ export class SubAgent {
       await this.appendToLog(`=== SubAgent ${this.agentId} started ===\n`);
       await this.appendToLog(`Prompt: ${this.prompt}\n`);
 
+      // Step audit state (reset each step)
+      let auditStep = 0;
+      let auditStepTools: string[] = [];
+      let auditStepStart = Date.now();
+      const stepsLogPath = `tasks/results/${this.agentId}-steps.jsonl`;
+
       // System prompt for subagent (use custom or default)
       const systemPrompt = this.systemPrompt ??
         `You are a subagent assigned to complete a specific task.
@@ -189,7 +195,20 @@ Work efficiently and return a clear, concise result.`;
           onThinkingDelta: resetIdle ? () => resetIdle() : undefined,
           onToolCall: async (name) => {
             resetIdle?.();
+            auditStepTools.push(name);
             await this.appendToLog(`Tool called: ${name}\n`);
+          },
+          onStepComplete: async () => {
+            const entry = JSON.stringify({
+              step: auditStep,
+              ts: new Date().toISOString(),
+              tools: auditStepTools,
+              elapsedMs: Date.now() - auditStepStart,
+            });
+            await this.fs.append(stepsLogPath, entry + '\n');
+            auditStep++;
+            auditStepTools = [];
+            auditStepStart = Date.now();
           },
         }),
         timeoutPromise,
