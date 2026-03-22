@@ -737,4 +737,84 @@ describe('ContractManager Acceptance Flow', () => {
       await fs.unlink(motionDir).catch(() => {});
     });
   });
+
+  describe('Acceptance Inbox Message Format', () => {
+    it('should write passed message with correct frontmatter and normal priority', async () => {
+      const contractId = 'test-inbox-passed';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'script', script_file: 'acceptance/task-1.sh' }],
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(path.join(acceptanceDir, 'task-1.sh'), '#!/bin/bash\nexit 0', { mode: 0o755 });
+
+      execFileMockBehavior = 'success';
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      const inbox = await readClawInbox(tempDir);
+      expect(inbox).toHaveLength(1);
+
+      const { filename, content } = inbox[0];
+      // 文件名含 _normal_
+      expect(filename).toContain('_normal_');
+
+      // 核心字段
+      expect(content).toContain('type: acceptance_result');
+      expect(content).toContain('priority: normal');
+      expect(content).toContain('from: contract_system');
+      expect(content).toContain('to: claw');
+      expect(content).toContain(`contract_id: ${contractId}`);
+      expect(content).toContain('subtask_id: task-1');
+      expect(content).toContain('verdict: passed');
+
+      // passed 时不应含 retry_count
+      expect(content).not.toContain('retry_count');
+    });
+
+    it('should write rejected message with correct frontmatter, high priority, and retry_count', async () => {
+      const contractId = 'test-inbox-rejected';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'script', script_file: 'acceptance/task-1.sh' }],
+        escalation: { max_retries: 3 },
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(path.join(acceptanceDir, 'task-1.sh'), '#!/bin/bash\nexit 1', { mode: 0o755 });
+
+      execFileMockBehavior = 'fail';
+      execFileMockStderr = 'file not found';
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      const inbox = await readClawInbox(tempDir);
+      expect(inbox).toHaveLength(1);
+
+      const { filename, content } = inbox[0];
+      // 文件名含 _high_
+      expect(filename).toContain('_high_');
+
+      // 核心字段
+      expect(content).toContain('type: acceptance_rejection');
+      expect(content).toContain('priority: high');
+      expect(content).toContain('from: contract_system');
+      expect(content).toContain('to: claw');
+      expect(content).toContain(`contract_id: ${contractId}`);
+      expect(content).toContain('subtask_id: task-1');
+      expect(content).toContain('verdict: rejected');
+      expect(content).toContain('retry_count: 1');
+    });
+  });
 });
