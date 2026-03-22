@@ -50,9 +50,11 @@ vi.mock('child_process', async (importOriginal) => {
 // Mock SubAgent
 const mockSubAgentRun = vi.fn();
 let capturedSubAgentRegistry: import('../../src/core/tools/registry.js').ToolRegistry | null = null;
+let capturedOnIdleTimeout: (() => void) | null = null;
 vi.mock('../../src/core/subagent/agent.js', () => ({
   SubAgent: vi.fn().mockImplementation((opts: any) => {
     capturedSubAgentRegistry = opts.registry ?? null;
+    capturedOnIdleTimeout = opts.onIdleTimeout ?? null;
     return { run: mockSubAgentRun };
   }),
 }));
@@ -170,6 +172,7 @@ describe('ContractManager Acceptance Flow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     capturedSubAgentRegistry = null;
+    capturedOnIdleTimeout = null;
     
     // Reset execFile mock state
     execFileMockBehavior = 'success';
@@ -607,6 +610,43 @@ describe('ContractManager Acceptance Flow', () => {
       const progress = JSON.parse(await fs.readFile(progressPath, 'utf-8'));
       expect(progress.subtasks['task-1'].status).toBe('todo');
       expect(progress.subtasks['task-1'].retry_count).toBe(1);
+    });
+
+    it('should notify Motion with acceptance_timeout when onIdleTimeout is triggered', async () => {
+      const contractId = 'test-llm-timeout';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'llm', prompt_file: 'acceptance/task-1.prompt.txt' }],
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(
+        path.join(acceptanceDir, 'task-1.prompt.txt'),
+        'Check if {{evidence}} is valid. {{artifacts}}'
+      );
+
+      // 提前建好 motion inbox 目录
+      const motionInboxDir = path.resolve(tempDir, '..', '..', 'motion', 'inbox', 'pending');
+      await fs.mkdir(motionInboxDir, { recursive: true });
+
+      // SubAgent.run() 在执行中途触发 idle timeout 回调，然后返回空文字
+      mockSubAgentRun.mockImplementation(async () => {
+        capturedOnIdleTimeout?.();
+        return '{}'; // 返回合法 JSON 确保主流程继续（避免额外 rejection 干扰）
+      });
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      // Motion inbox 应收到 acceptance_timeout 消息
+      const motionInbox = await readMotionInbox(tempDir);
+      const timeouts = motionInbox.filter(m => m.content.includes('acceptance_timeout'));
+      expect(timeouts).toHaveLength(1);
+      expect(timeouts[0].content).toContain('task-1');
     });
   });
 
