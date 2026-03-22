@@ -84,6 +84,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
         timeout,
         maxSteps,
         parentClawId: ctx.clawId,
+        originClawId: ctx.originClawId ?? ctx.clawId,
       });
 
       return {

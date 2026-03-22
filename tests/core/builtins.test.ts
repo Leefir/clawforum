@@ -359,7 +359,7 @@ describe('Builtin Tools', () => {
       const result = await searchTool.execute({ query: 'test', path: 'clawspace', claw: 'other-claw' }, ctx);
 
       expect(result.success).toBe(false);
-      expect(result.content).toContain('Only Motion can search files from other claws');
+      expect(result.content).toContain('Only Motion and its subagents can search files from other claws');
     });
 
     it('should search all claws with claw: "*" (Motion only)', async () => {

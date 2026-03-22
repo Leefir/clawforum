@@ -107,6 +107,7 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
       systemPrompt,
       callerType: 'dispatcher',
       idleTimeoutMs,
+      originClawId: ctx.originClawId ?? ctx.clawId,
     });
 
     return {

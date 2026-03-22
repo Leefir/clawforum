@@ -30,6 +30,7 @@ export interface SubAgentTask {
   callerType?: 'subagent' | 'dispatcher';  // 传给 SubAgent，决定 executorProfile
   idleTimeoutMs?: number;                  // LLM 静默超时阈值（用户可配置）
   messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
+  originClawId?: string;                   // 创建链路源头，传给子 SubAgent
 }
 
 export interface ToolTask {
@@ -367,6 +368,7 @@ export class TaskSystem {
         callerType: task.callerType,
         idleTimeoutMs: task.idleTimeoutMs,
         messages: task.messages,
+        originClawId: task.originClawId,
       });
 
       const result = await subAgent.run();

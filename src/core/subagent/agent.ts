@@ -39,6 +39,7 @@ export interface SubAgentOptions {
   contractManager?: ContractManager;        // contract create / done 工具需要
   subagentMaxSteps?: number;                 // 传给子 SubAgent
   messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
+  originClawId?: string;                     // 创建链路源头，传给子 SubAgent
 }
 
 export class SubAgent {
@@ -63,6 +64,7 @@ export class SubAgent {
   private contractManager?: ContractManager;
   private subagentMaxSteps?: number;
   private messages?: Message[];
+  private originClawId?: string;
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -86,6 +88,7 @@ export class SubAgent {
     this.contractManager = options.contractManager;
     this.subagentMaxSteps = options.subagentMaxSteps;
     this.messages = options.messages;
+    this.originClawId = options.originClawId;
   }
 
   /**

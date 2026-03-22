@@ -148,6 +148,10 @@ export interface ExecContext {
   taskSystem?: TaskSystem;
   /** 当前对话 messages（由 runtime._runReact 注入，供 dispatch 工具读取） */
   dialogMessages?: Message[];
+  /** 创建链路的源头 clawId，由 dispatch/spawn 传播。Motion 直接创建时为 'motion' */
+  originClawId?: string;
+  /** 是否为 Motion 创建链路上的 agent（Motion 本体或其 subagent） */
+  readonly isMotionChain: boolean;
   getElapsedMs(): number;
   incrementStep(): void;
 }
@@ -436,7 +440,7 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: string; maxSteps?: number; signal?: AbortSignal; callerType?: 'claw' | 'subagent' | 'dispatcher' }
+    options: { clawId: string; maxSteps?: number; signal?: AbortSignal; callerType?: 'claw' | 'subagent' | 'dispatcher'; originClawId?: string }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
@@ -452,6 +456,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       outboxWriter: this.outboxWriter,
       contractManager: this.contractManager,
       subagentMaxSteps: this.subagentMaxSteps,
+      originClawId: options.originClawId,
     });
   }
 }

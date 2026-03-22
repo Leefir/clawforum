@@ -68,6 +68,8 @@ export interface ExecContextImplOptions {
   
   /** 当前对话 messages（供 dispatch 工具读取） */
   dialogMessages?: Message[];
+  /** 创建链路的源头 clawId，由 dispatch/spawn 传播 */
+  originClawId?: string;
 }
 
 /**
@@ -91,6 +93,7 @@ export class ExecContextImpl implements ExecContext {
   subagentMaxSteps: number;
   outboxWriter?: OutboxWriter;
   dialogMessages?: Message[];
+  originClawId?: string;
   
   private startTime: number;
 
@@ -111,6 +114,7 @@ export class ExecContextImpl implements ExecContext {
     this.subagentMaxSteps = options.subagentMaxSteps ?? options.maxSteps ?? 100;
     this.outboxWriter = options.outboxWriter;
     this.dialogMessages = options.dialogMessages;
+    this.originClawId = options.originClawId;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }
@@ -120,6 +124,13 @@ export class ExecContextImpl implements ExecContext {
    */
   hasPermission(permission: keyof ToolPermissions): boolean {
     return this.permissions[permission] ?? false;
+  }
+
+  /**
+   * 是否为 Motion 创建链路上的 agent（Motion 本体或其 subagent）
+   */
+  get isMotionChain(): boolean {
+    return this.clawId === 'motion' || this.originClawId === 'motion';
   }
 
   /**

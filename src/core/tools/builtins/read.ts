@@ -77,10 +77,10 @@ export const readTool: ITool = {
     let content: string;
     if (clawParam !== undefined) {
       // Only Motion can use this feature
-      if (ctx.clawId !== 'motion') {
+      if (!ctx.isMotionChain) {
         return {
           success: false,
-          content: 'Error: Only Motion can read files from other claws',
+          content: 'Error: Only Motion and its subagents can read files from other claws',
         };
       }
       // Validate clawParam (no path traversal)
