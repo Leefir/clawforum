@@ -60,6 +60,78 @@ describe('Permission Matrix', () => {
     });
   }
 
+  describe('isMotionChain', () => {
+    it('should be true for Motion itself (clawId=motion)', () => {
+      const ctx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'claw',
+        fs: mockFs,
+      });
+      expect(ctx.isMotionChain).toBe(true);
+    });
+
+    it('should be true for subagent with originClawId=motion', () => {
+      const ctx = new ExecContextImpl({
+        clawId: 'task-uuid-123',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'subagent',
+        fs: mockFs,
+        originClawId: 'motion',
+      });
+      expect(ctx.isMotionChain).toBe(true);
+    });
+
+    it('should be true for dispatcher with originClawId=motion', () => {
+      const ctx = new ExecContextImpl({
+        clawId: 'dispatcher-456',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'dispatcher',
+        fs: mockFs,
+        originClawId: 'motion',
+      });
+      expect(ctx.isMotionChain).toBe(true);
+    });
+
+    it('should be false for regular claw daemon', () => {
+      const ctx = new ExecContextImpl({
+        clawId: 'claw1',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'claw',
+        fs: mockFs,
+      });
+      expect(ctx.isMotionChain).toBe(false);
+    });
+
+    it('should be false for claw-created agent (originClawId=claw1)', () => {
+      const ctx = new ExecContextImpl({
+        clawId: 'task-uuid-789',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'subagent',
+        fs: mockFs,
+        originClawId: 'claw1',
+      });
+      expect(ctx.isMotionChain).toBe(false);
+    });
+
+    it('should be false when originClawId is undefined and clawId is not motion', () => {
+      const ctx = new ExecContextImpl({
+        clawId: 'some-random-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'claw',
+        fs: mockFs,
+        originClawId: undefined,
+      });
+      expect(ctx.isMotionChain).toBe(false);
+    });
+  });
+
   describe('readonly profile', () => {
     it('should allow read tool', () => {
       const ctx = createContext('readonly');
