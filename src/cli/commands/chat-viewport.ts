@@ -216,10 +216,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const forClaw = claw ? ` for ${claw}` : '';
           appendOutput(`\x1b[2m  ✓ [contract] "${title}" created${forClaw} (${count} subtasks)\x1b[0m`);
         } else if (sub === 'subtask_completed') {
-          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} accepted\x1b[0m`);
+          const claw = (event.clawId as string) ?? '';
+          const forClaw = claw ? ` (${claw})` : '';
+          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${forClaw}\x1b[0m`);
         } else if (sub === 'acceptance_failed') {
+          const claw = (event.clawId as string) ?? '';
           const fb = (event.feedback as string) ?? '';
-          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb}\x1b[0m`);
+          const forClaw = claw ? ` (${claw})` : '';
+          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb}${forClaw}\x1b[0m`);
         }
         break;
       }

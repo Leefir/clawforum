@@ -451,7 +451,8 @@ export class ContractManager {
       } catch (err) {
         console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
       }
-      this._notifyMotionStream('subtask_completed', { contractId, subtaskId });
+      const clawId = path.basename(this.clawDir);
+      this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId });
 
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -567,7 +568,8 @@ export class ContractManager {
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
-        this._notifyMotionStream('subtask_completed', { contractId, subtaskId });
+        const clawId = path.basename(this.clawDir);
+        this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId });
         
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -610,7 +612,8 @@ export class ContractManager {
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
-        this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: firstLine });
+        const clawId = path.basename(this.clawDir);
+        this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: firstLine, clawId });
         
         await this.saveProgress(contractId, progress);
         
