@@ -451,6 +451,7 @@ export class ContractManager {
       } catch (err) {
         console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
       }
+      this._notifyMotionStream('subtask_completed', { contractId, subtaskId });
 
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -566,6 +567,7 @@ export class ContractManager {
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
+        this._notifyMotionStream('subtask_completed', { contractId, subtaskId });
         
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -608,6 +610,7 @@ export class ContractManager {
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
+        this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: firstLine });
         
         await this.saveProgress(contractId, progress);
         
@@ -1137,5 +1140,17 @@ export class ContractManager {
         error: e instanceof Error ? e.message : String(e),
       });
     }
+  }
+
+  /**
+   * Directly write user_notify to Motion stream.jsonl (cross-server best-effort)
+   */
+  private _notifyMotionStream(subtype: string, data: Record<string, unknown>): void {
+    try {
+      const motionDir = path.resolve(this.motionInboxDir, '..', '..');
+      const streamPath = path.join(motionDir, 'stream.jsonl');
+      const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype, ...data }) + '\n';
+      fsNative.appendFileSync(streamPath, line);
+    } catch { /* best-effort：跨服务器或文件不存在时静默失败 */ }
   }
 }
