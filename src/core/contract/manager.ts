@@ -21,6 +21,7 @@ import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONT
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
+import { ReportResultTool } from '../tools/report-result.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -989,13 +990,21 @@ export class ContractManager {
         .replace(/\{\{artifacts\}\}/g, artifacts.join(', '))
         .replace(/\{\{subtask_description\}\}/g, subtaskDesc);
 
+      // Build verifier registry: existing tools + report_result tool
+      const reportTool = new ReportResultTool();
+      const registry = new ToolRegistry();
+      for (const t of (this.verifierRegistry ?? new ToolRegistry()).getAll()) {
+        registry.register(t);
+      }
+      registry.register(reportTool);
+
       // Create SubAgent for verification
       const agent = new SubAgent({
         agentId: `verifier-${contractId}-${subtaskId}`,
         prompt: filledPrompt,
         clawDir: this.clawDir,
         llm: this.llm,
-        registry: this.verifierRegistry || new ToolRegistry(),
+        registry,
         fs: this.fs as any,
         idleTimeoutMs: CONTRACT_LLM_IDLE_TIMEOUT_MS,
         onIdleTimeout: () => this.notifyMotionAcceptanceTimeout(contractId, subtaskId),
@@ -1004,7 +1013,15 @@ export class ContractManager {
       // Run verification
       const text = await agent.run();
 
-      // Extract JSON from response (supports ```json ... ``` wrapping)
+      // Prefer structured tool call result (guaranteed valid JSON via native tool calling)
+      if (reportTool.capturedResult) {
+        return {
+          passed: reportTool.capturedResult.passed,
+          feedback: JSON.stringify(reportTool.capturedResult),
+        };
+      }
+
+      // Fallback: text-based JSON parsing (backward compat with old prompt files)
       const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON\n${text.slice(0, 500)}` };
