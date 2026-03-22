@@ -157,7 +157,8 @@ export class ClawRuntime {
     registerBuiltinTools(this.toolRegistry);
     // dispatch 需要构造参数，单独注册
     this.toolRegistry.register(new DispatchTool(
-      () => this.buildSystemPrompt(),  // 每个 Claw 用自己的 system prompt
+      () => this.buildSystemPrompt(),           // 每个 Claw 用自己的 system prompt
+      () => this.toolRegistry.formatForLLM(this.toolRegistry.getAll()),  // Motion 完整工具列表
     ));
 
     // 8. Create TaskSystem

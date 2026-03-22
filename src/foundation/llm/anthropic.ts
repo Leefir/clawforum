@@ -32,7 +32,7 @@ interface AnthropicRequest {
   messages: Array<{ role: string; content: string | unknown[] }>;
   max_tokens: number;
   temperature?: number;
-  system?: string;
+  system?: string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }>;
   tools?: Array<{
     name: string;
     description: string;
@@ -89,7 +89,7 @@ export class AnthropicAdapter implements IProviderAdapter {
     };
     
     if (system !== undefined) {
-      body.system = system;
+      body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
     }
     
     if (temperature !== undefined) {
@@ -186,7 +186,9 @@ export class AnthropicAdapter implements IProviderAdapter {
     };
 
     // 复用 call() 的 system/temperature/tools 设置逻辑
-    if (system !== undefined) body.system = system;
+    if (system !== undefined) {
+      body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
+    }
     if (temperature !== undefined) body.temperature = temperature;
     else if (this.config.temperature !== undefined) body.temperature = this.config.temperature;
     if (tools && tools.length > 0) {

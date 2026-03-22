@@ -1,7 +1,8 @@
 import type { ITool, ToolResult, ExecContext, ToolPermissions } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
-import type { Message } from '../../../types/message.js';
+import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
+import { ToolRegistry } from '../registry.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -24,6 +25,7 @@ dispatcher 可以：
 
   constructor(
     private getSystemPrompt: () => Promise<string>,  // buildSystemPrompt() 是 async
+    private getToolsForLLM: () => ToolDefinition[], // Motion 完整工具列表（KV cache 关键）
   ) {}
 
   schema = {
@@ -63,17 +65,21 @@ dispatcher 可以：
     }
 
     // dispatch-skills 简介注入消息末尾（不进 system prompt，保持共享前缀，确保 KV cache 命中）
-    const prompt = [
-      `## Task\n${args.task}`,
-      args.context ? `## Context\n${args.context}` : '',
-      skillsSummary
-        ? `${skillsSummary}\nUse skill({ name: "<skill-name>", skillsDir: "clawspace/dispatch-skills" }) to load full template.`
-        : '',
-      `## Instructions
+    let prompt = `## Task\n${args.task}`;
+    if (args.context) {
+      prompt += `\n\n## Context\n${args.context}`;
+    }
+    if (skillsSummary) {
+      prompt += `\n\n${skillsSummary}\nUse skill({ name: "<skill-name>", skillsDir: "clawspace/dispatch-skills" }) to load full template.`;
+    }
+    prompt += `\n\n## Instructions
 If a dispatch skill matches, load its full SKILL.md via skill tool, fill in variables, then spawn Worker or create contract accordingly.
 If none match, write the prompt yourself. Save new templates to clawspace/dispatch-skills/<name>/SKILL.md for future reuse.
-Return: which template was used (or "new"), what was dispatched, brief summary.`,
-    ].filter(Boolean).join('\n\n');
+Return: which template was used (or "new"), what was dispatched, brief summary.`;
+
+    // Dispatcher 身份说明（放在 user 消息中，不修改 system prompt 以保持 KV cache 命中）
+    const dispatcherNotice = `\n\n---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。不能再调用 \`dispatch\`（递归防护）。可以用 \`spawn\` 或直接使用工具完成任务。`;
+    prompt += dispatcherNotice;
 
     const taskSystem = ctx.taskSystem;
     if (!taskSystem) {
@@ -81,22 +87,8 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
     }
 
     // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
-    const baseSystemPrompt = await this.getSystemPrompt();
-    const dispatcherContext = `
-
----
-## 你现在是 Dispatcher
-
-你是由 Motion 通过 \`dispatch\` 工具启动的 Dispatcher。
-- **不能再调用 \`dispatch\`**（递归防护，调用会失败）
-- 可以用 \`spawn\` 启动 Worker，也可以直接使用工具完成任务
-
-## 当前任务
-${String(args.task)}${args.context ? `
-
-## 上下文
-${String(args.context)}` : ''}`;
-    const systemPrompt = baseSystemPrompt + dispatcherContext;
+    // system prompt 保持与 Motion 完全一致，确保 KV cache 命中
+    const systemPrompt = await this.getSystemPrompt();
     const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
       ? args.idleTimeoutMs
       : 30000;
@@ -107,6 +99,9 @@ ${String(args.context)}` : ''}`;
       ...dialogMessages,
       { role: 'user' as const, content: prompt },
     ];
+
+    // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
+    const toolsForLLM = this.getToolsForLLM();
 
     const taskId = await taskSystem.scheduleSubAgent({
       kind: 'subagent',
@@ -120,6 +115,7 @@ ${String(args.context)}` : ''}`;
       callerType: 'dispatcher',
       idleTimeoutMs,
       originClawId: ctx.originClawId ?? ctx.clawId,
+      toolsForLLM,                   // 使用 Motion 完整工具列表，确保 KV cache 命中
     });
 
     return {

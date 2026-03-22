@@ -14,6 +14,7 @@ import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { ExecContext, ToolPermissions } from './executor.js';
 import { PERMISSION_PRESETS } from './executor.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import type { TaskSystem } from '../task/system.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { ContractManager } from '../contract/manager.js';
@@ -130,7 +131,7 @@ export class ExecContextImpl implements ExecContext {
    * 是否为 Motion 创建链路上的 agent（Motion 本体或其 subagent）
    */
   get isMotionChain(): boolean {
-    return this.clawId === 'motion' || this.originClawId === 'motion';
+    return this.clawId === MOTION_CLAW_ID || this.originClawId === MOTION_CLAW_ID;
   }
 
   /**

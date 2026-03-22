@@ -15,7 +15,7 @@ import { ToolRegistry } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolResult } from '../tools/executor.js';
-import type { Message } from '../../types/message.js';
+import type { Message, ToolDefinition } from '../../types/message.js';
 
 export interface SubAgentTask {
   kind: 'subagent';
@@ -31,6 +31,7 @@ export interface SubAgentTask {
   idleTimeoutMs?: number;                  // LLM 静默超时阈值（用户可配置）
   messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
+  toolsForLLM?: ToolDefinition[];          // 若提供，直接用；否则从 registry 计算
 }
 
 export interface ToolTask {
@@ -350,7 +351,7 @@ export class TaskSystem {
       const allowedTools = task.tools.length > 0
         ? this.registry.getAll().filter(t => task.tools.includes(t.name))
         : this.registry.getAll();
-      const toolsForLLM = this.registry.formatForLLM(allowedTools);
+      const toolsForLLM = task.toolsForLLM ?? this.registry.formatForLLM(allowedTools);
 
       const subAgent = new SubAgent({
         agentId: task.id,
