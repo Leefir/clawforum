@@ -28,10 +28,11 @@ describe('Tools', () => {
     });
 
     it('should define correct tools for full profile', () => {
-      expect(TOOL_PROFILES.full).toHaveLength(11);
+      expect(TOOL_PROFILES.full).toHaveLength(12);
       expect(TOOL_PROFILES.full).toContain('read');
       expect(TOOL_PROFILES.full).toContain('write');
       expect(TOOL_PROFILES.full).toContain('spawn');
+      expect(TOOL_PROFILES.full).toContain('dispatch');
     });
 
     it('should define correct tools for subagent profile', () => {
