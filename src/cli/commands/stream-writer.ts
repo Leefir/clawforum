@@ -23,7 +23,8 @@ export class StreamWriter {
   open(): void {
     const dir = path.dirname(this.filePath);
     fsNative.mkdirSync(dir, { recursive: true });
-    this.fd = fsNative.openSync(this.filePath, 'w');  // 'w' 截断
+    fsNative.writeFileSync(this.filePath, '');        // truncate（等效原来的 'w'）
+    this.fd = fsNative.openSync(this.filePath, 'a'); // O_APPEND：每次写原子性 seek 到 EOF
   }
 
   /** 写一行事件 */
