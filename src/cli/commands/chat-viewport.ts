@@ -217,8 +217,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           appendOutput(`\x1b[2m  ✓ [contract] "${title}" created${forClaw} (${count} subtasks)\x1b[0m`);
         } else if (sub === 'subtask_completed') {
           const claw = (event.clawId as string) ?? '';
-          const forClaw = claw ? ` (${claw})` : '';
-          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${forClaw}\x1b[0m`);
+          const completed = event.completedCount as number | undefined;
+          const total = event.subtaskTotal as number | undefined;
+          const progress = completed && total ? `, ${completed} of ${total}` : '';
+          const clawSuffix = claw ? ` (${claw})` : '';
+          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${progress}${clawSuffix}\x1b[0m`);
         } else if (sub === 'acceptance_failed') {
           const claw = (event.clawId as string) ?? '';
           const fb = (event.feedback as string) ?? '';

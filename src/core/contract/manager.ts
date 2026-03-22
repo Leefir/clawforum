@@ -452,7 +452,9 @@ export class ContractManager {
         console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
       }
       const clawId = path.basename(this.clawDir);
-      this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId });
+      const subtaskTotal = contractYaml.subtasks.length;
+      const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
+      this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId, completedCount, subtaskTotal });
 
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -569,7 +571,9 @@ export class ContractManager {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
         const clawId = path.basename(this.clawDir);
-        this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId });
+        const subtaskTotal = contractYaml.subtasks.length;
+        const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
+        this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId, completedCount, subtaskTotal });
         
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
