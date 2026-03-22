@@ -90,7 +90,6 @@ export interface MonitorConfig {
 export interface IMonitor {
   logLLMCall(event: LLMCallEvent): void;
   logToolCall(event: ToolCallEvent): void;
-  logContract(event: ContractEvent): void;
   logFileOperation(event: FileOperationEvent): void;
   log(type: MonitorEventType, data: Record<string, unknown>): void;
   logError(error: Error, context?: Record<string, unknown>): void;

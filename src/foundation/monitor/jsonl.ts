@@ -69,7 +69,15 @@ export async function readJsonl<T = Record<string, unknown>>(
 export async function* streamJsonl<T = Record<string, unknown>>(
   filePath: string
 ): AsyncGenerator<T, void, unknown> {
-  const file = await fs.open(filePath, 'r');
+  let file: fs.FileHandle;
+  try {
+    file = await fs.open(filePath, 'r');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw err;
+  }
   
   try {
     const bufferSize = 64 * 1024; // 64KB chunks

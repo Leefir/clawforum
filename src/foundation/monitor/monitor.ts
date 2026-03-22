@@ -17,7 +17,6 @@ import type {
   MonitorEventType,
   LLMCallEvent,
   ToolCallEvent,
-  ContractEvent,
 } from './types.js';
 import { appendJsonl, readJsonl } from './jsonl.js';
 
@@ -149,14 +148,6 @@ export class JsonlMonitor implements IMonitor {
   
   logToolCall(event: ToolCallEvent): void {
     const promise = this.writeEvent('tool_call', event as unknown);
-    this.logPromises.add(promise);
-    promise.finally(() => {
-      this.logPromises.delete(promise);
-    });
-  }
-  
-  logContract(event: ContractEvent): void {
-    const promise = this.writeEvent('contract_updated', event as unknown);
     this.logPromises.add(promise);
     promise.finally(() => {
       this.logPromises.delete(promise);

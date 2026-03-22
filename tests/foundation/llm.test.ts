@@ -404,7 +404,6 @@ describe('LLM Service', () => {
           loggedEvents.push(event);
         },
         logToolCall: vi.fn(),
-        logContract: vi.fn(),
         logFileOperation: vi.fn(),
         log: vi.fn(),
         logError: vi.fn(),
