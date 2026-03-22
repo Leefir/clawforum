@@ -454,10 +454,16 @@ export class ContractManager {
       const title = contractYaml.title;
       try {
         await this.moveToArchive(contractId);
+        this.notifyMotionCompletion(contractId, title);
       } catch (err) {
-        console.error('[contract] moveToArchive failed:', err);
+        console.error('[contract] moveToArchive failed, skipping completion notification:', err);
+        this.monitor?.log('error', {
+          context: 'ContractManager._completeSubtaskSync',
+          contractId,
+          message: 'moveToArchive failed; contract stays in active/',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
-      this.notifyMotionCompletion(contractId, title);
     }
     
     return { ...result, allCompleted };
@@ -564,10 +570,16 @@ export class ContractManager {
         if (allCompleted) {
           try {
             await this.moveToArchive(contractId);
+            this.notifyMotionCompletion(contractId, contractYaml.title);
           } catch (err) {
-            console.error('[contract] moveToArchive failed:', err);
+            console.error('[contract] moveToArchive failed, skipping completion notification:', err);
+            this.monitor?.log('error', {
+              context: 'ContractManager._runAcceptanceInBackground',
+              contractId,
+              message: 'moveToArchive failed; contract stays in active/',
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
-          this.notifyMotionCompletion(contractId, contractYaml.title);
         }
       } else {
         // Rejected - track retry count and feedback

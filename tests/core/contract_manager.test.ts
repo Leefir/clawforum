@@ -574,4 +574,71 @@ describe('ContractManager', () => {
       })).rejects.toThrow('prompt_file');
     });
   });
+
+  describe('moveToArchive and notify consistency', () => {
+    it('should NOT notify Motion when moveToArchive fails', async () => {
+      const mockMonitor = { log: vi.fn() };
+      const testManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+
+      // Create contract with no-op acceptance (no script_file/prompt_file = no acceptance)
+      const contractId = await testManager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 't1', description: 'T1' }],
+        acceptance: [], // No acceptance = auto-completes
+        auth_level: 'auto',
+      });
+
+      // Spy on moveToArchive to make it fail
+      const moveSpy = vi.spyOn(testManager as any, 'moveToArchive').mockRejectedValue(new Error('disk full'));
+      const notifySpy = vi.spyOn(testManager as any, 'notifyMotionCompletion');
+
+      // Complete the subtask (no acceptance = allCompleted = true)
+      await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+
+      // Wait for async operations
+      await new Promise(r => setTimeout(r, 50));
+
+      expect(moveSpy).toHaveBeenCalledWith(contractId);
+      expect(notifySpy).not.toHaveBeenCalled();
+      expect(mockMonitor.log).toHaveBeenCalledWith('error', expect.objectContaining({
+        context: 'ContractManager._completeSubtaskSync',
+        contractId,
+      }));
+
+      moveSpy.mockRestore();
+      notifySpy.mockRestore();
+    });
+
+    it('should notify Motion when moveToArchive succeeds', async () => {
+      const mockMonitor = { log: vi.fn() };
+      const testManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+
+      const contractId = await testManager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 't1', description: 'T1' }],
+        acceptance: [], // No acceptance = auto-completes
+        auth_level: 'auto',
+      });
+
+      // Spy but let them work normally
+      const moveSpy = vi.spyOn(testManager as any, 'moveToArchive').mockResolvedValue(undefined);
+      const notifySpy = vi.spyOn(testManager as any, 'notifyMotionCompletion').mockResolvedValue(undefined);
+
+      await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+
+      await new Promise(r => setTimeout(r, 50));
+
+      expect(moveSpy).toHaveBeenCalledWith(contractId);
+      expect(notifySpy).toHaveBeenCalledWith(contractId, 'Test');
+
+      moveSpy.mockRestore();
+      notifySpy.mockRestore();
+    });
+  });
 });
