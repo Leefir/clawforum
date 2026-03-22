@@ -24,16 +24,20 @@ export class ContractCreator {
   }> {
     // Build system prompt with JSON schema
     const systemPrompt = `You are a contract designer for an AI task delegation system.
+Your job is to decompose a high-level goal into clear subtasks and write acceptance criteria that verifies each one.
 
-Your task is to break down a high-level goal into actionable subtasks with acceptance criteria.
+## Output format (JSON)
 
-Output format (JSON):
+\`\`\`json
 {
-  "title": "Contract title (max 50 chars)",
-  "goal": "Restated clear goal",
-  "deliverables": ["list of expected outputs"],
+  "title": "Short contract title (max 50 chars)",
+  "goal": "Restated goal in one sentence",
+  "deliverables": ["clawspace/output-file.md", "..."],
   "subtasks": [
-    { "id": "kebab-case-id", "description": "Clear, actionable description" }
+    {
+      "id": "kebab-case-id",
+      "description": "Action verb + what to do + exact output path. Example: Collect 5 meeting minutes templates and save to clawspace/templates.md"
+    }
   ],
   "acceptance": [
     { "subtask_id": "kebab-case-id", "type": "script", "script_file": "acceptance/<id>.sh" },
@@ -41,33 +45,36 @@ Output format (JSON):
   ],
   "escalation": { "max_retries": 3 },
   "scripts": {
-    "<id>": "#!/bin/bash\\n# Acceptance script content\\n# exit 0 = pass, exit 1 = fail"
+    "<id>": "#!/bin/bash\\n# exit 0 = pass, exit 1 = fail\\n..."
   },
   "prompts": {
-    "<id>": "LLM acceptance prompt with {{evidence}} and {{artifacts}} placeholders"
+    "<id>": "Evaluation prompt with {{evidence}} and {{artifacts}} placeholders"
   }
 }
+\`\`\`
 
-Rules:
-1. Subtask IDs must be kebab-case (e.g., "analyze-data", "write-report")
-2. Each subtask should be independently verifiable
-3. Acceptance field binding (STRICT):
-   - type "script" MUST use field "script_file" (e.g., "acceptance/<id>.sh") — never "prompt_file"
-   - type "llm"    MUST use field "prompt_file" (e.g., "acceptance/<id>.prompt.txt") — never "script_file"
-   Wrong: { "type": "script", "prompt_file": "..." }   ← INVALID
-   Wrong: { "type": "llm", "script_file": "..." }      ← INVALID
-4. Script acceptance: write bash scripts that check file existence/content
-5. LLM acceptance: write prompts that evaluate quality of evidence
-6. All placeholders {{evidence}} and {{artifacts}} must be present in prompts
-7. Keep subtasks small (typically 3-7 subtasks per contract)
+## Rules
 
-Path convention for scripts:
-- Scripts run from clawDir (not contract directory)
-- Check deliverables with: if [ -f "clawspace/<filename>" ]
-- Use "clawspace/" prefix, not bare filenames
-- Do not use absolute paths
+### Subtasks
+1. IDs must be kebab-case (e.g., "collect-data", "write-report")
+2. Each subtask must be independently executable and verifiable
+3. **Description must state the exact output path**: include "save to clawspace/<filename>" so the executing agent knows precisely where to write output. The acceptance script must check the same path.
+4. Keep to 3-7 subtasks per contract
 
-Respond with valid JSON only, wrapped in markdown code block if needed.`;
+### Acceptance criteria
+5. Field binding (STRICT — wrong field = silent failure):
+   - type "script" → field "script_file": "acceptance/<id>.sh"  (never "prompt_file")
+   - type "llm"    → field "prompt_file": "acceptance/<id>.prompt.txt"  (never "script_file")
+6. Use "script" for file existence / content checks; use "llm" for quality / correctness evaluation
+7. LLM prompts must contain both {{evidence}} and {{artifacts}} placeholders
+
+### Script conventions
+8. Scripts run from clawDir (claw root directory, NOT the contract subdirectory)
+9. Check output files with the clawspace/ prefix: \`if [ -f "clawspace/<filename>" ]\`
+10. Check the **exact filename** stated in the subtask description — do not guess or use wildcards unless the subtask explicitly allows multiple filenames
+11. Never hardcode absolute paths
+
+Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
 
     // Build user message with optional context
     let userMessage = `Goal: ${goal}`;
