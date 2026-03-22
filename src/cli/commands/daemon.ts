@@ -173,6 +173,7 @@ export async function daemonCommand(name: string): Promise<void> {
     label: isMotion ? '[motion daemon]' : '[daemon]',
     streamWriter,
     heartbeat: heartbeat ?? undefined,  // 传入心跳实例
+    notifyMotionDir: isMotion ? undefined : getMotionDir(),
   });
 
   // shutdown

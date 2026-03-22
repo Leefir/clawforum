@@ -11,6 +11,7 @@ import type { StreamWriter } from './stream-writer.js';
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
 import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS } from '../../constants.js';
+import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -21,6 +22,7 @@ export interface DaemonLoopOptions {
   fallbackTimeoutMs?: number;            // fs.watch fallback timeout (default 30000ms)
   streamWriter?: StreamWriter;           // streaming event writer
   heartbeat?: Heartbeat;                 // heartbeat instance (motion only)
+  notifyMotionDir?: string;             // if set (claw only), notify motion on LLM max-retry failure
 }
 
 /**
@@ -61,7 +63,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, agentDir, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
+  const { runtime, agentDir, inboxPendingDir, label, onBatchComplete, streamWriter, notifyMotionDir } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   let stopped = false;
 
@@ -197,12 +199,34 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryPending = true; // next iteration will call retryLastTurn
         } else {
           // Non-LLM error, or max retries exceeded — reset and wait
+          const isLLMMaxRetry = err instanceof Error && LLM_ERROR_PATTERN.test(err.message);
           llmRetryCount = 0;
           llmRetryDelayMs = 30_000;
           console.error(`${label} processBatch error:`, err);
           if (turnStarted) {
             const msg = err instanceof Error ? err.message : String(err);
             streamWriter?.write({ ts: Date.now(), type: 'turn_error', error: msg });
+          }
+          // Notify motion when LLM max retries exhausted (claw only)
+          if (isLLMMaxRetry && notifyMotionDir) {
+            const clawId = path.basename(agentDir);
+            const errMsg = err instanceof Error ? err.message : String(err);
+            // viewport notification
+            try {
+              const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype: 'llm_error', clawId, error: errMsg }) + '\n';
+              fsNative.appendFileSync(path.join(notifyMotionDir, 'stream.jsonl'), line);
+            } catch { /* best-effort */ }
+            // inbox notification for motion LLM
+            try {
+              writeInboxMessage({
+                inboxDir: path.join(notifyMotionDir, 'inbox', 'pending'),
+                type: 'watchdog_claw_llm_error',
+                source: clawId,
+                priority: 'high',
+                body: `Claw ${clawId} LLM error after ${LLM_MAX_RETRIES} retries: ${errMsg}`,
+                idPrefix: 'llm-error',
+              });
+            } catch { /* best-effort */ }
           }
           await waitForInbox(inboxPendingDir, fallbackTimeout);
         }

@@ -227,6 +227,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const fb = (event.feedback as string) ?? '';
           const forClaw = claw ? ` (${claw})` : '';
           appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb}${forClaw}\x1b[0m`);
+        } else if (sub === 'llm_error') {
+          const claw = (event.clawId as string) ?? '';
+          const errMsg = (event.error as string) ?? '';
+          const forClaw = claw ? ` (${claw})` : '';
+          appendOutput(`\x1b[31m  ✗ [llm] ${errMsg}${forClaw}\x1b[0m`);
         }
         break;
       }
