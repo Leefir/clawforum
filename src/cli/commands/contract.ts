@@ -11,7 +11,8 @@ import { ContractManager, type ContractYaml } from '../../core/contract/manager.
 import { ContractCreator } from '../../core/contract/creator.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { LLMService } from '../../foundation/llm/service.js';
-import { getClawDir, loadClawConfig, loadGlobalConfig, buildLLMConfig } from '../config.js';
+import { getClawDir, getMotionDir, loadClawConfig, loadGlobalConfig, buildLLMConfig } from '../config.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 /**
@@ -49,7 +50,8 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
     const originId = process.env.CLAW_ORIGIN_ID;
     if (originId && originId !== clawId) {
       try {
-        fsNative.appendFileSync(path.join(getClawDir(originId), 'stream.jsonl'), line);
+        const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
+        fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
       } catch { /* best-effort */ }
     }
   } catch { /* daemon 未运行时文件不存在，忽略 */ }
@@ -111,7 +113,8 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
     const originId = process.env.CLAW_ORIGIN_ID;
     if (originId && originId !== clawId) {
       try {
-        fsNative.appendFileSync(path.join(getClawDir(originId), 'stream.jsonl'), line);
+        const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
+        fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
       } catch { /* best-effort */ }
     }
   } catch { /* daemon 未运行时文件不存在，忽略 */ }
