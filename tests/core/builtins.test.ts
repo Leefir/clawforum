@@ -668,7 +668,35 @@ describe('Builtin Tools', () => {
       warnSpy.mockRestore();
       delete (ctx as any).taskSystem;
     });
+
+    // Batch 4 新增测试：subtask failed 状态显示 ✗
+    it('should show ✗ icon for failed subtask', async () => {
+      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const contractId = await manager.create({
+        title: 'Fail Test',
+        goal: 'test',
+        subtasks: [
+          { id: 'fail-task', description: 'This will fail' },
+          { id: 'ok-task', description: 'This is ok' },
+        ],
+        acceptance: [],
+        deliverables: [],
+      });
+      // 直接修改 progress.json 设置 failed 状态
+      const progressPath = path.join(tempDir, 'contract/active', contractId, 'progress.json');
+      const raw = await fs.readFile(progressPath, 'utf-8');
+      const progress = JSON.parse(raw);
+      progress.subtasks['fail-task'].status = 'failed';
+      await fs.writeFile(progressPath, JSON.stringify(progress));
+
+      (ctx as any).contractManager = manager;
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('✗ fail-task');
+      expect(result.content).toContain('○ ok-task');
+      delete (ctx as any).contractManager;
+    });
   });
+
 
   describe('send tool', () => {
     it('should create message in outbox', async () => {

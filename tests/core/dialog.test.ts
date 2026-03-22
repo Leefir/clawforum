@@ -371,5 +371,139 @@ describe('Dialog', () => {
       expect(session.messages).toHaveLength(1);
       expect(session.messages[0].role).toBe('user');
     });
+
+    // buildParts: skill 注入
+    it('should include skills in buildParts when skillRegistry is provided', async () => {
+      const mockSkillRegistry = {
+        formatForContext: vi.fn().mockReturnValue('## Skills\n- skill1'),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, skillRegistry: mockSkillRegistry });
+
+      const parts = await inj.buildParts();
+      expect(parts.skills).toBe('## Skills\n- skill1');
+      expect(parts.contract).toBe('');
+    });
+
+    // buildParts: contract 注入（含 completed/pending checkbox）
+    it('should include contract in buildParts when contractManager has active contract', async () => {
+      const mockContractManager = {
+        loadActive: vi.fn().mockResolvedValue({
+          id: 'c1',
+          title: 'Build Tool',
+          goal: 'Create a search tool',
+          subtasks: [
+            { id: 'design', description: 'Design API', status: 'completed' },
+            { id: 'impl', description: 'Implement', status: 'pending' },
+          ],
+        }),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
+
+      const parts = await inj.buildParts();
+      expect(parts.contract).toContain('## Active Contract');
+      expect(parts.contract).toContain('[x] `design`');
+      expect(parts.contract).toContain('[ ] `impl`');
+    });
+
+    // buildParts: contractManager.loadActive 抛异常 → 静默跳过
+    it('should skip contract silently when loadActive throws', async () => {
+      const mockContractManager = {
+        loadActive: vi.fn().mockRejectedValue(new Error('corrupted')),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
+
+      const parts = await inj.buildParts();
+      expect(parts.contract).toBe('');
+    });
+
+    // buildParts: AGENTS.md 内容为空白 → agents 为空
+    it('should return empty agents when AGENTS.md is whitespace only', async () => {
+      await nodeFs.writeAtomic('AGENTS.md', '   \n  ');
+      const parts = await injector.buildParts();
+      expect(parts.agents).toBe('');
+    });
+
+    // buildSystemPrompt: 包含 skill 和 contract
+    it('should include skills and contract in buildSystemPrompt', async () => {
+      await nodeFs.writeAtomic('AGENTS.md', '# Agent Instructions');
+      const mockSkillRegistry = {
+        formatForContext: vi.fn().mockReturnValue('## Skills\n- skill1'),
+      } as any;
+      const mockContractManager = {
+        loadActive: vi.fn().mockResolvedValue({
+          id: 'c1', title: 'T', goal: 'G',
+          subtasks: [{ id: 'x', description: 'do x', status: 'pending' }],
+        }),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, skillRegistry: mockSkillRegistry, contractManager: mockContractManager });
+
+      const prompt = await inj.buildSystemPrompt();
+      expect(prompt).toContain('Agent Instructions');
+      expect(prompt).toContain('## Skills');
+      expect(prompt).toContain('## Active Contract');
+      expect(prompt).toContain('[ ] `x`');
+    });
+
+    // injectFixedPrefix: includeContracts=true + 有效 contract
+    it('should inject contract when includeContracts is true', async () => {
+      const mockContractManager = {
+        loadActive: vi.fn().mockResolvedValue({
+          id: 'c1', title: 'Test', goal: 'Test goal',
+          subtasks: [{ id: 'task1', description: 'Do task', status: 'completed' }],
+        }),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
+      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
+
+      await inj.injectFixedPrefix(session, { includeContracts: true });
+      expect(session.messages).toHaveLength(1);
+      expect(session.messages[0].content).toContain('## Active Contract');
+      expect(session.messages[0].content).toContain('[x] `task1`');
+    });
+
+    // injectFixedPrefix: includeContracts=true + loadActive 抛异常 → 静默跳过
+    it('should skip contract silently in injectFixedPrefix when loadActive throws', async () => {
+      const mockContractManager = {
+        loadActive: vi.fn().mockRejectedValue(new Error('fail')),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
+      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
+
+      await inj.injectFixedPrefix(session, { includeContracts: true });
+      // No system message should be added (no agents/memory/contract content)
+      expect(session.messages).toHaveLength(0);
+    });
+
+    // injectFixedPrefix: includeContracts=true + loadActive 返回 null
+    it('should not inject contract when loadActive returns null', async () => {
+      const mockContractManager = {
+        loadActive: vi.fn().mockResolvedValue(null),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
+      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
+
+      await inj.injectFixedPrefix(session, { includeContracts: true });
+      expect(session.messages).toHaveLength(0);
+    });
+
+    // injectFixedPrefix: includeSkills=true + 非空 skill context
+    it('should inject skills when includeSkills is true', async () => {
+      const mockSkillRegistry = {
+        formatForContext: vi.fn().mockReturnValue('## Skills\n- skill1'),
+      } as any;
+      const inj = new ContextInjector({ fs: nodeFs, skillRegistry: mockSkillRegistry });
+      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
+
+      await inj.injectFixedPrefix(session, { includeSkills: true });
+      expect(session.messages).toHaveLength(1);
+      expect(session.messages[0].content).toContain('## Skills');
+    });
+
+    // injectFixedPrefix: includeTools=true → 不报错（TODO 分支）
+    it('should not throw when includeTools is true (TODO stub)', async () => {
+      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
+      await expect(injector.injectFixedPrefix(session, { includeTools: true })).resolves.toBeUndefined();
+      expect(session.messages).toHaveLength(0); // No content injected
+    });
   });
 });
