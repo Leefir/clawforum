@@ -91,9 +91,9 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
   }
   
   try {
-    // clawspace file count (ENOENT = 目录不存在，正常返回空)
+    // clawspace file count (ENOENT/FS_NOT_FOUND = 目录不存在，正常返回空)
     const entries = await ctx.fs.list('clawspace', { recursive: true, includeDirs: false }).catch((err: any) => {
-      if (err?.code === 'ENOENT') return [];
+      if (err?.code === 'ENOENT' || err?.code === 'FS_NOT_FOUND') return [];
       throw err;
     });
     lines.push(`Clawspace: ${entries.length} files`);

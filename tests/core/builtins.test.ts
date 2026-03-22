@@ -2,7 +2,7 @@
  * Builtin tools tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
@@ -552,6 +552,121 @@ describe('Builtin Tools', () => {
       expect(result.content).toContain('✓ done-task: Already done');
       expect(result.content).toContain('○ todo-task: Still pending');
       expect(result.content).toContain('1/2 subtasks done');
+    });
+
+    // MEMORY.md 不存在
+    it('should show MEMORY.md Not found when file does not exist', async () => {
+      const result = await statusTool.execute({}, ctx);
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('MEMORY.md: Not found');
+    });
+
+    // MEMORY.md 读取异常
+    it('should show MEMORY.md Error when fs.read throws', async () => {
+      await mockFs.writeAtomic('MEMORY.md', 'some content');
+      const readSpy = vi.spyOn(mockFs, 'read').mockRejectedValueOnce(
+        Object.assign(new Error('disk error'), { code: 'EIO' })
+      );
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('MEMORY.md: Error');
+      expect(result.content).toContain('disk error');
+      readSpy.mockRestore();
+    });
+
+    // clawspace ENOENT → 0 files
+    it('should show Clawspace 0 files when clawspace dir does not exist', async () => {
+      // tempDir 内无 clawspace 目录，list 会抛 ENOENT
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('Clawspace: 0 files');
+    });
+
+    // clawspace 非 ENOENT 异常
+    it('should show Clawspace Error when non-ENOENT error occurs', async () => {
+      await mockFs.ensureDir('clawspace');
+      const listSpy = vi.spyOn(mockFs, 'list').mockRejectedValueOnce(
+        Object.assign(new Error('permission denied'), { code: 'EACCES' })
+      );
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('Clawspace: Error');
+      expect(result.content).toContain('permission denied');
+      listSpy.mockRestore();
+    });
+
+    // contractManager.loadActive 抛异常
+    it('should show Contract Error loading when loadActive throws', async () => {
+      (ctx as any).contractManager = {
+        loadActive: vi.fn().mockRejectedValue(new Error('corrupted yaml')),
+      };
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('Contract: Error loading');
+      delete (ctx as any).contractManager;
+    });
+
+    // subtask failed 状态显示 ✗
+    it('should show ✗ icon for failed subtask', async () => {
+      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const contractId = await manager.create({
+        title: 'Fail Test',
+        goal: 'test',
+        subtasks: [
+          { id: 'fail-task', description: 'This will fail' },
+          { id: 'ok-task', description: 'This is ok' },
+        ],
+        acceptance: [],
+        deliverables: [],
+      });
+      // 直接修改 progress.json 设置 failed 状态
+      const progressPath = path.join(tempDir, 'contract/active', contractId, 'progress.json');
+      const raw = await fs.readFile(progressPath, 'utf-8');
+      const progress = JSON.parse(raw);
+      progress.subtasks['fail-task'].status = 'failed';
+      await fs.writeFile(progressPath, JSON.stringify(progress));
+
+      (ctx as any).contractManager = manager;
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('✗ fail-task');
+      expect(result.content).toContain('○ ok-task');
+      delete (ctx as any).contractManager;
+    });
+
+    // task running + pending
+    it('should show running and pending task counts', async () => {
+      await mockFs.ensureDir('tasks/pending');
+      await mockFs.ensureDir('tasks/running');
+      await mockFs.writeAtomic('tasks/pending/t1.json', '{}');
+      await mockFs.writeAtomic('tasks/running/t2.json', '{}');
+
+      (ctx as any).taskSystem = {};
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('1 running, 1 pending');
+      delete (ctx as any).taskSystem;
+    });
+
+    // 只有 pending
+    it('should show only pending task count when no running tasks', async () => {
+      await mockFs.ensureDir('tasks/pending');
+      await mockFs.writeAtomic('tasks/pending/t1.json', '{}');
+      await mockFs.writeAtomic('tasks/pending/t2.json', '{}');
+
+      (ctx as any).taskSystem = {};
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('2 pending');
+      delete (ctx as any).taskSystem;
+    });
+
+    // tasks/pending 不存在 → warn
+    it('should warn and treat pending count as 0 when tasks/pending does not exist', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      (ctx as any).taskSystem = {};
+
+      const result = await statusTool.execute({}, ctx);
+      expect(result.content).toContain('Tasks: idle');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[status] task pending error'),
+        expect.anything()
+      );
+      warnSpy.mockRestore();
+      delete (ctx as any).taskSystem;
     });
   });
 

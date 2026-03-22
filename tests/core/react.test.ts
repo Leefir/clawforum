@@ -615,4 +615,41 @@ describe('ReAct Loop', () => {
       })
     ).rejects.toThrow('aborted');
   });
+
+  it('should warn and fall back to empty input when tool_use delta has invalid JSON', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    let streamCall = 0;
+    mockLLM.stream = vi.fn(() => {
+      streamCall++;
+      if (streamCall === 1) {
+        return (async function* () {
+          yield { type: 'tool_use_start', toolUse: { id: 'call-broken', name: 'read', partialInput: '' } };
+          yield { type: 'tool_use_delta', toolUse: { id: '', name: '', partialInput: '{broken json' } };
+          yield { type: 'done' };
+        })();
+      }
+      return (async function* () {
+        yield { type: 'text_delta', delta: 'All done.' };
+        yield { type: 'done' };
+      })();
+    });
+
+    (mockExecutor.execute as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({ success: true, content: 'file content' });
+
+    await runReact({
+      messages: [{ role: 'user', content: 'read a file' }],
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      maxSteps: 5,
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[loop] Failed to parse tool input for "read"')
+    );
+
+    warnSpy.mockRestore();
+  });
 });
