@@ -46,6 +46,12 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
       subtaskCount: contractYaml.subtasks.length,
     }) + '\n';
     fsNative.appendFileSync(streamPath, line);
+    const originId = process.env.CLAW_ORIGIN_ID;
+    if (originId && originId !== clawId) {
+      try {
+        fsNative.appendFileSync(path.join(getClawDir(originId), 'stream.jsonl'), line);
+      } catch { /* best-effort */ }
+    }
   } catch { /* daemon 未运行时文件不存在，忽略 */ }
 
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
@@ -102,6 +108,12 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
       subtaskCount: contractYaml.subtasks.length,
     }) + '\n';
     fsNative.appendFileSync(streamPath, line);
+    const originId = process.env.CLAW_ORIGIN_ID;
+    if (originId && originId !== clawId) {
+      try {
+        fsNative.appendFileSync(path.join(getClawDir(originId), 'stream.jsonl'), line);
+      } catch { /* best-effort */ }
+    }
   } catch { /* daemon 未运行时文件不存在，忽略 */ }
 
   // Write acceptance files to contract directory
