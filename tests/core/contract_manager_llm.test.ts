@@ -180,8 +180,12 @@ describe('ContractManager Acceptance Flow', () => {
     execFileMockStdout = '';
     execFileMockStderr = '';
     
-    tempDir = await createTempDir();
-    clawDir = tempDir;
+    // Create proper directory structure: /tmp/<root>/claws/test-claw/
+    // so that ../../motion resolves to /tmp/<root>/motion/
+    const rootDir = await createTempDir();
+    clawDir = path.join(rootDir, 'claws', 'test-claw');
+    await fs.mkdir(clawDir, { recursive: true });
+    tempDir = clawDir;  // 保持后续代码兼容
 
     const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
     const logsDir = path.join(clawDir, 'logs');
@@ -199,7 +203,8 @@ describe('ContractManager Acceptance Flow', () => {
 
   afterEach(async () => {
     vi.useRealTimers();
-    await cleanupTempDir(tempDir);
+    // 清理 rootDir（clawDir 的祖父目录）
+    await cleanupTempDir(path.resolve(clawDir, '..', '..'));
   });
 
   describe('Script Acceptance', () => {
