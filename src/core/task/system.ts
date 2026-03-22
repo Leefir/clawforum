@@ -25,6 +25,9 @@ export interface SubAgentTask {
   maxSteps: number;
   parentClawId: string;
   createdAt: string;
+  systemPrompt?: string;                    // dispatcher 用 Motion 的 system prompt
+  callerType?: 'subagent' | 'dispatcher';  // 传给 SubAgent，决定 executorProfile
+  idleTimeoutMs?: number;                  // LLM 静默超时阈值（用户可配置）
 }
 
 export interface ToolTask {
@@ -358,6 +361,9 @@ export class TaskSystem {
         timeoutMs: task.timeout * 1000,
         signal,
         toolsForLLM,
+        systemPrompt: task.systemPrompt,
+        callerType: task.callerType,
+        idleTimeoutMs: task.idleTimeoutMs,
       });
 
       const result = await subAgent.run();

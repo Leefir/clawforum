@@ -1,9 +1,7 @@
 import type { ITool, ToolResult, ExecContext, ToolPermissions } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
-import { SubAgent } from '../../subagent/agent.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import type { ToolRegistry } from '../registry.js';
-import { ExecContextImpl } from '../context.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -36,6 +34,10 @@ dispatcher 可以：
       task:     { type: 'string', description: '要完成的任务描述' },
       context:  { type: 'string', description: '当前对话的相关上下文（简短）' },
       maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认 10）' },
+      idleTimeoutMs: {
+        type: 'number',
+        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认 30000。',
+      },
     },
     required: ['task'],
   };
@@ -71,24 +73,32 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
     ].filter(Boolean).join('\n\n');
 
     const taskSystem = (ctx as unknown as { taskSystem?: TaskSystem }).taskSystem;
+    if (!taskSystem) {
+      return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
+    }
 
-    // 同步执行 dispatcher（轻量：决策 + 派发，不做实际内容工作）
-    const agent = new SubAgent({
-      agentId: `dispatcher-${Date.now()}`,
+    // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
+    const systemPrompt = await this.getSystemPrompt();
+    const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
+      ? args.idleTimeoutMs
+      : 30000;
+
+    const taskId = await taskSystem.scheduleSubAgent({
+      kind: 'subagent',
       prompt,
-      systemPrompt: await this.getSystemPrompt(),  // 与 Motion 完全相同 → KV cache 命中
-      callerType: 'dispatcher',
-      clawDir: ctx.clawDir,
-      llm: ctx.llm!,
-      registry: this.registry,   // Motion 的完整注册表 → LLM 看到相同工具列表
-      fs: ctx.fs,
-      taskSystem,                // 透传，dispatcher 调 spawn 需要
-      outboxWriter: ctx.outboxWriter,
-      contractManager: (ctx as ExecContextImpl).contractManager,
+      tools: [],           // 空 = 使用 registry 全部工具（spawn/skill/exec 均可用）
+      timeout: 3600,       // 总超时 1 小时（idle timeout 会更早触发终止）
       maxSteps: (args.maxSteps as number) ?? 10,
+      parentClawId: ctx.clawId,
+      systemPrompt,
+      callerType: 'dispatcher',
+      idleTimeoutMs,
     });
 
-    const result = await agent.run();
-    return { success: true, content: result };
+    return {
+      success: true,
+      content: `Dispatcher started. Task ID: ${taskId}. Result will arrive in inbox when complete.`,
+      metadata: { taskId },
+    };
   }
 }
