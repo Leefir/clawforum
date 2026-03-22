@@ -351,7 +351,9 @@ export class TaskSystem {
       const allowedTools = task.tools.length > 0
         ? this.registry.getAll().filter(t => task.tools.includes(t.name))
         : this.registry.getAll();
-      const toolsForLLM = task.toolsForLLM ?? this.registry.formatForLLM(allowedTools);
+      const toolsForLLM = (task.toolsForLLM && task.toolsForLLM.length > 0)
+        ? task.toolsForLLM
+        : this.registry.formatForLLM(allowedTools);
 
       const subAgent = new SubAgent({
         agentId: task.id,

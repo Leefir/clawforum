@@ -358,7 +358,7 @@ export class AnthropicAdapter implements IProviderAdapter {
     // Find last user message index for cache_control (同一会话内增量缓存)
     let lastUserIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role !== 'assistant') { lastUserIdx = i; break; }
+      if (messages[i].role === 'user') { lastUserIdx = i; break; }
     }
 
     return messages.map((m, idx) => {
