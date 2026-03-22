@@ -33,7 +33,7 @@ export interface ExecContextImplOptions {
   profile: ToolProfile;
   
   /** Caller type for spawn recursion prevention */
-  callerType?: 'claw' | 'subagent';
+  callerType?: 'claw' | 'subagent' | 'dispatcher';
   
   /** File system instance */
   fs: IFileSystem;
@@ -73,7 +73,7 @@ export class ExecContextImpl implements ExecContext {
   clawId: string;
   clawDir: string;
   profile: ToolProfile;
-  callerType: 'claw' | 'subagent';
+  callerType: 'claw' | 'subagent' | 'dispatcher';
   permissions: ToolPermissions;
   fs: IFileSystem;
   monitor?: IMonitor;
