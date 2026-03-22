@@ -117,15 +117,20 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 处理一个 stream event
   const handleEvent = (event: { type: string; [key: string]: unknown }) => {
     switch (event.type) {
-      case 'turn_start':
+      case 'turn_start': {
         inTurn = true;
         flushThinking();
         flushStreaming();
-        // 只显示系统消息类 source（以 [ 开头），不显示用户消息原文（viewport 已显示过 > 前缀）
-        if (event.source && typeof event.source === 'string' && event.source.startsWith('[')) {
-          appendOutput(`\x1b[33m> ${event.source.slice(0, 80)}\x1b[0m`);
+        const srcs = event.sources as Array<{ text: string; type: string }> | undefined;
+        if (srcs && srcs.length > 0) {
+          // 显示所有非 user_chat 的来源（系统消息、inbox 消息等）
+          const sysParts = srcs.filter(s => s.type !== 'user_chat').map(s => s.text);
+          if (sysParts.length > 0) {
+            appendOutput(`\x1b[33m> ${sysParts.join(' | ').slice(0, 120)}\x1b[0m`);
+          }
         }
         break;
+      }
 
       case 'llm_start':
         inTurn = true;

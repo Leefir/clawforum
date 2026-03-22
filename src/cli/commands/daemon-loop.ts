@@ -80,7 +80,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       }
 
       let turnStarted = false;
-      let currentSources: string[] = [];
+      let currentSources: Array<{ text: string; type: string }> = [];
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
 
       try {
@@ -90,7 +90,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         // Wrap callbacks: intercept onInboxDrained to capture sources, write turn_start in onBeforeLLMCall
         const wrappedCallbacks = callbacks ? {
           ...callbacks,
-          onInboxDrained: (sources: string[]) => {
+          onInboxDrained: (sources: Array<{ text: string; type: string }>) => {
             currentSources = sources;
             callbacks.onInboxDrained?.(sources);
           },
@@ -99,7 +99,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               streamWriter?.write({
                 ts: Date.now(),
                 type: 'turn_start',
-                source: currentSources.join(' | ') || undefined,
+                sources: currentSources.length > 0 ? currentSources : undefined,
               });
               turnStarted = true;
             }

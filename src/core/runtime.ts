@@ -63,7 +63,7 @@ export interface StreamCallbacks {
   onToolCall?: (toolName: string) => void;
   onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
-  onInboxDrained?: (sources: string[]) => void;  // inbox has been drained; passes message summaries
+  onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
 }
 
 /**
@@ -297,6 +297,7 @@ export class ClawRuntime {
    */
   protected async _drainOwnInbox(): Promise<{
     injected: Message[];
+    sources: Array<{ text: string; type: string }>;
     count: number;
   }> {
     const inboxDir = path.join(this.options.clawDir, 'inbox');
@@ -317,10 +318,10 @@ export class ClawRuntime {
       if (err?.code !== 'ENOENT') {
         console.warn(`[inbox] Failed to read pending dir: ${err?.message}`);
       }
-      return { injected: [], count: 0 };
+      return { injected: [], sources: [], count: 0 };
     }
 
-    if (files.length === 0) return { injected: [], count: 0 };
+    if (files.length === 0) return { injected: [], sources: [], count: 0 };
 
     // Sort by priority then filename
     const PRIORITY_ORDER: Record<string, number> = {
@@ -366,12 +367,18 @@ export class ClawRuntime {
 
     // Build message injections (choose template by type)
     const injected: Message[] = [];
+    const sources: Array<{ text: string; type: string }> = [];
     for (const info of fileInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
       const type = info.meta.type ?? 'message';
+      const formatted = await this.formatInboxMessage(type, from, info.body);
       injected.push({
         role: 'user',
-        content: await this.formatInboxMessage(type, from, info.body),
+        content: formatted,
+      });
+      sources.push({
+        text: formatted.replace(/\r?\n/g, ' ').slice(0, 80),
+        type,
       });
     }
 
@@ -392,7 +399,7 @@ export class ClawRuntime {
       );
     }
 
-    return { injected, count: fileInfos.length };
+    return { injected, sources, count: fileInfos.length };
   }
 
   /**
@@ -434,15 +441,11 @@ export class ClawRuntime {
       await this.initialize();
     }
 
-    const { injected, count } = await this._drainOwnInbox();
+    const { injected, sources, count } = await this._drainOwnInbox();
     if (count === 0) return 0;
 
     // Notify daemon-loop which messages were injected
     if (callbacks?.onInboxDrained) {
-      const sources = injected.map(m => {
-        const text = typeof m.content === 'string' ? m.content : '';
-        return text.replace(/\r?\n/g, ' ').slice(0, 80);
-      });
       callbacks.onInboxDrained(sources);
     }
 
