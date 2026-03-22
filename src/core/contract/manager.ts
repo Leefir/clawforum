@@ -86,6 +86,7 @@ export class ContractManager {
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
+  private motionInboxDir: string;
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
   constructor(
@@ -94,12 +95,14 @@ export class ContractManager {
     monitor?: IMonitor,
     llm?: ILLMService,
     verifierRegistry?: ToolRegistry,
+    motionInboxDir?: string,
   ) {
     this.clawDir = clawDir;
     this.fs = fs;
     this.monitor = monitor;
     this.llm = llm;
     this.verifierRegistry = verifierRegistry;
+    this.motionInboxDir = motionInboxDir ?? path.resolve(clawDir, '..', '..', 'motion', 'inbox', 'pending');
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
@@ -780,7 +783,7 @@ export class ContractManager {
   ): void {
     try {
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
@@ -810,7 +813,7 @@ export class ContractManager {
   private notifyMotionAcceptanceTimeout(contractId: string, subtaskId: string): void {
     try {
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
@@ -1100,7 +1103,7 @@ export class ContractManager {
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
     try {
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,

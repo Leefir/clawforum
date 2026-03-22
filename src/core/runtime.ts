@@ -175,7 +175,8 @@ export class ClawRuntime {
     verifierRegistry.register(lsTool);
     verifierRegistry.register(searchTool);
     verifierRegistry.register(execTool);
-    this.contractManager = new ContractManager(clawDir, this.systemFs, this.monitor, this.llm, verifierRegistry);
+    const motionInboxDir = path.join(workspaceDir, 'motion', 'inbox', 'pending');
+    this.contractManager = new ContractManager(clawDir, this.systemFs, this.monitor, this.llm, verifierRegistry, motionInboxDir);
 
     // 11. Create ContextInjector (inject skillRegistry and contractManager)
     this.contextInjector = new ContextInjector({
