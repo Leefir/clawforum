@@ -162,6 +162,9 @@ export async function daemonCommand(name: string): Promise<void> {
   // 共用核心循环
   const streamWriter = new StreamWriter(dir);
   streamWriter.open();
+  runtime.setContractNotifyCallback((type, data) => {
+    streamWriter.write({ ts: Date.now(), type: 'user_notify', subtype: type, ...data });
+  });
   const inboxPendingDir = path.join(dir, 'inbox', 'pending');
   const { promise, stop } = startDaemonLoop({
     runtime,

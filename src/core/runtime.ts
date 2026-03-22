@@ -634,4 +634,11 @@ export class ClawRuntime {
     }
   }
 
+  /**
+   * Set callback for contract notifications (subtask_completed, acceptance_failed, etc.)
+   */
+  setContractNotifyCallback(cb: (type: string, data: Record<string, unknown>) => void): void {
+    this.contractManager?.setOnNotify(cb);
+  }
+
 }

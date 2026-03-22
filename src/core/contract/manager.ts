@@ -85,6 +85,7 @@ export class ContractManager {
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
+  onNotify?: (type: string, data: Record<string, unknown>) => void;
 
   constructor(
     clawDir: string,
@@ -98,6 +99,10 @@ export class ContractManager {
     this.monitor = monitor;
     this.llm = llm;
     this.verifierRegistry = verifierRegistry;
+  }
+
+  setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
+    this.onNotify = cb;
   }
 
   /**
@@ -432,6 +437,7 @@ export class ContractManager {
         evidence,
         artifacts,
       };
+      this.onNotify?.('subtask_completed', { contractId, subtaskId });
 
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -553,6 +559,7 @@ export class ContractManager {
         // Mark completed
         subtask.status = 'completed';
         subtask.completed_at = new Date().toISOString();
+        this.onNotify?.('subtask_completed', { contractId, subtaskId });
         
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -588,6 +595,9 @@ export class ContractManager {
         
         // Reset to todo for retry
         subtask.status = 'todo';
+        
+        const firstLine = result.feedback.split('\n')[0].slice(0, 80);
+        this.onNotify?.('acceptance_failed', { contractId, subtaskId, feedback: firstLine });
         
         await this.saveProgress(contractId, progress);
         

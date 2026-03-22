@@ -204,6 +204,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         updateDisplay();
         appendOutput(`\x1b[31m✗ Error: ${event.error}\x1b[0m`);
         break;
+
+      case 'user_notify': {
+        const sub = event.subtype as string;
+        const subtaskId = event.subtaskId as string;
+        if (sub === 'subtask_completed') {
+          appendOutput(`\x1b[32m✓ [contract] ${subtaskId} accepted\x1b[0m`);
+        } else if (sub === 'acceptance_failed') {
+          const fb = (event.feedback as string) ?? '';
+          appendOutput(`\x1b[33m⚠ [contract] ${subtaskId} rejected: ${fb}\x1b[0m`);
+        }
+        break;
+      }
     }
   };
 
