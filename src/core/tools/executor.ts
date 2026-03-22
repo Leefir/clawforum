@@ -14,6 +14,7 @@ import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
+import type { ContractManager } from '../contract/manager.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
@@ -395,6 +396,7 @@ export interface ToolExecutorOptions {
   taskSystem?: TaskSystem;
   profile?: ToolProfile;
   outboxWriter?: OutboxWriter;
+  contractManager?: ContractManager;
 }
 
 /**
@@ -409,6 +411,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private taskSystem?: TaskSystem;
   private profile: ToolProfile;
   private outboxWriter?: OutboxWriter;
+  private contractManager?: ContractManager;
 
   constructor(options: ToolExecutorOptions) {
     super(options.registry);
@@ -419,6 +422,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     this.taskSystem = options.taskSystem;
     this.profile = options.profile ?? 'full';
     this.outboxWriter = options.outboxWriter;
+    this.contractManager = options.contractManager;
   }
 
   /**
@@ -440,6 +444,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       signal: options.signal,
       taskSystem: this.taskSystem,
       outboxWriter: this.outboxWriter,
+      contractManager: this.contractManager,
     });
   }
 }

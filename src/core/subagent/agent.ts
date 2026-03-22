@@ -14,6 +14,8 @@ import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { SUBAGENT_TIMEOUT_MS } from '../../constants.js';
 import type { TaskSystem } from '../task/system.js';
+import type { OutboxWriter } from '../communication/outbox.js';
+import type { ContractManager } from '../contract/manager.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -32,6 +34,8 @@ export interface SubAgentOptions {
   systemPrompt?: string;                    // 替换 run() 里硬编码的默认 system prompt
   callerType?: 'subagent' | 'dispatcher';  // 默认 'subagent'
   taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
+  outboxWriter?: OutboxWriter;              // send 工具需要
+  contractManager?: ContractManager;        // contract create / done 工具需要
 }
 
 export class SubAgent {
@@ -52,6 +56,8 @@ export class SubAgent {
   private systemPrompt?: string;
   private callerType?: 'subagent' | 'dispatcher';
   private taskSystem?: TaskSystem;
+  private outboxWriter?: OutboxWriter;
+  private contractManager?: ContractManager;
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -71,6 +77,8 @@ export class SubAgent {
     this.systemPrompt = options.systemPrompt;
     this.callerType = options.callerType;
     this.taskSystem = options.taskSystem;
+    this.outboxWriter = options.outboxWriter;
+    this.contractManager = options.contractManager;
   }
 
   /**
@@ -118,6 +126,8 @@ export class SubAgent {
         llm: this.llm,
         monitor: this.monitor,
         taskSystem: this.taskSystem,
+        outboxWriter: this.outboxWriter,
+        contractManager: this.contractManager,
         profile: executorProfile,
       });
 

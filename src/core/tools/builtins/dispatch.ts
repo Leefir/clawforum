@@ -3,6 +3,7 @@ import type { TaskSystem } from '../../task/system.js';
 import { SubAgent } from '../../subagent/agent.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import type { ToolRegistry } from '../registry.js';
+import { ExecContextImpl } from '../context.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -82,6 +83,8 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
       registry: this.registry,   // Motion 的完整注册表 → LLM 看到相同工具列表
       fs: ctx.fs,
       taskSystem,                // 透传，dispatcher 调 spawn 需要
+      outboxWriter: ctx.outboxWriter,
+      contractManager: (ctx as ExecContextImpl).contractManager,
       maxSteps: (args.maxSteps as number) ?? 10,
     });
 
