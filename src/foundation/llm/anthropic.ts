@@ -99,10 +99,11 @@ export class AnthropicAdapter implements IProviderAdapter {
     }
     
     if (tools && tools.length > 0) {
-      body.tools = tools.map(t => ({
+      body.tools = tools.map((t, i) => ({
         name: t.name,
         description: t.description,
         input_schema: t.input_schema,
+        ...(i === tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
       }));
     }
     
@@ -192,7 +193,12 @@ export class AnthropicAdapter implements IProviderAdapter {
     if (temperature !== undefined) body.temperature = temperature;
     else if (this.config.temperature !== undefined) body.temperature = this.config.temperature;
     if (tools && tools.length > 0) {
-      body.tools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema }));
+      body.tools = tools.map((t, i) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.input_schema,
+        ...(i === tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
+      }));
     }
 
     // Extended thinking (requires no temperature)
@@ -361,32 +367,51 @@ export class AnthropicAdapter implements IProviderAdapter {
    * which can cause empty responses from some LLM providers (e.g., MiniMax).
    */
   private formatMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: string | unknown[] }> {
-    return messages.map(m => {
+    // Find last user message index for cache_control (同一会话内增量缓存)
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role !== 'assistant') { lastUserIdx = i; break; }
+    }
+
+    return messages.map((m, idx) => {
       const role = m.role === 'assistant' ? 'assistant' : 'user';
-      
-      // String content stays string
+      const addCache = idx === lastUserIdx;
+
+      // String content: add cache_control by converting to array
       if (!Array.isArray(m.content)) {
+        if (addCache) {
+          return { role, content: [{ type: 'text', text: m.content as string, cache_control: { type: 'ephemeral' } }] };
+        }
         return { role, content: m.content as string };
       }
-      
+
       const blocks = m.content as Array<{type?: string}>;
-      
+
       // Check if message contains structured blocks (tool_use, tool_result, or thinking)
       const hasStructuredBlocks = blocks.some(
         b => b.type === 'tool_use' || b.type === 'tool_result' || b.type === 'thinking'
       );
-      
+
       if (hasStructuredBlocks) {
+        if (addCache) {
+          // Copy last block with cache_control
+          const copy: unknown[] = [...blocks];
+          copy[copy.length - 1] = { ...(copy[copy.length - 1] as Record<string, unknown>), cache_control: { type: 'ephemeral' } };
+          return { role, content: copy };
+        }
         // Keep array format for structured messages
         return { role, content: blocks as unknown[] };
       }
-      
-      // Text-only or think-only: extract text blocks and join to string
+
+      // Text-only or think-only
       const text = (blocks as Array<{type?: string; text?: string}>)
         .filter(b => b.type === 'text')
         .map(b => b.text || '')
         .join('');
-      
+
+      if (addCache) {
+        return { role, content: [{ type: 'text', text, cache_control: { type: 'ephemeral' } }] };
+      }
       return { role, content: text };
     });
   }
