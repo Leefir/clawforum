@@ -206,6 +206,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         break;
 
       case 'user_notify': {
+        stopSpinner();   // 防止 spinner 在通知输出时继续转
         const sub = event.subtype as string;
         const subtaskId = event.subtaskId as string;
         if (sub === 'contract_created') {

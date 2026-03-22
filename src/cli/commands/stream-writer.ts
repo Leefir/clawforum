@@ -21,10 +21,14 @@ export class StreamWriter {
 
   /** daemon 启动时调用：截断文件并打开 fd */
   open(): void {
+    if (this.fd !== null) {         // 防止重复 open 导致 fd 泄漏
+      try { fsNative.closeSync(this.fd); } catch { /* ignore */ }
+      this.fd = null;
+    }
     const dir = path.dirname(this.filePath);
     fsNative.mkdirSync(dir, { recursive: true });
-    fsNative.writeFileSync(this.filePath, '');        // truncate（等效原来的 'w'）
-    this.fd = fsNative.openSync(this.filePath, 'a'); // O_APPEND：每次写原子性 seek 到 EOF
+    fsNative.writeFileSync(this.filePath, '');
+    this.fd = fsNative.openSync(this.filePath, 'a');
   }
 
   /** 写一行事件 */

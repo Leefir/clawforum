@@ -80,6 +80,11 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
   console.log('Generating contract from goal...');
   const { yaml: contractYaml, scripts, prompts } = await creator.generate(goal, clawDir);
 
+  // 验证 LLM 生成的契约
+  if (!contractYaml.title || !contractYaml.goal || !Array.isArray(contractYaml.subtasks)) {
+    throw new Error('Generated contract is invalid: missing title, goal, or subtasks');
+  }
+
   // Create contract
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
   const manager = new ContractManager(clawDir, clawFs);

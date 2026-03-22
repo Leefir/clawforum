@@ -330,11 +330,11 @@ export class ContractManager {
       throw err;
     }
 
-    this.onNotify?.('contract_created', {
-      contractId,
-      title: contractYaml.title,
-      subtaskCount: contractYaml.subtasks.length,
-    });
+    try {
+      this.onNotify?.('contract_created', { contractId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length });
+    } catch (err) {
+      console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
+    }
     this.monitor?.log('contract_created', { contractId });
     return contractId;
   }
@@ -446,7 +446,11 @@ export class ContractManager {
         evidence,
         artifacts,
       };
-      this.onNotify?.('subtask_completed', { contractId, subtaskId });
+      try {
+        this.onNotify?.('subtask_completed', { contractId, subtaskId });
+      } catch (err) {
+        console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
+      }
 
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -557,7 +561,11 @@ export class ContractManager {
         // Mark completed
         subtask.status = 'completed';
         subtask.completed_at = new Date().toISOString();
-        this.onNotify?.('subtask_completed', { contractId, subtaskId });
+        try {
+          this.onNotify?.('subtask_completed', { contractId, subtaskId });
+        } catch (err) {
+          console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
+        }
         
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -595,7 +603,11 @@ export class ContractManager {
         subtask.status = 'todo';
         
         const firstLine = result.feedback.split('\n')[0].slice(0, 80);
-        this.onNotify?.('acceptance_failed', { contractId, subtaskId, feedback: firstLine });
+        try {
+          this.onNotify?.('acceptance_failed', { contractId, subtaskId, feedback: firstLine });
+        } catch (err) {
+          console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
+        }
         
         await this.saveProgress(contractId, progress);
         
