@@ -53,6 +53,9 @@ export class StreamWriter {
       onTextDelta: (delta: string) => {
         this.write({ ts: Date.now(), type: 'text_delta', delta });
       },
+      onTextEnd: () => {
+        this.write({ ts: Date.now(), type: 'text_end' });
+      },
       onToolCall: (name: string) => {
         this.write({ ts: Date.now(), type: 'tool_call', name });
       },

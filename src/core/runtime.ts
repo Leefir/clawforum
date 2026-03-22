@@ -59,6 +59,7 @@ export interface ClawRuntimeOptions {
 /** daemon streaming callbacks (used by processBatch / _runReact) */
 export interface StreamCallbacks {
   onTextDelta?: (delta: string) => void;
+  onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
   onToolCall?: (toolName: string) => void;
   onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
@@ -424,6 +425,7 @@ export class ClawRuntime {
         await this.sessionManager.save(messages);
       },
       onTextDelta: callbacks?.onTextDelta,
+      onTextEnd: callbacks?.onTextEnd,
       onThinkingDelta: callbacks?.onThinkingDelta,
       onToolCall: callbacks?.onToolCall,
       onToolResult: callbacks?.onToolResult,

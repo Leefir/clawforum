@@ -60,6 +60,9 @@ export interface ReactOptions {
   /** Callback for streaming text deltas (for real-time display) */
   onTextDelta?: (delta: string) => void;
   
+  /** Callback when text block ends (before tool_use or turn_end) */
+  onTextEnd?: () => void;
+  
   /** Callback for streaming thinking deltas (for extended thinking display) */
   onThinkingDelta?: (delta: string) => void;
 }
@@ -120,7 +123,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       tools: options.tools,
       maxTokens: REACT_DEFAULT_MAX_TOKENS,
       signal: ctx.signal,
-    }, options.onTextDelta, options.onThinkingDelta);
+    }, options.onTextDelta, options.onThinkingDelta, options.onTextEnd);
 
     // Handle tool_use stop reason
     if (response.stop_reason === 'tool_use') {
@@ -371,6 +374,7 @@ async function collectStreamResponse(
   callOptions: LLMCallOptions,
   onTextDelta?: (delta: string) => void,
   onThinkingDelta?: (delta: string) => void,
+  onTextEnd?: () => void,
 ): Promise<LLMResponse> {
   const contentBlocks: ContentBlock[] = [];
   let currentText = '';
@@ -409,6 +413,7 @@ async function collectStreamResponse(
         if (currentText) {
           contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
           currentText = '';
+          onTextEnd?.();
         }
         // 保存之前的 tool_use（如果有多个）
         if (currentToolUse) {
@@ -450,6 +455,7 @@ async function collectStreamResponse(
   }
   if (currentText) {
     contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
+    onTextEnd?.();
   }
   if (currentToolUse) {
     let parsedInput: Record<string, unknown>;

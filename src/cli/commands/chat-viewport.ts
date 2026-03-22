@@ -149,7 +149,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         streamingBuffer += event.delta as string;
-        setStreamingSuffix(streamingBuffer);
+        setStreamingSuffix(streamingBuffer + '▋');
+        break;
+
+      case 'text_end':
+        stopSpinner();
+        flushStreaming();
         break;
 
       case 'tool_call':
@@ -178,6 +183,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
+        appendOutput('\x1b[2m────────────────────\x1b[0m');
         break;
 
       case 'turn_interrupted':
