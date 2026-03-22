@@ -34,6 +34,20 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
   const contractId = await manager.create(contractYaml);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
 
+  // best-effort：通知 viewport
+  try {
+    const streamPath = path.join(clawDir, 'stream.jsonl');
+    const line = JSON.stringify({
+      ts: Date.now(),
+      type: 'user_notify',
+      subtype: 'contract_created',
+      contractId,
+      title: contractYaml.title,
+      subtaskCount: contractYaml.subtasks.length,
+    }) + '\n';
+    fsNative.appendFileSync(streamPath, line);
+  } catch { /* daemon 未运行时文件不存在，忽略 */ }
+
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
   try {
     const inboxDir = path.join(clawDir, 'inbox', 'pending');
@@ -70,6 +84,20 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
   const manager = new ContractManager(clawDir, clawFs);
   const contractId = await manager.create(contractYaml);
+
+  // best-effort：通知 viewport
+  try {
+    const streamPath = path.join(clawDir, 'stream.jsonl');
+    const line = JSON.stringify({
+      ts: Date.now(),
+      type: 'user_notify',
+      subtype: 'contract_created',
+      contractId,
+      title: contractYaml.title,
+      subtaskCount: contractYaml.subtasks.length,
+    }) + '\n';
+    fsNative.appendFileSync(streamPath, line);
+  } catch { /* daemon 未运行时文件不存在，忽略 */ }
 
   // Write acceptance files to contract directory
   const acceptanceDir = path.join(clawDir, 'contract', 'active', contractId, 'acceptance');
