@@ -6,7 +6,7 @@
  */
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
-import type { SkillRegistry } from '../../skill/registry.js';
+import { SkillRegistry } from '../../skill/registry.js';
 
 /**
  * Skill tool implementation
@@ -23,6 +23,10 @@ export const skillTool: ITool & { skillRegistry?: SkillRegistry } = {
         type: 'string',
         description: 'The name of the skill to load (e.g., "git-workflow", "code-review")',
       },
+      skillsDir: {
+        type: 'string',
+        description: 'Skills directory to load from. Default: Motion\'s own skill dir. Pass "clawspace/dispatch-skills" for dispatch templates.',
+      },
     },
     required: ['name'],
   },
@@ -31,6 +35,16 @@ export const skillTool: ITool & { skillRegistry?: SkillRegistry } = {
   idempotent: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
+    const name = String(args.name);
+
+    // Load from custom skills directory if specified (e.g., dispatch templates)
+    if (args.skillsDir) {
+      const tempRegistry = new SkillRegistry(ctx.fs, String(args.skillsDir));
+      await tempRegistry.loadAll();
+      const content = await tempRegistry.loadFull(name);
+      return { success: true, content, metadata: { skillName: name } };
+    }
+
     const skillRegistry = (ctx as { skillRegistry?: SkillRegistry }).skillRegistry;
     
     if (!skillRegistry) {
@@ -40,8 +54,6 @@ export const skillTool: ITool & { skillRegistry?: SkillRegistry } = {
         error: 'SkillRegistry not configured',
       };
     }
-
-    const name = String(args.name);
 
     try {
       const content = await skillRegistry.loadFull(name);
