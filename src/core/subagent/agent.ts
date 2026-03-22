@@ -180,6 +180,7 @@ Work efficiently and return a clear, concise result.`;
             clawId: this.agentId,
             signal: timeoutController.signal,
             callerType,
+            originClawId: this.originClawId,
           }),
           maxSteps: this.maxSteps,
           registry: this.registry,  // Enable parallel execution for readonly tools
