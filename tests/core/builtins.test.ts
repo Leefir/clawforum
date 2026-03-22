@@ -79,18 +79,17 @@ describe('Builtin Tools', () => {
       expect(result.content).toBe('Line 2\nLine 3');
     });
 
-    it('should block paths not in allowlist', async () => {
-      const result = await readTool.execute({ path: 'dialog/test.txt' }, ctx);
+    it('should block logs/ path (blacklist)', async () => {
+      const result = await readTool.execute({ path: 'logs/system.log' }, ctx);
 
       expect(result.success).toBe(false);
       expect(result.content).toContain('not allowed');
     });
 
-    it('should block dialog/ path (blacklist)', async () => {
+    it('dialog/ path should not be blocked (only logs/ is blacklisted)', async () => {
+      // dialog/current.json 不存在时返回 FileNotFound，不是权限错误
       const result = await readTool.execute({ path: 'dialog/current.json' }, ctx);
-
-      expect(result.success).toBe(false);
-      expect(result.content).toContain('not allowed');
+      expect(result.content).not.toContain('not allowed');
     });
 
     // Phase 2 质量审查补充：截断元信息测试

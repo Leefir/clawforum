@@ -10,7 +10,6 @@ import { DispatchTool } from '../../src/core/tools/builtins/dispatch.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { ToolRegistry } from '../../src/core/tools/registry.js';
-import { SubAgent } from '../../src/core/subagent/agent.js';
 
 async function createTempDir(): Promise<string> {
   const d = path.join(tmpdir(), `dispatch-test-${randomUUID()}`);
@@ -35,13 +34,17 @@ describe('DispatchTool', () => {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher') {
+  function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', mockSchedule?: () => Promise<string>) {
+    const taskSystem = mockSchedule
+      ? { scheduleSubAgent: vi.fn().mockImplementation(mockSchedule) }
+      : undefined;
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
       profile: 'full',
       callerType,
       fs: mockFs,
+      taskSystem: taskSystem as any,
     });
   }
 
@@ -54,14 +57,13 @@ describe('DispatchTool', () => {
   });
 
   it('should allow dispatch when callerType is claw', async () => {
-    const runSpy = vi.spyOn(SubAgent.prototype, 'run').mockResolvedValue('dispatch completed');
-
-    const ctx = makeCtx('claw');
+    const mockSchedule = vi.fn().mockResolvedValue('task-123');
+    const ctx = makeCtx('claw', mockSchedule);
     const result = await tool.execute({ task: 'do something' }, ctx);
 
     expect(result.success).toBe(true);
-    expect(result.content).toBe('dispatch completed');
-    runSpy.mockRestore();
+    expect(result.content).toContain('task-123');
+    expect(mockSchedule).toHaveBeenCalled();
   });
 
   it('should succeed when dispatch-skills directory exists', async () => {
@@ -77,21 +79,20 @@ Content.
 `
     );
 
-    const runSpy = vi.spyOn(SubAgent.prototype, 'run').mockResolvedValue('done');
-    const ctx = makeCtx('claw');
+    const mockSchedule = vi.fn().mockResolvedValue('task-abc');
+    const ctx = makeCtx('claw', mockSchedule);
     const result = await tool.execute({ task: 'generate report' }, ctx);
 
     expect(result.success).toBe(true);
-    runSpy.mockRestore();
+    expect(result.content).toContain('task-abc');
   });
 
   it('should succeed without dispatch-skills directory', async () => {
-    const runSpy = vi.spyOn(SubAgent.prototype, 'run').mockResolvedValue('done');
-
-    const ctx = makeCtx('claw');
+    const mockSchedule = vi.fn().mockResolvedValue('task-xyz');
+    const ctx = makeCtx('claw', mockSchedule);
     const result = await tool.execute({ task: 'some task' }, ctx);
 
     expect(result.success).toBe(true);
-    runSpy.mockRestore();
+    expect(result.content).toContain('task-xyz');
   });
 });
