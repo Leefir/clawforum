@@ -497,6 +497,28 @@ export class ClawRuntime {
   }
 
   /**
+   * Retry the last turn without draining inbox.
+   * Used by daemon-loop to recover from transient LLM errors.
+   */
+  async retryLastTurn(callbacks?: StreamCallbacks): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    const session = await this.sessionManager.load();
+    if (session.messages.length === 0) return;
+
+    const abortController = new AbortController();
+    this.currentAbortController = abortController;
+    this.execContext.signal = abortController.signal;
+    try {
+      await this._runReact(session.messages, callbacks);
+    } finally {
+      this.currentAbortController = null;
+      this.execContext.signal = undefined;
+    }
+  }
+
+  /**
    * Interactive conversation (used by CLI)
    */
   async chat(
