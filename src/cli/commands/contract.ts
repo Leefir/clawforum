@@ -38,7 +38,7 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
   // best-effort：通知 viewport
   const line = JSON.stringify({
     ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
-    contractId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
+    contractId, clawId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
   }) + '\n';
 
   // 写目标 claw（独立）
@@ -100,7 +100,7 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
   // best-effort：通知 viewport
   const line = JSON.stringify({
     ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
-    contractId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
+    contractId, clawId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
   }) + '\n';
 
   // 写目标 claw（独立）

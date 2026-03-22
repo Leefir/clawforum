@@ -73,7 +73,9 @@ export const execTool: ITool = {
         env: {
           ...process.env,
           PATH: augmentedPath,
-          ...(ctx.isMotionChain ? { CLAW_ORIGIN_ID: 'motion' } : {}),
+          ...(ctx.originClawId && ctx.originClawId !== ctx.clawId
+            ? { CLAW_ORIGIN_ID: ctx.originClawId }
+            : {}),
         },
       });
 

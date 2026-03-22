@@ -212,7 +212,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         if (sub === 'contract_created') {
           const title = (event.title as string) ?? '';
           const count = (event.subtaskCount as number) ?? 0;
-          appendOutput(`\x1b[2m  ✓ [contract] "${title}" created (${count} subtasks)\x1b[0m`);
+          const claw = (event.clawId as string) ?? '';
+          const forClaw = claw ? ` for ${claw}` : '';
+          appendOutput(`\x1b[2m  ✓ [contract] "${title}" created${forClaw} (${count} subtasks)\x1b[0m`);
         } else if (sub === 'subtask_completed') {
           appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} accepted\x1b[0m`);
         } else if (sub === 'acceptance_failed') {

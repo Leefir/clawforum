@@ -76,28 +76,27 @@ export class AnthropicAdapter implements IProviderAdapter {
   }
   
   /**
-   * Make a single LLM call
+   * Build request body for Anthropic API
+   * Shared logic between call() and stream()
    */
-  async call(options: LLMCallOptions): Promise<LLMResponse> {
-    const { messages, system, tools, maxTokens, temperature, timeoutMs, signal } = options;
-    
-    // Build request body
+  private buildRequestBody(options: LLMCallOptions): AnthropicRequest {
+    const { messages, system, tools, maxTokens, temperature } = options;
     const body: AnthropicRequest = {
       model: options.model ?? this.config.model,
       messages: this.formatMessages(messages),
       max_tokens: maxTokens ?? this.config.maxTokens,
     };
-    
+
     if (system !== undefined) {
       body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
     }
-    
+
     if (temperature !== undefined) {
       body.temperature = temperature;
     } else if (this.config.temperature !== undefined) {
       body.temperature = this.config.temperature;
     }
-    
+
     if (tools && tools.length > 0) {
       body.tools = tools.map((t, i) => ({
         name: t.name,
@@ -106,13 +105,23 @@ export class AnthropicAdapter implements IProviderAdapter {
         ...(i === tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
       }));
     }
-    
+
     // Extended thinking (requires no temperature)
     if (this.config.thinking) {
       const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - THINKING_TOKEN_RESERVE);
       body.thinking = { type: 'enabled', budget_tokens: budget };
       delete body.temperature;
     }
+
+    return body;
+  }
+
+  /**
+   * Make a single LLM call
+   */
+  async call(options: LLMCallOptions): Promise<LLMResponse> {
+    const { timeoutMs, signal } = options;
+    const body = this.buildRequestBody(options);
     
     // Setup timeout
     const timeout = timeoutMs ?? this.config.timeoutMs;
@@ -177,36 +186,11 @@ export class AnthropicAdapter implements IProviderAdapter {
    * Stream LLM response with true SSE parsing
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
-    const { messages, system, tools, maxTokens, temperature, timeoutMs, signal } = options;
-
+    const { timeoutMs, signal } = options;
     const body: AnthropicRequest & { stream: boolean } = {
-      model: options.model ?? this.config.model,
-      messages: this.formatMessages(messages),
-      max_tokens: maxTokens ?? this.config.maxTokens,
+      ...this.buildRequestBody(options),
       stream: true,
     };
-
-    // 复用 call() 的 system/temperature/tools 设置逻辑
-    if (system !== undefined) {
-      body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
-    }
-    if (temperature !== undefined) body.temperature = temperature;
-    else if (this.config.temperature !== undefined) body.temperature = this.config.temperature;
-    if (tools && tools.length > 0) {
-      body.tools = tools.map((t, i) => ({
-        name: t.name,
-        description: t.description,
-        input_schema: t.input_schema,
-        ...(i === tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
-      }));
-    }
-
-    // Extended thinking (requires no temperature)
-    if (this.config.thinking) {
-      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - THINKING_TOKEN_RESERVE);
-      body.thinking = { type: 'enabled', budget_tokens: budget };
-      delete body.temperature;
-    }
 
     // fetch 阶段保留初始 timeout（等待服务器首次响应）
     const timeout = timeoutMs ?? this.config.timeoutMs;
@@ -352,19 +336,23 @@ export class AnthropicAdapter implements IProviderAdapter {
    * - v3: Conditional: tool blocks→array, text→string → correct
    * - v4 (Step 20): Pass-through all → REGRESSION: pure thinking blocks caused empty responses
    * - v5 (hotfix #5): Restore v3 logic with better comments
+   * - v6: Add cache_control for prompt caching (last user message gets array with cache_control)
    * 
    * Requirements:
-   * - Pure text messages → must be string (MiniMax compatibility)
+   * - Non-last user messages with pure text → string (MiniMax compatibility)
+   * - Last user message → array with cache_control (prompt caching)
    * - Messages with tool_use/tool_result → must keep array format
    * - Messages with only thinking blocks → extract text, skip thinking blocks
    * 
    * Smart conversion:
-   * - string content → string (user messages)
-   * - array with tool blocks → array (assistant messages with tool_use/tool_result)
-   * - array without tool blocks (text-only or think-only) → extract text → string
+   * - Non-last user message: string content → string
+   * - Last user message: any format → array with cache_control on last block
+   * - Assistant messages with tool blocks → array
+   * - Text-only/think-only messages → extract text → string (unless last user)
    * 
    * This prevents pure think/thinking blocks from being sent to API without text,
    * which can cause empty responses from some LLM providers (e.g., MiniMax).
+   * Cache_control on last user message enables incremental caching within a session.
    */
   private formatMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: string | unknown[] }> {
     // Find last user message index for cache_control (同一会话内增量缓存)
