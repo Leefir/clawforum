@@ -13,6 +13,7 @@ import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { SUBAGENT_TIMEOUT_MS } from '../../constants.js';
+import type { TaskSystem } from '../task/system.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -28,6 +29,9 @@ export interface SubAgentOptions {
   toolsForLLM?: ToolDefinition[];  // Pre-filtered tool list for LLM, overrides registry.getAll()
   idleTimeoutMs?: number;
   onIdleTimeout?: () => void;
+  systemPrompt?: string;                    // 替换 run() 里硬编码的默认 system prompt
+  callerType?: 'subagent' | 'dispatcher';  // 默认 'subagent'
+  taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
 }
 
 export class SubAgent {
@@ -45,6 +49,9 @@ export class SubAgent {
   private toolsForLLM?: ToolDefinition[];
   private idleTimeoutMs?: number;
   private onIdleTimeout?: () => void;
+  private systemPrompt?: string;
+  private callerType?: 'subagent' | 'dispatcher';
+  private taskSystem?: TaskSystem;
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -61,6 +68,9 @@ export class SubAgent {
     this.toolsForLLM = options.toolsForLLM;
     this.idleTimeoutMs = options.idleTimeoutMs;
     this.onIdleTimeout = options.onIdleTimeout;
+    this.systemPrompt = options.systemPrompt;
+    this.callerType = options.callerType;
+    this.taskSystem = options.taskSystem;
   }
 
   /**
@@ -98,14 +108,17 @@ export class SubAgent {
     }
 
     try {
-      // Initialize executor with 'subagent' profile (spawn disabled)
+      // Initialize executor with appropriate profile (spawn disabled for subagent, enabled for dispatcher)
+      const callerType = this.callerType ?? 'subagent';
+      const executorProfile = callerType === 'dispatcher' ? 'full' : 'subagent';
       const executor = new ToolExecutor({
         registry: this.registry,
         clawDir: this.clawDir,
         fs: this.fs,
         llm: this.llm,
         monitor: this.monitor,
-        profile: 'subagent',
+        taskSystem: this.taskSystem,
+        profile: executorProfile,
       });
 
       // Setup messages
@@ -117,8 +130,9 @@ export class SubAgent {
       await this.appendToLog(`=== SubAgent ${this.agentId} started ===\n`);
       await this.appendToLog(`Prompt: ${this.prompt}\n`);
 
-      // System prompt for subagent
-      const systemPrompt = `You are a subagent assigned to complete a specific task.
+      // System prompt for subagent (use custom or default)
+      const systemPrompt = this.systemPrompt ??
+        `You are a subagent assigned to complete a specific task.
 You CANNOT spawn other subagents - use your available tools to complete the task yourself.
 Work efficiently and return a clear, concise result.`;
 
@@ -141,10 +155,10 @@ Work efficiently and return a clear, concise result.`;
           systemPrompt,
           llm: this.llm,
           executor,
-          ctx: executor.getExecContext('subagent', { 
+          ctx: executor.getExecContext(executorProfile, {
             clawId: this.agentId,
             signal: timeoutController.signal,
-            callerType: 'subagent',
+            callerType,
           }),
           maxSteps: this.maxSteps,
           registry: this.registry,  // Enable parallel execution for readonly tools
