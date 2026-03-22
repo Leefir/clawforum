@@ -78,7 +78,7 @@ If none match, write the prompt yourself. Save new templates to clawspace/dispat
 Return: which template was used (or "new"), what was dispatched, brief summary.`,
     ].filter(Boolean).join('\n\n');
 
-    const taskSystem = (ctx as unknown as { taskSystem?: TaskSystem }).taskSystem;
+    const taskSystem = ctx.taskSystem;
     if (!taskSystem) {
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
     }

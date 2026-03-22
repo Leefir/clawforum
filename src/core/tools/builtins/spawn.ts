@@ -58,7 +58,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
       };
     }
 
-    const taskSystem = (ctx as { taskSystem?: TaskSystem }).taskSystem;
+    const taskSystem = ctx.taskSystem;
     
     if (!taskSystem) {
       return {
