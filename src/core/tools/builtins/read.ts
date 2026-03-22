@@ -2,8 +2,7 @@
  * read tool - Read file contents
  * 
  * Path restrictions (MVP aligned):
- * - Whitelist: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/
- * - Blacklist: dialog/ (system files)
+ * - Blacklist: logs/ (system logs)
  * 
  * Motion-only: can read other claws' files via `claw` parameter
  */
@@ -13,47 +12,27 @@ import * as fsNative from 'fs';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from '../../../constants.js';
 
-// Allowed paths/prefixes for read tool (MVP aligned)
-const READ_ALLOWLIST = [
-  'AGENTS.md',
-  'MEMORY.md',
-  'memory/',
-  'clawspace/',
-  'prompts/',
-  'skills/',
-  'contract/',
-];
-
-// Blocked paths (MVP aligned)
+// Blocked paths (MVP aligned) - blacklist only
 const READ_BLOCKLIST = [
-  'dialog/',
+  'logs/',
 ];
 
 function isPathAllowed(filePath: string): boolean {
-  // Check blocklist first
-  if (READ_BLOCKLIST.some(blocked => filePath.startsWith(blocked) || filePath.includes(`/${blocked}`))) {
-    return false;
-  }
-  // Check allowlist (exact match or starts with prefix)
-  return READ_ALLOWLIST.some(allowed => {
-    if (filePath === allowed) return true;
-    // For directory prefixes, check if path starts with prefix
-    if (allowed.endsWith('/')) {
-      return filePath.startsWith(allowed);
-    }
-    return false;
-  });
+  // Blacklist check only
+  return !READ_BLOCKLIST.some(
+    blocked => filePath.startsWith(blocked) || filePath.includes(`/${blocked}`)
+  );
 }
 
 export const readTool: ITool = {
   name: 'read',
-  description: 'Read the contents of a file. Allowed paths: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/. Motion can read other claws via `claw` parameter.',
+  description: 'Read the contents of a file. Blocked: logs/. Motion can read other claws via `claw` parameter.',
   schema: {
     type: 'object',
     properties: {
       path: {
         type: 'string',
-        description: 'Path to the file to read, relative to YOUR OWN claw directory (allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/). To read another claw\'s files, use the "claw" parameter.',
+        description: 'Path to the file to read, relative to YOUR OWN claw directory (blocked: logs/). To read another claw\'s files, use the "claw" parameter.',
       },
       offset: {
         type: 'number',
@@ -136,7 +115,7 @@ export const readTool: ITool = {
       if (!isPathAllowed(normalized)) {
         return {
           success: false,
-          content: `Error: Path "${filePath}" is not allowed for read. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/, contract/. Blocked: dialog/.`,
+          content: `Error: Path "${filePath}" is not allowed for read. Blocked: logs/.`,
         };
       }
       // Safety limits (from constants.ts)

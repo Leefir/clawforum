@@ -2,7 +2,7 @@
  * search tool - Search for text in files
  * 
  * Path restrictions (MVP aligned):
- * - Whitelist: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/
+ * - Whitelist: clawspace/, skills/, prompts/
  * 
  * Motion-only: can search other claws' files via `claw` parameter
  */
@@ -13,12 +13,9 @@ import type { ITool, ToolResult, ExecContext } from '../executor.js';
 
 // Allowed paths/prefixes for search tool (MVP aligned)
 const SEARCH_ALLOWLIST = [
-  'AGENTS.md',
-  'MEMORY.md',
-  'memory/',
-  'clawspace/',
-  'prompts/',
-  'skills/',
+  'clawspace/',   // 工作产出（最主要用途）
+  'skills/',      // 技能定义
+  'prompts/',     // prompt 模板
 ];
 
 function isSearchPathAllowed(searchPath: string): boolean {
@@ -67,7 +64,7 @@ async function walkNative(
 
 export const searchTool: ITool = {
   name: 'search',
-  description: 'Search for text in files. Allowed paths: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/. Motion can search other claws via `claw` parameter.',
+  description: 'Search for text in files. Allowed: clawspace/, skills/, prompts/. Motion can search any claw path via `claw` parameter.',
   schema: {
     type: 'object',
     properties: {
@@ -77,7 +74,7 @@ export const searchTool: ITool = {
       },
       path: {
         type: 'string',
-        description: 'Directory to search in (defaults to clawspace/, allowed: AGENTS.md, MEMORY.md, clawspace/, prompts/, skills/)',
+        description: 'Directory to search in (defaults to clawspace/, allowed: clawspace/, skills/, prompts/)',
       },
       max_results: {
         type: 'number',
@@ -183,7 +180,7 @@ export const searchTool: ITool = {
       if (!isSearchPathAllowed(searchPath)) {
         return {
           success: false,
-          content: `Error: Path "${searchPath}" is not allowed for search. Allowed: AGENTS.md, MEMORY.md, memory/, clawspace/, prompts/, skills/.`,
+          content: `Error: Path "${searchPath}" is not allowed for search. Allowed: clawspace/, skills/, prompts/.`,
         };
       }
       baseDir = searchPath;
