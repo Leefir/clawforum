@@ -153,8 +153,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         break;
 
       case 'text_end':
-        stopSpinner();
-        flushStreaming();
+        // no-op: keep cursor (▋) visible until tool_call/turn_end flushes
         break;
 
       case 'tool_call':
@@ -183,7 +182,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput('\x1b[2m────────────────────\x1b[0m');
+        // Cursor disappearance signals completion; no extra separator needed
         break;
 
       case 'turn_interrupted':
