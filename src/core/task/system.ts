@@ -369,6 +369,7 @@ export class TaskSystem {
         idleTimeoutMs: task.idleTimeoutMs,
         messages: task.messages,
         originClawId: task.originClawId,
+        taskSystem: this,   // dispatcher 的 spawn 工具需要
       });
 
       const result = await subAgent.run();

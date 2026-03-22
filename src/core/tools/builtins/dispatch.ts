@@ -2,11 +2,10 @@ import type { ITool, ToolResult, ExecContext, ToolPermissions } from '../executo
 import type { TaskSystem } from '../../task/system.js';
 import type { Message } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
-import type { ToolRegistry } from '../registry.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
-  readonly description = `创建一个 Spawnable SubAgent（dispatcher），继承 Motion 的 system prompt 和工具列表（命中 LLM KV cache），读取 dispatch-skills 模板后决定如何派发工作。
+  readonly description = `创建一个 Spawnable SubAgent（dispatcher），继承 Motion 的 system prompt，读取 dispatch-skills 模板后决定如何派发工作。
 
 dispatcher 可以：
 - spawn Worker SubAgent 执行内容任务
@@ -16,7 +15,6 @@ dispatcher 可以：
 优先用 dispatch（而非直接 spawn）的场景：
 - 任务可能匹配已有模板（复用 prompt + skills 组合）
 - 希望积累可复用模板库
-- 希望命中 KV cache（dispatcher 与 Motion 共享请求前缀，节省 token）
 
 已知确切 prompt 的一次性任务，直接用 spawn 即可。`;
 
@@ -26,7 +24,6 @@ dispatcher 可以：
 
   constructor(
     private getSystemPrompt: () => Promise<string>,  // buildSystemPrompt() 是 async
-    private registry: ToolRegistry,                  // Motion 的完整注册表（KV cache 关键）
   ) {}
 
   schema = {
@@ -84,7 +81,22 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
     }
 
     // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
-    const systemPrompt = await this.getSystemPrompt();
+    const baseSystemPrompt = await this.getSystemPrompt();
+    const dispatcherContext = `
+
+---
+## 你现在是 Dispatcher
+
+你是由 Motion 通过 \`dispatch\` 工具启动的 Dispatcher。
+- **不能再调用 \`dispatch\`**（递归防护，调用会失败）
+- 可以用 \`spawn\` 启动 Worker，也可以直接使用工具完成任务
+
+## 当前任务
+${String(args.task)}${args.context ? `
+
+## 上下文
+${String(args.context)}` : ''}`;
+    const systemPrompt = baseSystemPrompt + dispatcherContext;
     const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
       ? args.idleTimeoutMs
       : 30000;

@@ -148,16 +148,4 @@ export class ExecContextImpl implements ExecContext {
     this.stepNumber++;
   }
 
-  /**
-   * Check if execution should continue
-   */
-  shouldContinue(): boolean {
-    if (this.signal?.aborted) {
-      return false;
-    }
-    if (this.stepNumber >= this.maxSteps) {
-      return false;
-    }
-    return true;
-  }
 }

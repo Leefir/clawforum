@@ -157,8 +157,7 @@ export class ClawRuntime {
     registerBuiltinTools(this.toolRegistry);
     // dispatch 需要构造参数，单独注册
     this.toolRegistry.register(new DispatchTool(
-      () => this.buildSystemPrompt(),  // 每个 Claw 用自己的 system prompt → KV cache 命中
-      this.toolRegistry,
+      () => this.buildSystemPrompt(),  // 每个 Claw 用自己的 system prompt
     ));
 
     // 8. Create TaskSystem

@@ -17,7 +17,7 @@ const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec', 'skil
  * 
  * Requires taskSystem to be injected before use.
  */
-export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
+export const spawnTool: ITool = {
   name: 'spawn',
   description: 'Create a subagent to handle a delegated task. The subagent will execute independently and return results via inbox when complete.',
   schema: {

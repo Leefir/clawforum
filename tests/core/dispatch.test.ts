@@ -9,7 +9,6 @@ import { randomUUID } from 'crypto';
 import { DispatchTool } from '../../src/core/tools/builtins/dispatch.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
-import { ToolRegistry } from '../../src/core/tools/registry.js';
 import type { Message } from '../../src/types/message.js';
 
 async function createTempDir(): Promise<string> {
@@ -21,14 +20,12 @@ async function createTempDir(): Promise<string> {
 describe('DispatchTool', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
-  let registry: ToolRegistry;
   let tool: DispatchTool;
 
   beforeEach(async () => {
     tempDir = await createTempDir();
     mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
-    registry = new ToolRegistry();
-    tool = new DispatchTool(async () => 'mock system prompt', registry);
+    tool = new DispatchTool(async () => 'mock system prompt');
   });
 
   afterEach(async () => {
