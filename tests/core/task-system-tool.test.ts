@@ -755,6 +755,59 @@ describe('TaskSystem Tool Tasks', () => {
     });
   });
 
+  // Batch 2: cancel paths + moveTaskToDone error
+  describe('cancel and moveTaskToDone paths', () => {
+    it('should throw when cancelling non-existent taskId', async () => {
+      await expect(taskSystem.cancel('nonexistent-id')).rejects.toThrow('nonexistent-id');
+    });
+
+    it('should abort a running task when cancel() is called', async () => {
+      // Schedule and immediately cancel - most reliable approach
+      // The task may be in pending or running, cancel should handle both
+      const slowCallback = () => new Promise<ToolResult>(() => {
+        // Never resolves - will be aborted
+      });
+
+      const taskId = await taskSystem.scheduleTool('slowTool', slowCallback, 'parent-claw');
+      
+      // Cancel immediately - should not throw even if task is pending or running
+      await taskSystem.cancel(taskId);
+      
+      // Task should not be in running after cancel
+      expect(taskSystem.listRunning()).not.toContain(taskId);
+    }, 10000);
+
+    it('should log error when moveTaskToDone fails', async () => {
+      // Mock fs.move to throw when moving from running to done
+      const realMove = (taskSystem as any).fs.move.bind((taskSystem as any).fs);
+      vi.spyOn((taskSystem as any).fs, 'move').mockImplementation(
+        async (from: string, to: string) => {
+          if (from.includes('tasks/running') && to.includes('tasks/done')) {
+            throw new Error('Disk full');
+          }
+          return realMove(from, to);
+        }
+      );
+
+      const logSpy = vi.spyOn((taskSystem as any).monitor, 'log');
+
+      const taskId = await taskSystem.scheduleTool(
+        'testTool',
+        async () => ({ success: true, content: 'ok' }),
+        'parent-claw',
+      );
+
+      await new Promise(r => setTimeout(r, 500));
+
+      expect(logSpy).toHaveBeenCalledWith('error', expect.objectContaining({
+        taskId,
+        error: expect.stringContaining('Disk full'),
+      }));
+
+      vi.restoreAllMocks();
+    });
+  });
+
   // Phase 17: callback 丢失恢复路径 + shutdown
   describe('Phase 17 untested paths', () => {
     it('should send error inbox message when ToolTask has no registered callback (daemon restart recovery)', async () => {
