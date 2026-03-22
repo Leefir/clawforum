@@ -720,6 +720,8 @@ export class TaskSystem {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.monitor.log('error', { taskId, error: errMsg });
+      // 删除 running 文件防止重启后重复执行，丢失记录好过重复副作用
+      await this.fs.delete(`tasks/running/${taskId}.json`).catch(() => {});
     }
   }
 

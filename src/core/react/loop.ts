@@ -336,7 +336,12 @@ async function executeSingleTool(
 ): Promise<ToolResult> {
   try {
     // Extract async flag (meta parameter, not passed to tool)
-    const { async: asyncMode, ...toolArgs } = toolCall.input as Record<string, unknown>;
+    const { async: asyncMode, __parseError, __raw, ...toolArgs } = toolCall.input as Record<string, unknown>;
+
+    // Input JSON failed to parse — return error immediately without calling the tool
+    if (__parseError) {
+      return { success: false, content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '').slice(0, 200)}` };
+    }
 
     return await executor.execute({
       toolName: toolCall.name,
@@ -462,8 +467,8 @@ async function collectStreamResponse(
     try {
       parsedInput = JSON.parse(currentToolUse.input || '{}');
     } catch (err) {
-      console.warn(`[loop] Failed to parse tool input for "${currentToolUse.name}": ${err instanceof Error ? err.message : String(err)}`);
-      parsedInput = {};
+      console.error(`[loop] Failed to parse tool input for "${currentToolUse.name}": ${err instanceof Error ? err.message : String(err)}`);
+      parsedInput = { __parseError: true, __raw: (currentToolUse.input ?? '').slice(0, 500) };
     }
     contentBlocks.push({
       type: 'tool_use',

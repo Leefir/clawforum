@@ -616,8 +616,8 @@ describe('ReAct Loop', () => {
     ).rejects.toThrow('aborted');
   });
 
-  it('should warn and fall back to empty input when tool_use delta has invalid JSON', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('should log error and return parse failure to LLM when tool_use delta has invalid JSON', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     let streamCall = 0;
     mockLLM.stream = vi.fn(() => {
@@ -635,6 +635,7 @@ describe('ReAct Loop', () => {
       })();
     });
 
+    // Tool should NOT be called — parse error is returned directly
     (mockExecutor.execute as ReturnType<typeof vi.fn>)
       .mockResolvedValue({ success: true, content: 'file content' });
 
@@ -646,10 +647,14 @@ describe('ReAct Loop', () => {
       maxSteps: 5,
     });
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[loop] Failed to parse tool input for "read"')
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[loop] Failed to parse tool input for "read"'),
+    );
+    // Tool executor should not have been called with the broken tool
+    expect(mockExecutor.execute).not.toHaveBeenCalledWith(
+      expect.objectContaining({ toolName: 'read' })
     );
 
-    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 });
