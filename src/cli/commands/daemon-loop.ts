@@ -89,30 +89,28 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       let currentSources: Array<{ text: string; type: string }> = [];
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
 
-      try {
-        // Get streaming callbacks (if streamWriter is provided)
-        const callbacks = streamWriter?.createCallbacks();
-        
-        // Wrap callbacks: intercept onInboxDrained to capture sources, write turn_start in onBeforeLLMCall
-        const wrappedCallbacks = callbacks ? {
-          ...callbacks,
-          onInboxDrained: (sources: Array<{ text: string; type: string }>) => {
-            currentSources = sources;
-            callbacks.onInboxDrained?.(sources);
-          },
-          onBeforeLLMCall: () => {
-            if (!turnStarted) {
-              streamWriter?.write({
-                ts: Date.now(),
-                type: 'turn_start',
-                sources: currentSources.length > 0 ? currentSources : undefined,
-              });
-              turnStarted = true;
-            }
-            callbacks.onBeforeLLMCall?.();
-          },
-        } : undefined;
+      // Build wrappedCallbacks outside try so catch block can access it for retryLastTurn
+      const callbacks = streamWriter?.createCallbacks();
+      const wrappedCallbacks = callbacks ? {
+        ...callbacks,
+        onInboxDrained: (sources: Array<{ text: string; type: string }>) => {
+          currentSources = sources;
+          callbacks.onInboxDrained?.(sources);
+        },
+        onBeforeLLMCall: () => {
+          if (!turnStarted) {
+            streamWriter?.write({
+              ts: Date.now(),
+              type: 'turn_start',
+              sources: currentSources.length > 0 ? currentSources : undefined,
+            });
+            turnStarted = true;
+          }
+          callbacks.onBeforeLLMCall?.();
+        },
+      } : undefined;
 
+      try {
         // Start polling for the interrupt file
         const interruptFile = path.join(agentDir, 'interrupt');
         let interruptErrCount = 0;
