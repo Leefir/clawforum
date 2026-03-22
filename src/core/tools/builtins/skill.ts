@@ -39,10 +39,19 @@ export const skillTool: ITool & { skillRegistry?: SkillRegistry } = {
 
     // Load from custom skills directory if specified (e.g., dispatch templates)
     if (args.skillsDir) {
-      const tempRegistry = new SkillRegistry(ctx.fs, String(args.skillsDir));
-      await tempRegistry.loadAll();
-      const content = await tempRegistry.loadFull(name);
-      return { success: true, content, metadata: { skillName: name } };
+      try {
+        const tempRegistry = new SkillRegistry(ctx.fs, String(args.skillsDir));
+        await tempRegistry.loadAll();
+        const content = await tempRegistry.loadFull(name);
+        return { success: true, content, metadata: { skillName: name } };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          content: `Failed to load skill "${name}" from "${args.skillsDir}": ${errorMsg}`,
+          error: errorMsg,
+        };
+      }
     }
 
     const skillRegistry = (ctx as { skillRegistry?: SkillRegistry }).skillRegistry;
