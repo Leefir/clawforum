@@ -264,6 +264,20 @@ export class ContractManager {
   async create(contractYaml: ContractYaml): Promise<string> {
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
 
+    // Validate acceptance config: type/field binding must match
+    for (const a of contractYaml.acceptance ?? []) {
+      if (a.type === 'script' && !('script_file' in a)) {
+        throw new Error(
+          `acceptance config for subtask "${a.subtask_id}": type "script" requires "script_file"`
+        );
+      }
+      if (a.type === 'llm' && !('prompt_file' in a)) {
+        throw new Error(
+          `acceptance config for subtask "${a.subtask_id}": type "llm" requires "prompt_file"`
+        );
+      }
+    }
+
     // Archive any existing active contract (prevents conflicts with multiple running contracts)
     const existing = await this.loadActive();
     if (existing && existing.id !== contractId) {

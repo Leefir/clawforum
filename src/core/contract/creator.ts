@@ -51,10 +51,15 @@ Output format (JSON):
 Rules:
 1. Subtask IDs must be kebab-case (e.g., "analyze-data", "write-report")
 2. Each subtask should be independently verifiable
-3. Script acceptance: write bash scripts that check file existence/content
-4. LLM acceptance: write prompts that evaluate quality of evidence
-5. All placeholders {{evidence}} and {{artifacts}} must be present in prompts
-6. Keep subtasks small (typically 3-7 subtasks per contract)
+3. Acceptance field binding (STRICT):
+   - type "script" MUST use field "script_file" (e.g., "acceptance/<id>.sh") — never "prompt_file"
+   - type "llm"    MUST use field "prompt_file" (e.g., "acceptance/<id>.prompt.txt") — never "script_file"
+   Wrong: { "type": "script", "prompt_file": "..." }   ← INVALID
+   Wrong: { "type": "llm", "script_file": "..." }      ← INVALID
+4. Script acceptance: write bash scripts that check file existence/content
+5. LLM acceptance: write prompts that evaluate quality of evidence
+6. All placeholders {{evidence}} and {{artifacts}} must be present in prompts
+7. Keep subtasks small (typically 3-7 subtasks per contract)
 
 Path convention for scripts:
 - Scripts run from clawDir (not contract directory)

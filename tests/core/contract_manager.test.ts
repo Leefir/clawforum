@@ -46,7 +46,7 @@ describe('ContractManager', () => {
         { id: 'task-1', description: 'Task 1' },
       ],
       acceptance: [
-        { subtask_id: 'task-1', type: 'script' as const, command: 'test -f clawspace/test.txt' },
+        { subtask_id: 'task-1', type: 'script' as const, script_file: 'acceptance/task-1.sh' },
       ],
       auth_level: 'auto' as const,
     };
@@ -71,7 +71,7 @@ describe('ContractManager', () => {
         { id: 'task-1', description: 'Task 1' },
       ],
       acceptance: [
-        { subtask_id: 'task-1', type: 'script' as const, command: 'test -f clawspace/test.txt' },
+        { subtask_id: 'task-1', type: 'script' as const, script_file: 'acceptance/task-1.sh' },
       ],
       auth_level: 'auto' as const,
     };
@@ -99,7 +99,7 @@ describe('ContractManager', () => {
         { id: 'task-1', description: 'Task 1' },
       ],
       acceptance: [
-        { subtask_id: 'task-1', type: 'script' as const, command: 'test -f clawspace/test.txt' },
+        { subtask_id: 'task-1', type: 'script' as const, script_file: 'acceptance/task-1.sh' },
       ],
       auth_level: 'auto' as const,
     };
@@ -540,6 +540,38 @@ describe('ContractManager', () => {
         const yamlPath = path.join(activeDir, dir, 'contract.yaml');
         await expect(fs.access(yamlPath)).rejects.toThrow(); // ENOENT
       }
+    });
+  });
+
+  describe('acceptance validation', () => {
+    it('should throw when type is "script" but prompt_file is used', async () => {
+      await expect(manager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 't1', description: 'T1' }],
+        acceptance: [
+          // @ts-expect-error - intentionally wrong field for testing
+          { subtask_id: 't1', type: 'script', prompt_file: 'acceptance/t1.prompt.txt' },
+        ],
+        auth_level: 'auto',
+      })).rejects.toThrow('script_file');
+    });
+
+    it('should throw when type is "llm" but script_file is used', async () => {
+      await expect(manager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 't1', description: 'T1' }],
+        acceptance: [
+          // @ts-expect-error - intentionally wrong field for testing
+          { subtask_id: 't1', type: 'llm', script_file: 'acceptance/t1.sh' },
+        ],
+        auth_level: 'auto',
+      })).rejects.toThrow('prompt_file');
     });
   });
 });
