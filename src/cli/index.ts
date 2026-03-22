@@ -203,6 +203,15 @@ clawCmd
     }
   });
 
+clawCmd.on('command:*', (ops) => {
+  console.error(`error: unknown command '${ops[0]}'\n`);
+  console.error('Available commands:');
+  for (const c of clawCmd.commands) {
+    console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
+  }
+  process.exit(1);
+});
+
 // motion command group
 const motionCmd = program
   .command('motion')
@@ -277,6 +286,15 @@ motionCmd
     }
   });
 
+motionCmd.on('command:*', (ops) => {
+  console.error(`error: unknown command '${ops[0]}'\n`);
+  console.error('Available commands:');
+  for (const c of motionCmd.commands) {
+    console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
+  }
+  process.exit(1);
+});
+
 // contract command group
 const contractCmd = program
   .command('contract')
@@ -307,6 +325,15 @@ contractCmd
       process.exit(1);
     }
   });
+
+contractCmd.on('command:*', (ops) => {
+  console.error(`error: unknown command '${ops[0]}'\n`);
+  console.error('Available commands:');
+  for (const c of contractCmd.commands) {
+    console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
+  }
+  process.exit(1);
+});
 
 // watchdog command group
 const watchdogCmd = program
@@ -351,5 +378,14 @@ watchdogCmd
       process.exit(1);
     }
   });
+
+watchdogCmd.on('command:*', (ops) => {
+  console.error(`error: unknown command '${ops[0]}'\n`);
+  console.error('Available commands:');
+  for (const c of watchdogCmd.commands) {
+    console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
+  }
+  process.exit(1);
+});
 
 program.parse();
