@@ -32,39 +32,23 @@ export async function initCommand(): Promise<void> {
     });
   };
 
-  // Read a password with echo suppressed via raw mode
+  // Read a password with echo suppressed
   const passwordQuestion = (prompt: string): Promise<string> => {
     return new Promise((resolve) => {
-      process.stdout.write(`${prompt}: `);
-      const stdin = process.stdin;
-      const wasRaw = stdin.isRaw;
-      stdin.setRawMode?.(true);
-      stdin.resume();
-
-      let input = '';
-      const onData = (char: Buffer) => {
-        const c = char.toString();
-        if (c === '\r' || c === '\n') {
-          stdin.setRawMode?.(wasRaw ?? false);
-          stdin.pause();
-          stdin.removeListener('data', onData);
-          process.stdout.write('\n');
-          resolve(input);
-        } else if (c === '\u0003') {
-          // Ctrl+C
-          stdin.setRawMode?.(wasRaw ?? false);
-          stdin.pause();
-          stdin.removeListener('data', onData);
-          process.stdout.write('\n');
-          process.exit(1);
-        } else if (c === '\u007f' || c === '\b') {
-          // Backspace
-          if (input.length > 0) input = input.slice(0, -1);
-        } else {
-          input += c;
-        }
+      const fullPrompt = `${prompt}: `;
+      let muted = false;
+      // Suppress echo by intercepting _writeToOutput after the prompt is shown
+      const original = (rl as any)._writeToOutput?.bind(rl);
+      (rl as any)._writeToOutput = (str: string) => {
+        if (!muted) original?.(str);
       };
-      stdin.on('data', onData);
+      rl.question(fullPrompt, (answer) => {
+        muted = false;
+        (rl as any)._writeToOutput = original;
+        process.stdout.write('\n');
+        resolve(answer.trim());
+      });
+      muted = true; // start suppressing after prompt is queued
     });
   };
 
