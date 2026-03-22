@@ -49,10 +49,14 @@ vi.mock('child_process', async (importOriginal) => {
 
 // Mock SubAgent
 const mockSubAgentRun = vi.fn();
+let capturedSubAgentRegistry: import('../../src/core/tools/registry.js').ToolRegistry | null = null;
+let capturedOnIdleTimeout: (() => void) | null = null;
 vi.mock('../../src/core/subagent/agent.js', () => ({
-  SubAgent: vi.fn().mockImplementation(() => ({
-    run: mockSubAgentRun,
-  })),
+  SubAgent: vi.fn().mockImplementation((opts: any) => {
+    capturedSubAgentRegistry = opts.registry ?? null;
+    capturedOnIdleTimeout = opts.onIdleTimeout ?? null;
+    return { run: mockSubAgentRun };
+  }),
 }));
 
 // Now import the modules under test
@@ -167,6 +171,8 @@ describe('ContractManager Acceptance Flow', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    capturedSubAgentRegistry = null;
+    capturedOnIdleTimeout = null;
     
     // Reset execFile mock state
     execFileMockBehavior = 'success';
@@ -518,6 +524,130 @@ describe('ContractManager Acceptance Flow', () => {
         context: 'ContractManager._runAcceptanceInBackground',
       }));
     });
+
+    it('should prefer capturedResult over text when report_result tool is called', async () => {
+      const contractId = 'test-llm-captured';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'llm', prompt_file: 'acceptance/task-1.prompt.txt' }],
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(
+        path.join(acceptanceDir, 'task-1.prompt.txt'),
+        'Check if {{evidence}} is valid. {{artifacts}}'
+      );
+
+      // SubAgent.run() 调用 report_result 工具后返回任意文字（应被忽略）
+      mockSubAgentRun.mockImplementation(async () => {
+        // 模拟 LLM 在 run() 内部调用了 report_result 工具
+        if (capturedSubAgentRegistry) {
+          const reportTool = capturedSubAgentRegistry.get('report_result');
+          if (reportTool) {
+            await reportTool.execute(
+              { passed: true, reason: 'all checks passed via tool' },
+              {} as any
+            );
+          }
+        }
+        return 'irrelevant text that is not JSON'; // 文本不含 JSON，但应被忽略
+      });
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      // 即使返回的文本不是 JSON，主路径应通过（capturedResult.passed = true）
+      const archiveProgressPath = path.join(tempDir, 'contract', 'archive', contractId, 'progress.json');
+      const activeProgressPath = path.join(tempDir, 'contract', 'active', contractId, 'progress.json');
+      let progress;
+      try {
+        progress = JSON.parse(await fs.readFile(archiveProgressPath, 'utf-8'));
+      } catch {
+        progress = JSON.parse(await fs.readFile(activeProgressPath, 'utf-8'));
+      }
+      expect(progress.subtasks['task-1'].status).toBe('completed');
+
+      const inbox = await readClawInbox(tempDir);
+      expect(inbox.filter(m => m.content.includes('acceptance_result'))).toHaveLength(1);
+    });
+
+    it('should return rejection with "无法解析 JSON" when LLM text has no JSON', async () => {
+      const contractId = 'test-llm-no-json';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'llm', prompt_file: 'acceptance/task-1.prompt.txt' }],
+        escalation: { max_retries: 3 },
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(
+        path.join(acceptanceDir, 'task-1.prompt.txt'),
+        'Check if {{evidence}} is valid. {{artifacts}}'
+      );
+
+      // SubAgent 未调用 report_result，返回纯文字（无 JSON）
+      mockSubAgentRun.mockResolvedValue('I reviewed the evidence but cannot determine a verdict.');
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      // 应以 rejected 写入 inbox，内容含 "无法解析 JSON"
+      const inbox = await readClawInbox(tempDir);
+      const rejections = inbox.filter(m => m.content.includes('acceptance_rejection'));
+      expect(rejections).toHaveLength(1);
+      expect(rejections[0].content).toContain('无法解析 JSON');
+
+      // subtask 应重置为 todo，retry_count = 1
+      const progressPath = path.join(tempDir, 'contract', 'active', contractId, 'progress.json');
+      const progress = JSON.parse(await fs.readFile(progressPath, 'utf-8'));
+      expect(progress.subtasks['task-1'].status).toBe('todo');
+      expect(progress.subtasks['task-1'].retry_count).toBe(1);
+    });
+
+    it('should notify Motion with acceptance_timeout when onIdleTimeout is triggered', async () => {
+      const contractId = 'test-llm-timeout';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'llm', prompt_file: 'acceptance/task-1.prompt.txt' }],
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(
+        path.join(acceptanceDir, 'task-1.prompt.txt'),
+        'Check if {{evidence}} is valid. {{artifacts}}'
+      );
+
+      // 提前建好 motion inbox 目录
+      const motionInboxDir = path.resolve(tempDir, '..', '..', 'motion', 'inbox', 'pending');
+      await fs.mkdir(motionInboxDir, { recursive: true });
+
+      // SubAgent.run() 在执行中途触发 idle timeout 回调，然后返回空文字
+      mockSubAgentRun.mockImplementation(async () => {
+        capturedOnIdleTimeout?.();
+        return '{}'; // 返回合法 JSON 确保主流程继续（避免额外 rejection 干扰）
+      });
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      // Motion inbox 应收到 acceptance_timeout 消息
+      const motionInbox = await readMotionInbox(tempDir);
+      const timeouts = motionInbox.filter(m => m.content.includes('acceptance_timeout'));
+      expect(timeouts).toHaveLength(1);
+      expect(timeouts[0].content).toContain('task-1');
+    });
   });
 
   describe('Escalation', () => {
@@ -605,6 +735,86 @@ describe('ContractManager Acceptance Flow', () => {
 
       // 清理
       await fs.unlink(motionDir).catch(() => {});
+    });
+  });
+
+  describe('Acceptance Inbox Message Format', () => {
+    it('should write passed message with correct frontmatter and normal priority', async () => {
+      const contractId = 'test-inbox-passed';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'script', script_file: 'acceptance/task-1.sh' }],
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(path.join(acceptanceDir, 'task-1.sh'), '#!/bin/bash\nexit 0', { mode: 0o755 });
+
+      execFileMockBehavior = 'success';
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      const inbox = await readClawInbox(tempDir);
+      expect(inbox).toHaveLength(1);
+
+      const { filename, content } = inbox[0];
+      // 文件名含 _normal_
+      expect(filename).toContain('_normal_');
+
+      // 核心字段
+      expect(content).toContain('type: acceptance_result');
+      expect(content).toContain('priority: normal');
+      expect(content).toContain('from: contract_system');
+      expect(content).toContain('to: claw');
+      expect(content).toContain(`contract_id: ${contractId}`);
+      expect(content).toContain('subtask_id: task-1');
+      expect(content).toContain('verdict: passed');
+
+      // passed 时不应含 retry_count
+      expect(content).not.toContain('retry_count');
+    });
+
+    it('should write rejected message with correct frontmatter, high priority, and retry_count', async () => {
+      const contractId = 'test-inbox-rejected';
+      await setupContract(tempDir, contractId, {
+        schema_version: 1,
+        title: 'Test Contract',
+        goal: 'Test goal',
+        subtasks: [{ id: 'task-1', description: 'Test task' }],
+        acceptance: [{ subtask_id: 'task-1', type: 'script', script_file: 'acceptance/task-1.sh' }],
+        escalation: { max_retries: 3 },
+      });
+
+      const acceptanceDir = path.join(tempDir, 'contract', 'active', contractId, 'acceptance');
+      await fs.mkdir(acceptanceDir, { recursive: true });
+      await fs.writeFile(path.join(acceptanceDir, 'task-1.sh'), '#!/bin/bash\nexit 1', { mode: 0o755 });
+
+      execFileMockBehavior = 'fail';
+      execFileMockStderr = 'file not found';
+
+      await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+      await flushAsync(100);
+
+      const inbox = await readClawInbox(tempDir);
+      expect(inbox).toHaveLength(1);
+
+      const { filename, content } = inbox[0];
+      // 文件名含 _high_
+      expect(filename).toContain('_high_');
+
+      // 核心字段
+      expect(content).toContain('type: acceptance_rejection');
+      expect(content).toContain('priority: high');
+      expect(content).toContain('from: contract_system');
+      expect(content).toContain('to: claw');
+      expect(content).toContain(`contract_id: ${contractId}`);
+      expect(content).toContain('subtask_id: task-1');
+      expect(content).toContain('verdict: rejected');
+      expect(content).toContain('retry_count: 1');
     });
   });
 });

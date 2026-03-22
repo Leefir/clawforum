@@ -74,6 +74,7 @@ export interface AcceptanceResult {
   feedback: string;
   allCompleted?: boolean;  // 仅 passed=true 时有意义
   async?: boolean;         // true 时代表验收已提交后台，结果由 inbox 通知
+  structured?: { passed: boolean; reason: string; issues?: string[] };  // LLM 验收的结构化结果
 }
 
 export class ContractManager {
@@ -85,6 +86,7 @@ export class ContractManager {
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
+  private motionInboxDir: string;
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
   constructor(
@@ -93,12 +95,14 @@ export class ContractManager {
     monitor?: IMonitor,
     llm?: ILLMService,
     verifierRegistry?: ToolRegistry,
+    motionInboxDir?: string,
   ) {
     this.clawDir = clawDir;
     this.fs = fs;
     this.monitor = monitor;
     this.llm = llm;
     this.verifierRegistry = verifierRegistry;
+    this.motionInboxDir = motionInboxDir ?? path.resolve(clawDir, '..', '..', 'motion', 'inbox', 'pending');
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
@@ -492,7 +496,6 @@ export class ContractManager {
     // Run acceptance check
     const contractAbsDir = path.join(this.clawDir, await this.contractDir(contractId), contractId);
     let result: AcceptanceResult;
-    let structuredResult: { passed: boolean; reason: string; issues?: string[] } | undefined;
 
     if (acceptanceConfig.type === 'script') {
       const scriptFile = acceptanceConfig.script_file;
@@ -527,16 +530,6 @@ export class ContractManager {
           evidence,
           artifacts,
         );
-        // Try to parse structured result from feedback for better formatting
-        try {
-          const jsonMatch = result.feedback.match(/```json\s*([\s\S]*?)\s*```/) || result.feedback.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const jsonStr = jsonMatch[1] || jsonMatch[0];
-            structuredResult = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
-          }
-        } catch {
-          // Ignore parse errors, use simple feedback
-        }
       }
     }
 
@@ -606,12 +599,12 @@ export class ContractManager {
         const acceptanceFile = acceptanceConfig.type === 'script' 
           ? acceptanceConfig.script_file ?? 'unknown'
           : acceptanceConfig.prompt_file ?? 'unknown';
-        const formattedFeedback = structuredResult
+        const formattedFeedback = result.structured
           ? this.formatRejectionFeedback(
               subtaskId,
               subtaskDesc,
-              structuredResult.reason,
-              structuredResult.issues || [],
+              result.structured.reason,
+              result.structured.issues || [],
               subtask.retry_count,
               maxRetries,
               acceptanceConfig.type,
@@ -790,7 +783,7 @@ export class ContractManager {
   ): void {
     try {
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
@@ -820,7 +813,7 @@ export class ContractManager {
   private notifyMotionAcceptanceTimeout(contractId: string, subtaskId: string): void {
     try {
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
@@ -1077,6 +1070,7 @@ export class ContractManager {
         return {
           passed: reportTool.capturedResult.passed,
           feedback: JSON.stringify(reportTool.capturedResult),
+          structured: reportTool.capturedResult,
         };
       }
 
@@ -1091,7 +1085,8 @@ export class ContractManager {
 
       return {
         passed: result.passed,
-        feedback: jsonStr, // 返回完整 JSON，供上层解析 structuredResult
+        feedback: jsonStr,
+        structured: result,
       };
     } catch (err) {
       if (err instanceof ToolTimeoutError) {
@@ -1108,7 +1103,7 @@ export class ContractManager {
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
     try {
       const clawId = path.basename(this.clawDir);
-      const motionInbox = path.resolve(this.clawDir, '..', '..', 'motion', 'inbox', 'pending');
+      const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
