@@ -134,3 +134,6 @@ export const CONTRACT_LLM_IDLE_TIMEOUT_MS = 30_000;
 
 /** 契约脚本验收超时 (ms) */
 export const CONTRACT_SCRIPT_TIMEOUT_MS = 60_000;
+
+/** 契约 LLM verifier SubAgent 最大步数 */
+export const CONTRACT_VERIFIER_MAX_STEPS = 50;

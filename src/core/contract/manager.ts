@@ -17,7 +17,7 @@ import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../typ
 import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONTRACT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
+import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONTRACT_LLM_IDLE_TIMEOUT_MS, CONTRACT_VERIFIER_MAX_STEPS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -675,14 +675,14 @@ export class ContractManager {
    * Write acceptance error to claw inbox (best-effort)
    */
   private async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    
     try {
       const msgId = randomUUID();
       const now = new Date();
       const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
       const uuid8 = msgId.slice(0, 8);
       const filename = `${ts}_high_${uuid8}.md`;
-      
-      const errorMsg = error instanceof Error ? error.message : String(error);
       
       const content = [
         '---',
@@ -706,6 +706,28 @@ export class ContractManager {
       console.error('[contract] Failed to write acceptance error to inbox:', e);
       this.monitor?.log('error', {
         context: 'ContractManager._writeAcceptanceError',
+        contractId,
+        subtaskId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+
+    // 重置 subtask 状态，防止永久卡在 in_progress
+    try {
+      await this.withProgressLock(contractId, async () => {
+        const progress = await this.getProgress(contractId);
+        const subtask = progress.subtasks[subtaskId];
+        if (subtask && subtask.status === 'in_progress') {
+          subtask.status = 'todo';
+          subtask.retry_count = (subtask.retry_count || 0) + 1;
+          subtask.last_failed_feedback = `acceptance error: ${errorMsg.slice(0, 200)}`;
+          await this.saveProgress(contractId, progress);
+        }
+      });
+    } catch (e) {
+      console.error('[contract] Failed to reset subtask status after acceptance error:', e);
+      this.monitor?.log('error', {
+        context: 'ContractManager._writeAcceptanceError.resetStatus',
         contractId,
         subtaskId,
         error: e instanceof Error ? e.message : String(e),
@@ -1032,6 +1054,7 @@ export class ContractManager {
         llm: this.llm,
         registry,
         fs: this.fs as any,
+        maxSteps: CONTRACT_VERIFIER_MAX_STEPS,
         idleTimeoutMs: CONTRACT_LLM_IDLE_TIMEOUT_MS,
         onIdleTimeout: () => this.notifyMotionAcceptanceTimeout(contractId, subtaskId),
       });

@@ -641,4 +641,60 @@ describe('ContractManager', () => {
       notifySpy.mockRestore();
     });
   });
+
+  describe('LLM acceptance', () => {
+    it('should reset subtask to todo when verifier throws exception', async () => {
+      const mockMonitor = { log: vi.fn() };
+      const testManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+
+      // Create contract with LLM acceptance
+      const contractId = await testManager.create({
+        schema_version: 1,
+        title: 'Test',
+        goal: 'Test goal',
+        deliverables: [],
+        subtasks: [{ id: 't1', description: 'T1' }],
+        acceptance: [
+          { subtask_id: 't1', type: 'llm' as const, prompt_file: 'acceptance/t1.prompt.txt' },
+        ],
+        auth_level: 'auto',
+      });
+
+      // Create prompt file (use native fs with absolute path)
+      const contractDir = path.join(CLAW_DIR, 'contract/active', contractId);
+      await fs.mkdir(path.join(contractDir, 'acceptance'), { recursive: true });
+      await fs.writeFile(
+        path.join(contractDir, 'acceptance', 't1.prompt.txt'),
+        'Check: {{evidence}}, {{artifacts}}'
+      );
+
+      // Mock runLLMAcceptance to throw MaxStepsExceeded
+      const runLLMSpy = vi.spyOn(testManager as any, 'runLLMAcceptance').mockRejectedValue(
+        new Error('MaxStepsExceeded: step limit 50 exceeded')
+      );
+
+      // Complete subtask (triggers background LLM acceptance)
+      const result = await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
+
+      // Should indicate async processing
+      expect(result.async).toBe(true);
+
+      // Wait for background processing (with .catch() handler)
+      await new Promise(r => setTimeout(r, 150));
+
+      runLLMSpy.mockRestore();
+
+      // Verify subtask was reset to todo (not stuck in in_progress)
+      const progress = await testManager.getProgress(contractId);
+      expect(progress.subtasks['t1'].status).toBe('todo');
+      expect(progress.subtasks['t1'].retry_count).toBe(1);
+      expect(progress.subtasks['t1'].last_failed_feedback).toContain('MaxStepsExceeded');
+    });
+
+    it('should use CONTRACT_VERIFIER_MAX_STEPS=50 constant', async () => {
+      // Verify the constant is correctly defined
+      const { CONTRACT_VERIFIER_MAX_STEPS } = await import('../../src/constants.js');
+      expect(CONTRACT_VERIFIER_MAX_STEPS).toBe(50);
+    });
+  });
 });
