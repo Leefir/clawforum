@@ -36,6 +36,7 @@ export interface SubAgentOptions {
   taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
+  subagentMaxSteps?: number;                 // 传给子 SubAgent
 }
 
 export class SubAgent {
@@ -58,6 +59,7 @@ export class SubAgent {
   private taskSystem?: TaskSystem;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
+  private subagentMaxSteps?: number;
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -79,6 +81,7 @@ export class SubAgent {
     this.taskSystem = options.taskSystem;
     this.outboxWriter = options.outboxWriter;
     this.contractManager = options.contractManager;
+    this.subagentMaxSteps = options.subagentMaxSteps;
   }
 
   /**
@@ -128,6 +131,7 @@ export class SubAgent {
         taskSystem: this.taskSystem,
         outboxWriter: this.outboxWriter,
         contractManager: this.contractManager,
+        subagentMaxSteps: this.subagentMaxSteps ?? this.maxSteps,
         profile: executorProfile,
       });
 

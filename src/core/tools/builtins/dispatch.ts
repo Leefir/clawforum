@@ -57,7 +57,12 @@ dispatcher 可以：
       if (!formatted.includes('No skills loaded')) {
         skillsSummary = formatted;
       }
-    } catch { /* dispatch-skills 目录不存在时跳过 */ }
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        ctx.monitor?.log?.('error', { context: 'dispatch.loadSkills', error: String(e) });
+      }
+    }
 
     // dispatch-skills 简介注入消息末尾（不进 system prompt，保持共享前缀，确保 KV cache 命中）
     const prompt = [
@@ -88,7 +93,7 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
       prompt,
       tools: [],           // 空 = 使用 registry 全部工具（spawn/skill/exec 均可用）
       timeout: 3600,       // 总超时 1 小时（idle timeout 会更早触发终止）
-      maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps!,
+      maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? 100,
       parentClawId: ctx.clawId,
       systemPrompt,
       callerType: 'dispatcher',

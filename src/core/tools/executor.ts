@@ -397,6 +397,7 @@ export interface ToolExecutorOptions {
   profile?: ToolProfile;
   outboxWriter?: OutboxWriter;
   contractManager?: ContractManager;
+  subagentMaxSteps?: number;
 }
 
 /**
@@ -412,6 +413,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private profile: ToolProfile;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
+  private subagentMaxSteps?: number;
 
   constructor(options: ToolExecutorOptions) {
     super(options.registry);
@@ -423,6 +425,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     this.profile = options.profile ?? 'full';
     this.outboxWriter = options.outboxWriter;
     this.contractManager = options.contractManager;
+    this.subagentMaxSteps = options.subagentMaxSteps;
   }
 
   /**
@@ -445,6 +448,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       taskSystem: this.taskSystem,
       outboxWriter: this.outboxWriter,
       contractManager: this.contractManager,
+      subagentMaxSteps: this.subagentMaxSteps,
     });
   }
 }
