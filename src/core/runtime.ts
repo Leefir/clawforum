@@ -27,6 +27,7 @@ import { ToolRegistry } from './tools/registry.js';
 import { ToolExecutorImpl } from './tools/executor.js';
 import { ExecContextImpl } from './tools/context.js';
 import { registerBuiltinTools } from './tools/builtins/index.js';
+import { DispatchTool } from './tools/builtins/dispatch.js';
 import { readTool } from './tools/builtins/read.js';
 import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
@@ -155,6 +156,11 @@ export class ClawRuntime {
     // 7. Create ToolRegistry and register built-in tools
     this.toolRegistry = new ToolRegistry();
     registerBuiltinTools(this.toolRegistry);
+    // dispatch 需要构造参数，单独注册
+    this.toolRegistry.register(new DispatchTool(
+      () => this.buildSystemPrompt(),  // 每个 Claw 用自己的 system prompt → KV cache 命中
+      this.toolRegistry,
+    ));
 
     // 8. Create TaskSystem
     this.taskSystem = new TaskSystem(clawDir, this.systemFs, {
