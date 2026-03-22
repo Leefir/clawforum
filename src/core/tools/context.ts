@@ -103,7 +103,7 @@ export class ExecContextImpl implements ExecContext {
     this.taskSystem = options.taskSystem;
     this.skillRegistry = options.skillRegistry;
     this.contractManager = options.contractManager;
-    this.subagentMaxSteps = options.subagentMaxSteps ?? 20;
+    this.subagentMaxSteps = options.subagentMaxSteps ?? options.maxSteps ?? 100;
     this.outboxWriter = options.outboxWriter;
     this.stepNumber = 0;
     this.startTime = Date.now();

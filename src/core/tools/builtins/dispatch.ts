@@ -33,7 +33,7 @@ dispatcher 可以：
     properties: {
       task:     { type: 'string', description: '要完成的任务描述' },
       context:  { type: 'string', description: '当前对话的相关上下文（简短）' },
-      maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认 10）' },
+      maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认继承主循环 max_steps）' },
       idleTimeoutMs: {
         type: 'number',
         description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认 30000。',
@@ -88,7 +88,7 @@ Return: which template was used (or "new"), what was dispatched, brief summary.`
       prompt,
       tools: [],           // 空 = 使用 registry 全部工具（spawn/skill/exec 均可用）
       timeout: 3600,       // 总超时 1 小时（idle timeout 会更早触发终止）
-      maxSteps: (args.maxSteps as number) ?? 10,
+      maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps!,
       parentClawId: ctx.clawId,
       systemPrompt,
       callerType: 'dispatcher',

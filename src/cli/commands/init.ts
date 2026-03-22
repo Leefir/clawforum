@@ -85,7 +85,6 @@ export async function initCommand(): Promise<void> {
       motion: {
         heartbeat_interval_ms: 300000,
         max_steps: 100,
-        subagent_max_steps: 20,
         max_concurrent_tasks: 3,
       },
     };

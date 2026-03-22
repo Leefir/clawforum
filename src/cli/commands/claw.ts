@@ -81,7 +81,6 @@ export async function createCommand(name: string): Promise<void> {
     name,
     max_steps: 100,
     tool_profile: 'full' as const,
-    subagent_max_steps: 20,
     max_concurrent_tasks: 3,
   };
   

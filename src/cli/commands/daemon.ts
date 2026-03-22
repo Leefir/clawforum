@@ -118,7 +118,7 @@ export async function daemonCommand(name: string): Promise<void> {
         maxSteps: globalConfig.motion?.max_steps ?? 100,
         toolProfile: 'full',
         toolTimeoutMs: globalConfig.tool_timeout_ms,
-        subagentMaxSteps: globalConfig.motion?.subagent_max_steps ?? 20,
+        subagentMaxSteps: globalConfig.motion?.subagent_max_steps,
         maxConcurrentTasks: globalConfig.motion?.max_concurrent_tasks ?? 3,
       })
     : new ClawRuntime({

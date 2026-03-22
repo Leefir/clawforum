@@ -74,7 +74,7 @@ export const spawnTool: ITool & { taskSystem?: TaskSystem } = {
     const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
     const maxSteps = typeof args.maxSteps === 'number' 
       ? args.maxSteps 
-      : (ctx.subagentMaxSteps ?? 20);
+      : ctx.subagentMaxSteps!;
 
     try {
       const taskId = await taskSystem.scheduleSubAgent({

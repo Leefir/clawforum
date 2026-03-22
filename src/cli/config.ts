@@ -45,7 +45,7 @@ export const ClawGlobalConfigSchema = z.object({
   motion: z.object({
     heartbeat_interval_ms: z.number().min(10000).default(300000),
     max_steps: z.number().min(1).max(1000).default(100),
-    subagent_max_steps: z.number().min(1).max(200).default(20),
+    subagent_max_steps: z.number().min(1).max(200).optional(),
     max_concurrent_tasks: z.number().min(1).max(20).default(3),
   }).optional(),
   tool_timeout_ms: z.number().min(1000).max(600000).default(60000),
@@ -64,7 +64,7 @@ export const ClawConfigSchema = z.object({
   }).optional(),
   max_steps: z.number().min(1).max(1000).default(100),
   tool_profile: z.enum(['full', 'readonly', 'subagent', 'dream']).default('full'),
-  subagent_max_steps: z.number().min(1).max(200).default(20),
+  subagent_max_steps: z.number().min(1).max(200).optional(),
   max_concurrent_tasks: z.number().min(1).max(20).default(3),
 });
 

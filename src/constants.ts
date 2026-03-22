@@ -71,9 +71,6 @@ export const SUBAGENT_TIMEOUT_MS = 300000;
 /** Default timeout for subagent tasks (seconds) - 5 minutes */
 export const SPAWN_DEFAULT_TIMEOUT_S = 300;
 
-/** Default max steps for subagent */
-export const SUBAGENT_DEFAULT_MAX_STEPS = 20;
-
 // ----------------------------------------------------------------------------
 // Communication
 // ----------------------------------------------------------------------------

@@ -109,7 +109,6 @@ export class ClawRuntime {
       maxSteps: 100,
       toolProfile: 'full',
       toolTimeoutMs: 60000,
-      subagentMaxSteps: 20,
       maxConcurrentTasks: 3,
       ...options,
     };
