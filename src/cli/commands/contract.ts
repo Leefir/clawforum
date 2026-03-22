@@ -36,25 +36,24 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
 
   // best-effort：通知 viewport
+  const line = JSON.stringify({
+    ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
+    contractId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
+  }) + '\n';
+
+  // 写目标 claw（独立）
   try {
-    const streamPath = path.join(clawDir, 'stream.jsonl');
-    const line = JSON.stringify({
-      ts: Date.now(),
-      type: 'user_notify',
-      subtype: 'contract_created',
-      contractId,
-      title: contractYaml.title,
-      subtaskCount: contractYaml.subtasks.length,
-    }) + '\n';
-    fsNative.appendFileSync(streamPath, line);
-    const originId = process.env.CLAW_ORIGIN_ID;
-    if (originId && originId !== clawId) {
-      try {
-        const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
-        fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
-      } catch { /* best-effort */ }
-    }
-  } catch { /* daemon 未运行时文件不存在，忽略 */ }
+    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
+  } catch { /* daemon 未运行时忽略 */ }
+
+  // 写 origin claw（独立 best-effort）
+  const originId = process.env.CLAW_ORIGIN_ID;
+  if (originId && originId !== clawId) {
+    try {
+      const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
+      fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
+    } catch { /* best-effort */ }
+  }
 
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
   try {
@@ -99,25 +98,24 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
   const contractId = await manager.create(contractYaml);
 
   // best-effort：通知 viewport
+  const line = JSON.stringify({
+    ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
+    contractId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
+  }) + '\n';
+
+  // 写目标 claw（独立）
   try {
-    const streamPath = path.join(clawDir, 'stream.jsonl');
-    const line = JSON.stringify({
-      ts: Date.now(),
-      type: 'user_notify',
-      subtype: 'contract_created',
-      contractId,
-      title: contractYaml.title,
-      subtaskCount: contractYaml.subtasks.length,
-    }) + '\n';
-    fsNative.appendFileSync(streamPath, line);
-    const originId = process.env.CLAW_ORIGIN_ID;
-    if (originId && originId !== clawId) {
-      try {
-        const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
-        fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
-      } catch { /* best-effort */ }
-    }
-  } catch { /* daemon 未运行时文件不存在，忽略 */ }
+    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
+  } catch { /* daemon 未运行时忽略 */ }
+
+  // 写 origin claw（独立 best-effort）
+  const originId = process.env.CLAW_ORIGIN_ID;
+  if (originId && originId !== clawId) {
+    try {
+      const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
+      fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
+    } catch { /* best-effort */ }
+  }
 
   // Write acceptance files to contract directory
   const acceptanceDir = path.join(clawDir, 'contract', 'active', contractId, 'acceptance');
