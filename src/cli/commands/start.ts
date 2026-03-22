@@ -59,6 +59,10 @@ async function _start(): Promise<void> {
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
       subtasks: [
         {
+          id: 'language',
+          description: 'Ask the user which language they prefer to communicate in. Remember this and use it for all future conversations. Write the preference to memory/USER.md.',
+        },
+        {
           id: 'identity',
           description: 'Figure out who you are: name, vibe, emoji. Talk it through with the user naturally. Write the result to memory/IDENTITY.md.',
         },
@@ -71,8 +75,16 @@ async function _start(): Promise<void> {
           description: 'Open SOUL.md together. Talk about what matters to them and how they want you to behave. Update SOUL.md with what you learn.',
         },
         {
+          id: 'first-claw',
+          description: 'Help the user create their first Claw. Ask what they want to name it and what kind of work it will do. Run: exec: clawforum claw create <name>',
+        },
+        {
+          id: 'first-contract',
+          description: 'Help the user assign the first contract to their new Claw. Ask what they want to get done, then create a contract for it.',
+        },
+        {
           id: 'ready',
-          description: 'Bootstrap is complete. Let them know you are ready, and ask what they want to do first.',
+          description: 'Bootstrap is complete. Let them know everything is set up and the Claw is working on their first task.',
         },
       ],
       acceptance: [],
