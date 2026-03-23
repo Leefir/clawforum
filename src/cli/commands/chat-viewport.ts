@@ -53,6 +53,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let thinkingBuffer = '';
   let inTurn = false;  // daemon 是否正在处理 turn（用于 ESC 中断判断）
 
+  // 状态栏追踪
+  let ownTurnCount = 0;
+  let ownStep = 0;
+  let ownMaxSteps = 100;
+
   type ThinkingMode = 'line' | 'full' | 'none';
   let thinkingMode: ThinkingMode = 'full';
 
@@ -66,6 +71,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       : outputContent;
     outputText.setText(full);
     tui.requestRender();
+  };
+
+  const updateStatusBar = () => {
+    const line = inTurn
+      ? `\x1b[2m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`
+      : '';
+    statusBar.setText(line);
   };
 
   const setStreamingSuffix = (text: string) => {
@@ -125,6 +137,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     switch (event.type) {
       case 'turn_start': {
         inTurn = true;
+        ownTurnCount++;
+        ownStep = 0;
         flushThinking();
         flushStreaming();
         const srcs = event.sources as Array<{ text: string; type: string }> | undefined;
@@ -135,6 +149,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             appendOutput(`\x1b[33m> ${sysParts.join(' | ').slice(0, 120)}\x1b[0m`);
           }
         }
+        updateStatusBar();
         break;
       }
 
@@ -178,12 +193,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
       case 'tool_result': {
         stopSpinner();
+        ownStep = event.step as number ?? ownStep;
+        ownMaxSteps = event.maxSteps as number ?? ownMaxSteps;
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
         appendOutput(`\x1b[2m  ${icon} [${step}/${maxSteps}] ${event.summary}\x1b[0m`);
         streamingSuffix = '';
         updateDisplay();
+        updateStatusBar();
         break;
       }
 
@@ -194,6 +212,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
+        updateStatusBar();
         // Cursor disappearance signals completion; no extra separator needed
         break;
 
@@ -204,6 +223,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
+        updateStatusBar();
         appendOutput('\x1b[33m⏎ Interrupted\x1b[0m');
         break;
 
@@ -214,6 +234,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
+        updateStatusBar();
         appendOutput(`\x1b[31m✗ Error: ${event.error}\x1b[0m`);
         break;
 
