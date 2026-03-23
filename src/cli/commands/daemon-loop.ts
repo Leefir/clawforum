@@ -92,30 +92,23 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           } catch { return false; }
         })();
         if (inboxEmpty && hasActive) {
-          const STARTUP_MSG = '[system message] 系统启动。请检查活跃契约并继续执行。';
-          // Dedup: if the last message in the session is already the startup message (unanswered),
-          // skip re-injection and fall through to processBatch() to handle the existing message.
-          const alreadyInjected = (() => {
+          // Dedup: only write if no startup_check already pending (heartbeat pattern)
+          const alreadyPending = (() => {
             try {
-              const raw = fsNative.readFileSync(path.join(agentDir, 'dialog', 'current.json'), 'utf-8');
-              const msgs: Array<{ role: string; content: unknown }> = JSON.parse(raw)?.messages ?? [];
-              const last = msgs[msgs.length - 1];
-              return last?.role === 'user' && last?.content === STARTUP_MSG;
+              return fsNative.readdirSync(inboxPendingDir).some(f => f.includes('_startup_check_'));
             } catch { return false; }
           })();
-          if (!alreadyInjected) {
-            const callbacks = streamWriter?.createCallbacks();
-            try {
-              await runtime.processWithMessage(
-                { role: 'user', content: STARTUP_MSG },
-                callbacks,
-              );
-            } catch (err) {
-              console.error(`${label} startup trigger error:`, err);
-            }
-            continue;
+          if (!alreadyPending) {
+            writeInboxMessage({
+              inboxDir: inboxPendingDir,
+              type: 'startup_check',
+              source: 'daemon',
+              priority: 'high',
+              body: '[system message] 系统启动。请检查活跃契约并继续执行。',
+              filenameTag: 'startup_check',
+            });
           }
-          // alreadyInjected: fall through — processBatch() will handle the existing unanswered message
+          // No continue — processBatch() naturally picks up the inbox file
         }
       }
 
