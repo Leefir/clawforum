@@ -24,7 +24,7 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 const BOOTSTRAP_SUBTASKS = [
   {
     id: 'language',
-    description: 'Ask the user which language they prefer to communicate in. Remember this and use it for all future conversations. Write the preference to memory/USER.md.',
+    description: 'Ask the user which language they prefer to communicate in. Default to English until they specify. Remember the preference and use it for all future conversations. Write it to memory/USER.md.',
   },
   {
     id: 'identity',
@@ -120,14 +120,14 @@ export async function startCommand(): Promise<void> {
 async function _start(): Promise<void> {
   // Step 1: workspace not initialized → run interactive init (prompts for LLM config)
   if (!isInitialized()) {
-    await initCommand();
+    await initCommand(true);
   }
   loadGlobalConfig();
 
   // Step 2: motion not initialized → write template files
   const motionDir = getMotionDir();
   if (!fs.existsSync(path.join(motionDir, 'AGENTS.md'))) {
-    await motionInitCommand();
+    await motionInitCommand(true);
   }
 
   // Step 3: check Bootstrap onboarding status

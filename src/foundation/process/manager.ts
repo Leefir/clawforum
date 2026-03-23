@@ -178,9 +178,11 @@ export class ProcessManager {
           }
         }
       }
-      // Clean up stale lockfile
-      try { await this.fs.delete(lockFile); } catch (err) {
-        console.warn(`[process] Failed to delete lockfile ${lockFile}: ${err instanceof Error ? err.message : String(err)}`);
+      // Clean up stale lockfile (not-found is normal on first run)
+      try { await this.fs.delete(lockFile); } catch (err: any) {
+        if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
+          console.warn(`[process] Failed to delete lockfile ${lockFile}: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
     } catch { /* lockfile does not exist, this is normal */ }
     

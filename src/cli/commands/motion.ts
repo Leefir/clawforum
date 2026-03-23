@@ -82,7 +82,7 @@ async function writeTemplate(filePath: string, content: string): Promise<boolean
 /**
  * motion init - create Motion configuration directory and template files
  */
-export async function initCommand(): Promise<void> {
+export async function initCommand(silent = false): Promise<void> {
   const motionDir = getMotionDir();
   const motionConfigDir = getMotionConfigDir();
   
@@ -135,7 +135,9 @@ export async function initCommand(): Promise<void> {
       console.log(`  - ${name}`);
     }
   }
-  console.log(`\nYou can now run: clawforum motion chat`);
+  if (!silent) {
+    console.log(`\nYou can now run: clawforum motion chat`);
+  }
 }
 
 /**

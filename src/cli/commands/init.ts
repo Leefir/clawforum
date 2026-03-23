@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized } from '../config.js';
 
-export async function initCommand(): Promise<void> {
+export async function initCommand(silent = false): Promise<void> {
   // Check if already initialized
   if (isInitialized()) {
     console.log('✓ Already initialized (.clawforum/config.yaml exists)');
@@ -104,11 +104,11 @@ export async function initCommand(): Promise<void> {
     fs.mkdirSync(logsDir, { recursive: true });
 
     console.log('\n✓ Initialized successfully!');
-    console.log('  Config: .clawforum/config.yaml');
-    console.log('  Logs:   .clawforum/logs/');
-    console.log('\nNext steps:');
-    console.log('  1. Create a Claw: clawforum claw create <name>');
-    console.log('  2. Start chatting: clawforum claw chat <name>');
+    if (!silent) {
+      console.log('\nNext steps:');
+      console.log('  1. Create a Claw: clawforum claw create <name>');
+      console.log('  2. Start chatting: clawforum claw chat <name>');
+    }
 
   } catch (error) {
     console.error('Init failed:', error instanceof Error ? error.message : String(error));
