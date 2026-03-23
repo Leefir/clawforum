@@ -28,7 +28,7 @@ const BOOTSTRAP_SUBTASKS = [
   },
   {
     id: 'identity',
-    description: 'Figure out who you are: name, vibe, emoji. Talk it through with the user naturally. Write the result to IDENTITY.md (not inside clawspace/).',
+    description: 'You are the coordinator of Claws — "Motion" is your system role, not your name. Ask the user what they want to call you, and what kind of vibe or presence they want from you. Write the result to IDENTITY.md (not inside clawspace/).',
   },
   {
     id: 'user',
