@@ -373,8 +373,10 @@ describe('ContractManager', () => {
     const lockPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.lock');
     await fs.writeFile(lockPath, '{}', 'utf-8');
 
-    // 50ms 后释放（< LOCK_RETRY_DELAY_MS=100ms 的一次等待），确保第二次重试能拿到锁
-    setTimeout(() => fs.unlink(lockPath).catch(() => {}), 50);
+    // pause() 先 fs.move(active → paused)，锁文件随目录一起移动到 paused/。
+    // 50ms 后从移动后的位置释放锁，确保第二次重试能拿到锁
+    const movedLockPath = path.join(CLAW_DIR, 'contract', 'paused', contractId, 'progress.lock');
+    setTimeout(() => fs.unlink(movedLockPath).catch(() => {}), 50);
 
     // pause() 内部走 acquireLock → 第一次 EEXIST → wait 100ms → 锁已释放 → 第二次成功
     await expect(manager.pause(contractId, 'checkpoint')).resolves.not.toThrow();

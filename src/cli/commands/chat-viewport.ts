@@ -254,6 +254,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const pollStream = () => {
     try {
       const stat = fsNative.statSync(streamPath);
+      if (stat.size < fileSize) {  // daemon 重启截断了文件，重置读取位置
+        fileSize = stat.size;
+        leftover = '';
+      }
       if (stat.size <= fileSize) return;
 
       const toRead = stat.size - fileSize;

@@ -236,8 +236,11 @@ Work efficiently and return a clear, concise result.`;
       // Extract final text result
       return result.finalText || '[No output produced]';
     } catch (error) {
-      if (timeoutController.signal.aborted && !(this.signal?.aborted)) {
-        throw new ToolTimeoutError('subagent_run', this.timeoutMs);
+      // Re-throw ToolTimeoutError directly — the timeoutPromise already constructs it correctly.
+      // Do NOT rely on timeoutController.signal.aborted: it is set to true at line 227 even when
+      // runReact succeeds normally, so a post-race error (e.g. appendToLog) would be misclassified.
+      if (error instanceof ToolTimeoutError) {
+        throw error;
       }
 
       // Log error

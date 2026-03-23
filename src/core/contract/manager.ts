@@ -882,19 +882,19 @@ export class ContractManager {
     if (dir !== this.activeDir) {
       throw new ToolError(`Cannot pause contract "${contractId}": not in active/`);
     }
-    // Update progress inside the lock
+    // Move directory first — filesystem location is source of truth
+    await this.fs.ensureDir(this.pausedDir);
+    await this.fs.move(
+      `${this.activeDir}/${contractId}`,
+      `${this.pausedDir}/${contractId}`
+    );
+    // Update progress.json at new location inside lock
     await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
       progress.status = 'paused';
       progress.checkpoint = checkpointNote;
       await this.saveProgress(contractId, progress);
     });
-    // Move directory to reflect the new status
-    await this.fs.ensureDir(this.pausedDir);
-    await this.fs.move(
-      `${this.activeDir}/${contractId}`,
-      `${this.pausedDir}/${contractId}`
-    );
     this.monitor?.log('contract_updated', { contractId, status: 'paused', checkpoint: checkpointNote });
   }
 
@@ -906,16 +906,18 @@ export class ContractManager {
     if (dir !== this.pausedDir) {
       throw new ToolError(`Cannot resume contract "${contractId}": not in paused/`);
     }
+    // Move directory first — filesystem location is source of truth
+    await this.fs.move(
+      `${this.pausedDir}/${contractId}`,
+      `${this.activeDir}/${contractId}`
+    );
+    // Update progress.json at new location inside lock
     await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
       progress.status = 'running';
       progress.checkpoint = null;
       await this.saveProgress(contractId, progress);
     });
-    await this.fs.move(
-      `${this.pausedDir}/${contractId}`,
-      `${this.activeDir}/${contractId}`
-    );
     this.monitor?.log('contract_updated', { contractId, status: 'running' });
     return this.loadContract(contractId);
   }
@@ -928,14 +930,16 @@ export class ContractManager {
     if (dir === this.archiveDir) {
       throw new ToolError(`Cannot cancel contract "${contractId}": already archived`);
     }
+    // Move directory first — filesystem location is source of truth
+    await this.fs.ensureDir(this.archiveDir);
+    await this.fs.move(`${dir}/${contractId}`, `${this.archiveDir}/${contractId}`);
+    // Update progress.json at new location inside lock
     await this.withProgressLock(contractId, async () => {
       const progress = await this.getProgress(contractId);
       progress.status = 'cancelled';
       progress.checkpoint = `cancelled: ${reason}`;
       await this.saveProgress(contractId, progress);
     });
-    await this.fs.ensureDir(this.archiveDir);
-    await this.fs.move(`${dir}/${contractId}`, `${this.archiveDir}/${contractId}`);
     this.monitor?.log('contract_updated', { contractId, status: 'cancelled', reason });
   }
 
@@ -1167,11 +1171,9 @@ export class ContractManager {
    * Directly write user_notify to Motion stream.jsonl (cross-server best-effort)
    */
   private _notifyMotionStream(subtype: string, data: Record<string, unknown>): void {
-    try {
-      const motionDir = path.resolve(this.motionInboxDir, '..', '..');
-      const streamPath = path.join(motionDir, 'stream.jsonl');
-      const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype, ...data }) + '\n';
-      fsNative.appendFileSync(streamPath, line);
-    } catch { /* best-effort：跨服务器或文件不存在时静默失败 */ }
+    const motionDir = path.resolve(this.motionInboxDir, '..', '..');
+    const streamPath = path.join(motionDir, 'stream.jsonl');
+    const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype, ...data }) + '\n';
+    fsNative.promises.appendFile(streamPath, line).catch(() => { /* best-effort：跨服务器或文件不存在时静默失败 */ });
   }
 }

@@ -245,6 +245,7 @@ async function executeToolCalls(
   if (!registry) {
     const toolResults: ToolResultBlock[] = [];
     for (const toolCall of toolCalls) {
+      if (ctx.signal?.aborted) throw new Error('Execution aborted');
       await safeCallbackAsync('onToolCall', async () => await onToolCall?.(toolCall.name));
       const result = await executeSingleTool(toolCall, executor, ctx);
       safeCallback('onToolResult', () => onToolResult?.(toolCall.name, result, stepCount, maxSteps));
@@ -278,6 +279,7 @@ async function executeToolCalls(
 
   // Execute readonly + async tools sequentially (preserve async routing)
   for (const { call, index } of readonlyAsyncCalls) {
+    if (ctx.signal?.aborted) throw new Error('Execution aborted');
     await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     const result = await executeSingleTool(call, executor, ctx);
     safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
@@ -314,6 +316,7 @@ async function executeToolCalls(
 
   // Execute write tools sequentially
   for (const { call, index } of writeCalls) {
+    if (ctx.signal?.aborted) throw new Error('Execution aborted');
     await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     const result = await executeSingleTool(call, executor, ctx);
     safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));

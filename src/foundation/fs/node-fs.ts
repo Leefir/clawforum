@@ -371,17 +371,26 @@ export class NodeFileSystem implements IFileSystem {
     
     const results: string[] = [];
     
-    // Simple glob implementation using readdir
-    const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'));
-    
+    // Convert a glob pattern to a RegExp, escaping all regex special chars first
+    const globToRegex = (glob: string): RegExp => {
+      let result = '';
+      for (const ch of glob) {
+        if (ch === '*') result += '.*';
+        else if (ch === '?') result += '.';
+        else result += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+      }
+      return new RegExp(result);
+    };
+    const regex = globToRegex(pattern);
+
     async function* findFiles(dir: string): AsyncGenerator<string> {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         const relativePath = path.relative(absoluteCwd, fullPath);
-        
+
         // Check ignore patterns
-        if (options?.ignore?.some(ign => relativePath.match(ign.replace(/\*/g, '.*')))) {
+        if (options?.ignore?.some(ign => relativePath.match(globToRegex(ign)))) {
           continue;
         }
         

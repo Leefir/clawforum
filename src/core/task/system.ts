@@ -226,12 +226,12 @@ export class TaskSystem {
       retryCount: 0,
     };
 
-    // Store callback first (before any async operations)
-    this.pendingCallbacks.set(taskId, executeCallback);
-
-    // Save to pending directory
+    // Save to pending directory before registering in memory
     const taskPath = `tasks/pending/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
+
+    // Register callback only after file write succeeds (avoids leaked entry on write failure)
+    this.pendingCallbacks.set(taskId, executeCallback);
 
     // Add to pending queue
     this.pendingQueue.push(task);
