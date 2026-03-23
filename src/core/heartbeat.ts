@@ -54,7 +54,7 @@ export class Heartbeat {
         type: 'heartbeat',
         source: 'system',
         priority: 'low',
-        body: '[system message] 心跳触发，请巡查。',
+        body: '心跳触发，请巡查。',
         idPrefix: 'hb',
       });
     } catch (error) {

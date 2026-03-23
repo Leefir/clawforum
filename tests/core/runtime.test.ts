@@ -324,16 +324,18 @@ ${msg.content}
       // Verify LLM was called once (batch processing)
       expect(mockLLM.call).toHaveBeenCalledTimes(1);
 
-      // Verify messages were injected in priority order
+      // Verify all inbox messages were merged into a single user message (priority order preserved)
       const callArgs = mockLLM.call.mock.calls[0][0];
       const userMessages = callArgs.messages.filter((m: { role: string }) => m.role === 'user');
-      expect(userMessages.length).toBe(3);
-      // Critical should be first
-      expect(userMessages[0].content).toContain('Critical priority');
-      // High should be second
-      expect(userMessages[1].content).toContain('High priority');
-      // Normal should be third
-      expect(userMessages[2].content).toContain('Normal priority');
+      expect(userMessages.length).toBe(1);
+      // All three messages present, critical first
+      const combined = userMessages[0].content;
+      expect(combined).toContain('Critical priority');
+      expect(combined).toContain('High priority');
+      expect(combined).toContain('Normal priority');
+      // Critical appears before High, High before Normal
+      expect(combined.indexOf('Critical priority')).toBeLessThan(combined.indexOf('High priority'));
+      expect(combined.indexOf('High priority')).toBeLessThan(combined.indexOf('Normal priority'));
     });
 
     it('should move messages to done before LLM call', async () => {

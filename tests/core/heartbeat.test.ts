@@ -88,7 +88,7 @@ describe('Heartbeat', () => {
       expect(content).toContain('type: heartbeat');
       expect(content).toContain('source: system');
       expect(content).toContain('priority: low');
-      expect(content).toContain('[system message] 心跳触发，请巡查。');
+      expect(content).toContain('心跳触发，请巡查。');
     });
 
     it('should update lastRun after fire', async () => {
