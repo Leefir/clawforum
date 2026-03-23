@@ -122,57 +122,61 @@ function maybeCronClawInactivity(pm: ProcessManager): void {
 
   const now = Date.now();
   for (const clawId of fs.readdirSync(clawsDir)) {
-    const clawDir = path.join(clawsDir, clawId);
+    try {
+      const clawDir = path.join(clawsDir, clawId);
 
-    // Has an active contract?
-    if (!clawHasContract(clawDir)) continue;
+      // Has an active contract?
+      if (!clawHasContract(clawDir)) continue;
 
-    // Parse stream.jsonl to get real progress
-    const { lastEventMs, lastError } = getClawActivityInfo(clawDir);
+      // Parse stream.jsonl to get real progress
+      const { lastEventMs, lastError } = getClawActivityInfo(clawDir);
 
-    // Use lastEventMs directly as the reference baseline (any event updates it)
-    const referenceMs = lastEventMs;
-    if (referenceMs === null) continue;
+      // Use lastEventMs directly as the reference baseline (any event updates it)
+      const referenceMs = lastEventMs;
+      if (referenceMs === null) continue;
 
-    // Not yet timed out
-    if (now - referenceMs < timeoutMs) continue;
+      // Not yet timed out
+      if (now - referenceMs < timeoutMs) continue;
 
-    // Reset count if claw has made new progress after full timeout cycle
-    const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
-    if (shouldResetNotifyCount(lastEventMs, lastNotified, timeoutMs)) {
-      inactivityNotifyCount.set(clawId, 0);
+      // Reset count if claw has made new progress after full timeout cycle
+      const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
+      if (shouldResetNotifyCount(lastEventMs, lastNotified, timeoutMs)) {
+        inactivityNotifyCount.set(clawId, 0);
+      }
+
+      const notifyCount = inactivityNotifyCount.get(clawId) ?? 0;
+
+      // Backoff interval: first 2 notifications use timeoutMs, from the 3rd onward use 3x
+      const effectiveInterval = getEffectiveInterval(notifyCount, timeoutMs);
+      if (now - lastNotified < effectiveInterval) continue;
+
+      // Collect snapshot info
+      const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
+      const inactiveMin = Math.round((now - referenceMs) / 60000);
+
+      // Body without directives: pure factual data (including notification number)
+      const displayCount = notifyCount + 1;
+      let body = `Claw ${clawId} no progress for ${inactiveMin}m (notification #${displayCount}). Status: ${snapshot.status}, contract: ${snapshot.contract}, inbox_pending: ${snapshot.inboxPending}, outbox_pending: ${snapshot.outboxPending}`;
+      if (lastError) body += `, last error: ${lastError}`;
+
+      log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m (notify #${displayCount}) with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
+      writeWatchdogInboxMessage('claw_inactivity', {
+        message: body,
+        claw_id: clawId,
+        inactive_ms: now - referenceMs,
+        status: snapshot.status,
+        contract: snapshot.contract,
+        inbox_pending: snapshot.inboxPending,
+        outbox_pending: snapshot.outboxPending,
+        notify_count: displayCount,
+        as_of: new Date().toISOString(),
+        ...(lastError ? { last_error: lastError } : {}),
+      });
+      inactivityNotifyCount.set(clawId, displayCount);
+      lastInactivityNotified.set(clawId, now);
+    } catch (err) {
+      log(`[watchdog] Error checking claw ${clawId}: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    const notifyCount = inactivityNotifyCount.get(clawId) ?? 0;
-
-    // Backoff interval: first 2 notifications use timeoutMs, from the 3rd onward use 3x
-    const effectiveInterval = getEffectiveInterval(notifyCount, timeoutMs);
-    if (now - lastNotified < effectiveInterval) continue;
-
-    // Collect snapshot info
-    const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
-    const inactiveMin = Math.round((now - referenceMs) / 60000);
-
-    // Body without directives: pure factual data (including notification number)
-    const displayCount = notifyCount + 1;
-    let body = `Claw ${clawId} no progress for ${inactiveMin}m (notification #${displayCount}). Status: ${snapshot.status}, contract: ${snapshot.contract}, inbox_pending: ${snapshot.inboxPending}, outbox_pending: ${snapshot.outboxPending}`;
-    if (lastError) body += `, last error: ${lastError}`;
-
-    log(`[watchdog] Claw ${clawId} no progress ${inactiveMin}m (notify #${displayCount}) with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
-    writeWatchdogInboxMessage('claw_inactivity', {
-      message: body,
-      claw_id: clawId,
-      inactive_ms: now - referenceMs,
-      status: snapshot.status,
-      contract: snapshot.contract,
-      inbox_pending: snapshot.inboxPending,
-      outbox_pending: snapshot.outboxPending,
-      notify_count: displayCount,
-      as_of: new Date().toISOString(),
-      ...(lastError ? { last_error: lastError } : {}),
-    });
-    inactivityNotifyCount.set(clawId, displayCount);
-    lastInactivityNotified.set(clawId, now);
   }
 }
 
