@@ -40,7 +40,7 @@ const BOOTSTRAP_SUBTASKS = [
   },
   {
     id: 'first-claw',
-    description: 'Help the user create their first Claw. Ask what they want to name it and what kind of work it will do. Run: exec: clawforum claw create <name>',
+    description: 'Help the user create their first Claw. Ask what task or project they want to start with — a Claw is a dedicated context window for ongoing work. Run: exec: clawforum claw create <name>',
   },
   {
     id: 'first-contract',

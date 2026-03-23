@@ -53,6 +53,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let thinkingBuffer = '';
   let inTurn = false;  // daemon 是否正在处理 turn（用于 ESC 中断判断）
 
+  type ThinkingMode = 'line' | 'full' | 'none';
+  let thinkingMode: ThinkingMode = 'line';
+
   // Braille spinner 动画
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let spinnerTimer: ReturnType<typeof setInterval> | null = null;
@@ -108,9 +111,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushThinking = () => {
     if (thinkingBuffer) {
-      outputContent += '\n\x1b[2m' + thinkingBuffer + '\x1b[0m';
+      if (thinkingMode === 'full') {
+        outputContent += '\n\x1b[2m' + thinkingBuffer + '\x1b[0m';
+        updateDisplay();
+      }
+      // 'line' / 'none': 不写入永久区，直接丢弃
       thinkingBuffer = '';
-      updateDisplay();
     }
   };
 
@@ -142,7 +148,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'thinking_delta':
         stopSpinner();
         thinkingBuffer += event.delta as string;
-        setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
+        if (thinkingMode === 'full') {
+          setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
+        } else if (thinkingMode === 'line') {
+          const snippet = thinkingBuffer.replace(/\s+/g, ' ').trim().slice(-60);
+          setStreamingSuffix('\x1b[2m⟨' + snippet + '⟩\x1b[0m');
+        }
+        // 'none': 不更新 suffix
         break;
 
       case 'text_delta':
@@ -343,6 +355,26 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
     if (trimmed === 'exit' || trimmed === 'quit') {
       resolveExit();
+      return;
+    }
+
+    // slash 命令
+    if (trimmed.startsWith('/')) {
+      const parts = trimmed.slice(1).split(/\s+/);
+      const name = parts[0];
+      const arg = parts[1] as ThinkingMode | undefined;
+      if (name === 'think') {
+        if (!arg) {
+          thinkingMode = thinkingMode === 'line' ? 'full' : thinkingMode === 'full' ? 'none' : 'line';
+        } else if (arg === 'full' || arg === 'line' || arg === 'none') {
+          thinkingMode = arg;
+        }
+        appendOutput(`\x1b[2m[thinking: ${thinkingMode}]\x1b[0m`);
+      } else {
+        appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
+      }
+      input.setValue('');
+      tui.requestRender();
       return;
     }
 
