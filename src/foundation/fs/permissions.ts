@@ -31,6 +31,9 @@ const SYSTEM_PATHS = [
 const WRITABLE_PATHS = [
   'MEMORY.md',
   'memory',
+  'USER.md',
+  'IDENTITY.md',
+  'SOUL.md',
   'clawspace',
   'prompts',
   'skills',

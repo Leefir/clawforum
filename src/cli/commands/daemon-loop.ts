@@ -92,16 +92,30 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           } catch { return false; }
         })();
         if (inboxEmpty && hasActive) {
-          const callbacks = streamWriter?.createCallbacks();
-          try {
-            await runtime.processWithMessage(
-              { role: 'user', content: '[system message] 系统启动。请检查活跃契约并继续执行。' },
-              callbacks,
-            );
-          } catch (err) {
-            console.error(`${label} startup trigger error:`, err);
+          const STARTUP_MSG = '[system message] 系统启动。请检查活跃契约并继续执行。';
+          // Dedup: if the last message in the session is already the startup message (unanswered),
+          // skip re-injection and fall through to processBatch() to handle the existing message.
+          const alreadyInjected = (() => {
+            try {
+              const raw = fsNative.readFileSync(path.join(agentDir, 'dialog', 'current.json'), 'utf-8');
+              const msgs: Array<{ role: string; content: unknown }> = JSON.parse(raw)?.messages ?? [];
+              const last = msgs[msgs.length - 1];
+              return last?.role === 'user' && last?.content === STARTUP_MSG;
+            } catch { return false; }
+          })();
+          if (!alreadyInjected) {
+            const callbacks = streamWriter?.createCallbacks();
+            try {
+              await runtime.processWithMessage(
+                { role: 'user', content: STARTUP_MSG },
+                callbacks,
+              );
+            } catch (err) {
+              console.error(`${label} startup trigger error:`, err);
+            }
+            continue;
           }
-          continue;
+          // alreadyInjected: fall through — processBatch() will handle the existing unanswered message
         }
       }
 

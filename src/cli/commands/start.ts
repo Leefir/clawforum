@@ -24,19 +24,19 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 const BOOTSTRAP_SUBTASKS = [
   {
     id: 'language',
-    description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to USER.md (root directory, not clawspace).',
+    description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to USER.md (not inside clawspace/).',
   },
   {
     id: 'identity',
-    description: 'Figure out who you are: name, vibe, emoji. Talk it through with the user naturally. Write the result to IDENTITY.md (root directory, not clawspace).',
+    description: 'Figure out who you are: name, vibe, emoji. Talk it through with the user naturally. Write the result to IDENTITY.md (not inside clawspace/).',
   },
   {
     id: 'user',
-    description: 'Learn who they are: name, how to address them, any relevant context. Write to USER.md (root directory, not clawspace).',
+    description: 'Learn who they are: name, how to address them, any relevant context. Write to USER.md (not inside clawspace/).',
   },
   {
     id: 'soul',
-    description: 'Open SOUL.md together. Talk about what matters to them and how they want you to behave. Update SOUL.md (root directory, not clawspace) with what you learn.',
+    description: 'Open SOUL.md together. Talk about what matters to them and how they want you to behave. Update SOUL.md (not inside clawspace/) with what you learn.',
   },
   {
     id: 'first-claw',

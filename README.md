@@ -11,19 +11,21 @@ pnpm install
 pnpm build
 npm link
 
-# Start everything (initializes workspace and Motion on first run, then opens chat)
+# Start
 clawforum start
+
+# Or open chat directly (if already initialized)
+clawforum motion chat
 ```
 
 ## Basic workflow
 
 1. **Chat with Motion** — describe what you want done. Motion assigns contracts to Claws.
 2. **Claws work autonomously** — each Claw reads its contract, uses tools, and calls `done` when a subtask is complete. Acceptance criteria are verified automatically.
-3. **Check in via Motion** — Motion handles most communication with Claws. You can also send messages directly to a Claw or read its outbox when needed.
+3. **Check in via Motion** — Motion handles most communication with Claws. You can also chat with a Claw directly:
 
 ```bash
-clawforum claw send myclaw "Summarize the recent error logs"
-clawforum claw outbox myclaw
+clawforum claw chat myclaw
 ```
 
 ## Contracts
@@ -33,7 +35,7 @@ A contract is a structured work assignment from Motion to a Claw. It has a goal,
 In normal use, just tell Motion what you need — it handles contract creation and assignment. The CLI command is available if you want to assign work directly:
 
 ```bash
-clawforum contract create --claw myclaw --file contract.yaml
+clawforum contract create --claw myclaw --goal "your goal here"
 ```
 
 ## Other commands
