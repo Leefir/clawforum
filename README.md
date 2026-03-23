@@ -11,12 +11,8 @@ pnpm install
 pnpm build
 npm link
 
-# Initialize workspace (prompts for LLM configuration)
-clawforum init
-
-# Set up Motion
-clawforum motion init
-clawforum motion chat
+# Start everything (initializes workspace and Motion on first run, then opens chat)
+clawforum start
 ```
 
 ## Basic workflow

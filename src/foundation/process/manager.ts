@@ -9,7 +9,7 @@
 import { spawn, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { readFileSync, openSync, mkdirSync, closeSync, existsSync } from 'fs';
+import { readFileSync, unlinkSync, openSync, mkdirSync, closeSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 import type { IFileSystem } from '../fs/types.js';
@@ -117,10 +117,8 @@ export class ProcessManager {
       } catch (err: any) {
         // ESRCH = process does not exist
         if (err.code === 'ESRCH') {
-          // Clean up stale pid file (async, fire-and-forget)
-          this.removePid(clawId).catch(err => {
-            console.warn(`[ProcessManager] Failed to clean stale PID for ${clawId}:`, err);
-          });
+          // Clean up stale pid file synchronously so subsequent isAlive() calls see it gone
+          try { unlinkSync(this.getPidFile(clawId)); } catch { /* ignore */ }
           return false;
         }
         // EPERM = process exists but no permission (typically another user's process)
