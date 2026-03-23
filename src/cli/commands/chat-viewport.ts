@@ -74,9 +74,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   const updateStatusBar = () => {
-    const line = inTurn
-      ? `\x1b[2m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`
-      : '';
+    let line = '';
+    if (isMotion) {
+      const parts: string[] = [];
+      for (const [id, t] of clawTrackMap) {
+        if (t.active) parts.push(`⬡ ${id} #${t.turnCount} [${t.step}/${t.maxSteps}]`);
+      }
+      line = parts.length > 0 ? `\x1b[2m${parts.join('  ')}\x1b[0m` : '';
+    } else if (inTurn) {
+      line = `\x1b[2m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`;
+    }
     statusBar.setText(line);
   };
 
@@ -275,6 +282,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // tail stream.jsonl
   let fileSize = 0;
   let leftover = '';
+
+  // Motion viewport：各 claw 步数追踪
+  const isMotion = options.label === 'motion';
+  const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
+
+  interface ClawTrack {
+    fileSize: number;
+    leftover: string;
+    turnCount: number;
+    step: number;
+    maxSteps: number;
+    active: boolean;
+  }
+  const clawTrackMap = new Map<string, ClawTrack>();
+  let lastClawRefreshTs = 0;
+
   try {
     const stat = fsNative.statSync(streamPath);
     fileSize = stat.size;  // 从当前末尾开始（不 replay 历史）
@@ -331,9 +354,63 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
   };
 
+  const refreshClawStatus = () => {
+    if (!isMotion) return;
+    let clawIds: string[] = [];
+    try { clawIds = fsNative.readdirSync(clawsDir); } catch { return; }
+
+    for (const clawId of clawIds) {
+      const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
+      if (!clawTrackMap.has(clawId)) {
+        clawTrackMap.set(clawId, { fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100, active: false });
+      }
+      const track = clawTrackMap.get(clawId)!;
+      try {
+        const stat = fsNative.statSync(streamFile);
+        if (stat.size < track.fileSize) { track.fileSize = 0; track.leftover = ''; }  // 文件被截断
+        if (stat.size <= track.fileSize) continue;
+        const toRead = stat.size - track.fileSize;
+        const buf = Buffer.alloc(toRead);
+        const fd = fsNative.openSync(streamFile, 'r');
+        let bytesRead = 0;
+        try {
+          while (bytesRead < toRead) {
+            const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
+            if (n === 0) break;
+            bytesRead += n;
+          }
+        } finally { fsNative.closeSync(fd); }
+        track.fileSize += bytesRead;
+
+        const chunk = track.leftover + buf.toString('utf-8');
+        const lines = chunk.split('\n');
+        track.leftover = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line);
+            if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
+            else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
+            else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted' || ev.type === 'turn_error') { track.active = false; }
+          } catch { /* skip */ }
+        }
+      } catch { /* ENOENT 等，跳过 */ }
+    }
+    updateStatusBar();
+  };
+
   // fs.watch + fallback 轮询
   let watcher: ReturnType<typeof fsNative.watch> | null = null;
-  const pollInterval = setInterval(pollStream, 200);  // fallback 200ms
+  const pollInterval = setInterval(() => {
+    pollStream();
+    if (isMotion) {
+      const now = Date.now();
+      if (now - lastClawRefreshTs >= 2000) {
+        lastClawRefreshTs = now;
+        refreshClawStatus();
+      }
+    }
+  }, 200);  // fallback 200ms
 
   try {
     watcher = fsNative.watch(streamPath, () => pollStream());
