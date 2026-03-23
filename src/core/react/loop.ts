@@ -18,6 +18,18 @@ import { MaxStepsExceededError } from '../../types/errors.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
 
 /**
+ * Safe callback wrappers - prevent UI callback errors from breaking the loop
+ */
+function safeCallback(label: string, fn: () => void): void {
+  try { fn(); }
+  catch (err) { console.warn(`[loop] ${label} error:`, err instanceof Error ? err.message : String(err)); }
+}
+async function safeCallbackAsync(label: string, fn: () => Promise<void>): Promise<void> {
+  try { await fn(); }
+  catch (err) { console.warn(`[loop] ${label} error:`, err instanceof Error ? err.message : String(err)); }
+}
+
+/**
  * Options for runReact
  */
 export interface ReactOptions {
@@ -113,7 +125,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     }
 
     // Notify before LLM call (for "Thinking..." display)
-    onBeforeLLMCall?.();
+    safeCallback('onBeforeLLMCall', () => onBeforeLLMCall?.());
 
     // 流式调用 LLM，收集完整 response
     const response = await collectStreamResponse(llm, {
@@ -233,9 +245,9 @@ async function executeToolCalls(
   if (!registry) {
     const toolResults: ToolResultBlock[] = [];
     for (const toolCall of toolCalls) {
-      await onToolCall?.(toolCall.name);
+      await safeCallbackAsync('onToolCall', async () => await onToolCall?.(toolCall.name));
       const result = await executeSingleTool(toolCall, executor, ctx);
-      onToolResult?.(toolCall.name, result, stepCount, maxSteps);
+      safeCallback('onToolResult', () => onToolResult?.(toolCall.name, result, stepCount, maxSteps));
       toolResults.push(toToolResultBlock(toolCall.id, result));
     }
     return toolResults;
@@ -266,9 +278,9 @@ async function executeToolCalls(
 
   // Execute readonly + async tools sequentially (preserve async routing)
   for (const { call, index } of readonlyAsyncCalls) {
-    await onToolCall?.(call.name);
+    await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     const result = await executeSingleTool(call, executor, ctx);
-    onToolResult?.(call.name, result, stepCount, maxSteps);
+    safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
     results.set(index, toToolResultBlock(call.id, result));
   }
 
@@ -276,7 +288,7 @@ async function executeToolCalls(
   if (readonlySyncCalls.length > 0) {
     // Notify UI for all readonly calls (before parallel execution)
     for (const { call } of readonlySyncCalls) {
-      await onToolCall?.(call.name);
+      await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     }
 
     // Prepare batch for parallel execution
@@ -295,16 +307,16 @@ async function executeToolCalls(
     for (let i = 0; i < readonlySyncCalls.length; i++) {
       const { call, index } = readonlySyncCalls[i];
       const result = parallelResults[i];
-      onToolResult?.(call.name, result, stepCount, maxSteps);
+      safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
       results.set(index, toToolResultBlock(call.id, result));
     }
   }
 
   // Execute write tools sequentially
   for (const { call, index } of writeCalls) {
-    await onToolCall?.(call.name);
+    await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     const result = await executeSingleTool(call, executor, ctx);
-    onToolResult?.(call.name, result, stepCount, maxSteps);
+    safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
     results.set(index, toToolResultBlock(call.id, result));
   }
 
