@@ -377,10 +377,35 @@ export class ClawRuntime {
     // same-role messages, which are invalid in the Anthropic API.
     // user_chat messages are placed last so they aren't buried under system messages.
 
+    // Filter: only inject messages addressed to this agent
+    const injectedInfos = fileInfos.filter(info => {
+      const to = info.meta.to;
+      return !to || to === this.options.clawId;
+    });
+
+    // Audit log: record all messages (including skipped ones)
+    const auditPath = path.join(this.options.clawDir, 'logs', 'audit.log');
+    await fs.mkdir(path.dirname(auditPath), { recursive: true });
+    for (const info of fileInfos) {
+      const skipped = injectedInfos.indexOf(info) === -1;
+      const entry = {
+        ts: new Date().toISOString(),
+        event: skipped ? 'inbox_skip' : 'inbox_inject',
+        file: info.name,
+        type: info.meta.type ?? 'message',
+        source: info.meta.source ?? info.meta.from ?? 'unknown',
+        to: info.meta.to ?? '',
+        priority: info.meta.priority ?? 'unknown',
+      };
+      fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(e =>
+        console.warn(`[audit] write failed: ${e instanceof Error ? e.message : String(e)}`)
+      );
+    }
+
     const systemParts: string[] = [];
     const userChatParts: string[] = [];
     const sources: Array<{ text: string; type: string }> = [];
-    for (const info of fileInfos) {
+    for (const info of injectedInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
       const type = info.meta.type ?? 'message';
       const formatted = await this.formatInboxMessage(type, from, info.body);
@@ -398,23 +423,6 @@ export class ClawRuntime {
     const injected: Message[] = allParts.length > 0
       ? [{ role: 'user', content: allParts.join('\n\n') }]
       : [];
-
-    // audit log: record each inbox message injection
-    const auditPath = path.join(this.options.clawDir, 'logs', 'audit.log');
-    await fs.mkdir(path.dirname(auditPath), { recursive: true });
-    for (const info of fileInfos) {
-      const entry = {
-        ts: new Date().toISOString(),
-        event: 'inbox_inject',
-        file: info.name,
-        type: info.meta.type ?? 'message',
-        source: info.meta.source ?? info.meta.from ?? 'unknown',
-        priority: info.meta.priority ?? 'unknown',
-      };
-      fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(e =>
-        console.warn(`[audit] write failed: ${e instanceof Error ? e.message : String(e)}`)
-      );
-    }
 
     return { injected, sources, count: fileInfos.length };
   }

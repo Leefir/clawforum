@@ -501,6 +501,45 @@ Test message
       expect(userMsg?.content).toContain('Heartbeat triggered');
       expect(userMsg?.content).toContain('Check disk space');
     });
+
+    it('messages with to: a different agent are skipped from injection', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // Write two messages: one to this agent, one to a subagent
+      await writePendingMsg(
+        pendingDir,
+        'for-me.md',
+        `---\nid: msg1\ntype: message\nfrom: motion\nto: test-claw\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\nMessage for me`,
+      );
+      await writePendingMsg(
+        pendingDir,
+        'for-subagent.md',
+        `---\nid: msg2\ntype: message\nfrom: task_system\nto: some-subagent-uuid\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\nMessage for subagent`,
+      );
+
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      // processBatch drains inbox (2 files moved to done)
+      await runtime.processBatch();
+
+      // Only the message addressed to test-claw should be injected into LLM context
+      const callArgs = mockLLM.call.mock.calls[0][0];
+      const userMsg = callArgs.messages.find((m: { role: string }) => m.role === 'user');
+      expect(userMsg?.content).toContain('Message for me');
+      expect(userMsg?.content).not.toContain('Message for subagent');
+
+      // Audit log should show inbox_skip for the subagent message
+      const auditLog = await fs.readFile(path.join(clawDir, 'logs', 'audit.log'), 'utf-8');
+      const entries = auditLog.trim().split('\n').map(line => JSON.parse(line));
+      const skipEntry = entries.find((e: { event: string }) => e.event === 'inbox_skip');
+      expect(skipEntry).toBeDefined();
+      expect(skipEntry.to).toBe('some-subagent-uuid');
+    });
   });
 
   // ─── retryLastTurn() ──────────────────────────────────────────────────────
