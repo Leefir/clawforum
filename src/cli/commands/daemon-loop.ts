@@ -10,7 +10,7 @@ import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
-import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS } from '../../constants.js';
+import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS, STARTUP_CHECK_COOLDOWN_MS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 export interface DaemonLoopOptions {
@@ -99,7 +99,16 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               return fsNative.readdirSync(inboxPendingDir).some(f => f.includes('_startup_check_'));
             } catch { return false; }
           })();
-          if (!alreadyPending) {
+          // Cooldown: prevent spam from rapid daemon restarts
+          const startupCheckTsFile = path.join(agentDir, 'status', 'startup_check_ts');
+          const lastStartupCheckTs = (() => {
+            try { return parseInt(fsNative.readFileSync(startupCheckTsFile, 'utf-8').trim(), 10); } catch { return 0; }
+          })();
+          const startupCheckCooledDown = Date.now() - lastStartupCheckTs >= STARTUP_CHECK_COOLDOWN_MS;
+
+          if (!alreadyPending && startupCheckCooledDown) {
+            fsNative.mkdirSync(path.join(agentDir, 'status'), { recursive: true });
+            fsNative.writeFileSync(startupCheckTsFile, String(Date.now()));
             writeInboxMessage({
               inboxDir: inboxPendingDir,
               type: 'startup_check',

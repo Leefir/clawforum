@@ -40,7 +40,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { MaxStepsExceededError } from '../types/errors.js';
-import { SESSION_CONTEXT_MAX_TOKENS } from '../constants.js';
+import { SESSION_CONTEXT_MAX_TOKENS, MOTION_CLAW_ID } from '../constants.js';
 
 /**
  * ClawRuntime constructor options
@@ -143,9 +143,12 @@ export class ClawRuntime {
     // 4. Create LLMService
     this.llm = new LLMService(llmConfig, this.monitor, clawId);
 
-    // 5. Create LocalTransport (workspaceDir = two levels up from clawDir)
-    // clawDir = ~/.clawforum/claws/{name}, workspaceDir should be ~/.clawforum
-    const workspaceDir = path.resolve(clawDir, '..', '..');
+    // 5. Create LocalTransport (workspaceDir depends on claw type)
+    // claw:   clawDir = .clawforum/claws/{name} → up 2 levels → .clawforum
+    // motion: clawDir = .clawforum/motion       → up 1 level  → .clawforum
+    const workspaceDir = clawId === MOTION_CLAW_ID
+      ? path.resolve(clawDir, '..')
+      : path.resolve(clawDir, '..', '..');
     this.transport = new LocalTransport({ workspaceDir });
     await this.transport.initialize();
 
