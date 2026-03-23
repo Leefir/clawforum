@@ -123,18 +123,6 @@ export async function initCommand(silent = false): Promise<void> {
   
   // Output results
   console.log('\n✓ Motion initialized successfully');
-  if (created.length > 0) {
-    console.log(`\nCreated files:`);
-    for (const name of created) {
-      console.log(`  - ${name}`);
-    }
-  }
-  if (existed.length > 0) {
-    console.log(`\nSkipped (already exist):`);
-    for (const name of existed) {
-      console.log(`  - ${name}`);
-    }
-  }
   if (!silent) {
     console.log(`\nYou can now run: clawforum motion chat`);
   }
