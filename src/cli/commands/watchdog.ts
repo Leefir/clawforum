@@ -486,7 +486,23 @@ export async function stopCommand(): Promise<void> {
   }
   
   removeWatchdogPid();
-  
+
+  // Cleanup: pgrep兜底，清理所有残留的watchdog-entry.js孤儿进程
+  try {
+    const result = spawnSync('pgrep', ['-f', 'watchdog-entry.js'], { encoding: 'utf-8' });
+    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
+    const pids = output.trim().split('\n')
+      .map(s => parseInt(s, 10))
+      .filter(p => !isNaN(p) && p !== process.pid);
+    if (pids.length > 0) {
+      for (const p of pids) {
+        try { process.kill(p, 'SIGTERM'); } catch {}
+      }
+      await setTimeout(2000);
+      console.log(`Cleaned up ${pids.length} orphan watchdog process(es)`);
+    }
+  } catch {}
+
   if (isWatchdogAlive()) {
     console.log('Failed to stop watchdog');
   } else {
