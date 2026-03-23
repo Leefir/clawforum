@@ -111,16 +111,27 @@ export class TaskSystem {
           try {
             const content = await this.fs.read(entry.path);
             const task = JSON.parse(content) as SubAgentTask | ToolTask;
-            // Move to pending (atomic rename)
-            const pendingPath = `tasks/pending/${task.id}.json`;
-            await this.fs.move(entry.path, pendingPath);
-            this.pendingQueue.push(task);
-            this.monitor.log('task_recovered', {
-              taskId: task.id,
-              kind: task.kind,
-              from: 'running',
-              to: 'pending',
-            });
+            if (task.kind === 'tool') {
+              // callback 已丢失，直接归档，不重新执行
+              const donePath = `tasks/done/${task.id}.json`;
+              await this.fs.move(entry.path, donePath);
+              this.monitor.log('task_discarded', {
+                taskId: task.id,
+                kind: 'tool',
+                reason: 'daemon_restarted',
+              });
+            } else {
+              // subagent 任务：回 pending 重新执行（原有逻辑）
+              const pendingPath = `tasks/pending/${task.id}.json`;
+              await this.fs.move(entry.path, pendingPath);
+              this.pendingQueue.push(task);
+              this.monitor.log('task_recovered', {
+                taskId: task.id,
+                kind: task.kind,
+                from: 'running',
+                to: 'pending',
+              });
+            }
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
             this.monitor.log('error', {
@@ -138,7 +149,18 @@ export class TaskSystem {
           try {
             const content = await this.fs.read(entry.path);
             const task = JSON.parse(content) as SubAgentTask | ToolTask;
-            this.pendingQueue.push(task);
+            if (task.kind === 'tool') {
+              // pending 里的 tool 任务同样 callback 已丢失，直接归档
+              const donePath = `tasks/done/${task.id}.json`;
+              await this.fs.move(entry.path, donePath);
+              this.monitor.log('task_discarded', {
+                taskId: task.id,
+                kind: 'tool',
+                reason: 'daemon_restarted',
+              });
+            } else {
+              this.pendingQueue.push(task);
+            }
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
             this.monitor.log('error', {

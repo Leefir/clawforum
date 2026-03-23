@@ -405,13 +405,14 @@ describe('TaskSystem Tool Tasks', () => {
   });
 
   describe('cold-start recovery', () => {
-    it('should recover tasks from pending/ on initialize', async () => {
-      // Directly write a pending file without going through scheduleTool
-      const taskId = 'recovered-task-id';
+    it('should recover subagent tasks from pending/ on initialize', async () => {
+      // Directly write a pending subagent file without going through scheduleTool
+      const taskId = 'recovered-subagent-id';
       const task = { 
-        kind: 'tool', 
+        kind: 'subagent', 
         id: taskId, 
-        toolName: 'recoverTool', 
+        prompt: 'test prompt',
+        contextPaths: [],
         parentClawId: 'parent', 
         createdAt: new Date().toISOString() 
       };
@@ -441,13 +442,13 @@ describe('TaskSystem Tool Tasks', () => {
       );
       await taskSystem2.initialize();
 
-      // Task should be in pendingQueue
+      // Subagent task should be in pendingQueue (tool tasks are discarded)
       expect(taskSystem2.listPending()).toContain(taskId);
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
 
-    it('should move running/ tasks back to pending/ on initialize (crash recovery)', async () => {
+    it('should move running/ tool tasks to done/ on initialize (callback lost)', async () => {
       // Directly write a running file without going through scheduleTool (simulating crash residue)
       const taskId = 'crashed-task-id';
       const task = { 
@@ -482,10 +483,57 @@ describe('TaskSystem Tool Tasks', () => {
       );
       await taskSystem2.initialize();
 
-      // Running file should be moved away, task enters pendingQueue
-      expect(taskSystem2.listPending()).toContain(taskId);
+      // Tool task should be moved to done/ (not pending/), callback is lost
+      expect(taskSystem2.listPending()).not.toContain(taskId);
       const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(runningExists).toBe(false);
+      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(doneExists).toBe(true);
+
+      await taskSystem2.shutdown(100).catch(() => {});
+    });
+
+    it('should move pending/ tool tasks to done/ on initialize (callback lost)', async () => {
+      // Directly write a pending tool file (simulating daemon restart with pending tool task)
+      const taskId = 'pending-tool-task-id';
+      const task = { 
+        kind: 'tool', 
+        id: taskId, 
+        toolName: 'pendingTool', 
+        parentClawId: 'parent', 
+        createdAt: new Date().toISOString() 
+      };
+      await fs.writeFile(
+        path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
+        JSON.stringify(task)
+      );
+
+      const taskSystem2 = new TaskSystem(
+        testClawDir,
+        {
+          read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+          write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+          writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+          append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+          delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+          move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
+          exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+          list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries => 
+            entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+          ),
+          ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+          isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+        } as any,
+        { maxConcurrent: 3 }
+      );
+      await taskSystem2.initialize();
+
+      // Tool task should be moved to done/ (not queued), callback is lost
+      expect(taskSystem2.listPending()).not.toContain(taskId);
+      const pendingExists = await fs.access(path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(pendingExists).toBe(false);
+      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(doneExists).toBe(true);
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
@@ -810,8 +858,9 @@ describe('TaskSystem Tool Tasks', () => {
 
   // Phase 17: callback 丢失恢复路径 + shutdown
   describe('Phase 17 untested paths', () => {
-    it('should send error inbox message when ToolTask has no registered callback (daemon restart recovery)', async () => {
+    it('should discard ToolTask on daemon restart (no callback, no inbox noise)', async () => {
       // Simulate daemon restart: ToolTask written to tasks/pending/ but no callback registered
+      // New behavior: directly move to done/, no execution, no inbox message
       const freshDir = path.join(TEST_DIR, `callback-loss-${Date.now()}`);
       await fs.mkdir(path.join(freshDir, 'tasks', 'pending'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'tasks', 'running'), { recursive: true });
@@ -850,16 +899,17 @@ describe('TaskSystem Tool Tasks', () => {
       );
 
       await freshSystem.initialize();
-      freshSystem.startDispatch(); // recoverTasks() loaded the task; dispatch now runs it
+      // Tool task should be moved to done/ during recovery, not executed
 
-      await new Promise(r => setTimeout(r, 600));
+      // Task should be in done/, not pending or running
+      const doneExists = await fs.access(path.join(freshDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(doneExists).toBe(true);
+      expect(freshSystem.listPending()).not.toContain(taskId);
 
+      // No inbox message should be generated (no noise)
       const inboxFiles = await fs.readdir(path.join(freshDir, 'inbox', 'pending'));
       const mdFiles = inboxFiles.filter((f: string) => f.endsWith('.md'));
-      expect(mdFiles.length).toBeGreaterThan(0);
-
-      const content = await fs.readFile(path.join(freshDir, 'inbox', 'pending', mdFiles[0]), 'utf-8');
-      expect(content).toContain('daemon restarted');
+      expect(mdFiles.length).toBe(0);
 
       await freshSystem.shutdown(500).catch(() => {});
       await fs.rm(freshDir, { recursive: true, force: true }).catch(() => {});
