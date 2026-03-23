@@ -160,7 +160,11 @@ export async function daemonCommand(name: string): Promise<void> {
         fsNative.unlinkSync(path.join(pendingDir, f));
       }
     }
-  } catch {}
+  } catch (e: any) {
+    if (e?.code !== 'ENOENT') {
+      console.warn(`[daemon] Failed to clean up heartbeat files: ${e?.message}`);
+    }
+  }
 
   // 通用：有契约+空 inbox → 注入启动消息
   injectStartupMessage(dir);

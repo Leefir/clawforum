@@ -1193,6 +1193,10 @@ export class ContractManager {
     const motionDir = path.resolve(this.motionInboxDir, '..', '..');
     const streamPath = path.join(motionDir, 'stream.jsonl');
     const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype, ...data }) + '\n';
-    fsNative.promises.appendFile(streamPath, line).catch(() => { /* best-effort：跨服务器或文件不存在时静默失败 */ });
+    fsNative.promises.appendFile(streamPath, line).catch((e: any) => {
+      if (e?.code !== 'ENOENT') {
+        console.warn(`[contract] _notifyMotionStream failed (${e?.code}): ${e?.message}`);
+      }
+    });
   }
 }

@@ -24,15 +24,15 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 const BOOTSTRAP_SUBTASKS = [
   {
     id: 'language',
-    description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to memory/USER.md.',
+    description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to USER.md.',
   },
   {
     id: 'identity',
-    description: 'Figure out who you are: name, vibe, emoji. Talk it through with the user naturally. Write the result to memory/IDENTITY.md.',
+    description: 'Figure out who you are: name, vibe, emoji. Talk it through with the user naturally. Write the result to IDENTITY.md.',
   },
   {
     id: 'user',
-    description: 'Learn who they are: name, how to address them, any relevant context. Write to memory/USER.md.',
+    description: 'Learn who they are: name, how to address them, any relevant context. Write to USER.md.',
   },
   {
     id: 'soul',

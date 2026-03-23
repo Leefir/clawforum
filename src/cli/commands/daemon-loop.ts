@@ -219,7 +219,9 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             try {
               const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype: 'llm_error', clawId, error: errMsg }) + '\n';
               fsNative.appendFileSync(path.join(notifyMotionDir, 'stream.jsonl'), line);
-            } catch { /* best-effort */ }
+            } catch (notifyErr) {
+              console.warn(`${label} Failed to notify motion stream: ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`);
+            }
             // inbox notification for motion LLM
             try {
               writeInboxMessage({
@@ -230,7 +232,9 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
                 body: `Claw ${clawId} LLM error after ${LLM_MAX_RETRIES} retries: ${errMsg}`,
                 idPrefix: 'llm-error',
               });
-            } catch { /* best-effort */ }
+            } catch (notifyErr) {
+              console.warn(`${label} Failed to notify motion inbox: ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`);
+            }
           }
           await waitForInbox(inboxPendingDir, fallbackTimeout);
         }
