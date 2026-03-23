@@ -28,7 +28,7 @@ export interface DaemonLoopOptions {
 /**
  * Wait for a new file to appear in the inbox directory, or until timeout.
  */
-function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promise<void> {
+export function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promise<void> {
   return new Promise(resolve => {
     let watcher: ReturnType<typeof fsNative.watch> | null = null;
     let settled = false;

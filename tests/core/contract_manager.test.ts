@@ -697,4 +697,52 @@ describe('ContractManager', () => {
       expect(CONTRACT_VERIFIER_MAX_STEPS).toBe(50);
     });
   });
+
+  // ─── fix 6: double-catch on background acceptance error ───────────────────
+  describe('fix 6 — background acceptance double-catch', () => {
+    it('when _runAcceptanceInBackground and _writeAcceptanceError both throw, monitor logs both errors without unhandled rejection', async () => {
+      const mockLog = vi.fn();
+      const monitorFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
+      const monitorManager = new ContractManager(CLAW_DIR, monitorFs, {
+        log: mockLog,
+        logLLMCall: vi.fn(),
+        logToolCall: vi.fn(),
+        logFileOperation: vi.fn(),
+        logError: vi.fn(),
+        flush: vi.fn().mockResolvedValue(undefined),
+        query: vi.fn().mockResolvedValue([]),
+      } as any);
+
+      // Create a real contract with a script acceptance
+      const contractId = await monitorManager.create({
+        schema_version: 1,
+        title: 'Fix6 Test',
+        goal: 'test',
+        deliverables: [],
+        subtasks: [{ id: 'sub1', description: 'subtask' }],
+        acceptance: [{ subtask_id: 'sub1', type: 'script', script_file: 'acceptance/sub1.sh' }],
+        auth_level: 'auto',
+      });
+
+      // Force _runAcceptanceInBackground to throw
+      vi.spyOn(monitorManager as any, '_runAcceptanceInBackground')
+        .mockRejectedValue(new Error('primary failure'));
+
+      // Force _writeAcceptanceError to also throw — this is what fix 6 guards
+      vi.spyOn(monitorManager as any, '_writeAcceptanceError')
+        .mockRejectedValue(new Error('write error'));
+
+      // Trigger the background path via completeSubtask
+      await monitorManager.completeSubtask({ contractId, subtaskId: 'sub1', evidence: 'evidence' });
+
+      // Give microtasks time to settle
+      await new Promise(r => setTimeout(r, 50));
+
+      // monitor.log should be called with the errorWrite context
+      expect(mockLog).toHaveBeenCalledWith(
+        'error',
+        expect.objectContaining({ context: 'ContractManager.backgroundAcceptance.errorWrite' }),
+      );
+    });
+  });
 });

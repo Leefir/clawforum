@@ -620,4 +620,68 @@ describe('ReAct Loop', () => {
 
     errorSpy.mockRestore();
   });
+
+  // ─── fix 2: callback exception guards ─────────────────────────────────────
+  describe('callback exception guards', () => {
+    it('onBeforeLLMCall throwing does not abort runReact', async () => {
+      (mockLLM.call as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(createTextResponse('hello'));
+
+      const result = await runReact({
+        messages: [{ role: 'user', content: 'hi' }],
+        systemPrompt: 'test',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+        maxSteps: 5,
+        onBeforeLLMCall: () => { throw new Error('cb error'); },
+      });
+
+      expect(result.finalText).toBe('hello');
+    });
+
+    it('onToolCall throwing does not abort runReact', async () => {
+      (mockLLM.call as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(createToolUseResponse('read', { path: 'f.txt' }))
+        .mockResolvedValueOnce(createTextResponse('done'));
+      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        content: 'file contents',
+      });
+
+      const result = await runReact({
+        messages: [{ role: 'user', content: 'read a file' }],
+        systemPrompt: 'test',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+        maxSteps: 5,
+        onToolCall: () => { throw new Error('cb error'); },
+      });
+
+      expect(result.finalText).toBe('done');
+    });
+
+    it('onToolResult throwing does not abort runReact', async () => {
+      (mockLLM.call as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(createToolUseResponse('read', { path: 'f.txt' }))
+        .mockResolvedValueOnce(createTextResponse('done'));
+      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        content: 'file contents',
+      });
+
+      const result = await runReact({
+        messages: [{ role: 'user', content: 'read a file' }],
+        systemPrompt: 'test',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+        maxSteps: 5,
+        onToolResult: () => { throw new Error('cb error'); },
+      });
+
+      expect(result.finalText).toBe('done');
+    });
+  });
 });

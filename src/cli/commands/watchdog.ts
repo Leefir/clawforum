@@ -115,7 +115,7 @@ function getGlobalConfig() {
 }
 
 // Check for claws with an active contract but no progress for a long time, and send a reminder
-function maybeCronClawInactivity(pm: ProcessManager): void {
+export function maybeCronClawInactivity(pm: ProcessManager): void {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
   const clawsDir = path.join(getClawforumDir(), 'claws');
   if (!fs.existsSync(clawsDir)) return;
