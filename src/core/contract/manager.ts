@@ -130,15 +130,16 @@ export class ContractManager {
    * Uses writeAtomic + exists check to simulate exclusive creation
    */
   private async acquireLock(lockPath: string): Promise<void> {
+    const absoluteLockPath = path.join(this.clawDir, lockPath);
+    // 路径安全：确保解析后的路径仍在 clawDir 内
+    if (!absoluteLockPath.startsWith(this.clawDir + path.sep) && absoluteLockPath !== this.clawDir) {
+      throw new ToolError(`Lock path escapes clawDir: ${lockPath}`);
+    }
+    await fsNative.promises.mkdir(path.dirname(absoluteLockPath), { recursive: true });
+
     for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
       try {
         // wx flag = O_EXCL: 文件存在时原子性失败，无 TOCTOU
-        const absoluteLockPath = path.join(this.clawDir, lockPath);
-        // 路径安全：确保解析后的路径仍在 clawDir 内
-        if (!absoluteLockPath.startsWith(this.clawDir + path.sep) && absoluteLockPath !== this.clawDir) {
-          throw new ToolError(`Lock path escapes clawDir: ${lockPath}`);
-        }
-        await fsNative.promises.mkdir(path.dirname(absoluteLockPath), { recursive: true });
         await fsNative.promises.writeFile(
           absoluteLockPath,
           JSON.stringify({ pid: process.pid, time: Date.now() }),
@@ -147,7 +148,25 @@ export class ContractManager {
         return; // 成功获取锁
       } catch (err: any) {
         if (err?.code !== 'EEXIST') throw err; // 非竞争错误，向上抛
-        // EEXIST = 锁被其他进程持有，等待重试
+
+        // EEXIST：尝试检测 stale lock（持有者进程已死）
+        try {
+          const raw = await fsNative.promises.readFile(absoluteLockPath, 'utf-8');
+          const { pid } = JSON.parse(raw) as { pid: number; time: number };
+          let isAlive = true;
+          try { process.kill(pid, 0); } catch { isAlive = false; }
+          if (!isAlive) {
+            // 持有者已死，清理 stale lock 后立即重试（不计入重试次数）
+            await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
+            continue;
+          }
+        } catch {
+          // 读取或解析失败：lock 文件损坏，清理后重试
+          await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
+          continue;
+        }
+
+        // 持有者还活着，等待后重试
         if (i < LOCK_MAX_RETRIES - 1) {
           await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY_MS));
         }

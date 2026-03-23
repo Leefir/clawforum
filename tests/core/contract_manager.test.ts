@@ -393,9 +393,9 @@ describe('ContractManager', () => {
       auth_level: 'auto' as const,
     });
 
-    // 写入锁文件，不释放
+    // 写入锁文件（持有者 = 当前进程，模拟活跃锁），不释放
     const lockPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.lock');
-    await fs.writeFile(lockPath, '{}', 'utf-8');
+    await fs.writeFile(lockPath, JSON.stringify({ pid: process.pid, time: Date.now() }), 'utf-8');
 
     // acquireLock retries LOCK_MAX_RETRIES=3 times then throws
     await expect(manager.pause(contractId, 'checkpoint'))
