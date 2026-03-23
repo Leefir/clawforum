@@ -223,6 +223,10 @@ Work efficiently and return a clear, concise result.`;
         timeoutPromise,
       ]);
 
+      // race 结束：若 runReact 先完成，abort 释放挂起的 timeout/idle promise 引用
+      timeoutController.abort();
+      clearTimeout(idleTimerId);
+
       // Log completion
       const duration = Date.now() - startTime;
       await this.appendToLog(`=== Completed in ${duration}ms ===\n`);
