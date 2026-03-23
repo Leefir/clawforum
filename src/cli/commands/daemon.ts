@@ -150,9 +150,15 @@ export async function daemonCommand(name: string): Promise<void> {
       // 忽略停止错误
     }
     streamWriter.close();
-    // 清理 PID 文件和 lockfile
-    try { fsNative.unlinkSync(pidFile); } catch {}
-    try { fsNative.unlinkSync(lockFile); } catch {}
+    // 清理 PID 文件和 lockfile（只有文件仍属于本进程才删除，防止误删新 daemon 的文件）
+    try {
+      const storedPid = fsNative.readFileSync(pidFile, 'utf-8').trim();
+      if (storedPid === String(process.pid)) fsNative.unlinkSync(pidFile);
+    } catch {}
+    try {
+      const storedLockPid = fsNative.readFileSync(lockFile, 'utf-8').trim();
+      if (storedLockPid === String(process.pid)) fsNative.unlinkSync(lockFile);
+    } catch {}
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
