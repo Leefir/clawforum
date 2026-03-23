@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../config.js';
@@ -401,13 +401,29 @@ export async function daemonCommand(): Promise<void> {
 
 // Start command
 export async function startCommand(): Promise<void> {
-  if (isWatchdogAlive()) {
-    const pid = getWatchdogPid();
-    console.log(`Watchdog is already running (PID: ${pid})`);
-    console.log('   Use "watchdog stop" first if you want to restart.');
-    return;
-  }
-  
+  // Cleanup: kill any existing watchdog processes (orphaned watchdogs)
+  const pattern = 'watchdog-entry.js';
+  try {
+    const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
+    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
+    const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
+    let killedAny = false;
+    for (const pid of pids) {
+      try {
+        process.kill(pid, 'SIGTERM');
+        killedAny = true;
+      } catch (err: any) {
+        if (err?.code !== 'ESRCH') {
+          console.warn(`[watchdog] Failed to SIGTERM orphaned PID ${pid}: ${err?.message}`);
+        }
+      }
+    }
+    if (killedAny) {
+      console.log('[watchdog] Terminated orphaned watchdog process(es), waiting 2s...');
+      await setTimeout(2000);
+    }
+  } catch { /* pgrep failed or no matches, proceed */ }
+
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
   const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
   const watchdogEntryPath = existsSync(bundleEntry)
