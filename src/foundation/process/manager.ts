@@ -175,13 +175,18 @@ export class ProcessManager {
       const lockContent = readFileSync(lockFile, 'utf-8');
       const lockPid = parseInt(lockContent.trim(), 10);
       if (!isNaN(lockPid)) {
-        try {
-          process.kill(lockPid, 'SIGTERM');
-          // Wait for graceful exit
-          await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
-        } catch (err: any) {
-          if (err?.code !== 'ESRCH') {
-            console.warn(`[process] Failed to SIGTERM lock PID ${lockPid}: ${err?.message}`);
+        // Pre-check: only SIGTERM if the lock holder is still alive
+        let lockAlive = false;
+        try { process.kill(lockPid, 0); lockAlive = true; } catch {}
+        if (lockAlive) {
+          try {
+            process.kill(lockPid, 'SIGTERM');
+            // Wait for graceful exit
+            await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
+          } catch (err: any) {
+            if (err?.code !== 'ESRCH') {
+              console.warn(`[process] Failed to SIGTERM lock PID ${lockPid}: ${err?.message}`);
+            }
           }
         }
       }
