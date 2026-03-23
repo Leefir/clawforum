@@ -73,6 +73,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     tui.requestRender();
   };
 
+  // 状态栏组件（在 updateStatusBar 之前声明）
+  const statusBar = new Text('', 0, 0);
+
   const updateStatusBar = () => {
     let line = '';
     if (isMotion) {
@@ -200,8 +203,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
       case 'tool_result': {
         stopSpinner();
-        ownStep = event.step as number ?? ownStep;
-        ownMaxSteps = event.maxSteps as number ?? ownMaxSteps;
+        if (event.step != null) ownStep = event.step as number;
+        if (event.maxSteps != null) ownMaxSteps = event.maxSteps as number;
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
@@ -357,7 +360,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const refreshClawStatus = () => {
     if (!isMotion) return;
     let clawIds: string[] = [];
-    try { clawIds = fsNative.readdirSync(clawsDir); } catch { return; }
+    try { clawIds = fsNative.readdirSync(clawsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name); } catch { return; }
 
     for (const clawId of clawIds) {
       const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
@@ -527,7 +532,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     return undefined;
   });
 
-  const statusBar = new Text('', 0, 0);
   tui.addChild(outputText);
   tui.addChild(statusBar);
   tui.addChild(input);
