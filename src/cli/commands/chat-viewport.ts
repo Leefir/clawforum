@@ -256,11 +256,20 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       const stat = fsNative.statSync(streamPath);
       if (stat.size <= fileSize) return;
 
-      const buf = Buffer.alloc(stat.size - fileSize);
+      const toRead = stat.size - fileSize;
+      const buf = Buffer.alloc(toRead);
       const fd = fsNative.openSync(streamPath, 'r');
-      fsNative.readSync(fd, buf, 0, buf.length, fileSize);
-      fsNative.closeSync(fd);
-      fileSize = stat.size;
+      let bytesRead = 0;
+      try {
+        while (bytesRead < toRead) {
+          const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, fileSize + bytesRead);
+          if (n === 0) break;  // EOF（文件被截断）
+          bytesRead += n;
+        }
+      } finally {
+        fsNative.closeSync(fd);
+      }
+      fileSize += bytesRead;
 
       const chunk = leftover + buf.toString('utf-8');
       const lines = chunk.split('\n');
