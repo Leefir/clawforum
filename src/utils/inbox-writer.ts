@@ -66,8 +66,8 @@ timestamp: ${now.toISOString()}`;
   yaml += `\n---\n\n${opts.body}\n`;
 
   fsNative.mkdirSync(opts.inboxDir, { recursive: true });
-  fsNative.writeFileSync(
-    path.join(opts.inboxDir, `${ts}_${tag}_${uuid8}.md`),
-    yaml
-  );
+  const finalPath = path.join(opts.inboxDir, `${ts}_${tag}_${uuid8}.md`);
+  const tmpPath = finalPath + '.tmp';
+  fsNative.writeFileSync(tmpPath, yaml);
+  fsNative.renameSync(tmpPath, finalPath);
 }

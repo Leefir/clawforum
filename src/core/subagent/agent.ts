@@ -199,13 +199,22 @@ Work efficiently and return a clear, concise result.`;
             await this.appendToLog(`Tool called: ${name}\n`);
           },
           onStepComplete: async () => {
-            const entry = JSON.stringify({
-              step: auditStep,
-              ts: new Date().toISOString(),
-              tools: auditStepTools,
-              elapsedMs: Date.now() - auditStepStart,
-            });
-            await this.fs.append(stepsLogPath, entry + '\n');
+            try {
+              const entry = JSON.stringify({
+                step: auditStep,
+                ts: new Date().toISOString(),
+                tools: auditStepTools,
+                elapsedMs: Date.now() - auditStepStart,
+              });
+              await this.fs.append(stepsLogPath, entry + '\n');
+            } catch (err) {
+              this.monitor?.log('error', {
+                context: 'SubAgent.onStepComplete',
+                agentId: this.agentId,
+                error: err instanceof Error ? err.message : String(err),
+              });
+              // 不 throw — audit 失败不终止任务
+            }
             auditStep++;
             auditStepTools = [];
             auditStepStart = Date.now();

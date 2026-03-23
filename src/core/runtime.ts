@@ -377,17 +377,10 @@ export class ClawRuntime {
     // same-role messages, which are invalid in the Anthropic API.
     // user_chat messages are placed last so they aren't buried under system messages.
 
-    // When the user is actively chatting, heartbeats are noise — drop them to avoid
-    // the LLM getting sidetracked by the heartbeat checklist and ignoring the user reply.
-    const hasUserChat = fileInfos.some(info => (info.meta.type ?? 'message') === 'user_chat');
-    const effectiveInfos = hasUserChat
-      ? fileInfos.filter(info => (info.meta.type ?? 'message') !== 'heartbeat')
-      : fileInfos;
-
     const systemParts: string[] = [];
     const userChatParts: string[] = [];
     const sources: Array<{ text: string; type: string }> = [];
-    for (const info of effectiveInfos) {
+    for (const info of fileInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
       const type = info.meta.type ?? 'message';
       const formatted = await this.formatInboxMessage(type, from, info.body);
