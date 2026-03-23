@@ -375,20 +375,27 @@ export class ClawRuntime {
     // Build message injections (choose template by type)
     // All inbox messages are merged into a single user turn to prevent consecutive
     // same-role messages, which are invalid in the Anthropic API.
-    const formattedParts: string[] = [];
+    // user_chat messages are placed last so they aren't buried under system messages.
+    const systemParts: string[] = [];
+    const userChatParts: string[] = [];
     const sources: Array<{ text: string; type: string }> = [];
     for (const info of fileInfos) {
       const from = info.meta.from ?? info.meta.source ?? 'unknown';
       const type = info.meta.type ?? 'message';
       const formatted = await this.formatInboxMessage(type, from, info.body);
-      formattedParts.push(formatted);
+      if (type === 'user_chat') {
+        userChatParts.push(formatted);
+      } else {
+        systemParts.push(formatted);
+      }
       sources.push({
         text: formatted.replace(/\r?\n/g, ' ').slice(0, 80),
         type,
       });
     }
-    const injected: Message[] = formattedParts.length > 0
-      ? [{ role: 'user', content: formattedParts.join('\n\n') }]
+    const allParts = [...systemParts, ...userChatParts];
+    const injected: Message[] = allParts.length > 0
+      ? [{ role: 'user', content: allParts.join('\n\n') }]
       : [];
 
     // audit log: record each inbox message injection

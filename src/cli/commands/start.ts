@@ -24,7 +24,7 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 const BOOTSTRAP_SUBTASKS = [
   {
     id: 'language',
-    description: 'Ask the user which language they prefer to communicate in. Default to English until they specify. Remember the preference and use it for all future conversations. Write it to memory/USER.md.',
+    description: 'Ask the user which language they prefer. Use English for this question. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately and keep using it. Write the preference to memory/USER.md. Mark this subtask done once you know their language.',
   },
   {
     id: 'identity',

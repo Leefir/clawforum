@@ -240,6 +240,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // tail stream.jsonl
   let fileSize = 0;
+  let leftover = '';
   try {
     const stat = fsNative.statSync(streamPath);
     fileSize = stat.size;  // 从当前末尾开始（不 replay 历史）
@@ -261,15 +262,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       fsNative.closeSync(fd);
       fileSize = stat.size;
 
-      const lines = buf.toString('utf-8').split('\n');
+      const chunk = leftover + buf.toString('utf-8');
+      const lines = chunk.split('\n');
+      leftover = lines.pop() ?? '';  // 最后一段可能不完整，留待下次
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
           const event = JSON.parse(line);
           handleEvent(event);
         } catch {
-          // 跳过无效行（可能是流截断产生的半行，正常现象）
-          // 只在非空行时 warn，避免末尾空行误报
           if (line.trim().length > 2) {
             console.warn(`[chat] Failed to parse stream event: ${line.slice(0, 80)}`);
           }
@@ -278,6 +279,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     } catch {
       // 文件可能被截断（daemon 重启），重置
       fileSize = 0;
+      leftover = '';
     }
   };
 
