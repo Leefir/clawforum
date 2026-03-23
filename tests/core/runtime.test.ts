@@ -393,4 +393,113 @@ Test message
       await expect(runtime.resumeContractIfPaused()).resolves.not.toThrow();
     });
   });
+
+  // ─── inbox edge cases ────────────────────────────────────────────────────────
+
+  describe('_drainOwnInbox edge cases', () => {
+    async function makeRuntime() {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+      return runtime;
+    }
+
+    function writePendingMsg(pendingDir: string, filename: string, content: string) {
+      return fs.writeFile(path.join(pendingDir, filename), content);
+    }
+
+    function validMsgContent(id: string, body: string, priority = 'normal') {
+      return `---\nid: ${id}\ntype: message\nfrom: motion\npriority: ${priority}\ntimestamp: ${new Date().toISOString()}\n---\n\n${body}\n`;
+    }
+
+    it('non-.md files in inbox/pending trigger console.warn and are skipped', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // One valid message + one non-.md intruder
+      await writePendingMsg(pendingDir, 'valid.md', validMsgContent('v1', 'hello'));
+      await writePendingMsg(pendingDir, 'stray.tmp', 'not a markdown file');
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      const count = await runtime.processBatch();
+
+      // The .tmp file is skipped but the .md is processed
+      expect(count).toBe(1);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('stray.tmp'));
+      warnSpy.mockRestore();
+    });
+
+    it('malformed frontmatter .md files are silently skipped', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // Good message alongside broken one
+      await writePendingMsg(pendingDir, 'good.md', validMsgContent('g1', 'good'));
+      // File starts with --- but has no closing ---, so parseFrontmatter throws
+      await writePendingMsg(pendingDir, 'broken.md', '---\ntype: message\nno-closing-dashes-ever');
+
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      // Should not throw; only the good message is processed
+      await expect(runtime.processBatch()).resolves.toBe(1);
+    });
+
+    it('heartbeat type without HEARTBEAT.md returns base text', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // No HEARTBEAT.md in clawDir — heartbeat catch block returns base
+      await writePendingMsg(pendingDir, 'hb.md', `---\nid: hb1\ntype: heartbeat\nfrom: system\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\n`);
+
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'checked' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      await runtime.processBatch();
+
+      const callArgs = mockLLM.call.mock.calls[0][0];
+      const userMsg = callArgs.messages.find((m: { role: string }) => m.role === 'user');
+      expect(userMsg?.content).toContain('Heartbeat triggered');
+      // No checklist appended when HEARTBEAT.md is absent
+      expect(userMsg?.content).not.toContain('\n\n');
+    });
+
+    it('heartbeat type with HEARTBEAT.md appends checklist', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // Write HEARTBEAT.md to clawDir
+      await fs.writeFile(path.join(clawDir, 'HEARTBEAT.md'), '- Check disk space\n- Verify connections\n');
+
+      await writePendingMsg(pendingDir, 'hb.md', `---\nid: hb2\ntype: heartbeat\nfrom: system\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\n`);
+
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'done' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      await runtime.processBatch();
+
+      const callArgs = mockLLM.call.mock.calls[0][0];
+      const userMsg = callArgs.messages.find((m: { role: string }) => m.role === 'user');
+      expect(userMsg?.content).toContain('Heartbeat triggered');
+      expect(userMsg?.content).toContain('Check disk space');
+    });
+  });
 });

@@ -179,4 +179,45 @@ describe('OutboxScanner', () => {
     );
     warnSpy.mockRestore();
   });
+
+  it('should skip claw whose outbox/pending is a file (not a directory)', () => {
+    // claw1: outbox/pending is a FILE → readdirSync throws ENOTDIR → swallowed silently
+    const claw1Dir = path.join(tempDir, 'claws', 'claw1');
+    fs.mkdirSync(path.join(claw1Dir, 'outbox'), { recursive: true });
+    fs.writeFileSync(path.join(claw1Dir, 'outbox', 'pending'), 'i am a file not a dir');
+
+    // claw2: valid outbox with one message → should still be counted
+    const claw2Dir = path.join(tempDir, 'claws', 'claw2');
+    fs.mkdirSync(path.join(claw2Dir, 'outbox', 'pending'), { recursive: true });
+    fs.writeFileSync(path.join(claw2Dir, 'outbox', 'pending', 'msg.md'), 'test');
+
+    scanClawOutboxes(tempDir);
+
+    const motionInbox = path.join(tempDir, 'motion', 'inbox', 'pending');
+    const files = fs.readdirSync(motionInbox).filter(f => f.endsWith('.md'));
+    expect(files.length).toBe(1);
+
+    const content = fs.readFileSync(path.join(motionInbox, files[0]), 'utf-8');
+    // Only claw2 counted; claw1's error was silently swallowed
+    expect(content).toContain('claw2(1)');
+    expect(content).not.toContain('claw1');
+  });
+
+  it('should log warn when inbox pending dir cannot be read for dedup (dir replaced by file)', () => {
+    // Create a claw with outbox messages
+    const claw1Dir = path.join(tempDir, 'claws', 'claw1');
+    fs.mkdirSync(path.join(claw1Dir, 'outbox', 'pending'), { recursive: true });
+    fs.writeFileSync(path.join(claw1Dir, 'outbox', 'pending', 'msg.md'), 'content');
+
+    // Place a FILE at motion/inbox so mkdirSync for motion/inbox/pending fails → outer catch
+    const motionDir = path.join(tempDir, 'motion');
+    fs.mkdirSync(motionDir, { recursive: true });
+    fs.writeFileSync(path.join(motionDir, 'inbox'), 'i block the dir creation');
+
+    // The outer catch should swallow the error and write to stderr (not throw)
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    expect(() => scanClawOutboxes(tempDir)).not.toThrow();
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[OutboxScanner]'));
+    stderrSpy.mockRestore();
+  });
 });

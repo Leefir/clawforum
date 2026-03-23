@@ -3,7 +3,7 @@
  *
  * 测试通过 public API 进行，不直接调用 private 方法
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
@@ -165,6 +165,27 @@ describe('ProcessManager', () => {
         expect(err.message).toContain('busy-claw');
         expect(err.message).toContain('already running');
       }
+    });
+
+    it('empty PID file triggers console.warn about possible concurrent spawn', async () => {
+      const pm = new ProcessManager(nodeFs, tempDir);
+      const clawDir = path.join(tempDir, 'claws', 'empty-pid-claw');
+      const pidFile = path.join(clawDir, 'status', 'pid');
+
+      // Pre-create an EMPTY PID file (simulates in-progress spawn by another process)
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      await fs.writeFile(pidFile, '', 'utf-8');
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Use 'node --version' as a harmless stand-in; the important thing is the warn happens
+      // before the actual spawn, so even if spawn fails afterward that's fine.
+      await pm.spawn('empty-pid-claw', clawDir, ['--version']).catch(() => {});
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Empty PID file'),
+      );
+      warnSpy.mockRestore();
     });
   });
 
