@@ -540,6 +540,33 @@ Test message
       expect(skipEntry).toBeDefined();
       expect(skipEntry.to).toBe('some-subagent-uuid');
     });
+
+    it('should return 0 and not call LLM when all inbox messages are addressed to other agents', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // Both messages are addressed to other agents, not to 'test-claw'
+      await writePendingMsg(
+        pendingDir,
+        'not-for-me-1.md',
+        `---\nid: msg1\ntype: message\nfrom: task_system\nto: some-subagent-uuid\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\nSubagent result`,
+      );
+      await writePendingMsg(
+        pendingDir,
+        'not-for-me-2.md',
+        `---\nid: msg2\ntype: message\nfrom: task_system\nto: another-subagent\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\nAnother result`,
+      );
+
+      const mockLLM = createMockLLM([]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      const count = await runtime.processBatch();
+
+      // count fix: returns injectedInfos.length (0), not fileInfos.length (2)
+      expect(count).toBe(0);
+      // No LLM turn should be triggered
+      expect(mockLLM.call).not.toHaveBeenCalled();
+    });
   });
 
   // ─── retryLastTurn() ──────────────────────────────────────────────────────

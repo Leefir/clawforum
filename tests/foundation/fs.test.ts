@@ -261,6 +261,17 @@ describe('FileSystem', () => {
       await fsNoPerm.writeAtomic('dialog/test.txt', 'test');
       expect(await fsNoPerm.read('dialog/test.txt')).toBe('test');
     });
+
+    it('should allow write to USER.md, IDENTITY.md, SOUL.md in clawDir root', async () => {
+      // These files are written by Motion during Bootstrap onboarding
+      await expect(fs.writeAtomic('USER.md', 'user content')).resolves.not.toThrow();
+      await expect(fs.writeAtomic('IDENTITY.md', 'identity content')).resolves.not.toThrow();
+      await expect(fs.writeAtomic('SOUL.md', 'soul content')).resolves.not.toThrow();
+
+      expect(await fs.read('USER.md')).toBe('user content');
+      expect(await fs.read('IDENTITY.md')).toBe('identity content');
+      expect(await fs.read('SOUL.md')).toBe('soul content');
+    });
   });
   
   describe('DirectoryQueue', () => {

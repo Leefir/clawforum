@@ -46,12 +46,10 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
     fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
   } catch { /* daemon 未运行时忽略 */ }
 
-  // 写 origin claw（独立 best-effort）
-  const originId = process.env.CLAW_ORIGIN_ID;
-  if (originId && originId !== clawId) {
+  // 若非 motion 自身的契约，通知 motion viewport（不依赖 CLAW_ORIGIN_ID env var）
+  if (clawId !== MOTION_CLAW_ID) {
     try {
-      const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
-      fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
+      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
     } catch { /* best-effort */ }
   }
 
@@ -108,12 +106,10 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
     fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
   } catch { /* daemon 未运行时忽略 */ }
 
-  // 写 origin claw（独立 best-effort）
-  const originId = process.env.CLAW_ORIGIN_ID;
-  if (originId && originId !== clawId) {
+  // 若非 motion 自身的契约，通知 motion viewport（不依赖 CLAW_ORIGIN_ID env var）
+  if (clawId !== MOTION_CLAW_ID) {
     try {
-      const originDir = originId === MOTION_CLAW_ID ? getMotionDir() : getClawDir(originId);
-      fsNative.appendFileSync(path.join(originDir, 'stream.jsonl'), line);
+      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
     } catch { /* best-effort */ }
   }
 
