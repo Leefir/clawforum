@@ -221,6 +221,44 @@ describe('LLMService - stream failover', () => {
     expect(caughtError).toBeInstanceOf(LLMError);
     expect(caughtError!.message).toContain('All providers failed');
   });
+
+  it('should try primary again on next call even if previous streaming used fallback', async () => {
+    let primaryAttempts = 0;
+
+    const primary = createMockProvider('primary', async function* () {
+      primaryAttempts++;
+      if (primaryAttempts === 1) {
+        throw new Error('primary down');  // 第一次失败
+      }
+      yield { type: 'text_delta', delta: 'primary back' } as StreamChunk;
+      yield { type: 'done' } as StreamChunk;
+    });
+
+    const fallback = createMockProvider('fallback', async function* () {
+      yield { type: 'text_delta', delta: 'fallback ok' } as StreamChunk;
+      yield { type: 'done' } as StreamChunk;
+    });
+
+    const service = new LLMService({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = primary;
+    (service as any).fallbacks = [fallback];
+
+    // First call: primary fails, fallback succeeds
+    const chunks1: StreamChunk[] = [];
+    for await (const chunk of service.stream({ messages: [] })) chunks1.push(chunk);
+    expect(chunks1.some(c => 'delta' in c && c.delta === 'fallback ok')).toBe(true);
+
+    // Second call: primary must be tried again (regression test for startIndex bug)
+    const chunks2: StreamChunk[] = [];
+    for await (const chunk of service.stream({ messages: [] })) chunks2.push(chunk);
+    expect(primaryAttempts).toBe(2);  // old bug: primary was skipped, this would be 1
+    expect(chunks2.some(c => 'delta' in c && c.delta === 'primary back')).toBe(true);
+  });
 });
 
 // Phase 20: Circuit Breaker

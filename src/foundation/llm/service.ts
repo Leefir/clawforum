@@ -264,11 +264,8 @@ export class LLMService implements ILLMService {
       { adapter: this.primary, breakerIndex: 0 },
       ...this.fallbacks.map((fb, i) => ({ adapter: fb, breakerIndex: i + 1 })),
     ];
-    
-    // Get starting index based on current provider
-    const startIndex = this.currentProviderIndex === -1 ? 0 : this.currentProviderIndex + 1;
-    
-    for (let pi = startIndex; pi < providers.length; pi++) {
+
+    for (let pi = 0; pi < providers.length; pi++) {
       const { adapter: provider, breakerIndex } = providers[pi];
       
       if (!provider.stream) continue;

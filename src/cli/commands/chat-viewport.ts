@@ -54,7 +54,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let inTurn = false;  // daemon 是否正在处理 turn（用于 ESC 中断判断）
 
   type ThinkingMode = 'line' | 'full' | 'none';
-  let thinkingMode: ThinkingMode = 'line';
+  let thinkingMode: ThinkingMode = 'full';
 
   // Braille spinner 动画
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -222,24 +222,25 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const sub = event.subtype as string;
         const subtaskId = event.subtaskId as string;
         if (sub === 'contract_created') {
+          const claw = (event.clawId as string) ?? '';
+          if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const title = (event.title as string) ?? '';
           const count = (event.subtaskCount as number) ?? 0;
-          const claw = (event.clawId as string) ?? '';
-          const forClaw = claw ? ` for ${claw}` : '';
-          appendOutput(`\x1b[2m  ✓ [contract] "${title}" created${forClaw} (${count} subtasks)\x1b[0m`);
+          appendOutput(`\x1b[2m  ✓ [contract] "${title}" created for ${claw} (${count} subtasks)\x1b[0m`);
         } else if (sub === 'subtask_completed') {
           const claw = (event.clawId as string) ?? '';
+          if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const completed = event.completedCount as number | undefined;
           const total = event.subtaskTotal as number | undefined;
           const progress = completed && total ? `, ${completed} of ${total}` : '';
-          const clawSuffix = claw ? ` (${claw})` : '';
-          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${progress}${clawSuffix}\x1b[0m`);
+          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${progress} (${claw})\x1b[0m`);
         } else if (sub === 'acceptance_failed') {
           const claw = (event.clawId as string) ?? '';
+          if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          const forClaw = claw ? ` (${claw})` : '';
-          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb}${forClaw}\x1b[0m`);
+          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})\x1b[0m`);
         } else if (sub === 'llm_error') {
+          // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
           const errMsg = (event.error as string) ?? '';
           const forClaw = claw ? ` (${claw})` : '';

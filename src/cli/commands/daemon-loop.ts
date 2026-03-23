@@ -104,7 +104,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               type: 'startup_check',
               source: 'daemon',
               priority: 'high',
-              body: '[system message] 系统启动。请检查活跃契约并继续执行。',
+              body: '系统启动。请检查活跃契约并继续执行。',
               filenameTag: 'startup_check',
             });
           }
