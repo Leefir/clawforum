@@ -35,7 +35,11 @@ export class StreamWriter {
   write(event: StreamEvent): void {
     if (this.fd === null) return;
     const line = JSON.stringify(event) + '\n';
-    fsNative.writeSync(this.fd, line);
+    try {
+      fsNative.writeSync(this.fd, line);
+    } catch (err) {
+      console.error('[StreamWriter] write failed:', err instanceof Error ? err.message : String(err));
+    }
   }
 
   /** daemon 关闭时调用 */
