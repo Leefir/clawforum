@@ -424,7 +424,7 @@ export class ClawRuntime {
       ? [{ role: 'user', content: allParts.join('\n\n') }]
       : [];
 
-    return { injected, sources, count: fileInfos.length };
+    return { injected, sources, count: injectedInfos.length };
   }
 
   /**

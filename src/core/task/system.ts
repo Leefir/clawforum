@@ -310,19 +310,7 @@ export class TaskSystem {
       if (task.kind === 'tool') {
         const callback = this.pendingCallbacks.get(task.id);
         this.pendingCallbacks.delete(task.id); // Clean up
-        
-        if (callback) {
-          await this.executeToolTask(task, callback, signal);
-        } else {
-          // Recovery case: callback lost after restart
-          await this.sendToolResult(
-            task, 
-            'Task failed: daemon restarted while task was pending. Please re-submit the task.', 
-            true
-          );
-          // Move to done
-          await this.moveTaskToDone(task.id);
-        }
+        await this.executeToolTask(task, callback!, signal);
       } else {
         await this.executeTask(task, signal);
       }
