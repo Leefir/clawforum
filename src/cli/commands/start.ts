@@ -24,7 +24,7 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 const BOOTSTRAP_SUBTASKS = [
   {
     id: 'language',
-    description: 'Ask the user which language they prefer. Use English for this question. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately and keep using it. Write the preference to memory/USER.md. Mark this subtask done once you know their language.',
+    description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to memory/USER.md.',
   },
   {
     id: 'identity',
@@ -159,7 +159,7 @@ async function _start(): Promise<void> {
     // Create Bootstrap contract from scratch
     const contractId = await manager.create({
       title: 'Bootstrap',
-      goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
+      goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk. Start all messages in English until the language subtask is complete.',
       subtasks: BOOTSTRAP_SUBTASKS,
       acceptance: [],
     });

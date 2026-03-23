@@ -230,10 +230,13 @@ export class ProcessManager {
     const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
 
     try {
+      // Set CLAWFORUM_ROOT so the daemon always finds the config regardless of CWD.
+      // baseDir is the .clawforum directory; its parent is the workspace root.
+      const workspaceRoot = path.dirname(this.baseDir);
       const proc = spawn('node', finalArgs, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
-        env: { ...process.env },
+        env: { ...process.env, CLAWFORUM_ROOT: workspaceRoot },
       });
       
       // Let the child process run independently, without blocking the parent from exiting
