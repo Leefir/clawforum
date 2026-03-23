@@ -33,6 +33,7 @@ import {
   daemonCommand as watchdogDaemonCommand,
 } from './commands/watchdog.js';
 import { configCommand } from './commands/config.js';
+import { stopAllCommand } from './commands/stop.js';
 
 program
   .name('clawforum')
@@ -41,6 +42,19 @@ program
 
 // config command
 program.addCommand(configCommand);
+
+// stop command
+program
+  .command('stop')
+  .description('Stop all clawforum processes (watchdog → motion → claws)')
+  .action(async () => {
+    try {
+      await stopAllCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
 
 // start command
 program

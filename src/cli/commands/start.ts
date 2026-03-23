@@ -40,11 +40,11 @@ const BOOTSTRAP_SUBTASKS = [
   },
   {
     id: 'first-claw',
-    description: 'Help the user create their first Claw. Ask what task or project they want to start with — a Claw is a dedicated context window for ongoing work. Run both commands: exec: clawforum claw create <name>, then exec: clawforum claw daemon <name>',
+    description: 'Help the user create their first Claw. Ask what task or project they want to work on. A Claw is a separate context window for a specific ongoing task — all Claws have identical capabilities, they just handle different work. Run both commands: exec: clawforum claw create <name>, then exec: clawforum claw daemon <name>',
   },
   {
     id: 'first-contract',
-    description: 'Help the user assign the first contract to their new Claw. Ask what they want to get done, then create a contract for it.',
+    description: 'Help the user assign the first contract to their new Claw. Ask what they want to get done, then create the contract via dispatch: { "task": "为 <claw-name> 创建契约：<task description>" }',
   },
   {
     id: 'ready',
