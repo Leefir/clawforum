@@ -429,7 +429,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     return undefined;
   });
 
+  const statusBar = new Text('', 0, 0);
   tui.addChild(outputText);
+  tui.addChild(statusBar);
   tui.addChild(input);
   tui.setFocus(input);
   tui.start();
