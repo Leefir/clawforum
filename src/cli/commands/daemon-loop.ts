@@ -10,7 +10,7 @@ import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
-import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS } from '../../constants.js';
+import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 export interface DaemonLoopOptions {
@@ -66,6 +66,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   let stopped = false;
   let startupFired = false;
+  let lastOutboxNotifyTs = 0;
 
   // LLM failure retry state
   const LLM_ERROR_PATTERN = /all providers failed/i;
@@ -119,7 +120,22 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
       // motion: scan claw outboxes for unread messages
       if (options.heartbeat) {
-        scanClawOutboxes(path.join(agentDir, '..'));
+        const outboxSummary = scanClawOutboxes(path.join(agentDir, '..'));
+        if (outboxSummary !== null) {
+          if (Date.now() - lastOutboxNotifyTs >= OUTBOX_NOTIFY_COOLDOWN_MS) {
+            lastOutboxNotifyTs = Date.now();
+            writeInboxMessage({
+              inboxDir: inboxPendingDir,
+              type: 'claw_outbox',
+              source: 'system',
+              priority: 'normal',
+              body: `未处理 claw outbox: ${outboxSummary}`,
+              filenameTag: 'claw_outbox',
+            });
+          }
+        } else {
+          lastOutboxNotifyTs = 0;  // outbox 已清空，重置静默期
+        }
       }
 
       let turnStarted = false;

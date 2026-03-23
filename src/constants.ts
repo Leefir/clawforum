@@ -122,6 +122,9 @@ export const DAEMON_FALLBACK_TIMEOUT_MS = 30000;
 /** Delay after interrupt recovery before processing next message (ms) */
 export const INTERRUPT_RECOVERY_DELAY_MS = 1000;
 
+/** Silence period between claw outbox notifications to motion (ms) — 5 minutes */
+export const OUTBOX_NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
+
 // ----------------------------------------------------------------------------
 // LLM Stream
 // ----------------------------------------------------------------------------

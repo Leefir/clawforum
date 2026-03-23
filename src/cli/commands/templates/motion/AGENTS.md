@@ -250,3 +250,4 @@ exec: clawforum contract create --claw {clawId} --file clawspace/{yaml-filename}
 - **回复 `[user inbox message]`**：用户不在 chat 面前，使用 `write` 工具写 outbox（`outbox/pending/{filename}.md`），用户下次查看时会收到。
 - **对 Claw**：通过 `exec: clawforum claw send <claw-id> "<message>"` 发消息。
 - **对自己**：写 MEMORY.md（长期记忆）、clawspace/ 下的工作文件。
+- **格式**：用户 TUI 不渲染 markdown，回复用户时用纯文本，避免 **bold**、# 标题、- 列表、`代码块` 等格式。

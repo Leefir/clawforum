@@ -82,9 +82,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       for (const [id, t] of clawTrackMap) {
         if (t.active) parts.push(`⬡ ${id} #${t.turnCount} [${t.step}/${t.maxSteps}]`);
       }
-      line = parts.length > 0 ? `\x1b[2m${parts.join('  ')}\x1b[0m` : '';
+      line = parts.length > 0 ? `\x1b[38;5;147m${parts.join('  ')}\x1b[0m` : '';
     } else if (inTurn) {
-      line = `\x1b[2m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`;
+      line = `\x1b[38;5;147m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`;
     }
     statusBar.setText(line);
   };
