@@ -218,8 +218,15 @@ describe('startDaemonLoop - LLM retry', () => {
 
     expect(appendSpy).toHaveBeenCalledWith(
       path.join(notifyMotionDir, 'stream.jsonl'),
-      expect.stringContaining('"llm_error"'),
+      expect.any(String),
     );
+    const appendedLine: string = appendSpy.mock.calls[0][1] as string;
+    const event = JSON.parse(appendedLine.trim());
+    expect(event.type).toBe('user_notify');
+    expect(event.subtype).toBe('llm_error');
+    expect(event.clawId).toBe('agent-max-retry');
+    expect(typeof event.error).toBe('string');
+    expect(typeof event.ts).toBe('number');
     expect(vi.mocked(writeInboxMessage)).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'watchdog_claw_llm_error' }),
     );

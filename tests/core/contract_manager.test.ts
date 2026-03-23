@@ -779,10 +779,13 @@ describe('ContractManager', () => {
         subtaskTotal: 4,
       });
 
-      // appendFile is async best-effort — flush the microtask queue
-      await new Promise(r => setTimeout(r, 20));
-
+      // appendFile is async best-effort — poll until the file appears (up to 2s)
       const streamPath = path.join(motionTmpDir, 'stream.jsonl');
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        try { await fs.access(streamPath); break; } catch { /* not yet */ }
+        await new Promise(r => setTimeout(r, 20));
+      }
       const content = await fs.readFile(streamPath, 'utf-8');
       const event = JSON.parse(content.trim());
 

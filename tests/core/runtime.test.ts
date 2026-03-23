@@ -556,6 +556,36 @@ Test message
       expect(callArg.messages.length).toBeGreaterThan(0);
     });
 
+    it('cleans up AbortController even when _runReact throws', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Build a session first
+      const setupLLM = createMockLLM([
+        { content: [{ type: 'text', text: 'setup' }], stop_reason: 'end_turn' },
+      ]);
+      (runtime as unknown as { llm: typeof setupLLM }).llm = setupLLM;
+      await runtime.chat('setup');
+
+      // Replace LLM with one that throws
+      const failingLLM = {
+        call: vi.fn().mockRejectedValue(new Error('LLM network error')),
+        stream: vi.fn().mockImplementation(async function* () { throw new Error('LLM network error'); }),
+        close: vi.fn(),
+        healthCheck: vi.fn().mockResolvedValue(true),
+      };
+      (runtime as unknown as { llm: typeof failingLLM }).llm = failingLLM;
+
+      await expect(runtime.retryLastTurn()).rejects.toThrow('LLM network error');
+
+      // finally block must have cleared the AbortController
+      expect((runtime as unknown as { currentAbortController: unknown }).currentAbortController).toBeNull();
+    });
+
     it('cleans up AbortController on successful completion', async () => {
       const runtime = new ClawRuntime({
         clawId: 'test-claw',
