@@ -60,7 +60,7 @@ function getWatchdogPid(): number | null {
   }
 }
 
-function isWatchdogAlive(): boolean {
+export function isWatchdogAlive(): boolean {
   const pid = getWatchdogPid();
   if (!pid) return false;
   try {

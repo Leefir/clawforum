@@ -20,6 +20,7 @@ import { ContractManager } from '../../core/contract/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
+import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 
 const BOOTSTRAP_SUBTASKS = [
   {
@@ -140,6 +141,10 @@ async function _start(): Promise<void> {
       await pm.spawn('motion', motionDir);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
+    // Ensure watchdog is running for crash recovery
+    if (!isWatchdogAlive()) {
+      await watchdogStartCommand();
+    }
     await motionChatCommand();
     return;
   }
@@ -149,6 +154,10 @@ async function _start(): Promise<void> {
   if (!pm.isAlive('motion')) {
     await pm.spawn('motion', motionDir);
     await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
+  }
+  // Ensure watchdog is running for crash recovery
+  if (!isWatchdogAlive()) {
+    await watchdogStartCommand();
   }
 
   const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
