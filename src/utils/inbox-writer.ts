@@ -67,7 +67,8 @@ timestamp: ${now.toISOString()}`;
 
   fsNative.mkdirSync(opts.inboxDir, { recursive: true });
   const finalPath = path.join(opts.inboxDir, `${ts}_${tag}_${uuid8}.md`);
-  const tmpPath = finalPath + '.tmp';
+  // 以 . 开头让所有 inbox 扫描器的 !startsWith('.') 过滤器自动忽略临时文件
+  const tmpPath = path.join(opts.inboxDir, `.${ts}_${tag}_${uuid8}.tmp`);
   fsNative.writeFileSync(tmpPath, yaml);
   fsNative.renameSync(tmpPath, finalPath);
 }

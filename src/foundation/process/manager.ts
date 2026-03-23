@@ -6,7 +6,7 @@
 
 // TODO(phase3): zombie process detection - MVP uses `ps` command to detect zombies, TS only uses kill(0), macOS/Linux behavior differs
 
-import { spawn, execSync } from 'child_process';
+import { spawn, execSync, spawnSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readFileSync, unlinkSync, openSync, mkdirSync, closeSync, existsSync } from 'fs';
@@ -148,16 +148,23 @@ export class ProcessManager {
     // Kill all orphaned daemon processes with the same name (pgrep scan)
     const pattern = `daemon-entry.js ${clawId}`;
     try {
-      const output = execSync(`pgrep -f "${pattern}"`, { encoding: 'utf-8' });
+      // Use spawnSync with array args to avoid shell injection via clawId
+      const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
+      // pgrep exit 0 = matches found, exit 1 = no match; other = error (treat as empty)
+      const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
       const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
+      let sentAny = false;
       for (const pid of pids) {
-        try { process.kill(pid, 'SIGTERM'); } catch (err: any) {
+        try {
+          process.kill(pid, 'SIGTERM');
+          sentAny = true;
+        } catch (err: any) {
           if (err?.code !== 'ESRCH') {
             console.warn(`[process] Failed to SIGTERM PID ${pid}: ${err?.message}`);
           }
         }
       }
-      if (pids.length > 0) {
+      if (sentAny) {
         await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
       }
     } catch { /* pgrep returns exit code 1 when no match found */ }
@@ -250,11 +257,15 @@ export class ProcessManager {
       // Write the pid file
       await fs.writeFile(pidFile, String(pid), 'utf-8');
 
-      // Wait for spawn confirmation (non-blocking)
-      await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
-
-      // Verify that the process is alive
-      if (!this.isAlive(clawId)) {
+      // Poll until alive or timeout (handles slow ESM startup on constrained servers).
+      // Always checks at least once; retries every 50ms up to PROCESS_SPAWN_CONFIRM_MS total.
+      let alive = this.isAlive(clawId);
+      const deadline = Date.now() + PROCESS_SPAWN_CONFIRM_MS;
+      while (!alive && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        alive = this.isAlive(clawId);
+      }
+      if (!alive) {
         throw new Error(`Daemon process failed to start. Check logs at: ${path.join(clawDir, 'logs', 'daemon.log')}`);
       }
 

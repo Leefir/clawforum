@@ -23,9 +23,9 @@ vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
   return {
     ...actual,
-    execSync: vi.fn().mockImplementation(() => {
-      // Default: pgrep finds nothing (exit code 1 throws)
-      throw Object.assign(new Error('pgrep no match'), { status: 1 });
+    spawnSync: vi.fn().mockImplementation(() => {
+      // Default: pgrep finds nothing (exit code 1 = no match)
+      return { status: 1, stdout: '', stderr: '' };
     }),
     spawn: vi.fn().mockReturnValue({ pid: process.pid, unref: vi.fn() }),
   };
@@ -42,11 +42,9 @@ beforeEach(async () => {
   await fs.mkdir(tempDir, { recursive: true });
   nodeFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
   vi.clearAllMocks();
-  // Restore default: pgrep throws (no orphans)
-  const { execSync, spawn } = await import('child_process');
-  vi.mocked(execSync).mockImplementation(() => {
-    throw Object.assign(new Error('pgrep no match'), { status: 1 });
-  });
+  // Restore default: pgrep no match
+  const { spawnSync, spawn } = await import('child_process');
+  vi.mocked(spawnSync).mockReturnValue({ status: 1, stdout: '', stderr: '' } as any);
   vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
 });
 
@@ -55,8 +53,8 @@ afterEach(async () => {
 });
 
 describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
-  it('should call execSync with daemon-entry.js ${clawId} pgrep pattern', async () => {
-    const { execSync } = await import('child_process');
+  it('should call spawnSync pgrep with daemon-entry.js ${clawId} pattern', async () => {
+    const { spawnSync } = await import('child_process');
     const pm = new ProcessManager(nodeFs, tempDir);
     const clawId = 'p19-claw';
     const clawDir = path.join(tempDir, 'claws', clawId);
@@ -64,20 +62,19 @@ describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
 
     await pm.spawn(clawId, clawDir);
 
-    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
-      expect.stringContaining(`daemon-entry.js ${clawId}`),
+    expect(vi.mocked(spawnSync)).toHaveBeenCalledWith(
+      'pgrep',
+      expect.arrayContaining(['-f', expect.stringContaining(`daemon-entry.js ${clawId}`)]),
       expect.any(Object),
     );
   });
 
   it('should SIGTERM orphaned processes found by pgrep', async () => {
-    const { execSync, spawn } = await import('child_process');
+    const { spawnSync, spawn } = await import('child_process');
     const orphanPid = 99991;
 
-    // pgrep returns one orphan PID, then throws on second call (lockfile check)
-    vi.mocked(execSync)
-      .mockReturnValueOnce(`${orphanPid}\n` as any)
-      .mockImplementation(() => { throw new Error('no match'); });
+    // pgrep returns one orphan PID
+    vi.mocked(spawnSync).mockReturnValueOnce({ status: 0, stdout: `${orphanPid}\n`, stderr: '' } as any);
     vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
 
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
@@ -94,8 +91,8 @@ describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
   });
 
   it('should warn and continue when stale empty PID file exists', async () => {
-    const { execSync, spawn } = await import('child_process');
-    vi.mocked(execSync).mockImplementation(() => { throw new Error('no match'); });
+    const { spawnSync, spawn } = await import('child_process');
+    vi.mocked(spawnSync).mockReturnValue({ status: 1, stdout: '', stderr: '' } as any);
     vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
 
     const clawId = 'stale-empty-claw';

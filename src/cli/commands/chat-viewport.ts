@@ -289,8 +289,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           }
         }
       }
-    } catch {
+    } catch (err) {
       // 文件可能被截断（daemon 重启），重置
+      console.warn('[chat] pollStream error, resetting position:', err instanceof Error ? err.message : String(err));
       fileSize = 0;
       leftover = '';
     }
@@ -302,8 +303,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   try {
     watcher = fsNative.watch(streamPath, () => pollStream());
-  } catch {
-    // watch 失败，靠 pollInterval
+  } catch (err) {
+    console.warn('[chat] fs.watch failed, falling back to polling:', err instanceof Error ? err.message : String(err));
   }
 
   // Daemon 存活检测（每 3 秒一次）

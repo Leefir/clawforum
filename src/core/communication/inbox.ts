@@ -282,7 +282,7 @@ export class InboxWatcher {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[inbox] Failed to move ${filePath} to failed:`, msg);
-      // 保留 processedFiles 记录
+      this.processedFiles.delete(filePath);  // 允许重试，优先于内存泄漏
     }
   }
 }

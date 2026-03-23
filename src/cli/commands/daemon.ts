@@ -79,8 +79,11 @@ export async function daemonCommand(name: string): Promise<void> {
   // 尝试获取排他锁
   try {
     const fd = fsNative.openSync(lockFile, 'wx');
-    fsNative.writeFileSync(fd, String(process.pid));
-    fsNative.closeSync(fd);
+    try {
+      fsNative.writeFileSync(fd, String(process.pid));
+    } finally {
+      fsNative.closeSync(fd);
+    }
   } catch (err: any) {
     if (err.code === 'EEXIST') {
       // lockfile 存在 → 检查持有者是否存活
@@ -93,8 +96,11 @@ export async function daemonCommand(name: string): Promise<void> {
         // 持有者已死，删除 stale lock 并重试
         fsNative.unlinkSync(lockFile);
         const fd = fsNative.openSync(lockFile, 'wx');
-        fsNative.writeFileSync(fd, String(process.pid));
-        fsNative.closeSync(fd);
+        try {
+          fsNative.writeFileSync(fd, String(process.pid));
+        } finally {
+          fsNative.closeSync(fd);
+        }
       }
     } else {
       throw err;
