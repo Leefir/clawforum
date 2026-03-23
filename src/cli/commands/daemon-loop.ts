@@ -31,26 +31,25 @@ export interface DaemonLoopOptions {
 function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promise<void> {
   return new Promise(resolve => {
     let watcher: ReturnType<typeof fsNative.watch> | null = null;
-    const timer = setTimeout(() => {
+    let settled = false;
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       watcher?.close();
+      watcher = null;
       resolve();
-    }, timeoutMs);
+    };
+
+    const timer = setTimeout(done, timeoutMs);
 
     try {
       fsNative.mkdirSync(inboxPendingDir, { recursive: true });
-      watcher = fsNative.watch(inboxPendingDir, () => {
-        clearTimeout(timer);
-        watcher?.close();
-        resolve();
-      });
-      watcher.on('error', () => {
-        clearTimeout(timer);
-        watcher?.close();
-        resolve();
-      });
+      watcher = fsNative.watch(inboxPendingDir, done);
+      watcher.on('error', done);
     } catch {
-      clearTimeout(timer);
-      resolve();
+      done();
     }
   });
 }
