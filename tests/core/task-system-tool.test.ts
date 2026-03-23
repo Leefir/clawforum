@@ -915,6 +915,36 @@ describe('ToolExecutor async routing', () => {
     };
   });
 
+  it('should reject async mode for subagent callerType', async () => {
+    // Register a tool with supportsAsync: true
+    const asyncTool: ITool = {
+      name: 'asyncTool',
+      description: 'Tool with async support',
+      schema: { type: 'object', properties: {} },
+      requiredPermissions: [],
+      readonly: false,
+      idempotent: false,
+      supportsAsync: true,
+      async execute(): Promise<ToolResult> {
+        return { success: true, content: 'async result' };
+      },
+    };
+    registry.register(asyncTool);
+
+    // Call with async: true and callerType: 'subagent'
+    const subagentCtx = { ...mockCtx, callerType: 'subagent' as const };
+    const result = await executor.execute({
+      toolName: 'asyncTool',
+      args: {},
+      ctx: subagentCtx,
+      async: true,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.content).toContain('not available for subagents');
+    expect(mockTaskSystem.scheduleTool).not.toHaveBeenCalled();
+  });
+
   it('should return error when tool does not support async', async () => {
     // Register tool without supportsAsync
     const nonAsyncTool: ITool = {

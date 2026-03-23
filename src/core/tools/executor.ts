@@ -254,6 +254,9 @@ export class ToolExecutorImpl implements IToolExecutor {
 
     // 4. Async path: submit to TaskSystem, return immediately
     if (options.async) {
+      if (ctx.callerType !== 'claw') {
+        return { success: false, content: 'Async mode is not available for subagents.' };
+      }
       const taskSystem = ctx.taskSystem;
       if (!taskSystem) {
         return { success: false, content: 'Async mode requires TaskSystem (not available).' };
