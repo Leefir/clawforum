@@ -12,12 +12,17 @@ import * as os from 'os';
 import * as path from 'path';
 import { waitForInbox, startDaemonLoop } from '../../src/cli/commands/daemon-loop.js';
 import type { ClawRuntime } from '../../src/core/runtime.js';
+import { writeInboxMessage } from '../../src/utils/inbox-writer.js';
 
 // Module-level mock so ESM named exports are replaceable
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
   return { ...actual, existsSync: vi.fn(actual.existsSync) };
 });
+
+vi.mock('../../src/utils/inbox-writer.js', () => ({
+  writeInboxMessage: vi.fn(),
+}));
 
 // ─── fix 7: waitForInbox idempotency ──────────────────────────────────────────
 
@@ -122,5 +127,142 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
     // Advance to flush waitForInbox timeout so the loop can terminate cleanly
     vi.advanceTimersByTime(60_001);
     await Promise.resolve();
+  });
+});
+
+// ─── LLM retry ────────────────────────────────────────────────────────────────
+
+/** Flush the microtask queue n times to let async code advance */
+async function flushMicrotasks(n = 6) {
+  for (let i = 0; i < n; i++) await Promise.resolve();
+}
+
+describe('startDaemonLoop - LLM retry', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(writeInboxMessage).mockReset();
+  });
+
+  it('LLM error triggers retryLastTurn after exponential delay', async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const retryLastTurn = vi.fn().mockResolvedValue(undefined);
+    const processBatch = vi.fn()
+      .mockRejectedValueOnce(new Error('All providers failed: network unreachable'))
+      .mockResolvedValue(0);
+
+    const mockRuntime = { processBatch, retryLastTurn, abort: vi.fn() } as unknown as ClawRuntime;
+
+    const { stop } = startDaemonLoop({
+      runtime: mockRuntime,
+      agentDir: '/tmp/daemon-llm-retry-test',
+      inboxPendingDir: '/tmp/daemon-llm-retry-test/inbox/pending',
+      label: '[retry-test]',
+      fallbackTimeoutMs: 1_000,
+    });
+
+    // Let processBatch throw and catch block reach the 30s setTimeout
+    await flushMicrotasks();
+
+    // Advance past the retry delay
+    vi.advanceTimersByTime(30_001);
+    await flushMicrotasks();
+
+    // retryLastTurn must have been called
+    expect(retryLastTurn).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('retrying'));
+
+    stop();
+    vi.advanceTimersByTime(1_001);
+    await flushMicrotasks();
+    warnSpy.mockRestore();
+  });
+
+  it('LLM max retries exhausted fires appendFileSync and writeInboxMessage to motionDir', async () => {
+    vi.useFakeTimers();
+    const appendSpy = vi.spyOn(fsNative, 'appendFileSync').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errSpy  = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // processBatch throws once; retryLastTurn always throws → 3 retries → max exceeded
+    const processBatch  = vi.fn().mockRejectedValueOnce(new Error('All providers failed'));
+    const retryLastTurn = vi.fn().mockRejectedValue(new Error('All providers failed on retry'));
+    const mockRuntime = { processBatch, retryLastTurn, abort: vi.fn() } as unknown as ClawRuntime;
+
+    const notifyMotionDir = '/tmp/motion-max-retry-notify';
+
+    const { stop } = startDaemonLoop({
+      runtime: mockRuntime,
+      agentDir: '/tmp/agent-max-retry',
+      inboxPendingDir: '/tmp/agent-max-retry/inbox/pending',
+      label: '[max-retry-test]',
+      fallbackTimeoutMs: 100,
+      notifyMotionDir,
+    });
+
+    // Iteration 1: processBatch throws → wait 30 s
+    await flushMicrotasks();
+    vi.advanceTimersByTime(30_001);
+    await flushMicrotasks();
+
+    // Iteration 2: retryLastTurn throws → wait 60 s
+    vi.advanceTimersByTime(60_001);
+    await flushMicrotasks();
+
+    // Iteration 3: retryLastTurn throws → wait 120 s
+    vi.advanceTimersByTime(120_001);
+    await flushMicrotasks();
+
+    // Iteration 4: retryLastTurn throws → llmRetryCount=3 >= MAX → else branch → notify
+    // appendFileSync and writeInboxMessage are synchronous and fire in the catch block
+
+    expect(appendSpy).toHaveBeenCalledWith(
+      path.join(notifyMotionDir, 'stream.jsonl'),
+      expect.stringContaining('"llm_error"'),
+    );
+    expect(vi.mocked(writeInboxMessage)).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'watchdog_claw_llm_error' }),
+    );
+
+    stop();
+    vi.advanceTimersByTime(200);
+    await flushMicrotasks();
+    appendSpy.mockRestore();
+    warnSpy.mockRestore();
+    errSpy.mockRestore();
+  });
+
+  it('non-LLM error does not set llmRetryPending and skips retryLastTurn', async () => {
+    vi.useFakeTimers();
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const retryLastTurn = vi.fn();
+    const processBatch  = vi.fn()
+      .mockRejectedValueOnce(new Error('Unexpected disk I/O failure'))
+      .mockResolvedValue(0);
+    const mockRuntime = { processBatch, retryLastTurn, abort: vi.fn() } as unknown as ClawRuntime;
+
+    const { stop } = startDaemonLoop({
+      runtime: mockRuntime,
+      agentDir: '/tmp/non-llm-error-test',
+      inboxPendingDir: '/tmp/non-llm-error-test/inbox/pending',
+      label: '[non-llm-test]',
+      fallbackTimeoutMs: 500,
+    });
+
+    await flushMicrotasks();
+
+    // Non-LLM error goes straight to waitForInbox (no retry delay)
+    // retryLastTurn must never be called
+    expect(retryLastTurn).not.toHaveBeenCalled();
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining('processBatch error'),
+      expect.any(Error),
+    );
+
+    stop();
+    vi.advanceTimersByTime(600);
+    await flushMicrotasks();
+    errSpy.mockRestore();
   });
 });

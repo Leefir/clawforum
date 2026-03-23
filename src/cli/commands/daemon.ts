@@ -15,49 +15,7 @@ import type { ClawRuntimeOptions } from '../../core/runtime.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
-import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
-/**
- * Check whether there is an active contract (subdirectory exists under active/ or paused/)
- */
-function hasContract(dir: string): boolean {
-  const contractDir = path.join(dir, 'contract');
-  for (const sub of ['active', 'paused']) {
-    try {
-      const entries = fsNative.readdirSync(path.join(contractDir, sub), { withFileTypes: true });
-      if (entries.some(e => e.isDirectory())) return true;
-    } catch { /* skip */ }
-  }
-  return false;
-}
-
-/**
- * Inject a startup message: if there is an active contract but the inbox is empty, write a startup message to trigger execution
- */
-function injectStartupMessage(dir: string): void {
-  try {
-    const inboxPending = path.join(dir, 'inbox', 'pending');
-    const activeDir = path.join(dir, 'contract', 'active');
-    const inboxEmpty = !fsNative.existsSync(inboxPending) ||
-      fsNative.readdirSync(inboxPending).filter(f => f.endsWith('.md')).length === 0;
-    let hasRunning = false;
-    try {
-      const entries = fsNative.readdirSync(activeDir, { withFileTypes: true });
-      hasRunning = entries.some(e => e.isDirectory());
-    } catch { /* no active dir */ }
-    if (inboxEmpty && hasRunning) {
-      writeInboxMessage({
-        inboxDir: inboxPending,
-        type: 'message',
-        source: 'system',
-        priority: 'high',
-        body: '系统启动。请检查活跃契约并继续执行。',
-        idPrefix: 'startup',
-        filenameTag: 'startup',
-      });
-    }
-  } catch { /* best-effort */ }
-}
 
 
 /**
@@ -165,9 +123,6 @@ export async function daemonCommand(name: string): Promise<void> {
       console.warn(`[daemon] Failed to clean up heartbeat files: ${e?.message}`);
     }
   }
-
-  // 通用：有契约+空 inbox → 注入启动消息
-  injectStartupMessage(dir);
 
   // 共用核心循环
   const streamWriter = new StreamWriter(dir);

@@ -65,6 +65,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   const { runtime, agentDir, inboxPendingDir, label, onBatchComplete, streamWriter, notifyMotionDir } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   let stopped = false;
+  let startupFired = false;
 
   // LLM failure retry state
   const LLM_ERROR_PATTERN = /all providers failed/i;
@@ -77,6 +78,33 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
   const promise = (async () => {
     while (!stopped) {
+      // Startup single-fire: has active contract + inbox is empty → trigger once in-process (no disk write)
+      if (!startupFired) {
+        startupFired = true;
+        const inboxEmpty = (() => {
+          try {
+            return fsNative.readdirSync(inboxPendingDir).filter(f => f.endsWith('.md')).length === 0;
+          } catch { return true; }
+        })();
+        const hasActive = (() => {
+          try {
+            return fsNative.readdirSync(path.join(agentDir, 'contract', 'active'), { withFileTypes: true }).some(e => e.isDirectory());
+          } catch { return false; }
+        })();
+        if (inboxEmpty && hasActive) {
+          const callbacks = streamWriter?.createCallbacks();
+          try {
+            await runtime.processWithMessage(
+              { role: 'user', content: '[system message] 系统启动。请检查活跃契约并继续执行。' },
+              callbacks,
+            );
+          } catch (err) {
+            console.error(`${label} startup trigger error:`, err);
+          }
+          continue;
+        }
+      }
+
       // Heartbeat check (moved into daemon loop to avoid setInterval race conditions)
       if (options.heartbeat?.isDue()) {
         options.heartbeat.fire();

@@ -8,8 +8,10 @@
  * - 状态验证错误 (pause/resume/cancel)
  * - completeSubtask 覆盖
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
+import * as fsNative from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
@@ -745,6 +747,83 @@ describe('ContractManager', () => {
         'error',
         expect.objectContaining({ context: 'ContractManager.backgroundAcceptance.errorWrite' }),
       );
+    });
+  });
+
+  // ─── _notifyMotionStream ──────────────────────────────────────────────────
+
+  describe('_notifyMotionStream', () => {
+    let motionTmpDir: string;
+    let notifyManager: ContractManager;
+
+    beforeEach(async () => {
+      motionTmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'notify-motion-test-'));
+      const motionInboxDir = path.join(motionTmpDir, 'inbox', 'pending');
+      await fs.mkdir(motionInboxDir, { recursive: true });
+
+      const nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
+      // 6th constructor arg is motionInboxDir
+      notifyManager = new ContractManager(CLAW_DIR, nodeFs, undefined, undefined, undefined, motionInboxDir);
+    });
+
+    afterEach(async () => {
+      await fs.rm(motionTmpDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    it('writes a user_notify JSON line to motion stream.jsonl', async () => {
+      (notifyManager as any)._notifyMotionStream('subtask_completed', {
+        contractId: 'contract-1',
+        subtaskId: 'subtask-1',
+        clawId: 'claw-test',
+        completedCount: 2,
+        subtaskTotal: 4,
+      });
+
+      // appendFile is async best-effort — flush the microtask queue
+      await new Promise(r => setTimeout(r, 20));
+
+      const streamPath = path.join(motionTmpDir, 'stream.jsonl');
+      const content = await fs.readFile(streamPath, 'utf-8');
+      const event = JSON.parse(content.trim());
+
+      expect(event.type).toBe('user_notify');
+      expect(event.subtype).toBe('subtask_completed');
+      expect(event.clawId).toBe('claw-test');
+      expect(event.completedCount).toBe(2);
+      expect(event.subtaskTotal).toBe(4);
+      expect(typeof event.ts).toBe('number');
+    });
+
+    it('silently ignores ENOENT (cross-server: motion stream.jsonl does not exist on remote)', async () => {
+      const appendSpy = vi.spyOn(fsNative.promises, 'appendFile')
+        .mockRejectedValueOnce(Object.assign(new Error('no such file'), { code: 'ENOENT' }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      (notifyManager as any)._notifyMotionStream('subtask_completed', { contractId: 'c1' });
+
+      await new Promise(r => setTimeout(r, 20));
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      appendSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it('warns on non-ENOENT errors (e.g. EPERM)', async () => {
+      const appendSpy = vi.spyOn(fsNative.promises, 'appendFile')
+        .mockRejectedValueOnce(Object.assign(new Error('permission denied'), { code: 'EPERM' }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      (notifyManager as any)._notifyMotionStream('subtask_completed', { contractId: 'c1' });
+
+      await new Promise(r => setTimeout(r, 20));
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('EPERM'),
+      );
+
+      appendSpy.mockRestore();
+      warnSpy.mockRestore();
     });
   });
 });

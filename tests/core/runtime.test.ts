@@ -502,4 +502,80 @@ Test message
       expect(userMsg?.content).toContain('Check disk space');
     });
   });
+
+  // ─── retryLastTurn() ──────────────────────────────────────────────────────
+
+  describe('retryLastTurn()', () => {
+    it('returns immediately when session has no messages (empty session guard)', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      const mockLLM = createMockLLM([]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      // No messages have been exchanged — session is empty
+      await expect(runtime.retryLastTurn()).resolves.toBeUndefined();
+
+      // LLM must NOT have been called
+      expect(mockLLM.call).not.toHaveBeenCalled();
+      expect(mockLLM.stream).not.toHaveBeenCalled();
+    });
+
+    it('replays last turn by calling LLM with existing session messages', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Populate session via chat()
+      const firstLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'Initial answer' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof firstLLM }).llm = firstLLM;
+      await runtime.chat('What is 2+2?');
+
+      // Now replace LLM and retry — should call the NEW LLM with the saved session
+      const retryLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'Retry answer' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof retryLLM }).llm = retryLLM;
+
+      await runtime.retryLastTurn();
+
+      expect(retryLLM.call).toHaveBeenCalledTimes(1);
+      const callArg = retryLLM.call.mock.calls[0][0];
+      // The session messages from the first chat() exchange are included
+      expect(callArg.messages.length).toBeGreaterThan(0);
+    });
+
+    it('cleans up AbortController on successful completion', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Build a session first
+      const mockLLM = createMockLLM([
+        { content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' },
+        { content: [{ type: 'text', text: 'retry ok' }], stop_reason: 'end_turn' },
+      ]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+      await runtime.chat('setup');
+
+      await runtime.retryLastTurn();
+
+      // AbortController must be null after retryLastTurn resolves
+      expect((runtime as unknown as { currentAbortController: unknown }).currentAbortController).toBeNull();
+    });
+  });
 });

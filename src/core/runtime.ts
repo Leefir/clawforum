@@ -507,6 +507,34 @@ export class ClawRuntime {
   }
 
   /**
+   * Process a single synthetic message directly (without draining inbox).
+   * Used by daemon-loop for in-process startup trigger — message is never persisted to disk.
+   */
+  async processWithMessage(msg: Message, callbacks?: StreamCallbacks): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    const session = await this.sessionManager.load();
+    const messages = [...session.messages, msg];
+    await this.sessionManager.save(messages);
+
+    const abortController = new AbortController();
+    this.currentAbortController = abortController;
+    this.execContext.signal = abortController.signal;
+    try {
+      await this._runReact(messages, callbacks);
+    } catch (err) {
+      await this.sessionManager.save(messages).catch(e =>
+        console.error('[runtime] Failed to save session on error:', e)
+      );
+      throw err;
+    } finally {
+      this.currentAbortController = null;
+      this.execContext.signal = undefined;
+    }
+  }
+
+  /**
    * Retry the last turn without draining inbox.
    * Used by daemon-loop to recover from transient LLM errors.
    */
