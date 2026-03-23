@@ -9,6 +9,7 @@ import { stopCommand as watchdogStop } from './watchdog.js';
 import { stopCommand as motionStop } from './motion.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
+import { spawnSync } from 'child_process';
 
 export async function stopAllCommand(): Promise<void> {
   loadGlobalConfig();
@@ -40,4 +41,19 @@ export async function stopAllCommand(): Promise<void> {
   }
 
   console.log('Done.');
+
+  // Cleanup: pgrep兜底，清理所有残留的daemon-entry.js孤儿进程
+  try {
+    const result = spawnSync('pgrep', ['-f', 'daemon-entry.js'], { encoding: 'utf-8' });
+    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
+    const pids = output.trim().split('\n')
+      .map(s => parseInt(s, 10))
+      .filter(p => !isNaN(p) && p !== process.pid);
+    if (pids.length > 0) {
+      console.log(`Cleaning up ${pids.length} orphan daemon process(es)...`);
+      for (const p of pids) {
+        try { process.kill(p, 'SIGTERM'); } catch {}
+      }
+    }
+  } catch {}
 }
