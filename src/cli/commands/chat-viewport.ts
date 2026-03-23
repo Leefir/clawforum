@@ -397,11 +397,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   tui.start();
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
-  process.on('SIGINT', () => resolveExit());
+  const sigintHandler = () => resolveExit();
+  process.on('SIGINT', sigintHandler);
 
   await exitPromise;
 
   // 清理
+  process.removeListener('SIGINT', sigintHandler);
   stopSpinner();
   clearInterval(pollInterval);
   clearInterval(daemonCheckInterval);
