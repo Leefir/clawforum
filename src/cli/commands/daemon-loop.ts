@@ -128,6 +128,11 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             if (interruptErrCount % 5 === 1) {
               console.warn(`${label} interrupt poll error: ${err instanceof Error ? err.message : String(err)}`);
             }
+            if (interruptErrCount >= 20) {
+              console.error(`${label} interrupt poll failed ${interruptErrCount} times, disabling`);
+              clearInterval(interruptPoller!);
+              interruptPoller = null;
+            }
           }
         }, 200);
 
