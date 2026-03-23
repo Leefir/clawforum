@@ -5,7 +5,7 @@
 
 import * as fsNative from 'fs';
 import * as path from 'path';
-import { randomUUID } from 'crypto';
+
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 export interface ChatViewportOptions {
@@ -32,8 +32,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     await options.ensureDaemon();
   }
 
-  const { TUI, Text, Input, Key, matchesKey, EditorKeybindingsManager, setEditorKeybindings } = await import('@mariozechner/pi-tui');
-  const { ProcessTerminal } = await import('@mariozechner/pi-tui');
+  const { TUI, Text, Input, EditorKeybindingsManager, setEditorKeybindings, ProcessTerminal } = await import('@mariozechner/pi-tui');
 
   // 移除 Ctrl+C 从 Input 的 selectCancel，让 TUI listener 处理
   setEditorKeybindings(new EditorKeybindingsManager({
@@ -263,7 +262,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const completed = event.completedCount as number | undefined;
           const total = event.subtaskTotal as number | undefined;
-          const progress = completed && total ? `, ${completed} of ${total}` : '';
+          const progress = completed != null && total != null ? `, ${completed} of ${total}` : '';
           appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${progress} (${claw})\x1b[0m`);
         } else if (sub === 'acceptance_failed') {
           const claw = (event.clawId as string) ?? '';
@@ -372,7 +371,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       const track = clawTrackMap.get(clawId)!;
       try {
         const stat = fsNative.statSync(streamFile);
-        if (stat.size < track.fileSize) { track.fileSize = 0; track.leftover = ''; }  // 文件被截断
+        if (stat.size < track.fileSize) {
+          track.fileSize = 0; track.leftover = '';
+          track.turnCount = 0; track.step = 0; track.active = false;
+        }  // 文件被截断
         if (stat.size <= track.fileSize) continue;
         const toRead = stat.size - track.fileSize;
         const buf = Buffer.alloc(toRead);
@@ -441,6 +443,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         streamingSuffix = '';
         updateDisplay();
         appendOutput('\x1b[31m✗ Daemon 已停止\x1b[0m');
+        updateStatusBar();
       }
     } catch {
       // PID 文件不存在或读取失败，忽略
