@@ -100,36 +100,48 @@ export class ProcessManager {
   }
 
   /**
+   * Get detailed alive status including reason
+   */
+  getAliveStatus(clawId: string): { alive: boolean; reason: string } {
+    try {
+      const pidFile = this.getPidFile(clawId);
+      const content = readFileSync(pidFile, 'utf-8');
+      const trimmed = content.trim();
+      if (trimmed === '') {
+        return { alive: false, reason: 'empty PID file' };
+      }
+      const pid = parseInt(trimmed, 10);
+      if (isNaN(pid)) {
+        return { alive: false, reason: `invalid PID: "${trimmed}"` };
+      }
+
+      try {
+        process.kill(pid, 0);
+        return { alive: true, reason: `PID ${pid}` };
+      } catch (err: any) {
+        if (err.code === 'ESRCH') {
+          try { unlinkSync(pidFile); } catch { /* ignore */ }
+          return { alive: false, reason: `PID ${pid} not found (ESRCH)` };
+        }
+        if (err.code === 'EPERM') {
+          return { alive: true, reason: `PID ${pid} (EPERM, assumed alive)` };
+        }
+        return { alive: false, reason: `kill(0) error: ${err.code}` };
+      }
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        return { alive: false, reason: 'no PID file' };
+      }
+      return { alive: false, reason: `read error: ${err.code || err.message}` };
+    }
+  }
+
+  /**
    * Check whether the process is alive
    * Uses process.kill(pid, 0) to detect process existence
    */
   isAlive(clawId: string): boolean {
-    // Read pid synchronously because async/await can be problematic in some scenarios
-    try {
-      const pidFile = this.getPidFile(clawId);
-      const content = readFileSync(pidFile, 'utf-8');
-      const pid = parseInt(content.trim(), 10);
-      if (isNaN(pid)) return false;
-
-      try {
-        process.kill(pid, 0);
-        return true;
-      } catch (err: any) {
-        // ESRCH = process does not exist
-        if (err.code === 'ESRCH') {
-          // Clean up stale pid file synchronously so subsequent isAlive() calls see it gone
-          try { unlinkSync(this.getPidFile(clawId)); } catch { /* ignore */ }
-          return false;
-        }
-        // EPERM = process exists but no permission (typically another user's process)
-        if (err.code === 'EPERM') {
-          return true;
-        }
-        return false;
-      }
-    } catch {
-      return false;
-    }
+    return this.getAliveStatus(clawId).alive;
   }
 
   /**

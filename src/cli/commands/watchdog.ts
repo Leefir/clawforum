@@ -367,8 +367,9 @@ export async function daemonCommand(): Promise<void> {
 
   while (!stopped) {
     // 1. Check motion liveness
-    if (!pm.isAlive('motion')) {
-      log('[watchdog] motion down, restarting...');
+    const status = pm.getAliveStatus('motion');
+    if (!status.alive) {
+      log(`[watchdog] motion down (${status.reason}), restarting...`);
       try {
         // First clean up any stale PID file that may exist
         await pm.stop('motion').catch(() => {});
