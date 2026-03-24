@@ -742,6 +742,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.start();
 
+  // 启动时立即刷新 claw 状态（避免 2 秒等待）
+  if (isMotion) {
+    refreshClawStatus();
+  }
+
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
   const sigintHandler = () => resolveExit();
   process.on('SIGINT', sigintHandler);
