@@ -51,8 +51,10 @@ export async function daemonCommand(name: string): Promise<void> {
         console.error(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
         process.exit(1);
       } catch {
-        // 持有者已死，删除 stale lock 并重试
-        fsNative.unlinkSync(lockFile);
+        // 持有者已死，删除 stale lock 并重试（ENOENT = 已被别人删，同样继续）
+        try { fsNative.unlinkSync(lockFile); } catch (e: any) {
+          if (e.code !== 'ENOENT') throw e;
+        }
         const fd = fsNative.openSync(lockFile, 'wx');
         try {
           fsNative.writeFileSync(fd, String(process.pid));
