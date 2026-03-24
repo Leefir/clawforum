@@ -300,6 +300,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         }
         break;
       }
+
+      case 'task_started': {
+        const taskId = event.taskId as string;
+        const callerType = (event.callerType as string) ?? 'subagent';
+        const streamPath = path.join(options.agentDir, 'tasks', 'results', `${taskId}.stream.jsonl`);
+        const tw: TaskWatch = { callerType: callerType as any, fileSize: 0, leftover: '', watcher: null };
+        taskWatchMap.set(taskId, tw);
+        try {
+          tw.watcher = fsNative.watch(streamPath, { persistent: false }, () => pollTaskStream(taskId));
+        } catch { /* fallback to poll */ }
+        break;
+      }
     }
   };
 
@@ -326,6 +338,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const clawWatchers = new Map<string, ReturnType<typeof fsNative.watch>>();
   let clawRefreshScheduled = false;
   let lastClawRefreshTs = 0;
+
+  // Task stream watching (for dispatch/spawn subagent progress)
+  interface TaskWatch {
+    callerType: 'dispatcher' | 'subagent';
+    fileSize: number;
+    leftover: string;
+    watcher: ReturnType<typeof fsNative.watch> | null;
+  }
+  const taskWatchMap = new Map<string, TaskWatch>();
+
+  const stopTaskWatch = (taskId: string) => {
+    const tw = taskWatchMap.get(taskId);
+    if (!tw) return;
+    tw.watcher?.close();
+    taskWatchMap.delete(taskId);
+  };
 
   const scheduleClawRefresh = () => {
     if (clawRefreshScheduled) return;
@@ -467,6 +495,69 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     updateStatusBar();
   };
 
+  // Poll task stream for subagent progress (dispatch/spawn)
+  const pollTaskStream = (taskId: string) => {
+    const tw = taskWatchMap.get(taskId);
+    if (!tw) return;
+    const streamPath = path.join(options.agentDir, 'tasks', 'results', `${taskId}.stream.jsonl`);
+    try {
+      const stat = fsNative.statSync(streamPath);
+      if (stat.size <= tw.fileSize) return;
+      const toRead = stat.size - tw.fileSize;
+      const buf = Buffer.alloc(toRead);
+      const fd = fsNative.openSync(streamPath, 'r');
+      let bytesRead = 0;
+      try {
+        while (bytesRead < toRead) {
+          const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, tw.fileSize + bytesRead);
+          if (n === 0) break;
+          bytesRead += n;
+        }
+      } finally { fsNative.closeSync(fd); }
+      tw.fileSize += bytesRead;
+
+      const chunk = tw.leftover + buf.toString('utf-8');
+      const lines = chunk.split('\n');
+      tw.leftover = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const ev = JSON.parse(line);
+          handleTaskEvent(taskId, tw.callerType, ev);
+        } catch { }
+      }
+    } catch { }
+  };
+
+  const handleTaskEvent = (
+    taskId: string,
+    callerType: string,
+    event: { type: string; [key: string]: unknown },
+  ) => {
+    const prefix = callerType;
+    switch (event.type) {
+      case 'tool_call':
+        stopSpinner();
+        appendOutput(`\x1b[36m→ ${prefix}:${event.name}\x1b[0m`);
+        startSpinner(`${prefix}:${event.name}...`);
+        break;
+      case 'tool_result': {
+        stopSpinner();
+        const icon = event.success ? '✓' : '✗';
+        appendOutput(`\x1b[2m  ${icon} [${event.step}/${event.maxSteps}] ${event.summary}\x1b[0m`);
+        streamingSuffix = '';
+        updateDisplay();
+        break;
+      }
+      case 'turn_end':
+      case 'turn_error':
+      case 'turn_interrupted':
+        stopSpinner();
+        stopTaskWatch(taskId);
+        break;
+    }
+  };
+
   // fs.watch + fallback 轮询
   let watcher: ReturnType<typeof fsNative.watch> | null = null;
   const pollInterval = setInterval(() => {
@@ -477,6 +568,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         lastClawRefreshTs = now;
         refreshClawStatus();
       }
+    }
+    // Poll task streams for dispatch/spawn progress
+    for (const taskId of taskWatchMap.keys()) {
+      pollTaskStream(taskId);
     }
   }, 200);  // fallback 200ms
 
@@ -663,6 +758,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   watcher?.close();
   for (const w of clawWatchers.values()) w.close();
   clawWatchers.clear();
+  for (const tw of taskWatchMap.values()) tw.watcher?.close();
+  taskWatchMap.clear();
   tui.stop();
   await terminal.drainInput();
   process.stdin.pause();
