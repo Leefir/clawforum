@@ -91,8 +91,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     let line = '';
     if (isMotion) {
       const parts: string[] = [];
+
+      // motion 自身状态（前置）
+      if (inTurn) {
+        parts.push(`\x1b[38;5;147m⬡ motion #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`);
+      } else if (ownTurnCount > 0) {
+        parts.push(`\x1b[38;5;245m○ motion #${ownTurnCount}\x1b[0m`);
+      }
+
+      // 各 claw 状态
       for (const [id, t] of clawTrackMap) {
-        if (t.active) {
+        if (t.active && t.isAlive) {   // isAlive 守卫：daemon 崩溃不显示紫色
           parts.push(`\x1b[38;5;147m⬡ ${id} #${t.turnCount} [${t.step}/${t.maxSteps}]\x1b[0m`);
         } else if (t.lastError && t.hasContract && t.isAlive) {
           parts.push(`\x1b[38;5;214m⚠ ${id}\x1b[0m`);
