@@ -356,4 +356,29 @@ Test message content`;
     expect(processed).toContain('normal-msg');
     expect(processed).toContain('low-msg');
   });
+
+  it('should move malformed message to failed/ on parse error (Phase 44 H3)', async () => {
+    const clawDir = path.join(TEST_DIR, 'parse-fail-test');
+    const pendingDir = path.join(clawDir, 'inbox', 'pending');
+    await fs.mkdir(pendingDir, { recursive: true });
+
+    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    const inbox = new InboxWatcher(clawDir, nodeFs);
+
+    // Malformed: has opening --- but no closing ---
+    const malformedFile = path.join(pendingDir, '1000_normal_malformed.md');
+    await fs.writeFile(malformedFile, '---\ntype: normal\nid: bad-msg\n(no closing fence)', 'utf-8');
+
+    await (inbox as any).handleNewFile(malformedFile);
+
+    // pending file should be gone
+    const pendingFiles = await fs.readdir(pendingDir);
+    expect(pendingFiles).toHaveLength(0);
+
+    // failed/ should contain the moved file
+    const failedDir = path.join(clawDir, 'inbox', 'failed');
+    const failedFiles = await fs.readdir(failedDir);
+    expect(failedFiles).toHaveLength(1);
+    expect(failedFiles[0]).toContain('1000_normal_malformed.md');
+  });
 });
