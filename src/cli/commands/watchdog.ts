@@ -399,8 +399,14 @@ export async function daemonCommand(): Promise<void> {
         log(`[watchdog] motion restarted (PID=${pid})`);
         motionRestartFailures = 0;  // Success, reset counter
       } catch (err) {
-        motionRestartFailures++;
-        log(`[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
+        if (err instanceof Error && err.message.includes('already running')) {
+          // 另一个 watchdog 实例已经启动了 motion，不算失败
+          log(`[watchdog] motion already started by another instance`);
+          motionRestartFailures = 0;
+        } else {
+          motionRestartFailures++;
+          log(`[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
+        }
       }
     } else {
       motionRestartFailures = 0;  // Motion healthy, reset counter
