@@ -32,11 +32,25 @@ interface GeminiContent {
   parts: GeminiPart[];
 }
 
+type HarmCategory =
+  | 'HARM_CATEGORY_HARASSMENT'
+  | 'HARM_CATEGORY_HATE_SPEECH'
+  | 'HARM_CATEGORY_SEXUALLY_EXPLICIT'
+  | 'HARM_CATEGORY_DANGEROUS_CONTENT'
+  | 'HARM_CATEGORY_CIVIC_INTEGRITY';
+
+type HarmThreshold =
+  | 'BLOCK_NONE'
+  | 'BLOCK_ONLY_HIGH'
+  | 'BLOCK_MEDIUM_AND_ABOVE'
+  | 'BLOCK_LOW_AND_ABOVE';
+
 interface GeminiRequest {
   contents: GeminiContent[];
   systemInstruction?: { parts: [{ text: string }] };
   tools?: [{ functionDeclarations: Array<{ name: string; description: string; parameters: unknown }> }];
   generationConfig?: { maxOutputTokens?: number; temperature?: number; thinkingLevel?: number };
+  safetySettings?: Array<{ category: HarmCategory; threshold: HarmThreshold }>;
 }
 
 interface GeminiResponse {
@@ -276,10 +290,24 @@ export class GeminiAdapter implements IProviderAdapter {
 
   private parseResponse(data: GeminiResponse): LLMResponse {
     const candidate = data.candidates?.[0];
+
+    // Content filtered or generation failed
+    if (!candidate?.content?.parts) {
+      const reason = candidate?.finishReason ?? 'UNKNOWN';
+      return {
+        content: [{ type: 'text', text: '' }],
+        stop_reason: reason === 'SAFETY' ? 'end_turn' : 'end_turn',
+        usage: data.usageMetadata ? {
+          input_tokens: data.usageMetadata.promptTokenCount,
+          output_tokens: data.usageMetadata.candidatesTokenCount,
+        } : undefined,
+      };
+    }
+
     const content: ContentBlock[] = [];
     let fcIndex = 0;
 
-    for (const part of candidate?.content?.parts ?? []) {
+    for (const part of candidate.content.parts) {
       if ('text' in part) {
         content.push({ type: 'text', text: part.text });
       } else if ('functionCall' in part) {
@@ -288,7 +316,7 @@ export class GeminiAdapter implements IProviderAdapter {
       }
     }
 
-    const finishReason = candidate?.finishReason ?? 'STOP';
+    const finishReason = candidate.finishReason ?? 'STOP';
     const hasToolUse = content.some(b => b.type === 'tool_use');
     return {
       content,
@@ -305,8 +333,9 @@ export class GeminiAdapter implements IProviderAdapter {
     let errorText: string;
 
     try {
-      const errorData = await response.json();
-      errorText = JSON.stringify(errorData);
+      const errorData = await response.json() as { error?: { message?: string; status?: string } };
+      // Gemini error format: { error: { code, message, status } }
+      errorText = errorData.error?.message ?? JSON.stringify(errorData);
     } catch {
       errorText = await response.text();
     }
