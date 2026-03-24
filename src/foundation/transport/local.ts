@@ -334,13 +334,35 @@ export class LocalTransport implements ITransport {
           try {
             const content = await fs.readFile(event.path, 'utf-8');
             const { meta, body } = parseFrontmatter(content);
+
+            // Validate type/priority inline (matching inbox.ts semantics)
+            const VALID_TYPES: InboxMessage['type'][] = [
+              'message', 'user_chat', 'user_inbox_message',
+              'crash_notification', 'heartbeat', 'claw_outbox',
+            ];
+            const VALID_PRIORITIES: InboxMessage['priority'][] = ['critical', 'high', 'normal', 'low'];
+
+            const rawType = meta.type;
+            const validatedType: InboxMessage['type'] =
+              typeof rawType === 'string' &&
+              (VALID_TYPES.includes(rawType as InboxMessage['type']) || rawType.startsWith('watchdog_'))
+                ? (rawType as InboxMessage['type'])
+                : 'message';
+
+            const rawPriority = meta.priority;
+            const validatedPriority: InboxMessage['priority'] =
+              typeof rawPriority === 'string' &&
+              VALID_PRIORITIES.includes(rawPriority as InboxMessage['priority'])
+                ? (rawPriority as InboxMessage['priority'])
+                : 'normal';
+
             const msg: InboxMessage = {
               id: meta.id ?? randomUUID(),
-              type: (meta.type as InboxMessage['type']) ?? 'message',
+              type: validatedType,
               from: meta.from ?? 'unknown',
               to: meta.to ?? '',
               content: body,
-              priority: (meta.priority as InboxMessage['priority']) ?? 'normal',
+              priority: validatedPriority,
               timestamp: meta.timestamp ?? new Date().toISOString(),
               contract_id: meta.contract_id,
             };

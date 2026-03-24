@@ -308,6 +308,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     step: number;
     maxSteps: number;
     active: boolean;
+    lastError: string | null;   // 最近 turn_error；turn_end/interrupted 时清除
+    hasContract: boolean;        // contract/active/ 目录非空
+    isAlive: boolean;            // PID 存活
   }
   const clawTrackMap = new Map<string, ClawTrack>();
   let lastClawRefreshTs = 0;
@@ -378,7 +381,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     for (const clawId of clawIds) {
       const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
       if (!clawTrackMap.has(clawId)) {
-        clawTrackMap.set(clawId, { fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100, active: false });
+        clawTrackMap.set(clawId, { fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100, active: false, lastError: null, hasContract: false, isAlive: false });
       }
       const track = clawTrackMap.get(clawId)!;
       try {
