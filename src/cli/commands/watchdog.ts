@@ -423,44 +423,30 @@ export async function daemonCommand(): Promise<void> {
 
 // Start command
 export async function startCommand(): Promise<void> {
-  // Calculate watchdog entry path first (for both cleanup and spawn)
   const watchdogEntryPath = getWatchdogEntryPath();
 
-  // Cleanup: kill any existing watchdog processes (orphaned watchdogs)
-  // Use full path as pattern to only match current installation
-  try {
-    const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
-    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
-    const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
-    let killedAny = false;
-    for (const pid of pids) {
-      try {
-        process.kill(pid, 'SIGTERM');
-        killedAny = true;
-      } catch (err: any) {
-        if (err?.code !== 'ESRCH') {
-          console.warn(`[watchdog] Failed to SIGTERM orphaned PID ${pid}: ${err?.message}`);
-        }
-      }
-    }
-    if (killedAny) {
-      console.log('[watchdog] Terminated orphaned watchdog process(es), waiting 2s...');
-      await setTimeout(2000);
-    }
-  } catch { /* pgrep failed or no matches, proceed */ }
+  // 幂等：本 workspace 的 watchdog 已在运行则直接返回
+  if (isWatchdogAlive()) {
+    console.log(`Watchdog already running (PID: ${getWatchdogPid()})`);
+    return;
+  }
+
+  // spawn watchdog，显式传 CLAWFORUM_ROOT
+  const clawforumRoot = process.env.CLAWFORUM_ROOT ?? process.cwd();
   const proc = spawn('node', [watchdogEntryPath], {
     detached: true,
     stdio: 'ignore',
+    env: { ...process.env, CLAWFORUM_ROOT: clawforumRoot },
   });
   proc.unref();
-  
-  // Wait for PID file to be written
+
+  // 等待 PID 文件写入
   let attempts = 0;
   while (!isWatchdogAlive() && attempts < 30) {
     await setTimeout(100);
     attempts++;
   }
-  
+
   const pid = getWatchdogPid();
   if (pid) {
     console.log(`Watchdog started (PID: ${pid})`);
@@ -505,45 +491,5 @@ export async function stopCommand(): Promise<void> {
   }
   
   removeWatchdogPid();
-
-  // Cleanup: pgrep兜底，清理残留的watchdog-entry.js孤儿进程
-  // Use full path as pattern to only match current installation
-  try {
-    const watchdogEntryPath = getWatchdogEntryPath();
-    const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
-    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
-    const pids = output.trim().split('\n')
-      .map(s => parseInt(s, 10))
-      .filter(p => !isNaN(p) && p !== process.pid);
-    if (pids.length > 0) {
-      for (const p of pids) {
-        try {
-          process.kill(p, 'SIGTERM');
-        } catch (err: any) {
-          if (err?.code !== 'ESRCH') {
-            console.warn(`[watchdog] Failed to SIGTERM orphan PID ${p}: ${err?.message}`);
-          }
-        }
-      }
-      await setTimeout(2000);
-      console.log(`Cleaned up ${pids.length} orphan watchdog process(es)`);
-    }
-  } catch {}
-
-  // 最后确认：用 pgrep 检查是否还有残留（PID 文件已删，不能用 isWatchdogAlive）
-  try {
-    const watchdogEntryPath = getWatchdogEntryPath();
-    const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
-    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
-    const remaining = output.trim().split('\n')
-      .map(s => parseInt(s, 10))
-      .filter(p => !isNaN(p) && p !== process.pid);
-    if (remaining.length > 0) {
-      console.log(`Warning: ${remaining.length} watchdog process(es) still running`);
-    } else {
-      console.log('Watchdog stopped');
-    }
-  } catch {
-    console.log('Watchdog stopped');
-  }
+  console.log('Watchdog stopped');
 }
