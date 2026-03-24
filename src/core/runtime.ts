@@ -516,12 +516,14 @@ export class ClawRuntime {
       if (err instanceof MaxStepsExceededError) {
         const errorMsg = err.message;
         for (const info of infos) {
-          await this.outboxWriter.write({
-            type: 'response',
-            to: info.from ?? 'unknown',
-            content: `Error: ${errorMsg}`,
-            contract_id: info.contract_id,
-          }).catch(e => console.error('[runtime] Failed to write error response:', e));
+          if (info.from) {
+            await this.outboxWriter.write({
+              type: 'response',
+              to: info.from,
+              content: `Error: ${errorMsg}`,
+              contract_id: info.contract_id,
+            }).catch(e => console.error('[runtime] Failed to write error response:', e));
+          }
         }
       } else if (!(err instanceof Error && err.message === 'Execution aborted')) {
         // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
