@@ -49,7 +49,7 @@ export class SessionManager {
     // Try current.json first
     try {
       const content = await this.fs.read(this.currentPath);
-      const data = JSON.parse(content) as SessionData;
+      const data = this.validateSession(JSON.parse(content) as SessionData);
       // Cache createdAt for subsequent saves
       this.createdAt = data.createdAt;
       return data;
@@ -110,9 +110,9 @@ export class SessionManager {
     // Ensure archive directory exists
     await this.fs.ensureDir(this.archiveDir);
 
-    // Generate archive filename with timestamp
+    // Generate archive filename with timestamp and UUID suffix to avoid collisions
     const timestamp = Date.now();
-    const archivePath = path.join(this.archiveDir, `${timestamp}.json`);
+    const archivePath = path.join(this.archiveDir, `${timestamp}_${randomUUID().slice(0, 8)}.json`);
 
     // Move current.json to archive
     await this.fs.move(this.currentPath, archivePath);
