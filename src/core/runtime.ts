@@ -154,6 +154,12 @@ export class ClawRuntime {
 
     // 6. Create SessionManager (uses systemFs; system components need to write to dialog/)
     this.sessionManager = new SessionManager(this.systemFs, 'dialog', clawId);
+    // Archive previous session on startup (best-effort; first start has no current.json)
+    await this.sessionManager.archive().catch((err: any) => {
+      if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
+        console.warn('[runtime] Failed to archive session on startup:', err?.message);
+      }
+    });
 
     // 7. Create ToolRegistry and register built-in tools
     this.toolRegistry = new ToolRegistry();
