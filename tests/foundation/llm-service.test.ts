@@ -144,7 +144,7 @@ describe('LLMService - stream failover', () => {
     
     // Should throw with an error indicating all providers failed
     expect(caughtError).toBeDefined();
-    expect(caughtError!.message).toContain('All providers failed');
+    expect(caughtError!.message).toContain('All LLM providers failed');
   });
 
   it('should throw after partial yield, not failover (H4)', async () => {
@@ -277,7 +277,7 @@ describe('LLMService - stream failover', () => {
     }
 
     expect(caughtError).toBeInstanceOf(LLMError);
-    expect(caughtError!.message).toContain('All providers failed');
+    expect(caughtError!.message).toContain('All LLM providers failed');
   });
 
   it('should try primary again on next call even if previous streaming used fallback', async () => {

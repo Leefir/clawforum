@@ -265,20 +265,23 @@ export class LLMService implements ILLMService {
       ...this.fallbacks.map((fb, i) => ({ adapter: fb, breakerIndex: i + 1 })),
     ];
 
+    const failures: Array<{ provider: string; error: Error }> = [];
+
     for (let pi = 0; pi < providers.length; pi++) {
       const { adapter: provider, breakerIndex } = providers[pi];
-      
+
       if (!provider.stream) continue;
-      
+
       // Check circuit breaker
       const breaker = this.breakers[breakerIndex];
       if (breaker?.isOpen()) {
         continue; // Skip if breaker open
       }
-      
+
       // Retry loop (aligns with call())
       let success = false;
       let hasYielded = false;
+      let lastError: Error | null = null;
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
         try {
           for await (const chunk of provider.stream(options)) {
@@ -289,6 +292,7 @@ export class LLMService implements ILLMService {
           break; // Success, exit retry loop
         } catch (error) {
           const err = error as Error;
+          lastError = err;
           // Don't retry on user abort
           if (err.name === 'AbortError') throw err;
           // Don't retry after chunks have been yielded — caller already has partial state
@@ -304,7 +308,7 @@ export class LLMService implements ILLMService {
           }
         }
       }
-      
+
       if (success) {
         // Circuit breaker: record success
         breaker?.onSuccess();
@@ -314,12 +318,16 @@ export class LLMService implements ILLMService {
       } else {
         // Circuit breaker: record failure
         breaker?.onFailure();
+        failures.push({
+          provider: provider.name,
+          error: lastError ?? new Error('Unknown stream error'),
+        });
         // Continue to next provider
       }
     }
-    
+
     // All providers failed
-    throw new LLMError('All providers failed for streaming', { provider: 'LLMService' });
+    throw new LLMAllProvidersFailedError(failures);
   }
   
   /**
