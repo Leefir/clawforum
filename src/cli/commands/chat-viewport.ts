@@ -415,32 +415,32 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
         }  // 文件被截断
         if (stat.size > track.fileSize) {
-        const toRead = stat.size - track.fileSize;
-        const buf = Buffer.alloc(toRead);
-        const fd = fsNative.openSync(streamFile, 'r');
-        let bytesRead = 0;
-        try {
-          while (bytesRead < toRead) {
-            const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
-            if (n === 0) break;
-            bytesRead += n;
-          }
-        } finally { fsNative.closeSync(fd); }
-        track.fileSize += bytesRead;
-
-        const chunk = track.leftover + buf.toString('utf-8');
-        const lines = chunk.split('\n');
-        track.leftover = lines.pop() ?? '';
-        for (const line of lines) {
-          if (!line.trim()) continue;
+          const toRead = stat.size - track.fileSize;
+          const buf = Buffer.alloc(toRead);
+          const fd = fsNative.openSync(streamFile, 'r');
+          let bytesRead = 0;
           try {
-            const ev = JSON.parse(line);
-            if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
-            else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
-            else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
-            else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
-          } catch { /* skip */ }
-        }
+            while (bytesRead < toRead) {
+              const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
+              if (n === 0) break;
+              bytesRead += n;
+            }
+          } finally { fsNative.closeSync(fd); }
+          track.fileSize += bytesRead;
+
+          const chunk = track.leftover + buf.toString('utf-8');
+          const lines = chunk.split('\n');
+          track.leftover = lines.pop() ?? '';
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const ev = JSON.parse(line);
+              if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
+              else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
+              else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
+              else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
+            } catch { /* skip */ }
+          }
         }
       } catch { /* ENOENT 等，跳过 */ }
 
