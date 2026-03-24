@@ -34,6 +34,7 @@ import {
 } from './commands/watchdog.js';
 import { configCommand } from './commands/config.js';
 import { stopAllCommand } from './commands/stop.js';
+import { statusCommand } from './commands/status.js';
 
 program
   .name('clawforum')
@@ -50,6 +51,19 @@ program
   .action(async () => {
     try {
       await stopAllCommand();
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// status command
+program
+  .command('status')
+  .description('Show status of all clawforum processes')
+  .action(async () => {
+    try {
+      await statusCommand();
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);

@@ -62,7 +62,7 @@ function removeWatchdogPid(): void {
   }
 }
 
-function getWatchdogPid(): number | null {
+export function getWatchdogPid(): number | null {
   try {
     const content = fs.readFileSync(getWatchdogPidFile(), 'utf-8');
     const pid = parseInt(content.trim(), 10);
