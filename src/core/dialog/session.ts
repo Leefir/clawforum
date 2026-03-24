@@ -193,6 +193,17 @@ export class SessionManager {
       cutIdx++;
     }
 
+    // Validate: slice must start with a non-pure-tool-result user message
+    const startMsg = messages[cutIdx];
+    const isValidStart = startMsg?.role === 'user' &&
+      !(Array.isArray(startMsg.content) &&
+        startMsg.content.length > 0 &&
+        startMsg.content.every((b: any) => b.type === 'tool_result'));
+    if (!isValidStart) {
+      console.warn(`[session] Cannot find safe truncation point, keeping full context`);
+      return { result: messages, pruned: 0 };
+    }
+
     const pruned = cutIdx;
     if (pruned > 0) {
       console.warn(`[session] Pruned ${pruned} messages to fit context window (${maxTokens} tokens)`);
