@@ -511,9 +511,24 @@ export async function stopCommand(): Promise<void> {
     }
   } catch {}
 
-  if (isWatchdogAlive()) {
-    console.log('Failed to stop watchdog');
-  } else {
+  // 最后确认：用 pgrep 检查是否还有残留（PID 文件已删，不能用 isWatchdogAlive）
+  try {
+    const thisDir = path.dirname(fileURLToPath(import.meta.url));
+    const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
+    const watchdogEntryPath = existsSync(bundleEntry)
+      ? bundleEntry
+      : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+    const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
+    const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
+    const remaining = output.trim().split('\n')
+      .map(s => parseInt(s, 10))
+      .filter(p => !isNaN(p) && p !== process.pid);
+    if (remaining.length > 0) {
+      console.log(`Warning: ${remaining.length} watchdog process(es) still running`);
+    } else {
+      console.log('Watchdog stopped');
+    }
+  } catch {
     console.log('Watchdog stopped');
   }
 }
