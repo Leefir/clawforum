@@ -799,3 +799,98 @@ describe('OpenAIAdapter.stream', () => {
     expect(chunks.some(c => c.type === 'done')).toBe(true);
   });
 });
+
+
+describe('OpenAIAdapter.call - formatMessages (M2)', () => {
+  const config = {
+    name: 'openai',
+    apiKey: 'test-key',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4',
+    apiFormat: 'openai' as const,
+  };
+
+  // OpenAI non-streaming response format
+  function createOpenAIResponse(content: string): object {
+    return {
+      choices: [{
+        message: { role: 'assistant', content },
+        finish_reason: 'stop',
+      }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('should format pure tool_use assistant message with content="" (not null)', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      createMockResponse(createOpenAIResponse('ok'))
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const adapter = new OpenAIAdapter(config);
+    const messages: Message[] = [
+      { role: 'user', content: 'run tool' },
+      {
+        role: 'assistant',
+        content: [
+          // 纯 tool_use，无文本 block
+          { type: 'tool_use', id: 'call_1', name: 'read', input: { path: 'x.txt' } },
+        ],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'call_1', content: 'file content' }],
+      },
+    ];
+
+    await adapter.call({ messages });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const assistantMsg = body.messages.find((m: any) => m.role === 'assistant' && m.tool_calls);
+
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg.content).toBe('');          // M2 fix: '' not null
+    expect(assistantMsg.content).not.toBeNull();    // 明确验证不是 null
+    expect(assistantMsg.tool_calls).toHaveLength(1);
+    expect(assistantMsg.tool_calls[0].function.name).toBe('read');
+  });
+
+  it('should format assistant message with text as content string', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      createMockResponse(createOpenAIResponse('ok'))
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const adapter = new OpenAIAdapter(config);
+    const messages: Message[] = [
+      { role: 'user', content: 'hello' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'I will use a tool' },
+          { type: 'tool_use', id: 'call_2', name: 'write', input: { path: 'out.txt', content: 'data' } },
+        ],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'call_2', content: 'done' }],
+      },
+    ];
+
+    await adapter.call({ messages });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const assistantMsg = body.messages.find((m: any) => m.role === 'assistant' && m.tool_calls);
+
+    expect(assistantMsg.content).toBe('I will use a tool');  // 文本正确传递
+    expect(assistantMsg.tool_calls).toHaveLength(1);
+  });
+});
