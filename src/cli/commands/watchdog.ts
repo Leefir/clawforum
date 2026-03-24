@@ -96,10 +96,14 @@ function log(message: string): void {
   const timestamp = new Date().toISOString();
   const logLine = `[${timestamp}] ${message}\n`;
   console.log(logLine.trim());
-  
-  const logDir = path.join(getClawforumDir(), 'logs');
-  fs.mkdirSync(logDir, { recursive: true });
-  fs.appendFileSync(path.join(logDir, 'watchdog.log'), logLine, 'utf-8');
+
+  try {
+    const logDir = path.join(getClawforumDir(), 'logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, 'watchdog.log'), logLine, 'utf-8');
+  } catch {
+    // Fallback: already output to stdout above
+  }
 }
 
 // Write an inbox message (YAML frontmatter .md format)
@@ -141,7 +145,11 @@ export function maybeCronClawInactivity(pm: ProcessManager): void {
 
   // 清理已不存在的 claw 的 Map 条目
   const existingClawIds = new Set(fs.readdirSync(clawsDir).filter(id => {
-    return fs.statSync(path.join(clawsDir, id)).isDirectory();
+    try {
+      return fs.statSync(path.join(clawsDir, id)).isDirectory();
+    } catch {
+      return false;
+    }
   }));
   for (const id of lastInactivityNotified.keys()) {
     if (!existingClawIds.has(id)) {
@@ -217,7 +225,11 @@ function maybeCronClawCrash(pm: ProcessManager): void {
 
   // 清理已不存在的 claw 的 Map 条目
   const existingClawIds = new Set(fs.readdirSync(clawsDir).filter(id => {
-    return fs.statSync(path.join(clawsDir, id)).isDirectory();
+    try {
+      return fs.statSync(path.join(clawsDir, id)).isDirectory();
+    } catch {
+      return false;
+    }
   }));
   for (const id of clawPreviouslyAlive.keys()) {
     if (!existingClawIds.has(id)) {
@@ -278,10 +290,12 @@ function maybeCronArchive(): void {
     for (const file of fs.readdirSync(motionArchiveDir)) {
       if (!file.endsWith('.json')) continue;
       const filePath = path.join(motionArchiveDir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.mtimeMs < thirtyDaysAgo) {
-        fs.renameSync(filePath, path.join(archiveDir, `motion_${file}`));
-      }
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.mtimeMs < thirtyDaysAgo) {
+          fs.renameSync(filePath, path.join(archiveDir, `motion_${file}`));
+        }
+      } catch { /* skip: file deleted during scan */ }
     }
   }
   
@@ -294,10 +308,12 @@ function maybeCronArchive(): void {
       for (const file of fs.readdirSync(clawArchiveDir)) {
         if (!file.endsWith('.json')) continue;
         const filePath = path.join(clawArchiveDir, file);
-        const stat = fs.statSync(filePath);
-        if (stat.mtimeMs < thirtyDaysAgo) {
-          fs.renameSync(filePath, path.join(archiveDir, `${clawId}_${file}`));
-        }
+        try {
+          const stat = fs.statSync(filePath);
+          if (stat.mtimeMs < thirtyDaysAgo) {
+            fs.renameSync(filePath, path.join(archiveDir, `${clawId}_${file}`));
+          }
+        } catch { /* skip: file deleted during scan */ }
       }
     }
   }
@@ -371,7 +387,9 @@ function getDirSize(dir: string): number {
     if (entry.isDirectory()) {
       size += getDirSize(fullPath);
     } else {
-      size += fs.statSync(fullPath).size;
+      try {
+        size += fs.statSync(fullPath).size;
+      } catch { /* skip: file deleted during scan */ }
     }
   }
   return size;
