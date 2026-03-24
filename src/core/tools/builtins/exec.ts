@@ -98,6 +98,18 @@ export const execTool: ITool = {
       };
     } catch (error) {
       const err = error as any;
+
+      // maxBuffer exceeded: give actionable guidance instead of raw Node error
+      if (err?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+        const partial = err.stdout
+          ? `\n[partial stdout]: ${(err.stdout as string).slice(0, EXEC_MAX_STDOUT)}`
+          : '';
+        return {
+          success: false,
+          content: `Error: command output exceeded 1 MB limit. Use head/tail to truncate, or redirect to a file.${partial}`,
+        };
+      }
+
       const msg = err.message || String(error);
       const stderr = err.stderr ? `\n[stderr]: ${(err.stderr as string).slice(0, EXEC_MAX_STDERR)}` : '';
       const stdout = err.stdout ? `\n[stdout]: ${(err.stdout as string).slice(0, EXEC_MAX_STDOUT)}` : '';
