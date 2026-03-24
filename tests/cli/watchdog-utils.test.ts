@@ -219,16 +219,18 @@ describe('getEffectiveInterval', () => {
 
 describe('shouldResetNotifyCount', () => {
   it('returns false when lastEventMs is null', () => {
-    expect(shouldResetNotifyCount(null, 0, 300000)).toBe(false);
+    expect(shouldResetNotifyCount(null, 0)).toBe(false);
   });
 
-  it('returns true when lastEventMs > lastNotified + timeoutMs', () => {
-    // Event at 1500, last notified at 0, timeout=1000 → 1500 > 1000 → reset
-    expect(shouldResetNotifyCount(1500, 0, 1000)).toBe(true);
+  it('returns true when lastEventMs > lastNotified (new activity since notification)', () => {
+    // Event at 1500, last notified at 1000 → 1500 > 1000 → reset
+    expect(shouldResetNotifyCount(1500, 1000)).toBe(true);
   });
 
-  it('returns false when lastEventMs <= lastNotified + timeoutMs', () => {
-    // Event at 1000, last notified at 500, timeout=600 → 1000 <= 1100 → no reset
-    expect(shouldResetNotifyCount(1000, 500, 600)).toBe(false);
+  it('returns false when lastEventMs <= lastNotified (no new activity)', () => {
+    // Event at 1000, last notified at 1000 → 1000 <= 1000 → no reset
+    expect(shouldResetNotifyCount(1000, 1000)).toBe(false);
+    // Event at 500, last notified at 1000 → 500 <= 1000 → no reset
+    expect(shouldResetNotifyCount(500, 1000)).toBe(false);
   });
 });

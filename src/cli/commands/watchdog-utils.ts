@@ -110,7 +110,6 @@ export function getEffectiveInterval(notifyCount: number, timeoutMs: number): nu
 export function shouldResetNotifyCount(
   lastEventMs: number | null,
   lastNotified: number,
-  timeoutMs: number,
 ): boolean {
-  return lastEventMs !== null && lastEventMs > lastNotified + timeoutMs;
+  return lastEventMs !== null && lastEventMs > lastNotified;
 }

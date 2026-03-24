@@ -150,9 +150,9 @@ export function maybeCronClawInactivity(pm: ProcessManager): void {
       // Not yet timed out
       if (now - referenceMs < timeoutMs) continue;
 
-      // Reset count if claw has made new progress after full timeout cycle
+      // Reset count if claw has made new progress since last notification
       const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
-      if (shouldResetNotifyCount(lastEventMs, lastNotified, timeoutMs)) {
+      if (shouldResetNotifyCount(lastEventMs, lastNotified)) {
         inactivityNotifyCount.set(clawId, 0);
       }
 
