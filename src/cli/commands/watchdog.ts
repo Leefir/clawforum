@@ -20,6 +20,18 @@ function getClawforumDir(): string {
   return path.dirname(getMotionDir());
 }
 
+/**
+ * Returns the absolute path to the watchdog entry script for this installation.
+ * Used as the pgrep pattern to scope process operations to the current install.
+ */
+function getWatchdogEntryPath(): string {
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
+  return existsSync(bundleEntry)
+    ? bundleEntry
+    : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+}
+
 // PID file path
 function getWatchdogPidFile(): string {
   return path.join(getClawforumDir(), 'watchdog.pid');
@@ -403,11 +415,7 @@ export async function daemonCommand(): Promise<void> {
 // Start command
 export async function startCommand(): Promise<void> {
   // Calculate watchdog entry path first (for both cleanup and spawn)
-  const thisDir = path.dirname(fileURLToPath(import.meta.url));
-  const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
-  const watchdogEntryPath = existsSync(bundleEntry)
-    ? bundleEntry
-    : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+  const watchdogEntryPath = getWatchdogEntryPath();
 
   // Cleanup: kill any existing watchdog processes (orphaned watchdogs)
   // Use full path as pattern to only match current installation
@@ -492,11 +500,7 @@ export async function stopCommand(): Promise<void> {
   // Cleanup: pgrep兜底，清理残留的watchdog-entry.js孤儿进程
   // Use full path as pattern to only match current installation
   try {
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
-    const watchdogEntryPath = existsSync(bundleEntry)
-      ? bundleEntry
-      : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+    const watchdogEntryPath = getWatchdogEntryPath();
     const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
     const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
     const pids = output.trim().split('\n')
@@ -513,11 +517,7 @@ export async function stopCommand(): Promise<void> {
 
   // 最后确认：用 pgrep 检查是否还有残留（PID 文件已删，不能用 isWatchdogAlive）
   try {
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
-    const watchdogEntryPath = existsSync(bundleEntry)
-      ? bundleEntry
-      : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+    const watchdogEntryPath = getWatchdogEntryPath();
     const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
     const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
     const remaining = output.trim().split('\n')

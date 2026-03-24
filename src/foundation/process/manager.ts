@@ -157,8 +157,16 @@ export class ProcessManager {
       throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
     }
 
+    // Calculate daemon entry path first (needed for pgrep pattern and spawn)
+    const thisDir = path.dirname(fileURLToPath(import.meta.url));
+    const bundleEntry = path.join(thisDir, 'daemon-entry.js');
+    const daemonEntryPath = existsSync(bundleEntry)
+      ? bundleEntry
+      : path.resolve(thisDir, '..', '..', '..', 'dist', 'daemon-entry.js');
+
     // Kill all orphaned daemon processes with the same name (pgrep scan)
-    // Note: pattern is set below after daemonEntryPath is computed
+    // Use full path as pattern to only match current installation
+    const pattern = `${daemonEntryPath} ${clawId}`;
     try {
       // Use spawnSync with array args to avoid shell injection via clawId
       const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
@@ -241,15 +249,7 @@ export class ProcessManager {
     }
 
     // Spawn the daemon process (using a dedicated entry file)
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const bundleEntry = path.join(thisDir, 'daemon-entry.js');
-    const daemonEntryPath = existsSync(bundleEntry)
-      ? bundleEntry
-      : path.resolve(thisDir, '..', '..', '..', 'dist', 'daemon-entry.js');
     const finalArgs = args ?? [daemonEntryPath, clawId];
-
-    // Pattern for pgrep: use full path to only match current installation
-    const pattern = `${daemonEntryPath} ${clawId}`;
 
     // Create the logs directory and log file
     const logsDir = path.join(clawDir, 'logs');
