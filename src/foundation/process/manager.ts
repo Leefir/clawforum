@@ -197,7 +197,12 @@ export class ProcessManager {
       if (!isNaN(lockPid)) {
         // Pre-check: only SIGTERM if the lock holder is still alive
         let lockAlive = false;
-        try { process.kill(lockPid, 0); lockAlive = true; } catch {}
+        try {
+          process.kill(lockPid, 0);
+          lockAlive = true;
+        } catch (err: any) {
+          if (err.code === 'EPERM') lockAlive = true; // process exists but no permission to signal
+        }
         if (lockAlive) {
           try {
             process.kill(lockPid, 'SIGTERM');
