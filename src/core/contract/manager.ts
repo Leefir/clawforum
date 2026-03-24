@@ -349,7 +349,9 @@ export class ContractManager {
       );
     } catch (err) {
       // 清理孤立的 contract.yaml，避免残留在 active/
-      await this.fs.delete(`${this.activeDir}/${contractId}/contract.yaml`).catch(() => {});
+      await this.fs.delete(`${this.activeDir}/${contractId}/contract.yaml`).catch((deleteErr) => {
+        console.warn(`[contract] Failed to rollback contract.yaml for ${contractId}: ${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`);
+      });
       throw err;
     }
 
