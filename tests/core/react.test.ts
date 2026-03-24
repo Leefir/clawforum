@@ -684,4 +684,79 @@ describe('ReAct Loop', () => {
       expect(result.finalText).toBe('done');
     });
   });
+
+  // ============================================================
+  // Parallel tool execution via registry
+  // ============================================================
+
+  it('should execute readonly sync tools in parallel via executeParallel', async () => {
+    // 构造 mock executor，含 executeParallel
+    const parallelResults = [
+      { success: true, content: 'result A' },
+      { success: true, content: 'result B' },
+    ];
+    const parallelExecutor = {
+      execute: vi.fn(),
+      executeParallel: vi.fn().mockResolvedValue(parallelResults),
+      validateArgs: vi.fn(),
+    };
+
+    // registry 标记所有工具为 readonly（非 async）
+    const registry = {
+      get: vi.fn((_name: string) => ({ readonly: true })),
+    };
+
+    // LLM 第一轮：返回 2 个 tool_use；第二轮：end_turn
+    let step = 0;
+    const llm = {
+      stream: async function* () {
+        step++;
+        if (step === 1) {
+          yield { type: 'tool_use_start', toolUse: { id: 'id1', name: 'read' } };
+          yield { type: 'tool_use_delta', toolUse: { id: 'id1', name: 'read', partialInput: '{"path":"a.txt"}' } };
+          yield { type: 'tool_use_start', toolUse: { id: 'id2', name: 'search' } };
+          yield { type: 'tool_use_delta', toolUse: { id: 'id2', name: 'search', partialInput: '{"query":"q"}' } };
+          yield { type: 'done' };
+        } else {
+          yield { type: 'text_delta', delta: 'Done with both tools' };
+          yield { type: 'done' };
+        }
+      },
+    };
+
+    const messages: Message[] = [{ role: 'user', content: 'search and read' }];
+    await runReact({
+      messages,
+      systemPrompt: '',
+      llm: llm as any,
+      executor: parallelExecutor as any,
+      ctx: mockCtx,
+      registry: registry as any,
+      maxSteps: 5,
+    });
+
+    // executeParallel 被调用一次，含 2 个工具（按原始顺序）
+    expect(parallelExecutor.executeParallel).toHaveBeenCalledTimes(1);
+    const [batch] = (parallelExecutor.executeParallel as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(batch).toHaveLength(2);
+    expect(batch[0].toolName).toBe('read');
+    expect(batch[0].args).toEqual({ path: 'a.txt' });
+    expect(batch[1].toolName).toBe('search');
+    expect(batch[1].args).toEqual({ query: 'q' });
+
+    // 顺序 execute 不被调用（全部走并行路径）
+    expect(parallelExecutor.execute).not.toHaveBeenCalled();
+
+    // messages 中应有 tool_result user 消息（来自 parallel 结果）
+    const toolResultMsg = messages.find(m =>
+      Array.isArray(m.content) &&
+      (m.content as any[])[0]?.type === 'tool_result'
+    );
+    expect(toolResultMsg).toBeDefined();
+    const results = toolResultMsg!.content as any[];
+    expect(results[0].tool_use_id).toBe('id1');
+    expect(results[0].content).toBe('result A');
+    expect(results[1].tool_use_id).toBe('id2');
+    expect(results[1].content).toBe('result B');
+  });
 });
