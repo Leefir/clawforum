@@ -137,6 +137,8 @@ export class ContractManager {
     }
     await fsNative.promises.mkdir(path.dirname(absoluteLockPath), { recursive: true });
 
+    let lastReason = 'unknown';
+
     for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
       try {
         // wx flag = O_EXCL: 文件存在时原子性失败，无 TOCTOU
@@ -157,17 +159,21 @@ export class ContractManager {
           try { process.kill(pid, 0); } catch { isAlive = false; }
           if (!isAlive) {
             // 持有者已死，清理 stale lock 后立即重试（不计入重试次数）
+            lastReason = `holder PID ${pid} is dead (stale lock)`;
             await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
             continue;
           }
           // 持有者存活但持锁超时：强制清理（防止 bug 导致永久死锁）
           if (Date.now() - time > LOCK_STALE_TIMEOUT_MS) {
+            lastReason = `holder PID ${pid} exceeded timeout (${LOCK_STALE_TIMEOUT_MS}ms)`;
             console.warn(`[contract] Lock held too long (> ${LOCK_STALE_TIMEOUT_MS}ms) by PID ${pid}, force clearing`);
             await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
             continue;
           }
+          lastReason = `held by PID ${pid} (${Math.round((Date.now() - time) / 1000)}s)`;
         } catch {
           // 读取或解析失败：lock 文件损坏，清理后重试
+          lastReason = 'lock file corrupt or unreadable';
           await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
           continue;
         }
@@ -178,7 +184,7 @@ export class ContractManager {
         }
       }
     }
-    throw new ToolError(`Failed to acquire lock after ${LOCK_MAX_RETRIES} retries: ${lockPath}`);
+    throw new ToolError(`Failed to acquire lock after ${LOCK_MAX_RETRIES} retries: ${lockPath} (${lastReason})`);
   }
 
   /**
