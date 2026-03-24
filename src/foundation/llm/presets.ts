@@ -84,6 +84,12 @@ export const PRESETS: Record<string, ProviderPreset> = {
     apiFormat: 'openai',
     authMethod: 'api_key',
   },
+  'custom-gemini': {
+    id: 'custom-gemini',
+    displayName: 'Custom (Gemini Format)',
+    apiFormat: 'gemini',
+    authMethod: 'api_key',
+  },
 };
 
 export function resolvePreset(id: string): ProviderPreset {

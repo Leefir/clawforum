@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized } from '../config.js';
+import { PRESETS } from '../../foundation/llm/presets.js';
 
 export async function initCommand(silent = false): Promise<void> {
   // Check if already initialized
@@ -53,8 +54,34 @@ export async function initCommand(silent = false): Promise<void> {
   };
 
   try {
-    // Base URL (optional)
-    const baseUrl = await question('Base URL (optional, press Enter for default)');
+    // Select preset
+    const presetEntries = Object.entries(PRESETS);
+    console.log('Select provider:');
+    const half = Math.ceil(presetEntries.length / 2);
+    for (let i = 0; i < half; i++) {
+      const [lid, lp] = presetEntries[i];
+      const right = presetEntries[i + half];
+      const leftStr = `${i + 1}. ${lid.padEnd(12)} (${lp.displayName})`;
+      const rightStr = right ? `${i + half + 1}. ${right[0].padEnd(12)} (${right[1].displayName})` : '';
+      console.log(`  ${leftStr.padEnd(32)}  ${rightStr}`);
+    }
+    const presetAnswer = await question('\n> ', '1');
+    const presetIndex = parseInt(presetAnswer, 10) - 1;
+    if (presetIndex < 0 || presetIndex >= presetEntries.length) {
+      console.error('Invalid selection');
+      process.exit(1);
+    }
+    const [presetId, preset] = presetEntries[presetIndex];
+
+    // Base URL (only for custom presets without a default)
+    let baseUrl: string | undefined;
+    if (!preset.defaultBaseUrl) {
+      baseUrl = await question('Base URL');
+      if (!baseUrl) {
+        console.error('Base URL is required for this provider');
+        process.exit(1);
+      }
+    }
 
     // API Key (required)
     const apiKey = await passwordQuestion('API Key');
@@ -63,15 +90,15 @@ export async function initCommand(silent = false): Promise<void> {
       process.exit(1);
     }
 
-    // Model (default provided)
-    const model = await question('Model', 'claude-3-5-haiku-20241022');
+    // Model (default from preset)
+    const model = await question('Model', preset.defaultModel ?? 'unknown');
 
     // Build config
     const config = {
       version: '1',
       llm: {
         primary: {
-          name: 'anthropic',
+          preset: presetId,
           api_key: apiKey,
           model: model,
           max_tokens: 4096,
