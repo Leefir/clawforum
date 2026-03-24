@@ -412,9 +412,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const stat = fsNative.statSync(streamFile);
         if (stat.size < track.fileSize) {
           track.fileSize = 0; track.leftover = '';
-          track.turnCount = 0; track.step = 0; track.active = false;
+          track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
         }  // 文件被截断
-        if (stat.size <= track.fileSize) continue;
+        if (stat.size > track.fileSize) {
         const toRead = stat.size - track.fileSize;
         const buf = Buffer.alloc(toRead);
         const fd = fsNative.openSync(streamFile, 'r');
@@ -440,6 +440,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
             else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
           } catch { /* skip */ }
+        }
         }
       } catch { /* ENOENT 等，跳过 */ }
 

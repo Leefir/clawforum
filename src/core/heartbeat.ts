@@ -39,15 +39,16 @@ export class Heartbeat {
    * 触发心跳：向 motion inbox 写入 heartbeat 消息
    */
   fire(): void {
-    this.lastRun = Date.now();
-
     try {
       const inboxDir = path.join(this.baseDir, 'motion', 'inbox', 'pending');
       fsNative.mkdirSync(inboxDir, { recursive: true });
 
       // 去重：已有未处理心跳则跳过
       const existing = fsNative.readdirSync(inboxDir);
-      if (existing.some(f => f.includes('_heartbeat_'))) return;
+      if (existing.some(f => f.includes('_heartbeat_'))) {
+        this.lastRun = Date.now();  // 去重也重置计时器，避免重复检查
+        return;
+      }
 
       writeInboxMessage({
         inboxDir,
@@ -57,7 +58,9 @@ export class Heartbeat {
         body: '心跳触发，请巡查。',
         idPrefix: 'hb',
       });
+      this.lastRun = Date.now();  // 只在成功写入后更新
     } catch (error) {
+      // lastRun 未更新 → 下次 isDue() 立即可重试
       process.stderr.write(`[Heartbeat] fire failed: ${error}\n`);
     }
   }
