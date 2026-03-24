@@ -408,7 +408,11 @@ export class ClawRuntime {
         priority: info.meta.priority ?? 'unknown',
       };
       fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(e =>
-        console.warn(`[audit] write failed: ${e instanceof Error ? e.message : String(e)}`)
+        this.monitor?.log('error', {
+          context: 'Runtime.auditLog',
+          file: info.name,
+          error: e instanceof Error ? e.message : String(e),
+        })
       );
     }
 
@@ -699,14 +703,23 @@ export class ClawRuntime {
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      
-      // Write error response
-      await this.outboxWriter.write({
-        type: 'response',
-        to: msg.from,
-        content: `Error processing message: ${errorMsg}`,
-        contract_id: msg.contract_id,
-      });
+
+      try {
+        // Write error response
+        await this.outboxWriter.write({
+          type: 'response',
+          to: msg.from,
+          content: `Error processing message: ${errorMsg}`,
+          contract_id: msg.contract_id,
+        });
+      } catch (writeErr) {
+        this.monitor?.log('error', {
+          context: 'Runtime.handleMessage',
+          originalError: errorMsg,
+          writeError: writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+        throw writeErr;
+      }
     }
   }
 
