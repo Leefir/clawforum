@@ -118,6 +118,28 @@ describe('getClawActivityInfo', () => {
     expect(result.lastError).toBe('some error');
   });
 
+  // M1 fix: turn_interrupted updates lastEventMs (claw was active, just interrupted)
+  it('turn_interrupted updates lastEventMs (counts as activity)', () => {
+    const lines = [
+      JSON.stringify({ type: 'text_delta', ts: 1000 }),
+      JSON.stringify({ type: 'turn_interrupted', ts: 2000 }),
+    ].join('\n');
+    fs.writeFileSync(path.join(testDir, 'stream.jsonl'), lines);
+    const result = getClawActivityInfo(testDir);
+    // turn_interrupted should update lastEventMs — claw was running before interrupt
+    expect(result.lastEventMs).toBe(2000);
+  });
+
+  // M1 fix: only turn_interrupted (no LLM output) still counts as activity
+  it('turn_interrupted alone updates lastEventMs', () => {
+    const lines = [
+      JSON.stringify({ type: 'turn_interrupted', ts: 1500 }),
+    ].join('\n');
+    fs.writeFileSync(path.join(testDir, 'stream.jsonl'), lines);
+    const result = getClawActivityInfo(testDir);
+    expect(result.lastEventMs).toBe(1500);
+  });
+
   it('returns {null, null} for empty stream.jsonl', () => {
     fs.writeFileSync(path.join(testDir, 'stream.jsonl'), '');
     const result = getClawActivityInfo(testDir);

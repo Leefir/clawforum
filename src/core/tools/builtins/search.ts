@@ -123,6 +123,7 @@ export const searchTool: ITool = {
           clawIds = fsNative.readdirSync(clawsDir).filter(name =>
             fsNative.statSync(nodePath.join(clawsDir, name)).isDirectory() && !name.startsWith('.')
           );
+          clawIds.sort(); // 保证稳定顺序
         } catch {
           return { success: true, content: `未找到包含 "${args.query}" 的内容（无 claw 目录）` };
         }

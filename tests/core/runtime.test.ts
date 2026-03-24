@@ -567,6 +567,102 @@ Test message
       // No LLM turn should be triggered
       expect(mockLLM.call).not.toHaveBeenCalled();
     });
+
+    // H3 fix: non-MaxSteps errors should notify sender via outbox
+    it('should notify sender when LLM throws non-MaxSteps error (H3)', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Create a message with 'from' field
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+      const content = `---
+id: test-msg
+type: message
+from: motion
+contract_id: test-contract
+priority: normal
+timestamp: ${new Date().toISOString()}
+---
+
+Test message`;
+      await fs.writeFile(path.join(pendingDir, 'msg.md'), content);
+
+      // Mock LLM that throws a non-MaxSteps error
+      const failingLLM = {
+        call: vi.fn().mockRejectedValue(new Error('LLM API crashed')),
+        stream: vi.fn().mockImplementation(async function* () {
+          throw new Error('LLM API crashed');
+        }),
+        close: vi.fn(),
+      };
+      (runtime as unknown as { llm: typeof failingLLM }).llm = failingLLM;
+
+      // Should throw the error
+      await expect(runtime.processBatch()).rejects.toThrow('LLM API crashed');
+
+      // Verify error response was written to outbox
+      const outboxDir = path.join(clawDir, 'outbox', 'pending');
+      const outboxFiles = await fs.readdir(outboxDir);
+      const responseFiles = outboxFiles.filter(f => f.endsWith('.md'));
+      expect(responseFiles.length).toBeGreaterThan(0);
+
+      // Verify the error response content
+      const responseContent = await fs.readFile(
+        path.join(outboxDir, responseFiles[0]),
+        'utf-8'
+      );
+      expect(responseContent).toContain('# RESPONSE');
+      expect(responseContent).toContain('**To:** motion');
+      expect(responseContent).toContain('**Contract:** test-contract');
+      expect(responseContent).toContain('Error: LLM API crashed');
+    });
+
+    // H3 fix: Execution aborted should NOT notify sender (daemon will retry)
+    it('should NOT notify sender on Execution aborted (H3)', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'test-claw',
+        clawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      // Create a message with 'from' field
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+      const content = `---
+id: test-msg
+type: message
+from: motion
+contract_id: test-contract
+priority: normal
+timestamp: ${new Date().toISOString()}
+---
+
+Test message`;
+      await fs.writeFile(path.join(pendingDir, 'msg.md'), content);
+
+      // Mock LLM that throws 'Execution aborted'
+      const abortingLLM = {
+        call: vi.fn().mockRejectedValue(new Error('Execution aborted')),
+        stream: vi.fn().mockImplementation(async function* () {
+          throw new Error('Execution aborted');
+        }),
+        close: vi.fn(),
+      };
+      (runtime as unknown as { llm: typeof abortingLLM }).llm = abortingLLM;
+
+      // Should throw the error
+      await expect(runtime.processBatch()).rejects.toThrow('Execution aborted');
+
+      // Verify NO error response was written to outbox
+      const outboxDir = path.join(clawDir, 'outbox', 'pending');
+      const outboxFiles = await fs.readdir(outboxDir);
+      const responseFiles = outboxFiles.filter(f => f.endsWith('.md'));
+      expect(responseFiles.length).toBe(0);
+    });
   });
 
   // ─── retryLastTurn() ──────────────────────────────────────────────────────

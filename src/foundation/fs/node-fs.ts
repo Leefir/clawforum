@@ -371,14 +371,31 @@ export class NodeFileSystem implements IFileSystem {
     
     const results: string[] = [];
     
-    // Convert a glob pattern to a RegExp, escaping all regex special chars first
+    // Convert a glob pattern to a RegExp with standard glob semantics
+    // * matches any chars except / (single path segment)
+    // ** matches any chars including / (crosses directories)
+    // ? matches any single char except /
     const globToRegex = (glob: string): RegExp => {
-      let result = '';
-      for (const ch of glob) {
-        if (ch === '*') result += '.*';
-        else if (ch === '?') result += '.';
-        else result += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+      let result = '^';
+      let i = 0;
+      while (i < glob.length) {
+        const ch = glob[i];
+        if (ch === '*' && glob[i + 1] === '*') {
+          result += '.*';
+          i += 2;
+          if (glob[i] === '/') i++; // consume **/ trailing slash
+        } else if (ch === '*') {
+          result += '[^/]*';
+          i++;
+        } else if (ch === '?') {
+          result += '[^/]';
+          i++;
+        } else {
+          result += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+          i++;
+        }
       }
+      result += '$';
       return new RegExp(result);
     };
     const regex = globToRegex(pattern);

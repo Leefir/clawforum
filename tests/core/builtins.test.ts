@@ -470,6 +470,50 @@ describe('Builtin Tools', () => {
       const lines = result.content.split('\n').filter(l => l.trim());
       expect(lines.length).toBe(4);
     });
+
+    // M2 fix: claw="*" search returns results in stable alphabetical order
+    it('should return results in alphabetical claw order with max_results (M2)', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+      const motionOutboxWriter = new OutboxWriter('motion', motionDir, motionFs);
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        permissions: { read: true, write: true, execute: true, spawn: true, send: true, network: false, system: false },
+        profile: 'full',
+        fs: motionFs,
+        outboxWriter: motionOutboxWriter,
+      });
+
+      const clawsDir = path.join(tempDir, 'claws');
+
+      // Create claws in reverse alphabetical order to test sorting
+      const zClawDir = path.join(clawsDir, 'z_claw', 'clawspace');
+      await fs.mkdir(zClawDir, { recursive: true });
+      await fs.writeFile(path.join(zClawDir, 'file.txt'), 'match');
+
+      const aClawDir = path.join(clawsDir, 'a_claw', 'clawspace');
+      await fs.mkdir(aClawDir, { recursive: true });
+      await fs.writeFile(path.join(aClawDir, 'file.txt'), 'match\nmatch');
+
+      const mClawDir = path.join(clawsDir, 'm_claw', 'clawspace');
+      await fs.mkdir(mClawDir, { recursive: true });
+      await fs.writeFile(path.join(mClawDir, 'file.txt'), 'match\nmatch\nmatch');
+
+      // Search with max_results=4 - should take from a_claw first (alphabetically)
+      const result = await searchTool.execute({ query: 'match', path: 'clawspace/', claw: '*', max_results: 4 }, motionCtx);
+
+      expect(result.success).toBe(true);
+      const lines = result.content.split('\n').filter(l => l.trim());
+      expect(lines.length).toBe(4);
+      // With sorting, a_claw (alphabetically first) fills 2 slots, then m_claw fills 2
+      expect(lines[0]).toContain('[a_claw]');
+      expect(lines[1]).toContain('[a_claw]');
+      expect(lines[2]).toContain('[m_claw]');
+      expect(lines[3]).toContain('[m_claw]');
+    });
   });
 
   describe('status tool', () => {

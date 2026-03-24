@@ -30,8 +30,10 @@ export function getClawActivityInfo(clawDir: string): ClawActivityInfo {
         const ts = typeof event.ts === 'number' ? event.ts : null;
         if (!ts) continue;
 
-        // Only direct LLM output counts as activity
-        if (LLM_OUTPUT_EVENTS.has(event.type) && (lastEventMs === null || ts > lastEventMs)) {
+        // Direct LLM output counts as activity; turn_interrupted also counts
+        // (claw was running but got interrupted — still an active state, not idle)
+        if ((LLM_OUTPUT_EVENTS.has(event.type) || event.type === 'turn_interrupted') &&
+            (lastEventMs === null || ts > lastEventMs)) {
           lastEventMs = ts;
         }
 

@@ -100,6 +100,9 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
 
     // 构造包含完整对话上下文的 messages 数组
     const dialogMessages = ctx.dialogMessages ?? [];
+    if (dialogMessages.length === 0) {
+      console.warn('[dispatch] dialogMessages not provided or empty — dispatcher will run without conversation context');
+    }
     const dispatcherMessages: Message[] = [
       ...dialogMessages,
       { role: 'user' as const, content: prompt },

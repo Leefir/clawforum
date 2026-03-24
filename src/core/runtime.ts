@@ -315,6 +315,7 @@ export class ClawRuntime {
     injected: Message[];
     sources: Array<{ text: string; type: string }>;
     count: number;
+    infos: Array<{ from?: string; contract_id?: string }>;
   }> {
     const inboxDir = path.join(this.options.clawDir, 'inbox');
     const pendingDir = path.join(inboxDir, 'pending');
@@ -334,10 +335,10 @@ export class ClawRuntime {
       if (err?.code !== 'ENOENT') {
         console.warn(`[inbox] Failed to read pending dir: ${err?.message}`);
       }
-      return { injected: [], sources: [], count: 0 };
+      return { injected: [], sources: [], count: 0, infos: [] };
     }
 
-    if (files.length === 0) return { injected: [], sources: [], count: 0 };
+    if (files.length === 0) return { injected: [], sources: [], count: 0, infos: [] };
 
     // Sort by priority then filename
     const PRIORITY_ORDER: Record<string, number> = {
@@ -433,7 +434,13 @@ export class ClawRuntime {
       ? [{ role: 'user', content: allParts.join('\n\n') }]
       : [];
 
-    return { injected, sources, count: injectedInfos.length };
+    // Extract metadata for error notification (H3 fix)
+    const infos = injectedInfos.map(info => ({
+      from: info.meta.from,
+      contract_id: info.meta.contract_id,
+    }));
+
+    return { injected, sources, count: injectedInfos.length, infos };
   }
 
   /**
@@ -478,7 +485,7 @@ export class ClawRuntime {
       await this.initialize();
     }
 
-    const { injected, sources, count } = await this._drainOwnInbox();
+    const { injected, sources, count, infos } = await this._drainOwnInbox();
     if (count === 0) return 0;
 
     // Notify daemon-loop which messages were injected
@@ -508,14 +515,26 @@ export class ClawRuntime {
       // Notify each inbox sender so they're not left hanging
       if (err instanceof MaxStepsExceededError) {
         const errorMsg = err.message;
-        for (const msg of injected) {
-          const inboxMeta = msg as Message & { from?: string; contract_id?: string };
+        for (const info of infos) {
           await this.outboxWriter.write({
             type: 'response',
-            to: inboxMeta.from ?? 'unknown',
+            to: info.from ?? 'unknown',
             content: `Error: ${errorMsg}`,
-            contract_id: inboxMeta.contract_id,
+            contract_id: info.contract_id,
           }).catch(e => console.error('[runtime] Failed to write error response:', e));
+        }
+      } else if (!(err instanceof Error && err.message === 'Execution aborted')) {
+        // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        for (const info of infos) {
+          if (info.from) {
+            await this.outboxWriter.write({
+              type: 'response',
+              to: info.from,
+              content: `Error: ${errorMsg}`,
+              contract_id: info.contract_id,
+            }).catch(e => console.error('[runtime] Failed to write error response:', e));
+          }
         }
       }
       throw err;
