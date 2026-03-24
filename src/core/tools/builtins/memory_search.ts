@@ -55,7 +55,17 @@ export const memorySearchTool: ITool = {
     }
 
     const results: string[] = [];
-    const compiled = pattern ? new RegExp(pattern) : null;
+    let compiled: RegExp | null = null;
+    if (pattern) {
+      try {
+        compiled = new RegExp(pattern);
+      } catch (e) {
+        return {
+          success: false,
+          content: `错误: 无效的正则表达式 "${pattern}": ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+    }
 
     let entries: FileEntry[];
     try {

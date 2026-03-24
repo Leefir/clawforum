@@ -107,6 +107,23 @@ export const writeTool: ITool = {
       };
     }
 
+    // Check total size for append mode
+    if (append) {
+      let existingSize = 0;
+      try {
+        const s = await ctx.fs.stat(filePath);
+        existingSize = s.size;
+      } catch {
+        // File doesn't exist yet; existingSize stays 0
+      }
+      if (existingSize + content.length > hardLimit) {
+        return {
+          success: false,
+          content: `Error: Appended content would exceed hard limit (${hardLimit / 1024}KB) for ${filePath} (existing: ${Math.round(existingSize / 1024)}KB + new: ${Math.round(content.length / 1024)}KB)`,
+        };
+      }
+    }
+
     const warnings: string[] = [];
     if (content.length > softLimit) {
       warnings.push(`Warning: Content exceeds soft limit (${softLimit / 1024}KB)`);

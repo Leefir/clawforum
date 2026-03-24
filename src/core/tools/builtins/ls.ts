@@ -63,7 +63,8 @@ export const lsTool: ITool = {
       targetPath = nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam, path);
       // Escape check: must be within the target claw's directory
       const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
-      if (!targetPath.startsWith(nodePath.join(clawsDir, clawParam))) {
+      const clawRoot = nodePath.join(clawsDir, clawParam);
+      if (targetPath !== clawRoot && !targetPath.startsWith(clawRoot + nodePath.sep)) {
         return {
           success: false,
           content: `Error: Path escapes target claw directory: "${path}"`,

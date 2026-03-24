@@ -167,7 +167,8 @@ export const searchTool: ITool = {
       baseDir = nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam, searchPath);
       // Escape check: must be within the target claw's directory
       const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
-      if (!baseDir.startsWith(nodePath.join(clawsDir, clawParam))) {
+      const clawRoot = nodePath.join(clawsDir, clawParam);
+      if (baseDir !== clawRoot && !baseDir.startsWith(clawRoot + nodePath.sep)) {
         return {
           success: false,
           content: `Error: Path escapes target claw directory: "${searchPath}"`,

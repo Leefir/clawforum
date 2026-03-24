@@ -73,6 +73,8 @@ export function createWatcher(
     ignored?: (string | RegExp)[];
     /** Initial scan callback */
     onReady?: () => void;
+    /** Error callback */
+    onError?: (error: Error) => void;
   }
 ): Watcher {
   const watcher = chokidarWatch(watchPath, {
@@ -116,6 +118,7 @@ export function createWatcher(
   // Error handling
   watcher.on('error', (error) => {
     console.error('Watcher error:', error);
+    options?.onError?.(error instanceof Error ? error : new Error(String(error)));
   });
   
   return new ChokidarWatcher(watcher, watchPath);
