@@ -139,6 +139,17 @@ export function maybeCronClawInactivity(pm: ProcessManager): void {
   const clawsDir = path.join(getClawforumDir(), 'claws');
   if (!fs.existsSync(clawsDir)) return;
 
+  // 清理已不存在的 claw 的 Map 条目
+  const existingClawIds = new Set(fs.readdirSync(clawsDir).filter(id => {
+    return fs.statSync(path.join(clawsDir, id)).isDirectory();
+  }));
+  for (const id of lastInactivityNotified.keys()) {
+    if (!existingClawIds.has(id)) {
+      lastInactivityNotified.delete(id);
+      inactivityNotifyCount.delete(id);
+    }
+  }
+
   const now = Date.now();
   for (const clawId of fs.readdirSync(clawsDir)) {
     try {
@@ -203,6 +214,16 @@ export function maybeCronClawInactivity(pm: ProcessManager): void {
 function maybeCronClawCrash(pm: ProcessManager): void {
   const clawsDir = path.join(getClawforumDir(), 'claws');
   if (!fs.existsSync(clawsDir)) return;
+
+  // 清理已不存在的 claw 的 Map 条目
+  const existingClawIds = new Set(fs.readdirSync(clawsDir).filter(id => {
+    return fs.statSync(path.join(clawsDir, id)).isDirectory();
+  }));
+  for (const id of clawPreviouslyAlive.keys()) {
+    if (!existingClawIds.has(id)) {
+      clawPreviouslyAlive.delete(id);
+    }
+  }
 
   for (const clawId of fs.readdirSync(clawsDir)) {
     const clawDir = path.join(clawsDir, clawId);
