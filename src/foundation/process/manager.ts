@@ -102,7 +102,7 @@ export class ProcessManager {
   /**
    * Get detailed alive status including reason
    */
-  getAliveStatus(clawId: string): { alive: boolean; reason: string } {
+  getAliveStatus(clawId: string): { alive: boolean; reason: string; pid?: number } {
     try {
       const pidFile = this.getPidFile(clawId);
       const content = readFileSync(pidFile, 'utf-8');
@@ -117,14 +117,14 @@ export class ProcessManager {
 
       try {
         process.kill(pid, 0);
-        return { alive: true, reason: `PID ${pid}` };
+        return { alive: true, reason: `PID ${pid}`, pid };
       } catch (err: any) {
         if (err.code === 'ESRCH') {
           try { unlinkSync(pidFile); } catch { /* ignore */ }
           return { alive: false, reason: `PID ${pid} not found (ESRCH)` };
         }
         if (err.code === 'EPERM') {
-          return { alive: true, reason: `PID ${pid} (EPERM, assumed alive)` };
+          return { alive: true, reason: `PID ${pid} (EPERM, assumed alive)`, pid };
         }
         return { alive: false, reason: `kill(0) error: ${err.code}` };
       }

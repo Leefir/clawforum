@@ -37,7 +37,7 @@ export async function statusCommand(): Promise<void> {
 
   // 3. Claws
   const clawsDir = path.join(baseDir, 'claws');
-  const trackedClawPids: number[] = [];
+  const clawStatuses: { name: string; status: { alive: boolean; reason: string; pid?: number } }[] = [];
   if (fs.existsSync(clawsDir)) {
     const clawEntries = fs.readdirSync(clawsDir, { withFileTypes: true })
       .filter(e => e.isDirectory())
@@ -46,13 +46,7 @@ export async function statusCommand(): Promise<void> {
     for (const name of clawEntries) {
       const s = pm.getAliveStatus(name);
       console.log(`  ${name}: ${s.alive ? `running (${s.reason})` : `stopped (${s.reason})`}`);
-      // Extract PID from reason if running (reason format: "PID xxx")
-      if (s.alive) {
-        const match = s.reason.match(/PID\s+(\d+)/);
-        if (match) {
-          trackedClawPids.push(parseInt(match[1], 10));
-        }
-      }
+      clawStatuses.push({ name, status: s });
     }
   }
 
@@ -73,8 +67,8 @@ export async function statusCommand(): Promise<void> {
     ? bundleEntry
     : path.resolve(thisDir, '..', '..', 'dist', 'daemon-entry.js');
   const dmResult = spawnSync('pgrep', ['-f', daemonEntryPath], { encoding: 'utf-8' });
-  const motionPid = motionStatus.alive ? (motionStatus.reason.match(/PID\s+(\d+)/)?.[1] ? parseInt(motionStatus.reason.match(/PID\s+(\d+)/)![1], 10) : null) : null;
-  const trackedPids = [motionPid, ...trackedClawPids].filter((p): p is number => p !== null && p !== undefined);
+  const motionPid = motionStatus.pid;
+  const trackedPids = [motionPid, ...clawStatuses.map(s => s.status.pid)].filter((p): p is number => p !== undefined);
   const orphanDaemons = parsePgrep(dmResult).filter(p => !trackedPids.includes(p) && p !== process.pid);
   if (orphanDaemons.length > 0) {
     console.log(`  ⚠ orphan daemon(s): PIDs ${orphanDaemons.join(', ')}`);
