@@ -17,7 +17,7 @@ import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../typ
 import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONTRACT_LLM_IDLE_TIMEOUT_MS, CONTRACT_VERIFIER_MAX_STEPS } from '../../constants.js';
+import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONTRACT_LLM_IDLE_TIMEOUT_MS, CONTRACT_VERIFIER_MAX_STEPS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -149,14 +149,20 @@ export class ContractManager {
       } catch (err: any) {
         if (err?.code !== 'EEXIST') throw err; // 非竞争错误，向上抛
 
-        // EEXIST：尝试检测 stale lock（持有者进程已死）
+        // EEXIST：尝试检测 stale lock（持有者进程已死或持锁超时）
         try {
           const raw = await fsNative.promises.readFile(absoluteLockPath, 'utf-8');
-          const { pid } = JSON.parse(raw) as { pid: number; time: number };
+          const { pid, time } = JSON.parse(raw) as { pid: number; time: number };
           let isAlive = true;
           try { process.kill(pid, 0); } catch { isAlive = false; }
           if (!isAlive) {
             // 持有者已死，清理 stale lock 后立即重试（不计入重试次数）
+            await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
+            continue;
+          }
+          // 持有者存活但持锁超时：强制清理（防止 bug 导致永久死锁）
+          if (Date.now() - time > LOCK_STALE_TIMEOUT_MS) {
+            console.warn(`[contract] Lock held too long (> ${LOCK_STALE_TIMEOUT_MS}ms) by PID ${pid}, force clearing`);
             await fsNative.promises.unlink(absoluteLockPath).catch(() => {});
             continue;
           }
