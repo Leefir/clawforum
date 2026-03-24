@@ -34,7 +34,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const { TUI, Text, Editor, EditorKeybindingsManager, setEditorKeybindings, ProcessTerminal } = await import('@mariozechner/pi-tui');
 
-  // 移除 Ctrl+C 从 Input 的 selectCancel，让 TUI listener 处理
+  // 移除 Ctrl+C 从 Editor 的 selectCancel，让 TUI listener 处理
   setEditorKeybindings(new EditorKeybindingsManager({
     selectCancel: 'escape',  // 只绑 ESC
   }));

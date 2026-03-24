@@ -154,11 +154,15 @@ export async function daemonCommand(name: string): Promise<void> {
     try {
       const storedPid = fsNative.readFileSync(pidFile, 'utf-8').trim();
       if (storedPid === String(process.pid)) fsNative.unlinkSync(pidFile);
-    } catch {}
+    } catch (e: any) {
+      console.warn(`[daemon] Failed to clean up pid file: ${e?.message}`);
+    }
     try {
       const storedLockPid = fsNative.readFileSync(lockFile, 'utf-8').trim();
       if (storedLockPid === String(process.pid)) fsNative.unlinkSync(lockFile);
-    } catch {}
+    } catch (e: any) {
+      console.warn(`[daemon] Failed to clean up lock file: ${e?.message}`);
+    }
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
