@@ -6,18 +6,21 @@ import { ToolRegistry } from '../registry.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
-  readonly description = `创建一个 Spawnable SubAgent（dispatcher），继承 Motion 的 system prompt，读取 dispatch-skills 模板后决定如何派发工作。
+  readonly description = `创建一个 Dispatcher 分身，继承 Motion 的 system prompt 和工具列表，读取 dispatch-skills 模板后决定如何派发工作。
 
 dispatcher 可以：
-- spawn Worker SubAgent 执行内容任务
-- contract create 建立需要验收的长期任务
-- 在 clawspace/dispatch-skills/ 保存新模板供下次复用
+- 通过 exec 调用 CLI 给指定 claw 创建契约（长期、可验收的任务）
+- 通过 exec 调用 CLI 执行其他系统操作
+- 直接使用工具完成独立任务
 
-优先用 dispatch（而非直接 spawn）的场景：
-- 任务可能匹配已有模板（复用 prompt + skills 组合）
-- 希望积累可复用模板库
+dispatcher 不能：
+- 直接 spawn（如需 spawn，在最终回复中说明 prompt，由 Motion 执行）
 
-已知确切 prompt 的一次性任务，直接用 spawn 即可。`;
+优先用 dispatch 的场景：
+- 任务需要给 claw 创建契约
+- 任务可能匹配已有 dispatch-skills 模板
+
+已知确切 prompt 的一次性任务，Motion 直接用 spawn 即可。`;
 
   readonly requiredPermissions: (keyof ToolPermissions)[] = ['spawn'];
   readonly readonly = false;
@@ -73,12 +76,14 @@ dispatcher 可以：
       prompt += `\n\n${skillsSummary}\nUse skill({ name: "<skill-name>", skillsDir: "clawspace/dispatch-skills" }) to load full template.`;
     }
     prompt += `\n\n## Instructions
-If a dispatch skill matches, load its full SKILL.md via skill tool, fill in variables, then spawn Worker or create contract accordingly.
-If none match, write the prompt yourself. Save new templates to clawspace/dispatch-skills/<name>/SKILL.md for future reuse.
-Return: which template was used (or "new"), what was dispatched, brief summary.`;
+If a dispatch skill matches, load its full SKILL.md via skill tool, fill in variables, then act:
+- 契约类任务：exec: clawforum contract create --goal "<goal>" <claw_id>
+- 需要 spawn 的一次性任务：不要调 spawn，在最终回复里写明 "建议 Motion spawn: <prompt>"，Motion 会处理
+If none match, decide and act directly. Save new templates to clawspace/dispatch-skills/<name>/SKILL.md for future reuse.
+Return: which template was used (or "new"), what was done (or suggested), brief summary.`;
 
     // Dispatcher 身份说明（放在 user 消息中，不修改 system prompt 以保持 KV cache 命中）
-    const dispatcherNotice = `\n\n---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。不能再调用 \`dispatch\`（递归防护）。可以用 \`spawn\` 或直接使用工具完成任务。`;
+    const dispatcherNotice = `\n\n---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。\n- 不能再调用 \`dispatch\`（递归防护）\n- 不能调用 \`spawn\`（调用会报错）；需要 spawn 时，在最终回复中写明建议 prompt，由 Motion 执行\n- 契约创建：exec: clawforum contract create --goal "<goal>" <claw_id>`;
     prompt += dispatcherNotice;
 
     const taskSystem = ctx.taskSystem;
