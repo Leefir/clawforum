@@ -539,6 +539,17 @@ export class ClawRuntime {
           }
         }
       }
+      // Log unexpected errors to audit (aborts and MaxSteps are expected control flow)
+      if (
+        !(err instanceof Error && err.message === 'Execution aborted') &&
+        !(err instanceof MaxStepsExceededError)
+      ) {
+        this.monitor?.log('error', {
+          context: 'Runtime.processBatch',
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+      }
       throw err;
     } finally {
       this.currentAbortController = null;
