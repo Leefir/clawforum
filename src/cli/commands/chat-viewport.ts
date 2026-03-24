@@ -432,6 +432,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (!clawWatchers.has(clawId)) {
         try {
           const w = fsNative.watch(streamFile, { persistent: false }, scheduleClawRefresh);
+          w.on('error', () => {
+            w.close();
+            clawWatchers.delete(clawId);
+          });
           clawWatchers.set(clawId, w);
         } catch { /* fallback to polling */ }
       }
