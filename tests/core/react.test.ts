@@ -759,4 +759,31 @@ describe('ReAct Loop', () => {
     expect(results[1].tool_use_id).toBe('id2');
     expect(results[1].content).toBe('result B');
   });
+
+  // Step 3: max_tokens stop reason propagation fix
+  it('should append truncation notice when stop_reason is max_tokens', async () => {
+    // Override stream mock to simulate max_tokens stop
+    (mockLLM.stream as ReturnType<typeof vi.fn>).mockImplementationOnce(async function* () {
+      yield { type: 'text_delta', delta: 'Partial answer due to token limit' };
+      yield { type: 'done', stopReason: 'max_tokens' };
+    });
+
+    const messages: Message[] = [{ role: 'user', content: 'Write a very long essay' }];
+
+    const result = await runReact({
+      messages,
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+      maxSteps: 5,
+    });
+
+    // runReact normalizes max_tokens to end_turn
+    expect(result.stopReason).toBe('end_turn');
+    expect(result.finalText).toContain('Partial answer due to token limit');
+    expect(result.finalText).toContain('[Response truncated due to length limit]');
+    // messages should have user + assistant appended
+    expect(messages).toHaveLength(2);
+  });
 });

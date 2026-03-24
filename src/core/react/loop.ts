@@ -456,6 +456,9 @@ async function collectStreamResponse(
             output_tokens: chunk.usage.outputTokens,
           };
         }
+        if (chunk.stopReason && chunk.stopReason !== 'end_turn') {
+          stopReason = chunk.stopReason;
+        }
         break;
     }
   }

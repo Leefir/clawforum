@@ -308,12 +308,14 @@ export class AnthropicAdapter implements IProviderAdapter {
             }
           } else if (event.type === 'message_delta') {
             const usage = event.usage as Record<string, number> | undefined;
+            const delta = event.delta as Record<string, unknown> | undefined;
             yield {
               type: 'done',
               usage: usage ? {
                 inputTokens: usage.input_tokens ?? 0,
                 outputTokens: usage.output_tokens ?? 0,
               } : undefined,
+              stopReason: delta?.stop_reason as string | undefined,
             };
           }
         }

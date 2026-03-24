@@ -88,6 +88,9 @@ export interface StreamChunk {
     inputTokens: number;
     outputTokens: number;
   };
+
+  /** Stop reason (only in type='done' chunk) */
+  stopReason?: string;
 }
 
 /**
