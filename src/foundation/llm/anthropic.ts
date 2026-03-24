@@ -322,7 +322,11 @@ export class AnthropicAdapter implements IProviderAdapter {
       }
     } finally {
       clearTimeout(idleTimer);
-      reader.releaseLock();
+      try {
+        reader.releaseLock();
+      } catch {
+        // Ignore: pending read during timeout/abort; stream will be GC'd
+      }
     }
   }
   
