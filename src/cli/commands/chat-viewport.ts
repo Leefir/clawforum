@@ -424,6 +424,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       .filter(e => e.isDirectory())
       .map(e => e.name); } catch { return; }
 
+    // 清理已删除的 claw
+    for (const [id] of clawTrackMap) {
+      if (!clawIds.includes(id)) {
+        clawWatchers.get(id)?.close();
+        clawWatchers.delete(id);
+        clawTrackMap.delete(id);
+      }
+    }
+
     for (const clawId of clawIds) {
       const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
       if (!clawTrackMap.has(clawId)) {
