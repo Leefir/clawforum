@@ -178,12 +178,16 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         let interruptErrCount = 0;
         interruptPoller = setInterval(() => {
           try {
-            if (fsNative.existsSync(interruptFile)) {
-              fsNative.unlinkSync(interruptFile);
-              runtime.abort();
-              interruptErrCount = 0;
-            }
+            fsNative.unlinkSync(interruptFile);
+            // Reached here: file existed and was deleted — trigger abort
+            runtime.abort();
+            interruptErrCount = 0;
           } catch (err) {
+            if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+              // No interrupt file — normal case, reset error count
+              interruptErrCount = 0;
+              return;
+            }
             interruptErrCount++;
             if (interruptErrCount % 5 === 1) {
               console.warn(`${label} interrupt poll error: ${err instanceof Error ? err.message : String(err)}`);

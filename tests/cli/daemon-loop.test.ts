@@ -17,7 +17,7 @@ import { writeInboxMessage } from '../../src/utils/inbox-writer.js';
 // Module-level mock so ESM named exports are replaceable
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
-  return { ...actual, existsSync: vi.fn(actual.existsSync) };
+  return { ...actual, unlinkSync: vi.fn(actual.unlinkSync) };
 });
 
 vi.mock('../../src/utils/inbox-writer.js', () => ({
@@ -76,8 +76,8 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    // existsSync is already replaced by the module-level vi.mock above
-    vi.mocked(fsNative.existsSync).mockImplementation(() => {
+    // unlinkSync is already replaced by the module-level vi.mock above
+    vi.mocked(fsNative.unlinkSync).mockImplementation(() => {
       throw new Error('eperm');
     });
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -86,7 +86,7 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.mocked(fsNative.existsSync).mockRestore();
+    vi.mocked(fsNative.unlinkSync).mockRestore();
     errSpy.mockRestore();
     warnSpy.mockRestore();
   });
