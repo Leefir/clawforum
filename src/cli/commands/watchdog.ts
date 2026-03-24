@@ -508,7 +508,13 @@ export async function stopCommand(): Promise<void> {
       .filter(p => !isNaN(p) && p !== process.pid);
     if (pids.length > 0) {
       for (const p of pids) {
-        try { process.kill(p, 'SIGTERM'); } catch {}
+        try {
+          process.kill(p, 'SIGTERM');
+        } catch (err: any) {
+          if (err?.code !== 'ESRCH') {
+            console.warn(`[watchdog] Failed to SIGTERM orphan PID ${p}: ${err?.message}`);
+          }
+        }
       }
       await setTimeout(2000);
       console.log(`Cleaned up ${pids.length} orphan watchdog process(es)`);

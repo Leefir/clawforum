@@ -65,7 +65,7 @@ export async function statusCommand(): Promise<void> {
   const bundleEntry = path.join(thisDir, 'daemon-entry.js');
   const daemonEntryPath = existsSync(bundleEntry)
     ? bundleEntry
-    : path.resolve(thisDir, '..', '..', 'dist', 'daemon-entry.js');
+    : path.resolve(thisDir, '..', '..', 'daemon-entry.js');
   const dmResult = spawnSync('pgrep', ['-f', daemonEntryPath], { encoding: 'utf-8' });
   const motionPid = motionStatus.pid;
   const trackedPids = [motionPid, ...clawStatuses.map(s => s.status.pid)].filter((p): p is number => p !== undefined);
