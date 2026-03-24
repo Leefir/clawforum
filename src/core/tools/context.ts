@@ -67,6 +67,9 @@ export interface ExecContextImplOptions {
   /** Outbox writer for send tool */
   outboxWriter?: OutboxWriter;
   
+  /** Parent stream writer for event forwarding */
+  parentStreamWriter?: { write(event: Record<string, unknown>): void };
+  
   /** 当前对话 messages（供 dispatch 工具读取） */
   dialogMessages?: Message[];
   /** 创建链路的源头 clawId，由 dispatch/spawn 传播 */
@@ -87,6 +90,7 @@ export class ExecContextImpl implements ExecContext {
   llm?: ILLMService;
   stepNumber: number;
   maxSteps: number;
+  parentStreamWriter?: { write(event: Record<string, unknown>): void };
   signal?: AbortSignal;
   taskSystem?: TaskSystem;
   skillRegistry?: SkillRegistry;
@@ -114,6 +118,7 @@ export class ExecContextImpl implements ExecContext {
     this.contractManager = options.contractManager;
     this.subagentMaxSteps = options.subagentMaxSteps ?? options.maxSteps ?? 100;
     this.outboxWriter = options.outboxWriter;
+    this.parentStreamWriter = options.parentStreamWriter;
     this.dialogMessages = options.dialogMessages;
     this.originClawId = options.originClawId;
     this.stepNumber = 0;

@@ -142,6 +142,8 @@ export interface ExecContext {
   signal?: AbortSignal;
   /** Max steps for subagents created via spawn tool */
   subagentMaxSteps?: number;
+  /** Parent stream writer for event forwarding */
+  parentStreamWriter?: { write(event: Record<string, unknown>): void };
   /** Outbox writer for send tool */
   outboxWriter?: OutboxWriter;
   /** TaskSystem for async tool execution */

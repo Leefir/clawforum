@@ -770,4 +770,8 @@ export class ClawRuntime {
     this.contractManager?.setOnNotify(cb);
   }
 
+  setParentStreamWriter(writer: { write(event: Record<string, unknown>): void }): void {
+    this.execContext.parentStreamWriter = writer;
+  }
+
 }
