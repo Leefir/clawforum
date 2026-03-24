@@ -126,6 +126,13 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
       toolsForLLM,                   // 使用 Motion 完整工具列表，确保 KV cache 命中
     });
 
+    ctx.parentStreamWriter?.write({
+      ts: Date.now(),
+      type: 'task_started',
+      taskId,
+      callerType: 'dispatcher',
+    });
+
     return {
       success: true,
       content: `Dispatcher started. Task ID: ${taskId}. Result will arrive in inbox when complete.`,

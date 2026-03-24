@@ -94,6 +94,13 @@ export const spawnTool: ITool = {
         originClawId: ctx.originClawId ?? ctx.clawId,
       });
 
+      ctx.parentStreamWriter?.write({
+        ts: Date.now(),
+        type: 'task_started',
+        taskId,
+        callerType: 'subagent',
+      });
+
       return {
         success: true,
         content: `Subagent created. Task ID: ${taskId}. Results will be delivered to inbox when complete.`,
