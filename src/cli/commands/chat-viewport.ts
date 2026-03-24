@@ -92,11 +92,21 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (isMotion) {
       const parts: string[] = [];
       for (const [id, t] of clawTrackMap) {
-        if (t.active) parts.push(`⬡ ${id} #${t.turnCount} [${t.step}/${t.maxSteps}]`);
+        if (t.active) {
+          parts.push(`\x1b[38;5;147m⬡ ${id} #${t.turnCount} [${t.step}/${t.maxSteps}]\x1b[0m`);
+        } else if (t.lastError && t.hasContract && t.isAlive) {
+          parts.push(`\x1b[38;5;214m⚠ ${id}\x1b[0m`);
+        } else if (t.hasContract && t.isAlive) {
+          const turnSuffix = t.turnCount > 0 ? ` #${t.turnCount}` : '';
+          parts.push(`\x1b[38;5;245m○ ${id}${turnSuffix}\x1b[0m`);
+        }
       }
-      line = parts.length > 0 ? `\x1b[38;5;147m${parts.join('  ')}\x1b[0m` : '';
+      line = parts.join('  ');
     } else if (inTurn) {
       line = `\x1b[38;5;147m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`;
+    } else if (ownTurnCount > 0) {
+      // 空闲但有历史（重连后立即显示上次状态）
+      line = `\x1b[38;5;245m○ #${ownTurnCount}\x1b[0m`;
     }
     statusBar.setText(line);
   };
@@ -313,7 +323,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     isAlive: boolean;            // PID 存活
   }
   const clawTrackMap = new Map<string, ClawTrack>();
+  const clawWatchers = new Map<string, ReturnType<typeof fsNative.watch>>();
+  let clawRefreshScheduled = false;
   let lastClawRefreshTs = 0;
+
+  const scheduleClawRefresh = () => {
+    if (clawRefreshScheduled) return;
+    clawRefreshScheduled = true;
+    setTimeout(() => { clawRefreshScheduled = false; refreshClawStatus(); }, 100);
+  };
 
   try {
     const stat = fsNative.statSync(streamPath);
@@ -383,6 +401,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (!clawTrackMap.has(clawId)) {
         clawTrackMap.set(clawId, { fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100, active: false, lastError: null, hasContract: false, isAlive: false });
       }
+      if (!clawWatchers.has(clawId)) {
+        try {
+          const w = fsNative.watch(streamFile, { persistent: false }, scheduleClawRefresh);
+          clawWatchers.set(clawId, w);
+        } catch { /* fallback to polling */ }
+      }
       const track = clawTrackMap.get(clawId)!;
       try {
         const stat = fsNative.statSync(streamFile);
@@ -413,10 +437,31 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             const ev = JSON.parse(line);
             if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
             else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
-            else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted' || ev.type === 'turn_error') { track.active = false; }
+            else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
+            else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
           } catch { /* skip */ }
         }
       } catch { /* ENOENT 等，跳过 */ }
+
+      // Contract check
+      const contractActiveDir = path.join(clawsDir, clawId, 'contract', 'active');
+      try {
+        track.hasContract = fsNative.readdirSync(contractActiveDir).length > 0;
+      } catch { track.hasContract = false; }
+
+      // Process alive check
+      const clawPidFile = path.join(clawsDir, clawId, 'status', 'pid');
+      try {
+        const pid = parseInt(fsNative.readFileSync(clawPidFile, 'utf-8').trim(), 10);
+        if (Number.isFinite(pid)) {
+          try {
+            process.kill(pid, 0);
+            track.isAlive = true;
+          } catch (e) {
+            track.isAlive = (e as NodeJS.ErrnoException).code === 'EPERM';
+          }
+        } else { track.isAlive = false; }
+      } catch { track.isAlive = false; }
     }
     updateStatusBar();
   };
@@ -565,6 +610,40 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   process.on('uncaughtException', uncaughtHandler);
   process.on('unhandledRejection', uncaughtHandler);
 
+  /** 重连时从历史 stream 初始化自身状态（仅非 motion 调用） */
+  const initOwnStateFromHistory = () => {
+    if (isMotion) return;
+    try {
+      const stat = fsNative.statSync(streamPath);
+      if (stat.size === 0) return;
+      const buf = Buffer.alloc(stat.size);
+      const fd = fsNative.openSync(streamPath, 'r');
+      try {
+        let read = 0;
+        while (read < stat.size) {
+          const n = fsNative.readSync(fd, buf, read, stat.size - read, read);
+          if (n === 0) break;
+          read += n;
+        }
+      } finally { fsNative.closeSync(fd); }
+      const lines = buf.toString('utf-8').split('\n');
+      lines.pop(); // 末尾不完整行
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const ev = JSON.parse(line);
+          if (ev.type === 'turn_start')       { ownTurnCount++; ownStep = 0; inTurn = true; }
+          else if (ev.type === 'tool_result') { ownStep = ev.step ?? ownStep; ownMaxSteps = ev.maxSteps ?? ownMaxSteps; }
+          else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted' || ev.type === 'turn_error') {
+            inTurn = false;
+          }
+        } catch { /* skip */ }
+      }
+    } catch { /* ENOENT 等 */ }
+  };
+
+  initOwnStateFromHistory();
+
   tui.start();
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
@@ -581,6 +660,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   clearInterval(pollInterval);
   clearInterval(daemonCheckInterval);
   watcher?.close();
+  for (const w of clawWatchers.values()) w.close();
+  clawWatchers.clear();
   tui.stop();
   await terminal.drainInput();
   process.stdin.pause();
