@@ -402,10 +402,17 @@ export async function daemonCommand(): Promise<void> {
 
 // Start command
 export async function startCommand(): Promise<void> {
+  // Calculate watchdog entry path first (for both cleanup and spawn)
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
+  const watchdogEntryPath = existsSync(bundleEntry)
+    ? bundleEntry
+    : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+
   // Cleanup: kill any existing watchdog processes (orphaned watchdogs)
-  const pattern = 'watchdog-entry.js';
+  // Use full path as pattern to only match current installation
   try {
-    const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
+    const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
     const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
     const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
     let killedAny = false;
@@ -424,12 +431,6 @@ export async function startCommand(): Promise<void> {
       await setTimeout(2000);
     }
   } catch { /* pgrep failed or no matches, proceed */ }
-
-  const thisDir = path.dirname(fileURLToPath(import.meta.url));
-  const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
-  const watchdogEntryPath = existsSync(bundleEntry)
-    ? bundleEntry
-    : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
   const proc = spawn('node', [watchdogEntryPath], {
     detached: true,
     stdio: 'ignore',
@@ -488,9 +489,15 @@ export async function stopCommand(): Promise<void> {
   
   removeWatchdogPid();
 
-  // Cleanup: pgrep兜底，清理所有残留的watchdog-entry.js孤儿进程
+  // Cleanup: pgrep兜底，清理残留的watchdog-entry.js孤儿进程
+  // Use full path as pattern to only match current installation
   try {
-    const result = spawnSync('pgrep', ['-f', 'watchdog-entry.js'], { encoding: 'utf-8' });
+    const thisDir = path.dirname(fileURLToPath(import.meta.url));
+    const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
+    const watchdogEntryPath = existsSync(bundleEntry)
+      ? bundleEntry
+      : path.resolve(thisDir, '..', '..', '..', 'dist', 'watchdog-entry.js');
+    const result = spawnSync('pgrep', ['-f', watchdogEntryPath], { encoding: 'utf-8' });
     const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
     const pids = output.trim().split('\n')
       .map(s => parseInt(s, 10))

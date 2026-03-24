@@ -10,6 +10,7 @@ import { stopCommand as motionStop } from './motion.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
 
 export async function stopAllCommand(): Promise<void> {
   loadGlobalConfig();
@@ -42,9 +43,13 @@ export async function stopAllCommand(): Promise<void> {
 
   console.log('Done.');
 
-  // Cleanup: pgrep兜底，清理所有残留的daemon-entry.js孤儿进程
+  // Cleanup: pgrep兜底，清理残留的daemon-entry.js孤儿进程
+  // Use full path as pattern to only match current installation
   try {
-    const result = spawnSync('pgrep', ['-f', 'daemon-entry.js'], { encoding: 'utf-8' });
+    const thisDir = path.dirname(fileURLToPath(import.meta.url));
+    // dist/cli/commands/ → up 2 levels → dist/
+    const daemonEntryPath = path.resolve(thisDir, '..', '..', 'daemon-entry.js');
+    const result = spawnSync('pgrep', ['-f', daemonEntryPath], { encoding: 'utf-8' });
     const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
     const pids = output.trim().split('\n')
       .map(s => parseInt(s, 10))
