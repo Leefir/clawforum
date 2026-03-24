@@ -347,10 +347,10 @@ describe('SessionManager unit tests', () => {
     expect(files.filter(f => f.endsWith('.json'))).toHaveLength(1);
   });
 
-  it('archive: throws (ENOENT-like) when no current.json exists', async () => {
-    // No save() called → no current.json
-    // initialize() catches this with .catch(ENOENT suppression)
-    await expect(sm.archive()).rejects.toThrow();
+  it('archive: throws with ENOENT code when no current.json exists', async () => {
+    // initialize() catches this with: if (err?.code !== 'ENOENT') console.warn(...)
+    // 验证 code 确实是 ENOENT，确保 initialize() 的静默判断能正确生效
+    await expect(sm.archive()).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   // --- load() with archive recovery ---
