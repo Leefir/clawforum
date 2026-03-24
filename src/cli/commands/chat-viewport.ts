@@ -32,7 +32,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     await options.ensureDaemon();
   }
 
-  const { TUI, Text, Input, EditorKeybindingsManager, setEditorKeybindings, ProcessTerminal } = await import('@mariozechner/pi-tui');
+  const { TUI, Text, Editor, EditorKeybindingsManager, setEditorKeybindings, ProcessTerminal } = await import('@mariozechner/pi-tui');
 
   // 移除 Ctrl+C 从 Input 的 selectCancel，让 TUI listener 处理
   setEditorKeybindings(new EditorKeybindingsManager({
@@ -42,6 +42,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const streamPath = path.join(options.agentDir, 'stream.jsonl');
   const terminal = new ProcessTerminal();
   const tui = new TUI(terminal);
+
+  // Editor 主题 — chat-viewport 不用 autocomplete，全部 identity 函数
+  const editorTheme = {
+    borderColor: (s: string) => s,
+    selectList: {
+      selectedPrefix: (s: string) => s,
+      selectedText:   (s: string) => s,
+      description:    (s: string) => s,
+      scrollInfo:     (s: string) => s,
+      noMatch:        (s: string) => s,
+    },
+  };
 
   // 单一输出区域（永久内容 + 流式后缀合并显示，消除组件间距）
   const outputText = new Text(`[${options.label}] Watching daemon activity...`, 0, 0);
@@ -114,7 +126,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   // 输入组件
-  const input = new Input();
+  const editor = new Editor(tui, editorTheme);
 
   const appendOutput = (line: string) => {
     outputContent += '\n' + line;
@@ -452,10 +464,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const daemonCheckInterval = setInterval(checkDaemonAlive, 3000);
 
   // 输入提交处理
-  input.onSubmit = (text: string) => {
+  editor.onSubmit = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) {
-      input.setValue('');
+      editor.setText('');
       tui.requestRender();
       return;
     }
@@ -480,14 +492,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       } else {
         appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
       }
-      input.setValue('');
+      editor.setText('');
       tui.requestRender();
       return;
     }
 
     // 显示用户消息
     appendOutput(`\x1b[32m> ${trimmed}\x1b[0m`);
-    input.setValue('');
+    editor.setText('');
+    editor.addToHistory(trimmed);
 
     // 写入 inbox
     writeUserChat(options.agentDir, trimmed);
@@ -537,8 +550,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.addChild(outputText);
   tui.addChild(statusBar);
-  tui.addChild(input);
-  tui.setFocus(input);
+  tui.addChild(editor);
+  tui.setFocus(editor);
+
+  // 防御层：任何未捕获异常先还原终端，防止 terminal emulator 因 raw mode 未还原而闪退
+  const uncaughtHandler = (err: unknown) => {
+    process.stderr.write(`[chat] uncaught error: ${err}\n`);
+    try { tui.stop(); } catch { /* ignore */ }
+    process.exit(1);
+  };
+  process.on('uncaughtException', uncaughtHandler);
+  process.on('unhandledRejection', uncaughtHandler);
+
   tui.start();
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
@@ -549,6 +572,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // 清理
   process.removeListener('SIGINT', sigintHandler);
+  process.removeListener('uncaughtException', uncaughtHandler);
+  process.removeListener('unhandledRejection', uncaughtHandler);
   stopSpinner();
   clearInterval(pollInterval);
   clearInterval(daemonCheckInterval);
