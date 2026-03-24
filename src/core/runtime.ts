@@ -435,13 +435,14 @@ export class ClawRuntime {
    * @protected available for reuse by subclass MotionRuntime
    */
   protected async _runReact(messages: Message[], callbacks?: StreamCallbacks): Promise<void> {
-    this.execContext.dialogMessages = messages;  // 注入完整对话上下文供 dispatch 工具读取
+    const { result: contextMessages } = this.sessionManager.truncateForContext(messages, SESSION_CONTEXT_MAX_TOKENS);
+    this.execContext.dialogMessages = contextMessages;  // 注入截断后的对话上下文供 dispatch 工具读取
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
     const systemPrompt = await this.buildSystemPrompt();
     await runReact({
-      messages,
+      messages: contextMessages,
       systemPrompt,
       llm: this.llm,
       executor: this.toolExecutor,
@@ -450,7 +451,7 @@ export class ClawRuntime {
       registry: this.toolRegistry,  // Enable parallel execution for readonly tools
       maxSteps: this.options.maxSteps,
       onStepComplete: async () => {
-        await this.sessionManager.save(messages);
+        await this.sessionManager.save(contextMessages);
       },
       onTextDelta: callbacks?.onTextDelta,
       onTextEnd: callbacks?.onTextEnd,
@@ -459,7 +460,7 @@ export class ClawRuntime {
       onToolResult: callbacks?.onToolResult,
       onBeforeLLMCall: callbacks?.onBeforeLLMCall,
     });
-    await this.sessionManager.save(messages);
+    await this.sessionManager.save(contextMessages);
   }
 
   /**
