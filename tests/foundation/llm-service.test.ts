@@ -77,10 +77,9 @@ describe('LLMService - stream failover', () => {
     expect(chunks[2]).toEqual({ type: 'done' });
   });
 
-  it('should failover to fallback when primary fails', async () => {
+  it('should failover to fallback when primary fails before any chunk', async () => {
     const primary = createMockProvider('primary', async function* () {
-      yield { type: 'text_delta', delta: 'Primary start' };
-      throw new Error('Primary stream failed');
+      throw new Error('Primary connection failed');  // 无 yield，直接抛
     });
 
     const fallback = createMockProvider('fallback', async function* () {
@@ -105,12 +104,10 @@ describe('LLMService - stream failover', () => {
       chunks.push(chunk);
     }
 
-    // Primary yielded one chunk before failing, then fallback took over
-    expect(chunks).toHaveLength(4);
-    expect(chunks[0]).toEqual({ type: 'text_delta', delta: 'Primary start' });
-    expect(chunks[1]).toEqual({ type: 'text_delta', delta: 'Fallback chunk 1' });
-    expect(chunks[2]).toEqual({ type: 'text_delta', delta: 'Fallback chunk 2' });
-    expect(chunks[3]).toEqual({ type: 'done' });
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0]).toEqual({ type: 'text_delta', delta: 'Fallback chunk 1' });
+    expect(chunks[1]).toEqual({ type: 'text_delta', delta: 'Fallback chunk 2' });
+    expect(chunks[2]).toEqual({ type: 'done' });
 
     // currentProviderIndex !== -1 means using fallback
     expect((service as any).currentProviderIndex).not.toBe(-1);
@@ -118,8 +115,7 @@ describe('LLMService - stream failover', () => {
 
   it('should throw original error when no fallback available', async () => {
     const primary = createMockProvider('primary', async function* () {
-      yield { type: 'text_delta', delta: 'Primary start' };
-      throw new Error('Primary stream failed');
+      throw new Error('Primary connection failed');  // 无 yield，直接抛
     });
 
     const service = new LLMService({
@@ -143,13 +139,75 @@ describe('LLMService - stream failover', () => {
       caughtError = err as Error;
     }
 
-    // Should have received some chunks before failure
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0]).toEqual({ type: 'text_delta', delta: 'Primary start' });
+    // Should receive no chunks since primary failed before yielding
+    expect(chunks).toHaveLength(0);
     
     // Should throw with an error indicating all providers failed
     expect(caughtError).toBeDefined();
     expect(caughtError!.message).toContain('All providers failed');
+  });
+
+  it('should throw after partial yield, not failover (H4)', async () => {
+    const primary = createMockProvider('primary', async function* () {
+      yield { type: 'text_delta', delta: 'partial' } as StreamChunk;
+      throw new Error('mid-stream disconnect');
+    });
+
+    const fallback = createMockProvider('fallback', async function* () {
+      yield { type: 'text_delta', delta: 'fallback' } as StreamChunk;
+      yield { type: 'done' } as StreamChunk;
+    });
+
+    const service = new LLMService({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
+      maxAttempts: 2,   // 即使有重试机会也不应重试
+      retryDelayMs: 0,
+    });
+    (service as any).primary = primary;
+    (service as any).fallbacks = [fallback];
+
+    const received: StreamChunk[] = [];
+    let caughtError: Error | undefined;
+    try {
+      for await (const chunk of service.stream({ messages: [] })) {
+        received.push(chunk);
+      }
+    } catch (err) {
+      caughtError = err as Error;
+    }
+
+    // 收到 1 个 partial chunk，然后抛出（不继续 fallback）
+    expect(received).toHaveLength(1);
+    expect(received[0]).toEqual({ type: 'text_delta', delta: 'partial' });
+    expect(caughtError).toBeDefined();
+    expect(caughtError!.message).toContain('mid-stream disconnect');
+  });
+
+  it('should retry same provider before first chunk if no chunks yielded (H4)', async () => {
+    let attempt = 0;
+    const primary = createMockProvider('primary', async function* () {
+      attempt++;
+      if (attempt === 1) throw new Error('transient connection error');  // 第一次无 yield
+      yield { type: 'text_delta', delta: 'retry ok' } as StreamChunk;
+      yield { type: 'done' } as StreamChunk;
+    });
+
+    const service = new LLMService({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      maxAttempts: 2,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = primary;
+    (service as any).fallbacks = [];
+
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of service.stream({ messages: [] })) {
+      chunks.push(chunk);
+    }
+
+    expect(attempt).toBe(2);  // 重试了一次
+    expect(chunks.some(c => 'delta' in c && c.delta === 'retry ok')).toBe(true);
   });
 
   // Phase 20: getProviderInfo()
