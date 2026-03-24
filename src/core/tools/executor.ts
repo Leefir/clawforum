@@ -287,6 +287,7 @@ export class ToolExecutorImpl implements IToolExecutor {
     });
 
     const executionPromise = tool.execute(args, ctx);
+    executionPromise.catch(() => {});  // 防止超时后 reject 成为 unhandled rejection
 
     let result: ToolResult | undefined;
     try {
