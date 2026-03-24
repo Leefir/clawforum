@@ -138,6 +138,21 @@ Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
       }
     }
 
+    // 验证每个 acceptance 有 type 字段及配套字段
+    if (Array.isArray(result.acceptance)) {
+      for (const ac of result.acceptance as Array<Record<string, unknown>>) {
+        if (!ac.type || typeof ac.type !== 'string') {
+          throw new Error('LLM response acceptance entry missing required field: type');
+        }
+        if (ac.type === 'script' && !ac.script_file) {
+          throw new Error('LLM response acceptance entry type=script missing script_file');
+        }
+        if (ac.type === 'llm' && !ac.prompt_file) {
+          throw new Error('LLM response acceptance entry type=llm missing prompt_file');
+        }
+      }
+    }
+
     // Construct ContractYaml
     const yaml: ContractYaml = {
       schema_version: 1,
