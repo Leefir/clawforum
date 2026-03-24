@@ -9,8 +9,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 // Note: SessionManager 从具体实现导入
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import { SessionManager } from '../../src/core/dialog/session.js';
+import type { Message } from '../../src/types/message.js';
 
 describe('Session Persistence', () => {
   const TEST_DIR = '.test-session';
@@ -243,5 +246,125 @@ describe('Session Persistence', () => {
     // 尝试解析应该失败
     const corruptedContent = await fs.readFile(path.join(archiveDir, archives[0]), 'utf-8');
     expect(() => JSON.parse(corruptedContent)).toThrow();
+  });
+});
+
+describe('SessionManager unit tests', () => {
+  let tmpDir: string;
+  let nodeFs: NodeFileSystem;
+  let sm: SessionManager;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sm-test-'));
+    nodeFs = new NodeFileSystem({ baseDir: tmpDir, enforcePermissions: false });
+    sm = new SessionManager(nodeFs, 'dialog', 'test-claw');
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  // --- truncateForContext ---
+
+  it('truncateForContext: returns original reference when under limit', () => {
+    const messages: Message[] = [
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi' },
+    ];
+    const { result, pruned } = sm.truncateForContext(messages, 100_000);
+    expect(result).toBe(messages); // same reference
+    expect(pruned).toBe(0);
+  });
+
+  it('truncateForContext: truncates and lands on first valid user message', () => {
+    const long = 'x'.repeat(400); // ~100 tokens
+    const messages: Message[] = [
+      { role: 'user', content: long },       // [0] overlong
+      { role: 'assistant', content: long },   // [1] overlong
+      { role: 'user', content: 'question' }, // [2] valid start
+      { role: 'assistant', content: 'ans' },
+      { role: 'user', content: 'more' },
+    ];
+    // limit=50 tokens → slice starts at [2]
+    const { result, pruned } = sm.truncateForContext(messages, 50);
+    expect(result[0].role).toBe('user');
+    expect(result[0].content).toBe('question');
+    expect(pruned).toBe(2);
+  });
+
+  it('truncateForContext: skips pure-tool-result user message when finding start', () => {
+    const long = 'x'.repeat(400); // ~100 tokens
+    const messages: Message[] = [
+      { role: 'user', content: long },  // [0] overlong
+      { role: 'assistant', content: [{ type: 'tool_use', id: '1', name: 'r', input: {} }] }, // [1]
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: '1', content: 'res' }] }, // [2] pure-tool-result
+      { role: 'user', content: 'regular question' },  // [3] valid start
+      { role: 'assistant', content: 'done' },
+    ];
+    // limit=50 tokens: first loop stops at cutIdx=1, second loop skips [1],[2] → lands on [3]
+    const { result, pruned } = sm.truncateForContext(messages, 50);
+    expect(result[0].role).toBe('user');
+    expect(result[0].content).toBe('regular question');
+    expect(pruned).toBe(3);
+  });
+
+  it('truncateForContext: H2 — falls back to full array when no valid start (all tail is assistant/tool_result)', () => {
+    const long = 'x'.repeat(400); // ~100 tokens
+    // Sequence: [long_user, assistant_tool_use, pure_tool_result_user, assistant_text, user_final]
+    // With limit=50: first loop stops at cutIdx=2 (messages[2..4] ≈ 17 tokens ≤ 50)
+    // Second loop: messages[2] isPureToolResult→skip, cutIdx=3; 3 < 3 = false → exit
+    // messages[3].role === 'assistant' → isValidStart=false → return original
+    const messages: Message[] = [
+      { role: 'user', content: long },
+      { role: 'assistant', content: [{ type: 'tool_use', id: '1', name: 'r', input: {} }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: '1', content: 'r' }] },
+      { role: 'assistant', content: 'done' },
+      { role: 'user', content: 'final' },
+    ];
+    const { result, pruned } = sm.truncateForContext(messages, 50);
+    expect(result).toBe(messages); // fallback: same reference
+    expect(pruned).toBe(0);
+  });
+
+  // --- archive() ---
+
+  it('archive: moves current.json to archive dir', async () => {
+    const msg: Message = { role: 'user', content: 'hello' };
+    await sm.save([msg]);
+
+    // Verify current.json exists before archive
+    const currentPath = path.join(tmpDir, 'dialog', 'current.json');
+    await expect(fs.access(currentPath)).resolves.toBeUndefined();
+
+    await sm.archive();
+
+    // current.json should be gone
+    await expect(fs.access(currentPath)).rejects.toThrow();
+
+    // archive dir should have one file
+    const archiveDir = path.join(tmpDir, 'dialog', 'archive');
+    const files = await fs.readdir(archiveDir);
+    expect(files.filter(f => f.endsWith('.json'))).toHaveLength(1);
+  });
+
+  it('archive: throws (ENOENT-like) when no current.json exists', async () => {
+    // No save() called → no current.json
+    // initialize() catches this with .catch(ENOENT suppression)
+    await expect(sm.archive()).rejects.toThrow();
+  });
+
+  // --- load() with archive recovery ---
+
+  it('load: recovers from archive when current.json is gone', async () => {
+    const msg: Message = { role: 'user', content: 'remembered' };
+    await sm.save([msg]);
+    await sm.archive(); // moves current.json → archive/
+
+    // Fresh SessionManager (simulate restart)
+    const sm2 = new SessionManager(nodeFs, 'dialog', 'test-claw');
+    const session = await sm2.load();
+
+    expect(session.messages).toHaveLength(1);
+    expect((session.messages[0].content as string)).toBe('remembered');
   });
 });
