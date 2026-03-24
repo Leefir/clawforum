@@ -23,14 +23,14 @@ import type {
 import type { ILLMService } from './index.js';
 import { AnthropicAdapter } from './anthropic.js';
 import { OpenAIAdapter } from './openai.js';
+import { GeminiAdapter } from './gemini.js';
 
 /**
  * Provider factory - creates appropriate adapter for config
  */
 function createProvider(config: ProviderConfig): IProviderAdapter {
-  if (config.apiFormat === 'openai') {
-    return new OpenAIAdapter(config);
-  }
+  if (config.apiFormat === 'openai') return new OpenAIAdapter(config);
+  if (config.apiFormat === 'gemini') return new GeminiAdapter(config);
   return new AnthropicAdapter(config);
 }
 

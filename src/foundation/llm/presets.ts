@@ -3,7 +3,7 @@
  * Defines known providers and their configurations
  */
 
-export type ApiFormat = 'anthropic' | 'openai';
+export type ApiFormat = 'anthropic' | 'openai' | 'gemini';
 export type AuthMethod = 'api_key' | 'oauth' | 'aws_credentials';
 
 export interface ProviderPreset {
@@ -55,6 +55,14 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.minimax.io/anthropic',
     defaultModel: 'MiniMax-M1',
+  },
+  'gemini': {
+    id: 'gemini',
+    displayName: 'Google Gemini',
+    apiFormat: 'gemini',
+    authMethod: 'api_key',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    defaultModel: 'gemini-2.5-pro-preview-03-25',
   },
   'ollama': {
     id: 'ollama',

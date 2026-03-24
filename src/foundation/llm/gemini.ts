@@ -1,0 +1,326 @@
+/**
+ * Google Gemini API Adapter
+ * 
+ * Implements IProviderAdapter for Google's Gemini API
+ * Reference: https://ai.google.dev/api/rest
+ */
+
+import type {
+  LLMResponse,
+  ContentBlock,
+} from '../../types/message.js';
+import {
+  LLMError,
+  LLMRateLimitError,
+  LLMTimeoutError,
+} from '../../types/errors.js';
+import type {
+  ProviderConfig,
+  LLMCallOptions,
+  IProviderAdapter,
+  StreamChunk,
+} from './types.js';
+import { STREAM_MAX_DURATION_MS } from '../../constants.js';
+
+type GeminiPart =
+  | { text: string }
+  | { functionCall: { name: string; args: Record<string, unknown> } }
+  | { functionResponse: { name: string; response: Record<string, unknown> } };
+
+interface GeminiContent {
+  role: 'user' | 'model';
+  parts: GeminiPart[];
+}
+
+interface GeminiRequest {
+  contents: GeminiContent[];
+  systemInstruction?: { parts: [{ text: string }] };
+  tools?: [{ functionDeclarations: Array<{ name: string; description: string; parameters: unknown }> }];
+  generationConfig?: { maxOutputTokens?: number; temperature?: number; thinkingLevel?: number };
+}
+
+interface GeminiResponse {
+  candidates: Array<{
+    content: GeminiContent;
+    finishReason: string;
+  }>;
+  usageMetadata?: { promptTokenCount: number; candidatesTokenCount: number };
+}
+
+export class GeminiAdapter implements IProviderAdapter {
+  readonly name: string;
+  readonly model: string;
+  private readonly config: ProviderConfig;
+  private readonly baseUrl: string;
+
+  constructor(config: ProviderConfig) {
+    this.config = config;
+    this.name = config.name;
+    this.model = config.model;
+    this.baseUrl = config.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta';
+  }
+
+  private buildRequestBody(options: LLMCallOptions): GeminiRequest {
+    const body: GeminiRequest = {
+      contents: this.formatMessages(options.messages),
+      generationConfig: {
+        maxOutputTokens: options.maxTokens ?? this.config.maxTokens,
+        temperature: options.temperature ?? this.config.temperature,
+      },
+    };
+    if (options.system) {
+      body.systemInstruction = { parts: [{ text: options.system }] };
+    }
+    if (options.tools && options.tools.length > 0) {
+      body.tools = [{
+        functionDeclarations: options.tools.map(t => ({
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema,
+        })),
+      }];
+    }
+    return body;
+  }
+
+  private formatMessages(messages: Array<{ role: string; content: unknown }>): GeminiContent[] {
+    // Build tool_use_id -> name mapping (Gemini functionResponse needs name, not id)
+    const idToName = new Map<string, string>();
+    for (const m of messages) {
+      if (Array.isArray(m.content)) {
+        for (const b of m.content as Array<Record<string, unknown>>) {
+          if (b.type === 'tool_use') {
+            idToName.set(b.id as string, b.name as string);
+          }
+        }
+      }
+    }
+
+    const result: GeminiContent[] = [];
+    for (const m of messages) {
+      const role = m.role === 'assistant' ? 'model' : 'user';
+      const parts: GeminiPart[] = [];
+
+      if (!Array.isArray(m.content)) {
+        parts.push({ text: m.content as string });
+      } else {
+        for (const b of m.content as Array<Record<string, unknown>>) {
+          if (b.type === 'text') {
+            parts.push({ text: b.text as string });
+          } else if (b.type === 'tool_use') {
+            parts.push({ functionCall: { name: b.name as string, args: (b.input ?? {}) as Record<string, unknown> } });
+          } else if (b.type === 'tool_result') {
+            const name = idToName.get(b.tool_use_id as string) ?? (b.tool_use_id as string);
+            const response: Record<string, unknown> = typeof b.content === 'string'
+              ? { output: b.content }
+              : (b.content as Record<string, unknown>) ?? {};
+            parts.push({ functionResponse: { name, response } });
+          }
+        }
+      }
+
+      if (parts.length > 0) {
+        result.push({ role, parts });
+      }
+    }
+    return result;
+  }
+
+  async call(options: LLMCallOptions): Promise<LLMResponse> {
+    const body = this.buildRequestBody(options);
+    const timeout = options.timeoutMs ?? this.config.timeoutMs;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const onAbort = options.signal ? () => controller.abort() : undefined;
+    if (options.signal && onAbort) options.signal.addEventListener('abort', onAbort);
+
+    try {
+      const model = options.model ?? this.config.model;
+      const response = await fetch(
+        `${this.baseUrl}/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.config.apiKey },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        }
+      );
+      if (!response.ok) await this.handleErrorResponse(response);
+      const data = await response.json() as GeminiResponse;
+      return this.parseResponse(data);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (options.signal?.aborted) {
+          const e = new Error('Execution aborted');
+          e.name = 'AbortError';
+          throw e;
+        }
+        throw new LLMTimeoutError(this.name, timeout);
+      }
+      if (error instanceof LLMError) throw error;
+      throw new LLMError(`LLM call failed: ${(error as Error).message}`, { provider: this.name });
+    } finally {
+      clearTimeout(timeoutId);
+      if (options.signal && onAbort) options.signal.removeEventListener('abort', onAbort);
+    }
+  }
+
+  async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
+    const body = this.buildRequestBody(options);
+    const timeout = options.timeoutMs ?? this.config.timeoutMs;
+    const controller = new AbortController();
+    let timeoutId = setTimeout(() => controller.abort(), timeout);
+    const onAbort = options.signal ? () => controller.abort() : undefined;
+    if (options.signal && onAbort) options.signal.addEventListener('abort', onAbort);
+
+    try {
+      const model = options.model ?? this.config.model;
+      const response = await fetch(
+        `${this.baseUrl}/models/${model}:streamGenerateContent?alt=sse`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.config.apiKey },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        }
+      );
+      if (!response.ok) await this.handleErrorResponse(response);
+      clearTimeout(timeoutId);
+      const maxTimer = setTimeout(() => controller.abort(), STREAM_MAX_DURATION_MS);
+      try {
+        yield* this.parseSSEStream(response, controller, timeout);
+      } finally {
+        clearTimeout(maxTimer);
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (options.signal?.aborted) {
+          const e = new Error('Execution aborted');
+          e.name = 'AbortError';
+          throw e;
+        }
+        throw new LLMTimeoutError(this.name, timeout);
+      }
+      if (error instanceof LLMError) throw error;
+      throw new LLMError(`LLM stream failed: ${(error as Error).message}`, { provider: this.name });
+    } finally {
+      clearTimeout(timeoutId);
+      if (options.signal && onAbort) options.signal.removeEventListener('abort', onAbort);
+    }
+  }
+
+  private async* parseSSEStream(
+    response: Response,
+    controller: AbortController,
+    idleTimeoutMs: number,
+  ): AsyncIterableIterator<StreamChunk> {
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+    const toolStarted = new Set<string>();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        clearTimeout(idleTimer);
+        if (done) break;
+        idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (!data || data === '[DONE]') continue;
+
+          let event: GeminiResponse;
+          try { event = JSON.parse(data); } catch { continue; }
+
+          const candidate = event.candidates?.[0];
+          if (!candidate) continue;
+
+          for (const part of candidate.content?.parts ?? []) {
+            if ('text' in part) {
+              yield { type: 'text_delta', delta: part.text };
+            } else if ('functionCall' in part) {
+              const { name, args } = part.functionCall;
+              const id = `gemini-${name}`;
+              if (!toolStarted.has(name)) {
+                toolStarted.add(name);
+                yield { type: 'tool_use_start', toolUse: { id, name, partialInput: '' } };
+              }
+              yield { type: 'tool_use_delta', toolUse: { id, name, partialInput: JSON.stringify(args) } };
+            }
+          }
+
+          if (event.usageMetadata) {
+            yield {
+              type: 'done',
+              usage: {
+                inputTokens: event.usageMetadata.promptTokenCount,
+                outputTokens: event.usageMetadata.candidatesTokenCount,
+              },
+              stopReason: candidate.finishReason === 'STOP' ? 'end_turn' : candidate.finishReason?.toLowerCase(),
+            };
+          }
+        }
+      }
+    } finally {
+      clearTimeout(idleTimer);
+      try { reader.releaseLock(); } catch {}
+    }
+  }
+
+  private parseResponse(data: GeminiResponse): LLMResponse {
+    const candidate = data.candidates?.[0];
+    const content: ContentBlock[] = [];
+    let fcIndex = 0;
+
+    for (const part of candidate?.content?.parts ?? []) {
+      if ('text' in part) {
+        content.push({ type: 'text', text: part.text });
+      } else if ('functionCall' in part) {
+        const { name, args } = part.functionCall;
+        content.push({ type: 'tool_use', id: `gemini-${name}-${fcIndex++}`, name, input: args });
+      }
+    }
+
+    const finishReason = candidate?.finishReason ?? 'STOP';
+    const hasToolUse = content.some(b => b.type === 'tool_use');
+    return {
+      content,
+      stop_reason: hasToolUse ? 'tool_use' : finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn',
+      usage: data.usageMetadata ? {
+        input_tokens: data.usageMetadata.promptTokenCount,
+        output_tokens: data.usageMetadata.candidatesTokenCount,
+      } : undefined,
+    };
+  }
+
+  private async handleErrorResponse(response: Response): Promise<void> {
+    const status = response.status;
+    let errorText: string;
+
+    try {
+      const errorData = await response.json();
+      errorText = JSON.stringify(errorData);
+    } catch {
+      errorText = await response.text();
+    }
+
+    if (status === 429) {
+      const retryAfter = response.headers.get('retry-after');
+      throw new LLMRateLimitError(
+        this.name,
+        retryAfter ? parseInt(retryAfter, 10) : undefined
+      );
+    }
+    if (status >= 500) {
+      throw new LLMError(`Server error (${status}): ${errorText}`, { provider: this.name });
+    }
+    throw new LLMError(`Request failed (${status}): ${errorText}`, { provider: this.name });
+  }
+}
