@@ -29,7 +29,7 @@ import { STREAM_MAX_DURATION_MS } from '../../constants.js';
  */
 interface OpenAIRequest {
   model: string;
-  messages: Array<{ role: string; content: string | null; tool_calls?: unknown[]; tool_call_id?: string }>;
+  messages: Array<{ role: string; content: string; tool_calls?: unknown[]; tool_call_id?: string }>;
   max_tokens: number;
   temperature?: number;
   tools?: Array<{
@@ -351,8 +351,8 @@ export class OpenAIAdapter implements IProviderAdapter {
   private formatMessages(
     messages: Array<{ role: string; content: unknown }>,
     system?: string
-  ): Array<{ role: string; content: string | null; tool_calls?: unknown[]; tool_call_id?: string }> {
-    const result: Array<{ role: string; content: string | null; tool_calls?: unknown[]; tool_call_id?: string }> = [];
+  ): Array<{ role: string; content: string; tool_calls?: unknown[]; tool_call_id?: string }> {
+    const result: Array<{ role: string; content: string; tool_calls?: unknown[]; tool_call_id?: string }> = [];
     
     // System message as first message
     if (system) {
@@ -375,7 +375,7 @@ export class OpenAIAdapter implements IProviderAdapter {
             
             result.push({
               role: 'assistant',
-              content: text || null,
+              content: text || '',
               tool_calls: toolUses.map(tu => ({
                 id: tu.id as string,
                 type: 'function',
@@ -403,7 +403,7 @@ export class OpenAIAdapter implements IProviderAdapter {
         const textBlocks = blocks.filter(b => b.type === 'text') as Array<{text?: string}>;
         const text = textBlocks.map(b => b.text || '').join('');
         if (text || toolResults.length === 0) {
-          result.push({ role: role === 'assistant' ? 'assistant' : 'user', content: text || null });
+          result.push({ role: role === 'assistant' ? 'assistant' : 'user', content: text || '' });
         }
       } else {
         // String content
