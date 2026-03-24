@@ -51,7 +51,8 @@ function createMotionPM(): ProcessManager {
 
 // Watchdog PID management
 function writeWatchdogPid(pid: number): void {
-  fs.writeFileSync(getWatchdogPidFile(), pid.toString(), 'utf-8');
+  const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
+  fs.writeFileSync(getWatchdogPidFile(), JSON.stringify({ pid, root }), 'utf-8');
 }
 
 function removeWatchdogPid(): void {
@@ -65,17 +66,23 @@ function removeWatchdogPid(): void {
 export function getWatchdogPid(): number | null {
   try {
     const content = fs.readFileSync(getWatchdogPidFile(), 'utf-8');
-    const pid = parseInt(content.trim(), 10);
-    return isNaN(pid) ? null : pid;
+    const parsed = JSON.parse(content);
+    return typeof parsed.pid === 'number' ? parsed.pid : null;
   } catch {
     return null;
   }
 }
 
 export function isWatchdogAlive(): boolean {
-  const pid = getWatchdogPid();
-  if (!pid) return false;
   try {
+    const content = fs.readFileSync(getWatchdogPidFile(), 'utf-8');
+    const { pid, root } = JSON.parse(content);
+    if (typeof pid !== 'number') return false;
+    const currentRoot = process.env.CLAWFORUM_ROOT ?? process.cwd();
+    if (root !== currentRoot) {
+      removeWatchdogPid();
+      return false;
+    }
     process.kill(pid, 0);
     return true;
   } catch {
