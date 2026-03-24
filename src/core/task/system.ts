@@ -323,7 +323,7 @@ export class TaskSystem {
       // 通知 parent，避免永久挂起
       await this.sendFallbackError(task, `Task failed to start: ${errorMsg}`).catch((e) => {
         this.monitor?.log('error', {
-          context: 'sendFallbackError',
+          context: 'sendFallbackError_FAILED',
           taskId: task.id,
           error: e instanceof Error ? e.message : String(e),
         });
@@ -405,7 +405,7 @@ export class TaskSystem {
         // sendResult 本身失败：降级写最小通知，确保 parent 不被永远挂起
         await this.sendFallbackError(task, errorMsg).catch((e) => {
           this.monitor?.log('error', {
-            context: 'sendFallbackError',
+            context: 'sendFallbackError_FAILED',
             taskId: task.id,
             error: e instanceof Error ? e.message : String(e),
           });
@@ -452,7 +452,7 @@ export class TaskSystem {
           // sendToolResult 本身失败：降级写最小通知，不进入重试（执行已成功）
           await this.sendFallbackError(task, 'Failed to send result').catch((e) => {
             this.monitor?.log('error', {
-              context: 'sendFallbackError',
+              context: 'sendFallbackError_FAILED',
               taskId: task.id,
               error: e instanceof Error ? e.message : String(e),
             });
@@ -525,7 +525,7 @@ export class TaskSystem {
         // sendToolResult 失败：降级写最小通知
         await this.sendFallbackError(task, finalError).catch((e) => {
           this.monitor?.log('error', {
-            context: 'sendFallbackError',
+            context: 'sendFallbackError_FAILED',
             taskId: task.id,
             error: e instanceof Error ? e.message : String(e),
           });
