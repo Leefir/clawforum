@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'crypto';
 import * as path from 'path';
+import * as fsSync from 'fs';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 
 import { JsonlMonitor } from '../../foundation/monitor/index.js';
@@ -352,6 +353,25 @@ export class TaskSystem {
    * Execute a task - internal method
    */
   private async executeTask(task: SubAgentTask, signal: AbortSignal): Promise<void> {
+    // Per-task stream writer setup
+    const taskStreamPath = path.join(this.clawDir, 'tasks', 'results', `${task.id}.stream.jsonl`);
+    let taskStreamFd: number | null = null;
+    try { taskStreamFd = fsSync.openSync(taskStreamPath, 'w'); } catch {}
+
+    const writeTaskEvent = (event: Record<string, unknown>) => {
+      if (taskStreamFd === null) return;
+      try {
+        fsSync.writeSync(taskStreamFd, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
+      } catch {}
+    };
+
+    const closeTaskStream = () => {
+      if (taskStreamFd !== null) {
+        try { fsSync.closeSync(taskStreamFd); } catch {}
+        taskStreamFd = null;
+      }
+    };
+
     try {
       if (!this.llm) {
         throw new Error('LLM service not set. Call setLLMService() before scheduling tasks.');
@@ -383,6 +403,7 @@ export class TaskSystem {
         messages: task.messages,
         originClawId: task.originClawId,
         taskSystem: this,   // dispatcher 的 spawn 工具需要
+        taskStreamWriter: { write: writeTaskEvent },
       });
 
       const result = await subAgent.run();
@@ -418,6 +439,8 @@ export class TaskSystem {
         error: errorMsg,
       });
     } finally {
+      // Close task stream
+      closeTaskStream();
       // Move from running to done
       await this.moveTaskToDone(task.id);
     }

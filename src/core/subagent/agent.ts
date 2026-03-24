@@ -40,6 +40,7 @@ export interface SubAgentOptions {
   subagentMaxSteps?: number;                 // 传给子 SubAgent
   messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
   originClawId?: string;                     // 创建链路源头，传给子 SubAgent
+  taskStreamWriter?: { write(event: Record<string, unknown>): void };
 }
 
 export class SubAgent {
@@ -65,6 +66,7 @@ export class SubAgent {
   private subagentMaxSteps?: number;
   private messages?: Message[];
   private originClawId?: string;
+  private taskStreamWriter?: { write(event: Record<string, unknown>): void };
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -89,6 +91,7 @@ export class SubAgent {
     this.subagentMaxSteps = options.subagentMaxSteps;
     this.messages = options.messages;
     this.originClawId = options.originClawId;
+    this.taskStreamWriter = options.taskStreamWriter;
   }
 
   /**
@@ -96,6 +99,9 @@ export class SubAgent {
    */
   async run(): Promise<string> {
     const startTime = Date.now();
+    
+    // Stream writer for per-task stream.jsonl
+    const sw = this.taskStreamWriter;
     
     // Create timeout controller
     const timeoutController = new AbortController();
@@ -176,6 +182,24 @@ Work efficiently and return a clear, concise result.`;
       });
       timeoutPromise.catch(() => {}); // 防止 race 胜出后的孤立 rejection
 
+      // Stream writer callbacks for per-task stream.jsonl
+      const streamCallbacks = sw ? {
+        onToolCall: (name: string) => {
+          sw.write({ type: 'tool_call', name });
+        },
+        onToolResult: (name: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
+          sw.write({
+            type: 'tool_result',
+            name,
+            success: result.success,
+            summary: (result.content ?? '').slice(0, 80),
+            step: step + 1,
+            maxSteps,
+          });
+        },
+        onBeforeLLMCall: () => { sw.write({ type: 'turn_start' }); },
+      } : {};
+
       const result = await Promise.race([
         runReact({
           messages,
@@ -195,8 +219,15 @@ Work efficiently and return a clear, concise result.`;
           onThinkingDelta: resetIdle ? () => resetIdle() : undefined,
           onToolCall: async (name) => {
             resetIdle?.();
+            streamCallbacks.onToolCall?.(name);
             auditStepTools.push(name);
             await this.appendToLog(`Tool called: ${name}\n`);
+          },
+          onToolResult: (name, result, step, maxSteps) => {
+            streamCallbacks.onToolResult?.(name, result, step, maxSteps);
+          },
+          onBeforeLLMCall: () => {
+            streamCallbacks.onBeforeLLMCall?.();
           },
           onStepComplete: async () => {
             try {
@@ -233,6 +264,9 @@ Work efficiently and return a clear, concise result.`;
       await this.appendToLog(`Stop reason: ${result.stopReason}\n`);
       await this.appendToLog(`Final text: ${result.finalText}\n`);
 
+      // Write turn_end and close stream
+      sw?.write({ type: 'turn_end' });
+
       // Extract final text result
       return result.finalText || '[No output produced]';
     } catch (error) {
@@ -252,6 +286,8 @@ Work efficiently and return a clear, concise result.`;
       // 统一清理所有 timer，避免内存泄漏
       clearTimeout(timeoutId);
       clearTimeout(idleTimerId);
+      // Write turn_end to task stream (idempotent if already written)
+      sw?.write({ type: 'turn_end' });
     }
   }
 
