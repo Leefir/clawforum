@@ -1205,10 +1205,10 @@ export class ContractManager {
     const motionDir = path.resolve(this.motionInboxDir, '..', '..');
     const streamPath = path.join(motionDir, 'stream.jsonl');
     const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype, ...data }) + '\n';
-    fsNative.promises.appendFile(streamPath, line).catch((e: any) => {
-      if (e?.code !== 'ENOENT') {
+    fsNative.promises.mkdir(motionDir, { recursive: true })
+      .then(() => fsNative.promises.appendFile(streamPath, line))
+      .catch((e: any) => {
         console.warn(`[contract] _notifyMotionStream failed (${e?.code}): ${e?.message}`);
-      }
-    });
+      });
   }
 }

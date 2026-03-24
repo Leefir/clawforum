@@ -751,22 +751,9 @@ describe('ContractManager', () => {
       expect(typeof event.ts).toBe('number');
     });
 
-    it('silently ignores ENOENT (cross-server: motion stream.jsonl does not exist on remote)', async () => {
-      const appendSpy = vi.spyOn(fsNative.promises, 'appendFile')
-        .mockRejectedValueOnce(Object.assign(new Error('no such file'), { code: 'ENOENT' }));
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-      (notifyManager as any)._notifyMotionStream('subtask_completed', { contractId: 'c1' });
-
-      await new Promise(r => setTimeout(r, 20));
-
-      expect(warnSpy).not.toHaveBeenCalled();
-
-      appendSpy.mockRestore();
-      warnSpy.mockRestore();
-    });
-
-    it('warns on non-ENOENT errors (e.g. EPERM)', async () => {
+    it('warns on errors (e.g. EPERM)', async () => {
+      const mkdirSpy = vi.spyOn(fsNative.promises, 'mkdir')
+        .mockResolvedValueOnce(undefined);
       const appendSpy = vi.spyOn(fsNative.promises, 'appendFile')
         .mockRejectedValueOnce(Object.assign(new Error('permission denied'), { code: 'EPERM' }));
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -779,6 +766,7 @@ describe('ContractManager', () => {
         expect.stringContaining('EPERM'),
       );
 
+      mkdirSpy.mockRestore();
       appendSpy.mockRestore();
       warnSpy.mockRestore();
     });
