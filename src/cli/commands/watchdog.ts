@@ -384,7 +384,9 @@ export async function daemonCommand(): Promise<void> {
       log(`[watchdog] motion down (${status.reason}), restarting...`);
       try {
         // First clean up any stale PID file that may exist
-        await pm.stop('motion').catch(() => {});
+        await pm.stop('motion').catch((e) => {
+          log(`[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`);
+        });
         const motionDir = getMotionDir();
         const pid = await pm.spawn('motion', motionDir);  // use default daemon-entry.js
         log(`[watchdog] motion restarted (PID=${pid})`);
