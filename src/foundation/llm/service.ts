@@ -278,16 +278,22 @@ export class LLMService implements ILLMService {
       
       // Retry loop (aligns with call())
       let success = false;
+      let hasYielded = false;
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
         try {
-          yield* provider.stream(options);
+          for await (const chunk of provider.stream(options)) {
+            hasYielded = true;
+            yield chunk;
+          }
           success = true;
           break; // Success, exit retry loop
         } catch (error) {
           const err = error as Error;
           // Don't retry on user abort
           if (err.name === 'AbortError') throw err;
-          
+          // Don't retry after chunks have been yielded — caller already has partial state
+          if (hasYielded) throw err;
+
           // Don't wait after the last attempt
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(
