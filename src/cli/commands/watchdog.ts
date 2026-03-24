@@ -24,7 +24,7 @@ function getClawforumDir(): string {
  * Returns the absolute path to the watchdog entry script for this installation.
  * Used as the pgrep pattern to scope process operations to the current install.
  */
-function getWatchdogEntryPath(): string {
+export function getWatchdogEntryPath(): string {
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
   const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
   return existsSync(bundleEntry)

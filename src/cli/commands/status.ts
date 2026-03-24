@@ -4,10 +4,18 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { loadGlobalConfig, getMotionDir, getGlobalConfigPath } from '../config.js';
+import { existsSync } from 'fs';
+import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { loadGlobalConfig, getMotionDir } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { getWatchdogPid, isWatchdogAlive } from './watchdog.js';
+import { getWatchdogPid, isWatchdogAlive, getWatchdogEntryPath } from './watchdog.js';
+
+function parsePgrep(result: ReturnType<typeof spawnSync>): number[] {
+  const output = (result.status === 0 || result.status === 1) ? String(result.stdout ?? '') : '';
+  return output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p));
+}
 
 export async function statusCommand(): Promise<void> {
   loadGlobalConfig();
@@ -29,6 +37,7 @@ export async function statusCommand(): Promise<void> {
 
   // 3. Claws
   const clawsDir = path.join(baseDir, 'claws');
+  const trackedClawPids: number[] = [];
   if (fs.existsSync(clawsDir)) {
     const clawEntries = fs.readdirSync(clawsDir, { withFileTypes: true })
       .filter(e => e.isDirectory())
@@ -37,6 +46,37 @@ export async function statusCommand(): Promise<void> {
     for (const name of clawEntries) {
       const s = pm.getAliveStatus(name);
       console.log(`  ${name}: ${s.alive ? `running (${s.reason})` : `stopped (${s.reason})`}`);
+      // Extract PID from reason if running (reason format: "PID xxx")
+      if (s.alive) {
+        const match = s.reason.match(/PID\s+(\d+)/);
+        if (match) {
+          trackedClawPids.push(parseInt(match[1], 10));
+        }
+      }
     }
+  }
+
+  // 4. Orphan scan: find processes not tracked by PID files
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+
+  // Watchdog orphans
+  const wdPath = getWatchdogEntryPath();
+  const wdResult = spawnSync('pgrep', ['-f', wdPath], { encoding: 'utf-8' });
+  const wdPids = parsePgrep(wdResult).filter(p => p !== watchdogPid && p !== process.pid);
+  if (wdPids.length > 0) {
+    console.log(`  ⚠ orphan watchdog(s): PIDs ${wdPids.join(', ')}`);
+  }
+
+  // Daemon orphans
+  const bundleEntry = path.join(thisDir, 'daemon-entry.js');
+  const daemonEntryPath = existsSync(bundleEntry)
+    ? bundleEntry
+    : path.resolve(thisDir, '..', '..', 'dist', 'daemon-entry.js');
+  const dmResult = spawnSync('pgrep', ['-f', daemonEntryPath], { encoding: 'utf-8' });
+  const motionPid = motionStatus.alive ? (motionStatus.reason.match(/PID\s+(\d+)/)?.[1] ? parseInt(motionStatus.reason.match(/PID\s+(\d+)/)![1], 10) : null) : null;
+  const trackedPids = [motionPid, ...trackedClawPids].filter((p): p is number => p !== null && p !== undefined);
+  const orphanDaemons = parsePgrep(dmResult).filter(p => !trackedPids.includes(p) && p !== process.pid);
+  if (orphanDaemons.length > 0) {
+    console.log(`  ⚠ orphan daemon(s): PIDs ${orphanDaemons.join(', ')}`);
   }
 }
