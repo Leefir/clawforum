@@ -521,7 +521,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // ESC → 中断 daemon react（只在活跃 turn 时有效）
     // 快速连按时 data 可能是多个 \x1b，需检查是否包含 ESC 字节
     // 排除 CSI 序列（\x1b[ 开头的是方向键等）
-    if (data.includes('\x1b') && !data.includes('\x1b[')) {
+    if (data.includes('\x1b') && !data.includes('\x1b[') && !data.includes('\r') && !data.includes('\n')) {
       if (!inTurn) {
         // 防御性清理：如果 spinner 还在转，强制停止
         stopSpinner();
