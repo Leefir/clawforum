@@ -441,17 +441,15 @@ export class ContractManager {
 
     // Start background acceptance (fire-and-forget)
     this._runAcceptanceInBackground(params, contractYaml, acceptanceConfig)
-      .catch(err =>
-        this._writeAcceptanceError(contractId, subtaskId, err).catch(e2 =>
-          this.monitor?.log('error', {
-            context: 'ContractManager.backgroundAcceptance.errorWrite',
-            contractId,
-            subtaskId,
-            originalError: err instanceof Error ? err.message : String(err),
-            writeError: e2 instanceof Error ? e2.message : String(e2),
-          })
-        )
-      );
+      .catch(err => {
+        this.monitor?.log('error', {
+          context: 'ContractManager.backgroundAcceptance',
+          contractId,
+          subtaskId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return this._writeAcceptanceError(contractId, subtaskId, err);
+      });
 
     // Return immediately with async flag
     return { passed: false, feedback: '', async: true };
