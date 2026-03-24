@@ -57,6 +57,13 @@ export const spawnTool: ITool = {
         error: 'Spawn recursion prevented',
       };
     }
+    if (ctx.callerType === 'dispatcher') {
+      return {
+        success: false,
+        content: 'Dispatcher 不能直接 spawn。请在最终回复中说明需要 spawn 的 prompt，由 Motion 来执行。',
+        error: 'Dispatcher spawn prevented',
+      };
+    }
 
     const taskSystem = ctx.taskSystem;
     
