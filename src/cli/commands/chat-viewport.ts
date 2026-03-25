@@ -583,14 +583,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   if (attachActive === false) attachLastOutput = '';  // 新 turn 开始，清除上次输出
                   attachActive = true;
                   if (ev.type === 'thinking_delta') {
+                    // 新 thinking 开始（上一轮留下的 buffer 或 text buffer），清空
+                    if (attachBufferType !== 'thinking') {
+                      attachTextBuffer = '';
+                    }
                     attachTextBuffer += (ev.delta as string) ?? '';
                     attachBufferType = 'thinking';
                   } else if (ev.type === 'tool_call') {
-                    attachBufferType = null;
+                    // 保留 buffer 内容作为上下文（bufferType 保持不变，显示 ⟨⟩ 或 ""）
                     attachCurrentTool = (ev.name as string) ?? null;
                     attachToolSuccess = null;   // 重置工具结果状态
-                    attachTextBuffer = '';
+                    // attachTextBuffer 和 attachBufferType 不清空
                   } else if (ev.type === 'text_delta') {
+                    // 进入正式输出阶段，清空 thinking buffer
+                    if (attachBufferType !== 'text') {
+                      attachTextBuffer = '';
+                    }
                     attachTextBuffer += (ev.delta as string) ?? '';
                   }
                 } else if (ev.type === 'tool_result') {
