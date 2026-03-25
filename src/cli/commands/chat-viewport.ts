@@ -137,7 +137,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const suffix = '"';
         const available = cols - prefix.length - suffix.length;
         const text = available > 0 && attachTextBuffer
-          ? attachTextBuffer.slice(-available)
+          ? attachTextBuffer.replace(/\n/g, ' ').slice(-available)
           : '';
         line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
       } else {
@@ -146,7 +146,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const suffix = '"';
         const available = cols - prefix.length - suffix.length;
         const text = available > 0 && attachTextBuffer
-          ? attachTextBuffer.slice(-available)
+          ? attachTextBuffer.replace(/\n/g, ' ').slice(-available)
           : '';
         line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
       }
