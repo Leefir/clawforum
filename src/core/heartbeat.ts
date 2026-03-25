@@ -1,7 +1,7 @@
 /**
  * Heartbeat - Motion 心跳触发器
  *
- * 每 300s（5分钟）触发一次，向 motion inbox 写入 heartbeat 消息
+ * 间隔可配置（heartbeat_interval_ms），默认禁用（0）。开启后向 motion inbox 写入 heartbeat 消息
  */
 
 import * as path from 'path';

@@ -2,7 +2,7 @@
  * start command - One-shot entry point
  *
  * Initializes workspace and Motion if needed, then opens Motion chat.
- * - First run: creates Bootstrap contract for onboarding
+ * - First run: creates Onboarding contract for onboarding
  * - Onboarding complete: goes straight to chat
  * - Partial onboarding: resumes with a reminder
  */
@@ -22,7 +22,7 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 
-const BOOTSTRAP_SUBTASKS = [
+const ONBOARDING_SUBTASKS = [
   {
     id: 'language',
     description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to USER.md (not inside clawspace/).',
@@ -49,19 +49,19 @@ const BOOTSTRAP_SUBTASKS = [
   },
   {
     id: 'ready',
-    description: 'Bootstrap is complete. Let them know everything is set up and the Claw is working on their first task.',
+    description: 'Onboarding is complete. Let them know everything is set up and the Claw is working on their first task.',
   },
 ];
 
-type BootstrapStatus =
+type OnboardingStatus =
   | { state: 'complete' }
   | { state: 'in_progress'; contractId: string; pending: string[] }
   | { state: 'not_found' };
 
 /**
- * Find the Bootstrap contract and determine its completion state.
+ * Find the Onboarding contract and determine its completion state.
  */
-function getBootstrapStatus(motionDir: string): BootstrapStatus {
+function getOnboardingStatus(motionDir: string): OnboardingStatus {
   const dirs = ['contract/active', 'contract/paused', 'contract/archive'];
 
   for (const dir of dirs) {
@@ -87,7 +87,7 @@ function getBootstrapStatus(motionDir: string): BootstrapStatus {
         title = m?.[1] ?? '';
       } catch { continue; }
 
-      if (title !== 'Bootstrap') continue;
+      if (title !== 'Onboarding') continue;
 
       let progress: Record<string, unknown>;
       try {
@@ -131,11 +131,11 @@ async function _start(): Promise<void> {
     await motionInitCommand(true);
   }
 
-  // Step 3: check Bootstrap onboarding status
-  const bootstrap = getBootstrapStatus(motionDir);
+  // Step 3: check Onboarding status
+  const onboarding = getOnboardingStatus(motionDir);
 
   // Onboarding complete → go straight to chat, no inbox message needed
-  if (bootstrap.state === 'complete') {
+  if (onboarding.state === 'complete') {
     const pm = createMotionPM();
     if (!pm.isAlive('motion')) {
       await pm.spawn('motion', motionDir);
@@ -164,12 +164,12 @@ async function _start(): Promise<void> {
   const manager = new ContractManager(motionDir, motionFs);
   const inboxDir = path.join(motionDir, 'inbox', 'pending');
 
-  if (bootstrap.state === 'not_found') {
-    // Create Bootstrap contract from scratch
+  if (onboarding.state === 'not_found') {
+    // Create Onboarding contract from scratch
     const contractId = await manager.create({
-      title: 'Bootstrap',
+      title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk. Start all messages in English until the language subtask is complete.',
-      subtasks: BOOTSTRAP_SUBTASKS,
+      subtasks: ONBOARDING_SUBTASKS,
       acceptance: [],
     });
 
@@ -178,19 +178,19 @@ async function _start(): Promise<void> {
       type: 'message',
       source: 'system',
       priority: 'high',
-      body: `New contract created (${contractId}): Bootstrap. Please begin execution.`,
+      body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
       idPrefix: 'start',
       filenameTag: 'start',
     });
   } else {
-    // Bootstrap in progress — remind Motion of the pending subtasks
-    const pendingList = bootstrap.pending.join(', ');
+    // Onboarding in progress — remind Motion of the pending subtasks
+    const pendingList = onboarding.pending.join(', ');
     writeInboxMessage({
       inboxDir,
       type: 'message',
       source: 'system',
       priority: 'high',
-      body: `Resuming Bootstrap contract (${bootstrap.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
+      body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
       idPrefix: 'start',
       filenameTag: 'start',
     });

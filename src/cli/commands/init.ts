@@ -117,7 +117,7 @@ export async function initCommand(silent = false): Promise<void> {
         claw_inactivity_timeout_ms: 300000,
       },
       motion: {
-        heartbeat_interval_ms: 300000,
+        heartbeat_interval_ms: 0,
         max_steps: 100,
         max_concurrent_tasks: 3,
       },

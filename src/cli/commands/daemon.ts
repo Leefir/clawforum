@@ -101,14 +101,15 @@ export async function daemonCommand(name: string): Promise<void> {
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
 
-  // motion 专属：heartbeat
+  // motion 专属：heartbeat（0 表示禁用）
   let heartbeat: Heartbeat | null = null;
   if (isMotion) {
-    // 从配置读取心跳间隔，默认 5 分钟（300 秒）
-    const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 300000;
-    heartbeat = new Heartbeat(path.join(dir, '..'), {
-      interval: heartbeatIntervalMs / 1000  // 转换为秒
-    });
+    const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 0;
+    if (heartbeatIntervalMs > 0) {
+      heartbeat = new Heartbeat(path.join(dir, '..'), {
+        interval: heartbeatIntervalMs / 1000  // 转换为秒
+      });
+    }
   }
 
   // 清理残留心跳（上次 daemon 的遗留，重启后无需立即巡查）

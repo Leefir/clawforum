@@ -43,7 +43,7 @@ export const ClawGlobalConfigSchema = z.object({
     circuit_breaker: CircuitBreakerSchema.optional(), // 新增：熔断器配置
   }),
   motion: z.object({
-    heartbeat_interval_ms: z.number().min(10000).default(300000),
+    heartbeat_interval_ms: z.number().min(0).default(0),
     max_steps: z.number().min(1).max(1000).default(100),
     subagent_max_steps: z.number().min(1).max(200).optional(),
     max_concurrent_tasks: z.number().min(1).max(20).default(3),
