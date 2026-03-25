@@ -581,11 +581,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                     attachCurrentTool = (ev.name as string) ?? null;
                     attachToolSuccess = null;   // 重置工具结果状态
                     attachTextBuffer = '';
-                  } else if (ev.type === 'tool_result') {
-                    attachToolSuccess = (ev.success as boolean) ?? null;
                   } else if (ev.type === 'text_delta') {
                     attachTextBuffer += (ev.delta as string) ?? '';
                   }
+                } else if (ev.type === 'tool_result') {
+                  attachToolSuccess = (ev.success as boolean) ?? null;
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
