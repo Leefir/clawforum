@@ -12,15 +12,12 @@ export type {
   WatchEvent,
   WatchEventType,
   Watcher,
-  QueueEntry,
   IFileSystem,
   FileSystemOptions,
-  IDirectoryQueue,
 } from './types.js';
 
 // Implementation classes
 export { NodeFileSystem } from './node-fs.js';
-export { DirectoryQueue } from './queue.js';
 
 // Permission utilities
 export {

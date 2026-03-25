@@ -105,6 +105,7 @@ export class TaskSystem {
    */
   private async recoverTasks(): Promise<void> {
     try {
+      let recoveredFromRunning = 0;
       // First, move any running tasks back to pending (they were interrupted)
       const runningEntries = await this.fs.list('tasks/running');
       for (const entry of runningEntries) {
@@ -126,6 +127,7 @@ export class TaskSystem {
               const pendingPath = `tasks/pending/${task.id}.json`;
               await this.fs.move(entry.path, pendingPath);
               this.pendingQueue.push(task);
+              recoveredFromRunning++;
               this.monitor.log('task_recovered', {
                 taskId: task.id,
                 kind: task.kind,
@@ -179,7 +181,7 @@ export class TaskSystem {
       
       this.monitor.log('task_recovery_complete', {
         pendingCount: this.pendingQueue.length,
-        runningCount: this.runningTasks.size,
+        recoveredFromRunning,
       });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

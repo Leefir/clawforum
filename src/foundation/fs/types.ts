@@ -222,42 +222,4 @@ export interface FileSystemOptions {
   allowedPaths?: string[];
 }
 
-/**
- * Queue entry for directory-based task queues (pending→running→done)
- */
-export interface QueueEntry {
-  id: string;
-  fileName: string;
-  sourcePath: string;
-  status: 'pending' | 'running' | 'done' | 'failed';
-  createdAt: Date;
-  startedAt?: Date;
-  completedAt?: Date;
-  error?: string;
-}
 
-/**
- * DirectoryQueue interface - For inbox/task queue management
- */
-export interface IDirectoryQueue {
-  /** Get all pending entries */
-  getPending(): Promise<QueueEntry[]>;
-  
-  /** Get all running entries */
-  getRunning(): Promise<QueueEntry[]>;
-  
-  /** Get next pending entry and move it to running */
-  dequeue(): Promise<QueueEntry | null>;
-  
-  /** Mark entry as completed */
-  complete(entryId: string, result?: unknown): Promise<void>;
-  
-  /** Mark entry as failed */
-  fail(entryId: string, error: string): Promise<void>;
-  
-  /** Move running entry back to pending (for recovery) */
-  requeue(entryId: string): Promise<void>;
-  
-  /** Watch for new entries */
-  watch(callback: (entry: QueueEntry) => void): Watcher;
-}
