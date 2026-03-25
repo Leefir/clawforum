@@ -30,7 +30,11 @@ export class StreamWriter {
     // 归档旧文件（保留审计历史）
     if (fsNative.existsSync(this.filePath)) {
       const archived = this.filePath.replace('.jsonl', `.${Date.now()}.jsonl`);
-      fsNative.renameSync(this.filePath, archived);
+      try {
+        fsNative.renameSync(this.filePath, archived);
+      } catch (err) {
+        console.error('[StreamWriter] Failed to archive stream.jsonl, will overwrite:', err instanceof Error ? err.message : String(err));
+      }
     }
     this.fd = fsNative.openSync(this.filePath, 'a');
   }
