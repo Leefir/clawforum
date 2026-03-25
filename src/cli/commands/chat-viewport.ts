@@ -177,7 +177,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const prefix = `[${id}] ${icon} ${attachCurrentTool} · ${open}`;
           const suffix = close;
           const available = cols - prefix.length - suffix.length;
-          const text = sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available);
+          const text = sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available);
           line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
         } else {
           line = `\x1b[38;5;147m[${id}] ${icon} ${attachCurrentTool}\x1b[0m`;
@@ -187,7 +187,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const prefix = `[${id}] ⊙ ⟨`;
         const available = cols - prefix.length - 1;
         const text = attachTextBuffer
-          ? sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available)
+          ? sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available)
           : '';
         line = `\x1b[38;5;147m${prefix}${text}⟩\x1b[0m`;
       }
