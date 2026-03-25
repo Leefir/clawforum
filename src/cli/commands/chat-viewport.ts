@@ -194,26 +194,34 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       attachedClawBar.setText(line);
       return;
     }
-    // 不活跃模式
+    // 不活跃模式：所有状态都显示 lastOutput（如果有）
     let line: string;
+    let leftText: string;
+    let leftColor: string;
     if (!attachHasContract) {
-      line = `\x1b[38;5;245m[${id}] ○ no contract\x1b[0m`;
+      leftText = `[${id}] ○ no contract`;
+      leftColor = '\x1b[38;5;245m';
     } else if (attachLastError) {
       const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
-      line = `\x1b[38;5;214m[${id}] ✗ ${attachLastError}${dur}\x1b[0m`;
+      leftText = `[${id}] ✗ ${attachLastError}${dur}`;
+      leftColor = '\x1b[38;5;214m';
     } else if (attachLastInterrupted) {
       const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
-      line = `\x1b[38;5;214m[${id}] ✗ interrupted${dur}\x1b[0m`;
+      leftText = `[${id}] ✗ interrupted${dur}`;
+      leftColor = '\x1b[38;5;214m';
     } else {
       const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
-      if (attachLastOutput) {
-        const prefix = `[${id}] ○ ${dur} · `;
-        const available = (process.stdout.columns ?? 80) - prefix.length;
-        const snippet = sliceFromStart(attachLastOutput.replace(/\n/g, ' '), available);
-        line = `\x1b[38;5;245m${prefix}${snippet}\x1b[0m`;
-      } else {
-        line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
-      }
+      leftText = `[${id}] ○ ${dur}`;
+      leftColor = '\x1b[38;5;245m';
+    }
+    // 追加 lastOutput（如果有）
+    if (attachLastOutput) {
+      const prefix = `${leftText} · "`;
+      const available = (process.stdout.columns ?? 80) - prefix.length - 1;
+      const snippet = sliceFromStart(attachLastOutput.replace(/\n/g, ' '), available);
+      line = `${leftColor}${prefix}${snippet}"\x1b[0m`;
+    } else {
+      line = `${leftColor}${leftText}\x1b[0m`;
     }
     attachedClawBar.setText(line);
   };
@@ -628,7 +636,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
                   // 保存最后的文字输出（仅 text_delta，不保存 thinking）
-                  if (attachBufferType === 'text') attachLastOutput = attachTextBuffer;
+                  if (attachTextBuffer) attachLastOutput = attachTextBuffer;  // 保存任意类型（thinking 或 text）
                   attachCurrentTool = null; attachTextBuffer = '';
                   attachToolSuccess = null; attachBufferType = null; attachClearOnNextDelta = false;
                   attachReferenceMs = Date.now();
