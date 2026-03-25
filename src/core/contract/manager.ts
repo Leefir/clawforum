@@ -260,7 +260,10 @@ export class ContractManager {
       }
     }
 
-    return latest ? this.loadContract(latest.name) : null;
+    if (!latest) return null;
+    const contract = await this.loadContract(latest.name);
+    contract.status = 'running';   // 目录位置决定状态（P1）
+    return contract;
   }
 
   /**
@@ -299,7 +302,10 @@ export class ContractManager {
       }
     }
 
-    return latest ? this.loadContract(latest.name) : null;
+    if (!latest) return null;
+    const contract = await this.loadContract(latest.name);
+    contract.status = 'paused';    // 目录位置决定状态（P1）
+    return contract;
   }
 
   /**
