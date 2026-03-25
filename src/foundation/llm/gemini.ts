@@ -294,7 +294,7 @@ export class GeminiAdapter implements IProviderAdapter {
       const reason = candidate?.finishReason ?? 'UNKNOWN';
       return {
         content: [{ type: 'text', text: '' }],
-        stop_reason: reason === 'SAFETY' ? 'end_turn' : 'end_turn',
+        stop_reason: reason === 'SAFETY' ? 'content_filter' : 'end_turn',
         usage: data.usageMetadata ? {
           input_tokens: data.usageMetadata.promptTokenCount,
           output_tokens: data.usageMetadata.candidatesTokenCount,
