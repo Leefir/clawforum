@@ -81,6 +81,7 @@ export class TaskSystem {
     await this.fs.ensureDir('tasks/pending');
     await this.fs.ensureDir('tasks/running');
     await this.fs.ensureDir('tasks/done');
+    await this.fs.ensureDir('tasks/failed');
     await this.fs.ensureDir('tasks/results');
     await this.fs.ensureDir('inbox/pending');
     
@@ -113,9 +114,9 @@ export class TaskSystem {
             const content = await this.fs.read(entry.path);
             const task = JSON.parse(content) as SubAgentTask | ToolTask;
             if (task.kind === 'tool') {
-              // callback 已丢失，直接归档，不重新执行
-              const donePath = `tasks/done/${task.id}.json`;
-              await this.fs.move(entry.path, donePath);
+              // callback 已丢失，移动到 failed，不重新执行
+              const failedPath = `tasks/failed/${task.id}.json`;
+              await this.fs.move(entry.path, failedPath);
               this.monitor.log('task_discarded', {
                 taskId: task.id,
                 kind: 'tool',
@@ -151,9 +152,9 @@ export class TaskSystem {
             const content = await this.fs.read(entry.path);
             const task = JSON.parse(content) as SubAgentTask | ToolTask;
             if (task.kind === 'tool') {
-              // pending 里的 tool 任务同样 callback 已丢失，直接归档
-              const donePath = `tasks/done/${task.id}.json`;
-              await this.fs.move(entry.path, donePath);
+              // pending 里的 tool 任务同样 callback 已丢失，移动到 failed
+              const failedPath = `tasks/failed/${task.id}.json`;
+              await this.fs.move(entry.path, failedPath);
               this.monitor.log('task_discarded', {
                 taskId: task.id,
                 kind: 'tool',
@@ -353,6 +354,8 @@ export class TaskSystem {
    * Execute a task - internal method
    */
   private async executeTask(task: SubAgentTask, signal: AbortSignal): Promise<void> {
+    let taskFailed = false;
+
     // Per-task stream writer setup
     const taskStreamPath = path.join(this.clawDir, 'tasks', 'results', `${task.id}.stream.jsonl`);
     let taskStreamFd: number | null = null;
@@ -417,6 +420,7 @@ export class TaskSystem {
         resultLength: result.length,
       });
     } catch (error) {
+      taskFailed = true;
       const errorMsg = error instanceof Error ? error.message : String(error);
       
       // Send error result to parent inbox
@@ -441,8 +445,12 @@ export class TaskSystem {
     } finally {
       // Close task stream
       closeTaskStream();
-      // Move from running to done
-      await this.moveTaskToDone(task.id);
+      // Move from running to done/failed based on success
+      if (taskFailed) {
+        await this.moveTaskToFailed(task.id);
+      } else {
+        await this.moveTaskToDone(task.id);
+      }
     }
   }
 
@@ -564,8 +572,12 @@ export class TaskSystem {
       });
     }
 
-    // Always move from running to done
-    await this.moveTaskToDone(task.id);
+    // Move from running to done/failed based on success
+    if (success) {
+      await this.moveTaskToDone(task.id);
+    } else {
+      await this.moveTaskToFailed(task.id);
+    }
   }
 
   /**
@@ -778,6 +790,21 @@ export class TaskSystem {
       // 删除 running 文件防止重启后重复执行，丢失记录好过重复副作用
       await this.fs.delete(`tasks/running/${taskId}.json`).catch((e) => {
         this.monitor.log('error', { taskId, context: 'moveTaskToDone.delete', error: e instanceof Error ? e.message : String(e) });
+      });
+    }
+  }
+
+  private async moveTaskToFailed(taskId: string): Promise<void> {
+    try {
+      await this.fs.move(
+        `tasks/running/${taskId}.json`,
+        `tasks/failed/${taskId}.json`
+      );
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.monitor.log('error', { taskId, error: errMsg });
+      await this.fs.delete(`tasks/running/${taskId}.json`).catch((e) => {
+        this.monitor.log('error', { taskId, context: 'moveTaskToFailed.delete', error: e instanceof Error ? e.message : String(e) });
       });
     }
   }
