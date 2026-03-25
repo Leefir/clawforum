@@ -10,6 +10,7 @@
 
 import * as path from 'path';
 import type { IFileSystem } from '../../foundation/fs/types.js';
+import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { Message } from '../../types/message.js';
 import type { SessionData } from './types.js';
 import { randomUUID } from 'crypto';
@@ -33,7 +34,8 @@ export class SessionManager {
   constructor(
     private readonly fs: IFileSystem,
     dialogDir: string,
-    private readonly clawId: string = randomUUID()
+    private readonly clawId: string = randomUUID(),
+    private readonly monitor?: IMonitor
   ) {
     this.currentPath = path.join(dialogDir, 'current.json');
     this.archiveDir = path.join(dialogDir, 'archive');
@@ -207,6 +209,13 @@ export class SessionManager {
     const pruned = cutIdx;
     if (pruned > 0) {
       console.warn(`[session] Pruned ${pruned} messages to fit context window (${maxTokens} tokens)`);
+      this.monitor?.log('system', {
+        event: 'session_truncated',
+        clawId: this.clawId,
+        pruned,
+        remaining: messages.length - pruned,
+        maxTokens,
+      });
     }
     return { result: messages.slice(cutIdx), pruned };
   }

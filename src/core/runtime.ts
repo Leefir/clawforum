@@ -153,7 +153,7 @@ export class ClawRuntime {
     await this.transport.initialize();
 
     // 6. Create SessionManager (uses systemFs; system components need to write to dialog/)
-    this.sessionManager = new SessionManager(this.systemFs, 'dialog', clawId);
+    this.sessionManager = new SessionManager(this.systemFs, 'dialog', clawId, this.monitor);
     // Archive previous session on startup (best-effort; first start has no current.json)
     await this.sessionManager.archive().catch((err: any) => {
       if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
