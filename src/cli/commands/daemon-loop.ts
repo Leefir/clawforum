@@ -75,6 +75,29 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   let llmRetryDelayMs = 30_000;
   let llmRetryPending = false; // set by catch, consumed by next iteration's try
 
+  // 状态文件路径
+  const llmRetryStateFile = path.join(agentDir, 'status', 'llm-retry-state.json');
+
+  // 内联辅助：保存当前 retry 状态
+  const saveLlmRetryState = () => {
+    try {
+      fsNative.mkdirSync(path.join(agentDir, 'status'), { recursive: true });
+      fsNative.writeFileSync(llmRetryStateFile, JSON.stringify({
+        llmRetryCount,
+        llmRetryDelayMs,
+        llmRetryPending,
+      }));
+    } catch { /* 状态持久化失败不影响主循环 */ }
+  };
+
+  // 启动时恢复（崩溃重启继续退避）
+  try {
+    const saved = JSON.parse(fsNative.readFileSync(llmRetryStateFile, 'utf-8'));
+    if (typeof saved.llmRetryCount === 'number') llmRetryCount = saved.llmRetryCount;
+    if (typeof saved.llmRetryDelayMs === 'number') llmRetryDelayMs = saved.llmRetryDelayMs;
+    if (typeof saved.llmRetryPending === 'boolean') llmRetryPending = saved.llmRetryPending;
+  } catch { /* 首次启动或文件损坏，使用默认值 */ }
+
   const stop = () => { stopped = true; };
 
   const promise = (async () => {
@@ -207,6 +230,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             await runtime.retryLastTurn(wrappedCallbacks);
             llmRetryCount = 0;
             llmRetryDelayMs = 30_000;
+            saveLlmRetryState();
             if (turnStarted) {
               streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
             }
@@ -223,6 +247,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               // Turn finished (not interrupted) — reset LLM retry state
               llmRetryCount = 0;
               llmRetryDelayMs = 30_000;
+              saveLlmRetryState();
               if (turnStarted) {
                 streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
               }
@@ -265,11 +290,13 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
           llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, 300_000);
           llmRetryPending = true; // next iteration will call retryLastTurn
+          saveLlmRetryState();
         } else {
           // Non-LLM error, or max retries exceeded — reset and wait
           const isLLMMaxRetry = err instanceof Error && LLM_ERROR_PATTERN.test(err.message);
           llmRetryCount = 0;
           llmRetryDelayMs = 30_000;
+          saveLlmRetryState();
           console.error(`${label} processBatch error:`, err);
           if (turnStarted) {
             const msg = err instanceof Error ? err.message : String(err);
