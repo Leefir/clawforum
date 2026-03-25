@@ -189,7 +189,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       line = `\x1b[38;5;214m[${id}] ✗ interrupted${dur}\x1b[0m`;
     } else {
       const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
-      line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
+      if (attachLastOutput) {
+        const prefix = `[${id}] ○ ${dur} · "`;
+        const available = (process.stdout.columns ?? 80) - prefix.length - 1;
+        const snippet = sliceToWidth(attachLastOutput.replace(/\n/g, ' '), available);
+        line = `\x1b[38;5;245m${prefix}${snippet}"\x1b[0m`;
+      } else {
+        line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
+      }
     }
     attachedClawBar.setText(line);
   };
@@ -411,6 +418,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let attachLastInterrupted = false;
   let attachToolSuccess: boolean | null = null;  // null=调用中, true=✓, false=✗
   let attachBufferType: 'thinking' | 'text' | null = null;
+  let attachLastOutput = '';  // 上一个 turn 的最后文字输出，不活跃时显示
 
   interface ClawTrack {
     fileSize: number;
@@ -572,6 +580,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               // attach 专用解析（仅对 attachedClawId）
               if (attachedClawId && clawId === attachedClawId) {
                 if (LLM_OUTPUT_EVENTS.has(ev.type)) {
+                  if (attachActive === false) attachLastOutput = '';  // 新 turn 开始，清除上次输出
                   attachActive = true;
                   if (ev.type === 'thinking_delta') {
                     attachTextBuffer += (ev.delta as string) ?? '';
@@ -588,19 +597,21 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   attachToolSuccess = (ev.success as boolean) ?? null;
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
+                  // 保存最后的文字输出（仅 text_delta，不保存 thinking）
+                  if (attachBufferType === 'text') attachLastOutput = attachTextBuffer;
                   attachCurrentTool = null; attachTextBuffer = '';
                   attachToolSuccess = null; attachBufferType = null;
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_error') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null;
+                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = '';
                   attachLastError = (ev.error as string) ?? 'error';
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_interrupted') {
                   attachActive = false; attachLastInterrupted = true;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null;
+                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = '';
                   attachReferenceMs = Date.now();
                 }
                 updateAttachedClawBar();
@@ -808,7 +819,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             attachCurrentTool = null;
             attachTextBuffer = '';
             attachLastInterrupted = false;
-            attachToolSuccess = null; attachBufferType = null;
+            attachToolSuccess = null; attachBufferType = null; attachLastOutput = '';
             // 读磁盘初始化
             const clawDir = path.join(clawsDir, clawId);
             const contractCreatedMs = getContractCreatedMs(clawDir);
