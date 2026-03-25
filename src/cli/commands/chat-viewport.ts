@@ -8,6 +8,7 @@ import * as path from 'path';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
+import stringWidth from 'string-width';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -41,14 +42,12 @@ function sliceToWidth(s: string, maxCols: number): string {
   let i = s.length;
   while (i > 0) {
     const cp = s.codePointAt(i - 1) ?? 0;
-    const cw = cp >= 0x1100 && (
-      cp <= 0x115F || (cp >= 0x2E80 && cp <= 0xA4CF) ||
-      (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) ||
-      (cp >= 0xFF01 && cp <= 0xFF60) || (cp >= 0x20000 && cp <= 0x3FFFD)
-    ) ? 2 : 1;
+    const charLen = cp > 0xFFFF ? 2 : 1;
+    const start = i - charLen;
+    const cw = stringWidth(s.slice(start, i));
     if (w + cw > maxCols) break;
     w += cw;
-    i--;
+    i = start;
   }
   return s.slice(i);
 }
@@ -58,14 +57,11 @@ function sliceFromStart(s: string, maxCols: number): string {
   let i = 0;
   while (i < s.length) {
     const cp = s.codePointAt(i) ?? 0;
-    const cw = (cp >= 0x1100 && (
-      cp <= 0x115F || (cp >= 0x2E80 && cp <= 0xA4CF) ||
-      (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) ||
-      (cp >= 0xFF01 && cp <= 0xFF60) || (cp >= 0x20000 && cp <= 0x3FFFD)
-    )) ? 2 : 1;
+    const charLen = cp > 0xFFFF ? 2 : 1;
+    const cw = stringWidth(s.slice(i, i + charLen));
     if (w + cw > maxCols) break;
     w += cw;
-    i += cp > 0xFFFF ? 2 : 1;
+    i += charLen;
   }
   return s.slice(0, i);
 }
