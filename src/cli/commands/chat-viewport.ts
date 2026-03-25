@@ -351,6 +351,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let attachReferenceMs: number | null = null;
   let attachHasContract = false;
   let attachLastError: string | null = null;
+  let attachPollTick = 0;
 
   interface ClawTrack {
     fileSize: number;
@@ -614,6 +615,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // Poll task streams for dispatch/spawn progress
     for (const taskId of taskWatchMap.keys()) {
       pollTaskStream(taskId);
+    }
+    // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
+    if (attachedClawId) {
+      attachPollTick++;
+      if (attachPollTick >= 5) {
+        attachPollTick = 0;
+        updateAttachedClawBar();
+        tui.requestRender();
+      }
     }
   }, 200);  // fallback 200ms
 
