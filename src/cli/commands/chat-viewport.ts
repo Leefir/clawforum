@@ -36,6 +36,23 @@ function fmtDuration(ms: number): string {
   return `${s}s`;
 }
 
+function sliceToWidth(s: string, maxCols: number): string {
+  let w = 0;
+  let i = s.length;
+  while (i > 0) {
+    const cp = s.codePointAt(i - 1) ?? 0;
+    const cw = cp >= 0x1100 && (
+      cp <= 0x115F || (cp >= 0x2E80 && cp <= 0xA4CF) ||
+      (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) ||
+      (cp >= 0xFF01 && cp <= 0xFF60) || (cp >= 0x20000 && cp <= 0x3FFFD)
+    ) ? 2 : 1;
+    if (w + cw > maxCols) break;
+    w += cw;
+    i--;
+  }
+  return s.slice(i);
+}
+
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
   // 确保 daemon 运行
   if (options.ensureDaemon) {
@@ -137,7 +154,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const suffix = '"';
         const available = cols - prefix.length - suffix.length;
         const text = available > 0 && attachTextBuffer
-          ? attachTextBuffer.replace(/\n/g, ' ').slice(-available)
+          ? sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available)
           : '';
         line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
       } else {
@@ -146,7 +163,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const suffix = '"';
         const available = cols - prefix.length - suffix.length;
         const text = available > 0 && attachTextBuffer
-          ? attachTextBuffer.replace(/\n/g, ' ').slice(-available)
+          ? sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available)
           : '';
         line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
       }
