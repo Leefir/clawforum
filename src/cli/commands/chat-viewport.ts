@@ -149,23 +149,27 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (attachActive) {
       const cols = process.stdout.columns ?? 80;
       let line: string;
+      const icon = attachToolSuccess === true ? '✓'
+                 : attachToolSuccess === false ? '✗'
+                 : '⚙';
       if (attachCurrentTool) {
-        const prefix = `[${id}] ⚙ ${attachCurrentTool} · "`;
-        const suffix = '"';
-        const available = cols - prefix.length - suffix.length;
-        const text = available > 0 && attachTextBuffer
-          ? sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available)
-          : '';
-        line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
+        if (attachTextBuffer) {
+          const prefix = `[${id}] ${icon} ${attachCurrentTool} · "`;
+          const suffix = '"';
+          const available = cols - prefix.length - suffix.length;
+          const text = sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available);
+          line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
+        } else {
+          line = `\x1b[38;5;147m[${id}] ${icon} ${attachCurrentTool}\x1b[0m`;
+        }
       } else {
-        // turn 开始时首轮 thinking（尚无工具名）
-        const prefix = `[${id}] ⊙ "`;
-        const suffix = '"';
-        const available = cols - prefix.length - suffix.length;
-        const text = available > 0 && attachTextBuffer
+        // 首轮 thinking，尚无工具名
+        const prefix = `[${id}] ⊙ ⟨`;
+        const available = cols - prefix.length - 1;
+        const text = attachTextBuffer
           ? sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available)
           : '';
-        line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
+        line = `\x1b[38;5;147m${prefix}${text}⟩\x1b[0m`;
       }
       attachedClawBar.setText(line);
       return;
@@ -402,6 +406,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let attachCurrentTool: string | null = null;
   let attachTextBuffer = '';
   let attachLastInterrupted = false;
+  let attachToolSuccess: boolean | null = null;  // null=调用中, true=✓, false=✗
 
   interface ClawTrack {
     fileSize: number;
@@ -568,22 +573,28 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                     attachTextBuffer += (ev.delta as string) ?? '';
                   } else if (ev.type === 'tool_call') {
                     attachCurrentTool = (ev.name as string) ?? null;
+                    attachToolSuccess = null;   // 重置工具结果状态
                     attachTextBuffer = '';
+                  } else if (ev.type === 'tool_result') {
+                    attachToolSuccess = (ev.success as boolean) ?? null;
                   } else if (ev.type === 'text_delta') {
                     attachTextBuffer += (ev.delta as string) ?? '';
                   }
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
+                  attachToolSuccess = null;
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_error') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
+                  attachToolSuccess = null;
                   attachLastError = (ev.error as string) ?? 'error';
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_interrupted') {
                   attachActive = false; attachLastInterrupted = true;
                   attachCurrentTool = null; attachTextBuffer = '';
+                  attachToolSuccess = null;
                   attachReferenceMs = Date.now();
                 }
                 updateAttachedClawBar();
@@ -791,6 +802,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             attachCurrentTool = null;
             attachTextBuffer = '';
             attachLastInterrupted = false;
+            attachToolSuccess = null;
             // 读磁盘初始化
             const clawDir = path.join(clawsDir, clawId);
             const contractCreatedMs = getContractCreatedMs(clawDir);
