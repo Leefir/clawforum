@@ -47,7 +47,6 @@ export interface ToolTask {
 }
 
 interface TaskState {
-  task: SubAgentTask | ToolTask;
   abortController: AbortController;
   promise: Promise<void>;
 }
@@ -293,7 +292,7 @@ export class TaskSystem {
       const promise = this._startTask(task, abortController.signal);
       
       // IMMEDIATELY occupy slot - critical to prevent race conditions
-      this.runningTasks.set(task.id, { task, abortController, promise });
+      this.runningTasks.set(task.id, { abortController, promise });
     }
   }
 
