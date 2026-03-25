@@ -28,7 +28,7 @@ async function getContractStatus(ctx: ExecContext): Promise<string> {
     }
     return lines.join('\n');
   } catch (err) {
-    console.warn('[status] contract error:', err);
+    ctx.monitor?.log('error', { event: 'status_contract_error', error: err instanceof Error ? err.message : String(err) });
     return 'Contract: Error loading';
   }
 }
@@ -50,16 +50,18 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
       const pending = await ctx.fs.list(pendingDir, { includeDirs: false });
       pendingCount = pending.length;
     } catch (err) {
-      // Pending dir might not exist
-      console.warn('[status] task pending error:', err);
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        ctx.monitor?.log('error', { event: 'status_task_pending_error', error: err instanceof Error ? err.message : String(err) });
+      }
     }
     
     try {
       const running = await ctx.fs.list(runningDir, { includeDirs: false });
       runningCount = running.length;
     } catch (err) {
-      // Running dir might not exist
-      console.warn('[status] task running error:', err);
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        ctx.monitor?.log('error', { event: 'status_task_running_error', error: err instanceof Error ? err.message : String(err) });
+      }
     }
     
     if (runningCount > 0) {

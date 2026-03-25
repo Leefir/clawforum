@@ -697,18 +697,13 @@ describe('Builtin Tools', () => {
       delete (ctx as any).taskSystem;
     });
 
-    // tasks/pending 不存在 → warn
-    it('should warn and treat pending count as 0 when tasks/pending does not exist', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // tasks/pending 不存在 → silent (ENOENT is expected for fresh setup)
+    it('should treat pending count as 0 when tasks/pending does not exist', async () => {
       (ctx as any).taskSystem = {};
 
       const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('Tasks: idle');
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[status] task pending error'),
-        expect.anything()
-      );
-      warnSpy.mockRestore();
+      // ENOENT is now silently ignored (expected for fresh setup)
       delete (ctx as any).taskSystem;
     });
 
