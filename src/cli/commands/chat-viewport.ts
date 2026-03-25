@@ -53,6 +53,23 @@ function sliceToWidth(s: string, maxCols: number): string {
   return s.slice(i);
 }
 
+function sliceFromStart(s: string, maxCols: number): string {
+  let w = 0;
+  let i = 0;
+  while (i < s.length) {
+    const cp = s.codePointAt(i) ?? 0;
+    const cw = (cp >= 0x1100 && (
+      cp <= 0x115F || (cp >= 0x2E80 && cp <= 0xA4CF) ||
+      (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) ||
+      (cp >= 0xFF01 && cp <= 0xFF60) || (cp >= 0x20000 && cp <= 0x3FFFD)
+    )) ? 2 : 1;
+    if (w + cw > maxCols) break;
+    w += cw;
+    i += cp > 0xFFFF ? 2 : 1;
+  }
+  return s.slice(0, i);
+}
+
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
   // 确保 daemon 运行
   if (options.ensureDaemon) {
@@ -190,10 +207,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     } else {
       const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
       if (attachLastOutput) {
-        const prefix = `[${id}] ○ ${dur} · "`;
-        const available = (process.stdout.columns ?? 80) - prefix.length - 1;
-        const snippet = sliceToWidth(attachLastOutput.replace(/\n/g, ' '), available);
-        line = `\x1b[38;5;245m${prefix}${snippet}"\x1b[0m`;
+        const prefix = `[${id}] ○ ${dur} · `;
+        const available = (process.stdout.columns ?? 80) - prefix.length;
+        const snippet = sliceFromStart(attachLastOutput.replace(/\n/g, ' '), available);
+        line = `\x1b[38;5;245m${prefix}${snippet}\x1b[0m`;
       } else {
         line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
       }
