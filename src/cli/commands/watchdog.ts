@@ -13,7 +13,7 @@ import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
-import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
+import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, getContractCreatedMs, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
 
 // Get the .clawforum/ directory (CLAWFORUM_ROOT takes priority)
 function getClawforumDir(): string {
@@ -210,8 +210,9 @@ export function maybeCronClawInactivity(pm: ProcessManager): void {
       // Parse stream.jsonl to get real progress
       const { lastEventMs, lastError } = getClawActivityInfo(clawDir);
 
-      // Use lastEventMs directly as the reference baseline (any event updates it)
-      const referenceMs = lastEventMs;
+      // Merge with contract creation time to handle contract recreation scenario
+      const contractCreatedMs = getContractCreatedMs(clawDir);
+      const referenceMs = Math.max(lastEventMs ?? 0, contractCreatedMs ?? 0) || null;
       if (referenceMs === null) continue;
 
       // Not yet timed out
@@ -219,7 +220,7 @@ export function maybeCronClawInactivity(pm: ProcessManager): void {
 
       // Reset count if claw has made new progress since last notification
       const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
-      if (shouldResetNotifyCount(lastEventMs, lastNotified)) {
+      if (shouldResetNotifyCount(referenceMs, lastNotified)) {
         inactivityNotifyCount.set(clawId, 0);
       }
 

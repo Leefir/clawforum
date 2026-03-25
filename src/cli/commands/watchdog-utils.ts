@@ -64,6 +64,25 @@ export function clawHasContract(clawDir: string): boolean {
   return false;
 }
 
+/** 返回当前活跃/暂停契约的创建时间（毫秒），无契约时返回 null */
+export function getContractCreatedMs(clawDir: string): number | null {
+  for (const sub of ['active', 'paused']) {
+    try {
+      const entries = fs.readdirSync(
+        path.join(clawDir, 'contract', sub),
+        { withFileTypes: true },
+      );
+      for (const e of entries) {
+        if (!e.isDirectory()) continue;
+        const ts = parseInt(e.name.split('-')[0], 10);
+        // 合理的毫秒时间戳：> 2020-01-01
+        if (!isNaN(ts) && ts > 1_577_836_800_000) return ts;
+      }
+    } catch { /* 目录不存在 */ }
+  }
+  return null;
+}
+
 // ---- Phase 18: gatherClawSnapshot ----
 
 export interface ClawSnapshot {
