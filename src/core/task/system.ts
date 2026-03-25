@@ -179,9 +179,14 @@ export class TaskSystem {
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
       
+      // 统计历史失败任务数（仅用于审计，不重新执行）
+      const failedEntries = await this.fs.list('tasks/failed').catch(() => []);
+      const failedCount = failedEntries.filter(e => e.name.endsWith('.json')).length;
+      
       this.monitor.log('task_recovery_complete', {
         pendingCount: this.pendingQueue.length,
         recoveredFromRunning,
+        failedCount,
       });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
