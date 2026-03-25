@@ -138,6 +138,10 @@ Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
       }
     }
 
+    // 提前提取 scripts/prompts，供下方校验使用
+    const scripts = (result.scripts as Record<string, string>) || {};
+    const prompts = (result.prompts as Record<string, string>) || {};
+
     // 验证每个 acceptance 有 type 字段及配套字段
     if (Array.isArray(result.acceptance)) {
       for (const ac of result.acceptance as Array<Record<string, unknown>>) {
@@ -149,6 +153,15 @@ Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
         }
         if (ac.type === 'llm' && !ac.prompt_file) {
           throw new Error('LLM response acceptance entry type=llm missing prompt_file');
+        }
+        // 验证 prompts 字典有对应内容
+        if (ac.type === 'llm' && ac.prompt_file) {
+          const id = ac.subtask_id as string;
+          if (!prompts[id] || typeof prompts[id] !== 'string') {
+            throw new Error(
+              `LLM response acceptance entry "${id}": type=llm but missing or empty entry in prompts dict`
+            );
+          }
         }
       }
     }
@@ -164,10 +177,6 @@ Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
       auth_level: 'auto',
       escalation: result.escalation as { max_retries?: number } | undefined,
     };
-
-    // Extract scripts and prompts
-    const scripts = (result.scripts as Record<string, string>) || {};
-    const prompts = (result.prompts as Record<string, string>) || {};
 
     return { yaml, scripts, prompts };
   }
