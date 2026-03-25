@@ -7,6 +7,7 @@ import * as fsNative from 'fs';
 import * as path from 'path';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -24,6 +25,15 @@ function writeUserChat(agentDir: string, message: string): void {
     body: message,
     idPrefix: 'chat',
   });
+}
+
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
 }
 
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
@@ -86,8 +96,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // 状态栏组件（在 updateStatusBar 之前声明）
   const statusBar = new Text('', 0, 0);
+  const attachedClawBar = new Text('', 0, 0);
 
   const updateStatusBar = () => {
+    if (attachedClawId) return;   // attach 期间不恢复 statusBar
     let line = '';
     if (isMotion) {
       const parts: string[] = [];
@@ -111,6 +123,46 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const setStreamingSuffix = (text: string) => {
     streamingSuffix = text;
     updateDisplay();
+  };
+
+  const updateAttachedClawBar = () => {
+    if (!attachedClawId) { attachedClawBar.setText(''); return; }
+    const id = attachedClawId;
+    // 活跃模式
+    if (attachActive) {
+      const cols = process.stdout.columns ?? 80;
+      let line: string;
+      if (attachCurrentTool === '__thinking__') {
+        line = `\x1b[38;5;147m[${id}] ⊙ thinking\x1b[0m`;
+      } else if (attachCurrentTool) {
+        const prefix = `[${id}] ⚙ ${attachCurrentTool} · "`;
+        const suffix = '"';
+        const available = cols - prefix.length - suffix.length;
+        const text = available > 0 && attachTextBuffer
+          ? attachTextBuffer.slice(-available)
+          : '';
+        line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
+      } else {
+        line = `\x1b[38;5;147m[${id}] ⚙\x1b[0m`;
+      }
+      attachedClawBar.setText(line);
+      return;
+    }
+    // 不活跃模式
+    let line: string;
+    if (!attachHasContract) {
+      line = `\x1b[38;5;245m[${id}] ○ no contract\x1b[0m`;
+    } else if (attachLastError) {
+      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
+      line = `\x1b[38;5;214m[${id}] ✗ ${attachLastError}${dur}\x1b[0m`;
+    } else if (attachLastInterrupted) {
+      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
+      line = `\x1b[38;5;214m[${id}] ✗ interrupted${dur}\x1b[0m`;
+    } else {
+      const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
+      line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
+    }
+    attachedClawBar.setText(line);
   };
 
   const startSpinner = (text = 'Thinking...') => {
@@ -319,6 +371,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Motion viewport：各 claw 步数追踪
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
+  let attachedClawId: string | null = null;
+  let attachReferenceMs: number | null = null;
+  let attachHasContract = false;
+  let attachLastError: string | null = null;
+  let attachPollTick = 0;
+  let attachActive = false;
+  let attachCurrentTool: string | null = null;
+  let attachTextBuffer = '';
+  let attachLastInterrupted = false;
 
   interface ClawTrack {
     fileSize: number;
@@ -477,6 +538,35 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
               else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
               else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
+              // attach 专用解析（仅对 attachedClawId）
+              if (attachedClawId && clawId === attachedClawId) {
+                if (LLM_OUTPUT_EVENTS.has(ev.type)) {
+                  attachActive = true;
+                  if (ev.type === 'thinking_delta') {
+                    attachCurrentTool = '__thinking__';
+                  } else if (ev.type === 'tool_call') {
+                    attachCurrentTool = (ev.name as string) ?? null;
+                    attachTextBuffer = '';
+                  } else if (ev.type === 'text_delta') {
+                    attachTextBuffer += (ev.text as string) ?? '';
+                  }
+                } else if (ev.type === 'turn_end') {
+                  attachActive = false; attachLastInterrupted = false;
+                  attachCurrentTool = null; attachTextBuffer = '';
+                  attachReferenceMs = Date.now();
+                } else if (ev.type === 'turn_error') {
+                  attachActive = false; attachLastInterrupted = false;
+                  attachCurrentTool = null; attachTextBuffer = '';
+                  attachLastError = (ev.error as string) ?? 'error';
+                  attachReferenceMs = Date.now();
+                } else if (ev.type === 'turn_interrupted') {
+                  attachActive = false; attachLastInterrupted = true;
+                  attachCurrentTool = null; attachTextBuffer = '';
+                  attachReferenceMs = Date.now();
+                }
+                updateAttachedClawBar();
+                tui.requestRender();
+              }
             } catch { /* skip */ }
           }
         }
@@ -583,6 +673,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     for (const taskId of taskWatchMap.keys()) {
       pollTaskStream(taskId);
     }
+    // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
+    if (attachedClawId) {
+      attachPollTick++;
+      if (attachPollTick >= 5) {
+        attachPollTick = 0;
+        updateAttachedClawBar();
+        tui.requestRender();
+      }
+    }
   }, 200);  // fallback 200ms
 
   try {
@@ -643,6 +742,48 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           thinkingMode = arg;
         }
         appendOutput(`\x1b[2m[thinking: ${thinkingMode}]\x1b[0m`);
+      } else if (name === 'attach') {
+        if (!isMotion) {
+          appendOutput(`\x1b[31m[attach] 仅 motion chat 支持 /attach\x1b[0m`);
+        } else if (!parts[1]) {
+          appendOutput(`\x1b[31m[attach] 用法：/attach <clawId>\x1b[0m`);
+        } else {
+          const clawId = parts[1];
+          if (!fsNative.existsSync(path.join(clawsDir, clawId))) {
+            appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
+          } else {
+            attachedClawId = clawId;
+            // 重置状态
+            attachReferenceMs = null;
+            attachHasContract = false;
+            attachLastError = null;
+            attachActive = false;
+            attachCurrentTool = null;
+            attachTextBuffer = '';
+            attachLastInterrupted = false;
+            // 读磁盘初始化
+            const clawDir = path.join(clawsDir, clawId);
+            const contractCreatedMs = getContractCreatedMs(clawDir);
+            attachHasContract = contractCreatedMs !== null;
+            if (attachHasContract) {
+              const info = getClawActivityInfo(clawDir);
+              attachLastError = info.lastError;
+              attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
+            }
+            // 切换显示
+            statusBar.setText('');
+            updateAttachedClawBar();
+            appendOutput(`\x1b[2m[attach] attached to ${clawId}\x1b[0m`);
+          }
+        }
+      } else if (name === 'detach') {
+        if (attachedClawId) {
+          const prev = attachedClawId;
+          attachedClawId = null;
+          attachedClawBar.setText('');
+          updateStatusBar();
+          appendOutput(`\x1b[2m[detach] detached from ${prev}\x1b[0m`);
+        }
       } else {
         appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
       }
@@ -703,6 +844,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   });
 
   tui.addChild(outputText);
+  tui.addChild(attachedClawBar);  // 默认空字符串 = 零高度
   tui.addChild(statusBar);
   tui.addChild(editor);
   tui.setFocus(editor);
