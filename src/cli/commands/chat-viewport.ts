@@ -7,7 +7,7 @@ import * as fsNative from 'fs';
 import * as path from 'path';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
-import { getClawActivityInfo, getContractCreatedMs } from './watchdog-utils.js';
+import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -128,12 +128,36 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const updateAttachedClawBar = () => {
     if (!attachedClawId) { attachedClawBar.setText(''); return; }
     const id = attachedClawId;
+    // 活跃模式
+    if (attachActive) {
+      const cols = process.stdout.columns ?? 80;
+      let line: string;
+      if (attachCurrentTool === '__thinking__') {
+        line = `\x1b[38;5;147m[${id}] ⊙ thinking\x1b[0m`;
+      } else if (attachCurrentTool) {
+        const prefix = `[${id}] ⚙ ${attachCurrentTool} · "`;
+        const suffix = '"';
+        const available = cols - prefix.length - suffix.length;
+        const text = available > 0 && attachTextBuffer
+          ? attachTextBuffer.slice(-available)
+          : '';
+        line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
+      } else {
+        line = `\x1b[38;5;147m[${id}] ⚙\x1b[0m`;
+      }
+      attachedClawBar.setText(line);
+      return;
+    }
+    // 不活跃模式
     let line: string;
     if (!attachHasContract) {
       line = `\x1b[38;5;245m[${id}] ○ no contract\x1b[0m`;
     } else if (attachLastError) {
       const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
       line = `\x1b[38;5;214m[${id}] ✗ ${attachLastError}${dur}\x1b[0m`;
+    } else if (attachLastInterrupted) {
+      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
+      line = `\x1b[38;5;214m[${id}] ✗ interrupted${dur}\x1b[0m`;
     } else {
       const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
       line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
@@ -352,6 +376,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let attachHasContract = false;
   let attachLastError: string | null = null;
   let attachPollTick = 0;
+  let attachActive = false;
+  let attachCurrentTool: string | null = null;
+  let attachTextBuffer = '';
+  let attachLastInterrupted = false;
 
   interface ClawTrack {
     fileSize: number;
@@ -510,6 +538,35 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
               else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
               else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
+              // attach 专用解析（仅对 attachedClawId）
+              if (attachedClawId && clawId === attachedClawId) {
+                if (LLM_OUTPUT_EVENTS.has(ev.type)) {
+                  attachActive = true;
+                  if (ev.type === 'thinking_delta') {
+                    attachCurrentTool = '__thinking__';
+                  } else if (ev.type === 'tool_call') {
+                    attachCurrentTool = (ev.name as string) ?? null;
+                    attachTextBuffer = '';
+                  } else if (ev.type === 'text_delta') {
+                    attachTextBuffer += (ev.text as string) ?? '';
+                  }
+                } else if (ev.type === 'turn_end') {
+                  attachActive = false; attachLastInterrupted = false;
+                  attachCurrentTool = null; attachTextBuffer = '';
+                  attachReferenceMs = Date.now();
+                } else if (ev.type === 'turn_error') {
+                  attachActive = false; attachLastInterrupted = false;
+                  attachCurrentTool = null; attachTextBuffer = '';
+                  attachLastError = (ev.error as string) ?? 'error';
+                  attachReferenceMs = Date.now();
+                } else if (ev.type === 'turn_interrupted') {
+                  attachActive = false; attachLastInterrupted = true;
+                  attachCurrentTool = null; attachTextBuffer = '';
+                  attachReferenceMs = Date.now();
+                }
+                updateAttachedClawBar();
+                tui.requestRender();
+              }
             } catch { /* skip */ }
           }
         }
@@ -700,6 +757,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             attachReferenceMs = null;
             attachHasContract = false;
             attachLastError = null;
+            attachActive = false;
+            attachCurrentTool = null;
+            attachTextBuffer = '';
+            attachLastInterrupted = false;
             // 读磁盘初始化
             const clawDir = path.join(clawsDir, clawId);
             const contractCreatedMs = getContractCreatedMs(clawDir);
