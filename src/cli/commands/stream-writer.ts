@@ -19,7 +19,7 @@ export class StreamWriter {
     this.filePath = path.join(agentDir, 'stream.jsonl');
   }
 
-  /** daemon 启动时调用：截断文件并打开 fd */
+  /** daemon 启动时调用：归档旧文件并打开 fd */
   open(): void {
     if (this.fd !== null) {         // 防止重复 open 导致 fd 泄漏
       try { fsNative.closeSync(this.fd); } catch { /* ignore */ }
@@ -27,7 +27,11 @@ export class StreamWriter {
     }
     const dir = path.dirname(this.filePath);
     fsNative.mkdirSync(dir, { recursive: true });
-    fsNative.writeFileSync(this.filePath, '');
+    // 归档旧文件（保留审计历史）
+    if (fsNative.existsSync(this.filePath)) {
+      const archived = this.filePath.replace('.jsonl', `.${Date.now()}.jsonl`);
+      fsNative.renameSync(this.filePath, archived);
+    }
     this.fd = fsNative.openSync(this.filePath, 'a');
   }
 
