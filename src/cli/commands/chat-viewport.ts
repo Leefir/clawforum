@@ -7,6 +7,7 @@ import * as fsNative from 'fs';
 import * as path from 'path';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { getClawActivityInfo, getContractCreatedMs } from './watchdog-utils.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -24,6 +25,15 @@ function writeUserChat(agentDir: string, message: string): void {
     body: message,
     idPrefix: 'chat',
   });
+}
+
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
 }
 
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
@@ -113,6 +123,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const setStreamingSuffix = (text: string) => {
     streamingSuffix = text;
     updateDisplay();
+  };
+
+  const updateAttachedClawBar = () => {
+    if (!attachedClawId) { attachedClawBar.setText(''); return; }
+    const id = attachedClawId;
+    let line: string;
+    if (!attachHasContract) {
+      line = `\x1b[38;5;245m[${id}] ○ no contract\x1b[0m`;
+    } else if (attachLastError) {
+      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
+      line = `\x1b[38;5;214m[${id}] ✗ ${attachLastError}${dur}\x1b[0m`;
+    } else {
+      const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
+      line = `\x1b[38;5;245m[${id}] ○ ${dur}\x1b[0m`;
+    }
+    attachedClawBar.setText(line);
   };
 
   const startSpinner = (text = 'Thinking...') => {
@@ -322,6 +348,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
   let attachedClawId: string | null = null;
+  let attachReferenceMs: number | null = null;
+  let attachHasContract = false;
+  let attachLastError: string | null = null;
 
   interface ClawTrack {
     fileSize: number;
@@ -657,8 +686,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
           } else {
             attachedClawId = clawId;
+            // 重置状态
+            attachReferenceMs = null;
+            attachHasContract = false;
+            attachLastError = null;
+            // 读磁盘初始化
+            const clawDir = path.join(clawsDir, clawId);
+            const contractCreatedMs = getContractCreatedMs(clawDir);
+            attachHasContract = contractCreatedMs !== null;
+            if (attachHasContract) {
+              const info = getClawActivityInfo(clawDir);
+              attachLastError = info.lastError;
+              attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
+            }
+            // 切换显示
             statusBar.setText('');
-            attachedClawBar.setText(`\x1b[38;5;245m[${clawId}] ○\x1b[0m`);
+            updateAttachedClawBar();
             appendOutput(`\x1b[2m[attach] attached to ${clawId}\x1b[0m`);
           }
         }
