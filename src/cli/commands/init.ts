@@ -120,6 +120,7 @@ export async function initCommand(silent = false): Promise<void> {
         heartbeat_interval_ms: 0,
         max_steps: 100,
         max_concurrent_tasks: 3,
+        llm_idle_timeout_ms: 120000,
       },
     };
 
