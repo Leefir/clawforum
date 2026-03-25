@@ -86,8 +86,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // 状态栏组件（在 updateStatusBar 之前声明）
   const statusBar = new Text('', 0, 0);
+  const attachedClawBar = new Text('', 0, 0);
 
   const updateStatusBar = () => {
+    if (attachedClawId) return;   // attach 期间不恢复 statusBar
     let line = '';
     if (isMotion) {
       const parts: string[] = [];
@@ -319,6 +321,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Motion viewport：各 claw 步数追踪
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
+  let attachedClawId: string | null = null;
 
   interface ClawTrack {
     fileSize: number;
@@ -643,6 +646,30 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           thinkingMode = arg;
         }
         appendOutput(`\x1b[2m[thinking: ${thinkingMode}]\x1b[0m`);
+      } else if (name === 'attach') {
+        if (!isMotion) {
+          appendOutput(`\x1b[31m[attach] 仅 motion chat 支持 /attach\x1b[0m`);
+        } else if (!parts[1]) {
+          appendOutput(`\x1b[31m[attach] 用法：/attach <clawId>\x1b[0m`);
+        } else {
+          const clawId = parts[1];
+          if (!fsNative.existsSync(path.join(clawsDir, clawId))) {
+            appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
+          } else {
+            attachedClawId = clawId;
+            statusBar.setText('');
+            attachedClawBar.setText(`\x1b[38;5;245m[${clawId}] ○\x1b[0m`);
+            appendOutput(`\x1b[2m[attach] attached to ${clawId}\x1b[0m`);
+          }
+        }
+      } else if (name === 'detach') {
+        if (attachedClawId) {
+          const prev = attachedClawId;
+          attachedClawId = null;
+          attachedClawBar.setText('');
+          updateStatusBar();
+          appendOutput(`\x1b[2m[detach] detached from ${prev}\x1b[0m`);
+        }
       } else {
         appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
       }
@@ -703,6 +730,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   });
 
   tui.addChild(outputText);
+  tui.addChild(attachedClawBar);  // 默认空字符串 = 零高度
   tui.addChild(statusBar);
   tui.addChild(editor);
   tui.setFocus(editor);
