@@ -232,7 +232,7 @@ export class GeminiAdapter implements IProviderAdapter {
     const decoder = new TextDecoder();
     let buffer = '';
     let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
-    const toolStarted = new Set<string>();
+    let fcIndex = 0;
 
     try {
       while (true) {
@@ -261,12 +261,10 @@ export class GeminiAdapter implements IProviderAdapter {
               yield { type: 'text_delta', delta: part.text };
             } else if ('functionCall' in part) {
               const { name, args } = part.functionCall;
-              const id = `gemini-${name}`;
-              if (!toolStarted.has(name)) {
-                toolStarted.add(name);
-                yield { type: 'tool_use_start', toolUse: { id, name, partialInput: '' } };
-              }
+              const id = `gemini-${name}-${fcIndex}`;
+              yield { type: 'tool_use_start', toolUse: { id, name, partialInput: '' } };
               yield { type: 'tool_use_delta', toolUse: { id, name, partialInput: JSON.stringify(args) } };
+              fcIndex++;
             }
           }
 
