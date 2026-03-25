@@ -172,8 +172,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (attachCurrentTool) {
         if (attachTextBuffer) {
           const isThinking = attachBufferType === 'thinking';
-          const open = isThinking ? '⟨' : '"';
-          const close = isThinking ? '⟩' : '"';
+          const open = isThinking ? '(' : '"';
+          const close = isThinking ? ')' : '"';
           const prefix = `[${id}] ${icon} ${attachCurrentTool} · ${open}`;
           const suffix = close;
           const available = cols - prefix.length - suffix.length;
@@ -184,12 +184,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         }
       } else {
         // 首轮 thinking，尚无工具名
-        const prefix = `[${id}] ⊙ ⟨`;
+        const prefix = `[${id}] ⊙ (`;
         const available = cols - prefix.length - 1;
         const text = attachTextBuffer
           ? sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available)
           : '';
-        line = `\x1b[38;5;147m${prefix}${text}⟩\x1b[0m`;
+        line = `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
       }
       attachedClawBar.setText(line);
       return;
@@ -300,7 +300,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
         } else if (thinkingMode === 'line') {
           const snippet = thinkingBuffer.replace(/\s+/g, ' ').trim().slice(-60);
-          setStreamingSuffix('\x1b[2m⟨' + snippet + '⟩\x1b[0m');
+          setStreamingSuffix('\x1b[2m(' + snippet + ')\x1b[0m');
         }
         // 'none': 不更新 suffix
         break;
