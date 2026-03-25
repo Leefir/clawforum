@@ -132,9 +132,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (attachActive) {
       const cols = process.stdout.columns ?? 80;
       let line: string;
-      if (attachCurrentTool === '__thinking__') {
-        line = `\x1b[38;5;147m[${id}] ⊙ thinking\x1b[0m`;
-      } else if (attachCurrentTool) {
+      if (attachCurrentTool) {
         const prefix = `[${id}] ⚙ ${attachCurrentTool} · "`;
         const suffix = '"';
         const available = cols - prefix.length - suffix.length;
@@ -143,7 +141,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           : '';
         line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
       } else {
-        line = `\x1b[38;5;147m[${id}] ⚙\x1b[0m`;
+        // turn 开始时首轮 thinking（尚无工具名）
+        const prefix = `[${id}] ⊙ "`;
+        const suffix = '"';
+        const available = cols - prefix.length - suffix.length;
+        const text = available > 0 && attachTextBuffer
+          ? attachTextBuffer.slice(-available)
+          : '';
+        line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
       }
       attachedClawBar.setText(line);
       return;
@@ -543,12 +548,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                 if (LLM_OUTPUT_EVENTS.has(ev.type)) {
                   attachActive = true;
                   if (ev.type === 'thinking_delta') {
-                    attachCurrentTool = '__thinking__';
+                    attachTextBuffer += (ev.delta as string) ?? '';
                   } else if (ev.type === 'tool_call') {
                     attachCurrentTool = (ev.name as string) ?? null;
                     attachTextBuffer = '';
                   } else if (ev.type === 'text_delta') {
-                    attachTextBuffer += (ev.text as string) ?? '';
+                    attachTextBuffer += (ev.delta as string) ?? '';
                   }
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
@@ -678,6 +683,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       attachPollTick++;
       if (attachPollTick >= 5) {
         attachPollTick = 0;
+        // 重检契约状态（契约可能在 attach 之后才创建）
+        const contractCreatedMs = getContractCreatedMs(path.join(clawsDir, attachedClawId));
+        attachHasContract = contractCreatedMs !== null;
+        if (attachHasContract && attachReferenceMs === null) {
+          const info = getClawActivityInfo(path.join(clawsDir, attachedClawId));
+          attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
+          attachLastError = info.lastError;
+        }
         updateAttachedClawBar();
         tui.requestRender();
       }
