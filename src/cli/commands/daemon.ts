@@ -86,6 +86,7 @@ export async function daemonCommand(name: string): Promise<void> {
         toolTimeoutMs: globalConfig.tool_timeout_ms,
         subagentMaxSteps: globalConfig.motion?.subagent_max_steps,
         maxConcurrentTasks: globalConfig.motion?.max_concurrent_tasks ?? 3,
+        idleTimeoutMs: globalConfig.motion?.llm_idle_timeout_ms,
       })
     : new ClawRuntime({
         clawId: name,
@@ -96,6 +97,7 @@ export async function daemonCommand(name: string): Promise<void> {
         toolTimeoutMs: globalConfig.tool_timeout_ms,
         subagentMaxSteps: clawConfig!.subagent_max_steps,
         maxConcurrentTasks: clawConfig!.max_concurrent_tasks,
+        idleTimeoutMs: globalConfig.motion?.llm_idle_timeout_ms,
       } as ClawRuntimeOptions);
 
   await runtime.initialize();

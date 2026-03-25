@@ -40,7 +40,7 @@ dispatcher 不能：
       maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认继承主循环 max_steps）' },
       idleTimeoutMs: {
         type: 'number',
-        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认同 DEFAULT_LLM_IDLE_TIMEOUT_MS。',
+        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认 60000ms（可通过 .clawforum/config.yaml 的 motion.llm_idle_timeout_ms 配置）。',
       },
     },
     required: ['task'],

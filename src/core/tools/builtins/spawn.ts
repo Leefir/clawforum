@@ -39,7 +39,11 @@ export const spawnTool: ITool = {
       },
       maxSteps: {
         type: 'number',
-        description: 'Maximum number of ReAct steps the subagent can take (default: 20). Increase for complex multi-file tasks; decrease for simple lookups.',
+        description: 'Maximum number of ReAct steps the subagent can take (default: 100). Increase for complex multi-file tasks; decrease for simple lookups.',
+      },
+      idleTimeoutMs: {
+        type: 'number',
+        description: 'LLM idle timeout in milliseconds (default: 60000). Abort if no token output for this duration.',
       },
     },
     required: ['prompt'],
@@ -82,6 +86,9 @@ export const spawnTool: ITool = {
     const maxSteps = typeof args.maxSteps === 'number' 
       ? args.maxSteps 
       : (ctx.subagentMaxSteps ?? ctx.maxSteps ?? 100);
+    const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
+      ? args.idleTimeoutMs
+      : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     try {
       const taskId = await taskSystem.scheduleSubAgent({
@@ -90,7 +97,7 @@ export const spawnTool: ITool = {
         tools,
         timeout,
         maxSteps,
-        idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
+        idleTimeoutMs,
         parentClawId: ctx.clawId,
         originClawId: ctx.originClawId ?? ctx.clawId,
       });
