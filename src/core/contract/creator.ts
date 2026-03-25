@@ -148,6 +148,9 @@ Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
         if (!ac.type || typeof ac.type !== 'string') {
           throw new Error('LLM response acceptance entry missing required field: type');
         }
+        if (!ac.subtask_id || typeof ac.subtask_id !== 'string') {
+          throw new Error('LLM response acceptance entry missing required field: subtask_id');
+        }
         if (ac.type === 'script' && !ac.script_file) {
           throw new Error('LLM response acceptance entry type=script missing script_file');
         }
@@ -160,6 +163,15 @@ Respond with valid JSON only (optionally wrapped in a \`\`\`json block).`;
           if (!prompts[id] || typeof prompts[id] !== 'string') {
             throw new Error(
               `LLM response acceptance entry "${id}": type=llm but missing or empty entry in prompts dict`
+            );
+          }
+        }
+        // 验证 scripts 字典有对应内容
+        if (ac.type === 'script' && ac.script_file) {
+          const id = ac.subtask_id as string;
+          if (!scripts[id] || typeof scripts[id] !== 'string') {
+            throw new Error(
+              `LLM response acceptance entry "${id}": type=script but missing or empty entry in scripts dict`
             );
           }
         }
