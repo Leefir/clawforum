@@ -3,6 +3,7 @@ import type { TaskSystem } from '../../task/system.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
+import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../constants.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -39,7 +40,7 @@ dispatcher 不能：
       maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认继承主循环 max_steps）' },
       idleTimeoutMs: {
         type: 'number',
-        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认 30000。',
+        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认同 DEFAULT_LLM_IDLE_TIMEOUT_MS。',
       },
     },
     required: ['task'],
@@ -96,7 +97,7 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
     const systemPrompt = await this.getSystemPrompt();
     const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
       ? args.idleTimeoutMs
-      : 30000;
+      : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     // 构造包含完整对话上下文的 messages 数组
     const dialogMessages = ctx.dialogMessages ?? [];

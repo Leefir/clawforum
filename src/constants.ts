@@ -78,6 +78,9 @@ export const SUBAGENT_TIMEOUT_MS = 300000;
 /** Default timeout for subagent tasks (seconds) - 5 minutes */
 export const SPAWN_DEFAULT_TIMEOUT_S = 300;
 
+/** Default idle timeout for LLM calls: abort if no token output for this duration (ms) */
+export const DEFAULT_LLM_IDLE_TIMEOUT_MS = 60000;
+
 // ----------------------------------------------------------------------------
 // Communication
 // ----------------------------------------------------------------------------

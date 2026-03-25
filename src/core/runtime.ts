@@ -40,7 +40,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { MaxStepsExceededError } from '../types/errors.js';
-import { SESSION_CONTEXT_MAX_TOKENS, MOTION_CLAW_ID } from '../constants.js';
+import { SESSION_CONTEXT_MAX_TOKENS, MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../constants.js';
 
 /**
  * ClawRuntime constructor options
@@ -55,6 +55,7 @@ export interface ClawRuntimeOptions {
   toolTimeoutMs?: number;
   subagentMaxSteps?: number;
   maxConcurrentTasks?: number;
+  idleTimeoutMs?: number;  // 覆盖 DEFAULT_LLM_IDLE_TIMEOUT_MS（0 = 禁用）
 }
 
 /** daemon streaming callbacks (used by processBatch / _runReact) */
@@ -458,25 +459,39 @@ export class ClawRuntime {
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
     const systemPrompt = await this.buildSystemPrompt();
-    await runReact({
-      messages: contextMessages,
-      systemPrompt,
-      llm: this.llm,
-      executor: this.toolExecutor,
-      ctx: this.execContext,
-      tools,
-      registry: this.toolRegistry,  // Enable parallel execution for readonly tools
-      maxSteps: this.options.maxSteps,
-      onStepComplete: async () => {
-        await this.sessionManager.save(contextMessages);
-      },
-      onTextDelta: callbacks?.onTextDelta,
-      onTextEnd: callbacks?.onTextEnd,
-      onThinkingDelta: callbacks?.onThinkingDelta,
-      onToolCall: callbacks?.onToolCall,
-      onToolResult: callbacks?.onToolResult,
-      onBeforeLLMCall: callbacks?.onBeforeLLMCall,
-    });
+
+    // Idle timeout: abort if no token output for idleTimeoutMs (0 = disabled)
+    const idleTimeoutMs = this.options.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS;
+    let idleTimerId: ReturnType<typeof setTimeout> | undefined;
+    const resetIdle = idleTimeoutMs > 0 ? () => {
+      clearTimeout(idleTimerId);
+      idleTimerId = setTimeout(() => this.currentAbortController?.abort(), idleTimeoutMs);
+    } : undefined;
+    resetIdle?.();
+
+    try {
+      await runReact({
+        messages: contextMessages,
+        systemPrompt,
+        llm: this.llm,
+        executor: this.toolExecutor,
+        ctx: this.execContext,
+        tools,
+        registry: this.toolRegistry,  // Enable parallel execution for readonly tools
+        maxSteps: this.options.maxSteps,
+        onStepComplete: async () => {
+          await this.sessionManager.save(contextMessages);
+        },
+        onTextDelta: (d) => { resetIdle?.(); callbacks?.onTextDelta?.(d); },
+        onTextEnd: callbacks?.onTextEnd,
+        onThinkingDelta: (d) => { resetIdle?.(); callbacks?.onThinkingDelta?.(d); },
+        onToolCall: (n) => { resetIdle?.(); callbacks?.onToolCall?.(n); },
+        onToolResult: callbacks?.onToolResult,
+        onBeforeLLMCall: callbacks?.onBeforeLLMCall,
+      });
+    } finally {
+      clearTimeout(idleTimerId);
+    }
     await this.sessionManager.save(contextMessages);
   }
 

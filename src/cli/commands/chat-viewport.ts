@@ -92,13 +92,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (isMotion) {
       const parts: string[] = [];
 
-      // motion 自身状态（前置）
-      if (inTurn) {
-        parts.push(`\x1b[38;5;147m⬡ motion #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`);
-      } else if (ownTurnCount > 0) {
-        parts.push(`\x1b[38;5;245m○ motion #${ownTurnCount}\x1b[0m`);
-      }
-
       // 各 claw 状态
       for (const [id, t] of clawTrackMap) {
         if (t.active && t.isAlive) {   // isAlive 守卫：daemon 崩溃不显示紫色
@@ -111,11 +104,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         }
       }
       line = parts.join('  ');
-    } else if (inTurn) {
-      line = `\x1b[38;5;147m⬡ #${ownTurnCount} [${ownStep}/${ownMaxSteps}]\x1b[0m`;
-    } else if (ownTurnCount > 0) {
-      // 空闲但有历史（重连后立即显示上次状态）
-      line = `\x1b[38;5;245m○ #${ownTurnCount}\x1b[0m`;
     }
     statusBar.setText(line);
   };

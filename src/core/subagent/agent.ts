@@ -76,7 +76,7 @@ export class SubAgent {
     this.registry = options.registry;
     this.fs = options.fs;
     this.monitor = options.monitor;
-    this.maxSteps = options.maxSteps ?? 20;
+    this.maxSteps = options.maxSteps ?? 100;
     this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
     this.logPath = `tasks/results/${this.agentId}.log`;
