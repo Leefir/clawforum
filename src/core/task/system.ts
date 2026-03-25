@@ -359,7 +359,7 @@ export class TaskSystem {
     // Per-task stream writer setup
     const taskStreamPath = path.join(this.clawDir, 'tasks', 'results', `${task.id}.stream.jsonl`);
     let taskStreamFd: number | null = null;
-    try { taskStreamFd = fsSync.openSync(taskStreamPath, 'w'); } catch {}
+    try { taskStreamFd = fsSync.openSync(taskStreamPath, 'a'); } catch {}
 
     const writeTaskEvent = (event: Record<string, unknown>) => {
       if (taskStreamFd === null) return;
@@ -367,6 +367,9 @@ export class TaskSystem {
         fsSync.writeSync(taskStreamFd, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
       } catch {}
     };
+
+    // 每次执行开头写分隔标记，方便区分多次尝试
+    writeTaskEvent({ type: 'task_attempt_start', taskId: task.id });
 
     const closeTaskStream = () => {
       if (taskStreamFd !== null) {
