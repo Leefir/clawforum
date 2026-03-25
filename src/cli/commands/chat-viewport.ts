@@ -821,6 +821,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             // 切换显示
             statusBar.setText('');
             updateAttachedClawBar();
+            // 换成无 debounce watcher
+            const attachStreamFile = path.join(clawsDir, clawId, 'stream.jsonl');
+            clawWatchers.get(clawId)?.close();
+            clawWatchers.delete(clawId);
+            try {
+              const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus());
+              w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+              clawWatchers.set(clawId, w);
+            } catch { /* fallback to polling */ }
             appendOutput(`\x1b[2m[attach] attached to ${clawId}\x1b[0m`);
           }
         }
@@ -830,6 +839,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           attachedClawId = null;
           attachedClawBar.setText('');
           updateStatusBar();
+          // 移除无 debounce watcher，下次 refreshClawStatus 轮询时自动重建 debounce 版
+          clawWatchers.get(prev)?.close();
+          clawWatchers.delete(prev);
           appendOutput(`\x1b[2m[detach] detached from ${prev}\x1b[0m`);
         }
       } else {
