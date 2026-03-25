@@ -498,7 +498,7 @@ export class OpenAIAdapter implements IProviderAdapter {
     
     try {
       const errorData = await response.json();
-      errorText = JSON.stringify(errorData);
+      errorText = (errorData as { error?: { message?: string } }).error?.message ?? JSON.stringify(errorData);
     } catch {
       errorText = await response.text();
     }
