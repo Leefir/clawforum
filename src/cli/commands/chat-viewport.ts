@@ -154,8 +154,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                  : '⚙';
       if (attachCurrentTool) {
         if (attachTextBuffer) {
-          const prefix = `[${id}] ${icon} ${attachCurrentTool} · "`;
-          const suffix = '"';
+          const isThinking = attachBufferType === 'thinking';
+          const open = isThinking ? '⟨' : '"';
+          const close = isThinking ? '⟩' : '"';
+          const prefix = `[${id}] ${icon} ${attachCurrentTool} · ${open}`;
+          const suffix = close;
           const available = cols - prefix.length - suffix.length;
           const text = sliceToWidth(attachTextBuffer.replace(/\n/g, ' '), available);
           line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
@@ -407,6 +410,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let attachTextBuffer = '';
   let attachLastInterrupted = false;
   let attachToolSuccess: boolean | null = null;  // null=调用中, true=✓, false=✗
+  let attachBufferType: 'thinking' | 'text' | null = null;
 
   interface ClawTrack {
     fileSize: number;
@@ -571,7 +575,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   attachActive = true;
                   if (ev.type === 'thinking_delta') {
                     attachTextBuffer += (ev.delta as string) ?? '';
+                    attachBufferType = 'thinking';
                   } else if (ev.type === 'tool_call') {
+                    attachBufferType = null;
                     attachCurrentTool = (ev.name as string) ?? null;
                     attachToolSuccess = null;   // 重置工具结果状态
                     attachTextBuffer = '';
@@ -583,18 +589,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null;
+                  attachToolSuccess = null; attachBufferType = null;
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_error') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null;
+                  attachToolSuccess = null; attachBufferType = null;
                   attachLastError = (ev.error as string) ?? 'error';
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_interrupted') {
                   attachActive = false; attachLastInterrupted = true;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null;
+                  attachToolSuccess = null; attachBufferType = null;
                   attachReferenceMs = Date.now();
                 }
                 updateAttachedClawBar();
@@ -802,7 +808,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             attachCurrentTool = null;
             attachTextBuffer = '';
             attachLastInterrupted = false;
-            attachToolSuccess = null;
+            attachToolSuccess = null; attachBufferType = null;
             // 读磁盘初始化
             const clawDir = path.join(clawsDir, clawId);
             const contractCreatedMs = getContractCreatedMs(clawDir);
