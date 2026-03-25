@@ -128,6 +128,47 @@ const lastInactivityNotified: Map<string, number> = new Map();
 const clawPreviouslyAlive: Map<string, boolean> = new Map();
 const inactivityNotifyCount: Map<string, number> = new Map();  // consecutive notification count, used for backoff
 
+interface WatchdogState {
+  lastInactivityNotified: Record<string, number>;
+  clawPreviouslyAlive: Record<string, boolean>;
+  inactivityNotifyCount: Record<string, number>;
+}
+
+function getWatchdogStateFile(): string {
+  return path.join(getClawforumDir(), 'watchdog-state.json');
+}
+
+function loadWatchdogState(): void {
+  try {
+    const raw = fs.readFileSync(getWatchdogStateFile(), 'utf-8');
+    const state = JSON.parse(raw) as WatchdogState;
+    for (const [k, v] of Object.entries(state.lastInactivityNotified ?? {})) {
+      lastInactivityNotified.set(k, v);
+    }
+    for (const [k, v] of Object.entries(state.clawPreviouslyAlive ?? {})) {
+      clawPreviouslyAlive.set(k, v);
+    }
+    for (const [k, v] of Object.entries(state.inactivityNotifyCount ?? {})) {
+      inactivityNotifyCount.set(k, v);
+    }
+  } catch {
+    // 首次启动或文件损坏 — 从空状态开始
+  }
+}
+
+function saveWatchdogState(): void {
+  const state: WatchdogState = {
+    lastInactivityNotified: Object.fromEntries(lastInactivityNotified),
+    clawPreviouslyAlive: Object.fromEntries(clawPreviouslyAlive),
+    inactivityNotifyCount: Object.fromEntries(inactivityNotifyCount),
+  };
+  try {
+    fs.writeFileSync(getWatchdogStateFile(), JSON.stringify(state, null, 2));
+  } catch (err) {
+    log(`[watchdog] Failed to save state: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // Global config (loaded lazily on first access)
 let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
 function getGlobalConfig() {
@@ -400,6 +441,8 @@ export async function daemonCommand(): Promise<void> {
   log('[watchdog] Daemon starting...');
   
   writeWatchdogPid(process.pid);
+  loadWatchdogState();   // 恢复通知状态
+  log('[watchdog] State loaded.');
   
   let stopped = false;
   
@@ -456,6 +499,7 @@ export async function daemonCommand(): Promise<void> {
     maybeCronDiskCheck();
     maybeCronClawInactivity(pm);
     maybeCronClawCrash(pm);
+    saveWatchdogState();   // 持久化通知状态（每 tick 一次）
     
     // 3. Sleep with backoff on consecutive failures (max 5 minutes)
     const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;
