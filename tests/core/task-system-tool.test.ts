@@ -483,12 +483,12 @@ describe('TaskSystem Tool Tasks', () => {
       );
       await taskSystem2.initialize();
 
-      // Tool task should be moved to done/ (not pending/), callback is lost
+      // Tool task should be moved to failed/ (not pending/), callback is lost
       expect(taskSystem2.listPending()).not.toContain(taskId);
       const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(runningExists).toBe(false);
-      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
-      expect(doneExists).toBe(true);
+      const failedExists = await fs.access(path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(failedExists).toBe(true);
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
@@ -528,12 +528,12 @@ describe('TaskSystem Tool Tasks', () => {
       );
       await taskSystem2.initialize();
 
-      // Tool task should be moved to done/ (not queued), callback is lost
+      // Tool task should be moved to failed/ (not queued), callback is lost
       expect(taskSystem2.listPending()).not.toContain(taskId);
       const pendingExists = await fs.access(path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(pendingExists).toBe(false);
-      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
-      expect(doneExists).toBe(true);
+      const failedExists = await fs.access(path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(failedExists).toBe(true);
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
@@ -727,12 +727,12 @@ describe('TaskSystem Tool Tasks', () => {
       expect(content.is_error).toBe(true);
       expect(content.summary).toContain('retries');
 
-      // Task should be in done directory
-      const doneFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'done', `${taskId}.json`),
+      // Task should be in failed directory (retries exhausted)
+      const failedFile = await fs.readFile(
+        path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`),
         'utf-8'
       );
-      expect(JSON.parse(doneFile).retryCount).toBe(2);
+      expect(JSON.parse(failedFile).retryCount).toBe(2);
     });
 
     it('should not retry non-idempotent tool', async () => {
@@ -793,11 +793,11 @@ describe('TaskSystem Tool Tasks', () => {
 
       await new Promise(r => setTimeout(r, 200));
 
-      // Task should still end up in done despite transport failure
-      const doneExists = await fs.access(
-        path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)
+      // Task should end up in failed (tool execution failed, retries exhausted)
+      const failedExists = await fs.access(
+        path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`)
       ).then(() => true).catch(() => false);
-      expect(doneExists).toBe(true);
+      expect(failedExists).toBe(true);
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
@@ -899,11 +899,11 @@ describe('TaskSystem Tool Tasks', () => {
       );
 
       await freshSystem.initialize();
-      // Tool task should be moved to done/ during recovery, not executed
+      // Tool task should be moved to failed/ during recovery (callback lost), not executed
 
-      // Task should be in done/, not pending or running
-      const doneExists = await fs.access(path.join(freshDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
-      expect(doneExists).toBe(true);
+      // Task should be in failed/, not pending or running
+      const failedExists = await fs.access(path.join(freshDir, 'tasks', 'failed', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(failedExists).toBe(true);
       expect(freshSystem.listPending()).not.toContain(taskId);
 
       // No inbox message should be generated (no noise)

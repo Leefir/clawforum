@@ -3,7 +3,6 @@
  * 
  * Tests:
  * - writeAtomic: concurrent writes, crash recovery
- * - DirectoryQueue: enqueue, dequeue, concurrency, recovery
  * - permissions: read/write restrictions
  * - watcher: file change events
  */
@@ -16,7 +15,6 @@ import { randomUUID } from 'crypto';
 
 import {
   NodeFileSystem,
-  DirectoryQueue,
   writeAtomic,
   cleanupOrphanedTemp,
 } from '../../src/foundation/fs/index.js';
@@ -271,131 +269,6 @@ describe('FileSystem', () => {
       expect(await fs.read('USER.md')).toBe('user content');
       expect(await fs.read('IDENTITY.md')).toBe('identity content');
       expect(await fs.read('SOUL.md')).toBe('soul content');
-    });
-  });
-  
-  describe('DirectoryQueue', () => {
-    let tempDir: string;
-    let queue: DirectoryQueue;
-    
-    beforeEach(async () => {
-      tempDir = await createTempDir();
-      queue = new DirectoryQueue({ baseDir: tempDir });
-      await queue.initialize();
-    });
-    
-    afterEach(async () => {
-      await cleanupTempDir(tempDir);
-    });
-    
-    it('should enqueue and dequeue entries', async () => {
-      const id = await queue.enqueue('test', { message: 'hello' });
-      expect(id).toBeDefined();
-      
-      const entry = await queue.dequeue();
-      expect(entry).not.toBeNull();
-      expect(entry!.status).toBe('running');
-    });
-    
-    it('should handle 100 concurrent enqueues with unique IDs', async () => {
-      const enqueues = Array.from({ length: 100 }, (_, i) => 
-        queue.enqueue('concurrent', { index: i })
-      );
-      
-      const ids = await Promise.all(enqueues);
-      
-      // All IDs should be unique
-      const uniqueIds = new Set(ids);
-      expect(uniqueIds.size).toBe(100);
-      
-      // Verify all files exist
-      const pendingDir = path.join(tempDir, 'pending');
-      const files = await fs.readdir(pendingDir);
-      expect(files.length).toBe(100);
-    });
-    
-    it('should move entry from pending to running on dequeue', async () => {
-      await queue.enqueue('test', { data: 'test' });
-      
-      const pendingBefore = await queue.getPending();
-      expect(pendingBefore).toHaveLength(1);
-      
-      const entry = await queue.dequeue();
-      expect(entry!.status).toBe('running');
-      
-      const pendingAfter = await queue.getPending();
-      expect(pendingAfter).toHaveLength(0);
-      
-      const running = await queue.getRunning();
-      expect(running).toHaveLength(1);
-    });
-    
-    it('should complete entry and move to done', async () => {
-      await queue.enqueue('test', { data: 'test' });
-      const entry = await queue.dequeue();
-      
-      await queue.complete(entry!.id, { result: 'success' });
-      
-      const running = await queue.getRunning();
-      expect(running).toHaveLength(0);
-      
-      const doneDir = path.join(tempDir, 'done');
-      const doneFiles = await fs.readdir(doneDir);
-      expect(doneFiles.length).toBeGreaterThan(0);
-    });
-    
-    it('should fail entry and move to failed', async () => {
-      await queue.enqueue('test', { data: 'test' });
-      const entry = await queue.dequeue();
-      
-      await queue.fail(entry!.id, 'Something went wrong');
-      
-      const running = await queue.getRunning();
-      expect(running).toHaveLength(0);
-      
-      const failedDir = path.join(tempDir, 'failed');
-      const failedFiles = await fs.readdir(failedDir);
-      expect(failedFiles.length).toBeGreaterThan(0);
-    });
-    
-    it('should recover running entries on startup', async () => {
-      // Enqueue and dequeue (move to running)
-      const id = await queue.enqueue('recovery', { test: true });
-      const entry = await queue.dequeue();
-      expect(entry).not.toBeNull();
-      
-      // Simulate crash: create new queue instance
-      const newQueue = new DirectoryQueue({ baseDir: tempDir });
-      
-      // Recover
-      const recovered = await newQueue.recover();
-      expect(recovered).toHaveLength(1);
-      expect(recovered[0].id).toBe(entry!.id);
-      
-      // Entry should be back in pending
-      const pending = await newQueue.getPending();
-      expect(pending).toHaveLength(1);
-      
-      const running = await newQueue.getRunning();
-      expect(running).toHaveLength(0);
-    });
-    
-    it('should return null when dequeuing empty queue', async () => {
-      const entry = await queue.dequeue();
-      expect(entry).toBeNull();
-    });
-    
-    it('should provide queue statistics', async () => {
-      await queue.enqueue('s1', {});
-      await queue.enqueue('s2', {});
-      const e = await queue.dequeue();
-      await queue.fail(e!.id, 'error');
-      
-      const stats = await queue.stats();
-      expect(stats.pending).toBe(1);
-      expect(stats.running).toBe(0);
-      expect(stats.done).toBe(0);
-      expect(stats.failed).toBe(1);
     });
   });
   
