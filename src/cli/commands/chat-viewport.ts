@@ -608,6 +608,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                     attachTextBuffer = '';
                     attachBufferType = null;
                   } else if (ev.type === 'text_delta') {
+                    if (attachBufferType !== 'text') {
+                      attachTextBuffer = '';
+                    }
                     attachTextBuffer += (ev.delta as string) ?? '';
                   }
                 } else if (ev.type === 'tool_result') {
