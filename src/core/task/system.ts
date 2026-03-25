@@ -12,6 +12,7 @@ import type { IFileSystem } from '../../foundation/fs/types.js';
 
 import { JsonlMonitor } from '../../foundation/monitor/index.js';
 import { SubAgent } from '../subagent/agent.js';
+import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
@@ -411,7 +412,7 @@ export class TaskSystem {
         toolsForLLM,
         systemPrompt: task.systemPrompt,
         callerType: task.callerType,
-        idleTimeoutMs: task.idleTimeoutMs,
+        idleTimeoutMs: task.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
         messages: task.messages,
         originClawId: task.originClawId,
         taskSystem: this,   // dispatcher 的 spawn 工具需要
