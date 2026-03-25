@@ -21,11 +21,11 @@ function getSizeLimits(filePath: string): [number, number] {
   return WRITE_SIZE_LIMITS['default'];
 }
 
-async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<void> {
+async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<string | null> {
   try {
     // Check if file exists
     const exists = await fs.exists(filePath);
-    if (!exists) return;
+    if (!exists) return null;
 
     // Read existing content
     const content = await fs.read(filePath);
@@ -62,9 +62,10 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<v
     } catch {
       // Ignore cleanup errors
     }
-  } catch {
-    // Ignore backup errors (write should still proceed)
+  } catch (err) {
+    return `Backup failed: ${err instanceof Error ? err.message : String(err)}`;
   }
+  return null;
 }
 
 export const writeTool: ITool = {
@@ -132,7 +133,8 @@ export const writeTool: ITool = {
     try {
       // Create backup before overwrite (MVP aligned)
       if (!append) {
-        await backupVersion(ctx.fs, filePath);
+        const backupWarning = await backupVersion(ctx.fs, filePath);
+        if (backupWarning) warnings.push(backupWarning);
       }
 
       if (append) {
