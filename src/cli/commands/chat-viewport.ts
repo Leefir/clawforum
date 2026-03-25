@@ -620,6 +620,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   }
                 } else if (ev.type === 'tool_result') {
                   attachToolSuccess = (ev.success as boolean) ?? null;
+                } else if (ev.type === 'turn_start') {
+                  attachLastOutput = '';
+                  attachLastInterrupted = false;
                 } else if (ev.type === 'turn_end') {
                   attachActive = false; attachLastInterrupted = false;
                   // 保存最后的文字输出（仅 text_delta，不保存 thinking）
