@@ -27,7 +27,10 @@ export function scanClawOutboxes(baseDir: string): string | null {
         if (files.length > 0) {
           counts[id] = files.length;
         }
-      } catch { /* directory may not exist */ }
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        // ENOENT：outbox/pending 目录未创建，正常跳过
+      }
     }
 
     if (Object.keys(counts).length === 0) return null;
