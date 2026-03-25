@@ -436,6 +436,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let attachToolSuccess: boolean | null = null;  // null=调用中, true=✓, false=✗
   let attachBufferType: 'thinking' | 'text' | null = null;
   let attachLastOutput = '';  // 上一个 turn 的最后文字输出，不活跃时显示
+  let attachClearOnNextDelta = false;  // tool_call 后下一个 delta 到来时清空 buffer
 
   interface ClawTrack {
     fileSize: number;
@@ -600,16 +601,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   if (attachActive === false) attachLastOutput = '';  // 新 turn 开始，清除上次输出
                   attachActive = true;
                   if (ev.type === 'thinking_delta') {
+                    if (attachClearOnNextDelta) {
+                      attachTextBuffer = '';
+                      attachBufferType = null;
+                      attachClearOnNextDelta = false;
+                    }
                     attachTextBuffer += (ev.delta as string) ?? '';
                     attachBufferType = 'thinking';
                   } else if (ev.type === 'tool_call') {
                     attachCurrentTool = (ev.name as string) ?? null;
                     attachToolSuccess = null;
-                    attachTextBuffer = '';
-                    attachBufferType = null;
+                    attachClearOnNextDelta = true;
+                    // attachTextBuffer 和 attachBufferType 保留，工具执行期间继续显示上一段思考
                   } else if (ev.type === 'text_delta') {
                     if (attachBufferType !== 'text') {
                       attachTextBuffer = '';
+                      attachClearOnNextDelta = false;
                     }
                     attachTextBuffer += (ev.delta as string) ?? '';
                   }
@@ -623,18 +630,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   // 保存最后的文字输出（仅 text_delta，不保存 thinking）
                   if (attachBufferType === 'text') attachLastOutput = attachTextBuffer;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null;
+                  attachToolSuccess = null; attachBufferType = null; attachClearOnNextDelta = false;
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_error') {
                   attachActive = false; attachLastInterrupted = false;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = '';
+                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
                   attachLastError = (ev.error as string) ?? 'error';
                   attachReferenceMs = Date.now();
                 } else if (ev.type === 'turn_interrupted') {
                   attachActive = false; attachLastInterrupted = true;
                   attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = '';
+                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
                   attachReferenceMs = Date.now();
                 }
                 updateAttachedClawBar();
@@ -842,7 +849,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             attachCurrentTool = null;
             attachTextBuffer = '';
             attachLastInterrupted = false;
-            attachToolSuccess = null; attachBufferType = null; attachLastOutput = '';
+            attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
             // 读磁盘初始化
             const clawDir = path.join(clawsDir, clawId);
             const contractCreatedMs = getContractCreatedMs(clawDir);
