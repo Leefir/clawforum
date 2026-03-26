@@ -4,6 +4,7 @@ import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
+import { spawnTool } from './spawn.js';
 
 const CONTRACT_AGENT_SYSTEM_PROMPT = `你是契约创建子代理，负责为指定 claw 设计并创建一份契约。
 
@@ -167,7 +168,7 @@ dispatcher 不能：
 1. 决定目标 claw（已有哪个最合适 / 需要新建）
 2. 如需新建 claw：直接用工具新建（exec: clawforum claw create <name>）
 3. 为该 claw 安装所需技能：直接用工具完成（exec: clawforum skill install --claw <id> --skill <name>）
-4. 在最终回复末尾输出以下块（必须，格式不可变）：
+4. 在最终回复末尾输出以下块，用于发起子代理给targetClaw创建契约（必须，格式不可变）：
 
 [SPAWN_REQUEST]
 {"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt>"}
@@ -227,16 +228,23 @@ prompt 里应说明：
 在最终回复末尾必须包含以下行（不可省略，格式不可变）：
 CONTRACT_CREATED: <contractId>`;
 
-        const contractTaskId = await taskSystem.scheduleSubAgent({
-          kind: 'subagent',
+        // 通过 spawn 工具创建契约创建子代理，确保 task_started 写入 parentStreamWriter
+        const spawnResult = await spawnTool.execute({
           prompt: augmentedPrompt,
           tools: ['exec', 'read', 'write', 'skill', 'status'],
           timeout: 600,
           maxSteps: DEFAULT_MAX_STEPS,
-          parentClawId: ctx.clawId,
-          originClawId: ctx.originClawId ?? ctx.clawId,
           systemPrompt: CONTRACT_AGENT_SYSTEM_PROMPT,
-        });
+        }, ctx);
+
+        if (!spawnResult.success || !spawnResult.metadata?.taskId) {
+          ctx.monitor?.log('error', {
+            context: 'dispatch.spawnContractAgent',
+            error: spawnResult.content,
+          });
+          return result;  // 无法调度，跳过 SPAWN_REQUEST
+        }
+        const contractTaskId = spawnResult.metadata.taskId as string;
 
         try {
           await ctx.fs.ensureDir('clawspace/pending-retrospective');

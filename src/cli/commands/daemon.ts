@@ -21,6 +21,7 @@ import { Heartbeat } from '../../core/heartbeat.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { SkillRegistry } from '../../core/skill/registry.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
+import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
 
 
 
@@ -201,16 +202,19 @@ ${skillsSummary ? `当前 dispatch-skills 供参考：\n${skillsSummary}` : '当
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
           try {
-            await taskSystem.scheduleSubAgent({
-              kind: 'subagent',
-              messages,               // 契约创建子代理完整 messages（含创建过程）
-              prompt: retroPrompt,    // 追加为新 user message（Step B 的 agent.ts 逻辑）
-              tools: ['read', 'write', 'skill', 'exec'],
-              timeout: 600,
-              maxSteps: DEFAULT_MAX_STEPS,
-              parentClawId: 'motion',
-              originClawId: 'motion',
-            });
+            await scheduleSubAgentWithTracking(
+              taskSystem,
+              streamWriter,
+              {
+                prompt: retroPrompt,
+                messages,
+                tools: ['read', 'write', 'skill', 'exec'],
+                timeout: 600,
+                maxSteps: DEFAULT_MAX_STEPS,
+                parentClawId: 'motion',
+                originClawId: 'motion',
+              }
+            );
           } catch (e) {
             console.warn('[daemon] retrospective schedule failed, keeping pending files for retry:', e);
             return;  // 不删文件，留待下次 daemon 重启时重试

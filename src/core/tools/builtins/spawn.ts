@@ -14,6 +14,48 @@ import type { Message } from '../../../types/message.js';
 const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec', 'skill', 'memory_search'];
 
 /**
+ * Schedule a subagent and write task_started to the stream.
+ * Shared by spawn tool and daemon.ts (retrospective scheduling).
+ */
+export async function scheduleSubAgentWithTracking(
+  taskSystem: TaskSystem,
+  streamWriter: { write(e: Record<string, unknown>): void },
+  args: {
+    prompt: string;
+    messages?: Message[];
+    tools?: string[];
+    timeout?: number;
+    maxSteps?: number;
+    idleTimeoutMs?: number;
+    parentClawId: string;
+    originClawId: string;
+    systemPrompt?: string;
+  }
+): Promise<string> {
+  const taskId = await taskSystem.scheduleSubAgent({
+    kind: 'subagent',
+    prompt: args.prompt,
+    messages: args.messages,
+    tools: args.tools ?? SUBAGENT_TOOLS,
+    timeout: args.timeout ?? SPAWN_DEFAULT_TIMEOUT_S,
+    maxSteps: args.maxSteps ?? DEFAULT_MAX_STEPS,
+    idleTimeoutMs: args.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
+    parentClawId: args.parentClawId,
+    originClawId: args.originClawId,
+    systemPrompt: args.systemPrompt,
+  });
+
+  streamWriter.write({
+    ts: Date.now(),
+    type: 'task_started',
+    taskId,
+    callerType: 'subagent',
+  });
+
+  return taskId;
+}
+
+/**
  * Spawn tool implementation
  * 
  * Requires taskSystem to be injected before use.
@@ -50,6 +92,10 @@ export const spawnTool: ITool = {
         type: 'array',
         description: 'Prior conversation messages to continue from. prompt will be appended as a new user message.',
         items: { type: 'object' },
+      },
+      systemPrompt: {
+        type: 'string',
+        description: 'Custom system prompt for the subagent (optional, for internal system use)',
       },
     },
     required: ['prompt'],
@@ -119,24 +165,21 @@ export const spawnTool: ITool = {
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     try {
-      const taskId = await taskSystem.scheduleSubAgent({
-        kind: 'subagent',
-        prompt,
-        messages,
-        tools,
-        timeout,
-        maxSteps,
-        idleTimeoutMs,
-        parentClawId: ctx.clawId,
-        originClawId: ctx.originClawId ?? ctx.clawId,
-      });
-
-      ctx.parentStreamWriter?.write({
-        ts: Date.now(),
-        type: 'task_started',
-        taskId,
-        callerType: 'subagent',
-      });
+      const taskId = await scheduleSubAgentWithTracking(
+        taskSystem,
+        ctx.parentStreamWriter ?? { write: () => {} },
+        {
+          prompt,
+          messages,
+          tools,
+          timeout,
+          maxSteps,
+          idleTimeoutMs,
+          parentClawId: ctx.clawId,
+          originClawId: ctx.originClawId ?? ctx.clawId,
+          systemPrompt: typeof args.systemPrompt === 'string' ? args.systemPrompt : undefined,
+        }
+      );
 
       return {
         success: true,
