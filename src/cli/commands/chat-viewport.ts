@@ -65,40 +65,6 @@ function sliceFromStart(s: string, maxCols: number): string {
   return s.slice(0, i);
 }
 
-interface ClawState {
-  clawDir: string;
-  active: boolean;
-  currentTool: string | null;
-  textBuffer: string;
-  lastInterrupted: boolean;
-  toolSuccess: boolean | null;
-  bufferType: 'thinking' | 'text' | null;
-  lastOutput: string;
-  referenceMs: number | null;
-  hasContract: boolean;
-  lastError: string | null;
-  clearOnNextDelta: boolean;
-  pollTick: number;
-}
-
-function makeClawState(clawDir: string): ClawState {
-  return {
-    clawDir,
-    active: false,
-    currentTool: null,
-    textBuffer: '',
-    lastInterrupted: false,
-    toolSuccess: null,
-    bufferType: null,
-    lastOutput: '',
-    referenceMs: null,
-    hasContract: false,
-    lastError: null,
-    clearOnNextDelta: false,
-    pollTick: 0,
-  };
-}
-
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
   // 确保 daemon 运行
   if (options.ensureDaemon) {
@@ -458,31 +424,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Motion viewport：各 claw 步数追踪
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
-  const attachedClaws = new Map<string, ClawState>();
-
-  // Attach 单个 claw（复用逻辑）
-  const attachClaw = (clawId: string, clawDir: string) => {
-    const st = makeClawState(clawDir);
-    // referenceMs 取契约创建时间，fallback 到 Date.now()
-    const contractMs = getContractCreatedMs(clawDir);
-    st.referenceMs = contractMs ?? Date.now();
-    st.hasContract = contractMs !== null;
-    if (st.hasContract) {
-      const info = getClawActivityInfo(clawDir);
-      st.lastError = info.lastError;
-    }
-    attachedClaws.set(clawId, st);
-    // 开独立 watcher（无 debounce，直接调用）
-    const attachStreamFile = path.join(clawDir, 'stream.jsonl');
-    try {
-      const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus(clawId));
-      w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
-      clawWatchers.set(clawId, w);
-    } catch { /* fallback to polling */ }
-    // 立刻刷新一次
-    refreshClawStatus(clawId);
-  };
-
   interface ClawTrack {
     // 已有（轻量，statusBar 用）
     fileSize: number;
@@ -592,12 +533,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const refreshClawStatus = (clawId: string) => {
     if (!isMotion) return;
-    const st = attachedClaws.get(clawId);
-    if (!st) return;
-
-    const streamFile = path.join(st.clawDir, 'stream.jsonl');
     const track = clawTrackMap.get(clawId);
     if (!track) return;
+
+    const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
 
     try {
       const stat = fsNative.statSync(streamFile);
@@ -682,52 +621,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               track.referenceMs = Date.now();
             }
 
-            // attach 专用解析（保留用于兼容）
-            if (LLM_OUTPUT_EVENTS.has(ev.type)) {
-              if (st.active === false) st.lastOutput = '';
-              st.active = true;
-              if (ev.type === 'thinking_delta') {
-                if (st.clearOnNextDelta) {
-                  st.textBuffer = '';
-                  st.bufferType = null;
-                  st.clearOnNextDelta = false;
-                }
-                st.textBuffer += (ev.delta as string) ?? '';
-                st.bufferType = 'thinking';
-              } else if (ev.type === 'tool_call') {
-                st.currentTool = (ev.name as string) ?? null;
-                st.toolSuccess = null;
-                st.clearOnNextDelta = true;
-              } else if (ev.type === 'text_delta') {
-                if (st.bufferType !== 'text') {
-                  st.textBuffer = '';
-                  st.clearOnNextDelta = false;
-                }
-                st.textBuffer += (ev.delta as string) ?? '';
-              }
-            } else if (ev.type === 'tool_result') {
-              st.toolSuccess = (ev.success as boolean) ?? null;
-            } else if (ev.type === 'turn_start') {
-              st.lastOutput = '';
-              st.lastInterrupted = false;
-            } else if (ev.type === 'turn_end') {
-              st.active = false; st.lastInterrupted = false;
-              if (st.textBuffer) st.lastOutput = st.textBuffer;
-              st.currentTool = null; st.textBuffer = '';
-              st.toolSuccess = null; st.bufferType = null; st.clearOnNextDelta = false;
-              st.referenceMs = Date.now();
-            } else if (ev.type === 'turn_error') {
-              st.active = false; st.lastInterrupted = false;
-              st.currentTool = null; st.textBuffer = '';
-              st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
-              st.lastError = (ev.error as string) ?? 'error';
-              st.referenceMs = Date.now();
-            } else if (ev.type === 'turn_interrupted') {
-              st.active = false; st.lastInterrupted = true;
-              st.currentTool = null; st.textBuffer = '';
-              st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
-              st.referenceMs = Date.now();
-            }
             updateClawPanel();
             tui.requestRender();
           } catch { /* skip */ }
@@ -873,22 +766,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       pollTaskStream(taskId);
     }
     // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
-    for (const [clawId, st] of attachedClaws) {
-      st.pollTick++;
-      if (st.pollTick >= 5) {
-        st.pollTick = 0;
-        // 重检契约状态（契约可能在 attach 之后才创建）
-        const contractCreatedMs = getContractCreatedMs(st.clawDir);
-        st.hasContract = contractCreatedMs !== null;
-        if (st.hasContract && st.referenceMs === null) {
-          const info = getClawActivityInfo(st.clawDir);
-          st.referenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
-          st.lastError = info.lastError;
-        }
-      }
-    }
-    // pollTick 已在上面处理，这里只更新 panel
-    if (attachedClaws.size > 0) {
+    if (clawTrackMap.size > 0) {
       updateClawPanel();
       tui.requestRender();
     }
@@ -959,43 +837,45 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           appendOutput(`\x1b[31m[attach] 用法：/attach <clawId>\x1b[0m`);
         } else {
           const clawId = parts[1];
-          if (!fsNative.existsSync(path.join(clawsDir, clawId))) {
+          const clawDir = path.join(clawsDir, clawId);
+          if (!fsNative.existsSync(clawDir)) {
             appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
-          } else if (attachedClaws.has(clawId)) {
-            appendOutput(`\x1b[33m[${clawId}] 已在面板中\x1b[0m`);
+          } else if (clawTrackMap.has(clawId)) {
+            appendOutput(`\x1b[2m[attach] ${clawId} 已在面板中\x1b[0m`);
           } else {
-            const clawDir = path.join(clawsDir, clawId);
-            attachClaw(clawId, clawDir);
-            statusBar.setText('');
+            // 手动加入（无契约 claw）
+            const t = makeClawTrack();
+            t.referenceMs = Date.now();
+            clawTrackMap.set(clawId, t);
+            // 开 watcher
+            try {
+              const w = fsNative.watch(path.join(clawDir, 'stream.jsonl'), { persistent: false }, () => refreshClawStatus(clawId));
+              w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+              clawWatchers.set(clawId, w);
+            } catch { /* polling fallback */ }
             updateClawPanel();
             appendOutput(`\x1b[2m[attach] ${clawId} 已加入面板\x1b[0m`);
           }
         }
       } else if (name === 'detach') {
         const arg = parts[1];
-        if (!arg) {
-          appendOutput(`\x1b[33m用法：/detach <claw-id>  或  /detach --all\x1b[0m`);
+        if (!arg || arg === '--help') {
+          appendOutput('用法：/detach <claw-id>  或  /detach --all');
         } else if (arg === '--all') {
-          for (const [id] of attachedClaws) {
+          for (const [id] of clawTrackMap) {
             clawWatchers.get(id)?.close();
             clawWatchers.delete(id);
           }
-          attachedClaws.clear();
-          attachedClawBar.setText('');
-          updateStatusBar();
+          clawTrackMap.clear();
+          updateClawPanel();
           appendOutput(`\x1b[2m[detach] 已清空所有 claw\x1b[0m`);
         } else {
           const clawId = arg;
-          if (!attachedClaws.has(clawId)) {
-            appendOutput(`\x1b[33m[${clawId}] 不在面板中\x1b[0m`);
-          } else {
-            // 关 watcher
-            clawWatchers.get(clawId)?.close();
-            clawWatchers.delete(clawId);
-            attachedClaws.delete(clawId);
-            updateClawPanel();
-            appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
-          }
+          clawWatchers.get(clawId)?.close();
+          clawWatchers.delete(clawId);
+          clawTrackMap.delete(clawId);
+          updateClawPanel();
+          appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
         }
       } else {
         appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
@@ -1107,26 +987,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.start();
 
-  // 启动时自动扫描并 attach 所有有契约的 claw
-  if (clawsDir) {
-    try {
-      const entries = fsNative.readdirSync(clawsDir, { withFileTypes: true });
-      for (const e of entries) {
-        if (!e.isDirectory()) continue;
-        const clawId = e.name;
-        const clawDir = path.join(clawsDir, clawId);
-        if (getContractCreatedMs(clawDir) !== null) {
-          attachClaw(clawId, clawDir);
-        }
-      }
-      if (attachedClaws.size > 0) {
-        statusBar.setText('');
-        updateClawPanel();
-      }
-    } catch { /* clawsDir 不存在时忽略 */ }
-  }
-
-  // Watch clawsDir，新契约出现时自动 attach
+  // Watch clawsDir，新契约出现时自动加入
   let clawsDirWatcher: ReturnType<typeof chokidar.watch> | null = null;
   if (clawsDir) {
     clawsDirWatcher = chokidar.watch(clawsDir, {
@@ -1135,24 +996,35 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       persistent: true,
     });
     clawsDirWatcher.on('addDir', () => {
-      // 重新扫描，attach 尚未在面板中的有契约 claw
+      // 重新扫描，加入尚未在面板中的有契约 claw
       try {
         const entries = fsNative.readdirSync(clawsDir, { withFileTypes: true });
         for (const e of entries) {
           if (!e.isDirectory()) continue;
           const clawId = e.name;
-          if (attachedClaws.has(clawId)) continue;
+          if (clawTrackMap.has(clawId)) continue;
           const clawDir = path.join(clawsDir, clawId);
           if (getContractCreatedMs(clawDir) !== null) {
-            attachClaw(clawId, clawDir);
+            const t = makeClawTrack();
+            const contractMs = getContractCreatedMs(clawDir);
+            t.hasContract = contractMs !== null;
+            t.referenceMs = contractMs ?? Date.now();
+            clawTrackMap.set(clawId, t);
+            // 开 watcher
+            try {
+              const w = fsNative.watch(path.join(clawDir, 'stream.jsonl'), { persistent: false }, () => refreshClawStatus(clawId));
+              w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+              clawWatchers.set(clawId, w);
+            } catch { /* polling fallback */ }
           }
         }
-        if (attachedClaws.size > 0) {
-          statusBar.setText('');
+        if (clawTrackMap.size > 0) {
           updateClawPanel();
         }
       } catch { /* ignore */ }
     });
+    // 立即触发一次扫描
+    clawsDirWatcher.emit('addDir');
   }
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
