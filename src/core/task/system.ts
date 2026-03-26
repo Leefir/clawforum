@@ -58,6 +58,18 @@ export class TaskSystem {
   private monitor: JsonlMonitor;
   private registry: ToolRegistry;
   private llm?: ILLMService;
+
+  /**
+   * Hook called when a task completes successfully.
+   * Can modify the result before it's sent to inbox.
+   * Error results bypass this hook.
+   */
+  onTaskResult?: (
+    taskId: string,
+    callerType: string | undefined,
+    result: string,
+    isError: boolean,
+  ) => Promise<string>;
   
   // Pending queue for tasks waiting to be executed
   private pendingQueue: Array<SubAgentTask | ToolTask> = [];
@@ -421,8 +433,12 @@ export class TaskSystem {
 
       const result = await subAgent.run();
 
-      // Send success result to parent inbox
-      await this.sendResult(task, result, false);
+      // Send success result to parent inbox (with onTaskResult hook)
+      let inboxResult = result;
+      if (this.onTaskResult) {
+        inboxResult = await this.onTaskResult(task.id, task.callerType, result, false);
+      }
+      await this.sendResult(task, inboxResult, false);
 
       this.monitor.log('subagent_completed', {
         taskId: task.id,

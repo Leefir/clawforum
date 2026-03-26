@@ -92,6 +92,57 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
     }
 
+    // 注册 onTaskResult 钩子处理 SPAWN_REQUEST 块
+    // 闭包捕获 ctx.fs / ctx.taskSystem（同一 motion claw，多次调用安全覆盖）
+    taskSystem.onTaskResult = async (taskId, callerType, result, isError) => {
+      // 只处理 dispatcher 的成功结果
+      if (callerType !== 'dispatcher' || isError) return result;
+
+      // 解析 SPAWN_REQUEST 块
+      const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*\n(\{[\s\S]*?\})\s*\n\[\/SPAWN_REQUEST\]/);
+      if (!blockMatch) return result;  // 无块，透传
+
+      let parsed: { targetClaw?: string; prompt?: string };
+      try {
+        parsed = JSON.parse(blockMatch[1]);
+      } catch {
+        return result;  // JSON 解析失败，透传
+      }
+      const { targetClaw, prompt: spawnPrompt } = parsed;
+      if (!spawnPrompt) return result;
+
+      // 调度契约创建子代理
+      const contractTaskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: spawnPrompt,
+        tools: ['exec', 'read', 'write', 'skill', 'status'],
+        timeout: 600,
+        maxSteps: 30,
+        parentClawId: ctx.clawId,
+        originClawId: ctx.originClawId ?? ctx.clawId,
+      });
+
+      // 记录待复盘信息（供 daemon-loop 后续追踪）
+      try {
+        await ctx.fs.ensureDir('clawspace/pending-retrospective');
+        await ctx.fs.writeAtomic(
+          `clawspace/pending-retrospective/${contractTaskId}.json`,
+          JSON.stringify({
+            contractTaskId,
+            dispatcherTaskId: taskId,
+            targetClaw: targetClaw ?? null,
+            createdAt: new Date().toISOString(),
+          }),
+        );
+      } catch {
+        // best-effort，失败不阻断流程
+      }
+
+      // 剥离 SPAWN_REQUEST 块，只保留人类可读摘要
+      const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
+      return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
+    };
+
     // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
     // system prompt 保持与 Motion 完全一致，确保 KV cache 命中
     const systemPrompt = await this.getSystemPrompt();
