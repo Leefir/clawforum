@@ -527,7 +527,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   }
   const clawTrackMap = new Map<string, ClawTrack>();
   const clawWatchers = new Map<string, ReturnType<typeof fsNative.watch>>();
-  let clawRefreshScheduled = false;
   let lastClawRefreshTs = 0;
 
   // Task stream watching (for dispatch/spawn subagent progress)
@@ -544,12 +543,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (!tw) return;
     tw.watcher?.close();
     taskWatchMap.delete(taskId);
-  };
-
-  const scheduleClawRefresh = (clawId: string) => {
-    if (clawRefreshScheduled) return;
-    clawRefreshScheduled = true;
-    setTimeout(() => { clawRefreshScheduled = false; refreshClawStatus(clawId); }, 100);
   };
 
   try {
@@ -782,7 +775,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
       if (!clawWatchers.has(clawId)) {
         try {
-          const w = fsNative.watch(streamFile, { persistent: false }, () => scheduleClawRefresh(clawId));
+          const w = fsNative.watch(streamFile, { persistent: false }, () => refreshClawStatus(clawId));
           w.on('error', () => {
             w.close();
             clawWatchers.delete(clawId);
