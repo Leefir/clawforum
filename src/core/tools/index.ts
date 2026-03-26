@@ -32,9 +32,6 @@ export type {
 
 export type { ExecContextImplOptions } from './context.js';
 
-// Task system
-export { TaskSystem, type SubAgentTask } from '../task/system.js';
-
 // SubAgent
 export { SubAgent, type SubAgentOptions } from '../subagent/agent.js';
 

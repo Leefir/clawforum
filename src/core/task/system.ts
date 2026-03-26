@@ -201,11 +201,18 @@ export class TaskSystem {
     this.llm = llm;
   }
 
+  private static readonly PENDING_QUEUE_MAX = 1000;
+
   /**
    * Schedule a new subagent task
    * Returns taskId immediately, task enters pending queue and will be dispatched
    */
   async scheduleSubAgent(taskData: Omit<SubAgentTask, 'id' | 'createdAt'>): Promise<string> {
+    // Max size guard to prevent unbounded queue growth
+    if (this.pendingQueue.length >= TaskSystem.PENDING_QUEUE_MAX) {
+      throw new Error(`pendingQueue full (${TaskSystem.PENDING_QUEUE_MAX} tasks pending)`);
+    }
+
     const taskId = randomUUID();
     const task: SubAgentTask = {
       ...taskData,
@@ -265,6 +272,9 @@ export class TaskSystem {
     this.pendingCallbacks.set(taskId, executeCallback);
 
     // Add to pending queue
+    if (this.pendingQueue.length >= TaskSystem.PENDING_QUEUE_MAX) {
+      throw new Error(`pendingQueue full (${TaskSystem.PENDING_QUEUE_MAX} tasks pending)`);
+    }
     this.pendingQueue.push(task);
 
     // Log
