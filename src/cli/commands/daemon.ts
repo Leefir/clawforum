@@ -7,11 +7,14 @@
 
 import * as path from 'path';
 import * as fsNative from 'fs';
+import * as fsAsync from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import { ClawRuntime } from '../../core/runtime.js';
 import { MotionRuntime } from '../../core/motion/runtime.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
+import type { InboxMessageInfo } from '../../core/runtime.js';
+import type { Message } from '../../types/message.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
@@ -137,6 +140,58 @@ export async function daemonCommand(name: string): Promise<void> {
     streamWriter.write({ ts: Date.now(), type: 'user_notify', subtype: type, ...data });
   });
   const inboxPendingDir = path.join(dir, 'inbox', 'pending');
+
+  // 注册 review_request 处理器（仅 motion）
+  const onInboxMessages = isMotion
+    ? async (infos: InboxMessageInfo[]) => {
+        for (const { meta } of infos) {
+          if (meta.type !== 'review_request') continue;
+          const contractId = meta.contract_id;
+          if (!contractId) continue;
+
+          // 查 by-contract 反向索引（Step D 写入）
+          const byContractPath = path.join(
+            dir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`,
+          );
+          let contractTaskId: string;
+          try {
+            const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
+            contractTaskId = raw.contractTaskId;
+            if (!contractTaskId) continue;
+          } catch { continue; }
+
+          // 加载契约创建子代理的完整 messages（Step A 写入）
+          const messagesPath = path.join(
+            dir, 'tasks', 'results', `${contractTaskId}.messages.json`,
+          );
+          let messages: Message[];
+          try {
+            messages = JSON.parse(await fsAsync.readFile(messagesPath, 'utf-8'));
+          } catch { continue; }
+
+          // 调度复盘子代理（Step I 定义追加 prompt 内容）
+          const taskSystem = runtime.getTaskSystem();
+          await taskSystem.scheduleSubAgent({
+            kind: 'subagent',
+            messages,
+            prompt: '请对本次契约创建过程进行复盘。',  // Step I 替换为正式内容
+            tools: ['read', 'write', 'skill', 'exec'],
+            timeout: 600,
+            maxSteps: 30,
+            parentClawId: 'motion',
+            originClawId: 'motion',
+          }).catch(e => console.warn('[daemon] retrospective schedule failed:', e));
+
+          // 清理 pending-retrospective 文件（best-effort）
+          await fsAsync.unlink(byContractPath).catch(() => {});
+          const pendingPath = path.join(
+            dir, 'clawspace', 'pending-retrospective', `${contractTaskId}.json`,
+          );
+          await fsAsync.unlink(pendingPath).catch(() => {});
+        }
+      }
+    : undefined;
+
   const { promise, stop } = startDaemonLoop({
     runtime,
     agentDir: dir,
@@ -145,6 +200,7 @@ export async function daemonCommand(name: string): Promise<void> {
     streamWriter,
     heartbeat: heartbeat ?? undefined,  // 传入心跳实例
     notifyMotionDir: isMotion ? undefined : getMotionDir(),
+    onInboxMessages,   // 新增
   });
 
   // shutdown
