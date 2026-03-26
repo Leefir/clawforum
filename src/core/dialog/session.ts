@@ -177,13 +177,13 @@ export class SessionManager {
 
     // Find the first index where the tail fits in maxTokens
     let cutIdx = 0;
-    while (cutIdx < messages.length - 2 &&
+    while (cutIdx < messages.length - 1 &&
            this.estimateTokens(messages.slice(cutIdx)) > maxTokens) {
       cutIdx++;
     }
 
     // Advance to a safe starting point: first user message that isn't pure tool_results
-    while (cutIdx < messages.length - 2) {
+    while (cutIdx < messages.length - 1) {
       const msg = messages[cutIdx];
       if (msg.role === 'user') {
         const isPureToolResult =
@@ -201,8 +201,39 @@ export class SessionManager {
       !(Array.isArray(startMsg.content) &&
         startMsg.content.length > 0 &&
         startMsg.content.every((b: any) => b.type === 'tool_result'));
+    
     if (!isValidStart) {
-      console.warn(`[session] Cannot find safe truncation point, keeping full context`);
+      // 向后扫描：找最后一个非 pure-tool-result 的 user 消息
+      let backIdx = messages.length - 1;
+      while (backIdx > 0) {
+        const msg = messages[backIdx];
+        if (msg.role === 'user') {
+          const isPureToolResult =
+            Array.isArray(msg.content) &&
+            msg.content.length > 0 &&
+            msg.content.every((b: any) => b.type === 'tool_result');
+          if (!isPureToolResult) {
+            cutIdx = backIdx;
+            break;
+          }
+        }
+        backIdx--;
+      }
+      // 向后扫描仍找不到有效起点 → fallback
+      const backMsg = messages[cutIdx];
+      const isValidBackStart =
+        backMsg?.role === 'user' &&
+        !(Array.isArray(backMsg.content) &&
+          backMsg.content.length > 0 &&
+          backMsg.content.every((b: any) => b.type === 'tool_result'));
+      if (!isValidBackStart) {
+        console.warn(`[session] Cannot find safe truncation point, keeping full context`);
+        return { result: messages, pruned: 0 };
+      }
+    }
+
+    // 切到只剩 1 条意义不大，不如保留完整上下文
+    if (messages.length - cutIdx < 2) {
       return { result: messages, pruned: 0 };
     }
 
