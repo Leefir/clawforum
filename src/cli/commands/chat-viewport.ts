@@ -495,15 +495,35 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   interface ClawTrack {
+    // 已有（轻量，statusBar 用）
     fileSize: number;
     leftover: string;
     turnCount: number;
     step: number;
     maxSteps: number;
     active: boolean;
-    lastError: string | null;   // 最近 turn_error；turn_end/interrupted 时清除
-    hasContract: boolean;        // contract/active/ 目录非空
-    isAlive: boolean;            // PID 存活
+    lastError: string | null;
+    hasContract: boolean;
+    isAlive: boolean;
+
+    // 新增（rich，详细行用）
+    currentTool: string | null;
+    toolSuccess: boolean | null;
+    textBuffer: string;
+    bufferType: 'thinking' | 'text' | null;
+    lastOutput: string;
+    lastInterrupted: boolean;
+    referenceMs: number | null;
+    clearOnNextDelta: boolean;
+  }
+
+  function makeClawTrack(): ClawTrack {
+    return {
+      fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100,
+      active: false, lastError: null, hasContract: false, isAlive: false,
+      currentTool: null, toolSuccess: null, textBuffer: '', bufferType: null,
+      lastOutput: '', lastInterrupted: false, referenceMs: null, clearOnNextDelta: false,
+    };
   }
   const clawTrackMap = new Map<string, ClawTrack>();
   const clawWatchers = new Map<string, ReturnType<typeof fsNative.watch>>();
@@ -602,6 +622,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (stat.size < track.fileSize) {
         track.fileSize = 0; track.leftover = '';
         track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
+        track.currentTool = null; track.toolSuccess = null; track.textBuffer = '';
+        track.bufferType = null; track.lastOutput = ''; track.lastInterrupted = false;
+        track.clearOnNextDelta = false;
       }
       if (stat.size > track.fileSize) {
         const toRead = stat.size - track.fileSize;
@@ -624,11 +647,60 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           if (!line.trim()) continue;
           try {
             const ev = JSON.parse(line);
+            // 轻量字段（statusBar 用）
             if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
             else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
             else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
             else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
-            // attach 专用解析
+
+            // rich 字段（详细行用）- 对每条 track 都执行
+            if (LLM_OUTPUT_EVENTS.has(ev.type)) {
+              if (track.active === false) track.lastOutput = '';
+              track.active = true;
+              if (ev.type === 'thinking_delta') {
+                if (track.clearOnNextDelta) {
+                  track.textBuffer = '';
+                  track.bufferType = null;
+                  track.clearOnNextDelta = false;
+                }
+                track.textBuffer += (ev.delta as string) ?? '';
+                track.bufferType = 'thinking';
+              } else if (ev.type === 'tool_call') {
+                track.currentTool = (ev.name as string) ?? null;
+                track.toolSuccess = null;
+                track.clearOnNextDelta = true;
+              } else if (ev.type === 'text_delta') {
+                if (track.bufferType !== 'text') {
+                  track.textBuffer = '';
+                  track.clearOnNextDelta = false;
+                }
+                track.textBuffer += (ev.delta as string) ?? '';
+              }
+            } else if (ev.type === 'tool_result') {
+              track.toolSuccess = (ev.success as boolean) ?? null;
+            } else if (ev.type === 'turn_start') {
+              track.lastOutput = '';
+              track.lastInterrupted = false;
+            } else if (ev.type === 'turn_end') {
+              track.active = false; track.lastInterrupted = false;
+              if (track.textBuffer) track.lastOutput = track.textBuffer;
+              track.currentTool = null; track.textBuffer = '';
+              track.toolSuccess = null; track.bufferType = null; track.clearOnNextDelta = false;
+              track.referenceMs = Date.now();
+            } else if (ev.type === 'turn_error') {
+              track.active = false; track.lastInterrupted = false;
+              track.currentTool = null; track.textBuffer = '';
+              track.toolSuccess = null; track.bufferType = null; track.lastOutput = ''; track.clearOnNextDelta = false;
+              track.lastError = (ev.error as string) ?? 'error';
+              track.referenceMs = Date.now();
+            } else if (ev.type === 'turn_interrupted') {
+              track.active = false; track.lastInterrupted = true;
+              track.currentTool = null; track.textBuffer = '';
+              track.toolSuccess = null; track.bufferType = null; track.lastOutput = ''; track.clearOnNextDelta = false;
+              track.referenceMs = Date.now();
+            }
+
+            // attach 专用解析（保留用于兼容）
             if (LLM_OUTPUT_EVENTS.has(ev.type)) {
               if (st.active === false) st.lastOutput = '';
               st.active = true;
@@ -701,7 +773,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     for (const clawId of clawIds) {
       const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
       if (!clawTrackMap.has(clawId)) {
-        clawTrackMap.set(clawId, { fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100, active: false, lastError: null, hasContract: false, isAlive: false });
+        const track = makeClawTrack();
+        const clawDir = path.join(clawsDir, clawId);
+        const contractMs = getContractCreatedMs(clawDir);
+        track.hasContract = contractMs !== null;
+        track.referenceMs = contractMs ?? Date.now();
+        clawTrackMap.set(clawId, track);
       }
       if (!clawWatchers.has(clawId)) {
         try {
@@ -715,11 +792,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
       const track = clawTrackMap.get(clawId)!;
 
-      // Contract check
-      const contractActiveDir = path.join(clawsDir, clawId, 'contract', 'active');
-      try {
-        track.hasContract = fsNative.readdirSync(contractActiveDir).length > 0;
-      } catch { track.hasContract = false; }
+      // Contract check (hasContract 已在初始化时设置，此处可省略或保留作为刷新)
+      // referenceMs 初始化后不再修改，除非契约重新创建
 
       // Process alive check
       const clawPidFile = path.join(clawsDir, clawId, 'status', 'pid');
