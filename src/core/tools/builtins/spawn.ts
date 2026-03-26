@@ -8,6 +8,7 @@
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../constants.js';
+import type { Message } from '../../../types/message.js';
 
 // Default tools available to subagents
 const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec', 'skill', 'memory_search'];
@@ -45,6 +46,11 @@ export const spawnTool: ITool = {
         type: 'number',
         description: 'LLM idle timeout in milliseconds (default: 60000). Abort if no token output for this duration.',
       },
+      messages: {
+        type: 'array',
+        description: 'Prior conversation messages to continue from. prompt will be appended as a new user message.',
+        items: { type: 'object' },
+      },
     },
     required: ['prompt'],
   },
@@ -80,6 +86,9 @@ export const spawnTool: ITool = {
     }
 
     const prompt = String(args.prompt);
+    const messages = Array.isArray(args.messages)
+      ? (args.messages as Message[])
+      : undefined;
 
     const tools = Array.isArray(args.tools) ? (args.tools as string[]) : SUBAGENT_TOOLS;
     const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
@@ -94,6 +103,7 @@ export const spawnTool: ITool = {
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
         prompt,
+        messages,
         tools,
         timeout,
         maxSteps,

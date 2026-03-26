@@ -150,7 +150,10 @@ export class SubAgent {
 
       // Setup messages（若传入 messages 则直接使用，否则从 prompt 构建）
       const messages: Message[] = this.messages
-        ? [...this.messages]   // 浅拷贝，避免 runReact 原地 mutate 污染原数组
+        ? [
+            ...this.messages,  // 继承历史上下文
+            ...(this.prompt ? [{ role: 'user' as const, content: this.prompt }] : []),
+          ]
         : [{ role: 'user' as const, content: this.prompt }];
 
       // Log start
