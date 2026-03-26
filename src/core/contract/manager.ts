@@ -328,6 +328,17 @@ export class ContractManager {
       }
     }
 
+    // Validate acceptance config: no duplicate subtask_id
+    const seenSubtaskIds = new Set<string>();
+    for (const a of contractYaml.acceptance ?? []) {
+      if (seenSubtaskIds.has(a.subtask_id)) {
+        throw new Error(
+          `acceptance config: duplicate subtask_id "${a.subtask_id}" — each subtask can only have one acceptance entry`
+        );
+      }
+      seenSubtaskIds.add(a.subtask_id);
+    }
+
     // Archive any existing active contract (prevents conflicts with multiple running contracts)
     const existing = await this.loadActive();
     if (existing && existing.id !== contractId) {
