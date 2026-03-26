@@ -30,12 +30,10 @@ function writeUserChat(agentDir: string, message: string): void {
 }
 
 function fmtDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
+  const m = Math.floor(ms / 60000);
   const h = Math.floor(m / 60);
   if (h > 0) return `${h}h ${m % 60}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
+  return `${m}m`;
 }
 
 function sliceToWidth(s: string, maxCols: number): string {
