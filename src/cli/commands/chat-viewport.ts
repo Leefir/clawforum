@@ -5,6 +5,7 @@
 
 import * as fsNative from 'fs';
 import * as path from 'path';
+import chokidar from 'chokidar';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
@@ -1071,6 +1072,35 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     } catch { /* clawsDir 不存在时忽略 */ }
   }
 
+  // Watch clawsDir，新契约出现时自动 attach
+  let clawsDirWatcher: ReturnType<typeof chokidar.watch> | null = null;
+  if (clawsDir) {
+    clawsDirWatcher = chokidar.watch(clawsDir, {
+      depth: 2,
+      ignoreInitial: true,
+      persistent: true,
+    });
+    clawsDirWatcher.on('addDir', () => {
+      // 重新扫描，attach 尚未在面板中的有契约 claw
+      try {
+        const entries = fsNative.readdirSync(clawsDir, { withFileTypes: true });
+        for (const e of entries) {
+          if (!e.isDirectory()) continue;
+          const clawId = e.name;
+          if (attachedClaws.has(clawId)) continue;
+          const clawDir = path.join(clawsDir, clawId);
+          if (getContractCreatedMs(clawDir) !== null) {
+            attachClaw(clawId, clawDir);
+          }
+        }
+        if (attachedClaws.size > 0) {
+          statusBar.setText('');
+          updateClawPanel();
+        }
+      } catch { /* ignore */ }
+    });
+  }
+
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
   const sigintHandler = () => resolveExit();
   process.on('SIGINT', sigintHandler);
@@ -1087,6 +1117,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   watcher?.close();
   for (const w of clawWatchers.values()) w.close();
   clawWatchers.clear();
+  clawsDirWatcher?.close();
   for (const tw of taskWatchMap.values()) tw.watcher?.close();
   taskWatchMap.clear();
   tui.stop();
