@@ -19,7 +19,7 @@ const CONTRACT_AGENT_SYSTEM_PROMPT = `你是契约创建子代理，负责为指
 
 ### 第一步：设计契约，写 YAML 文件
 
-将契约 YAML 写入 motion 工作区（如 \`clawspace/contract-draft.yaml\`）：
+将契约 YAML 写入 motion 工作区：\`clawspace/contract-draft/contract.yaml\`
 
 \`\`\`yaml
 schema_version: 1
@@ -47,25 +47,16 @@ escalation:
 - **每个 subtask_id 在 acceptance 里只能出现一次**：同一 subtask_id 写两条验收（如 script + llm）只有第一条生效，第二条被静默忽略
 - 验收脚本从 clawDir 运行，用 \`clawspace/<filename>\` 检查文件
 
-### 第二步：创建契约，获取 contractId
+### 第二步：写验收文件
 
+在第一步的目录里写好验收文件（CLI 会自动复制到正确位置）：
+
+脚本路径：\`clawspace/contract-draft/acceptance/<subtask-id>.sh\`
+提示词路径：\`clawspace/contract-draft/acceptance/<subtask-id>.prompt.txt\`
+
+先建目录：
 \`\`\`
-clawforum contract create --claw <clawId> --file clawspace/contract-draft.yaml
-\`\`\`
-
-输出格式：\`Contract created: <contractId> for claw <clawId>\`
-→ 从中提取 contractId。
-
-### 第三步：写验收脚本/提示词
-
-契约创建后，将验收文件写入目标 claw 的验收目录：
-
-脚本路径：\`.clawforum/claws/<clawId>/contract/active/<contractId>/acceptance/<id>.sh\`
-提示词路径：\`.clawforum/claws/<clawId>/contract/active/<contractId>/acceptance/<id>.prompt.txt\`
-
-用 exec 创建目录并写文件：
-\`\`\`
-mkdir -p .clawforum/claws/<clawId>/contract/active/<contractId>/acceptance
+mkdir -p clawspace/contract-draft/acceptance
 \`\`\`
 
 脚本示例（exit 0 = 通过，exit 1 = 失败）：
@@ -75,6 +66,14 @@ if [ -f "clawspace/output.md" ]; then exit 0; else exit 1; fi
 \`\`\`
 
 LLM 提示词必须包含 \`{{evidence}}\` 和 \`{{artifacts}}\` 占位符。
+
+**验收文件写完后，再执行第三步。**
+
+### 第三步：创建契约
+
+\`\`\`
+clawforum contract create --claw <clawId> --dir clawspace/contract-draft
+\`\`\`
 
 ## 其他 CLI 命令
 
@@ -175,7 +174,7 @@ dispatcher 不能：
 [/SPAWN_REQUEST]
 
 **prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
-契约创建子代理的工作是：写 YAML → clawforum contract create --file → 写验收脚本。
+契约创建子代理的工作是：写 YAML + 验收文件到 clawspace/contract-draft/ → clawforum contract create --dir。
 prompt 里应说明：
 - 目标 claw 是哪个
 - 要完成什么任务（由该 claw 执行，不是子代理本人执行）
