@@ -6,6 +6,26 @@ import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import { spawnTool } from './spawn.js';
 
+/**
+ * Extract text from message content (handles string, array, or object formats)
+ */
+function extractText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map(c => {
+      if (typeof c === 'string') return c;
+      if (typeof c === 'object' && c !== null) {
+        const obj = c as Record<string, unknown>;
+        if (typeof obj.text === 'string') return obj.text;
+        if (typeof obj.content === 'string') return obj.content;
+        if (Array.isArray(obj.content)) return extractText(obj.content);
+      }
+      return '';
+    }).join('\n');
+  }
+  return '';
+}
+
 const CONTRACT_AGENT_SYSTEM_PROMPT = `你是契约创建子代理，负责为指定 claw 设计并创建一份契约。
 
 ## 可用工具
@@ -80,13 +100,7 @@ clawforum contract create --claw <clawId> --dir clawspace/contract-draft
 输出格式：\`Contract created: <contractId> for claw <clawId>\`
 → 从中提取 contractId。
 
-CLI 负责将 acceptance/ 文件复制到正确位置。**命令输出 \`Contract created: ...\` 即代表全部完成，无需进一步验证。**
-
-在最终回复末尾写：
-
-CONTRACT_CREATED: <contractId>
-
-然后结束。不要等待验收结果，不要检查契约目录内容。
+CLI 负责将 acceptance/ 文件复制到正确位置。**命令输出 \`Contract created: ...\` 即代表全部完成，无需进一步验证。然后结束。不要等待验收结果，不要检查契约目录内容。**
 
 ## 其他 CLI 命令
 
@@ -235,10 +249,7 @@ prompt 里应说明：
         const { targetClaw, prompt: spawnPrompt } = parsed;
         if (!spawnPrompt) return result;
 
-        const augmentedPrompt = `${spawnPrompt}
-
-在最终回复末尾必须包含以下行（不可省略，格式不可变）：
-CONTRACT_CREATED: <contractId>`;
+        const augmentedPrompt = spawnPrompt;
 
         // 通过 spawn 工具创建契约创建子代理，确保 task_started 写入 parentStreamWriter
         const spawnResult = await spawnTool.execute({
@@ -280,8 +291,27 @@ CONTRACT_CREATED: <contractId>`;
 
           if (isErr) return res;
 
-          const contractIdMatch = res.match(/CONTRACT_CREATED:\s+(\S+)/);
-          const cid = contractIdMatch?.[1];
+          // 从 messages.json 里找 exec tool_result 提取 contractId
+          let cid: string | undefined;
+
+          // 先试 messages 文件（可靠）
+          try {
+            const msgsRaw = await ctx.fs.readFile(`tasks/results/${tid}.messages.json`);
+            const msgs: Array<{ role: string; content: unknown }> = JSON.parse(msgsRaw);
+            for (const msg of msgs) {
+              if (msg.role !== 'user') continue;
+              const text = extractText(msg.content);
+              const m = text.match(/Contract created:\s+(\S+)\s+for claw/);
+              if (m) { cid = m[1]; break; }
+            }
+          } catch { /* messages 文件不存在时忽略 */ }
+
+          // 降级：兼容旧的 CONTRACT_CREATED 格式
+          if (!cid) {
+            const m = res.match(/CONTRACT_CREATED:\s+(\S+)/);
+            cid = m?.[1];
+          }
+
           if (!cid) return res;
 
           try {
