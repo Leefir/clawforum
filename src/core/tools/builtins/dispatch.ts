@@ -155,7 +155,7 @@ dispatcher 不能：
     }
 
     // 构建 Dispatcher 的 user message（新架构格式）
-    let userMessage = `---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。\n- 不能再调用 \`dispatch\`（递归防护）\n- 不能调用 \`spawn\`（会报错）\n`;
+    let userMessage = `---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。\n- 不能再调用 \`dispatch\`（递归防护）\n- 不能调用 \`spawn\`（会报错）\n- 不能自己写契约 YAML 或验收脚本（由 SPAWN_REQUEST 触发的专属子代理负责）\n`;
 
     userMessage += `\n## 任务\n${args.task}`;
 
@@ -179,7 +179,7 @@ dispatcher 不能：
 [/SPAWN_REQUEST]
 
 **prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
-契约创建子代理的工作是：写 YAML + 验收文件到 clawspace/contract-draft/ → clawforum contract create --dir。
+契约创建子代理的工作是：设计契约 YAML、写验收文件，并通过 clawforum contract create --dir 提交。
 prompt 里应说明：
 - 目标 claw 是哪个
 - 要完成什么任务（由该 claw 执行，不是子代理本人执行）
