@@ -102,6 +102,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let streamingBuffer = '';
   let thinkingBuffer = '';
   let inTurn = false;  // daemon 是否正在处理 turn（用于 ESC 中断判断）
+  let escTimeoutId: ReturnType<typeof setTimeout> | null = null;  // ESC 5秒超时定时器
 
   // 状态栏追踪
   let ownTurnCount = 0;
@@ -131,6 +132,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   const buildClawLine = (id: string, t: ClawTrack, cols: number): string => {
+    // Fix 2：daemon 崩溃检测（放在最前，无论 active 状态）
+    if (!t.isAlive) {
+      return `\x1b[38;5;240m[${id}] ✗ daemon stopped\x1b[0m`;
+    }
+
     if (t.active) {
       const icon = t.toolSuccess === true ? '✓' : t.toolSuccess === false ? '✗' : '⚙';
       if (t.currentTool) {
@@ -154,10 +160,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
 
     // 不活跃
-    // Bug 4 修复：daemon 崩溃检测
-    if (!t.isAlive) {
-      return `\x1b[38;5;240m[${id}] ✗ daemon stopped\x1b[0m`;
-    }
     let leftText: string;
     let leftColor: string;
     if (!t.hasContract) {
@@ -909,7 +911,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       } catch { /* best-effort */ }
       startSpinner('Interrupting...');
       // 5 秒超时保护：如果 daemon 没响应，强制清理
-      setTimeout(() => {
+      if (escTimeoutId) clearTimeout(escTimeoutId);
+      escTimeoutId = setTimeout(() => {
+        escTimeoutId = null;
         if (inTurn) {
           inTurn = false;
           stopSpinner();
@@ -989,11 +993,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const clawId = e.name;
           if (clawTrackMap.has(clawId)) continue;
           const clawDir = path.join(clawsDir, clawId);
-          if (getContractCreatedMs(clawDir) !== null) {
+          const contractMs = getContractCreatedMs(clawDir);
+          if (contractMs !== null) {
             const t = makeClawTrack();
-            const contractMs = getContractCreatedMs(clawDir);
-            t.hasContract = contractMs !== null;
-            t.referenceMs = contractMs ?? Date.now();
+            t.hasContract = true;
+            t.referenceMs = contractMs;
             clawTrackMap.set(clawId, t);
             // 开 watcher
             try {
@@ -1019,6 +1023,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   await exitPromise;
 
   // 清理
+  if (escTimeoutId) clearTimeout(escTimeoutId);
   process.removeListener('SIGINT', sigintHandler);
   process.removeListener('uncaughtException', uncaughtHandler);
   process.removeListener('unhandledRejection', uncaughtHandler);
