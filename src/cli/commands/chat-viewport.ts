@@ -5,6 +5,7 @@
 
 import * as fsNative from 'fs';
 import * as path from 'path';
+import chokidar from 'chokidar';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
@@ -29,12 +30,10 @@ function writeUserChat(agentDir: string, message: string): void {
 }
 
 function fmtDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
+  const m = Math.floor(ms / 60000);
   const h = Math.floor(m / 60);
   if (h > 0) return `${h}h ${m % 60}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
+  return `${m}m`;
 }
 
 function sliceToWidth(s: string, maxCols: number): string {
@@ -129,7 +128,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const attachedClawBar = new Text('', 0, 0);
 
   const updateStatusBar = () => {
-    if (attachedClawId) return;   // attach 期间不恢复 statusBar
     let line = '';
     if (isMotion) {
       const parts: string[] = [];
@@ -155,71 +153,69 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     updateDisplay();
   };
 
-  const updateAttachedClawBar = () => {
-    if (!attachedClawId) { attachedClawBar.setText(''); return; }
-    const id = attachedClawId;
-    // 活跃模式
-    if (attachActive) {
-      const cols = process.stdout.columns ?? 80;
-      let line: string;
-      const icon = attachToolSuccess === true ? '✓'
-                 : attachToolSuccess === false ? '✗'
-                 : '⚙';
-      if (attachCurrentTool) {
-        if (attachTextBuffer) {
-          const isThinking = attachBufferType === 'thinking';
+  const buildClawLine = (id: string, t: ClawTrack, cols: number): string => {
+    if (t.active) {
+      const icon = t.toolSuccess === true ? '✓' : t.toolSuccess === false ? '✗' : '⚙';
+      if (t.currentTool) {
+        if (t.textBuffer) {
+          const isThinking = t.bufferType === 'thinking';
           const open = isThinking ? '(' : '"';
           const close = isThinking ? ')' : '"';
-          const prefix = `[${id}] ${icon} ${attachCurrentTool} · ${open}`;
-          const suffix = close;
-          const available = cols - prefix.length - suffix.length;
-          const text = sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available);
-          line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
-        } else {
-          line = `\x1b[38;5;147m[${id}] ${icon} ${attachCurrentTool}\x1b[0m`;
+          const prefix = `[${id}] ${icon} ${t.currentTool} · ${open}`;
+          const available = cols - prefix.length - 1;
+          const text = sliceFromStart(t.textBuffer.trimStart().replace(/\n/g, ' '), available);
+          return `\x1b[38;5;147m${prefix}${text}${close}\x1b[0m`;
         }
-      } else {
-        // 首轮 thinking，尚无工具名
-        const prefix = `[${id}] ⊙ (`;
-        const available = cols - prefix.length - 1;
-        const text = attachTextBuffer
-          ? sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available)
-          : '';
-        line = `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
+        return `\x1b[38;5;147m[${id}] ${icon} ${t.currentTool}\x1b[0m`;
       }
-      attachedClawBar.setText(line);
-      return;
+      const prefix = `[${id}] ⊙ (`;
+      const available = cols - prefix.length - 1;
+      const text = t.textBuffer
+        ? sliceFromStart(t.textBuffer.trimStart().replace(/\n/g, ' '), available)
+        : '';
+      return `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
     }
-    // 不活跃模式：所有状态都显示 lastOutput（如果有）
-    let line: string;
+
+    // 不活跃
     let leftText: string;
     let leftColor: string;
-    if (!attachHasContract) {
+    if (!t.hasContract) {
       leftText = `[${id}] ○ no contract`;
       leftColor = '\x1b[38;5;245m';
-    } else if (attachLastError) {
-      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
-      leftText = `[${id}] ✗ ${attachLastError}${dur}`;
+    } else if (t.lastError) {
+      const dur = t.referenceMs ? ` · inactive ${fmtDuration(Date.now() - t.referenceMs)}` : '';
+      leftText = `[${id}] ✗ ${t.lastError}${dur}`;
       leftColor = '\x1b[38;5;214m';
-    } else if (attachLastInterrupted) {
-      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
+    } else if (t.lastInterrupted) {
+      const dur = t.referenceMs ? ` · inactive ${fmtDuration(Date.now() - t.referenceMs)}` : '';
       leftText = `[${id}] ✗ interrupted${dur}`;
       leftColor = '\x1b[38;5;214m';
     } else {
-      const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
-      leftText = `[${id}] ○ ${dur}`;
+      const dur = t.referenceMs ? `inactive ${fmtDuration(Date.now() - t.referenceMs)}` : '';
+      leftText = dur ? `[${id}] ○ ${dur}` : `[${id}] ○`;
       leftColor = '\x1b[38;5;245m';
     }
-    // 追加 lastOutput（如果有）
-    if (attachLastOutput) {
+
+    if (t.lastOutput) {
       const prefix = `${leftText} · "`;
-      const available = (process.stdout.columns ?? 80) - prefix.length - 1;
-      const snippet = sliceFromStart(attachLastOutput.replace(/\n/g, ' '), available);
-      line = `${leftColor}${prefix}${snippet}"\x1b[0m`;
-    } else {
-      line = `${leftColor}${leftText}\x1b[0m`;
+      const available = cols - prefix.length - 1;
+      const snippet = sliceFromStart(t.lastOutput.trimStart().replace(/\n/g, ' '), available);
+      return `${leftColor}${prefix}${snippet}"\x1b[0m`;
     }
-    attachedClawBar.setText(line);
+    return `${leftColor}${leftText}\x1b[0m`;
+  };
+
+  const updateClawPanel = () => {
+    if (clawTrackMap.size === 0) {
+      attachedClawBar.setText('');
+      return;
+    }
+    const cols = process.stdout.columns ?? 80;
+    const lines: string[] = [];
+    for (const [id, t] of clawTrackMap) {
+      lines.push(buildClawLine(id, t, cols));
+    }
+    attachedClawBar.setText(lines.join('\n'));
   };
 
   const startSpinner = (text = 'Thinking...') => {
@@ -428,34 +424,39 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Motion viewport：各 claw 步数追踪
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
-  let attachedClawId: string | null = null;
-  let attachReferenceMs: number | null = null;
-  let attachHasContract = false;
-  let attachLastError: string | null = null;
-  let attachPollTick = 0;
-  let attachActive = false;
-  let attachCurrentTool: string | null = null;
-  let attachTextBuffer = '';
-  let attachLastInterrupted = false;
-  let attachToolSuccess: boolean | null = null;  // null=调用中, true=✓, false=✗
-  let attachBufferType: 'thinking' | 'text' | null = null;
-  let attachLastOutput = '';  // 上一个 turn 的最后文字输出，不活跃时显示
-  let attachClearOnNextDelta = false;  // tool_call 后下一个 delta 到来时清空 buffer
-
   interface ClawTrack {
+    // 已有（轻量，statusBar 用）
     fileSize: number;
     leftover: string;
     turnCount: number;
     step: number;
     maxSteps: number;
     active: boolean;
-    lastError: string | null;   // 最近 turn_error；turn_end/interrupted 时清除
-    hasContract: boolean;        // contract/active/ 目录非空
-    isAlive: boolean;            // PID 存活
+    lastError: string | null;
+    hasContract: boolean;
+    isAlive: boolean;
+
+    // 新增（rich，详细行用）
+    currentTool: string | null;
+    toolSuccess: boolean | null;
+    textBuffer: string;
+    bufferType: 'thinking' | 'text' | null;
+    lastOutput: string;
+    lastInterrupted: boolean;
+    referenceMs: number | null;
+    clearOnNextDelta: boolean;
+  }
+
+  function makeClawTrack(): ClawTrack {
+    return {
+      fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100,
+      active: false, lastError: null, hasContract: false, isAlive: false,
+      currentTool: null, toolSuccess: null, textBuffer: '', bufferType: null,
+      lastOutput: '', lastInterrupted: false, referenceMs: null, clearOnNextDelta: false,
+    };
   }
   const clawTrackMap = new Map<string, ClawTrack>();
   const clawWatchers = new Map<string, ReturnType<typeof fsNative.watch>>();
-  let clawRefreshScheduled = false;
   let lastClawRefreshTs = 0;
 
   // Task stream watching (for dispatch/spawn subagent progress)
@@ -472,12 +473,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (!tw) return;
     tw.watcher?.close();
     taskWatchMap.delete(taskId);
-  };
-
-  const scheduleClawRefresh = () => {
-    if (clawRefreshScheduled) return;
-    clawRefreshScheduled = true;
-    setTimeout(() => { clawRefreshScheduled = false; refreshClawStatus(); }, 100);
   };
 
   try {
@@ -536,7 +531,105 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
   };
 
-  const refreshClawStatus = () => {
+  const refreshClawStatus = (clawId: string) => {
+    if (!isMotion) return;
+    const track = clawTrackMap.get(clawId);
+    if (!track) return;
+
+    const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
+
+    try {
+      const stat = fsNative.statSync(streamFile);
+      if (stat.size < track.fileSize) {
+        track.fileSize = 0; track.leftover = '';
+        track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
+        track.currentTool = null; track.toolSuccess = null; track.textBuffer = '';
+        track.bufferType = null; track.lastOutput = ''; track.lastInterrupted = false;
+        track.clearOnNextDelta = false;
+      }
+      if (stat.size > track.fileSize) {
+        const toRead = stat.size - track.fileSize;
+        const buf = Buffer.alloc(toRead);
+        const fd = fsNative.openSync(streamFile, 'r');
+        let bytesRead = 0;
+        try {
+          while (bytesRead < toRead) {
+            const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
+            if (n === 0) break;
+            bytesRead += n;
+          }
+        } finally { fsNative.closeSync(fd); }
+        track.fileSize += bytesRead;
+
+        const chunk = track.leftover + buf.toString('utf-8');
+        const lines = chunk.split('\n');
+        track.leftover = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line);
+            // 轻量字段（statusBar 用）
+            if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
+            else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
+            else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
+            else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
+
+            // rich 字段（详细行用）- 对每条 track 都执行
+            if (LLM_OUTPUT_EVENTS.has(ev.type)) {
+              if (track.active === false) track.lastOutput = '';
+              track.active = true;
+              if (ev.type === 'thinking_delta') {
+                if (track.clearOnNextDelta) {
+                  track.textBuffer = '';
+                  track.bufferType = null;
+                  track.clearOnNextDelta = false;
+                }
+                track.textBuffer += (ev.delta as string) ?? '';
+                track.bufferType = 'thinking';
+              } else if (ev.type === 'tool_call') {
+                track.currentTool = (ev.name as string) ?? null;
+                track.toolSuccess = null;
+                track.clearOnNextDelta = true;
+              } else if (ev.type === 'text_delta') {
+                if (track.bufferType !== 'text') {
+                  track.textBuffer = '';
+                  track.clearOnNextDelta = false;
+                }
+                track.textBuffer += (ev.delta as string) ?? '';
+              }
+            } else if (ev.type === 'tool_result') {
+              track.toolSuccess = (ev.success as boolean) ?? null;
+            } else if (ev.type === 'turn_start') {
+              track.lastOutput = '';
+              track.lastInterrupted = false;
+            } else if (ev.type === 'turn_end') {
+              track.active = false; track.lastInterrupted = false;
+              if (track.textBuffer) track.lastOutput = track.textBuffer;
+              track.currentTool = null; track.textBuffer = '';
+              track.toolSuccess = null; track.bufferType = null; track.clearOnNextDelta = false;
+              track.referenceMs = Date.now();
+            } else if (ev.type === 'turn_error') {
+              track.active = false; track.lastInterrupted = false;
+              track.currentTool = null; track.textBuffer = '';
+              track.toolSuccess = null; track.bufferType = null; track.lastOutput = ''; track.clearOnNextDelta = false;
+              track.lastError = (ev.error as string) ?? 'error';
+              track.referenceMs = Date.now();
+            } else if (ev.type === 'turn_interrupted') {
+              track.active = false; track.lastInterrupted = true;
+              track.currentTool = null; track.textBuffer = '';
+              track.toolSuccess = null; track.bufferType = null; track.lastOutput = ''; track.clearOnNextDelta = false;
+              track.referenceMs = Date.now();
+            }
+
+            updateClawPanel();
+            tui.requestRender();
+          } catch { /* skip */ }
+        }
+      }
+    } catch { /* ENOENT 等，跳过 */ }
+  };
+
+  const refreshAllClawStatus = () => {
     if (!isMotion) return;
     let clawIds: string[] = [];
     try { clawIds = fsNative.readdirSync(clawsDir, { withFileTypes: true })
@@ -555,11 +648,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     for (const clawId of clawIds) {
       const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
       if (!clawTrackMap.has(clawId)) {
-        clawTrackMap.set(clawId, { fileSize: 0, leftover: '', turnCount: 0, step: 0, maxSteps: 100, active: false, lastError: null, hasContract: false, isAlive: false });
+        const track = makeClawTrack();
+        const clawDir = path.join(clawsDir, clawId);
+        const contractMs = getContractCreatedMs(clawDir);
+        track.hasContract = contractMs !== null;
+        track.referenceMs = contractMs ?? Date.now();
+        clawTrackMap.set(clawId, track);
       }
       if (!clawWatchers.has(clawId)) {
         try {
-          const w = fsNative.watch(streamFile, { persistent: false }, scheduleClawRefresh);
+          const w = fsNative.watch(streamFile, { persistent: false }, () => refreshClawStatus(clawId));
           w.on('error', () => {
             w.close();
             clawWatchers.delete(clawId);
@@ -568,99 +666,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         } catch { /* fallback to polling */ }
       }
       const track = clawTrackMap.get(clawId)!;
-      try {
-        const stat = fsNative.statSync(streamFile);
-        if (stat.size < track.fileSize) {
-          track.fileSize = 0; track.leftover = '';
-          track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
-        }  // 文件被截断
-        if (stat.size > track.fileSize) {
-          const toRead = stat.size - track.fileSize;
-          const buf = Buffer.alloc(toRead);
-          const fd = fsNative.openSync(streamFile, 'r');
-          let bytesRead = 0;
-          try {
-            while (bytesRead < toRead) {
-              const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
-              if (n === 0) break;
-              bytesRead += n;
-            }
-          } finally { fsNative.closeSync(fd); }
-          track.fileSize += bytesRead;
 
-          const chunk = track.leftover + buf.toString('utf-8');
-          const lines = chunk.split('\n');
-          track.leftover = lines.pop() ?? '';
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const ev = JSON.parse(line);
-              if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
-              else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
-              else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
-              else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
-              // attach 专用解析（仅对 attachedClawId）
-              if (attachedClawId && clawId === attachedClawId) {
-                if (LLM_OUTPUT_EVENTS.has(ev.type)) {
-                  if (attachActive === false) attachLastOutput = '';  // 新 turn 开始，清除上次输出
-                  attachActive = true;
-                  if (ev.type === 'thinking_delta') {
-                    if (attachClearOnNextDelta) {
-                      attachTextBuffer = '';
-                      attachBufferType = null;
-                      attachClearOnNextDelta = false;
-                    }
-                    attachTextBuffer += (ev.delta as string) ?? '';
-                    attachBufferType = 'thinking';
-                  } else if (ev.type === 'tool_call') {
-                    attachCurrentTool = (ev.name as string) ?? null;
-                    attachToolSuccess = null;
-                    attachClearOnNextDelta = true;
-                    // attachTextBuffer 和 attachBufferType 保留，工具执行期间继续显示上一段思考
-                  } else if (ev.type === 'text_delta') {
-                    if (attachBufferType !== 'text') {
-                      attachTextBuffer = '';
-                      attachClearOnNextDelta = false;
-                    }
-                    attachTextBuffer += (ev.delta as string) ?? '';
-                  }
-                } else if (ev.type === 'tool_result') {
-                  attachToolSuccess = (ev.success as boolean) ?? null;
-                } else if (ev.type === 'turn_start') {
-                  attachLastOutput = '';
-                  attachLastInterrupted = false;
-                } else if (ev.type === 'turn_end') {
-                  attachActive = false; attachLastInterrupted = false;
-                  // 保存最后的文字输出（仅 text_delta，不保存 thinking）
-                  if (attachTextBuffer) attachLastOutput = attachTextBuffer;  // 保存任意类型（thinking 或 text）
-                  attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachClearOnNextDelta = false;
-                  attachReferenceMs = Date.now();
-                } else if (ev.type === 'turn_error') {
-                  attachActive = false; attachLastInterrupted = false;
-                  attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
-                  attachLastError = (ev.error as string) ?? 'error';
-                  attachReferenceMs = Date.now();
-                } else if (ev.type === 'turn_interrupted') {
-                  attachActive = false; attachLastInterrupted = true;
-                  attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
-                  attachReferenceMs = Date.now();
-                }
-                updateAttachedClawBar();
-                tui.requestRender();
-              }
-            } catch { /* skip */ }
-          }
-        }
-      } catch { /* ENOENT 等，跳过 */ }
-
-      // Contract check
-      const contractActiveDir = path.join(clawsDir, clawId, 'contract', 'active');
-      try {
-        track.hasContract = fsNative.readdirSync(contractActiveDir).length > 0;
-      } catch { track.hasContract = false; }
+      // Contract check (hasContract 已在初始化时设置，此处可省略或保留作为刷新)
+      // referenceMs 初始化后不再修改，除非契约重新创建
 
       // Process alive check
       const clawPidFile = path.join(clawsDir, clawId, 'status', 'pid');
@@ -750,7 +758,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       const now = Date.now();
       if (now - lastClawRefreshTs >= 2000) {
         lastClawRefreshTs = now;
-        refreshClawStatus();
+        refreshAllClawStatus();
       }
     }
     // Poll task streams for dispatch/spawn progress
@@ -758,21 +766,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       pollTaskStream(taskId);
     }
     // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
-    if (attachedClawId) {
-      attachPollTick++;
-      if (attachPollTick >= 5) {
-        attachPollTick = 0;
-        // 重检契约状态（契约可能在 attach 之后才创建）
-        const contractCreatedMs = getContractCreatedMs(path.join(clawsDir, attachedClawId));
-        attachHasContract = contractCreatedMs !== null;
-        if (attachHasContract && attachReferenceMs === null) {
-          const info = getClawActivityInfo(path.join(clawsDir, attachedClawId));
-          attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
-          attachLastError = info.lastError;
-        }
-        updateAttachedClawBar();
-        tui.requestRender();
-      }
+    if (clawTrackMap.size > 0) {
+      updateClawPanel();
+      tui.requestRender();
     }
   }, 200);  // fallback 200ms
 
@@ -841,53 +837,45 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           appendOutput(`\x1b[31m[attach] 用法：/attach <clawId>\x1b[0m`);
         } else {
           const clawId = parts[1];
-          if (!fsNative.existsSync(path.join(clawsDir, clawId))) {
+          const clawDir = path.join(clawsDir, clawId);
+          if (!fsNative.existsSync(clawDir)) {
             appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
+          } else if (clawTrackMap.has(clawId)) {
+            appendOutput(`\x1b[2m[attach] ${clawId} 已在面板中\x1b[0m`);
           } else {
-            attachedClawId = clawId;
-            // 重置状态
-            attachReferenceMs = null;
-            attachHasContract = false;
-            attachLastError = null;
-            attachActive = false;
-            attachCurrentTool = null;
-            attachTextBuffer = '';
-            attachLastInterrupted = false;
-            attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
-            // 读磁盘初始化
-            const clawDir = path.join(clawsDir, clawId);
-            const contractCreatedMs = getContractCreatedMs(clawDir);
-            attachHasContract = contractCreatedMs !== null;
-            if (attachHasContract) {
-              const info = getClawActivityInfo(clawDir);
-              attachLastError = info.lastError;
-              attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
-            }
-            // 切换显示
-            statusBar.setText('');
-            updateAttachedClawBar();
-            // 换成无 debounce watcher
-            const attachStreamFile = path.join(clawsDir, clawId, 'stream.jsonl');
-            clawWatchers.get(clawId)?.close();
-            clawWatchers.delete(clawId);
+            // 手动加入（无契约 claw）
+            const t = makeClawTrack();
+            t.referenceMs = Date.now();
+            clawTrackMap.set(clawId, t);
+            // 开 watcher
             try {
-              const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus());
+              const w = fsNative.watch(path.join(clawDir, 'stream.jsonl'), { persistent: false }, () => refreshClawStatus(clawId));
               w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
               clawWatchers.set(clawId, w);
-            } catch { /* fallback to polling */ }
-            appendOutput(`\x1b[2m[attach] attached to ${clawId}\x1b[0m`);
+            } catch { /* polling fallback */ }
+            updateClawPanel();
+            appendOutput(`\x1b[2m[attach] ${clawId} 已加入面板\x1b[0m`);
           }
         }
       } else if (name === 'detach') {
-        if (attachedClawId) {
-          const prev = attachedClawId;
-          attachedClawId = null;
-          attachedClawBar.setText('');
-          updateStatusBar();
-          // 移除无 debounce watcher，下次 refreshClawStatus 轮询时自动重建 debounce 版
-          clawWatchers.get(prev)?.close();
-          clawWatchers.delete(prev);
-          appendOutput(`\x1b[2m[detach] detached from ${prev}\x1b[0m`);
+        const arg = parts[1];
+        if (!arg || arg === '--help') {
+          appendOutput('用法：/detach <claw-id>  或  /detach --all');
+        } else if (arg === '--all') {
+          for (const [id] of clawTrackMap) {
+            clawWatchers.get(id)?.close();
+            clawWatchers.delete(id);
+          }
+          clawTrackMap.clear();
+          updateClawPanel();
+          appendOutput(`\x1b[2m[detach] 已清空所有 claw\x1b[0m`);
+        } else {
+          const clawId = arg;
+          clawWatchers.get(clawId)?.close();
+          clawWatchers.delete(clawId);
+          clawTrackMap.delete(clawId);
+          updateClawPanel();
+          appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
         }
       } else {
         appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
@@ -999,9 +987,44 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.start();
 
-  // 启动时立即刷新 claw 状态（避免 2 秒等待）
-  if (isMotion) {
-    refreshClawStatus();
+  // Watch clawsDir，新契约出现时自动加入
+  let clawsDirWatcher: ReturnType<typeof chokidar.watch> | null = null;
+  if (clawsDir) {
+    clawsDirWatcher = chokidar.watch(clawsDir, {
+      depth: 2,
+      ignoreInitial: true,
+      persistent: true,
+    });
+    clawsDirWatcher.on('addDir', () => {
+      // 重新扫描，加入尚未在面板中的有契约 claw
+      try {
+        const entries = fsNative.readdirSync(clawsDir, { withFileTypes: true });
+        for (const e of entries) {
+          if (!e.isDirectory()) continue;
+          const clawId = e.name;
+          if (clawTrackMap.has(clawId)) continue;
+          const clawDir = path.join(clawsDir, clawId);
+          if (getContractCreatedMs(clawDir) !== null) {
+            const t = makeClawTrack();
+            const contractMs = getContractCreatedMs(clawDir);
+            t.hasContract = contractMs !== null;
+            t.referenceMs = contractMs ?? Date.now();
+            clawTrackMap.set(clawId, t);
+            // 开 watcher
+            try {
+              const w = fsNative.watch(path.join(clawDir, 'stream.jsonl'), { persistent: false }, () => refreshClawStatus(clawId));
+              w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+              clawWatchers.set(clawId, w);
+            } catch { /* polling fallback */ }
+          }
+        }
+        if (clawTrackMap.size > 0) {
+          updateClawPanel();
+        }
+      } catch { /* ignore */ }
+    });
+    // 立即触发一次扫描
+    clawsDirWatcher.emit('addDir');
   }
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
@@ -1020,6 +1043,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   watcher?.close();
   for (const w of clawWatchers.values()) w.close();
   clawWatchers.clear();
+  clawsDirWatcher?.close();
   for (const tw of taskWatchMap.values()) tw.watcher?.close();
   taskWatchMap.clear();
   tui.stop();
