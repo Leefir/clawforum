@@ -110,10 +110,16 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
         const { targetClaw, prompt: spawnPrompt } = parsed;
         if (!spawnPrompt) return result;
 
+        // 强制子代理在 finalText 中输出结构化行，供 Step D 解析 contractId
+        const augmentedPrompt = `${spawnPrompt}
+
+在最终回复末尾必须包含以下行（不可省略，格式不可变）：
+CONTRACT_CREATED: <contractId>`;
+
         // 调度契约创建子代理
         const contractTaskId = await taskSystem.scheduleSubAgent({
           kind: 'subagent',
-          prompt: spawnPrompt,
+          prompt: augmentedPrompt,
           tools: ['exec', 'read', 'write', 'skill', 'status'],
           timeout: 600,
           maxSteps: 30,
@@ -154,8 +160,8 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
           return result;
         }
 
-        // 解析 contractId（clawforum contract create 的 stdout 格式）
-        const contractIdMatch = result.match(/Contract created:\s+(\S+)/i);
+        // 解析 contractId（契约创建子代理强制输出的格式）
+        const contractIdMatch = result.match(/CONTRACT_CREATED:\s+(\S+)/);
         const contractId = contractIdMatch?.[1];
         if (!contractId) return result;  // 未找到，透传
 
