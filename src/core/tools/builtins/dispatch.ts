@@ -310,7 +310,7 @@ prompt 里应说明：
 
           // 先试 messages 文件（可靠）
           try {
-            const msgsRaw = await ctx.fs.readFile(`tasks/results/${tid}.messages.json`);
+            const msgsRaw = await ctx.fs.read(`tasks/results/${tid}.messages.json`);
             const msgs: Array<{ role: string; content: unknown }> = JSON.parse(msgsRaw);
             for (const msg of msgs) {
               if (msg.role !== 'user') continue;
