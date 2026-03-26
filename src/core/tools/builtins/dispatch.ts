@@ -92,55 +92,90 @@ Return: which template was used (or "new"), what was done (or suggested), brief 
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
     }
 
-    // 注册 onTaskResult 钩子处理 SPAWN_REQUEST 块
+    // 注册 onTaskResult 钩子处理 SPAWN_REQUEST 块 和 契约创建子代理结果
     // 闭包捕获 ctx.fs / ctx.taskSystem（同一 motion claw，多次调用安全覆盖）
     taskSystem.onTaskResult = async (taskId, callerType, result, isError) => {
-      // 只处理 dispatcher 的成功结果
-      if (callerType !== 'dispatcher' || isError) return result;
+      // ========== Step C: 处理 Dispatcher 的 SPAWN_REQUEST ==========
+      if (callerType === 'dispatcher' && !isError) {
+        // 解析 SPAWN_REQUEST 块
+        const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*\n(\{[\s\S]*?\})\s*\n\[\/SPAWN_REQUEST\]/);
+        if (!blockMatch) return result;  // 无块，透传
 
-      // 解析 SPAWN_REQUEST 块
-      const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*\n(\{[\s\S]*?\})\s*\n\[\/SPAWN_REQUEST\]/);
-      if (!blockMatch) return result;  // 无块，透传
+        let parsed: { targetClaw?: string; prompt?: string };
+        try {
+          parsed = JSON.parse(blockMatch[1]);
+        } catch {
+          return result;  // JSON 解析失败，透传
+        }
+        const { targetClaw, prompt: spawnPrompt } = parsed;
+        if (!spawnPrompt) return result;
 
-      let parsed: { targetClaw?: string; prompt?: string };
-      try {
-        parsed = JSON.parse(blockMatch[1]);
-      } catch {
-        return result;  // JSON 解析失败，透传
+        // 调度契约创建子代理
+        const contractTaskId = await taskSystem.scheduleSubAgent({
+          kind: 'subagent',
+          prompt: spawnPrompt,
+          tools: ['exec', 'read', 'write', 'skill', 'status'],
+          timeout: 600,
+          maxSteps: 30,
+          parentClawId: ctx.clawId,
+          originClawId: ctx.originClawId ?? ctx.clawId,
+        });
+
+        // 记录待复盘信息（供 daemon-loop 后续追踪）
+        try {
+          await ctx.fs.ensureDir('clawspace/pending-retrospective');
+          await ctx.fs.writeAtomic(
+            `clawspace/pending-retrospective/${contractTaskId}.json`,
+            JSON.stringify({
+              contractTaskId,
+              dispatcherTaskId: taskId,
+              targetClaw: targetClaw ?? null,
+              createdAt: new Date().toISOString(),
+            }),
+          );
+        } catch {
+          // best-effort，失败不阻断流程
+        }
+
+        // 剥离 SPAWN_REQUEST 块，只保留人类可读摘要
+        const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
+        return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
       }
-      const { targetClaw, prompt: spawnPrompt } = parsed;
-      if (!spawnPrompt) return result;
 
-      // 调度契约创建子代理
-      const contractTaskId = await taskSystem.scheduleSubAgent({
-        kind: 'subagent',
-        prompt: spawnPrompt,
-        tools: ['exec', 'read', 'write', 'skill', 'status'],
-        timeout: 600,
-        maxSteps: 30,
-        parentClawId: ctx.clawId,
-        originClawId: ctx.originClawId ?? ctx.clawId,
-      });
+      // ========== Step D: 处理契约创建子代理结果，建立反向索引 ==========
+      if (callerType === 'subagent' && !isError) {
+        // 检查是否是已追踪的契约创建任务
+        let pendingEntry: { contractTaskId?: string; dispatcherTaskId?: string; targetClaw?: string | null } | null = null;
+        try {
+          const raw = await ctx.fs.read(`clawspace/pending-retrospective/${taskId}.json`);
+          pendingEntry = JSON.parse(raw);
+        } catch {
+          // 不是 pending-retrospective 任务，跳过
+          return result;
+        }
 
-      // 记录待复盘信息（供 daemon-loop 后续追踪）
-      try {
-        await ctx.fs.ensureDir('clawspace/pending-retrospective');
-        await ctx.fs.writeAtomic(
-          `clawspace/pending-retrospective/${contractTaskId}.json`,
-          JSON.stringify({
-            contractTaskId,
-            dispatcherTaskId: taskId,
-            targetClaw: targetClaw ?? null,
-            createdAt: new Date().toISOString(),
-          }),
-        );
-      } catch {
-        // best-effort，失败不阻断流程
+        // 解析 contractId（clawforum contract create 的 stdout 格式）
+        const contractIdMatch = result.match(/Contract created:\s+(\S+)/i);
+        const contractId = contractIdMatch?.[1];
+        if (!contractId) return result;  // 未找到，透传
+
+        // 写反向索引: contractId -> contractTaskId
+        try {
+          await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
+          await ctx.fs.writeAtomic(
+            `clawspace/pending-retrospective/by-contract/${contractId}.json`,
+            JSON.stringify({
+              contractId,
+              contractTaskId: taskId,
+              createdAt: new Date().toISOString(),
+            }),
+          );
+        } catch {
+          // best-effort
+        }
       }
 
-      // 剥离 SPAWN_REQUEST 块，只保留人类可读摘要
-      const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
-      return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
+      return result;
     };
 
     // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
