@@ -1180,27 +1180,40 @@ export class ContractManager {
   }
 
   /**
-   * Notify Motion of contract completion (best-effort)
+   * Notify Motion of contract completion (best-effort with retry)
    */
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
-    try {
-      const clawId = path.basename(this.clawDir);
-      const motionInbox = this.motionInboxDir;
+    const clawId = path.basename(this.clawDir);
+    const opts = {
+      inboxDir: this.motionInboxDir,
+      type: 'review_request' as const,
+      source: clawId,
+      priority: 'low' as const,
+      extraFields: { claw_id: clawId, contract_id: contractId },
+      body: `[system] Contract "${contractTitle}" (${contractId}) completed by ${clawId}.`,
+    };
 
-      writeInboxMessage({
-        inboxDir: motionInbox,
-        type: 'review_request',
-        source: clawId,
-        priority: 'low',
-        extraFields: { claw_id: clawId, contract_id: contractId },
-        body: `[system] Contract "${contractTitle}" (${contractId}) completed by ${clawId}.`,
-      });
+    try {
+      writeInboxMessage(opts);
     } catch (e) {
-      this.monitor?.log('error', {
-        context: 'ContractManager.notifyMotionCompletion',
-        contractId,
-        error: e instanceof Error ? e.message : String(e),
-      });
+      // 瞬时失败：500ms 后重试一次
+      setTimeout(() => {
+        try {
+          writeInboxMessage(opts);
+          this.monitor?.log('system', {
+            context: 'ContractManager.notifyMotionCompletion',
+            contractId,
+            note: 'retry succeeded',
+          });
+        } catch (e2) {
+          this.monitor?.log('error', {
+            context: 'ContractManager.notifyMotionCompletion',
+            contractId,
+            error: e2 instanceof Error ? e2.message : String(e2),
+            note: 'retry also failed, review_request not delivered',
+          });
+        }
+      }, 500);
     }
   }
 
