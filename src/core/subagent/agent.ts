@@ -267,6 +267,16 @@ Work efficiently and return a clear, concise result.`;
       // Write turn_end and close stream
       sw?.write({ type: 'turn_end' });
 
+      // 持久化 messages 供复盘子代理继承（best-effort，不影响主流程）
+      try {
+        await this.fs.writeAtomic(
+          `tasks/results/${this.agentId}.messages.json`,
+          JSON.stringify(messages),
+        );
+      } catch {
+        // 写入失败不终止任务
+      }
+
       // Extract final text result
       return result.finalText || '[No output produced]';
     } catch (error) {
