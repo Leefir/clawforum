@@ -162,7 +162,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const attachedClawBar = new Text('', 0, 0);
 
   const updateStatusBar = () => {
-    if (attachedClaws.size > 0) return;   // attach 期间不恢复 statusBar
     let line = '';
     if (isMotion) {
       const parts: string[] = [];
@@ -188,78 +187,68 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     updateDisplay();
   };
 
-  const buildClawLine = (id: string, st: ClawState, cols: number): string => {
-    // 活跃模式
-    if (st.active) {
-      const icon = st.toolSuccess === true ? '✓'
-                 : st.toolSuccess === false ? '✗'
-                 : '⚙';
-      if (st.currentTool) {
-        if (st.textBuffer) {
-          const isThinking = st.bufferType === 'thinking';
+  const buildClawLine = (id: string, t: ClawTrack, cols: number): string => {
+    if (t.active) {
+      const icon = t.toolSuccess === true ? '✓' : t.toolSuccess === false ? '✗' : '⚙';
+      if (t.currentTool) {
+        if (t.textBuffer) {
+          const isThinking = t.bufferType === 'thinking';
           const open = isThinking ? '(' : '"';
           const close = isThinking ? ')' : '"';
-          const prefix = `[${id}] ${icon} ${st.currentTool} · ${open}`;
-          const suffix = close;
-          const available = cols - prefix.length - suffix.length;
-          const text = sliceFromStart(st.textBuffer.trimStart().replace(/\n/g, ' '), available);
-          return `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
-        } else {
-          return `\x1b[38;5;147m[${id}] ${icon} ${st.currentTool}\x1b[0m`;
+          const prefix = `[${id}] ${icon} ${t.currentTool} · ${open}`;
+          const available = cols - prefix.length - 1;
+          const text = sliceFromStart(t.textBuffer.trimStart().replace(/\n/g, ' '), available);
+          return `\x1b[38;5;147m${prefix}${text}${close}\x1b[0m`;
         }
-      } else {
-        // 首轮 thinking，尚无工具名
-        const prefix = `[${id}] ⊙ (`;
-        const available = cols - prefix.length - 1;
-        const text = st.textBuffer
-          ? sliceFromStart(st.textBuffer.trimStart().replace(/\n/g, ' '), available)
-          : '';
-        return `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
+        return `\x1b[38;5;147m[${id}] ${icon} ${t.currentTool}\x1b[0m`;
       }
+      const prefix = `[${id}] ⊙ (`;
+      const available = cols - prefix.length - 1;
+      const text = t.textBuffer
+        ? sliceFromStart(t.textBuffer.trimStart().replace(/\n/g, ' '), available)
+        : '';
+      return `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
     }
-    // 不活跃模式：所有状态都显示 lastOutput（如果有）
+
+    // 不活跃
     let leftText: string;
     let leftColor: string;
-    if (!st.hasContract) {
+    if (!t.hasContract) {
       leftText = `[${id}] ○ no contract`;
       leftColor = '\x1b[38;5;245m';
-    } else if (st.lastError) {
-      const dur = st.referenceMs ? ` · inactive ${fmtDuration(Date.now() - st.referenceMs)}` : '';
-      leftText = `[${id}] ✗ ${st.lastError}${dur}`;
+    } else if (t.lastError) {
+      const dur = t.referenceMs ? ` · inactive ${fmtDuration(Date.now() - t.referenceMs)}` : '';
+      leftText = `[${id}] ✗ ${t.lastError}${dur}`;
       leftColor = '\x1b[38;5;214m';
-    } else if (st.lastInterrupted) {
-      const dur = st.referenceMs ? ` · inactive ${fmtDuration(Date.now() - st.referenceMs)}` : '';
+    } else if (t.lastInterrupted) {
+      const dur = t.referenceMs ? ` · inactive ${fmtDuration(Date.now() - t.referenceMs)}` : '';
       leftText = `[${id}] ✗ interrupted${dur}`;
       leftColor = '\x1b[38;5;214m';
     } else {
-      const dur = st.referenceMs ? `inactive ${fmtDuration(Date.now() - st.referenceMs)}` : null;
+      const dur = t.referenceMs ? `inactive ${fmtDuration(Date.now() - t.referenceMs)}` : '';
       leftText = dur ? `[${id}] ○ ${dur}` : `[${id}] ○`;
       leftColor = '\x1b[38;5;245m';
     }
-    // 追加 lastOutput（如果有）
-    if (st.lastOutput) {
+
+    if (t.lastOutput) {
       const prefix = `${leftText} · "`;
       const available = cols - prefix.length - 1;
-      const snippet = sliceFromStart(st.lastOutput.trimStart().replace(/\n/g, ' '), available);
+      const snippet = sliceFromStart(t.lastOutput.trimStart().replace(/\n/g, ' '), available);
       return `${leftColor}${prefix}${snippet}"\x1b[0m`;
-    } else {
-      return `${leftColor}${leftText}\x1b[0m`;
     }
+    return `${leftColor}${leftText}\x1b[0m`;
   };
 
   const updateClawPanel = () => {
-    if (attachedClaws.size === 0) {
+    if (clawTrackMap.size === 0) {
       attachedClawBar.setText('');
       return;
     }
-
     const cols = process.stdout.columns ?? 80;
     const lines: string[] = [];
-
-    for (const [id, st] of attachedClaws) {
-      lines.push(buildClawLine(id, st, cols));
+    for (const [id, t] of clawTrackMap) {
+      lines.push(buildClawLine(id, t, cols));
     }
-
     attachedClawBar.setText(lines.join('\n'));
   };
 
