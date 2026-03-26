@@ -169,7 +169,10 @@ export async function daemonCommand(name: string): Promise<void> {
           let messages: Message[];
           try {
             messages = JSON.parse(await fsAsync.readFile(messagesPath, 'utf-8'));
-          } catch { continue; }
+          } catch (e) {
+            console.warn('[daemon] Failed to load messages.json for retrospective:', contractTaskId, e instanceof Error ? e.message : String(e));
+            continue;
+          }
 
           // 加载当前 dispatch-skills 列表（best-effort）
           let skillsSummary = '';
@@ -181,7 +184,9 @@ export async function daemonCommand(name: string): Promise<void> {
             if (!formatted.includes('No skills loaded')) {
               skillsSummary = formatted;
             }
-          } catch { /* 加载失败不影响复盘启动 */ }
+          } catch (e) {
+            console.warn('[daemon] Failed to load dispatch-skills for retro prompt:', e instanceof Error ? e.message : String(e));
+          }
 
           // 构建复盘 prompt
           const retroPrompt = `上面是本次契约创建的完整过程。契约已完成，请进行复盘：
@@ -206,11 +211,15 @@ ${skillsSummary ? `当前 dispatch-skills 供参考：\n${skillsSummary}` : '当
           }).catch(e => console.warn('[daemon] retrospective schedule failed:', e));
 
           // 清理 pending-retrospective 文件（best-effort）
-          await fsAsync.unlink(byContractPath).catch(() => {});
+          await fsAsync.unlink(byContractPath).catch(e =>
+            console.warn('[daemon] Failed to clean by-contract file:', e instanceof Error ? e.message : String(e))
+          );
           const pendingPath = path.join(
             dir, 'clawspace', 'pending-retrospective', `${contractTaskId}.json`,
           );
-          await fsAsync.unlink(pendingPath).catch(() => {});
+          await fsAsync.unlink(pendingPath).catch(e =>
+            console.warn('[daemon] Failed to clean pending-retrospective file:', e instanceof Error ? e.message : String(e))
+          );
         }
       }
     : undefined;

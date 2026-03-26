@@ -276,8 +276,12 @@ Work efficiently and return a clear, concise result.`;
           `tasks/results/${this.agentId}.messages.json`,
           JSON.stringify(messages),
         );
-      } catch {
-        // 写入失败不终止任务
+      } catch (e) {
+        this.monitor?.log('error', {
+          context: 'SubAgent.persistMessages',
+          agentId: this.agentId,
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
 
       // Extract final text result
