@@ -27,6 +27,7 @@ import {
   stopCommand as motionStopCommand,
 } from './commands/motion.js';
 import { contractCreateCommand, contractCreateFromGoalCommand } from './commands/contract.js';
+import { skillInstallUserCommand, skillInstallClawCommand } from './commands/skill.js';
 import {
   startCommand as watchdogStartCommand,
   stopCommand as watchdogStopCommand,
@@ -360,6 +361,42 @@ contractCmd.on('command:*', (ops) => {
   for (const c of contractCmd.commands) {
     console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
   }
+  process.exit(1);
+});
+
+// skill command group
+const skillCmd = program
+  .command('skill')
+  .description('Manage skills');
+
+skillCmd
+  .command('install [source]')
+  .description('Install a skill from local path, or install dispatch-skill to a claw (--claw)')
+  .option('--claw <id>', 'Target claw ID (internal mode: install from dispatch-skills to claw)')
+  .option('--skill <name>', 'Skill name (required with --claw)')
+  .action(async (source: string | undefined, opts: { claw?: string; skill?: string }) => {
+    try {
+      if (opts.claw) {
+        if (!opts.skill) {
+          console.error('Error: --skill <name> is required with --claw');
+          process.exit(1);
+        }
+        await skillInstallClawCommand(opts.claw, opts.skill);
+      } else {
+        if (!source) {
+          console.error('Error: source path is required');
+          process.exit(1);
+        }
+        await skillInstallUserCommand(source);
+      }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+skillCmd.on('command:*', (ops) => {
+  console.error(`error: unknown command '${ops[0]}'\n`);
   process.exit(1);
 });
 
