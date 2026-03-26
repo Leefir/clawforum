@@ -86,9 +86,28 @@ export const spawnTool: ITool = {
     }
 
     const prompt = String(args.prompt);
-    const messages = Array.isArray(args.messages)
-      ? (args.messages as Message[])
-      : undefined;
+    const messages = (() => {
+      if (!Array.isArray(args.messages)) return undefined;
+      for (const m of args.messages) {
+        if (
+          m === null ||
+          typeof m !== 'object' ||
+          typeof (m as Record<string, unknown>).role !== 'string' ||
+          (m as Record<string, unknown>).content === undefined
+        ) {
+          return null;  // sentinel: 校验失败
+        }
+      }
+      return args.messages as Message[];
+    })();
+
+    if (messages === null) {
+      return {
+        success: false,
+        content: 'Invalid messages parameter: each element must be an object with string role and content.',
+        error: 'Invalid messages',
+      };
+    }
 
     const tools = Array.isArray(args.tools) ? (args.tools as string[]) : SUBAGENT_TOOLS;
     const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
