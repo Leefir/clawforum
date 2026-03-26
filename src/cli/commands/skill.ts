@@ -46,14 +46,16 @@ export async function skillInstallUserCommand(sourcePath: string): Promise<void>
 
   // 1. Copy to root level skills/{skillName}/
   const destUser = path.join(root, 'skills', skillName);
+  const userExists = fsNative.existsSync(destUser);
   await copyDir(absSource, destUser);
-  console.log(`Installed to skills/${skillName}`);
+  console.log(`${userExists ? 'Updated' : 'Installed'} skills/${skillName}`);
 
   // 2. Sync to motion/clawspace/dispatch-skills/{skillName}/
   const motionDir = path.join(root, '.clawforum', 'motion');
   const destDispatch = path.join(motionDir, 'clawspace', 'dispatch-skills', skillName);
+  const dispatchExists = fsNative.existsSync(destDispatch);
   await copyDir(absSource, destDispatch);
-  console.log(`Synced to dispatch-skills/${skillName}`);
+  console.log(`${dispatchExists ? 'Updated' : 'Synced'} dispatch-skills/${skillName}`);
 }
 
 /**
