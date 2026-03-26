@@ -66,6 +66,38 @@ function sliceFromStart(s: string, maxCols: number): string {
   return s.slice(0, i);
 }
 
+interface ClawState {
+  active: boolean;
+  currentTool: string | null;
+  textBuffer: string;
+  lastInterrupted: boolean;
+  toolSuccess: boolean | null;
+  bufferType: 'thinking' | 'text' | null;
+  lastOutput: string;
+  referenceMs: number | null;
+  hasContract: boolean;
+  lastError: string | null;
+  clearOnNextDelta: boolean;
+  pollTick: number;
+}
+
+function makeClawState(): ClawState {
+  return {
+    active: false,
+    currentTool: null,
+    textBuffer: '',
+    lastInterrupted: false,
+    toolSuccess: null,
+    bufferType: null,
+    lastOutput: '',
+    referenceMs: null,
+    hasContract: false,
+    lastError: null,
+    clearOnNextDelta: false,
+    pollTick: 0,
+  };
+}
+
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
   // 确保 daemon 运行
   if (options.ensureDaemon) {
@@ -158,32 +190,33 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const updateAttachedClawBar = () => {
     if (!attachedClawId) { attachedClawBar.setText(''); return; }
     const id = attachedClawId;
+    const st = attachedClaws.get(id)!;
     // 活跃模式
-    if (attachActive) {
+    if (st.active) {
       const cols = process.stdout.columns ?? 80;
       let line: string;
-      const icon = attachToolSuccess === true ? '✓'
-                 : attachToolSuccess === false ? '✗'
+      const icon = st.toolSuccess === true ? '✓'
+                 : st.toolSuccess === false ? '✗'
                  : '⚙';
-      if (attachCurrentTool) {
-        if (attachTextBuffer) {
-          const isThinking = attachBufferType === 'thinking';
+      if (st.currentTool) {
+        if (st.textBuffer) {
+          const isThinking = st.bufferType === 'thinking';
           const open = isThinking ? '(' : '"';
           const close = isThinking ? ')' : '"';
-          const prefix = `[${id}] ${icon} ${attachCurrentTool} · ${open}`;
+          const prefix = `[${id}] ${icon} ${st.currentTool} · ${open}`;
           const suffix = close;
           const available = cols - prefix.length - suffix.length;
-          const text = sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available);
+          const text = sliceFromStart(st.textBuffer.replace(/\n/g, ' '), available);
           line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
         } else {
-          line = `\x1b[38;5;147m[${id}] ${icon} ${attachCurrentTool}\x1b[0m`;
+          line = `\x1b[38;5;147m[${id}] ${icon} ${st.currentTool}\x1b[0m`;
         }
       } else {
         // 首轮 thinking，尚无工具名
         const prefix = `[${id}] ⊙ (`;
         const available = cols - prefix.length - 1;
-        const text = attachTextBuffer
-          ? sliceFromStart(attachTextBuffer.replace(/\n/g, ' '), available)
+        const text = st.textBuffer
+          ? sliceFromStart(st.textBuffer.replace(/\n/g, ' '), available)
           : '';
         line = `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
       }
@@ -194,27 +227,27 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     let line: string;
     let leftText: string;
     let leftColor: string;
-    if (!attachHasContract) {
+    if (!st.hasContract) {
       leftText = `[${id}] ○ no contract`;
       leftColor = '\x1b[38;5;245m';
-    } else if (attachLastError) {
-      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
-      leftText = `[${id}] ✗ ${attachLastError}${dur}`;
+    } else if (st.lastError) {
+      const dur = st.referenceMs ? ` · inactive ${fmtDuration(Date.now() - st.referenceMs)}` : '';
+      leftText = `[${id}] ✗ ${st.lastError}${dur}`;
       leftColor = '\x1b[38;5;214m';
-    } else if (attachLastInterrupted) {
-      const dur = attachReferenceMs ? ` · inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : '';
+    } else if (st.lastInterrupted) {
+      const dur = st.referenceMs ? ` · inactive ${fmtDuration(Date.now() - st.referenceMs)}` : '';
       leftText = `[${id}] ✗ interrupted${dur}`;
       leftColor = '\x1b[38;5;214m';
     } else {
-      const dur = attachReferenceMs ? `inactive ${fmtDuration(Date.now() - attachReferenceMs)}` : 'waiting';
+      const dur = st.referenceMs ? `inactive ${fmtDuration(Date.now() - st.referenceMs)}` : 'waiting';
       leftText = `[${id}] ○ ${dur}`;
       leftColor = '\x1b[38;5;245m';
     }
     // 追加 lastOutput（如果有）
-    if (attachLastOutput) {
+    if (st.lastOutput) {
       const prefix = `${leftText} · "`;
       const available = (process.stdout.columns ?? 80) - prefix.length - 1;
-      const snippet = sliceFromStart(attachLastOutput.replace(/\n/g, ' '), available);
+      const snippet = sliceFromStart(st.lastOutput.replace(/\n/g, ' '), available);
       line = `${leftColor}${prefix}${snippet}"\x1b[0m`;
     } else {
       line = `${leftColor}${leftText}\x1b[0m`;
@@ -429,18 +462,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
   let attachedClawId: string | null = null;
-  let attachReferenceMs: number | null = null;
-  let attachHasContract = false;
-  let attachLastError: string | null = null;
-  let attachPollTick = 0;
-  let attachActive = false;
-  let attachCurrentTool: string | null = null;
-  let attachTextBuffer = '';
-  let attachLastInterrupted = false;
-  let attachToolSuccess: boolean | null = null;  // null=调用中, true=✓, false=✗
-  let attachBufferType: 'thinking' | 'text' | null = null;
-  let attachLastOutput = '';  // 上一个 turn 的最后文字输出，不活跃时显示
-  let attachClearOnNextDelta = false;  // tool_call 后下一个 delta 到来时清空 buffer
+  const attachedClaws = new Map<string, ClawState>();
 
   interface ClawTrack {
     fileSize: number;
@@ -601,52 +623,52 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
               // attach 专用解析（仅对 attachedClawId）
               if (attachedClawId && clawId === attachedClawId) {
+                const st = attachedClaws.get(attachedClawId)!;
                 if (LLM_OUTPUT_EVENTS.has(ev.type)) {
-                  if (attachActive === false) attachLastOutput = '';  // 新 turn 开始，清除上次输出
-                  attachActive = true;
+                  if (st.active === false) st.lastOutput = '';  // 新 turn 开始，清除上次输出
+                  st.active = true;
                   if (ev.type === 'thinking_delta') {
-                    if (attachClearOnNextDelta) {
-                      attachTextBuffer = '';
-                      attachBufferType = null;
-                      attachClearOnNextDelta = false;
+                    if (st.clearOnNextDelta) {
+                      st.textBuffer = '';
+                      st.bufferType = null;
+                      st.clearOnNextDelta = false;
                     }
-                    attachTextBuffer += (ev.delta as string) ?? '';
-                    attachBufferType = 'thinking';
+                    st.textBuffer += (ev.delta as string) ?? '';
+                    st.bufferType = 'thinking';
                   } else if (ev.type === 'tool_call') {
-                    attachCurrentTool = (ev.name as string) ?? null;
-                    attachToolSuccess = null;
-                    attachClearOnNextDelta = true;
-                    // attachTextBuffer 和 attachBufferType 保留，工具执行期间继续显示上一段思考
+                    st.currentTool = (ev.name as string) ?? null;
+                    st.toolSuccess = null;
+                    st.clearOnNextDelta = true;
+                    // st.textBuffer 和 st.bufferType 保留，工具执行期间继续显示上一段思考
                   } else if (ev.type === 'text_delta') {
-                    if (attachBufferType !== 'text') {
-                      attachTextBuffer = '';
-                      attachClearOnNextDelta = false;
+                    if (st.bufferType !== 'text') {
+                      st.textBuffer = '';
+                      st.clearOnNextDelta = false;
                     }
-                    attachTextBuffer += (ev.delta as string) ?? '';
+                    st.textBuffer += (ev.delta as string) ?? '';
                   }
                 } else if (ev.type === 'tool_result') {
-                  attachToolSuccess = (ev.success as boolean) ?? null;
+                  st.toolSuccess = (ev.success as boolean) ?? null;
                 } else if (ev.type === 'turn_start') {
-                  attachLastOutput = '';
-                  attachLastInterrupted = false;
+                  st.lastOutput = '';
+                  st.lastInterrupted = false;
                 } else if (ev.type === 'turn_end') {
-                  attachActive = false; attachLastInterrupted = false;
-                  // 保存最后的文字输出（仅 text_delta，不保存 thinking）
-                  if (attachTextBuffer) attachLastOutput = attachTextBuffer;  // 保存任意类型（thinking 或 text）
-                  attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachClearOnNextDelta = false;
-                  attachReferenceMs = Date.now();
+                  st.active = false; st.lastInterrupted = false;
+                  if (st.textBuffer) st.lastOutput = st.textBuffer;
+                  st.currentTool = null; st.textBuffer = '';
+                  st.toolSuccess = null; st.bufferType = null; st.clearOnNextDelta = false;
+                  st.referenceMs = Date.now();
                 } else if (ev.type === 'turn_error') {
-                  attachActive = false; attachLastInterrupted = false;
-                  attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
-                  attachLastError = (ev.error as string) ?? 'error';
-                  attachReferenceMs = Date.now();
+                  st.active = false; st.lastInterrupted = false;
+                  st.currentTool = null; st.textBuffer = '';
+                  st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
+                  st.lastError = (ev.error as string) ?? 'error';
+                  st.referenceMs = Date.now();
                 } else if (ev.type === 'turn_interrupted') {
-                  attachActive = false; attachLastInterrupted = true;
-                  attachCurrentTool = null; attachTextBuffer = '';
-                  attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
-                  attachReferenceMs = Date.now();
+                  st.active = false; st.lastInterrupted = true;
+                  st.currentTool = null; st.textBuffer = '';
+                  st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
+                  st.referenceMs = Date.now();
                 }
                 updateAttachedClawBar();
                 tui.requestRender();
@@ -759,16 +781,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
     // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
     if (attachedClawId) {
-      attachPollTick++;
-      if (attachPollTick >= 5) {
-        attachPollTick = 0;
+      const st = attachedClaws.get(attachedClawId)!;
+      st.pollTick++;
+      if (st.pollTick >= 5) {
+        st.pollTick = 0;
         // 重检契约状态（契约可能在 attach 之后才创建）
         const contractCreatedMs = getContractCreatedMs(path.join(clawsDir, attachedClawId));
-        attachHasContract = contractCreatedMs !== null;
-        if (attachHasContract && attachReferenceMs === null) {
+        st.hasContract = contractCreatedMs !== null;
+        if (st.hasContract && st.referenceMs === null) {
           const info = getClawActivityInfo(path.join(clawsDir, attachedClawId));
-          attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
-          attachLastError = info.lastError;
+          st.referenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
+          st.lastError = info.lastError;
         }
         updateAttachedClawBar();
         tui.requestRender();
@@ -845,23 +868,30 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
           } else {
             attachedClawId = clawId;
-            // 重置状态
-            attachReferenceMs = null;
-            attachHasContract = false;
-            attachLastError = null;
-            attachActive = false;
-            attachCurrentTool = null;
-            attachTextBuffer = '';
-            attachLastInterrupted = false;
-            attachToolSuccess = null; attachBufferType = null; attachLastOutput = ''; attachClearOnNextDelta = false;
+            // 创建或重置状态
+            let st = attachedClaws.get(clawId);
+            if (!st) {
+              st = makeClawState();
+              attachedClaws.set(clawId, st);
+            } else {
+              // 重置现有状态
+              st.referenceMs = null;
+              st.hasContract = false;
+              st.lastError = null;
+              st.active = false;
+              st.currentTool = null;
+              st.textBuffer = '';
+              st.lastInterrupted = false;
+              st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
+            }
             // 读磁盘初始化
             const clawDir = path.join(clawsDir, clawId);
             const contractCreatedMs = getContractCreatedMs(clawDir);
-            attachHasContract = contractCreatedMs !== null;
-            if (attachHasContract) {
+            st.hasContract = contractCreatedMs !== null;
+            if (st.hasContract) {
               const info = getClawActivityInfo(clawDir);
-              attachLastError = info.lastError;
-              attachReferenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
+              st.lastError = info.lastError;
+              st.referenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
             }
             // 切换显示
             statusBar.setText('');
