@@ -115,7 +115,13 @@ dispatcher 不能：
         let parsed: { targetClaw?: string; prompt?: string };
         try {
           parsed = JSON.parse(blockMatch[1]);
-        } catch {
+        } catch (e) {
+          ctx.monitor?.log('warn', {
+            context: 'dispatch.parseSpawnRequest',
+            taskId,
+            error: e instanceof Error ? e.message : String(e),
+            raw: blockMatch[1].slice(0, 200),
+          });
           return result;
         }
         const { targetClaw, prompt: spawnPrompt } = parsed;
@@ -142,7 +148,13 @@ CONTRACT_CREATED: <contractId>`;
             `clawspace/pending-retrospective/${contractTaskId}.json`,
             JSON.stringify({ contractTaskId, dispatcherTaskId: taskId, targetClaw: targetClaw ?? null, createdAt: new Date().toISOString() }),
           );
-        } catch { /* best-effort */ }
+        } catch (e) {
+          ctx.monitor?.log('warn', {
+            context: 'dispatch.writePendingRetrospective',
+            contractTaskId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
 
         const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
         return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
@@ -169,7 +181,14 @@ CONTRACT_CREATED: <contractId>`;
             `clawspace/pending-retrospective/by-contract/${contractId}.json`,
             JSON.stringify({ contractId, contractTaskId: taskId, createdAt: new Date().toISOString() }),
           );
-        } catch { /* best-effort */ }
+        } catch (e) {
+          ctx.monitor?.log('warn', {
+            context: 'dispatch.writeByContract',
+            taskId,
+            contractId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
 
       return result;
