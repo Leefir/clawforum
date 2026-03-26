@@ -18,6 +18,8 @@ import type { Message } from '../../types/message.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { SkillRegistry } from '../../core/skill/registry.js';
 
 
 
@@ -169,12 +171,33 @@ export async function daemonCommand(name: string): Promise<void> {
             messages = JSON.parse(await fsAsync.readFile(messagesPath, 'utf-8'));
           } catch { continue; }
 
-          // 调度复盘子代理（Step I 定义追加 prompt 内容）
+          // 加载当前 dispatch-skills 列表（best-effort）
+          let skillsSummary = '';
+          try {
+            const motionFs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
+            const reg = new SkillRegistry(motionFs, 'clawspace/dispatch-skills');
+            await reg.loadAll();
+            const formatted = reg.formatForContext();
+            if (!formatted.includes('No skills loaded')) {
+              skillsSummary = formatted;
+            }
+          } catch { /* 加载失败不影响复盘启动 */ }
+
+          // 构建复盘 prompt
+          const retroPrompt = `上面是本次契约创建的完整过程。契约已完成，请进行复盘：
+
+1. **分析过程**：契约设计是否合理？subtask 拆分是否清晰？有无可改进之处？
+2. **更新技能库**（如有改进）：将更好的做法写入 \`clawspace/dispatch-skills/\` 对应的 SKILL.md（无对应技能则新建子目录）
+3. **汇报摘要**：以 2-5 行的精简格式总结本次复盘结论，供 motion 了解情况
+
+${skillsSummary ? `当前 dispatch-skills 供参考：\n${skillsSummary}` : '当前无可用的 dispatch-skills，如有可复用模板请新建。'}`.trim();
+
+          // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
           await taskSystem.scheduleSubAgent({
             kind: 'subagent',
-            messages,
-            prompt: '请对本次契约创建过程进行复盘。',  // Step I 替换为正式内容
+            messages,               // 契约创建子代理完整 messages（含创建过程）
+            prompt: retroPrompt,    // 追加为新 user message（Step B 的 agent.ts 逻辑）
             tools: ['read', 'write', 'skill', 'exec'],
             timeout: 600,
             maxSteps: 30,
