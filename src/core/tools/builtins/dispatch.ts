@@ -80,6 +80,14 @@ clawforum contract create --claw <clawId> --dir clawspace/contract-draft
 输出格式：\`Contract created: <contractId> for claw <clawId>\`
 → 从中提取 contractId。
 
+CLI 负责将 acceptance/ 文件复制到正确位置。**命令输出 \`Contract created: ...\` 即代表全部完成，无需进一步验证。**
+
+在最终回复末尾写：
+
+CONTRACT_CREATED: <contractId>
+
+然后结束。不要等待验收结果，不要检查契约目录内容。
+
 ## 其他 CLI 命令
 
 \`\`\`
