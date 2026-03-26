@@ -72,6 +72,9 @@ export const EXEC_DEFAULT_TIMEOUT_MS = 30000;
 // Subagent System
 // ----------------------------------------------------------------------------
 
+/** Default ReAct 步数上限（motion / claw / subagent 共用） */
+export const DEFAULT_MAX_STEPS = 100;
+
 /** Default timeout for subagent tasks (ms) - 5 minutes */
 export const SUBAGENT_TIMEOUT_MS = 300000;
 

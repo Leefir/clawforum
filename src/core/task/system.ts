@@ -454,7 +454,16 @@ export class TaskSystem {
       // Send success result to parent inbox (with onTaskResult handlers)
       let inboxResult = result;
       for (const handler of [...this._taskResultHandlers]) {
-        inboxResult = await handler(task.id, task.callerType, inboxResult, false);
+        try {
+          inboxResult = await handler(task.id, task.callerType, inboxResult, false);
+        } catch (handlerErr) {
+          this.monitor.log('error', {
+            context: 'taskResultHandler_threw',
+            taskId: task.id,
+            error: handlerErr instanceof Error ? handlerErr.message : String(handlerErr),
+          });
+          // inboxResult 保持上一个 handler 的输出，继续后续 handler
+        }
       }
       await this.sendResult(task, inboxResult, false);
 
@@ -466,10 +475,20 @@ export class TaskSystem {
     } catch (error) {
       taskFailed = true;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      
+
+      // error path 也必须走 handler 循环，确保 removeHandler 等清理逻辑被触发
+      let inboxResult = errorMsg;
+      for (const handler of [...this._taskResultHandlers]) {
+        try {
+          inboxResult = await handler(task.id, task.callerType, inboxResult, true);
+        } catch {
+          // handler 本身抛异常不影响清理链，继续执行后续 handler
+        }
+      }
+
       // Send error result to parent inbox
       try {
-        await this.sendResult(task, errorMsg, true);
+        await this.sendResult(task, inboxResult, true);
       } catch (sendErr) {
         // sendResult 本身失败：降级写最小通知，确保 parent 不被永远挂起
         await this.sendFallbackError(task, errorMsg).catch((e) => {

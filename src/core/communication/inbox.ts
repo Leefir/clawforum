@@ -199,9 +199,8 @@ export class InboxWatcher {
         timestamp: new Date(message.timestamp).getTime() || Date.now(),
       };
 
-      // Add to queue and sort
+      // Add to queue (sorting deferred to processQueue for batch efficiency)
       this.queue.push(queued);
-      this.sortQueue();
 
       // Trigger processing
       this.processQueue().catch(err => {
@@ -231,6 +230,11 @@ export class InboxWatcher {
   private async processQueue(): Promise<void> {
     if (this.processing || this.stopped || !this.onMessage) {
       return;
+    }
+
+    // Sort once before processing all current items (batch optimization)
+    if (this.queue.length > 0) {
+      this.sortQueue();
     }
 
     this.processing = true;

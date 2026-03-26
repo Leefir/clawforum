@@ -10,6 +10,7 @@ import chokidar from 'chokidar';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
+import { sliceFromStart, oneLine } from '../utils/string.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -36,34 +37,6 @@ function fmtDuration(ms: number): string {
   return `${m}m`;
 }
 
-function sliceToWidth(s: string, maxCols: number): string {
-  let w = 0;
-  let i = s.length;
-  while (i > 0) {
-    const cp = s.codePointAt(i - 1) ?? 0;
-    const charLen = cp > 0xFFFF ? 2 : 1;
-    const start = i - charLen;
-    const cw = stringWidth(s.slice(start, i));
-    if (w + cw > maxCols) break;
-    w += cw;
-    i = start;
-  }
-  return s.slice(i);
-}
-
-function sliceFromStart(s: string, maxCols: number): string {
-  let w = 0;
-  let i = 0;
-  while (i < s.length) {
-    const cp = s.codePointAt(i) ?? 0;
-    const charLen = cp > 0xFFFF ? 2 : 1;
-    const cw = stringWidth(s.slice(i, i + charLen));
-    if (w + cw > maxCols) break;
-    w += cw;
-    i += charLen;
-  }
-  return s.slice(0, i);
-}
 
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
   // 确保 daemon 运行
@@ -262,7 +235,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           // 显示所有非 user_chat 的来源（系统消息、inbox 消息等）
           const sysParts = srcs.filter(s => s.type !== 'user_chat').map(s => s.text);
           if (sysParts.length > 0) {
-            appendOutput(`\x1b[33m> ${sysParts.join(' | ').slice(0, 120)}\x1b[0m`);
+            appendOutput(`\x1b[33m> ${oneLine(sysParts.join(' | '), 4)}\x1b[0m`);
           }
         }
         break;
@@ -313,7 +286,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
-        appendOutput(`\x1b[2m  ${icon} [${step}/${maxSteps}] ${event.summary}\x1b[0m`);
+        appendOutput(`\x1b[2m  ${icon} [${step}/${maxSteps}] ${oneLine(event.summary as string, 14)}\x1b[0m`);
         streamingSuffix = '';
         updateDisplay();
         break;
@@ -370,7 +343,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})\x1b[0m`);
+          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${oneLine(fb, 20)} (${claw})\x1b[0m`);
         } else if (sub === 'llm_error') {
           // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
@@ -727,7 +700,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_result': {
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
-        appendOutput(`\x1b[2m  ${icon} [${event.step}/${event.maxSteps}] ${event.summary}\x1b[0m`);
+        appendOutput(`\x1b[2m  ${icon} [${event.step}/${event.maxSteps}] ${oneLine(event.summary as string, 14)}\x1b[0m`);
         streamingSuffix = '';
         updateDisplay();
         break;

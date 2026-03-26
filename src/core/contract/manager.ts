@@ -314,6 +314,11 @@ export class ContractManager {
   async create(contractYaml: ContractYaml): Promise<string> {
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
 
+    // Validate subtasks: must have at least one subtask
+    if (!contractYaml.subtasks || contractYaml.subtasks.length === 0) {
+      throw new Error('Contract must have at least one subtask');
+    }
+
     // Validate acceptance config: type/field binding must match
     for (const a of contractYaml.acceptance ?? []) {
       if (a.type === 'script' && !('script_file' in a)) {
@@ -672,14 +677,13 @@ export class ContractManager {
         // Reset to todo for retry
         subtask.status = 'todo';
         
-        const firstLine = result.feedback.split('\n')[0].slice(0, 80);
         try {
-          this.onNotify?.('acceptance_failed', { contractId, subtaskId, feedback: firstLine });
+          this.onNotify?.('acceptance_failed', { contractId, subtaskId, feedback: result.feedback });
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
         const clawId = path.basename(this.clawDir);
-        this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: firstLine, clawId });
+        this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: result.feedback, clawId });
         
         await this.saveProgress(contractId, progress);
         
@@ -1093,7 +1097,7 @@ export class ContractManager {
       const stderr = err?.stderr ?? err?.message ?? String(err);
       const isTimeout = err?.killed === true;
       const prefix = isTimeout ? '验收脚本超时' : '验收失败';
-      return { passed: false, feedback: `${prefix}:\n${stderr}` };
+      return { passed: false, feedback: `${prefix}: ${stderr.split('\n').find((l: string) => l.trim()) ?? stderr.trim()}` };
     }
   }
 
@@ -1170,7 +1174,7 @@ export class ContractManager {
       // Fallback: text-based JSON parsing (backward compat with old prompt files)
       const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON\n${text.slice(0, 500)}` };
+        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON — ${text.slice(0, 60)}` };
       }
 
       const jsonStr = jsonMatch[1] || jsonMatch[0];

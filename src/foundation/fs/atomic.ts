@@ -179,17 +179,17 @@ export async function cleanupOrphanedTemp(dirPath: string): Promise<string[]> {
   const cleaned: string[] = [];
   
   try {
-    const entries = await fs.readdir(dirPath);
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
     
     for (const entry of entries) {
-      if (entry.startsWith('.tmp_')) {
-        const fullPath = path.join(dirPath, entry);
-        try {
-          await fs.unlink(fullPath);
-          cleaned.push(fullPath);
-        } catch {
-          // Ignore cleanup errors
-        }
+      if (!entry.name.startsWith('.tmp_')) continue;
+      if (!entry.isFile()) continue;          // Skip directories and symbolic links
+      const fullPath = path.join(dirPath, entry.name);
+      try {
+        await fs.unlink(fullPath);
+        cleaned.push(fullPath);
+      } catch {
+        // Ignore cleanup errors
       }
     }
   } catch {

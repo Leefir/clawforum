@@ -40,7 +40,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { MaxStepsExceededError } from '../types/errors.js';
-import { SESSION_CONTEXT_MAX_TOKENS, MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../constants.js';
+import { SESSION_CONTEXT_MAX_TOKENS, MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../constants.js';
 
 /**
  * ClawRuntime constructor options
@@ -114,7 +114,7 @@ export class ClawRuntime {
 
   constructor(options: ClawRuntimeOptions) {
     this.options = {
-      maxSteps: 100,
+      maxSteps: DEFAULT_MAX_STEPS,
       toolProfile: 'full',
       toolTimeoutMs: 60000,
       maxConcurrentTasks: 3,

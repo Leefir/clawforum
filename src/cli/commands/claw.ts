@@ -57,7 +57,7 @@ import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { LocalTransport } from '../../foundation/transport/local.js';
 import { randomUUID } from 'crypto';
-import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
+import { PROCESS_SPAWN_CONFIRM_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 
 export async function createCommand(name: string): Promise<void> {
   // Load global config (ensures initialized)
@@ -79,7 +79,7 @@ export async function createCommand(name: string): Promise<void> {
   // Create claw config (inherits from global)
   const config = {
     name,
-    max_steps: 100,
+    max_steps: DEFAULT_MAX_STEPS,
     tool_profile: 'full' as const,
     max_concurrent_tasks: 3,
   };

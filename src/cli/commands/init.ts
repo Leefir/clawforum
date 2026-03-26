@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized } from '../config.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
+import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
 export async function initCommand(silent = false): Promise<void> {
   // Check if already initialized
@@ -118,7 +119,7 @@ export async function initCommand(silent = false): Promise<void> {
       },
       motion: {
         heartbeat_interval_ms: 0,
-        max_steps: 100,
+        max_steps: DEFAULT_MAX_STEPS,
         max_concurrent_tasks: 3,
         llm_idle_timeout_ms: 120000,
       },

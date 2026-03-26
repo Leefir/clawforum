@@ -7,7 +7,7 @@
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
-import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../constants.js';
+import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import type { Message } from '../../../types/message.js';
 
 // Default tools available to subagents
@@ -113,7 +113,7 @@ export const spawnTool: ITool = {
     const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
     const maxSteps = typeof args.maxSteps === 'number' 
       ? args.maxSteps 
-      : (ctx.subagentMaxSteps ?? ctx.maxSteps ?? 100);
+      : (ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS);
     const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
       ? args.idleTimeoutMs
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;

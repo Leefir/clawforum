@@ -79,6 +79,11 @@ export class SkillRegistry {
       skillDir,
     };
 
+    // Duplicate check: preserve first registration, skip later ones
+    if (this.metaMap.has(meta.name)) {
+      console.warn(`[skill] Duplicate skill "${meta.name}" skipped: ${skillDir} (existing: ${this.metaMap.get(meta.name)!.skillDir})`);
+      return this.metaMap.get(meta.name)!;
+    }
     this.metaMap.set(meta.name, meta);
     return meta;
   }

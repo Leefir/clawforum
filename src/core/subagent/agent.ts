@@ -12,7 +12,8 @@ import type { IMonitor } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
-import { SUBAGENT_TIMEOUT_MS } from '../../constants.js';
+import { SUBAGENT_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
+import { oneLine } from '../../cli/utils/string.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
@@ -76,7 +77,7 @@ export class SubAgent {
     this.registry = options.registry;
     this.fs = options.fs;
     this.monitor = options.monitor;
-    this.maxSteps = options.maxSteps ?? 100;
+    this.maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
     this.logPath = `tasks/results/${this.agentId}.log`;
@@ -195,7 +196,7 @@ Work efficiently and return a clear, concise result.`;
             type: 'tool_result',
             name,
             success: result.success,
-            summary: (result.content ?? '').slice(0, 80),
+            summary: oneLine(result.content ?? ''),
             step: step + 1,
             maxSteps,
           });

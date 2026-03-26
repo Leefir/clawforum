@@ -25,6 +25,7 @@ import {
   ToolInvalidInputError,
 } from '../../types/errors.js';
 import { ExecContextImpl } from './context.js';
+import { DEFAULT_MAX_STEPS } from '../../constants.js';
 // Note: ToolRegistry type imported via IToolRegistry interface
 
 /**
@@ -456,7 +457,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       fs: this.fs,
       monitor: this.monitor,
       llm: this.llm,
-      maxSteps: options.maxSteps ?? 100,
+      maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
       signal: options.signal,
       taskSystem: this.taskSystem,
       outboxWriter: this.outboxWriter,

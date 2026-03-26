@@ -4,6 +4,7 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import type { StreamCallbacks } from '../../core/runtime.js';
+import { oneLine } from '../utils/string.js';
 
 export interface StreamEvent {
   ts: number;
@@ -77,8 +78,7 @@ export class StreamWriter {
         this.write({ ts: Date.now(), type: 'tool_call', name });
       },
       onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
-        const flat = result.content.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-        const summary = flat.length > 80 ? flat.slice(0, 80) + '...' : flat;
+        const summary = oneLine(result.content, 14);
         this.write({
           ts: Date.now(),
           type: 'tool_result',

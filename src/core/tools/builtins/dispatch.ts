@@ -3,7 +3,7 @@ import type { TaskSystem } from '../../task/system.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../constants.js';
+import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 
 const CONTRACT_AGENT_SYSTEM_PROMPT = `你是契约创建子代理，负责为指定 claw 设计并创建一份契约。
 
@@ -170,9 +170,20 @@ dispatcher 不能：
 4. 在最终回复末尾输出以下块（必须，格式不可变）：
 
 [SPAWN_REQUEST]
-{"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt，包含目标、要求、验收标准>"}
+{"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt>"}
 [/SPAWN_REQUEST]
 
+**prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
+契约创建子代理的工作是：写 YAML → clawforum contract create --file → 写验收脚本。
+prompt 里应说明：
+- 目标 claw 是哪个
+- 要完成什么任务（由该 claw 执行，不是子代理本人执行）
+- 期望的 deliverables（路径）和验收标准
+
+示例：
+"为 openclaw-explorer claw 创建契约，任务是探索 OpenClaw 的 Gateway/Docker/Config 模块并生成报告到 clawspace/deep-analysis.md，验收标准：该文件存在且包含各模块分析。"
+
+不要把"执行任务"的 prompt 放进去（子代理不会去做实际工作）。
 契约创建子代理没有任何上下文，prompt 必须自包含（不能引用"本次对话"）。`;
 
     const taskSystem = ctx.taskSystem;
@@ -187,8 +198,11 @@ dispatcher 不能：
     removeHandler = taskSystem.addTaskResultHandler(async (taskId, callerType, result, isError) => {
       // ========== Step C: 处理 Dispatcher 的 SPAWN_REQUEST ==========
       // taskId 定向：只处理本次 dispatch 启动的那个 dispatcher
-      if (callerType === 'dispatcher' && !isError && taskId === dispatcherTaskId) {
-        removeHandler?.();   // dispatcher 结果一旦处理，移除自身（Step D 逻辑继续保留）
+      if (callerType === 'dispatcher' && taskId === dispatcherTaskId) {
+        removeHandler?.();   // 无论成功/失败都清理，防止 handler 泄漏
+        if (isError) {
+          return result;     // 失败直接透传，不处理 SPAWN_REQUEST
+        }
 
         const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*(\{[\s\S]*?\})\s*\[\/SPAWN_REQUEST\]/);
         if (!blockMatch) return result;
@@ -218,7 +232,7 @@ CONTRACT_CREATED: <contractId>`;
           prompt: augmentedPrompt,
           tools: ['exec', 'read', 'write', 'skill', 'status'],
           timeout: 600,
-          maxSteps: 30,
+          maxSteps: DEFAULT_MAX_STEPS,
           parentClawId: ctx.clawId,
           originClawId: ctx.originClawId ?? ctx.clawId,
           systemPrompt: CONTRACT_AGENT_SYSTEM_PROMPT,
@@ -231,46 +245,45 @@ CONTRACT_CREATED: <contractId>`;
             JSON.stringify({ contractTaskId, dispatcherTaskId: taskId, targetClaw: targetClaw ?? null, createdAt: new Date().toISOString() }),
           );
         } catch (e) {
-          ctx.monitor?.log('warn', {
+          ctx.monitor?.log('error', {
             context: 'dispatch.writePendingRetrospective',
             contractTaskId,
             error: e instanceof Error ? e.message : String(e),
           });
         }
 
+        // ========== Step D: 注册专属 handler 等待契约创建子代理结果，建立反向索引 ==========
+        let removeContractHandler: (() => void) | null = null;
+        removeContractHandler = taskSystem.addTaskResultHandler(async (tid, _callerType, res, isErr) => {
+          if (tid !== contractTaskId) return res;        // 不是目标任务，跳过
+          removeContractHandler?.();                      // 无论成功/失败都清理
+
+          if (isErr) return res;
+
+          const contractIdMatch = res.match(/CONTRACT_CREATED:\s+(\S+)/);
+          const cid = contractIdMatch?.[1];
+          if (!cid) return res;
+
+          try {
+            await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
+            await ctx.fs.writeAtomic(
+              `clawspace/pending-retrospective/by-contract/${cid}.json`,
+              JSON.stringify({ contractId: cid, contractTaskId: tid, createdAt: new Date().toISOString() }),
+            );
+          } catch (e) {
+            ctx.monitor?.log('warn', {
+              context: 'dispatch.writeByContract',
+              taskId: tid,
+              contractId: cid,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+
+          return res;
+        });
+
         const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
         return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
-      }
-
-      // ========== Step D: 处理契约创建子代理结果，建立反向索引 ==========
-      if (callerType === 'subagent' && !isError) {
-        let pendingEntry: unknown;
-        try {
-          const raw = await ctx.fs.read(`clawspace/pending-retrospective/${taskId}.json`);
-          pendingEntry = JSON.parse(raw);
-        } catch {
-          return result;  // 不是追踪任务，跳过
-        }
-        void pendingEntry;  // 仅用于确认文件存在
-
-        const contractIdMatch = result.match(/CONTRACT_CREATED:\s+(\S+)/);
-        const contractId = contractIdMatch?.[1];
-        if (!contractId) return result;
-
-        try {
-          await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
-          await ctx.fs.writeAtomic(
-            `clawspace/pending-retrospective/by-contract/${contractId}.json`,
-            JSON.stringify({ contractId, contractTaskId: taskId, createdAt: new Date().toISOString() }),
-          );
-        } catch (e) {
-          ctx.monitor?.log('warn', {
-            context: 'dispatch.writeByContract',
-            taskId,
-            contractId,
-            error: e instanceof Error ? e.message : String(e),
-          });
-        }
       }
 
       return result;
@@ -303,7 +316,7 @@ CONTRACT_CREATED: <contractId>`;
       prompt: userMessage,            // 保留（兼容 fallback）
       tools: [],                     // 空 = 使用 registry 全部工具
       timeout: 3600,                 // 总超时 1 小时
-      maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? 100,
+      maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,
       parentClawId: ctx.clawId,
       systemPrompt,
       callerType: 'dispatcher',

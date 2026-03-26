@@ -24,6 +24,7 @@ export type MonitorEventType =
   | 'task_recovery_complete'
   | 'file_operation'
   | 'error'
+  | 'warn'
   | 'system';
 
 // LLM call event

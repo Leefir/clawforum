@@ -20,6 +20,7 @@ import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { SkillRegistry } from '../../core/skill/registry.js';
+import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
 
 
@@ -86,7 +87,7 @@ export async function daemonCommand(name: string): Promise<void> {
         clawId: 'motion',
         clawDir: dir,
         llmConfig,
-        maxSteps: globalConfig.motion?.max_steps ?? 100,
+        maxSteps: globalConfig.motion?.max_steps ?? DEFAULT_MAX_STEPS,
         toolProfile: 'full',
         toolTimeoutMs: globalConfig.tool_timeout_ms,
         subagentMaxSteps: globalConfig.motion?.subagent_max_steps,
@@ -199,18 +200,23 @@ ${skillsSummary ? `当前 dispatch-skills 供参考：\n${skillsSummary}` : '当
 
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
-          await taskSystem.scheduleSubAgent({
-            kind: 'subagent',
-            messages,               // 契约创建子代理完整 messages（含创建过程）
-            prompt: retroPrompt,    // 追加为新 user message（Step B 的 agent.ts 逻辑）
-            tools: ['read', 'write', 'skill', 'exec'],
-            timeout: 600,
-            maxSteps: 30,
-            parentClawId: 'motion',
-            originClawId: 'motion',
-          }).catch(e => console.warn('[daemon] retrospective schedule failed:', e));
+          try {
+            await taskSystem.scheduleSubAgent({
+              kind: 'subagent',
+              messages,               // 契约创建子代理完整 messages（含创建过程）
+              prompt: retroPrompt,    // 追加为新 user message（Step B 的 agent.ts 逻辑）
+              tools: ['read', 'write', 'skill', 'exec'],
+              timeout: 600,
+              maxSteps: DEFAULT_MAX_STEPS,
+              parentClawId: 'motion',
+              originClawId: 'motion',
+            });
+          } catch (e) {
+            console.warn('[daemon] retrospective schedule failed, keeping pending files for retry:', e);
+            return;  // 不删文件，留待下次 daemon 重启时重试
+          }
 
-          // 清理 pending-retrospective 文件（best-effort）
+          // 调度成功后才清理（best-effort）
           await fsAsync.unlink(byContractPath).catch(e =>
             console.warn('[daemon] Failed to clean by-contract file:', e instanceof Error ? e.message : String(e))
           );
