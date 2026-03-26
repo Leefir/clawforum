@@ -189,14 +189,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     updateDisplay();
   };
 
-  const updateAttachedClawBar = () => {
-    if (!attachedClawId) { attachedClawBar.setText(''); return; }
-    const id = attachedClawId;
-    const st = attachedClaws.get(id)!;
+  const buildClawLine = (id: string, st: ClawState, cols: number): string => {
     // 活跃模式
     if (st.active) {
-      const cols = process.stdout.columns ?? 80;
-      let line: string;
       const icon = st.toolSuccess === true ? '✓'
                  : st.toolSuccess === false ? '✗'
                  : '⚙';
@@ -208,25 +203,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const prefix = `[${id}] ${icon} ${st.currentTool} · ${open}`;
           const suffix = close;
           const available = cols - prefix.length - suffix.length;
-          const text = sliceFromStart(st.textBuffer.replace(/\n/g, ' '), available);
-          line = `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
+          const text = sliceFromStart(st.textBuffer.trimStart().replace(/\n/g, ' '), available);
+          return `\x1b[38;5;147m${prefix}${text}${suffix}\x1b[0m`;
         } else {
-          line = `\x1b[38;5;147m[${id}] ${icon} ${st.currentTool}\x1b[0m`;
+          return `\x1b[38;5;147m[${id}] ${icon} ${st.currentTool}\x1b[0m`;
         }
       } else {
         // 首轮 thinking，尚无工具名
         const prefix = `[${id}] ⊙ (`;
         const available = cols - prefix.length - 1;
         const text = st.textBuffer
-          ? sliceFromStart(st.textBuffer.replace(/\n/g, ' '), available)
+          ? sliceFromStart(st.textBuffer.trimStart().replace(/\n/g, ' '), available)
           : '';
-        line = `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
+        return `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
       }
-      attachedClawBar.setText(line);
-      return;
     }
     // 不活跃模式：所有状态都显示 lastOutput（如果有）
-    let line: string;
     let leftText: string;
     let leftColor: string;
     if (!st.hasContract) {
@@ -241,20 +233,35 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       leftText = `[${id}] ✗ interrupted${dur}`;
       leftColor = '\x1b[38;5;214m';
     } else {
-      const dur = st.referenceMs ? `inactive ${fmtDuration(Date.now() - st.referenceMs)}` : 'waiting';
-      leftText = `[${id}] ○ ${dur}`;
+      const dur = st.referenceMs ? `inactive ${fmtDuration(Date.now() - st.referenceMs)}` : null;
+      leftText = dur ? `[${id}] ○ ${dur}` : `[${id}] ○`;
       leftColor = '\x1b[38;5;245m';
     }
     // 追加 lastOutput（如果有）
     if (st.lastOutput) {
       const prefix = `${leftText} · "`;
-      const available = (process.stdout.columns ?? 80) - prefix.length - 1;
-      const snippet = sliceFromStart(st.lastOutput.replace(/\n/g, ' '), available);
-      line = `${leftColor}${prefix}${snippet}"\x1b[0m`;
+      const available = cols - prefix.length - 1;
+      const snippet = sliceFromStart(st.lastOutput.trimStart().replace(/\n/g, ' '), available);
+      return `${leftColor}${prefix}${snippet}"\x1b[0m`;
     } else {
-      line = `${leftColor}${leftText}\x1b[0m`;
+      return `${leftColor}${leftText}\x1b[0m`;
     }
-    attachedClawBar.setText(line);
+  };
+
+  const updateClawPanel = () => {
+    if (attachedClaws.size === 0) {
+      attachedClawBar.setText('');
+      return;
+    }
+
+    const cols = process.stdout.columns ?? 80;
+    const lines: string[] = [];
+
+    for (const [id, st] of attachedClaws) {
+      lines.push(buildClawLine(id, st, cols));
+    }
+
+    attachedClawBar.setText(lines.join('\n'));
   };
 
   const startSpinner = (text = 'Thinking...') => {
@@ -646,7 +653,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
               st.referenceMs = Date.now();
             }
-            updateAttachedClawBar();
+            updateClawPanel();
             tui.requestRender();
           } catch { /* skip */ }
         }
@@ -804,7 +811,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
     }
     if (attachedClawId) {
-      updateAttachedClawBar();
+      updateClawPanel();
       tui.requestRender();
     }
   }, 200);  // fallback 200ms
@@ -903,7 +910,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             // 立刻刷新一次
             refreshClawStatus(clawId);
             statusBar.setText('');
-            updateAttachedClawBar();
+            updateClawPanel();
             appendOutput(`\x1b[2m[attach] ${clawId} 已加入面板\x1b[0m`);
           }
         }
@@ -935,7 +942,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               const firstKey = attachedClaws.keys().next().value;
               attachedClawId = firstKey ?? null;
             }
-            updateAttachedClawBar();
+            updateClawPanel();
             appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
           }
         }
