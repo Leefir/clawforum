@@ -671,6 +671,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           }
         } else { track.isAlive = false; }
       } catch { track.isAlive = false; }
+      // Fix 2：刷新 hasContract（契约可能完成或新创建）
+      track.hasContract = getContractCreatedMs(path.join(clawsDir, clawId)) !== null;
       // 兜底：轮询时顺带读一次流（watcher 失效时的保障，Bug 3 修复）
       refreshClawStatus(clawId);
     }
@@ -973,6 +975,19 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   initOwnStateFromHistory();
+
+  // Fix 1：若 inTurn=true 但 daemon 实际不存活，重置以防误触 ESC 中断
+  if (inTurn) {
+    try {
+      const pid = parseInt(fsNative.readFileSync(pidFile, 'utf-8').trim(), 10);
+      if (!Number.isFinite(pid)) {
+        inTurn = false;
+      } else {
+        try { process.kill(pid, 0); }
+        catch { inTurn = false; }
+      }
+    } catch { inTurn = false; }
+  }
 
   tui.start();
 
