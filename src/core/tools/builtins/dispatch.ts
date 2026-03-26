@@ -10,12 +10,14 @@ export class DispatchTool implements ITool {
   readonly description = `创建一个 Dispatcher 分身，继承 Motion 的 system prompt 和工具列表，读取 dispatch-skills 模板后决定如何派发工作。
 
 dispatcher 可以：
-- 通过 exec 调用 CLI 给指定 claw 创建契约（长期、可验收的任务）
+- 决定目标 claw（新建或复用），并通过 exec 安装所需技能
+- 在最终回复输出 [SPAWN_REQUEST] 块，由系统自动调度契约创建子代理
 - 通过 exec 调用 CLI 执行其他系统操作
 - 直接使用工具完成独立任务
 
 dispatcher 不能：
-- 直接 spawn（如需 spawn，在最终回复中说明 prompt，由 Motion 执行）
+- 直接调用 spawn 工具（会报错）
+- 通过 exec 直接创建契约（应输出 SPAWN_REQUEST，让系统调度）
 
 优先用 dispatch 的场景：
 - 任务需要给 claw 创建契约
@@ -109,7 +111,7 @@ dispatcher 不能：
       if (callerType === 'dispatcher' && !isError && taskId === dispatcherTaskId) {
         removeHandler?.();   // dispatcher 结果一旦处理，移除自身（Step D 逻辑继续保留）
 
-        const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*\n(\{[\s\S]*?\})\s*\n\[\/SPAWN_REQUEST\]/);
+        const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*(\{[\s\S]*?\})\s*\[\/SPAWN_REQUEST\]/);
         if (!blockMatch) return result;
 
         let parsed: { targetClaw?: string; prompt?: string };
