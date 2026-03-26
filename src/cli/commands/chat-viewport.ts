@@ -472,6 +472,29 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
   const attachedClaws = new Map<string, ClawState>();
 
+  // Attach 单个 claw（复用逻辑）
+  const attachClaw = (clawId: string, clawDir: string) => {
+    const st = makeClawState(clawDir);
+    // referenceMs 取契约创建时间，fallback 到 Date.now()
+    const contractMs = getContractCreatedMs(clawDir);
+    st.referenceMs = contractMs ?? Date.now();
+    st.hasContract = contractMs !== null;
+    if (st.hasContract) {
+      const info = getClawActivityInfo(clawDir);
+      st.lastError = info.lastError;
+    }
+    attachedClaws.set(clawId, st);
+    // 开独立 watcher（无 debounce，直接调用）
+    const attachStreamFile = path.join(clawDir, 'stream.jsonl');
+    try {
+      const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus(clawId));
+      w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+      clawWatchers.set(clawId, w);
+    } catch { /* fallback to polling */ }
+    // 立刻刷新一次
+    refreshClawStatus(clawId);
+  };
+
   interface ClawTrack {
     fileSize: number;
     leftover: string;
@@ -886,27 +909,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           } else if (attachedClaws.has(clawId)) {
             appendOutput(`\x1b[33m[${clawId}] 已在面板中\x1b[0m`);
           } else {
-            // 初始化 ClawState
             const clawDir = path.join(clawsDir, clawId);
-            const st = makeClawState(clawDir);
-            // referenceMs 取契约创建时间，fallback 到 Date.now()
-            const contractMs = getContractCreatedMs(clawDir);
-            st.referenceMs = contractMs ?? Date.now();
-            st.hasContract = contractMs !== null;
-            if (st.hasContract) {
-              const info = getClawActivityInfo(clawDir);
-              st.lastError = info.lastError;
-            }
-            attachedClaws.set(clawId, st);
-            // 开独立 watcher（无 debounce，直接调用）
-            const attachStreamFile = path.join(clawDir, 'stream.jsonl');
-            try {
-              const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus(clawId));
-              w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
-              clawWatchers.set(clawId, w);
-            } catch { /* fallback to polling */ }
-            // 立刻刷新一次
-            refreshClawStatus(clawId);
+            attachClaw(clawId, clawDir);
             statusBar.setText('');
             updateClawPanel();
             appendOutput(`\x1b[2m[attach] ${clawId} 已加入面板\x1b[0m`);
@@ -1048,9 +1052,23 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.start();
 
-  // 启动时立即刷新 claw 状态（避免 2 秒等待）
-  if (isMotion) {
-    refreshClawStatus();
+  // 启动时自动扫描并 attach 所有有契约的 claw
+  if (clawsDir) {
+    try {
+      const entries = fsNative.readdirSync(clawsDir, { withFileTypes: true });
+      for (const e of entries) {
+        if (!e.isDirectory()) continue;
+        const clawId = e.name;
+        const clawDir = path.join(clawsDir, clawId);
+        if (getContractCreatedMs(clawDir) !== null) {
+          attachClaw(clawId, clawDir);
+        }
+      }
+      if (attachedClaws.size > 0) {
+        statusBar.setText('');
+        updateClawPanel();
+      }
+    } catch { /* clawsDir 不存在时忽略 */ }
   }
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
