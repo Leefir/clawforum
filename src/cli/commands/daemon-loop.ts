@@ -5,7 +5,7 @@
 
 import * as fsNative from 'fs';
 import * as path from 'path';
-import type { ClawRuntime } from '../../core/runtime.js';
+import type { ClawRuntime, InboxMessageInfo } from '../../core/runtime.js';
 import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
@@ -23,6 +23,7 @@ export interface DaemonLoopOptions {
   streamWriter?: StreamWriter;           // streaming event writer
   heartbeat?: Heartbeat;                 // heartbeat instance (motion only)
   notifyMotionDir?: string;             // if set (claw only), notify motion on LLM max-retry failure
+  onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // for review_request handling (motion only)
 }
 
 /**
@@ -193,7 +194,8 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           }
           callbacks.onBeforeLLMCall?.();
         },
-      } : undefined;
+        onInboxMessages: options.onInboxMessages,  // forward for review_request handling
+      } : (options.onInboxMessages ? { onInboxMessages: options.onInboxMessages } : undefined);
 
       try {
         // Start polling for the interrupt file

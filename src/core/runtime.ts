@@ -58,6 +58,12 @@ export interface ClawRuntimeOptions {
   idleTimeoutMs?: number;  // 覆盖 DEFAULT_LLM_IDLE_TIMEOUT_MS（0 = 禁用）
 }
 
+/** Inbox message info for onInboxMessages callback */
+export interface InboxMessageInfo {
+  meta: Record<string, string>;
+  body: string;
+}
+
 /** daemon streaming callbacks (used by processBatch / _runReact) */
 export interface StreamCallbacks {
   onTextDelta?: (delta: string) => void;
@@ -67,6 +73,7 @@ export interface StreamCallbacks {
   onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
   onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
+  onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // inbox messages detected (for review_request handling)
 }
 
 /**
@@ -316,7 +323,7 @@ export class ClawRuntime {
     injected: Message[];
     sources: Array<{ text: string; type: string }>;
     count: number;
-    infos: Array<{ from?: string; contract_id?: string }>;
+    infos: Array<{ meta: Record<string, string>; body: string }>;
   }> {
     const inboxDir = path.join(this.options.clawDir, 'inbox');
     const pendingDir = path.join(inboxDir, 'pending');
@@ -439,10 +446,10 @@ export class ClawRuntime {
       ? [{ role: 'user', content: allParts.join('\n\n') }]
       : [];
 
-    // Extract metadata for error notification (H3 fix)
+    // Extract metadata for error notification and review_request handling
     const infos = injectedInfos.map(info => ({
-      from: info.meta.from,
-      contract_id: info.meta.contract_id,
+      meta: info.meta,
+      body: info.body,
     }));
 
     return { injected, sources, count: injectedInfos.length, infos };
@@ -512,6 +519,13 @@ export class ClawRuntime {
       callbacks.onInboxDrained(sources);
     }
 
+    // Notify daemon-loop of inbox messages for review_request handling
+    if (callbacks?.onInboxMessages && infos.length > 0) {
+      await callbacks.onInboxMessages(
+        infos.map(i => ({ meta: i.meta as Record<string, string>, body: i.body ?? '' })),
+      );
+    }
+
     const session = await this.sessionManager.load();
     const messages = [...session.messages, ...injected];
 
@@ -535,12 +549,12 @@ export class ClawRuntime {
       if (err instanceof MaxStepsExceededError) {
         const errorMsg = err.message;
         for (const info of infos) {
-          if (info.from) {
+          if (info.meta.from) {
             await this.outboxWriter.write({
               type: 'response',
-              to: info.from,
+              to: info.meta.from,
               content: `Error: ${errorMsg}`,
-              contract_id: info.contract_id,
+              contract_id: info.meta.contract_id,
             }).catch(e => console.error('[runtime] Failed to write error response:', e));
           }
         }
@@ -548,12 +562,12 @@ export class ClawRuntime {
         // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
         const errorMsg = err instanceof Error ? err.message : String(err);
         for (const info of infos) {
-          if (info.from) {
+          if (info.meta.from) {
             await this.outboxWriter.write({
               type: 'response',
-              to: info.from,
+              to: info.meta.from,
               content: `Error: ${errorMsg}`,
-              contract_id: info.contract_id,
+              contract_id: info.meta.contract_id,
             }).catch(e => console.error('[runtime] Failed to write error response:', e));
           }
         }
@@ -751,6 +765,13 @@ export class ClawRuntime {
       running: this.running,
       clawId: this.options.clawId,
     };
+  }
+
+  /**
+   * Get TaskSystem instance (for retrospective scheduling)
+   */
+  getTaskSystem(): TaskSystem {
+    return this.taskSystem;
   }
 
   // ============================================================================

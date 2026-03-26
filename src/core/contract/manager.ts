@@ -1193,7 +1193,7 @@ export class ContractManager {
         source: clawId,
         priority: 'low',
         extraFields: { claw_id: clawId, contract_id: contractId },
-        body: `Contract "${contractTitle}" has completed. Please perform a retrospective analysis.`,
+        body: `[system] Contract "${contractTitle}" (${contractId}) completed by ${clawId}.`,
       });
     } catch (e) {
       this.monitor?.log('error', {
