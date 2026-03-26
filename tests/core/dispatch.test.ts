@@ -37,7 +37,10 @@ describe('DispatchTool', () => {
 
   function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', mockSchedule?: () => Promise<string>, options?: { originClawId?: string; clawId?: string; dialogMessages?: Message[] }) {
     const taskSystem = mockSchedule
-      ? { scheduleSubAgent: vi.fn().mockImplementation(mockSchedule) }
+      ? {
+          scheduleSubAgent: vi.fn().mockImplementation(mockSchedule),
+          addTaskResultHandler: vi.fn().mockReturnValue(() => {}),  // 返回 no-op cleanup
+        }
       : undefined;
     return new ExecContextImpl({
       clawId: options?.clawId ?? 'test-claw',

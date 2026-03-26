@@ -707,6 +707,8 @@ describe('ContractManager Acceptance Flow', () => {
 
   describe('Motion notification failures', () => {
     it('should log error to monitor when notifyMotionCompletion cannot write to motion inbox', async () => {
+      vi.useFakeTimers();
+
       // 删除 motion 目录（如果存在），然后用同名文件阻塞
       const motionDir = path.resolve(clawDir, '..', '..', 'motion');
       try {
@@ -734,9 +736,14 @@ describe('ContractManager Acceptance Flow', () => {
         evidence: 'done',
       });
 
+      // 推进超过 500ms，让重试定时器触发
+      await vi.advanceTimersByTimeAsync(600);
+
       expect(monitorLogSpy).toHaveBeenCalledWith('error', expect.objectContaining({
         context: 'ContractManager.notifyMotionCompletion',
       }));
+
+      vi.useRealTimers();
 
       // 清理
       await fs.unlink(motionDir).catch(() => {});
