@@ -99,31 +99,33 @@ dispatcher 不能：
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
     }
 
-    // 注册 onTaskResult 钩子处理 SPAWN_REQUEST 块 和 契约创建子代理结果
-    // 闭包捕获 ctx.fs / ctx.taskSystem（同一 motion claw，多次调用安全覆盖）
-    taskSystem.onTaskResult = async (taskId, callerType, result, isError) => {
+    // 注册钩子（在 scheduleSubAgent 之前，但用 taskId 定向确保正确性）
+    let dispatcherTaskId: string | null = null;
+    let removeHandler: (() => void) | null = null;
+
+    removeHandler = taskSystem.addTaskResultHandler(async (taskId, callerType, result, isError) => {
       // ========== Step C: 处理 Dispatcher 的 SPAWN_REQUEST ==========
-      if (callerType === 'dispatcher' && !isError) {
-        // 解析 SPAWN_REQUEST 块
+      // taskId 定向：只处理本次 dispatch 启动的那个 dispatcher
+      if (callerType === 'dispatcher' && !isError && taskId === dispatcherTaskId) {
+        removeHandler?.();   // dispatcher 结果一旦处理，移除自身（Step D 逻辑继续保留）
+
         const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*\n(\{[\s\S]*?\})\s*\n\[\/SPAWN_REQUEST\]/);
-        if (!blockMatch) return result;  // 无块，透传
+        if (!blockMatch) return result;
 
         let parsed: { targetClaw?: string; prompt?: string };
         try {
           parsed = JSON.parse(blockMatch[1]);
         } catch {
-          return result;  // JSON 解析失败，透传
+          return result;
         }
         const { targetClaw, prompt: spawnPrompt } = parsed;
         if (!spawnPrompt) return result;
 
-        // 强制子代理在 finalText 中输出结构化行，供 Step D 解析 contractId
         const augmentedPrompt = `${spawnPrompt}
 
 在最终回复末尾必须包含以下行（不可省略，格式不可变）：
 CONTRACT_CREATED: <contractId>`;
 
-        // 调度契约创建子代理
         const contractTaskId = await taskSystem.scheduleSubAgent({
           kind: 'subagent',
           prompt: augmentedPrompt,
@@ -134,62 +136,44 @@ CONTRACT_CREATED: <contractId>`;
           originClawId: ctx.originClawId ?? ctx.clawId,
         });
 
-        // 记录待复盘信息（供 daemon-loop 后续追踪）
         try {
           await ctx.fs.ensureDir('clawspace/pending-retrospective');
           await ctx.fs.writeAtomic(
             `clawspace/pending-retrospective/${contractTaskId}.json`,
-            JSON.stringify({
-              contractTaskId,
-              dispatcherTaskId: taskId,
-              targetClaw: targetClaw ?? null,
-              createdAt: new Date().toISOString(),
-            }),
+            JSON.stringify({ contractTaskId, dispatcherTaskId: taskId, targetClaw: targetClaw ?? null, createdAt: new Date().toISOString() }),
           );
-        } catch {
-          // best-effort，失败不阻断流程
-        }
+        } catch { /* best-effort */ }
 
-        // 剥离 SPAWN_REQUEST 块，只保留人类可读摘要
         const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
         return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
       }
 
       // ========== Step D: 处理契约创建子代理结果，建立反向索引 ==========
       if (callerType === 'subagent' && !isError) {
-        // 检查是否是已追踪的契约创建任务
-        let pendingEntry: { contractTaskId?: string; dispatcherTaskId?: string; targetClaw?: string | null } | null = null;
+        let pendingEntry: unknown;
         try {
           const raw = await ctx.fs.read(`clawspace/pending-retrospective/${taskId}.json`);
           pendingEntry = JSON.parse(raw);
         } catch {
-          // 不是 pending-retrospective 任务，跳过
-          return result;
+          return result;  // 不是追踪任务，跳过
         }
+        void pendingEntry;  // 仅用于确认文件存在
 
-        // 解析 contractId（契约创建子代理强制输出的格式）
         const contractIdMatch = result.match(/CONTRACT_CREATED:\s+(\S+)/);
         const contractId = contractIdMatch?.[1];
-        if (!contractId) return result;  // 未找到，透传
+        if (!contractId) return result;
 
-        // 写反向索引: contractId -> contractTaskId
         try {
           await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
           await ctx.fs.writeAtomic(
             `clawspace/pending-retrospective/by-contract/${contractId}.json`,
-            JSON.stringify({
-              contractId,
-              contractTaskId: taskId,
-              createdAt: new Date().toISOString(),
-            }),
+            JSON.stringify({ contractId, contractTaskId: taskId, createdAt: new Date().toISOString() }),
           );
-        } catch {
-          // best-effort
-        }
+        } catch { /* best-effort */ }
       }
 
       return result;
-    };
+    });
 
     // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
     // system prompt 保持与 Motion 完全一致，确保 KV cache 命中
@@ -211,7 +195,8 @@ CONTRACT_CREATED: <contractId>`;
     // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
     const toolsForLLM = this.getToolsForLLM();
 
-    const taskId = await taskSystem.scheduleSubAgent({
+    // 调度 dispatcher（之后填入 dispatcherTaskId 供钩子定向）
+    dispatcherTaskId = await taskSystem.scheduleSubAgent({
       kind: 'subagent',
       messages: dispatcherMessages,  // 完整对话上下文
       prompt: userMessage,            // 保留（兼容 fallback）
@@ -225,6 +210,8 @@ CONTRACT_CREATED: <contractId>`;
       originClawId: ctx.originClawId ?? ctx.clawId,
       toolsForLLM,                   // 使用 Motion 完整工具列表，确保 KV cache 命中
     });
+
+    const taskId = dispatcherTaskId;
 
     ctx.parentStreamWriter?.write({
       ts: Date.now(),

@@ -59,17 +59,25 @@ export class TaskSystem {
   private registry: ToolRegistry;
   private llm?: ILLMService;
 
+  // Task result handlers (array for concurrent dispatch support)
+  private _taskResultHandlers: Array<
+    (taskId: string, callerType: string | undefined, result: string, isError: boolean) => Promise<string>
+  > = [];
+
   /**
-   * Hook called when a task completes successfully.
-   * Can modify the result before it's sent to inbox.
-   * Error results bypass this hook.
+   * Register a result handler. Returns a cleanup function to deregister.
+   * Handlers are called in registration order; each receives the result
+   * returned by the previous handler (pipeline pattern).
    */
-  onTaskResult?: (
-    taskId: string,
-    callerType: string | undefined,
-    result: string,
-    isError: boolean,
-  ) => Promise<string>;
+  addTaskResultHandler(
+    handler: (taskId: string, callerType: string | undefined, result: string, isError: boolean) => Promise<string>,
+  ): () => void {
+    this._taskResultHandlers.push(handler);
+    return () => {
+      const idx = this._taskResultHandlers.indexOf(handler);
+      if (idx >= 0) this._taskResultHandlers.splice(idx, 1);
+    };
+  }
   
   // Pending queue for tasks waiting to be executed
   private pendingQueue: Array<SubAgentTask | ToolTask> = [];
@@ -443,10 +451,10 @@ export class TaskSystem {
 
       const result = await subAgent.run();
 
-      // Send success result to parent inbox (with onTaskResult hook)
+      // Send success result to parent inbox (with onTaskResult handlers)
       let inboxResult = result;
-      if (this.onTaskResult) {
-        inboxResult = await this.onTaskResult(task.id, task.callerType, result, false);
+      for (const handler of [...this._taskResultHandlers]) {
+        inboxResult = await handler(task.id, task.callerType, inboxResult, false);
       }
       await this.sendResult(task, inboxResult, false);
 
