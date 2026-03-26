@@ -154,6 +154,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
 
     // 不活跃
+    // Bug 4 修复：daemon 崩溃检测
+    if (!t.isAlive) {
+      return `\x1b[38;5;240m[${id}] ✗ daemon stopped\x1b[0m`;
+    }
     let leftText: string;
     let leftColor: string;
     if (!t.hasContract) {
@@ -513,6 +517,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     try {
       const stat = fsNative.statSync(streamFile);
       if (stat.size < track.fileSize) {
+        // 旧 watcher 追踪归档 inode，需要替换（Bug 2 修复）
+        const stale = clawWatchers.get(clawId);
+        if (stale) { stale.close(); clawWatchers.delete(clawId); }
+        try {
+          const w = fsNative.watch(streamFile, { persistent: false }, () => refreshClawStatus(clawId));
+          w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+          clawWatchers.set(clawId, w);
+        } catch { /* polling fallback */ }
+        // reset state
         track.fileSize = 0; track.leftover = '';
         track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
         track.currentTool = null; track.toolSuccess = null; track.textBuffer = '';
@@ -656,6 +669,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           }
         } else { track.isAlive = false; }
       } catch { track.isAlive = false; }
+      // 兜底：轮询时顺带读一次流（watcher 失效时的保障，Bug 3 修复）
+      refreshClawStatus(clawId);
     }
   };
 
