@@ -876,59 +876,68 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const clawId = parts[1];
           if (!fsNative.existsSync(path.join(clawsDir, clawId))) {
             appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
+          } else if (attachedClaws.has(clawId)) {
+            appendOutput(`\x1b[33m[${clawId}] 已在面板中\x1b[0m`);
           } else {
-            attachedClawId = clawId;
-            // 创建或重置状态
-            let st = attachedClaws.get(clawId);
-            if (!st) {
-              const clawDir = path.join(clawsDir, clawId);
-              st = makeClawState(clawDir);
-              attachedClaws.set(clawId, st);
-            } else {
-              // 重置现有状态
-              st.referenceMs = null;
-              st.hasContract = false;
-              st.lastError = null;
-              st.active = false;
-              st.currentTool = null;
-              st.textBuffer = '';
-              st.lastInterrupted = false;
-              st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
-            }
-            // 读磁盘初始化
+            // 初始化 ClawState
             const clawDir = path.join(clawsDir, clawId);
-            const contractCreatedMs = getContractCreatedMs(clawDir);
-            st.hasContract = contractCreatedMs !== null;
+            const st = makeClawState(clawDir);
+            // referenceMs 取契约创建时间，fallback 到 Date.now()
+            const contractMs = getContractCreatedMs(clawDir);
+            st.referenceMs = contractMs ?? Date.now();
+            st.hasContract = contractMs !== null;
             if (st.hasContract) {
               const info = getClawActivityInfo(clawDir);
               st.lastError = info.lastError;
-              st.referenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
             }
-            // 切换显示
-            statusBar.setText('');
-            updateAttachedClawBar();
-            // 换成无 debounce watcher
-            const attachStreamFile = path.join(clawsDir, clawId, 'stream.jsonl');
-            clawWatchers.get(clawId)?.close();
-            clawWatchers.delete(clawId);
+            attachedClaws.set(clawId, st);
+            // 兼容性：attachedClawId 指向第一个 key
+            if (!attachedClawId) attachedClawId = clawId;
+            // 开独立 watcher（无 debounce，直接调用）
+            const attachStreamFile = path.join(clawDir, 'stream.jsonl');
             try {
               const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus(clawId));
               w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
               clawWatchers.set(clawId, w);
             } catch { /* fallback to polling */ }
-            appendOutput(`\x1b[2m[attach] attached to ${clawId}\x1b[0m`);
+            // 立刻刷新一次
+            refreshClawStatus(clawId);
+            statusBar.setText('');
+            updateAttachedClawBar();
+            appendOutput(`\x1b[2m[attach] ${clawId} 已加入面板\x1b[0m`);
           }
         }
       } else if (name === 'detach') {
-        if (attachedClawId) {
-          const prev = attachedClawId;
+        const arg = parts[1];
+        if (!arg) {
+          appendOutput(`\x1b[33m用法：/detach <claw-id>  或  /detach --all\x1b[0m`);
+        } else if (arg === '--all') {
+          for (const [id] of attachedClaws) {
+            clawWatchers.get(id)?.close();
+            clawWatchers.delete(id);
+          }
+          attachedClaws.clear();
           attachedClawId = null;
           attachedClawBar.setText('');
           updateStatusBar();
-          // 移除无 debounce watcher，下次 refreshClawStatus 轮询时自动重建 debounce 版
-          clawWatchers.get(prev)?.close();
-          clawWatchers.delete(prev);
-          appendOutput(`\x1b[2m[detach] detached from ${prev}\x1b[0m`);
+          appendOutput(`\x1b[2m[detach] 已清空所有 claw\x1b[0m`);
+        } else {
+          const clawId = arg;
+          if (!attachedClaws.has(clawId)) {
+            appendOutput(`\x1b[33m[${clawId}] 不在面板中\x1b[0m`);
+          } else {
+            // 关 watcher
+            clawWatchers.get(clawId)?.close();
+            clawWatchers.delete(clawId);
+            attachedClaws.delete(clawId);
+            // 兼容性：如果删的是 attachedClawId，指向新的第一个
+            if (attachedClawId === clawId) {
+              const firstKey = attachedClaws.keys().next().value;
+              attachedClawId = firstKey ?? null;
+            }
+            updateAttachedClawBar();
+            appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
+          }
         }
       } else {
         appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
