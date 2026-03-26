@@ -5,6 +5,8 @@ import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import { spawnTool } from './spawn.js';
+import * as fsNative from 'fs';
+import * as path from 'path';
 
 /**
  * Extract text from message content (handles string, array, or object formats)
@@ -214,6 +216,10 @@ dispatcher 不能：
 {"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt>"}
 [/SPAWN_REQUEST]
 
+**targetClaw 规则**：必须是已存在的 claw id（kebab-case 名称，如 openclaw-explorer）。
+不能是 UUID、不能是新建的 claw、不能是 taskId。
+如需新建 claw，先用 \`clawforum claw create <name>\` 创建，确认成功后再填入 targetClaw。
+
 **prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
 契约创建子代理的工作是：设计契约 YAML、写验收文件，并通过 clawforum contract create --dir 提交。
 prompt 里应说明：
@@ -262,6 +268,20 @@ prompt 里应说明：
         }
         const { targetClaw, prompt: spawnPrompt } = parsed;
         if (!spawnPrompt) return result;
+
+        // 校验 targetClaw 存在
+        if (targetClaw) {
+          const clawDir = path.resolve(ctx.clawDir, '..', targetClaw);
+          if (!fsNative.existsSync(clawDir)) {
+            ctx.monitor?.log('warn', {
+              context: 'dispatch.invalidTargetClaw',
+              targetClaw,
+              reason: 'claw directory does not exist',
+            });
+            const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
+            return `${summary}\n\n[SPAWN_REQUEST 已忽略：targetClaw "${targetClaw}" 不存在，请先创建该 claw]`;
+          }
+        }
 
         const augmentedPrompt = spawnPrompt;
 
