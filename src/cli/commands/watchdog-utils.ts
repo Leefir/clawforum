@@ -15,10 +15,33 @@ export interface ClawActivityInfo {
 // Only count direct LLM output events (excludes infrastructure events like llm_start/tool_result)
 export const LLM_OUTPUT_EVENTS = new Set(['thinking_delta', 'text_delta', 'tool_call']);
 
+const TAIL_BYTES = 200 * 1024;  // 200 KB，足够覆盖数十个完整 turn
+
 export function getClawActivityInfo(clawDir: string): ClawActivityInfo {
   const streamFile = path.join(clawDir, 'stream.jsonl');
   try {
-    const content = fs.readFileSync(streamFile, 'utf-8');
+    const stat = fs.statSync(streamFile);
+    const fileSize = stat.size;
+
+    let content: string;
+    if (fileSize <= TAIL_BYTES) {
+      // 文件较小，全量读取
+      content = fs.readFileSync(streamFile, 'utf-8');
+    } else {
+      // 只读末尾 TAIL_BYTES 字节
+      const buf = Buffer.alloc(TAIL_BYTES);
+      const fd = fs.openSync(streamFile, 'r');
+      try {
+        fs.readSync(fd, buf, 0, TAIL_BYTES, fileSize - TAIL_BYTES);
+      } finally {
+        fs.closeSync(fd);
+      }
+      content = buf.toString('utf-8');
+      // 跳过第一行（可能被截断）
+      const newline = content.indexOf('\n');
+      content = newline >= 0 ? content.slice(newline + 1) : '';
+    }
+
     const lines = content.trim().split('\n').filter(Boolean);
 
     let lastEventMs: number | null = null;
