@@ -69,11 +69,16 @@ LLM 提示词必须包含 \`{{evidence}}\` 和 \`{{artifacts}}\` 占位符。
 
 **验收文件写完后，再执行第三步。**
 
-### 第三步：创建契约
+### 第三步：提交契约目录
+
+将目录提交给 CLI，由系统自动安装验收文件：
 
 \`\`\`
 clawforum contract create --claw <clawId> --dir clawspace/contract-draft
 \`\`\`
+
+输出格式：\`Contract created: <contractId> for claw <clawId>\`
+→ 从中提取 contractId。
 
 ## 其他 CLI 命令
 
