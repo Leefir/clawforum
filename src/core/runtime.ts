@@ -521,9 +521,13 @@ export class ClawRuntime {
 
     // Notify daemon-loop of inbox messages for review_request handling
     if (callbacks?.onInboxMessages && infos.length > 0) {
-      await callbacks.onInboxMessages(
-        infos.map(i => ({ meta: i.meta as Record<string, string>, body: i.body ?? '' })),
-      );
+      try {
+        await callbacks.onInboxMessages(
+          infos.map(i => ({ meta: i.meta as Record<string, string>, body: i.body ?? '' })),
+        );
+      } catch (e) {
+        console.warn('[runtime] onInboxMessages handler failed:', e instanceof Error ? e.message : String(e));
+      }
     }
 
     const session = await this.sessionManager.load();
