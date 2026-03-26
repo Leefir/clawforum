@@ -85,7 +85,21 @@ mkdir -p clawspace/contract-draft/acceptance
 if [ -f "clawspace/output.md" ]; then exit 0; else exit 1; fi
 \`\`\`
 
-LLM 提示词必须包含 \`{{evidence}}\` 和 \`{{artifacts}}\` 占位符。
+LLM 提示词是给「LLM 验收器」看的：它会收到 claw 提交的完成证据，判断 subtask 是否通过。
+不是任务描述，不是分析指令——是验收判断。必须包含 \`{{evidence}}\` 和 \`{{artifacts}}\` 占位符。
+
+示例：
+\`\`\`
+请根据以下证据判断 <subtask-id> subtask 是否完成。
+
+验收标准：<用一句话描述通过条件，例如 clawspace/output.md 存在且包含完整分析>
+
+{{evidence}}
+
+{{artifacts}}
+
+回复格式（JSON）：{"passed": true/false, "reason": "一句话说明"}
+\`\`\`
 
 **验收文件写完后，再执行第三步。**
 
