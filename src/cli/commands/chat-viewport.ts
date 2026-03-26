@@ -163,7 +163,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const attachedClawBar = new Text('', 0, 0);
 
   const updateStatusBar = () => {
-    if (attachedClawId) return;   // attach 期间不恢复 statusBar
+    if (attachedClaws.size > 0) return;   // attach 期间不恢复 statusBar
     let line = '';
     if (isMotion) {
       const parts: string[] = [];
@@ -470,7 +470,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Motion viewport：各 claw 步数追踪
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
-  let attachedClawId: string | null = null;
   const attachedClaws = new Map<string, ClawState>();
 
   interface ClawTrack {
@@ -810,7 +809,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         }
       }
     }
-    if (attachedClawId) {
+    // pollTick 已在上面处理，这里只更新 panel
+    if (attachedClaws.size > 0) {
       updateClawPanel();
       tui.requestRender();
     }
@@ -898,8 +898,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               st.lastError = info.lastError;
             }
             attachedClaws.set(clawId, st);
-            // 兼容性：attachedClawId 指向第一个 key
-            if (!attachedClawId) attachedClawId = clawId;
             // 开独立 watcher（无 debounce，直接调用）
             const attachStreamFile = path.join(clawDir, 'stream.jsonl');
             try {
@@ -924,7 +922,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             clawWatchers.delete(id);
           }
           attachedClaws.clear();
-          attachedClawId = null;
           attachedClawBar.setText('');
           updateStatusBar();
           appendOutput(`\x1b[2m[detach] 已清空所有 claw\x1b[0m`);
@@ -937,11 +934,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             clawWatchers.get(clawId)?.close();
             clawWatchers.delete(clawId);
             attachedClaws.delete(clawId);
-            // 兼容性：如果删的是 attachedClawId，指向新的第一个
-            if (attachedClawId === clawId) {
-              const firstKey = attachedClaws.keys().next().value;
-              attachedClawId = firstKey ?? null;
-            }
             updateClawPanel();
             appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
           }
