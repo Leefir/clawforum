@@ -123,30 +123,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     tui.requestRender();
   };
 
-  // 状态栏组件（在 updateStatusBar 之前声明）
-  const statusBar = new Text('', 0, 0);
   const attachedClawBar = new Text('', 0, 0);
-
-  const updateStatusBar = () => {
-    let line = '';
-    if (isMotion) {
-      const parts: string[] = [];
-
-      // 各 claw 状态
-      for (const [id, t] of clawTrackMap) {
-        if (t.active && t.isAlive) {   // isAlive 守卫：daemon 崩溃不显示紫色
-          parts.push(`\x1b[38;5;147m⬡ ${id} #${t.turnCount} [${t.step}/${t.maxSteps}]\x1b[0m`);
-        } else if (t.lastError && t.hasContract && t.isAlive) {
-          parts.push(`\x1b[38;5;214m⚠ ${id}\x1b[0m`);
-        } else if (t.hasContract && t.isAlive) {
-          const turnSuffix = t.turnCount > 0 ? ` #${t.turnCount}` : '';
-          parts.push(`\x1b[38;5;245m○ ${id}${turnSuffix}\x1b[0m`);
-        }
-      }
-      line = parts.join('  ');
-    }
-    statusBar.setText(line);
-  };
 
   const setStreamingSuffix = (text: string) => {
     streamingSuffix = text;
@@ -282,7 +259,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             appendOutput(`\x1b[33m> ${sysParts.join(' | ').slice(0, 120)}\x1b[0m`);
           }
         }
-        updateStatusBar();
         break;
       }
 
@@ -334,7 +310,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         appendOutput(`\x1b[2m  ${icon} [${step}/${maxSteps}] ${event.summary}\x1b[0m`);
         streamingSuffix = '';
         updateDisplay();
-        updateStatusBar();
         break;
       }
 
@@ -345,7 +320,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        updateStatusBar();
         // Cursor disappearance signals completion; no extra separator needed
         break;
 
@@ -356,7 +330,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        updateStatusBar();
         appendOutput('\x1b[33m⏎ Interrupted\x1b[0m');
         break;
 
@@ -367,7 +340,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        updateStatusBar();
         appendOutput(`\x1b[31m✗ Error: ${event.error}\x1b[0m`);
         break;
 
@@ -425,7 +397,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const isMotion = options.label === 'motion';
   const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
   interface ClawTrack {
-    // 已有（轻量，statusBar 用）
+    // 轻量字段
     fileSize: number;
     leftover: string;
     turnCount: number;
@@ -568,7 +540,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           if (!line.trim()) continue;
           try {
             const ev = JSON.parse(line);
-            // 轻量字段（statusBar 用）
+            // 轻量字段
             if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
             else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
             else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
@@ -648,11 +620,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     for (const clawId of clawIds) {
       const streamFile = path.join(clawsDir, clawId, 'stream.jsonl');
       if (!clawTrackMap.has(clawId)) {
-        const track = makeClawTrack();
         const clawDir = path.join(clawsDir, clawId);
         const contractMs = getContractCreatedMs(clawDir);
-        track.hasContract = contractMs !== null;
-        track.referenceMs = contractMs ?? Date.now();
+        if (contractMs === null) continue;
+        const track = makeClawTrack();
+        track.hasContract = true;
+        track.referenceMs = contractMs;
         clawTrackMap.set(clawId, track);
       }
       if (!clawWatchers.has(clawId)) {
@@ -684,7 +657,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         } else { track.isAlive = false; }
       } catch { track.isAlive = false; }
     }
-    updateStatusBar();
   };
 
   // Poll task stream for subagent progress (dispatch/spawn)
@@ -796,7 +768,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         streamingSuffix = '';
         updateDisplay();
         appendOutput('\x1b[31m✗ Daemon 已停止\x1b[0m');
-        updateStatusBar();
       }
     } catch {
       // PID 文件不存在或读取失败，忽略
@@ -938,7 +909,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   tui.addChild(outputText);
   tui.addChild(attachedClawBar);  // 默认空字符串 = 零高度
-  tui.addChild(statusBar);
   tui.addChild(editor);
   tui.setFocus(editor);
 
@@ -1024,7 +994,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       } catch { /* ignore */ }
     });
     // 立即触发一次扫描
-    clawsDirWatcher.emit('addDir');
+    refreshAllClawStatus();
   }
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
