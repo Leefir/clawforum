@@ -67,6 +67,7 @@ function sliceFromStart(s: string, maxCols: number): string {
 }
 
 interface ClawState {
+  clawDir: string;
   active: boolean;
   currentTool: string | null;
   textBuffer: string;
@@ -81,8 +82,9 @@ interface ClawState {
   pollTick: number;
 }
 
-function makeClawState(): ClawState {
+function makeClawState(clawDir: string): ClawState {
   return {
+    clawDir,
     active: false,
     currentTool: null,
     textBuffer: '',
@@ -496,10 +498,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     taskWatchMap.delete(taskId);
   };
 
-  const scheduleClawRefresh = () => {
+  const scheduleClawRefresh = (clawId: string) => {
     if (clawRefreshScheduled) return;
     clawRefreshScheduled = true;
-    setTimeout(() => { clawRefreshScheduled = false; refreshClawStatus(); }, 100);
+    setTimeout(() => { clawRefreshScheduled = false; refreshClawStatus(clawId); }, 100);
   };
 
   try {
@@ -558,7 +560,101 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
   };
 
-  const refreshClawStatus = () => {
+  const refreshClawStatus = (clawId: string) => {
+    if (!isMotion) return;
+    const st = attachedClaws.get(clawId);
+    if (!st) return;
+
+    const streamFile = path.join(st.clawDir, 'stream.jsonl');
+    const track = clawTrackMap.get(clawId);
+    if (!track) return;
+
+    try {
+      const stat = fsNative.statSync(streamFile);
+      if (stat.size < track.fileSize) {
+        track.fileSize = 0; track.leftover = '';
+        track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
+      }
+      if (stat.size > track.fileSize) {
+        const toRead = stat.size - track.fileSize;
+        const buf = Buffer.alloc(toRead);
+        const fd = fsNative.openSync(streamFile, 'r');
+        let bytesRead = 0;
+        try {
+          while (bytesRead < toRead) {
+            const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
+            if (n === 0) break;
+            bytesRead += n;
+          }
+        } finally { fsNative.closeSync(fd); }
+        track.fileSize += bytesRead;
+
+        const chunk = track.leftover + buf.toString('utf-8');
+        const lines = chunk.split('\n');
+        track.leftover = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line);
+            if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
+            else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
+            else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
+            else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
+            // attach 专用解析
+            if (LLM_OUTPUT_EVENTS.has(ev.type)) {
+              if (st.active === false) st.lastOutput = '';
+              st.active = true;
+              if (ev.type === 'thinking_delta') {
+                if (st.clearOnNextDelta) {
+                  st.textBuffer = '';
+                  st.bufferType = null;
+                  st.clearOnNextDelta = false;
+                }
+                st.textBuffer += (ev.delta as string) ?? '';
+                st.bufferType = 'thinking';
+              } else if (ev.type === 'tool_call') {
+                st.currentTool = (ev.name as string) ?? null;
+                st.toolSuccess = null;
+                st.clearOnNextDelta = true;
+              } else if (ev.type === 'text_delta') {
+                if (st.bufferType !== 'text') {
+                  st.textBuffer = '';
+                  st.clearOnNextDelta = false;
+                }
+                st.textBuffer += (ev.delta as string) ?? '';
+              }
+            } else if (ev.type === 'tool_result') {
+              st.toolSuccess = (ev.success as boolean) ?? null;
+            } else if (ev.type === 'turn_start') {
+              st.lastOutput = '';
+              st.lastInterrupted = false;
+            } else if (ev.type === 'turn_end') {
+              st.active = false; st.lastInterrupted = false;
+              if (st.textBuffer) st.lastOutput = st.textBuffer;
+              st.currentTool = null; st.textBuffer = '';
+              st.toolSuccess = null; st.bufferType = null; st.clearOnNextDelta = false;
+              st.referenceMs = Date.now();
+            } else if (ev.type === 'turn_error') {
+              st.active = false; st.lastInterrupted = false;
+              st.currentTool = null; st.textBuffer = '';
+              st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
+              st.lastError = (ev.error as string) ?? 'error';
+              st.referenceMs = Date.now();
+            } else if (ev.type === 'turn_interrupted') {
+              st.active = false; st.lastInterrupted = true;
+              st.currentTool = null; st.textBuffer = '';
+              st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
+              st.referenceMs = Date.now();
+            }
+            updateAttachedClawBar();
+            tui.requestRender();
+          } catch { /* skip */ }
+        }
+      }
+    } catch { /* ENOENT 等，跳过 */ }
+  };
+
+  const refreshAllClawStatus = () => {
     if (!isMotion) return;
     let clawIds: string[] = [];
     try { clawIds = fsNative.readdirSync(clawsDir, { withFileTypes: true })
@@ -581,7 +677,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
       if (!clawWatchers.has(clawId)) {
         try {
-          const w = fsNative.watch(streamFile, { persistent: false }, scheduleClawRefresh);
+          const w = fsNative.watch(streamFile, { persistent: false }, () => scheduleClawRefresh(clawId));
           w.on('error', () => {
             w.close();
             clawWatchers.delete(clawId);
@@ -590,93 +686,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         } catch { /* fallback to polling */ }
       }
       const track = clawTrackMap.get(clawId)!;
-      try {
-        const stat = fsNative.statSync(streamFile);
-        if (stat.size < track.fileSize) {
-          track.fileSize = 0; track.leftover = '';
-          track.turnCount = 0; track.step = 0; track.active = false; track.lastError = null;
-        }  // 文件被截断
-        if (stat.size > track.fileSize) {
-          const toRead = stat.size - track.fileSize;
-          const buf = Buffer.alloc(toRead);
-          const fd = fsNative.openSync(streamFile, 'r');
-          let bytesRead = 0;
-          try {
-            while (bytesRead < toRead) {
-              const n = fsNative.readSync(fd, buf, bytesRead, toRead - bytesRead, track.fileSize + bytesRead);
-              if (n === 0) break;
-              bytesRead += n;
-            }
-          } finally { fsNative.closeSync(fd); }
-          track.fileSize += bytesRead;
-
-          const chunk = track.leftover + buf.toString('utf-8');
-          const lines = chunk.split('\n');
-          track.leftover = lines.pop() ?? '';
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const ev = JSON.parse(line);
-              if (ev.type === 'turn_start') { track.turnCount++; track.step = 0; track.active = true; }
-              else if (ev.type === 'tool_result') { track.step = ev.step ?? track.step; track.maxSteps = ev.maxSteps ?? track.maxSteps; }
-              else if (ev.type === 'turn_error') { track.active = false; track.lastError = (ev.error as string) ?? 'error'; }
-              else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
-              // attach 专用解析（仅对 attachedClawId）
-              if (attachedClawId && clawId === attachedClawId) {
-                const st = attachedClaws.get(attachedClawId)!;
-                if (LLM_OUTPUT_EVENTS.has(ev.type)) {
-                  if (st.active === false) st.lastOutput = '';  // 新 turn 开始，清除上次输出
-                  st.active = true;
-                  if (ev.type === 'thinking_delta') {
-                    if (st.clearOnNextDelta) {
-                      st.textBuffer = '';
-                      st.bufferType = null;
-                      st.clearOnNextDelta = false;
-                    }
-                    st.textBuffer += (ev.delta as string) ?? '';
-                    st.bufferType = 'thinking';
-                  } else if (ev.type === 'tool_call') {
-                    st.currentTool = (ev.name as string) ?? null;
-                    st.toolSuccess = null;
-                    st.clearOnNextDelta = true;
-                    // st.textBuffer 和 st.bufferType 保留，工具执行期间继续显示上一段思考
-                  } else if (ev.type === 'text_delta') {
-                    if (st.bufferType !== 'text') {
-                      st.textBuffer = '';
-                      st.clearOnNextDelta = false;
-                    }
-                    st.textBuffer += (ev.delta as string) ?? '';
-                  }
-                } else if (ev.type === 'tool_result') {
-                  st.toolSuccess = (ev.success as boolean) ?? null;
-                } else if (ev.type === 'turn_start') {
-                  st.lastOutput = '';
-                  st.lastInterrupted = false;
-                } else if (ev.type === 'turn_end') {
-                  st.active = false; st.lastInterrupted = false;
-                  if (st.textBuffer) st.lastOutput = st.textBuffer;
-                  st.currentTool = null; st.textBuffer = '';
-                  st.toolSuccess = null; st.bufferType = null; st.clearOnNextDelta = false;
-                  st.referenceMs = Date.now();
-                } else if (ev.type === 'turn_error') {
-                  st.active = false; st.lastInterrupted = false;
-                  st.currentTool = null; st.textBuffer = '';
-                  st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
-                  st.lastError = (ev.error as string) ?? 'error';
-                  st.referenceMs = Date.now();
-                } else if (ev.type === 'turn_interrupted') {
-                  st.active = false; st.lastInterrupted = true;
-                  st.currentTool = null; st.textBuffer = '';
-                  st.toolSuccess = null; st.bufferType = null; st.lastOutput = ''; st.clearOnNextDelta = false;
-                  st.referenceMs = Date.now();
-                }
-                updateAttachedClawBar();
-                tui.requestRender();
-              }
-            } catch { /* skip */ }
-          }
-        }
-      } catch { /* ENOENT 等，跳过 */ }
 
       // Contract check
       const contractActiveDir = path.join(clawsDir, clawId, 'contract', 'active');
@@ -772,7 +781,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       const now = Date.now();
       if (now - lastClawRefreshTs >= 2000) {
         lastClawRefreshTs = now;
-        refreshClawStatus();
+        refreshAllClawStatus();
       }
     }
     // Poll task streams for dispatch/spawn progress
@@ -780,22 +789,23 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       pollTaskStream(taskId);
     }
     // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
-    if (attachedClawId) {
-      const st = attachedClaws.get(attachedClawId)!;
+    for (const [clawId, st] of attachedClaws) {
       st.pollTick++;
       if (st.pollTick >= 5) {
         st.pollTick = 0;
         // 重检契约状态（契约可能在 attach 之后才创建）
-        const contractCreatedMs = getContractCreatedMs(path.join(clawsDir, attachedClawId));
+        const contractCreatedMs = getContractCreatedMs(st.clawDir);
         st.hasContract = contractCreatedMs !== null;
         if (st.hasContract && st.referenceMs === null) {
-          const info = getClawActivityInfo(path.join(clawsDir, attachedClawId));
+          const info = getClawActivityInfo(st.clawDir);
           st.referenceMs = Math.max(info.lastEventMs ?? 0, contractCreatedMs!) || null;
           st.lastError = info.lastError;
         }
-        updateAttachedClawBar();
-        tui.requestRender();
       }
+    }
+    if (attachedClawId) {
+      updateAttachedClawBar();
+      tui.requestRender();
     }
   }, 200);  // fallback 200ms
 
@@ -871,7 +881,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             // 创建或重置状态
             let st = attachedClaws.get(clawId);
             if (!st) {
-              st = makeClawState();
+              const clawDir = path.join(clawsDir, clawId);
+              st = makeClawState(clawDir);
               attachedClaws.set(clawId, st);
             } else {
               // 重置现有状态
@@ -901,7 +912,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             clawWatchers.get(clawId)?.close();
             clawWatchers.delete(clawId);
             try {
-              const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus());
+              const w = fsNative.watch(attachStreamFile, { persistent: false }, () => refreshClawStatus(clawId));
               w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
               clawWatchers.set(clawId, w);
             } catch { /* fallback to polling */ }
