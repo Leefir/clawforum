@@ -266,9 +266,6 @@ export class SubAgent {
       await this.appendToLog(`Stop reason: ${result.stopReason}\n`);
       await this.appendToLog(`Final text: ${result.finalText}\n`);
 
-      // Write turn_end and close stream
-      sw?.write({ type: 'turn_end' });
-
       // 持久化 messages 供复盘子代理继承（best-effort，不影响主流程）
       try {
         await this.fs.writeAtomic(
