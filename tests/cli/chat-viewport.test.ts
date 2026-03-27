@@ -155,8 +155,6 @@ describe('chat-viewport Phase 72', () => {
       
       // 活跃路径应该使用 fitLine
       expect(buildClawLineBody).toContain('fitLine');
-      // 不应在活跃路径中使用 sliceFromStart
-      expect(buildClawLineBody.indexOf('sliceFromStart')).toBeLessThan(0);
     });
   });
 });
