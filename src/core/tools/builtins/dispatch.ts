@@ -201,10 +201,19 @@ dispatcher 不能：
             for (const msg of msgs) {
               if (msg.role !== 'user') continue;
               const text = extractText(msg.content);
-              const m = text.match(/Contract created:\s+(\S+)\s+for claw/);
+              const m = text.match(/Contract created:\s+(\d+-[a-f0-9]+)\s+for claw/);
               if (m) { cid = m[1]; break; }
             }
-          } catch { /* messages 文件不存在时忽略 */ }
+          } catch (e) {
+            const code = (e as NodeJS.ErrnoException).code;
+            if (code !== 'ENOENT') {
+              ctx.monitor?.log('warn', {
+                context: 'dispatch.parseMessages',
+                taskId: tid,
+                error: e instanceof Error ? e.message : String(e),
+              });
+            }
+          }
 
           // 降级：兼容旧的 CONTRACT_CREATED 格式
           if (!cid) {

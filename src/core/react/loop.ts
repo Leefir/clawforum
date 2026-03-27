@@ -404,7 +404,7 @@ async function collectStreamResponse(
       case 'text_delta':
         // Flush thinking before text starts
         if (currentThinking) {
-          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature } as ContentBlock);
+          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
           currentThinking = '';
           currentSignature = '';
         }
@@ -430,13 +430,13 @@ async function collectStreamResponse(
       case 'tool_use_start':
         // Flush thinking before tool_use
         if (currentThinking) {
-          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature } as ContentBlock);
+          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
           currentThinking = '';
           currentSignature = '';
         }
         // 保存之前的 text block
         if (currentText) {
-          contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
+          contentBlocks.push({ type: 'text', text: currentText });
           currentText = '';
           onTextEnd?.();
         }
@@ -447,7 +447,7 @@ async function collectStreamResponse(
             id: currentToolUse.id,
             name: currentToolUse.name,
             input: JSON.parse(currentToolUse.input || '{}'),
-          } as ContentBlock);
+          });
         }
         currentToolUse = {
           id: chunk.toolUse!.id,
@@ -479,10 +479,10 @@ async function collectStreamResponse(
 
   // 保存最后的 blocks
   if (currentThinking) {
-    contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature } as ContentBlock);
+    contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
   }
   if (currentText) {
-    contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
+    contentBlocks.push({ type: 'text', text: currentText });
     onTextEnd?.();
   }
   if (currentToolUse) {

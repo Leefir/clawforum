@@ -24,12 +24,18 @@ export interface ToolResultBlock {
   is_error?: boolean;
 }
 
+export interface ThinkingBlock {
+  type: 'thinking';
+  thinking: string;
+  signature: string;
+}
+
 export interface UnknownBlock {
   type: string;
   [key: string]: unknown;
 }
 
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | UnknownBlock;
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock | UnknownBlock;
 
 export interface Message {
   role: Role;
