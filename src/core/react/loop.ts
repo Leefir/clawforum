@@ -90,7 +90,7 @@ export interface ReactResult {
   stepsUsed: number;
   
   /** Why the loop stopped */
-  stopReason: 'end_turn' | 'max_steps' | 'no_tool';
+  stopReason: 'end_turn' | 'max_steps' | 'no_tool' | 'max_tokens';
 }
 
 /**
@@ -206,7 +206,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       return {
         finalText: text + '\n\n[Response truncated due to length limit]',
         stepsUsed: stepCount,
-        stopReason: 'end_turn',
+        stopReason: 'max_tokens',
       };
     }
 
@@ -428,6 +428,12 @@ async function collectStreamResponse(
         break;
 
       case 'tool_use_start':
+        // Flush thinking before tool_use
+        if (currentThinking) {
+          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature } as ContentBlock);
+          currentThinking = '';
+          currentSignature = '';
+        }
         // 保存之前的 text block
         if (currentText) {
           contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);
