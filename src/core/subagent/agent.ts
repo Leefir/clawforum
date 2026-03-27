@@ -14,6 +14,7 @@ import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { SUBAGENT_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { oneLine } from '../../cli/utils/string.js';
+import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
@@ -167,11 +168,8 @@ export class SubAgent {
       let auditStepStart = Date.now();
       const stepsLogPath = `tasks/results/${this.agentId}-steps.jsonl`;
 
-      // System prompt for subagent (use custom or default)
-      const systemPrompt = this.systemPrompt ??
-        `You are a subagent assigned to complete a specific task.
-You CANNOT spawn other subagents - use your available tools to complete the task yourself.
-Work efficiently and return a clear, concise result.`;
+      // System prompt for subagent (use custom or default from prompts module)
+      const systemPrompt = this.systemPrompt ?? DEFAULT_SUBAGENT_SYSTEM_PROMPT;
 
       // Format tools for LLM native tool_use (use pre-filtered list if provided)
       const tools = this.toolsForLLM

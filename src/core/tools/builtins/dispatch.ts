@@ -7,6 +7,7 @@ import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constan
 import { spawnTool } from './spawn.js';
 import * as fsNative from 'fs';
 import * as path from 'path';
+import { CONTRACT_AGENT_SYSTEM_PROMPT, buildDispatcherUserMessage } from '../../../prompts/index.js';
 
 /**
  * Extract text from message content (handles string, array, or object formats)
@@ -28,122 +29,23 @@ function extractText(content: unknown): string {
   return '';
 }
 
-const CONTRACT_AGENT_SYSTEM_PROMPT = `你是契约创建子代理，负责为指定 claw 设计并创建一份契约。
-
-## 可用工具
-
-- exec：执行 shell 命令（clawforum CLI 及文件操作）
-- read / write：读写 motion 工作区文件（clawspace/ 目录）
-- skill：加载技能模板
-- status：查看 claw 列表和状态
-
-## 工作流程
-
-### 第一步：设计契约，写 YAML 文件
-
-将契约 YAML 写入 motion 工作区：\`clawspace/contract-draft/contract.yaml\`
-
-\`\`\`yaml
-schema_version: 1
-title: "契约标题（50字以内）"
-goal: "一句话描述目标"
-deliverables:
-  - clawspace/output.md
-subtasks:
-  - id: kebab-case-id
-    description: "动词 + 做什么 + 具体输出路径，例如：收集5份模板并保存到 clawspace/templates.md"
-acceptance:
-  - subtask_id: kebab-case-id
-    type: script
-    script_file: acceptance/kebab-case-id.sh
-  - subtask_id: another-subtask-id
-    type: llm
-    prompt_file: acceptance/another-subtask-id.prompt.txt
-escalation:
-  max_retries: 3
-\`\`\`
-
-规则：
-- subtask id 用 kebab-case
-- type "script" 对应 script_file；type "llm" 对应 prompt_file（不可混用，否则验收静默失败）
-- **每个 subtask_id 在 acceptance 里只能出现一次**：同一 subtask_id 写两条验收（如 script + llm）只有第一条生效，第二条被静默忽略
-- 验收脚本从 clawDir 运行，用 \`clawspace/<filename>\` 检查文件
-
-### 第二步：写验收文件
-
-在第一步的目录里写好验收文件（CLI 会自动复制到正确位置）：
-
-脚本路径：\`clawspace/contract-draft/acceptance/<subtask-id>.sh\`
-提示词路径：\`clawspace/contract-draft/acceptance/<subtask-id>.prompt.txt\`
-
-先建目录：
-\`\`\`
-mkdir -p clawspace/contract-draft/acceptance
-\`\`\`
-
-脚本示例（exit 0 = 通过，exit 1 = 失败）：
-\`\`\`bash
-#!/bin/bash
-if [ -f "clawspace/output.md" ]; then exit 0; else exit 1; fi
-\`\`\`
-
-LLM 提示词是给「LLM 验收器」看的：它会收到 claw 提交的完成证据，判断 subtask 是否通过。
-不是任务描述，不是分析指令——是验收判断。必须包含 \`{{evidence}}\` 和 \`{{artifacts}}\` 占位符。
-
-示例：
-\`\`\`
-请根据以下证据判断 <subtask-id> subtask 是否完成。
-
-验收标准：<用一句话描述通过条件，例如 clawspace/output.md 存在且包含完整分析>
-
-{{evidence}}
-
-{{artifacts}}
-
-回复格式（JSON）：{"passed": true/false, "reason": "一句话说明"}
-\`\`\`
-
-**验收文件写完后，再执行第三步。**
-
-### 第三步：提交契约目录
-
-将目录提交给 CLI，由系统自动安装验收文件：
-
-\`\`\`
-clawforum contract create --claw <clawId> --dir clawspace/contract-draft
-\`\`\`
-
-输出格式：\`Contract created: <contractId> for claw <clawId>\`
-→ 从中提取 contractId。
-
-CLI 负责将 acceptance/ 文件复制到正确位置。**命令输出 \`Contract created: ...\` 即代表全部完成，无需进一步验证。然后结束。不要等待验收结果，不要检查契约目录内容。**
-
-## 其他 CLI 命令
-
-\`\`\`
-clawforum status                              # 查看所有 claw
-clawforum claw create <name>                  # 新建 claw（目标不存在时）
-clawforum skill install --claw <id> --skill <name>  # 为 claw 安装技能
-\`\`\`
-`;
-
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
-  readonly description = `创建一个 Dispatcher 分身，继承 Motion 的 system prompt 和工具列表，读取 dispatch-skills 模板后决定如何派发工作。
+  readonly description = `创建一个 Dispatcher 作为 Motion 的分身，继承 Motion 的上下文（system prompt + tool registration + messages)，根据上下文用户意图决定将任务派发给哪个claw，并匹配dispatch-skills。
 
 dispatcher 可以：
-- 决定目标 claw（新建或复用），并通过 exec 安装所需技能
-- 在最终回复输出 [SPAWN_REQUEST] 块，由系统自动调度契约创建子代理
+- 决定目标 claw（新建或复用），并通过 exec 调用 CLI 安装所需技能
+- 在最终回复输出 [SPAWN_REQUEST] 块，由系统自动调度“契约创建子代理”
 - 通过 exec 调用 CLI 执行其他系统操作
 - 直接使用工具完成独立任务
 
 dispatcher 不能：
 - 直接调用 spawn 工具（会报错）
-- 通过 exec 直接创建契约（应输出 SPAWN_REQUEST，让系统调度）
+- 通过 exec 直接创建契约（系统根据dispatcher输出的 SPAWN_REQUEST调度“契约创建子代理”，子代理有创建契约的全面提示词，会完成契约创建）
 
 优先用 dispatch 的场景：
 - 任务需要给 claw 创建契约
-- 任务可能匹配已有 dispatch-skills 模板
+- 任务可能匹配已有 dispatch-skills 
 
 已知确切 prompt 的一次性任务，Motion 直接用 spawn 即可。`;
 
@@ -192,47 +94,11 @@ dispatcher 不能：
       }
     }
 
-    // 构建 Dispatcher 的 user message（新架构格式）
-    let userMessage = `---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。\n- 不能再调用 \`dispatch\`（递归防护）\n- 不能调用 \`spawn\`（会报错）\n- 不能自己写契约 YAML 或验收脚本（由 SPAWN_REQUEST 触发的专属子代理负责）\n`;
-
-    userMessage += `\n## 任务\n${args.task}`;
-
-    if (args.context) {
-      userMessage += `\n\n## 上下文\n${args.context}`;
-    }
-
-    if (skillsSummary) {
-      userMessage += `\n\n${skillsSummary}\n通过 skill({ name: "<skill-name>", skillsDir: "clawspace/dispatch-skills" }) 加载完整模板。`;
-    }
-
-    userMessage += `\n\n## 执行步骤
-
-1. 决定目标 claw（已有哪个最合适 / 需要新建）
-2. 如需新建 claw：直接用工具新建（exec: clawforum claw create <name>）
-3. 为该 claw 安装所需技能：直接用工具完成（exec: clawforum skill install --claw <id> --skill <name>）
-4. 在最终回复末尾输出以下块，用于发起子代理给targetClaw创建契约（必须，格式不可变）：
-
-[SPAWN_REQUEST]
-{"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt>"}
-[/SPAWN_REQUEST]
-
-**targetClaw 规则**：必须是已存在的 claw id（kebab-case 名称，如 openclaw-explorer）。
-不能是 UUID、不能是新建的 claw、不能是 taskId。
-如需新建 claw，先用 \`clawforum claw create <name>\` 创建，确认成功后再填入 targetClaw。
-
-**prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
-契约创建子代理的工作是：设计契约 YAML、写验收文件，并通过 clawforum contract create --dir 提交。
-prompt 里应说明：
-- 目标 claw 是哪个
-- 要完成什么任务（由该 claw 执行，不是子代理本人执行）
-- 期望的 deliverables（路径）和验收标准
-
-示例：
-"为 openclaw-explorer claw 创建契约，任务是探索 OpenClaw 的 Gateway/Docker/Config 模块并生成报告到 clawspace/deep-analysis.md，验收标准：该文件存在且包含各模块分析。"
-
-不要把"执行任务"的 prompt 放进去（子代理不会去做实际工作）。
-契约创建子代理没有任何上下文，prompt 必须自包含（不能引用"本次对话"）。`;
-
+    const userMessage = buildDispatcherUserMessage(
+      args.task as string,
+      args.context as string | undefined,
+      skillsSummary,
+    );
     const taskSystem = ctx.taskSystem;
     if (!taskSystem) {
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
