@@ -201,6 +201,23 @@ clawCmd
     }
   });
 
+// claw trace
+clawCmd
+  .command('trace')
+  .description('Show claw execution trace for a contract')
+  .requiredOption('--claw <id>', 'Target claw ID')
+  .requiredOption('--contract <contractId>', 'Contract ID')
+  .option('--step <n>', 'Show full content of step N (no truncation)', parseInt)
+  .action(async (opts: { claw: string; contract: string; step?: number }) => {
+    try {
+      const { clawTraceCommand } = await import('./commands/claw.js');
+      await clawTraceCommand(opts.claw, opts.contract, opts.step);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
 // claw daemon (auto-backgrounds)
 clawCmd
   .command('daemon <name>')

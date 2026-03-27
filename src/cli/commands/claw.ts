@@ -450,3 +450,403 @@ export async function outboxCommand(
     console.log(`(${remaining} more unread message(s))`);
   }
 }
+
+// ============================================================================
+// Trace Command - Show claw execution trace for a contract
+// ============================================================================
+
+interface StreamEvent {
+  ts: number;
+  type: string;
+  name?: string;
+  success?: boolean;
+  subtype?: string;
+  delta?: string;
+  tool_use_id?: string;
+}
+
+interface DialogMessage {
+  role: string;
+  content: unknown;
+}
+
+interface ToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: unknown;
+}
+
+interface ToolResultBlock {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: unknown;
+}
+
+/**
+ * Show claw execution trace for a contract
+ */
+export async function clawTraceCommand(
+  clawId: string,
+  contractId: string,
+  step?: number,
+): Promise<void> {
+  loadGlobalConfig();
+
+  if (!clawExists(clawId)) {
+    console.error(`Error: Claw "${clawId}" does not exist`);
+    process.exit(1);
+  }
+
+  const clawDir = getClawDir(clawId);
+
+  // 1. 读取 started_at
+  const startedAt = await readContractStartedAt(clawDir, contractId);
+  if (!startedAt) {
+    console.error(`Error: Contract "${contractId}" not found for claw "${clawId}"`);
+    process.exit(1);
+  }
+
+  // 2. 扫描并过滤 stream 文件
+  const events = await readStreamEvents(clawDir, startedAt);
+
+  // 3. 读取契约标题
+  const title = await readContractTitle(clawDir, contractId);
+
+  if (step !== undefined) {
+    // 单步全量输出
+    await showStepDetail(clawDir, events, step);
+  } else {
+    // 概览输出
+    showTraceOverview(clawId, contractId, title, startedAt, events);
+  }
+}
+
+/**
+ * 读取契约开始时间
+ */
+async function readContractStartedAt(clawDir: string, contractId: string): Promise<string | null> {
+  // 先尝试 archive
+  const archivePath = path.join(clawDir, 'contract', 'archive', contractId, 'progress.json');
+  const activePath = path.join(clawDir, 'contract', 'active', contractId, 'progress.json');
+
+  for (const p of [archivePath, activePath]) {
+    try {
+      const content = await fs.promises.readFile(p, 'utf-8');
+      const data = JSON.parse(content);
+      if (data.started_at) return data.started_at;
+    } catch { /* skip */ }
+  }
+  return null;
+}
+
+/**
+ * 读取契约标题
+ */
+async function readContractTitle(clawDir: string, contractId: string): Promise<string | undefined> {
+  // 从 progress.json 读取
+  const archivePath = path.join(clawDir, 'contract', 'archive', contractId, 'progress.json');
+  const activePath = path.join(clawDir, 'contract', 'active', contractId, 'progress.json');
+
+  for (const p of [archivePath, activePath]) {
+    try {
+      const content = await fs.promises.readFile(p, 'utf-8');
+      const data = JSON.parse(content);
+      if (data.title) return data.title;
+    } catch { /* skip */ }
+  }
+
+  // 从 contract.yaml 读取
+  const yamlPath = path.join(clawDir, 'contract', 'archive', contractId, 'contract.yaml');
+  const activeYamlPath = path.join(clawDir, 'contract', 'active', contractId, 'contract.yaml');
+
+  for (const p of [yamlPath, activeYamlPath]) {
+    try {
+      const content = await fs.promises.readFile(p, 'utf-8');
+      const data = yaml.load(content) as { title?: string };
+      if (data.title) return data.title;
+    } catch { /* skip */ }
+  }
+
+  return undefined;
+}
+
+/**
+ * 扫描 stream*.jsonl 文件，过滤契约期间的事件
+ */
+async function readStreamEvents(clawDir: string, startedAt: string): Promise<StreamEvent[]> {
+  const dialogDir = path.join(clawDir, 'dialog');
+  const startedTs = Date.parse(started_at);
+
+  // 扫描所有 stream*.jsonl 文件
+  const files: Array<{ path: string; mtime: number }> = [];
+  try {
+    const entries = await fs.promises.readdir(dialogDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!entry.name.startsWith('stream') || !entry.name.endsWith('.jsonl')) continue;
+      const fp = path.join(dialogDir, entry.name);
+      const stat = await fs.promises.stat(fp);
+      files.push({ path: fp, mtime: stat.mtimeMs });
+    }
+  } catch { return []; }
+
+  // 按修改时间排序
+  files.sort((a, b) => a.mtime - b.mtime);
+
+  // 读取并过滤事件
+  const events: StreamEvent[] = [];
+  for (const { path: fp } of files) {
+    try {
+      const content = await fs.promises.readFile(fp, 'utf-8');
+      const lines = content.trim().split('\n').filter(Boolean);
+      for (const line of lines) {
+        try {
+          const ev: StreamEvent = JSON.parse(line);
+          if (typeof ev.ts === 'number' && ev.ts >= startedTs) {
+            events.push(ev);
+          }
+        } catch { /* skip invalid */ }
+      }
+    } catch { /* skip */ }
+  }
+
+  // 按时间戳排序
+  events.sort((a, b) => a.ts - b.ts);
+  return events;
+}
+
+/**
+ * 概览输出
+ */
+function showTraceOverview(
+  clawId: string,
+  contractId: string,
+  title: string | undefined,
+  startedAt: string,
+  events: StreamEvent[],
+): void {
+  // 头部信息
+  const titleLine = title ? `"${title}"` : '(untitled)';
+  console.log(`Contract: ${titleLine} (${contractId})`);
+
+  const startedStr = new Date(startedAt).toLocaleString();
+  const totalSteps = events.filter(e => e.type === 'tool_call').length;
+  console.log(`Claw: ${clawId} | Started: ${startedStr} | Steps: ${totalSteps}`);
+  console.log('');
+
+  // 遍历事件输出
+  let round = 0;
+  let stepSeq = 0;
+  let textBuf = '';
+  let pendingToolCall: string | null = null;
+  let pendingToolSuccess: boolean | null = null;
+  let nextRoundTrigger: string | null = null;
+
+  const flushText = () => {
+    const trimmed = textBuf.trim();
+    if (trimmed) {
+      console.log(trimmed);
+      textBuf = '';
+    }
+  };
+
+  const printSeparator = () => {
+    const trigger = nextRoundTrigger ? ` (${nextRoundTrigger})` : '';
+    const label = `Round ${round}${trigger}`;
+    const line = '─'.repeat(50);
+    const pos = Math.floor((50 - label.length) / 2);
+    const sep = line.slice(0, pos) + label + line.slice(pos + label.length);
+    console.log(sep.slice(0, 50));
+    nextRoundTrigger = null;
+  };
+
+  for (const ev of events) {
+    switch (ev.type) {
+      case 'llm_start': {
+        flushText();
+        if (round > 0) printSeparator();
+        round++;
+        break;
+      }
+      case 'thinking_delta': {
+        // 跳过
+        break;
+      }
+      case 'text_delta': {
+        if (ev.delta) textBuf += ev.delta;
+        break;
+      }
+      case 'text_end': {
+        flushText();
+        break;
+      }
+      case 'tool_call': {
+        stepSeq++;
+        pendingToolCall = ev.name || 'unknown';
+        pendingToolSuccess = null;
+        break;
+      }
+      case 'tool_result': {
+        const name = pendingToolCall || 'unknown';
+        const mark = ev.success === false ? ' ✗' : '';
+        console.log(`[#${stepSeq}] ${name}:${mark}`);
+        pendingToolCall = null;
+        pendingToolSuccess = null;
+        break;
+      }
+      case 'user_notify': {
+        if (ev.subtype) {
+          nextRoundTrigger = ev.subtype;
+        }
+        break;
+      }
+    }
+  }
+
+  flushText();
+}
+
+/**
+ * 单步全量输出
+ */
+async function showStepDetail(
+  clawDir: string,
+  events: StreamEvent[],
+  targetStep: number,
+): Promise<void> {
+  // 从 stream 找第 n 个 tool_call
+  let toolCallCount = 0;
+  let targetToolName = '';
+
+  for (const ev of events) {
+    if (ev.type === 'tool_call') {
+      toolCallCount++;
+      if (toolCallCount === targetStep) {
+        targetToolName = ev.name || 'unknown';
+        break;
+      }
+    }
+  }
+
+  if (!targetToolName) {
+    console.error(`Error: Step ${targetStep} not found`);
+    process.exit(1);
+  }
+
+  // 读取 dialog/current.json
+  const dialogPath = path.join(clawDir, 'dialog', 'current.json');
+  let messages: DialogMessage[] = [];
+  try {
+    const content = await fs.promises.readFile(dialogPath, 'utf-8');
+    messages = JSON.parse(content);
+  } catch {
+    console.log('Full content not available (dialog not found)');
+    return;
+  }
+
+  // 找第 n 个 tool_use block
+  let toolUseCount = 0;
+  let targetToolUse: ToolUseBlock | null = null;
+  let targetToolResult: ToolResultBlock | null = null;
+
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue;
+
+    const content = msg.content;
+    if (!Array.isArray(content)) continue;
+
+    for (const block of content) {
+      if (typeof block !== 'object' || block === null) continue;
+      const b = block as { type?: string };
+      if (b.type === 'tool_use') {
+        toolUseCount++;
+        if (toolUseCount === targetStep) {
+          targetToolUse = block as ToolUseBlock;
+          break;
+        }
+      }
+    }
+    if (targetToolUse) break;
+  }
+
+  if (!targetToolUse) {
+    console.log('Full content not available (dialog not found)');
+    return;
+  }
+
+  // 找对应的 tool_result
+  for (const msg of messages) {
+    if (msg.role !== 'user') continue;
+
+    const content = msg.content;
+    if (!Array.isArray(content)) continue;
+
+    for (const block of content) {
+      if (typeof block !== 'object' || block === null) continue;
+      const b = block as { type?: string; tool_use_id?: string };
+      if (b.type === 'tool_result' && b.tool_use_id === targetToolUse!.id) {
+        targetToolResult = block as ToolResultBlock;
+        break;
+      }
+    }
+    if (targetToolResult) break;
+  }
+
+  // 输出
+  console.log(`[#${targetStep}] ${targetToolUse.name}`);
+  console.log('');
+  console.log('Input:');
+  console.log(JSON.stringify(targetToolUse.input, null, 2));
+  console.log('');
+
+  if (targetToolResult) {
+    const success = !isToolResultError(targetToolResult.content);
+    console.log(`Result (${success ? 'success' : 'failed'}):`);
+    console.log(formatToolResultContent(targetToolResult.content));
+  } else {
+    console.log('Result: (not found)');
+  }
+}
+
+/**
+ * 判断 tool_result 是否表示错误
+ */
+function isToolResultError(content: unknown): boolean {
+  if (typeof content === 'string') {
+    return content.includes('Error:') || content.includes('error');
+  }
+  if (Array.isArray(content)) {
+    for (const item of content) {
+      if (typeof item === 'object' && item !== null) {
+        const obj = item as { type?: string; text?: string };
+        if (obj.type === 'text' && obj.text) {
+          return obj.text.includes('Error:') || obj.text.includes('error');
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * 格式化 tool_result 内容
+ */
+function formatToolResultContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    const texts: string[] = [];
+    for (const item of content) {
+      if (typeof item === 'object' && item !== null) {
+        const obj = item as { type?: string; text?: string };
+        if (obj.type === 'text' && obj.text) {
+          texts.push(obj.text);
+        }
+      }
+    }
+    return texts.join('\n');
+  }
+  return JSON.stringify(content, null, 2);
+}
