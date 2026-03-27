@@ -162,8 +162,8 @@ export async function daemonCommand(name: string): Promise<void> {
           let targetClaw: string | null = null;
           try {
             const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
-            contractTaskId = raw.contractTaskId;
-            targetClaw = raw.targetClaw ?? null;
+            contractTaskId = typeof raw.contractTaskId === 'string' ? raw.contractTaskId : '';
+            targetClaw = typeof raw.targetClaw === 'string' ? raw.targetClaw : null;
             if (!contractTaskId) continue;
             if (!targetClaw) {
               console.warn('[daemon] by-contract index missing targetClaw, skipping retrospective for contract:', contractId);
