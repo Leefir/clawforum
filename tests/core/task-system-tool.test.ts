@@ -858,13 +858,14 @@ describe('TaskSystem Tool Tasks', () => {
 
   // Phase 17: callback 丢失恢复路径 + shutdown
   describe('Phase 17 untested paths', () => {
-    it('should discard ToolTask on daemon restart (no callback, no inbox noise)', async () => {
+    it('should discard ToolTask on daemon restart and send error to parent', async () => {
       // Simulate daemon restart: ToolTask written to tasks/pending/ but no callback registered
-      // New behavior: directly move to done/, no execution, no inbox message
+      // New behavior: move to failed/ and send error message to parent inbox
       const freshDir = path.join(TEST_DIR, `callback-loss-${Date.now()}`);
       await fs.mkdir(path.join(freshDir, 'tasks', 'pending'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'tasks', 'running'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'tasks', 'done'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'failed'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'tasks', 'results'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'inbox', 'pending'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'logs'), { recursive: true });
@@ -906,10 +907,15 @@ describe('TaskSystem Tool Tasks', () => {
       expect(failedExists).toBe(true);
       expect(freshSystem.listPending()).not.toContain(taskId);
 
-      // No inbox message should be generated (no noise)
+      // Error message should be sent to parent inbox
       const inboxFiles = await fs.readdir(path.join(freshDir, 'inbox', 'pending'));
       const mdFiles = inboxFiles.filter((f: string) => f.endsWith('.md'));
-      expect(mdFiles.length).toBe(0);
+      expect(mdFiles.length).toBe(1);
+      
+      // Verify error message content (YAML frontmatter + JSON body)
+      const inboxContent = await fs.readFile(path.join(freshDir, 'inbox', 'pending', mdFiles[0]), 'utf-8');
+      expect(inboxContent).toContain('"is_error":true');
+      expect(inboxContent).toContain('daemon restarted');
 
       await freshSystem.shutdown(500).catch(() => {});
       await fs.rm(freshDir, { recursive: true, force: true }).catch(() => {});

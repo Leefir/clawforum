@@ -143,6 +143,14 @@ export class TaskSystem {
                 kind: 'tool',
                 reason: 'daemon_restarted',
               });
+              // 通知 parent，避免永久挂起
+              await this.sendFallbackError(task, 'daemon restarted, tool task discarded').catch((e) => {
+                this.monitor.log('error', {
+                  context: 'recoverTasks.sendFallbackError',
+                  taskId: task.id,
+                  error: e instanceof Error ? e.message : String(e),
+                });
+              });
             } else {
               // subagent 任务：回 pending 重新执行（原有逻辑）
               const pendingPath = `tasks/pending/${task.id}.json`;
@@ -181,6 +189,14 @@ export class TaskSystem {
                 taskId: task.id,
                 kind: 'tool',
                 reason: 'daemon_restarted',
+              });
+              // 通知 parent，避免永久挂起
+              await this.sendFallbackError(task, 'daemon restarted, tool task discarded').catch((e) => {
+                this.monitor.log('error', {
+                  context: 'recoverTasks.sendFallbackError_pending',
+                  taskId: task.id,
+                  error: e instanceof Error ? e.message : String(e),
+                });
               });
             } else {
               this.pendingQueue.push(task);
