@@ -218,7 +218,7 @@ dispatcher 不能：
 
           // 降级：兼容旧的 CONTRACT_CREATED 格式
           if (!cid) {
-            const m = res.match(/CONTRACT_CREATED:\s+(\S+)/);
+            const m = res.match(/CONTRACT_CREATED:\s+(\d+-[a-f0-9]+)/);
             cid = m?.[1];
           }
 
