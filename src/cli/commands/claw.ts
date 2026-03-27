@@ -575,7 +575,6 @@ async function readContractTitle(clawDir: string, contractId: string): Promise<s
  * 扫描 stream*.jsonl 文件，过滤契约期间的事件
  */
 async function readStreamEvents(clawDir: string, startedAt: string): Promise<StreamEvent[]> {
-  const dialogDir = path.join(clawDir, 'dialog');
   const startedTs = Date.parse(startedAt);
   if (isNaN(startedTs)) {
     throw new Error(`Invalid contract start time: "${startedAt}"`);
@@ -584,11 +583,11 @@ async function readStreamEvents(clawDir: string, startedAt: string): Promise<Str
   // 扫描所有 stream*.jsonl 文件
   const files: Array<{ path: string; mtime: number }> = [];
   try {
-    const entries = await fs.promises.readdir(dialogDir, { withFileTypes: true });
+    const entries = await fs.promises.readdir(clawDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       if (!entry.name.startsWith('stream') || !entry.name.endsWith('.jsonl')) continue;
-      const fp = path.join(dialogDir, entry.name);
+      const fp = path.join(clawDir, entry.name);
       const stat = await fs.promises.stat(fp);
       files.push({ path: fp, mtime: stat.mtimeMs });
     }
