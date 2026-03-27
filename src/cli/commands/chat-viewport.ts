@@ -124,19 +124,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const isThinking = t.bufferType === 'thinking';
           const open = isThinking ? '(' : '"';
           const close = isThinking ? ')' : '"';
-          const prefix = `[${id}] ${icon} ${t.currentTool} · ${open}`;
-          const available = cols - prefix.length - 1;
-          const text = sliceFromStart(t.textBuffer.trimStart().replace(/\n/g, ' '), available);
-          return `\x1b[38;5;147m${prefix}${text}${close}\x1b[0m`;
+          const line = `[${id}] ${icon} ${t.currentTool} · ${open}${t.textBuffer.trimStart().replace(/\n/g, ' ')}${close}`;
+          return `\x1b[38;5;147m${fitLine(line, cols)}\x1b[0m`;
         }
         return `\x1b[38;5;147m[${id}] ${icon} ${t.currentTool}\x1b[0m`;
       }
-      const prefix = `[${id}] ⊙ (`;
-      const available = cols - prefix.length - 1;
-      const text = t.textBuffer
-        ? sliceFromStart(t.textBuffer.trimStart().replace(/\n/g, ' '), available)
+      const inner = t.textBuffer
+        ? t.textBuffer.trimStart().replace(/\n/g, ' ')
         : '';
-      return `\x1b[38;5;147m${prefix}${text})\x1b[0m`;
+      return `\x1b[38;5;147m${fitLine(`[${id}] ⊙ (${inner})`, cols)}\x1b[0m`;
     }
 
     // 不活跃
