@@ -137,7 +137,8 @@ dispatcher 不能：
 
         // 校验 targetClaw 存在
         if (targetClaw) {
-          const clawDir = path.resolve(ctx.clawDir, '..', targetClaw);
+          const clawsDir = path.resolve(ctx.clawDir, '..', 'claws');
+          const clawDir = path.join(clawsDir, targetClaw);
           if (!fsNative.existsSync(clawDir)) {
             ctx.monitor?.log('warn', {
               context: 'dispatch.invalidTargetClaw',
