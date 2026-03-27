@@ -692,9 +692,9 @@ function showTraceOverview(
       case 'tool_result': {
         const name = pendingToolCall || 'unknown';
         const mark = ev.success === false ? ' ✗' : '';
-        console.log(`[#${stepSeq}] ${name}:${mark}`);
+        const summaryPart = ev.summary ? ` ${ev.summary}` : '';
+        console.log(`[#${stepSeq}] ${name}:${mark}${summaryPart}`);
         pendingToolCall = null;
-        pendingToolSuccess = null;
         break;
       }
       case 'user_notify': {
