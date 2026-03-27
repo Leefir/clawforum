@@ -7,7 +7,7 @@ import * as fsNative from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import * as yaml from 'js-yaml';
-import { ContractManager, type ContractYaml } from '../../core/contract/manager.js';
+import { ContractManager, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
 import { ContractCreator } from '../../core/contract/creator.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { LLMService } from '../../foundation/llm/service.js';
@@ -215,5 +215,57 @@ export async function contractCreateFromGoalCommand(clawId: string, goal: string
     const acc = contractYaml.acceptance?.find(a => a.subtask_id === st.id);
     const accStr = acc ? ` [${acc.type}: ${acc.type === 'script' ? acc.script_file : acc.prompt_file}]` : ' [no acceptance]';
     console.log(`  - ${st.id}: ${st.description}${accStr}`);
+  }
+}
+
+/**
+ * Show contract execution log for a claw
+ */
+export async function contractLogCommand(clawId: string, contractId?: string): Promise<void> {
+  const clawDir = getClawDir(clawId);
+  const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+  const manager = new ContractManager(clawDir, clawFs);
+
+  const contract = await manager.loadActive();
+  if (!contract) {
+    console.log(`No active contract for claw ${clawId}`);
+    return;
+  }
+
+  if (contractId && contract.id !== contractId) {
+    console.log(`Contract ${contractId} is not active. Active: ${contract.id}`);
+    return;
+  }
+
+  // 直接读 progress.json（ContractManager 无公开 loadProgress 方法）
+  const progressPath = path.join(clawDir, 'contract', 'active', contract.id, 'progress.json');
+  let progress: ProgressData | null = null;
+  try {
+    progress = JSON.parse(await fs.readFile(progressPath, 'utf-8'));
+  } catch { /* 无 progress 文件时忽略 */ }
+
+  console.log(`Contract: ${contract.id}`);
+  console.log(`Title: ${contract.title}`);
+  console.log(`Goal: ${contract.goal}`);
+  console.log(`Status: ${progress?.status ?? contract.status}`);
+  if (progress?.started_at) console.log(`Started: ${progress.started_at}`);
+  console.log('');
+  console.log('Subtasks:');
+
+  for (const subtask of contract.subtasks) {
+    const st = progress?.subtasks[subtask.id];
+    const status = st?.status ?? 'pending';
+    const label = `[${status}]`.padEnd(13);
+    console.log(`  ${label} ${subtask.id}: ${subtask.description}`);
+    if (st?.evidence) {
+      const ev = st.evidence.length > 300 ? st.evidence.slice(0, 300) + '…' : st.evidence;
+      console.log(`               Evidence: ${ev}`);
+    }
+    if (st?.last_failed_feedback) {
+      console.log(`               Last feedback: ${st.last_failed_feedback}`);
+    }
+    if (st?.retry_count) {
+      console.log(`               Retries: ${st.retry_count}`);
+    }
   }
 }
