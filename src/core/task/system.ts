@@ -497,8 +497,13 @@ export class TaskSystem {
       for (const handler of [...this._taskResultHandlers]) {
         try {
           inboxResult = await handler(task.id, task.callerType, inboxResult, true);
-        } catch {
+        } catch (handlerErr) {
           // handler 本身抛异常不影响清理链，继续执行后续 handler
+          this.monitor.log('error', {
+            context: 'taskResultHandler_threw_on_error_path',
+            taskId: task.id,
+            error: handlerErr instanceof Error ? handlerErr.message : String(handlerErr),
+          });
         }
       }
 
