@@ -1,12 +1,10 @@
 /**
- * Chat Viewport tests - Phase 72 regression tests
+ * chat-viewport tests
  *
- * These tests verify the code structure fixes for:
- * - Step 5: bufferType = 'text' assignment in text_delta handler
- * - Step 6: daemon death / ESC timeout flushes streaming/thinking buffer
+ * Step 5: bufferType 未赋值 'text'
+ * Step 6: daemon 死亡 / ESC 5s 超时时未 flush streaming/thinking buffer
  *
- * Note: Full integration testing requires complex TUI mocking.
- * These tests verify the fix is in place by reading the source code.
+ * 测试策略：源代码结构验证（不依赖复杂 TUI mock）
  */
 
 import { describe, it, expect } from 'vitest';
@@ -21,97 +19,144 @@ describe('chat-viewport Phase 72', () => {
   const sourceCode = fs.readFileSync(viewportPath, 'utf-8');
 
   // ==========================================================================
-  // Step 6: daemon death / ESC timeout flush
+  // Step 5: bufferType 赋值
   // ==========================================================================
-  describe('daemon death flush (Step 6)', () => {
-    it('should call flushStreaming and flushThinking when daemon dies', () => {
-      // Find the daemon death handler section
-      const daemonDeathSection = sourceCode.slice(
+  describe('Step 5: bufferType = text 赋值', () => {
+    it('text_delta handler 中应设置 bufferType = text', () => {
+      // 找到 text_delta 处理逻辑
+      const textDeltaMatch = sourceCode.match(
+        /\} else if \(ev\.type === 'text_delta'\) \{[\s\S]{0,400}?\}/
+      );
+      expect(textDeltaMatch).toBeTruthy();
+      
+      const textDeltaBlock = textDeltaMatch![0];
+      
+      // 应该在 if (track.bufferType !== 'text') 块内设置 bufferType
+      expect(textDeltaBlock).toContain("track.bufferType = 'text'");
+    });
+
+    it('bufferType 赋值应在 if 块内，而非每次 delta 都赋值', () => {
+      const textDeltaSection = sourceCode.slice(
+        sourceCode.indexOf("} else if (ev.type === 'text_delta')"),
+        sourceCode.indexOf("} else if (ev.type === 'tool_result')")
+      );
+      
+      // 确认有 if 检查
+      expect(textDeltaSection).toContain("if (track.bufferType !== 'text')");
+      // 确认 bufferType 赋值在里面
+      expect(textDeltaSection).toContain("track.bufferType = 'text'");
+    });
+  });
+
+  // ==========================================================================
+  // Step 6: daemon 死亡 flush
+  // ==========================================================================
+  describe('Step 6: daemon 死亡时 flush buffer', () => {
+    it('daemon 死亡处理应调用 flushStreaming 和 flushThinking', () => {
+      // 找到 daemon 死亡处理逻辑
+      const daemonDeadSection = sourceCode.slice(
         sourceCode.indexOf('// 进程不存在'),
         sourceCode.indexOf("appendOutput('\\x1b[31m', '✗ Daemon 已停止')")
       );
-
-      // Verify flush calls are present
-      expect(daemonDeathSection).toContain('flushStreaming()');
-      expect(daemonDeathSection).toContain('flushThinking()');
-      // Should be before streamingSuffix = ''
-      const flushIndex = daemonDeathSection.indexOf('flushStreaming()');
-      const suffixIndex = daemonDeathSection.indexOf("streamingSuffix = ''");
+      
+      expect(daemonDeadSection).toContain('flushStreaming()');
+      expect(daemonDeadSection).toContain('flushThinking()');
+      
+      // flush 应在清空 streamingSuffix 之前
+      const flushIndex = daemonDeadSection.indexOf('flushStreaming()');
+      const suffixIndex = daemonDeadSection.indexOf("streamingSuffix = ''");
+      expect(flushIndex).toBeGreaterThan(-1);
+      expect(suffixIndex).toBeGreaterThan(-1);
       expect(flushIndex).toBeLessThan(suffixIndex);
     });
+  });
 
-    it('should call flushStreaming and flushThinking on ESC timeout', () => {
-      // Find the ESC timeout handler section
+  // ==========================================================================
+  // Step 6: ESC 超时 flush
+  // ==========================================================================
+  describe('Step 6: ESC 5s 超时 flush buffer', () => {
+    it('ESC 超时回调应调用 flushStreaming 和 flushThinking', () => {
+      // 找到 ESC 超时处理逻辑（5秒超时）
       const escTimeoutMatch = sourceCode.match(
-        /escTimeoutId = setTimeout\(\(\) => \{[\s\S]*?\}, 5000\)/
+        /escTimeoutId = setTimeout\(\(\) => \{[\s\S]{0,600}?\}, 5000\)/
       );
       expect(escTimeoutMatch).toBeTruthy();
-
-      const escTimeoutSection = escTimeoutMatch![0];
-
-      // Verify flush calls are present
-      expect(escTimeoutSection).toContain('flushStreaming()');
-      expect(escTimeoutSection).toContain('flushThinking()');
+      
+      const escTimeoutBlock = escTimeoutMatch![0];
+      
+      expect(escTimeoutBlock).toContain('flushStreaming()');
+      expect(escTimeoutBlock).toContain('flushThinking()');
     });
   });
 
   // ==========================================================================
-  // Step 5: bufferType assignment
+  // Phase 72 核心重构验证
   // ==========================================================================
-  describe('bufferType assignment (Step 5)', () => {
-    it('should set bufferType = text in text_delta handler', () => {
-      // Find text_delta handler
-      const textDeltaMatch = sourceCode.match(
-        /\} else if \(ev\.type === 'text_delta'\) \{[\s\S]*?track\.textBuffer \+= /
-      );
-      expect(textDeltaMatch).toBeTruthy();
-
-      const textDeltaSection = textDeltaMatch![0];
-
-      // Verify bufferType is set to 'text'
-      expect(textDeltaSection).toContain("track.bufferType = 'text'");
-    });
-
-    it('should have bufferType assignment inside the if block', () => {
-      // Extract the full text_delta handler
-      const textDeltaStart = sourceCode.indexOf("} else if (ev.type === 'text_delta') {");
-      expect(textDeltaStart).toBeGreaterThan(-1);
-
-      // Find the end of this block (next else if or closing brace)
-      const nextBlock = sourceCode.indexOf('} else if', textDeltaStart + 1);
-      const textDeltaBlock = sourceCode.slice(textDeltaStart, nextBlock);
-
-      // Should have the if check for bufferType
-      expect(textDeltaBlock).toContain("if (track.bufferType !== 'text')");
-      // Should set bufferType inside that if
-      expect(textDeltaBlock).toContain("track.bufferType = 'text'");
-    });
-  });
-
-  // ==========================================================================
-  // Regression: outputContent reference (earlier bug fix)
-  // ==========================================================================
-  describe('outputContent removal regression', () => {
-    it('should not reference outputContent (removed in Phase 72)', () => {
-      // outputContent was replaced with outputLines
-      expect(sourceCode).not.toContain('outputContent +=');
+  describe('Phase 72 存储模型重构', () => {
+    it('应使用 outputLines 而非 outputContent', () => {
+      expect(sourceCode).toContain('outputLines: OutputLine[]');
+      expect(sourceCode).toContain('const outputLines: OutputLine[]');
+      // 不应有旧的 outputContent
       expect(sourceCode).not.toContain('let outputContent');
+      expect(sourceCode).not.toContain('outputContent +=');
     });
 
-    it('should use appendOutput in flushStreaming', () => {
+    it('appendOutput 应使用新签名 (color, text)', () => {
+      const appendOutputMatch = sourceCode.match(/const appendOutput = \([^)]+\) => \{/);
+      expect(appendOutputMatch).toBeTruthy();
+      expect(appendOutputMatch![0]).toContain('color: string');
+      expect(appendOutputMatch![0]).toContain('text: string');
+    });
+
+    it('flushStreaming 应使用 appendOutput', () => {
       const flushStreamingMatch = sourceCode.match(
-        /const flushStreaming = \(\) => \{[\s\S]*?\};/
+        /const flushStreaming = \(\) => \{[\s\S]{0,300}?\};/
       );
       expect(flushStreamingMatch).toBeTruthy();
       expect(flushStreamingMatch![0]).toContain('appendOutput');
+      expect(flushStreamingMatch![0]).not.toContain('outputContent');
     });
 
-    it('should use appendOutput in flushThinking', () => {
+    it('flushThinking 应使用 appendOutput', () => {
       const flushThinkingMatch = sourceCode.match(
-        /const flushThinking = \(\) => \{[\s\S]*?\};/
+        /const flushThinking = \(\) => \{[\s\S]{0,400}?\};/
       );
       expect(flushThinkingMatch).toBeTruthy();
       expect(flushThinkingMatch![0]).toContain('appendOutput');
+      expect(flushThinkingMatch![0]).not.toContain('outputContent');
+    });
+
+    it('updateDisplay 应使用 fitLine 动态渲染', () => {
+      const updateDisplayMatch = sourceCode.match(
+        /const updateDisplay = \(\) => \{[\s\S]{0,500}?\};/
+      );
+      expect(updateDisplayMatch).toBeTruthy();
+      expect(updateDisplayMatch![0]).toContain('fitLine');
+      expect(updateDisplayMatch![0]).toContain('process.stdout.columns');
+    });
+
+    it('应有 RESIZE 监听', () => {
+      expect(sourceCode).toContain("process.stdout.on('resize', onResize)");
+      expect(sourceCode).toContain("process.stdout.off('resize', onResize)");
+    });
+  });
+
+  // ==========================================================================
+  // buildClawLine 修复验证
+  // ==========================================================================
+  describe('Step 3: buildClawLine 活跃路径', () => {
+    it('活跃路径应使用 fitLine 而非手动 sliceFromStart', () => {
+      // 找到 buildClawLine 函数
+      const buildClawLineStart = sourceCode.indexOf('const buildClawLine = (id: string, t: ClawTrack, cols: number): string => {');
+      expect(buildClawLineStart).toBeGreaterThan(-1);
+      
+      // 取函数体前 2000 字符（足够覆盖活跃路径）
+      const buildClawLineBody = sourceCode.slice(buildClawLineStart, buildClawLineStart + 2000);
+      
+      // 活跃路径应该使用 fitLine
+      expect(buildClawLineBody).toContain('fitLine');
+      // 不应在活跃路径中使用 sliceFromStart
+      expect(buildClawLineBody.indexOf('sliceFromStart')).toBeLessThan(0);
     });
   });
 });

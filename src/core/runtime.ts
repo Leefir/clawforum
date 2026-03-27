@@ -472,7 +472,10 @@ export class ClawRuntime {
     let idleTimerId: ReturnType<typeof setTimeout> | undefined;
     const resetIdle = idleTimeoutMs > 0 ? () => {
       clearTimeout(idleTimerId);
-      idleTimerId = setTimeout(() => this.currentAbortController?.abort(), idleTimeoutMs);
+      idleTimerId = setTimeout(
+        () => this.currentAbortController?.abort({ type: 'idle_timeout', ms: idleTimeoutMs }),
+        idleTimeoutMs
+      );
     } : undefined;
     resetIdle?.();
 

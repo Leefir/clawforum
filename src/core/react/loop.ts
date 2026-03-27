@@ -18,6 +18,24 @@ import { MaxStepsExceededError } from '../../types/errors.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
 
 /**
+ * Error thrown when system idle timeout aborts execution
+ */
+export class SystemAbortError extends Error {
+  constructor(public readonly timeoutMs: number) {
+    super('Execution aborted');
+    this.name = 'SystemAbortError';
+  }
+}
+
+function throwAbortError(signal: AbortSignal): never {
+  const r = signal.reason as { type?: string; ms?: number } | undefined;
+  if (r?.type === 'idle_timeout') {
+    throw new SystemAbortError(r.ms ?? 0);
+  }
+  throw new Error('Execution aborted');
+}
+
+/**
  * Safe callback wrappers - prevent UI callback errors from breaking the loop
  */
 function safeCallback(label: string, fn: () => void): void {
@@ -121,7 +139,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 
     // Check abort signal before LLM call
     if (ctx.signal?.aborted) {
-      throw new Error('Execution aborted');
+      throwAbortError(ctx.signal);
     }
 
     // Notify before LLM call (for "Thinking..." display)
@@ -170,7 +188,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 
       // 检查是否被中断（工具执行后）
       if (ctx.signal?.aborted) {
-        throw new Error('Execution aborted');
+        throwAbortError(ctx.signal);
       }
 
       // Append tool results as user message
@@ -245,7 +263,7 @@ async function executeToolCalls(
   if (!registry) {
     const toolResults: ToolResultBlock[] = [];
     for (const toolCall of toolCalls) {
-      if (ctx.signal?.aborted) throw new Error('Execution aborted');
+      if (ctx.signal?.aborted) throwAbortError(ctx.signal);
       await safeCallbackAsync('onToolCall', async () => await onToolCall?.(toolCall.name));
       const result = await executeSingleTool(toolCall, executor, ctx);
       safeCallback('onToolResult', () => onToolResult?.(toolCall.name, result, stepCount, maxSteps));
@@ -279,7 +297,7 @@ async function executeToolCalls(
 
   // Execute readonly + async tools sequentially (preserve async routing)
   for (const { call, index } of readonlyAsyncCalls) {
-    if (ctx.signal?.aborted) throw new Error('Execution aborted');
+    if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     const result = await executeSingleTool(call, executor, ctx);
     safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
@@ -316,7 +334,7 @@ async function executeToolCalls(
 
   // Execute write tools sequentially
   for (const { call, index } of writeCalls) {
-    if (ctx.signal?.aborted) throw new Error('Execution aborted');
+    if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name));
     const result = await executeSingleTool(call, executor, ctx);
     safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
@@ -398,7 +416,7 @@ async function collectStreamResponse(
   for await (const chunk of llm.stream(callOptions)) {
     // 每个 chunk 后检查 signal，确保及时响应 abort
     if (callOptions.signal?.aborted) {
-      throw new Error('Execution aborted');
+      throwAbortError(callOptions.signal);
     }
     switch (chunk.type) {
       case 'text_delta':

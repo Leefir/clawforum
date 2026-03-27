@@ -12,6 +12,7 @@ import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
 import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS, STARTUP_CHECK_COOLDOWN_MS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { SystemAbortError } from '../../core/react/loop.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -271,8 +272,15 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           interruptPoller = null;
         }
 
-        // Distinguish user interrupts from genuine errors
-        if (err instanceof Error && err.message === 'Execution aborted') {
+        // Distinguish system idle timeout, user interrupts from genuine errors
+        if (err instanceof SystemAbortError) {
+          // System idle timeout
+          if (turnStarted) {
+            const secs = Math.round(err.timeoutMs / 1000);
+            streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted', message: `Interrupted by system, ${secs}s timeout` });
+          }
+          await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
+        } else if (err instanceof Error && err.message === 'Execution aborted') {
           // User interrupt
           if (turnStarted) {
             streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted' });

@@ -313,7 +313,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput('\x1b[33m', '⏎ Interrupted');
+        {
+          const msg = (event as Record<string, unknown>).message;
+          appendOutput('\x1b[33m', typeof msg === 'string' ? msg : '⏎ Interrupted');
+        }
         break;
 
       case 'turn_error':
