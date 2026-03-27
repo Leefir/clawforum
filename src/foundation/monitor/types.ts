@@ -20,6 +20,7 @@ export type MonitorEventType =
   | 'tool_task_completed'
   | 'tool_task_retry'
   | 'task_recovered'
+  | 'task_recovered_as_done'
   | 'task_discarded'
   | 'task_recovery_complete'
   | 'file_operation'

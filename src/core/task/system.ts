@@ -152,17 +152,42 @@ export class TaskSystem {
                 });
               });
             } else {
-              // subagent 任务：回 pending 重新执行（原有逻辑）
-              const pendingPath = `tasks/pending/${task.id}.json`;
-              await this.fs.move(entry.path, pendingPath);
-              this.pendingQueue.push(task);
-              recoveredFromRunning++;
-              this.monitor.log('task_recovered', {
-                taskId: task.id,
-                kind: task.kind,
-                from: 'running',
-                to: 'pending',
-              });
+              // subagent 任务：检测是否已写出结果
+              const resultPath = `tasks/results/${task.id}.txt`;
+              const resultExists = await this.fs.read(resultPath).then(() => true).catch(() => false);
+              
+              if (resultExists) {
+                // 结果已写出：补发 inbox，移入 done（不重新执行）
+                const resultContent = await this.fs.read(resultPath);
+                await this.sendResult(task, resultContent, false).catch((e) => {
+                  this.monitor.log('error', {
+                    context: 'recoverTasks.resend_result_failed',
+                    taskId: task.id,
+                    error: e instanceof Error ? e.message : String(e),
+                  });
+                  // resend 失败降级：发 fallbackError，parent 知道任务状态
+                  this.sendFallbackError(task, 'Result resend failed after recovery').catch(() => {});
+                });
+                await this.fs.move(entry.path, `tasks/done/${task.id}.json`).catch(() => {
+                  this.fs.delete(entry.path).catch(() => {});
+                });
+                this.monitor.log('task_recovered_as_done', {
+                  taskId: task.id,
+                  reason: 'result_file_exists',
+                });
+              } else {
+                // 结果未写出：移回 pending 重新执行（原有逻辑）
+                const pendingPath = `tasks/pending/${task.id}.json`;
+                await this.fs.move(entry.path, pendingPath);
+                this.pendingQueue.push(task);
+                recoveredFromRunning++;
+                this.monitor.log('task_recovered', {
+                  taskId: task.id,
+                  kind: task.kind,
+                  from: 'running',
+                  to: 'pending',
+                });
+              }
             }
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);

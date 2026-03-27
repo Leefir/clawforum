@@ -83,6 +83,7 @@ export class JsonlMonitor implements IMonitor {
       'tool_task_completed': 'tool-tasks.jsonl',
       'tool_task_retry': 'tool-tasks.jsonl',
       'task_recovered': 'events.jsonl',
+      'task_recovered_as_done': 'events.jsonl',
       'task_discarded': 'events.jsonl',
       'task_recovery_complete': 'events.jsonl',
       'file_operation': 'file-ops.jsonl',
