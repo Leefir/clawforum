@@ -642,7 +642,6 @@ function showTraceOverview(
   let stepSeq = 0;
   let textBuf = '';
   let pendingToolCall: string | null = null;
-  let pendingToolSuccess: boolean | null = null;
   let nextRoundTrigger: string | null = null;
 
   const flushText = () => {
@@ -686,7 +685,6 @@ function showTraceOverview(
       case 'tool_call': {
         stepSeq++;
         pendingToolCall = ev.name || 'unknown';
-        pendingToolSuccess = null;
         break;
       }
       case 'tool_result': {
