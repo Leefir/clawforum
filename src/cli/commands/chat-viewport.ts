@@ -762,6 +762,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         daemonDead = true;
         inTurn = false;
         stopSpinner();
+        flushStreaming();
+        flushThinking();
         streamingSuffix = '';
         updateDisplay();
         appendOutput('\x1b[31m', '✗ Daemon 已停止');
@@ -897,6 +899,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         if (inTurn) {
           inTurn = false;
           stopSpinner();
+          flushStreaming();
+          flushThinking();
           streamingSuffix = '';
           updateDisplay();
         }
