@@ -245,7 +245,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           // 显示所有非 user_chat 的来源（系统消息、inbox 消息等）
           const sysParts = srcs.filter(s => s.type !== 'user_chat').map(s => s.text);
           if (sysParts.length > 0) {
-            appendOutput(`\x1b[33m${fitLine(`> ${sysParts.join(' | ')}`)}\x1b[0m`);
+            appendOutput('\x1b[33m', `> ${sysParts.join(' | ')}`);
           }
         }
         break;
@@ -285,7 +285,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        appendOutput(`\x1b[36m→ ${event.name}\x1b[0m`);
+        appendOutput('\x1b[36m', `→ ${event.name}`);
         startSpinner(`${event.name}...`);
         break;
 
@@ -296,7 +296,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
-        appendOutput(`\x1b[2m${fitLine(`  ${icon} [${step}/${maxSteps}] ${event.summary as string}`)}\x1b[0m`);
+        appendOutput('\x1b[2m', `  ${icon} [${step}/${maxSteps}] ${event.summary as string}`);
         streamingSuffix = '';
         updateDisplay();
         break;
@@ -319,7 +319,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput('\x1b[33m⏎ Interrupted\x1b[0m');
+        appendOutput('\x1b[33m', '⏎ Interrupted');
         break;
 
       case 'turn_error':
@@ -329,7 +329,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput(`\x1b[31m✗ Error: ${event.error}\x1b[0m`);
+        appendOutput('\x1b[31m', `✗ Error: ${event.error}`);
         break;
 
       case 'user_notify': {
@@ -341,25 +341,25 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const title = (event.title as string) ?? '';
           const count = (event.subtaskCount as number) ?? 0;
-          appendOutput(`\x1b[2m  ✓ [contract] "${title}" created for ${claw} (${count} subtasks)\x1b[0m`);
+          appendOutput('\x1b[2m', `  ✓ [contract] "${title}" created for ${claw} (${count} subtasks)`);
         } else if (sub === 'subtask_completed') {
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const completed = event.completedCount as number | undefined;
           const total = event.subtaskTotal as number | undefined;
           const progress = completed != null && total != null ? `, ${completed} of ${total}` : '';
-          appendOutput(`\x1b[2m  ✓ [contract] ${subtaskId} passed${progress} (${claw})\x1b[0m`);
+          appendOutput('\x1b[2m', `  ✓ [contract] ${subtaskId} passed${progress} (${claw})`);
         } else if (sub === 'acceptance_failed') {
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          appendOutput(`\x1b[2m${fitLine(`  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`)}\x1b[0m`);
+          appendOutput('\x1b[2m', `  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`);
         } else if (sub === 'llm_error') {
           // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
           const errMsg = (event.error as string) ?? '';
           const forClaw = claw ? ` (${claw})` : '';
-          appendOutput(`\x1b[31m  ✗ [llm] ${errMsg}${forClaw}\x1b[0m`);
+          appendOutput('\x1b[31m', `  ✗ [llm] ${errMsg}${forClaw}`);
         }
         break;
       }
@@ -704,13 +704,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     switch (event.type) {
       case 'tool_call':
         stopSpinner();
-        appendOutput(`\x1b[36m→ ${prefix}:${event.name}\x1b[0m`);
+        appendOutput('\x1b[36m', `→ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
-        appendOutput(`\x1b[2m${fitLine(`  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`)}\x1b[0m`);
+        appendOutput('\x1b[2m', `  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`);
         streamingSuffix = '';
         updateDisplay();
         break;
@@ -769,7 +769,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput('\x1b[31m✗ Daemon 已停止\x1b[0m');
+        appendOutput('\x1b[31m', '✗ Daemon 已停止');
       }
     } catch {
       // PID 文件不存在或读取失败，忽略
@@ -802,19 +802,19 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         } else if (arg === 'full' || arg === 'line' || arg === 'none') {
           thinkingMode = arg;
         }
-        appendOutput(`\x1b[2m[thinking: ${thinkingMode}]\x1b[0m`);
+        appendOutput('\x1b[2m', `[thinking: ${thinkingMode}]`);
       } else if (name === 'attach') {
         if (!isMotion) {
-          appendOutput(`\x1b[31m[attach] 仅 motion chat 支持 /attach\x1b[0m`);
+          appendOutput('\x1b[31m', '[attach] 仅 motion chat 支持 /attach');
         } else if (!parts[1]) {
-          appendOutput(`\x1b[31m[attach] 用法：/attach <clawId>\x1b[0m`);
+          appendOutput('\x1b[31m', '[attach] 用法：/attach <clawId>');
         } else {
           const clawId = parts[1];
           const clawDir = path.join(clawsDir, clawId);
           if (!fsNative.existsSync(clawDir)) {
-            appendOutput(`\x1b[31m[attach] claw "${clawId}" 不存在\x1b[0m`);
+            appendOutput('\x1b[31m', `[attach] claw "${clawId}" 不存在`);
           } else if (clawTrackMap.has(clawId)) {
-            appendOutput(`\x1b[2m[attach] ${clawId} 已在面板中\x1b[0m`);
+            appendOutput('\x1b[2m', `[attach] ${clawId} 已在面板中`);
           } else {
             // 手动加入（无契约 claw）
             const t = makeClawTrack();
@@ -827,13 +827,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               clawWatchers.set(clawId, w);
             } catch { /* polling fallback */ }
             updateClawPanel();
-            appendOutput(`\x1b[2m[attach] ${clawId} 已加入面板\x1b[0m`);
+            appendOutput('\x1b[2m', `[attach] ${clawId} 已加入面板`);
           }
         }
       } else if (name === 'detach') {
         const arg = parts[1];
         if (!arg || arg === '--help') {
-          appendOutput('用法：/detach <claw-id>  或  /detach --all');
+          appendOutput('', '用法：/detach <claw-id>  或  /detach --all');
         } else if (arg === '--all') {
           for (const [id] of clawTrackMap) {
             clawWatchers.get(id)?.close();
@@ -841,17 +841,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           }
           clawTrackMap.clear();
           updateClawPanel();
-          appendOutput(`\x1b[2m[detach] 已清空所有 claw\x1b[0m`);
+          appendOutput('\x1b[2m', '[detach] 已清空所有 claw');
         } else {
           const clawId = arg;
           clawWatchers.get(clawId)?.close();
           clawWatchers.delete(clawId);
           clawTrackMap.delete(clawId);
           updateClawPanel();
-          appendOutput(`\x1b[2m[detach] ${clawId} 已从面板移除\x1b[0m`);
+          appendOutput('\x1b[2m', `[detach] ${clawId} 已从面板移除`);
         }
       } else {
-        appendOutput(`\x1b[2m[unknown command: /${name}]\x1b[0m`);
+        appendOutput('\x1b[2m', `[unknown command: /${name}]`);
       }
       editor.setText('');
       tui.requestRender();
@@ -859,7 +859,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
 
     // 显示用户消息
-    appendOutput(`\x1b[32m> ${trimmed}\x1b[0m`);
+    appendOutput('\x1b[32m', `> ${trimmed}`);
     editor.setText('');
     editor.addToHistory(trimmed);
 
