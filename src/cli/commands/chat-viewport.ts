@@ -558,6 +558,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                 if (track.bufferType !== 'text') {
                   track.textBuffer = '';
                   track.clearOnNextDelta = false;
+                  track.bufferType = 'text';
                 }
                 track.textBuffer += (ev.delta as string) ?? '';
               }
