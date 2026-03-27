@@ -93,11 +93,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let spinnerTimer: ReturnType<typeof setInterval> | null = null;
 
   const updateDisplay = () => {
-    const cols = process.stdout.columns ?? 80;
+    const cols = process.stdout.columns;
     const body = outputLines
-      .map(({ color, text }) =>
-        color ? `${color}${fitLine(text, cols)}\x1b[0m` : fitLine(text, cols)
-      )
+      .map(({ color, text }) => {
+        const fitted = fitLine(text, cols);
+        return color ? `${color}${fitted}\x1b[0m` : fitted;
+      })
       .join('\n');
     const full = streamingSuffix ? body + '\n' + streamingSuffix : body;
     outputText.setText(full);
