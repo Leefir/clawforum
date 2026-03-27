@@ -228,7 +228,7 @@ dispatcher 不能：
             await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
             await ctx.fs.writeAtomic(
               `clawspace/pending-retrospective/by-contract/${cid}.json`,
-              JSON.stringify({ contractId: cid, contractTaskId: tid, createdAt: new Date().toISOString() }),
+              JSON.stringify({ contractId: cid, contractTaskId: tid, targetClaw: targetClaw ?? null, createdAt: new Date().toISOString() }),
             );
           } catch (e) {
             ctx.monitor?.log('warn', {
