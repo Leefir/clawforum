@@ -26,7 +26,7 @@ import {
   chatCommand as motionChatCommand,
   stopCommand as motionStopCommand,
 } from './commands/motion.js';
-import { contractCreateCommand, contractCreateFromGoalCommand, contractCreateFromDirCommand } from './commands/contract.js';
+import { contractCreateCommand, contractCreateFromGoalCommand, contractCreateFromDirCommand, contractLogCommand } from './commands/contract.js';
 import { skillInstallUserCommand, skillInstallClawCommand } from './commands/skill.js';
 import {
   startCommand as watchdogStartCommand,
@@ -353,6 +353,20 @@ contractCmd
         console.error('Error: must provide --goal, --file, or --dir');
         process.exit(1);
       }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+contractCmd
+  .command('log')
+  .description('Show contract execution log for a claw')
+  .requiredOption('--claw <id>', 'Target claw ID')
+  .option('--contract <id>', 'Contract ID (default: active contract)')
+  .action(async (opts: { claw: string; contract?: string }) => {
+    try {
+      await contractLogCommand(opts.claw, opts.contract);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
