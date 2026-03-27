@@ -68,8 +68,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   // 单一输出区域（永久内容 + 流式后缀合并显示，消除组件间距）
+  interface OutputLine { color: string; text: string; }
   const outputText = new Text(`[${options.label}] Watching daemon activity...`, 0, 0);
-  let outputContent = `[${options.label}] Watching daemon activity...`;
+  const outputLines: OutputLine[] = [
+    { color: '', text: `[${options.label}] Watching daemon activity...` },
+  ];
   let streamingSuffix = '';  // 当前流式内容（spinner / thinking / text）
 
   let streamingBuffer = '';
@@ -90,9 +93,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let spinnerTimer: ReturnType<typeof setInterval> | null = null;
 
   const updateDisplay = () => {
-    const full = streamingSuffix
-      ? outputContent + '\n' + streamingSuffix
-      : outputContent;
+    const cols = process.stdout.columns ?? 80;
+    const body = outputLines
+      .map(({ color, text }) =>
+        color ? `${color}${fitLine(text, cols)}\x1b[0m` : fitLine(text, cols)
+      )
+      .join('\n');
+    const full = streamingSuffix ? body + '\n' + streamingSuffix : body;
     outputText.setText(full);
     tui.requestRender();
   };
@@ -199,8 +206,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 输入组件
   const editor = new Editor(tui, editorTheme);
 
-  const appendOutput = (line: string) => {
-    outputContent += '\n' + line;
+  const appendOutput = (color: string, text: string) => {
+    outputLines.push({ color, text });
     updateDisplay();
   };
 
