@@ -10,7 +10,7 @@ import chokidar from 'chokidar';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
-import { sliceFromStart, oneLine } from '../utils/string.js';
+import { sliceFromStart, fitLine } from '../utils/string.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -152,6 +152,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       leftColor = '\x1b[38;5;245m';
     }
 
+    // 净化并截断 leftText，确保 attach bar 单行显示
+    leftText = fitLine(leftText, cols);
+
     if (t.lastOutput) {
       const prefix = `${leftText} · "`;
       const available = cols - prefix.length - 1;
@@ -235,7 +238,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           // 显示所有非 user_chat 的来源（系统消息、inbox 消息等）
           const sysParts = srcs.filter(s => s.type !== 'user_chat').map(s => s.text);
           if (sysParts.length > 0) {
-            appendOutput(`\x1b[33m> ${oneLine(sysParts.join(' | '), 4)}\x1b[0m`);
+            appendOutput(`\x1b[33m${fitLine(`> ${sysParts.join(' | ')}`)}\x1b[0m`);
           }
         }
         break;
@@ -286,7 +289,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
-        appendOutput(`\x1b[2m  ${icon} [${step}/${maxSteps}] ${oneLine(event.summary as string, 14)}\x1b[0m`);
+        appendOutput(`\x1b[2m${fitLine(`  ${icon} [${step}/${maxSteps}] ${event.summary as string}`)}\x1b[0m`);
         streamingSuffix = '';
         updateDisplay();
         break;
@@ -343,7 +346,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          appendOutput(`\x1b[2m  ✗ [contract] ${subtaskId} failed: ${oneLine(fb, 20)} (${claw})\x1b[0m`);
+          appendOutput(`\x1b[2m${fitLine(`  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`)}\x1b[0m`);
         } else if (sub === 'llm_error') {
           // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
@@ -700,7 +703,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_result': {
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
-        appendOutput(`\x1b[2m  ${icon} [${event.step}/${event.maxSteps}] ${oneLine(event.summary as string, 14)}\x1b[0m`);
+        appendOutput(`\x1b[2m${fitLine(`  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`)}\x1b[0m`);
         streamingSuffix = '';
         updateDisplay();
         break;

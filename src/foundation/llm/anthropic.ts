@@ -300,6 +300,8 @@ export class AnthropicAdapter implements IProviderAdapter {
               yield { type: 'text_delta', delta: delta.text as string };
             } else if (delta.type === 'thinking_delta') {
               yield { type: 'thinking_delta', delta: delta.thinking as string };
+            } else if (delta.type === 'signature_delta') {
+              yield { type: 'thinking_signature', signature: delta.signature as string };
             } else if (delta.type === 'input_json_delta') {
               yield {
                 type: 'tool_use_delta',

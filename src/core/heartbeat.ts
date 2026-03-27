@@ -7,10 +7,12 @@
 import * as path from 'path';
 import * as fsNative from 'fs';
 import { writeInboxMessage } from '../utils/inbox-writer.js';
+import type { IMonitor } from '../foundation/monitor/types.js';
 
 export interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
   interval?: number;
+  monitor?: IMonitor;
 }
 
 /**
@@ -20,11 +22,13 @@ export class Heartbeat {
   private baseDir: string;
   private interval: number;
   private lastRun: number;
+  private monitor?: IMonitor;
 
   constructor(baseDir: string, options: HeartbeatOptions = {}) {
     this.baseDir = baseDir;
     this.interval = (options.interval ?? 300) * 1000;
     this.lastRun = Date.now();  // 启动后等满一个 interval 再首次触发
+    this.monitor = options.monitor;
   }
 
   /**
@@ -61,7 +65,11 @@ export class Heartbeat {
       this.lastRun = Date.now();  // 只在成功写入后更新
     } catch (error) {
       // lastRun 未更新 → 下次 isDue() 立即可重试
-      process.stderr.write(`[Heartbeat] fire failed: ${error}\n`);
+      if (this.monitor) {
+        this.monitor.log('error', { context: 'Heartbeat.fire', error: String(error) });
+      } else {
+        console.warn('[Heartbeat] fire failed:', String(error));
+      }
     }
   }
 }

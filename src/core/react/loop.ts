@@ -390,6 +390,7 @@ async function collectStreamResponse(
   const contentBlocks: ContentBlock[] = [];
   let currentText = '';
   let currentThinking = '';
+  let currentSignature = '';
   let currentToolUse: { id: string; name: string; input: string } | null = null;
   let stopReason = 'end_turn';
   let usage: { input_tokens: number; output_tokens: number } | undefined;
@@ -403,8 +404,9 @@ async function collectStreamResponse(
       case 'text_delta':
         // Flush thinking before text starts
         if (currentThinking) {
-          contentBlocks.push({ type: 'thinking', thinking: currentThinking } as ContentBlock);
+          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature } as ContentBlock);
           currentThinking = '';
+          currentSignature = '';
         }
         if (chunk.delta) {
           currentText += chunk.delta;
@@ -416,6 +418,12 @@ async function collectStreamResponse(
         if (chunk.delta) {
           currentThinking += chunk.delta;
           onThinkingDelta?.(chunk.delta);
+        }
+        break;
+
+      case 'thinking_signature':
+        if (chunk.signature) {
+          currentSignature = chunk.signature;
         }
         break;
 
@@ -465,7 +473,7 @@ async function collectStreamResponse(
 
   // 保存最后的 blocks
   if (currentThinking) {
-    contentBlocks.push({ type: 'thinking', thinking: currentThinking } as ContentBlock);
+    contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature } as ContentBlock);
   }
   if (currentText) {
     contentBlocks.push({ type: 'text', text: currentText } as ContentBlock);

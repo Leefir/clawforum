@@ -245,8 +245,8 @@ export async function daemonCommand(name: string): Promise<void> {
     stop();
     try {
       await runtime.stop();
-    } catch {
-      // 忽略停止错误
+    } catch (e) {
+      console.error('[daemon] runtime.stop() failed:', e instanceof Error ? e.message : String(e));
     }
     streamWriter.close();
     // 清理 PID 文件和 lockfile（只有文件仍属于本进程才删除，防止误删新 daemon 的文件）

@@ -29,3 +29,16 @@ export function oneLine(s: string, reserve = 0): string {
   const sliced = sliceFromStart(first, max);
   return sliced.length < first.length ? sliced + '…' : sliced;
 }
+
+/**
+ * 将字符串适配为单行显示：
+ * - \n 替换为空格（保留所有内容，只消除换行）
+ * - 按终端宽度（减去 cols 参数）截断
+ * - 超出追加 '…'
+ */
+export function fitLine(s: string, cols?: number): string {
+  const width = cols ?? (process.stdout.columns ?? 80);
+  const flat = s.replace(/\n/g, ' ');
+  const sliced = sliceFromStart(flat, width);
+  return sliced.length < flat.length ? sliced + '…' : sliced;
+}

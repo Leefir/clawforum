@@ -733,7 +733,14 @@ export class TaskSystem {
     } catch (err) {
       if (resultRef) {
         // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
-        await this.fs.delete(resultRef).catch(() => {});
+        await this.fs.delete(resultRef).catch((delErr) => {
+          this.monitor.log('warn', {
+            context: 'sendToolResult.orphan_result_delete_failed',
+            taskId: task.id,
+            resultRef,
+            error: delErr instanceof Error ? delErr.message : String(delErr),
+          });
+        });
         try {
           await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(inlineContent));
           return;
@@ -817,7 +824,14 @@ export class TaskSystem {
     } catch (err) {
       if (resultRef) {
         // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
-        await this.fs.delete(resultRef).catch(() => {});
+        await this.fs.delete(resultRef).catch((delErr) => {
+          this.monitor.log('warn', {
+            context: 'sendResult.orphan_result_delete_failed',
+            taskId: task.id,
+            resultRef,
+            error: delErr instanceof Error ? delErr.message : String(delErr),
+          });
+        });
         try {
           await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(inlineContent));
           return;

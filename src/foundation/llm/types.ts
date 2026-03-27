@@ -71,7 +71,7 @@ export interface LLMServiceConfig {
  * Streaming response chunk
  */
 export interface StreamChunk {
-  type: 'text_delta' | 'thinking_delta' | 'tool_use_start' | 'tool_use_delta' | 'done';
+  type: 'text_delta' | 'thinking_delta' | 'thinking_signature' | 'tool_use_start' | 'tool_use_delta' | 'done';
   
   /** Text delta (for text_delta type) */
   delta?: string;
@@ -88,6 +88,9 @@ export interface StreamChunk {
     inputTokens: number;
     outputTokens: number;
   };
+
+  /** Thinking block signature (for Anthropic extended thinking) */
+  signature?: string;
 
   /** Stop reason (only in type='done' chunk) */
   stopReason?: string;

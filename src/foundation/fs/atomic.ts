@@ -188,8 +188,8 @@ export async function cleanupOrphanedTemp(dirPath: string): Promise<string[]> {
       try {
         await fs.unlink(fullPath);
         cleaned.push(fullPath);
-      } catch {
-        // Ignore cleanup errors
+      } catch (e) {
+        console.warn(`[atomic] Failed to clean up temp file ${fullPath}:`, e instanceof Error ? e.message : String(e));
       }
     }
   } catch {
