@@ -159,12 +159,16 @@ export async function daemonCommand(name: string): Promise<void> {
             dir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`,
           );
           let contractTaskId: string;
-          let targetClaw = '';
+          let targetClaw: string | null = null;
           try {
             const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
             contractTaskId = raw.contractTaskId;
-            targetClaw = raw.targetClaw ?? '';
+            targetClaw = raw.targetClaw ?? null;
             if (!contractTaskId) continue;
+            if (!targetClaw) {
+              console.warn('[daemon] by-contract index missing targetClaw, skipping retrospective for contract:', contractId);
+              continue;
+            }
           } catch { continue; }
 
           // 加载契约创建子代理的完整 messages（Step A 写入）
@@ -194,7 +198,7 @@ export async function daemonCommand(name: string): Promise<void> {
           }
 
           // 构建复盘 prompt
-          const retroPrompt = buildRetroPrompt(targetClaw || contractId, contractId, skillsSummary);
+          const retroPrompt = buildRetroPrompt(targetClaw, contractId, skillsSummary);
 
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
