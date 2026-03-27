@@ -504,6 +504,72 @@ describe('ReAct Loop', () => {
     expect(content.some((b: ContentBlock) => b.type === 'thinking')).toBe(true);
   });
 
+  it('should flush thinking block before tool_use when no text in between', async () => {
+    // Stream: thinking → tool_use (no text in between)
+    (mockLLM.stream as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(async function* () {
+        yield { type: 'thinking_delta', delta: 'Let me think...' };
+        yield { type: 'tool_use_start', toolUse: { id: 'call-1', name: 'read_file', partialInput: '' } };
+        yield { type: 'tool_use_delta', toolUse: { id: 'call-1', name: 'read_file', partialInput: '{"path":"a.txt"}' } };
+        yield { type: 'done' };
+      })
+      .mockImplementationOnce(async function* () {
+        yield { type: 'text_delta', delta: 'Done.' };
+        yield { type: 'done' };
+      });
+
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, content: 'ok' });
+
+    const messages: Message[] = [{ role: 'user', content: 'Read file' }];
+    await runReact({
+      messages,
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+    });
+
+    // Assistant message content should have thinking block before tool_use
+    const assistantMsg = messages.find(m => m.role === 'assistant');
+    const content = Array.isArray(assistantMsg?.content) ? assistantMsg!.content : [];
+    expect(content[0]?.type).toBe('thinking');
+    expect(content[1]?.type).toBe('tool_use');
+  });
+
+  it('should carry signature in thinking block flushed before tool_use', async () => {
+    // Stream: thinking + signature → tool_use
+    (mockLLM.stream as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(async function* () {
+        yield { type: 'thinking_delta', delta: 'Reasoning...' };
+        yield { type: 'thinking_signature', signature: 'sig-abc' };
+        yield { type: 'tool_use_start', toolUse: { id: 'call-1', name: 'read_file', partialInput: '' } };
+        yield { type: 'tool_use_delta', toolUse: { id: 'call-1', name: 'read_file', partialInput: '{"path":"b.txt"}' } };
+        yield { type: 'done' };
+      })
+      .mockImplementationOnce(async function* () {
+        yield { type: 'text_delta', delta: 'Done.' };
+        yield { type: 'done' };
+      });
+
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, content: 'ok' });
+
+    const messages: Message[] = [{ role: 'user', content: 'Read file' }];
+    await runReact({
+      messages,
+      systemPrompt: '',
+      llm: mockLLM,
+      executor: mockExecutor,
+      ctx: mockCtx,
+    });
+
+    // Assistant message content should have thinking block with signature before tool_use
+    const assistantMsg = messages.find(m => m.role === 'assistant');
+    const content = Array.isArray(assistantMsg?.content) ? assistantMsg!.content : [];
+    expect(content[0]?.type).toBe('thinking');
+    expect((content[0] as { signature?: string }).signature).toBe('sig-abc');
+    expect(content[1]?.type).toBe('tool_use');
+  });
+
   it('should handle multiple tool_use blocks in one response (flushes previous tool_use)', async () => {
     // Stream two tool_use blocks back-to-back
     (mockLLM.stream as ReturnType<typeof vi.fn>)
