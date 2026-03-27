@@ -736,13 +736,40 @@ async function showStepDetail(
     process.exit(1);
   }
 
-  // 读取 dialog/current.json
-  const dialogPath = path.join(clawDir, 'dialog', 'current.json');
+  // 读取 dialog/current.json + 所有 archive/*.json，按 mtime 升序合并
+  const dialogDir = path.join(clawDir, 'dialog');
+  const archiveDir = path.join(dialogDir, 'archive');
   let messages: DialogMessage[] = [];
+
+  // 收集所有 dialog 文件（archive 先，current 最后）
+  const dialogFiles: Array<{ path: string; mtime: number }> = [];
   try {
-    const content = await fs.promises.readFile(dialogPath, 'utf-8');
-    messages = JSON.parse(content);
-  } catch {
+    const archiveEntries = await fs.promises.readdir(archiveDir, { withFileTypes: true });
+    for (const entry of archiveEntries) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      const fp = path.join(archiveDir, entry.name);
+      const stat = await fs.promises.stat(fp);
+      dialogFiles.push({ path: fp, mtime: stat.mtimeMs });
+    }
+  } catch { /* no archive dir */ }
+
+  const currentPath = path.join(dialogDir, 'current.json');
+  try {
+    const stat = await fs.promises.stat(currentPath);
+    dialogFiles.push({ path: currentPath, mtime: stat.mtimeMs });
+  } catch { /* no current */ }
+
+  dialogFiles.sort((a, b) => a.mtime - b.mtime);
+
+  for (const { path: fp } of dialogFiles) {
+    try {
+      const content = await fs.promises.readFile(fp, 'utf-8');
+      const msgs: DialogMessage[] = JSON.parse(content);
+      if (Array.isArray(msgs)) messages.push(...msgs);
+    } catch { /* skip */ }
+  }
+
+  if (messages.length === 0) {
     console.log('Full content not available (dialog not found)');
     return;
   }
