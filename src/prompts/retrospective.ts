@@ -4,12 +4,19 @@
  * Builds the prompt for contract creation retrospective subagent.
  */
 
-export function buildRetroPrompt(skillsSummary?: string): string {
+export function buildRetroPrompt(
+  clawId: string,
+  contractId: string,
+  skillsSummary?: string,
+): string {
   const skillsSection = skillsSummary
     ? `当前 dispatch-skills 供参考：\n${skillsSummary}`
     : '当前无可用的 dispatch-skills，如有可复用模板请新建。';
 
-  return `上面是本次契约创建的完整过程。契约已完成，请进行复盘：
+  return `上面是本次契约创建的完整过程。契约已完成，请进行复盘。
+
+目标 claw：${clawId}
+契约 ID：${contractId}
 
 ## 可用 CLI
 

@@ -159,9 +159,11 @@ export async function daemonCommand(name: string): Promise<void> {
             dir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`,
           );
           let contractTaskId: string;
+          let targetClaw = '';
           try {
             const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
             contractTaskId = raw.contractTaskId;
+            targetClaw = raw.targetClaw ?? '';
             if (!contractTaskId) continue;
           } catch { continue; }
 
@@ -192,7 +194,7 @@ export async function daemonCommand(name: string): Promise<void> {
           }
 
           // 构建复盘 prompt
-          const retroPrompt = buildRetroPrompt(skillsSummary);
+          const retroPrompt = buildRetroPrompt(targetClaw || contractId, contractId, skillsSummary);
 
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
