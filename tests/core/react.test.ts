@@ -779,8 +779,8 @@ describe('ReAct Loop', () => {
       maxSteps: 5,
     });
 
-    // runReact normalizes max_tokens to end_turn
-    expect(result.stopReason).toBe('end_turn');
+    // runReact preserves max_tokens stopReason
+    expect(result.stopReason).toBe('max_tokens');
     expect(result.finalText).toContain('Partial answer due to token limit');
     expect(result.finalText).toContain('[Response truncated due to length limit]');
     // messages should have user + assistant appended

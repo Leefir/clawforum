@@ -270,7 +270,8 @@ export class InboxWatcher {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[inbox] Failed to move ${filePath} to done:`, msg);
-      // 保留 processedFiles 记录，下次重启前不重复处理
+      // 清理 Set 条目，允许 daemon 重启后重试（at-least-once，与 watcher 注释一致）
+      this.processedFiles.delete(filePath);
     }
   }
 
