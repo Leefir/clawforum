@@ -89,6 +89,7 @@ export class JsonlMonitor implements IMonitor {
       'file_operation': 'file-ops.jsonl',
       'error': 'errors.jsonl',
       'warn': 'events.jsonl',
+      'info': 'events.jsonl',
       'system': 'events.jsonl',  // Map 'system' to 'events.jsonl'
     };
     const filename = filenameMap[type] ?? `${type.replace(/_/g, '-')}.jsonl`;

@@ -26,6 +26,7 @@ export type MonitorEventType =
   | 'file_operation'
   | 'error'
   | 'warn'
+  | 'info'
   | 'system';
 
 // LLM call event

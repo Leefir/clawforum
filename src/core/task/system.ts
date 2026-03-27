@@ -950,21 +950,53 @@ export class TaskSystem {
    * Cancel a running task
    */
   async cancel(taskId: string): Promise<void> {
+    // 1. 先检查 running
     const state = this.runningTasks.get(taskId);
-    if (!state) {
-      throw new Error(`Task ${taskId} not found`);
+    if (state) {
+      state.abortController.abort();
+      try { await state.promise; } catch {}
+      this.monitor.log('info', { event: 'task_cancelled', taskId, from: 'running' });
+      return;
     }
 
-    state.abortController.abort();
-    
-    try {
-      await state.promise;  // Wait for _startTask to complete (includes delete + moveTaskToDone + _dispatch)
-    } catch {
-      // Expected on abort
+    // 2. 再检查 pending queue
+    const pendingIdx = this.pendingQueue.findIndex(t => t.id === taskId);
+    if (pendingIdx !== -1) {
+      const task = this.pendingQueue[pendingIdx];
+      this.pendingQueue.splice(pendingIdx, 1);
+
+      // 清理 tool callback
+      this.pendingCallbacks.delete(taskId);
+
+      // 文件：pending → failed
+      await this.fs.move(
+        `tasks/pending/${taskId}.json`,
+        `tasks/failed/${taskId}.json`
+      ).catch((e) => {
+        this.monitor.log('error', {
+          context: 'cancel_pending.move_failed',
+          taskId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
+
+      // tool 任务：通知 parent
+      if (task.kind === 'tool') {
+        await this.sendFallbackError(task, 'Task cancelled before execution').catch((e) => {
+          this.monitor.log('error', {
+            context: 'cancel_pending.sendFallbackError',
+            taskId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
+      }
+
+      this.monitor.log('info', { event: 'task_cancelled', taskId, from: 'pending' });
+      return;
     }
 
-    // Note: moveTaskToDone and runningTasks.delete are handled by _startTask.finally
-    this.monitor.log('error', { taskId, reason: 'cancelled' });
+    // 3. 找不到
+    throw new Error(`Task ${taskId} not found in running or pending`);
   }
 
   /**
