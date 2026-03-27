@@ -209,18 +209,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushStreaming = () => {
     if (streamingBuffer) {
-      outputContent += '\n' + streamingBuffer;
+      appendOutput('', streamingBuffer);
       streamingBuffer = '';
       streamingSuffix = '';
-      updateDisplay();
     }
   };
 
   const flushThinking = () => {
     if (thinkingBuffer) {
       if (thinkingMode === 'full') {
-        outputContent += '\n\x1b[2m' + thinkingBuffer + '\x1b[0m';
-        updateDisplay();
+        appendOutput('\x1b[2m', thinkingBuffer);
       }
       // 'line' / 'none': 不写入永久区，直接丢弃
       thinkingBuffer = '';
