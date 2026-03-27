@@ -907,6 +907,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     return undefined;
   });
 
+  // RESIZE 监听：终端尺寸变化时重渲染
+  const onResize = () => {
+    updateClawPanel();
+    updateDisplay();
+  };
+  process.stdout.on('resize', onResize);
+
   tui.addChild(outputText);
   tui.addChild(attachedClawBar);  // 默认空字符串 = 零高度
   tui.addChild(editor);
@@ -1018,6 +1025,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // 清理
   if (escTimeoutId) clearTimeout(escTimeoutId);
+  process.stdout.off('resize', onResize);
   process.removeListener('SIGINT', sigintHandler);
   process.removeListener('uncaughtException', uncaughtHandler);
   process.removeListener('unhandledRejection', uncaughtHandler);
