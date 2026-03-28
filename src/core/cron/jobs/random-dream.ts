@@ -172,12 +172,20 @@ async function waitForTaskResult(
   timeoutMs: number,
   pollIntervalMs = 30_000,
 ): Promise<string | null> {
-  const logPath = path.join(motionDir, 'tasks', 'results', `${taskId}.log`);
+  // .txt 由 TaskSystem.sendResult 在 subAgent.run() 完成后写入，是可靠的完成信号
+  const donePath = path.join(motionDir, 'tasks', 'results', `${taskId}.txt`);
+  // [DREAM_OUTPUT] 块由 appendToLog 写入 .log
+  const logPath  = path.join(motionDir, 'tasks', 'results', `${taskId}.log`);
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    if (fs.existsSync(logPath)) {
-      return fs.readFileSync(logPath, 'utf-8');
+    if (fs.existsSync(donePath)) {
+      // 完成信号出现，读取日志内容
+      if (fs.existsSync(logPath)) {
+        return fs.readFileSync(logPath, 'utf-8');
+      }
+      // .log 不存在（极端情况），降级读 .txt
+      return fs.readFileSync(donePath, 'utf-8');
     }
     await new Promise(r => setTimeout(r, pollIntervalMs));
   }
