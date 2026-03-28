@@ -815,8 +815,18 @@ async function showStepDetail(
     }
   }
 
+  // 输出 header（始终使用流里的名称，与 overview 一致）
+  console.log(`[#${targetStep}] ${targetToolName}`);
+  console.log('');
+
   if (!targetToolUse) {
-    console.log('Full content not available (dialog not found)');
+    console.log('(Content unavailable: dialog not found)');
+    return;
+  }
+
+  if (targetToolUse.name !== targetToolName) {
+    // 降级计数定位到了错误的 block（老流 + 多契约 claw）
+    console.log('(Content unavailable: stream predates Phase 75 on a multi-contract claw)');
     return;
   }
 
@@ -839,8 +849,6 @@ async function showStepDetail(
   }
 
   // 输出
-  console.log(`[#${targetStep}] ${targetToolUse.name}`);
-  console.log('');
   console.log('Input:');
   console.log(JSON.stringify(targetToolUse.input, null, 2));
   console.log('');
