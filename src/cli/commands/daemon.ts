@@ -23,6 +23,7 @@ import { SkillRegistry } from '../../core/skill/registry.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
 import { buildRetroPrompt } from '../../prompts/index.js';
+import { CronRunner } from '../../core/cron/runner.js';
 
 
 
@@ -120,6 +121,14 @@ export async function daemonCommand(name: string): Promise<void> {
         interval: heartbeatIntervalMs / 1000  // 转换为秒
       });
     }
+  }
+
+  // motion 专属：cron 调度器
+  let cronRunner: CronRunner | null = null;
+  if (isMotion && (globalConfig.cron?.enabled ?? true)) {
+    const tickMs = globalConfig.cron?.tick_interval_ms ?? 1000;
+    cronRunner = new CronRunner([]);  // Step 2/3 逐步填入 jobs
+    cronRunner.start(tickMs);
   }
 
   // 清理残留心跳（上次 daemon 的遗留，重启后无需立即巡查）
@@ -250,6 +259,7 @@ export async function daemonCommand(name: string): Promise<void> {
   // shutdown
   const shutdown = async (signal: string) => {
     stop();
+    cronRunner?.stop();   // 停止 cron 调度器
     try {
       await runtime.stop();
     } catch (e) {

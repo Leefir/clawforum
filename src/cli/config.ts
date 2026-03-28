@@ -57,6 +57,24 @@ export const ClawGlobalConfigSchema = z.object({
     log_archive_days: z.number().min(1).max(365).default(30),
     claw_inactivity_timeout_ms: z.number().min(60000).default(300000),
   }).optional(),
+  cron: z.object({
+    enabled: z.boolean().default(true),
+    tick_interval_ms: z.number().min(100).max(60000).default(1000),
+    jobs: z.object({
+      disk_monitor: z.object({
+        enabled: z.boolean().default(true),
+        schedule: z.string().default('hourly'),  // "hourly" | "daily:HH:MM" | "interval:Nm"
+      }).optional(),
+      llm_stats: z.object({
+        enabled: z.boolean().default(true),
+        schedule: z.string().default('daily:06:00'),
+      }).optional(),
+      dream_trigger: z.object({
+        enabled: z.boolean().default(false),
+        schedule: z.string().default('daily:04:00'),
+      }).optional(),
+    }).optional(),
+  }).optional(),
 });
 
 export const ClawConfigSchema = z.object({
