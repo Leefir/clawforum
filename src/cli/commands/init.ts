@@ -122,6 +122,7 @@ export async function initCommand(silent = false): Promise<void> {
         max_steps: DEFAULT_MAX_STEPS,
         max_concurrent_tasks: 3,
         llm_idle_timeout_ms: 120000,
+        retrospective_silent: false,
       },
     };
 
