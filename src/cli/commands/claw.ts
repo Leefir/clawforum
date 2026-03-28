@@ -716,15 +716,17 @@ async function showStepDetail(
   events: StreamEvent[],
   targetStep: number,
 ): Promise<void> {
-  // 从 stream 找第 n 个 tool_call
+  // 第一阶段：从 stream 事件里取目标步骤的 name + tool_use_id
   let toolCallCount = 0;
   let targetToolName = '';
+  let targetToolUseId = '';
 
   for (const ev of events) {
     if (ev.type === 'tool_call') {
       toolCallCount++;
       if (toolCallCount === targetStep) {
         targetToolName = ev.name || 'unknown';
+        targetToolUseId = (ev.tool_use_id as string) || '';
         break;
       }
     }
@@ -775,29 +777,44 @@ async function showStepDetail(
     return;
   }
 
-  // 找第 n 个 tool_use block
-  let toolUseCount = 0;
+  // 第二阶段：在 dialog 里找对应的 tool_use block
   let targetToolUse: ToolUseBlock | null = null;
   let targetToolResult: ToolResultBlock | null = null;
 
-  for (const msg of messages) {
-    if (msg.role !== 'assistant') continue;
-
-    const content = msg.content;
-    if (!Array.isArray(content)) continue;
-
-    for (const block of content) {
-      if (typeof block !== 'object' || block === null) continue;
-      const b = block as { type?: string };
-      if (b.type === 'tool_use') {
-        toolUseCount++;
-        if (toolUseCount === targetStep) {
+  if (targetToolUseId) {
+    // 新路径：按 ID 查找（精确，不受历史步骤数量影响）
+    outer: for (const msg of messages) {
+      if (msg.role !== 'assistant') continue;
+      const content = msg.content;
+      if (!Array.isArray(content)) continue;
+      for (const block of content) {
+        if (typeof block !== 'object' || block === null) continue;
+        const b = block as { type?: string; id?: string };
+        if (b.type === 'tool_use' && b.id === targetToolUseId) {
           targetToolUse = block as ToolUseBlock;
-          break;
+          break outer;
         }
       }
     }
-    if (targetToolUse) break;
+  } else {
+    // 降级路径：旧 stream 文件无 tool_use_id，保留计数法
+    let toolUseCount = 0;
+    outer: for (const msg of messages) {
+      if (msg.role !== 'assistant') continue;
+      const content = msg.content;
+      if (!Array.isArray(content)) continue;
+      for (const block of content) {
+        if (typeof block !== 'object' || block === null) continue;
+        const b = block as { type?: string };
+        if (b.type === 'tool_use') {
+          toolUseCount++;
+          if (toolUseCount === targetStep) {
+            targetToolUse = block as ToolUseBlock;
+            break outer;
+          }
+        }
+      }
+    }
   }
 
   if (!targetToolUse) {
