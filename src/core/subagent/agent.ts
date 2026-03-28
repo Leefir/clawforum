@@ -186,8 +186,8 @@ export class SubAgent {
 
       // Stream writer callbacks for per-task stream.jsonl
       const streamCallbacks = sw ? {
-        onToolCall: (name: string, _toolUseId: string) => {
-          sw.write({ type: 'tool_call', name });
+        onToolCall: (name: string, toolUseId: string) => {
+          sw.write({ type: 'tool_call', name, tool_use_id: toolUseId });
         },
         onToolResult: (name: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           sw.write({

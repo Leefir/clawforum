@@ -74,8 +74,8 @@ export class StreamWriter {
       onTextEnd: () => {
         this.write({ ts: Date.now(), type: 'text_end' });
       },
-      onToolCall: (name: string) => {
-        this.write({ ts: Date.now(), type: 'tool_call', name });
+      onToolCall: (name: string, toolUseId: string) => {
+        this.write({ ts: Date.now(), type: 'tool_call', name, tool_use_id: toolUseId });
       },
       onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
         const summary = oneLine(result.content);
