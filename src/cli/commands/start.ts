@@ -28,7 +28,8 @@ function buildOnboardingSubtasks(language: string): Array<{ id: string; descript
   if (language === 'auto') {
     langInstruction = "Detect the user's preferred language from their first message and respond in it immediately.";
   } else if (language.startsWith('auto (hint:')) {
-    langInstruction = `Infer the user's language from this hint: ${language}. Respond in that language immediately.`;
+    const hint = language.replace(/^auto \(hint: "(.*)"\)$/, '$1');
+    langInstruction = `Infer the user's language from this hint word typed by the user: "${hint}". Respond in that language immediately.`;
   } else {
     langInstruction = `The user has selected "${language}". Use this language from your very first message.`;
   }
