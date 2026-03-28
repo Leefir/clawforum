@@ -149,8 +149,18 @@ function discoverWeightedContracts(
   // 按权重降序排序
   contracts.sort((a, b) => b.weight - a.weight);
 
-  // 排序后重新标记 clawsSeen，调整"新claw"加权的显示
-  // （weight 已计算，不再修改，只是排序后输出）
+  // 标记每个 claw 首次出现（用于 prompt 的 hint 显示）
+  const firstSeenClaws = new Set<string>();
+  for (const c of contracts) {
+    if (!firstSeenClaws.has(c.clawId)) {
+      firstSeenClaws.add(c.clawId);
+      // 首次出现的 claw 保留 hint（如"新claw"）
+    } else {
+      // 同一 claw 的后续契约，hint 去掉"新claw"标记
+      c.hint = c.hint.replace(/^新claw、?|、?新claw/, '') || '正常';
+    }
+  }
+
   return contracts;
 }
 

@@ -84,9 +84,8 @@ interface SessionFile {
   tsMs: number;           // 时间戳，用于排序
 }
 
-function discoverUnprocessed(clawDir: string, state: DreamStateData): SessionFile[] {
+function discoverUnprocessed(clawDir: string, state: DreamStateData, today: string): SessionFile[] {
   const processed = new Set(state.processedArchives);
-  const today = new Date().toLocaleDateString('sv');  // "YYYY-MM-DD"
   const files: SessionFile[] = [];
 
   // archive 文件（文件名: {tsMs}_{uuid8}.json）
@@ -143,8 +142,9 @@ async function runDeepDreamForClaw(
   llm: LLMService,
   maxCompressionTokens: number,
 ): Promise<void> {
+  const today = new Date().toLocaleDateString('sv');   // ← 统一在此计算
   const state = loadDreamState(clawDir);
-  const sessionFiles = discoverUnprocessed(clawDir, state);
+  const sessionFiles = discoverUnprocessed(clawDir, state, today);  // ← 传入 today
 
   if (sessionFiles.length === 0) {
     console.log(`[cron:deep-dream] ${clawId}: nothing to process`);
@@ -196,7 +196,6 @@ async function runDeepDreamForClaw(
     let compression: string;
     try {
       const res = await llm.call({
-        system: DEEP_DREAM_SYSTEM_PROMPT,
         messages: [
           userMsg,
           { role: 'assistant', content: dreamOutput },
@@ -218,6 +217,17 @@ async function runDeepDreamForClaw(
     }
   }
 
+  // 更新 state（无论是否有梦境输出，都记录已处理的 archive 文件）
+  if (processedArchives.length > 0 || sessionFiles.some(f => f.filename === 'current.json')) {
+    const updatedState: DreamStateData = {
+      processedArchives: [...new Set([...state.processedArchives, ...processedArchives])],
+      currentSessionDreamedDate: sessionFiles.some(f => f.filename === 'current.json')
+        ? today
+        : state.currentSessionDreamedDate,
+    };
+    saveDreamState(clawDir, updatedState);
+  }
+
   if (dreamOutputs.length === 0) return;
 
   // 投递到 claw inbox
@@ -231,16 +241,6 @@ async function runDeepDreamForClaw(
     filenameTag: 'deep_dream',
     extraFields: { session_count: String(dreamOutputs.length) },
   });
-
-  // 更新 state
-  const today = new Date().toLocaleDateString('sv');
-  const updatedState: DreamStateData = {
-    processedArchives: [...new Set([...state.processedArchives, ...processedArchives])],
-    currentSessionDreamedDate: sessionFiles.some(f => f.filename === 'current.json')
-      ? today
-      : state.currentSessionDreamedDate,
-  };
-  saveDreamState(clawDir, updatedState);
 
   console.log(`[cron:deep-dream] ${clawId}: done, ${dreamOutputs.length} dream(s) sent`);
 }
