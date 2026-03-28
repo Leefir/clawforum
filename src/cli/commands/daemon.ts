@@ -25,6 +25,7 @@ import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js
 import { buildRetroPrompt } from '../../prompts/index.js';
 import { CronRunner, parseSchedule } from '../../core/cron/runner.js';
 import { runDiskMonitor } from '../../core/cron/jobs/disk-monitor.js';
+import { runLlmStats } from '../../core/cron/jobs/llm-stats.js';
 
 
 
@@ -141,6 +142,15 @@ export async function daemonCommand(name: string): Promise<void> {
           clawforumDir,
           motionInboxDir: path.join(dir, 'inbox', 'pending'),
           limitMB: diskLimitMB,
+        }),
+      },
+      {
+        name: 'llm-stats',
+        enabled: globalConfig.cron?.jobs?.llm_stats?.enabled ?? true,
+        schedule: parseSchedule(globalConfig.cron?.jobs?.llm_stats?.schedule ?? 'daily:06:00'),
+        handler: () => runLlmStats({
+          clawforumDir,
+          motionDir: dir,
         }),
       },
     ]);
