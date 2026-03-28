@@ -23,7 +23,8 @@ import { SkillRegistry } from '../../core/skill/registry.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
 import { buildRetroPrompt } from '../../prompts/index.js';
-import { CronRunner } from '../../core/cron/runner.js';
+import { CronRunner, parseSchedule } from '../../core/cron/runner.js';
+import { runDiskMonitor } from '../../core/cron/jobs/disk-monitor.js';
 
 
 
@@ -127,7 +128,22 @@ export async function daemonCommand(name: string): Promise<void> {
   let cronRunner: CronRunner | null = null;
   if (isMotion && (globalConfig.cron?.enabled ?? true)) {
     const tickMs = globalConfig.cron?.tick_interval_ms ?? 1000;
-    cronRunner = new CronRunner([]);  // Step 2/3 逐步填入 jobs
+    const clawforumDir = path.join(dir, '..');  // motion/ 的上级即 .clawforum/
+    const diskLimitMB = globalConfig.watchdog?.disk_warning_mb ?? 500;
+    const diskScheduleStr = globalConfig.cron?.jobs?.disk_monitor?.schedule ?? 'hourly';
+
+    cronRunner = new CronRunner([
+      {
+        name: 'disk-monitor',
+        enabled: globalConfig.cron?.jobs?.disk_monitor?.enabled ?? true,
+        schedule: parseSchedule(diskScheduleStr),
+        handler: () => runDiskMonitor({
+          clawforumDir,
+          motionInboxDir: path.join(dir, 'inbox', 'pending'),
+          limitMB: diskLimitMB,
+        }),
+      },
+    ]);
     cronRunner.start(tickMs);
   }
 

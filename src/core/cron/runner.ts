@@ -8,6 +8,20 @@ export type CronSchedule =
   | { type: 'hourly' }                     // 每小时整点
   | { type: 'interval'; minutes: number }; // 每 N 分钟
 
+/** 将配置字符串解析为 CronSchedule
+ * 格式：'hourly' | 'daily:HH:MM' | 'interval:Nm'
+ */
+export function parseSchedule(s: string): CronSchedule {
+  if (s === 'hourly') return { type: 'hourly' };
+  if (s.startsWith('daily:')) return { type: 'daily', time: s.slice(6) };
+  if (s.startsWith('interval:')) {
+    const minutes = parseInt(s.slice(9), 10);
+    return { type: 'interval', minutes };
+  }
+  console.warn(`[cron] Unknown schedule format "${s}", falling back to hourly`);
+  return { type: 'hourly' };
+}
+
 export interface CronJob {
   name: string;
   enabled: boolean;

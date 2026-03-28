@@ -123,7 +123,6 @@ function writeWatchdogInboxMessage(type: string, content: Record<string, unknown
 
 // Cron state
 let lastArchiveDate: string | null = null;
-let lastDiskCheckHour: number = -1;
 const lastInactivityNotified: Map<string, number> = new Map();
 const clawPreviouslyAlive: Map<string, boolean> = new Map();
 const inactivityNotifyCount: Map<string, number> = new Map();  // consecutive notification count, used for backoff
@@ -381,62 +380,6 @@ function maybeCronArchive(): void {
   log('[watchdog] Daily archive complete');
 }
 
-// Disk check (hourly)
-function maybeCronDiskCheck(): void {
-  const now = new Date();
-  const currentHour = now.getHours();
-  
-  if (lastDiskCheckHour === currentHour) return;
-  if (now.getMinutes() >= 5) return;
-  
-  log('[watchdog] Running hourly disk check...');
-  
-  // Calculate total size of claws/*/clawspace/
-  let totalSize = 0;
-  const clawsDir = path.join(getClawforumDir(), 'claws');
-  if (fs.existsSync(clawsDir)) {
-    for (const clawId of fs.readdirSync(clawsDir)) {
-      const clawspaceDir = path.join(clawsDir, clawId, 'clawspace');
-      if (!fs.existsSync(clawspaceDir)) continue;
-      totalSize += getDirSize(clawspaceDir);
-    }
-  }
-  
-  const totalMB = Math.round(totalSize / 1024 / 1024);
-  const limitMB = getGlobalConfig().watchdog?.disk_warning_mb ?? 500;
-  
-  if (totalMB > limitMB) {
-    log(`[watchdog] WARNING: Disk usage ${totalMB}MB > ${limitMB}MB`);
-    writeWatchdogInboxMessage('disk_warning', {
-      message: `Disk usage ${totalMB}MB, limit ${limitMB}MB`,
-      usage_mb: totalMB,
-      limit_mb: limitMB,
-      timestamp: new Date().toISOString(),
-    });
-  } else {
-    log(`[watchdog] Disk check: ${totalMB}MB / ${limitMB}MB`);
-  }
-  
-  lastDiskCheckHour = currentHour;
-}
-
-// Recursively calculate directory size
-function getDirSize(dir: string): number {
-  let size = 0;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isSymbolicLink()) continue;  // skip symlinks to prevent cycles
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      size += getDirSize(fullPath);
-    } else {
-      try {
-        size += fs.statSync(fullPath).size;
-      } catch { /* skip: file deleted during scan */ }
-    }
-  }
-  return size;
-}
-
 // Daemon main loop
 export async function daemonCommand(): Promise<void> {
   log('[watchdog] Daemon starting...');
@@ -495,9 +438,8 @@ export async function daemonCommand(): Promise<void> {
       motionRestartFailures = 0;  // Motion healthy, reset counter
     }
     
-    // 2. Simple cron
+    // 2. Simple cron (disk_check moved to CronRunner)
     maybeCronArchive();
-    maybeCronDiskCheck();
     maybeCronClawInactivity(pm);
     maybeCronClawCrash(pm);
     saveWatchdogState();   // 持久化通知状态（每 tick 一次）
