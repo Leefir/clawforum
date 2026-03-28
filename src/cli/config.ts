@@ -71,6 +71,7 @@ export const ClawGlobalConfigSchema = z.object({
       dream_trigger: z.object({
         enabled: z.boolean().default(false),
         schedule: z.string().default('daily:04:00'),
+        max_compression_tokens: z.number().optional(),
       }).optional(),
     }).optional(),
   }).optional(),

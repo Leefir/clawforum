@@ -26,6 +26,8 @@ import { buildRetroPrompt } from '../../prompts/index.js';
 import { CronRunner, parseSchedule } from '../../core/cron/runner.js';
 import { runDiskMonitor } from '../../core/cron/jobs/disk-monitor.js';
 import { runLlmStats } from '../../core/cron/jobs/llm-stats.js';
+import { runDeepDream } from '../../core/cron/jobs/deep-dream.js';
+import { runRandomDream } from '../../core/cron/jobs/random-dream.js';
 
 
 
@@ -152,6 +154,26 @@ export async function daemonCommand(name: string): Promise<void> {
           clawforumDir,
           motionDir: dir,
         }),
+      },
+      {
+        name: 'dream-trigger',
+        enabled: globalConfig.cron?.jobs?.dream_trigger?.enabled ?? false,
+        schedule: parseSchedule(globalConfig.cron?.jobs?.dream_trigger?.schedule ?? 'daily:04:00'),
+        handler: async () => {
+          // 深度梦境：串行处理每个 claw
+          await runDeepDream({
+            clawforumDir,
+            llmConfig,
+            maxCompressionTokens: globalConfig.cron?.jobs?.dream_trigger?.max_compression_tokens,
+          });
+          // 随机梦境：sub-agent 跨 claw 漫游
+          await runRandomDream({
+            clawforumDir,
+            motionDir: dir,
+            taskSystem: runtime.getTaskSystem(),
+            streamWriter,
+          });
+        },
       },
     ]);
     cronRunner.start(tickMs);
