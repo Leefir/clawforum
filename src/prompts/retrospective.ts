@@ -22,6 +22,19 @@ ${skillsSummary}`
 
 ---
 
+## 重要：运行环境
+
+你运行在 motion 进程里。目标 claw（${clawId}）的文件不在你的工作目录下。
+
+读取目标 claw 的文件时，必须使用 read 工具的 \`claw\` 参数：
+\`\`\`
+{ "path": "clawspace/xxx.md", "claw": "${clawId}" }
+\`\`\`
+
+直接用相对路径读（不带 claw 参数）只会读到 motion 自己的文件，不是目标 claw 的。
+
+---
+
 ## 复盘步骤
 
 ### 第一步：读取执行结果
