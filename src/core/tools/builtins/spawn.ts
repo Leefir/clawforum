@@ -28,6 +28,7 @@ export async function scheduleSubAgentWithTracking(
     parentClawId: string;
     originClawId: string;
     systemPrompt?: string;
+    silent?: boolean;   // true = 不在 viewport 显示 ReAct 过程
   }
 ): Promise<string> {
   const taskId = await taskSystem.scheduleSubAgent({
@@ -48,6 +49,7 @@ export async function scheduleSubAgentWithTracking(
     type: 'task_started',
     taskId,
     callerType: 'subagent',
+    silent: args.silent ?? false,
   });
 
   return taskId;
