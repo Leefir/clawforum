@@ -217,6 +217,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       appendOutput('', streamingBuffer);
       streamingBuffer = '';
       streamingSuffix = '';
+      updateDisplay();   // 清空游标后立即重渲染
     }
   };
 
@@ -336,6 +337,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
       case 'user_notify': {
         stopSpinner();   // 防止 spinner 在通知输出时继续转
+        streamingSuffix = '';   // 清除游标/spinner 残留
         const sub = event.subtype as string;
         const subtaskId = event.subtaskId as string;
         if (sub === 'contract_created') {
