@@ -70,7 +70,7 @@ export interface StreamCallbacks {
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
   onToolCall?: (toolName: string, toolUseId: string) => void;
-  onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+  onToolResult?: (toolName: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
   onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
   onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // inbox messages detected (for review_request handling)
@@ -653,7 +653,7 @@ export class ClawRuntime {
     options?: {
       onToolCall?: (toolName: string, toolUseId: string) => void;
       onBeforeLLMCall?: () => void;
-      onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+      onToolResult?: (toolName: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
       onTextDelta?: (delta: string) => void;  // streaming text delta
       onThinkingDelta?: (delta: string) => void;  // streaming thinking delta
     }

@@ -189,7 +189,7 @@ export class SubAgent {
         onToolCall: (name: string, toolUseId: string) => {
           sw.write({ type: 'tool_call', name, tool_use_id: toolUseId });
         },
-        onToolResult: (name: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
+        onToolResult: (name: string, _toolUseId: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           sw.write({
             type: 'tool_result',
             name,
@@ -225,8 +225,8 @@ export class SubAgent {
             auditStepTools.push(name);
             await this.appendToLog(`Tool called: ${name}\n`);
           },
-          onToolResult: (name, result, step, maxSteps) => {
-            streamCallbacks.onToolResult?.(name, result, step, maxSteps);
+          onToolResult: (name, toolUseId, result, step, maxSteps) => {
+            streamCallbacks.onToolResult?.(name, toolUseId, result, step, maxSteps);
           },
           onBeforeLLMCall: () => {
             streamCallbacks.onBeforeLLMCall?.();

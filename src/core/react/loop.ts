@@ -76,7 +76,7 @@ export interface ReactOptions {
   onBeforeLLMCall?: () => void;
   
   /** Callback after tool execution with result (for showing tool output) */
-  onToolResult?: (toolName: string, result: ToolResult, step: number, maxSteps: number) => void;
+  onToolResult?: (toolName: string, toolUseId: string, result: ToolResult, step: number, maxSteps: number) => void;
   
   /** Callback after each step completes (for incremental persistence) */
   onStepComplete?: () => Promise<void>;
@@ -255,7 +255,7 @@ async function executeToolCalls(
   ctx: ExecContext,
   registry: IToolRegistry | undefined,
   onToolCall?: (toolName: string, toolUseId: string) => void | Promise<void>,
-  onToolResult?: (toolName: string, result: ToolResult, step: number, maxSteps: number) => void,
+  onToolResult?: (toolName: string, toolUseId: string, result: ToolResult, step: number, maxSteps: number) => void,
   stepCount: number = 0,
   maxSteps: number = 20,
 ): Promise<ToolResultBlock[]> {
@@ -266,7 +266,7 @@ async function executeToolCalls(
       if (ctx.signal?.aborted) throwAbortError(ctx.signal);
       await safeCallbackAsync('onToolCall', async () => await onToolCall?.(toolCall.name, toolCall.id));
       const result = await executeSingleTool(toolCall, executor, ctx);
-      safeCallback('onToolResult', () => onToolResult?.(toolCall.name, result, stepCount, maxSteps));
+      safeCallback('onToolResult', () => onToolResult?.(toolCall.name, toolCall.id, result, stepCount, maxSteps));
       toolResults.push(toToolResultBlock(toolCall.id, result));
     }
     return toolResults;
@@ -300,7 +300,7 @@ async function executeToolCalls(
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name, call.id));
     const result = await executeSingleTool(call, executor, ctx);
-    safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
+    safeCallback('onToolResult', () => onToolResult?.(call.name, call.id, result, stepCount, maxSteps));
     results.set(index, toToolResultBlock(call.id, result));
   }
 
@@ -327,7 +327,7 @@ async function executeToolCalls(
     for (let i = 0; i < readonlySyncCalls.length; i++) {
       const { call, index } = readonlySyncCalls[i];
       const result = parallelResults[i];
-      safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
+      safeCallback('onToolResult', () => onToolResult?.(call.name, call.id, result, stepCount, maxSteps));
       results.set(index, toToolResultBlock(call.id, result));
     }
   }
@@ -337,7 +337,7 @@ async function executeToolCalls(
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     await safeCallbackAsync('onToolCall', async () => await onToolCall?.(call.name, call.id));
     const result = await executeSingleTool(call, executor, ctx);
-    safeCallback('onToolResult', () => onToolResult?.(call.name, result, stepCount, maxSteps));
+    safeCallback('onToolResult', () => onToolResult?.(call.name, call.id, result, stepCount, maxSteps));
     results.set(index, toToolResultBlock(call.id, result));
   }
 

@@ -77,12 +77,13 @@ export class StreamWriter {
       onToolCall: (name: string, toolUseId: string) => {
         this.write({ ts: Date.now(), type: 'tool_call', name, tool_use_id: toolUseId });
       },
-      onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
+      onToolResult: (name: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
         const summary = oneLine(result.content);
         this.write({
           ts: Date.now(),
           type: 'tool_result',
           name,
+          tool_use_id: toolUseId,
           success: result.success,
           summary,
           step: step + 1,
