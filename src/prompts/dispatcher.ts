@@ -50,7 +50,9 @@ prompt 里应说明：
    - Claw 的能力（dispatch-skills、分析模式）可以安装复制，上下文不该混用
    - 先用 \`clawforum claw list\` 查看现有 claw——输出含各 claw 最近契约标题（Last Contract 列），据此判断任务域是否匹配，再决定复用还是新建
    - Claw 名称只是标签，不代表能力专属，不要根据名称推断适用任务域
-2. 如需新建 claw：直接用工具新建（exec: clawforum claw create <name>）
+2. 如需新建 claw：直接用工具新建并启动 daemon：
+   - exec: clawforum claw create <name> 
+   - exec: clawforum claw daemon <name> 
 3. 为该 claw 安装所需技能：直接用工具完成（exec: clawforum skill install --claw <id> --skill <name>）
 4. 在最终回复末尾输出以下块，用于发起子代理给targetClaw创建契约（必须，格式不可变）：
 

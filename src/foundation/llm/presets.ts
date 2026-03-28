@@ -13,6 +13,8 @@ export interface ProviderPreset {
   authMethod: AuthMethod;
   defaultBaseUrl?: string;
   defaultModel?: string;
+  /** Environment variable name for the API key (e.g. ANTHROPIC_API_KEY) */
+  envVar?: string;
 }
 
 export const PRESETS: Record<string, ProviderPreset> = {
@@ -23,6 +25,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.anthropic.com',
     defaultModel: 'claude-3-7-sonnet-20250219',
+    envVar: 'ANTHROPIC_API_KEY',
   },
   'openai': {
     id: 'openai',
@@ -31,6 +34,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o',
+    envVar: 'OPENAI_API_KEY',
   },
   'deepseek': {
     id: 'deepseek',
@@ -39,6 +43,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.deepseek.com',
     defaultModel: 'deepseek-chat',
+    envVar: 'DEEPSEEK_API_KEY',
   },
   'moonshot': {
     id: 'moonshot',
@@ -47,6 +52,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.moonshot.cn/v1',
     defaultModel: 'moonshot-v1-8k',
+    envVar: 'MOONSHOT_API_KEY',
   },
   'minimax': {
     id: 'minimax',
@@ -55,6 +61,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.minimax.io/anthropic',
     defaultModel: 'MiniMax-M1',
+    envVar: 'MINIMAX_API_KEY',
   },
   'gemini': {
     id: 'gemini',
@@ -63,6 +70,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     defaultModel: 'gemini-2.5-pro-preview-03-25',
+    envVar: 'GEMINI_API_KEY',
   },
   'ollama': {
     id: 'ollama',
@@ -71,6 +79,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     authMethod: 'api_key',
     defaultBaseUrl: 'http://localhost:11434/v1',
     defaultModel: 'llama3.1',
+    envVar: 'OLLAMA_API_KEY',
   },
   'custom-anthropic': {
     id: 'custom-anthropic',
