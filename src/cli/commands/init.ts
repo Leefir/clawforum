@@ -84,11 +84,19 @@ export async function initCommand(silent = false): Promise<void> {
       }
     }
 
-    // API Key (required)
-    const apiKey = await passwordQuestion('API Key');
-    if (!apiKey) {
-      console.error('API Key is required');
-      process.exit(1);
+    // API Key - 优先环境变量
+    let apiKey: string;
+    const envVar = preset.envVar;
+    const envValue = envVar ? process.env[envVar] : undefined;
+    if (envValue) {
+      console.log(`✓ API Key detected from environment (${envVar})`);
+      apiKey = envValue;
+    } else {
+      apiKey = await passwordQuestion('API Key');
+      if (!apiKey) {
+        console.error('API Key is required');
+        process.exit(1);
+      }
     }
 
     // Model (default from preset)
