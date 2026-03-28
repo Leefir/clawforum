@@ -446,7 +446,7 @@ describe('ReAct Loop', () => {
       executor: mockExecutor,
       ctx: mockCtx,
       maxSteps: 10,
-      onToolResult: (name, _result, step, maxSteps) => calls.push({ name, step, maxSteps }),
+      onToolResult: (name, _toolUseId, _result, step, maxSteps) => calls.push({ name, step, maxSteps }),
     });
 
     expect(calls).toHaveLength(1);
