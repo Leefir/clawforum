@@ -26,7 +26,8 @@ export function buildDispatcherUserMessage(
 1. 决定目标 claw（已有哪个最合适 / 需要新建）
    - 判断依据：上下文效率。如果现有 claw 的对话状态专注于不同的项目或任务域，复用会带入无关上下文，应新建 claw
    - Claw 的能力（dispatch-skills、分析模式）可以安装复制，上下文不该混用
-   - 先用 \`clawforum claw list\` 查看现有 claw，结合任务判断
+   - 先用 \`clawforum claw list\` 查看现有 claw——输出含各 claw 最近契约标题（Last Contract 列），据此判断任务域是否匹配，再决定复用还是新建
+   - Claw 名称只是标签，不代表能力专属，不要根据名称推断适用任务域
 2. 如需新建 claw：直接用工具新建（exec: clawforum claw create <name>）
 3. 为该 claw 安装所需技能：直接用工具完成（exec: clawforum skill install --claw <id> --skill <name>）
 4. 在最终回复末尾输出以下块，用于发起子代理给targetClaw创建契约（必须，格式不可变）：
@@ -35,8 +36,9 @@ export function buildDispatcherUserMessage(
 {"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt>"}
 [/SPAWN_REQUEST]
 
-**targetClaw 规则**：必须是已存在的 claw id（kebab-case 名称，如 some-claw）。
-如需新建 claw，先用 \`clawforum claw create <name>\` 创建，确认成功后再填入 targetClaw。
+**targetClaw 规则**：必须是 claw id（kebab-case）。
+不能是 UUID、不能是 taskId。
+如需新建 claw，先用 \`clawforum claw create <name>\` 创建，确认成功后再填入该 claw 的 id。
 
 **prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
 契约创建子代理的工作是：设计契约 YAML、写验收文件，并通过 clawforum contract create --dir 提交。
