@@ -190,6 +190,7 @@ async function _start(): Promise<void> {
       }
       if (!isWatchdogAlive()) await watchdogStartCommand();
     })();
+    daemonReady.catch(() => {}); // 防止并行期间 UnhandledPromiseRejection；await 时仍正确 rethrow
 
     const language = await pickLanguage();
     await daemonReady;
