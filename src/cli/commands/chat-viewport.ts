@@ -320,7 +320,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         updateDisplay();
         {
           const msg = (event as Record<string, unknown>).message;
-          appendOutput('\x1b[33m', typeof msg === 'string' ? msg : '⏎ Interrupted');
+          appendOutput('\x1b[33m', fitLine(typeof msg === 'string' ? msg : '⏎ Interrupted'));
         }
         break;
 
@@ -331,7 +331,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput('\x1b[31m', `✗ Error: ${event.error}`);
+        appendOutput('\x1b[31m', fitLine(`✗ Error: ${event.error as string}`));
         break;
 
       case 'user_notify': {
@@ -355,13 +355,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          appendOutput('\x1b[2m', `  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`);
+          appendOutput('\x1b[2m', fitLine(`  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`));
         } else if (sub === 'llm_error') {
           // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
           const errMsg = (event.error as string) ?? '';
           const forClaw = claw ? ` (${claw})` : '';
-          appendOutput('\x1b[31m', `  ✗ [llm] ${errMsg}${forClaw}`);
+          appendOutput('\x1b[31m', fitLine(`  ✗ [llm] ${errMsg}${forClaw}`));
         }
         break;
       }
