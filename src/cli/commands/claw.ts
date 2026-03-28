@@ -724,7 +724,7 @@ async function showStepDetail(
       resultCount++;
       if (resultCount === targetStep) {
         targetToolName = ev.name || 'unknown';
-        targetToolUseId = (ev.tool_use_id as string) || '';
+        targetToolUseId = ev.tool_use_id || '';
         break;
       }
     }
@@ -826,7 +826,7 @@ async function showStepDetail(
 
   if (targetToolUse.name !== targetToolName) {
     // 降级计数定位到了错误的 block（老流 + 多契约 claw）
-    console.log('(Content unavailable: stream predates Phase 75 on a multi-contract claw)');
+    console.log('(Content unavailable: old stream format, step lookup unreliable)');
     return;
   }
 
@@ -854,32 +854,13 @@ async function showStepDetail(
   console.log('');
 
   if (targetToolResult) {
-    const success = !isToolResultError(targetToolResult.content);
+    const streamResult = events.find(ev => ev.type === 'tool_result' && ev.tool_use_id === targetToolUseId);
+    const success = streamResult ? streamResult.success !== false : true;
     console.log(`Result (${success ? 'success' : 'failed'}):`);
     console.log(formatToolResultContent(targetToolResult.content));
   } else {
     console.log('Result: (not found)');
   }
-}
-
-/**
- * 判断 tool_result 是否表示错误
- */
-function isToolResultError(content: unknown): boolean {
-  if (typeof content === 'string') {
-    return content.includes('Error:') || content.includes('error');
-  }
-  if (Array.isArray(content)) {
-    for (const item of content) {
-      if (typeof item === 'object' && item !== null) {
-        const obj = item as { type?: string; text?: string };
-        if (obj.type === 'text' && obj.text) {
-          return obj.text.includes('Error:') || obj.text.includes('error');
-        }
-      }
-    }
-  }
-  return false;
 }
 
 /**

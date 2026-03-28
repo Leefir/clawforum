@@ -189,10 +189,11 @@ export class SubAgent {
         onToolCall: (name: string, toolUseId: string) => {
           sw.write({ type: 'tool_call', name, tool_use_id: toolUseId });
         },
-        onToolResult: (name: string, _toolUseId: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
+        onToolResult: (name: string, toolUseId: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           sw.write({
             type: 'tool_result',
             name,
+            tool_use_id: toolUseId,
             success: result.success,
             summary: oneLine(result.content ?? ''),
             step: step + 1,
