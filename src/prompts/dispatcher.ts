@@ -35,8 +35,7 @@ export function buildDispatcherUserMessage(
 {"targetClaw":"<clawId>","prompt":"<给契约创建子代理的完整 prompt>"}
 [/SPAWN_REQUEST]
 
-**targetClaw 规则**：必须是已存在的 claw id（kebab-case 名称，如 openclaw-explorer）。
-不能是 UUID、不能是新建的 claw、不能是 taskId。
+**targetClaw 规则**：必须是已存在的 claw id（kebab-case 名称，如 some-claw）。
 如需新建 claw，先用 \`clawforum claw create <name>\` 创建，确认成功后再填入 targetClaw。
 
 **prompt 写法**：这是给"契约设计者"的指令，不是给"任务执行者"的。
