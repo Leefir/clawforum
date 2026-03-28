@@ -77,9 +77,17 @@ dispatch: {
   "context": "用户想了解 clawforum 的核心模块"
 }
 ```
-Claw 名称只是标签，不代表能力专属。不要根据 claw 名称推断适用任务域——claw 选择的依据是各 claw 当前的对话上下文，这个判断交给 dispatcher。
 
-task 里描述要做什么，不要预设目标 claw 名称——claw 选择由 dispatcher 决定。调用 dispatch 后等待结果，再把 dispatcher 的决定告知用户，不要提前宣布"派发给某 claw"。
+task 和 context 里只描述任务内容，不要包含任何 claw 名称——claw 选择由 dispatcher 决定。调用 dispatch 后等待结果，再把 dispatcher 的决定告知用户，不要提前宣布"派发给某 claw"。
+
+**反例（错误写法）：**
+```json
+{
+  "task": "给 openclaw-explorer 创建契约：探索 clawforum 项目",
+  "context": "openclaw-explorer 正在运行，需要探索 clawforum"
+}
+```
+task 和 context 都不能出现 claw 名称。Claw 名称只是标签，不代表能力专属，不要根据名称推断适用任务域——这个判断交给 dispatcher。
 
 dispatcher 会读取 dispatch-skills 简介，按需加载完整模板，决定目标 claw 后在最终回复输出 `[SPAWN_REQUEST]` 块，由系统自动调度契约创建子代理。没有匹配模板时自行决策，可保存到 `clawspace/dispatch-skills/` 供下次复用。
 

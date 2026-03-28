@@ -69,6 +69,10 @@ dispatcher 不能：
         type: 'number',
         description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认 60000ms（可通过 .clawforum/config.yaml 的 motion.llm_idle_timeout_ms 配置）。',
       },
+      targetClaw: {
+        type: 'string',
+        description: '目标 claw id（kebab-case）。仅当用户明确指定了目标 claw 时填写，否则省略——claw 选择由 dispatcher 决定。若用户要求新建特定名称的 claw，请先创建 claw 再调用 dispatch。',
+      },
     },
     required: ['task'],
   };
@@ -99,6 +103,7 @@ dispatcher 不能：
       args.task as string,
       args.context as string | undefined,
       skillsSummary,
+      args.targetClaw as string | undefined,
     );
     const taskSystem = ctx.taskSystem;
     if (!taskSystem) {
