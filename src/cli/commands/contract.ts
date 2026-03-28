@@ -5,7 +5,6 @@
 import * as fs from 'fs/promises';
 import * as fsNative from 'fs';
 import * as path from 'path';
-import { randomUUID } from 'crypto';
 import * as yaml from 'js-yaml';
 import { ContractManager, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
@@ -145,86 +144,6 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
     });
   } catch (e) {
     console.warn('[contract] Failed to send inbox notification:', e instanceof Error ? e.message : String(e));
-  }
-}
-
-/**
- * Create a contract from goal description (LLM-generated)
- */
-export async function contractCreateFromGoalCommand(clawId: string, goal: string): Promise<void> {
-  const clawDir = getClawDir(clawId);
-  
-  // Load configs and build LLM
-  const globalConfig = loadGlobalConfig();
-  const clawConfig = loadClawConfig(clawId);
-  const llmConfig = buildLLMConfig(globalConfig, clawConfig);
-  const llm = new LLMService(llmConfig);
-  const creator = new ContractCreator(llm);
-
-  console.log('Generating contract from goal...');
-  const { yaml: contractYaml, scripts, prompts } = await creator.generate(goal, clawDir);
-
-  // 验证 LLM 生成的契约
-  if (!contractYaml.title || !contractYaml.goal || !Array.isArray(contractYaml.subtasks)) {
-    throw new Error('Generated contract is invalid: missing title, goal, or subtasks');
-  }
-
-  // Create contract
-  const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawFs);
-  const contractId = await manager.create(contractYaml);
-
-  // best-effort：通知 viewport
-  const line = JSON.stringify({
-    ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
-    contractId, clawId, title: contractYaml.title, subtaskCount: contractYaml.subtasks.length,
-  }) + '\n';
-
-  // 写目标 claw（独立）
-  try {
-    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
-  } catch { /* daemon 未运行时忽略 */ }
-
-  // 若非 motion 自身的契约，通知 motion viewport（不依赖 CLAW_ORIGIN_ID env var）
-  if (clawId !== MOTION_CLAW_ID) {
-    try {
-      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
-    } catch { /* best-effort */ }
-  }
-
-  // Write acceptance files to contract directory
-  const acceptanceDir = path.join(clawDir, 'contract', 'active', contractId, 'acceptance');
-  await fs.mkdir(acceptanceDir, { recursive: true });
-  
-  for (const [id, content] of Object.entries(scripts)) {
-    await fs.writeFile(path.join(acceptanceDir, `${id}.sh`), content, { mode: 0o755 });
-  }
-  for (const [id, content] of Object.entries(prompts)) {
-    await fs.writeFile(path.join(acceptanceDir, `${id}.prompt.txt`), content);
-  }
-
-  // inbox 通知
-  try {
-    writeInboxMessage({
-      inboxDir: path.join(clawDir, 'inbox', 'pending'),
-      type: 'message',
-      source: 'system',
-      priority: 'high',
-      body: `新契约已创建（${contractId}）：${contractYaml.title}\n目标：${contractYaml.goal}\n请开始执行。`,
-      idPrefix: 'contract-new',
-    });
-  } catch (e) {
-    console.warn('[contract] Failed to send inbox notification:', e instanceof Error ? e.message : String(e));
-  }
-
-  // 打印摘要
-  console.log(`Contract created: ${contractId} for claw ${clawId}`);
-  console.log(`Title: ${contractYaml.title}`);
-  console.log(`Subtasks (${contractYaml.subtasks.length}):`);
-  for (const st of contractYaml.subtasks) {
-    const acc = contractYaml.acceptance?.find(a => a.subtask_id === st.id);
-    const accStr = acc ? ` [${acc.type}: ${acc.type === 'script' ? acc.script_file : acc.prompt_file}]` : ' [no acceptance]';
-    console.log(`  - ${st.id}: ${st.description}${accStr}`);
   }
 }
 

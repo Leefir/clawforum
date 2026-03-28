@@ -437,7 +437,7 @@ export class ClawRuntime {
         systemParts.push(formatted);
       }
       sources.push({
-        text: formatted.replace(/\r?\n/g, ' ').slice(0, 80),
+        text: formatted.replace(/\r?\n/g, ' ').slice(0, 500),
         type,
       });
     }
