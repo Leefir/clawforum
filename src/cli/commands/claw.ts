@@ -207,6 +207,41 @@ export async function listCommand(): Promise<void> {
     return `${hours}h`;
   }
 
+  // Helper: get latest contract title (active > paused > most recent archive)
+  function getLatestContractTitle(clawPath: string): string {
+    for (const sub of ['active', 'paused']) {
+      try {
+        const dirs = fs.readdirSync(path.join(clawPath, 'contract', sub));
+        for (const dir of dirs) {
+          const yamlPath = path.join(clawPath, 'contract', sub, dir, 'contract.yaml');
+          if (fs.existsSync(yamlPath)) {
+            const content = fs.readFileSync(yamlPath, 'utf-8');
+            const match = content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+            if (match) return match[1].slice(0, 28);
+          }
+        }
+      } catch { /* skip */ }
+    }
+    try {
+      const archiveDir = path.join(clawPath, 'contract', 'archive');
+      const dirs = fs.readdirSync(archiveDir);
+      let latest = { mtime: 0, title: '' };
+      for (const dir of dirs) {
+        const yamlPath = path.join(archiveDir, dir, 'contract.yaml');
+        if (fs.existsSync(yamlPath)) {
+          const stat = fs.statSync(yamlPath);
+          if (stat.mtimeMs > latest.mtime) {
+            const content = fs.readFileSync(yamlPath, 'utf-8');
+            const match = content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+            if (match) latest = { mtime: stat.mtimeMs, title: match[1].slice(0, 28) };
+          }
+        }
+      }
+      if (latest.title) return latest.title;
+    } catch { /* skip */ }
+    return '-';
+  }
+
   try {
     // Ensure claws directory exists
     if (!fs.existsSync(clawsDir)) {
@@ -220,6 +255,7 @@ export async function listCommand(): Promise<void> {
       contract: string;
       outbox: number;
       lastActive: string;
+      lastContract: string;
     }> = [];
 
     for (const entry of entries) {
@@ -243,6 +279,7 @@ export async function listCommand(): Promise<void> {
           contract: getContractStatus(clawPath),
           outbox: getOutboxCount(clawPath),
           lastActive: formatLastActive(clawPath),
+          lastContract: getLatestContractTitle(clawPath),
         });
       }
     }
@@ -254,17 +291,17 @@ export async function listCommand(): Promise<void> {
 
     // Print table
     console.log('\nClaw List:');
-    console.log('─'.repeat(80));
-    console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)} ${'Contract'.padEnd(10)} ${'Outbox'.padEnd(8)} ${'LastActive'.padEnd(10)}`);
-    console.log('─'.repeat(80));
+    console.log('─'.repeat(112));
+    console.log(`${'Name'.padEnd(20)} ${'Status'.padEnd(12)} ${'PID'.padEnd(10)} ${'Contract'.padEnd(10)} ${'Outbox'.padEnd(8)} ${'LastActive'.padEnd(10)} ${'Last Contract'.padEnd(30)}`);
+    console.log('─'.repeat(112));
 
     for (const claw of claws) {
       const statusIcon = claw.status === 'running' ? '[running]' : '[stopped]';
       const pidStr = claw.pid || '-';
-      console.log(`${claw.name.padEnd(20)} ${statusIcon.padEnd(12)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)}`);
+      console.log(`${claw.name.padEnd(20)} ${statusIcon.padEnd(12)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)} ${claw.lastContract.padEnd(30)}`);
     }
 
-    console.log('─'.repeat(80));
+    console.log('─'.repeat(112));
     console.log(`\nTotal: ${claws.length} claws (${claws.filter(c => c.status === 'running').length} running)\n`);
   } catch (error) {
     console.error('Failed to list claws:', error instanceof Error ? error.message : String(error));
