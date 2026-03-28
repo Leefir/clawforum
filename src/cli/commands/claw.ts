@@ -763,8 +763,10 @@ async function showStepDetail(
   for (const { path: fp } of dialogFiles) {
     try {
       const content = await fs.promises.readFile(fp, 'utf-8');
-      const msgs: DialogMessage[] = JSON.parse(content);
-      if (Array.isArray(msgs)) messages.push(...msgs);
+      const data = JSON.parse(content);
+      const msgs: DialogMessage[] = Array.isArray(data) ? data
+        : (Array.isArray(data.messages) ? data.messages : []);
+      if (msgs.length > 0) messages.push(...msgs);
     } catch { /* skip */ }
   }
 

@@ -304,8 +304,8 @@ describe('Permission Matrix', () => {
       expect(toolNames).toContain('write');
       expect(toolNames).toContain('exec');
       expect(toolNames).toContain('skill');
-      expect(toolNames).toContain('status');
-      
+
+      expect(toolNames).not.toContain('status');
       expect(toolNames).not.toContain('send');
       expect(toolNames).not.toContain('spawn');
     });
