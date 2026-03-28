@@ -8,10 +8,8 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import * as yaml from 'js-yaml';
 import { ContractManager, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
-import { ContractCreator } from '../../core/contract/creator.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { LLMService } from '../../foundation/llm/service.js';
-import { getClawDir, getMotionDir, loadClawConfig, loadGlobalConfig, buildLLMConfig } from '../config.js';
+import { getClawDir, getMotionDir } from '../config.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 

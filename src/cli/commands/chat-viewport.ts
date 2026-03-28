@@ -95,10 +95,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const updateDisplay = () => {
     const cols = process.stdout.columns ?? 80;
     const body = outputLines
-      .map(({ color, text }) => {
-        const fitted = fitLine(text, cols);
-        return color ? `${color}${fitted}\x1b[0m` : fitted;
-      })
+      .flatMap(({ color, text }) =>
+        text.split('\n').map(line => {
+          const fitted = fitLine(line, cols);
+          return color ? `${color}${fitted}\x1b[0m` : fitted;
+        })
+      )
       .join('\n');
     const full = streamingSuffix ? body + '\n' + streamingSuffix : body;
     outputText.setText(full);
@@ -204,7 +206,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const editor = new Editor(tui, editorTheme);
 
   const appendOutput = (color: string, text: string) => {
-    outputLines.push({ color, text });
+    for (const line of text.split('\n')) {
+      outputLines.push({ color, text: line });
+    }
     updateDisplay();
   };
 

@@ -463,6 +463,7 @@ interface StreamEvent {
   subtype?: string;
   delta?: string;
   tool_use_id?: string;
+  summary?: string;
 }
 
 interface DialogMessage {

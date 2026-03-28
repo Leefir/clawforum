@@ -26,7 +26,7 @@ import {
   chatCommand as motionChatCommand,
   stopCommand as motionStopCommand,
 } from './commands/motion.js';
-import { contractCreateCommand, contractCreateFromGoalCommand, contractCreateFromDirCommand, contractLogCommand } from './commands/contract.js';
+import { contractCreateCommand, contractCreateFromDirCommand, contractLogCommand } from './commands/contract.js';
 import { skillInstallUserCommand, skillInstallClawCommand } from './commands/skill.js';
 import {
   startCommand as watchdogStartCommand,
@@ -349,25 +349,21 @@ const contractCmd = program
 // contract create
 contractCmd
   .command('create')
-  .description('Create a contract (--goal: LLM-generated, --file: import YAML, --dir: directory with contract.yaml + acceptance/)')
+  .description('Create a contract (--file: import YAML, --dir: directory with contract.yaml + acceptance/)')
   .requiredOption('--claw <id>', 'Target claw ID')
-  .option('--goal <text>', 'Goal description (LLM generates subtasks and acceptance criteria)')
   .option('--file <path>', 'Path to contract YAML file')
   .option('--dir <path>', 'Directory containing contract.yaml and acceptance/ folder')
-  .action(async (opts: { claw: string; goal?: string; file?: string; dir?: string }) => {
+  .action(async (opts: { claw: string; file?: string; dir?: string }) => {
     try {
-      const provided = [opts.goal, opts.file, opts.dir].filter(Boolean).length;
-      if (provided > 1) {
-        console.error('Error: --goal, --file, --dir are mutually exclusive');
+      if (opts.file && opts.dir) {
+        console.error('Error: --file and --dir are mutually exclusive');
         process.exit(1);
-      } else if (opts.goal) {
-        await contractCreateFromGoalCommand(opts.claw, opts.goal);
       } else if (opts.file) {
         await contractCreateCommand(opts.claw, opts.file);
       } else if (opts.dir) {
         await contractCreateFromDirCommand(opts.claw, opts.dir);
       } else {
-        console.error('Error: must provide --goal, --file, or --dir');
+        console.error('Error: must provide --file or --dir');
         process.exit(1);
       }
     } catch (error) {

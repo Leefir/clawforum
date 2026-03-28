@@ -78,7 +78,7 @@ export class StreamWriter {
         this.write({ ts: Date.now(), type: 'tool_call', name });
       },
       onToolResult: (name: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
-        const summary = oneLine(result.content, 14);
+        const summary = oneLine(result.content);
         this.write({
           ts: Date.now(),
           type: 'tool_result',

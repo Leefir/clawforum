@@ -17,28 +17,29 @@ export function sliceFromStart(s: string, maxCols: number): string {
   return s.slice(0, i);
 }
 
+const SUMMARY_MAX_CHARS = 500;
+
 /**
- * 将字符串处理为单行显示：
- * - 取第一行（丢弃换行后的内容）
+ * 将字符串处理为存储摘要：
  * - trimStart 清除前导空格
- * - 按终端宽度减去 reserve 截断，超出追加 '…'
+ * - 固定字符上限（500），超出追加 '…'
+ * - 换行原样保留，由 viewport 渲染时处理
  */
-export function oneLine(s: string, reserve = 0): string {
-  const max = Math.max(20, (process.stdout.columns ?? 80) - reserve);
-  const first = (s ?? '').split('\n')[0].trimStart();
-  const sliced = sliceFromStart(first, max);
-  return sliced.length < first.length ? sliced + '…' : sliced;
+export function oneLine(s: string): string {
+  const content = (s ?? '').trimStart();
+  if (content.length <= SUMMARY_MAX_CHARS) return content;
+  return content.slice(0, SUMMARY_MAX_CHARS) + '…';
 }
 
 /**
  * 将字符串适配为单行显示：
  * - \n 替换为空格（保留所有内容，只消除换行）
- * - 按终端宽度（减去 cols 参数）截断
- * - 超出追加 '…'
+ * - 按终端宽度截断，超出追加 '…'
+ * - 预留 1 列给 '…'，避免 off-by-one 溢出
  */
 export function fitLine(s: string, cols?: number): string {
   const width = cols ?? (process.stdout.columns ?? 80);
   const flat = s.replace(/\n/g, ' ');
-  const sliced = sliceFromStart(flat, width);
-  return sliced.length < flat.length ? sliced + '…' : sliced;
+  if (stringWidth(flat) <= width) return flat;
+  return sliceFromStart(flat, width - 1) + '…';
 }
