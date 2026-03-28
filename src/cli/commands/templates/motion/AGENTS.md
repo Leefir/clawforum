@@ -77,6 +77,7 @@ dispatch: {
   "context": "用户想了解 clawforum 的核心模块"
 }
 ```
+Claw 名称只是标签，不代表能力专属。不要根据 claw 名称推断适用任务域——claw 选择的依据是各 claw 当前的对话上下文，这个判断交给 dispatcher。
 
 task 里描述要做什么，不要预设目标 claw 名称——claw 选择由 dispatcher 决定。调用 dispatch 后等待结果，再把 dispatcher 的决定告知用户，不要提前宣布"派发给某 claw"。
 
