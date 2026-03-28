@@ -295,7 +295,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
-        appendOutput('\x1b[2m', `  ${icon} [${step}/${maxSteps}] ${event.summary as string}`);
+        appendOutput('\x1b[2m', fitLine(`  ${icon} [${step}/${maxSteps}] ${event.summary as string}`));
         streamingSuffix = '';
         updateDisplay();
         break;
@@ -713,7 +713,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_result': {
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
-        appendOutput('\x1b[2m', `  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`);
+        appendOutput('\x1b[2m', fitLine(`  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`));
         streamingSuffix = '';
         updateDisplay();
         break;
