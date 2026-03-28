@@ -6,7 +6,6 @@
 
 export * from './contract-agent.js';
 export * from './dispatcher.js';
-export * from './contract-creator.js';
 export * from './subagent.js';
 export * from './claw-template.js';
 export * from './retrospective.js';
