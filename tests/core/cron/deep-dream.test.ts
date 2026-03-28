@@ -316,4 +316,106 @@ describe('runDeepDream', () => {
 
     expect(mockLlmClose).toHaveBeenCalledTimes(1);
   });
+
+  // ── 多 claw 隔离 ────────────────────────────────────────────
+
+  it('第一个 claw Call 1 失败，第二个 claw 仍正常处理', async () => {
+    const makeClawDir = async (clawId: string) => {
+      const clawDir = path.join(clawforumDir, 'claws', clawId);
+      await fs.mkdir(path.join(clawDir, 'dialog', 'archive'), { recursive: true });
+      await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
+      return clawDir;
+    };
+
+    const clawDir1 = await makeClawDir('claw-fail');
+    const clawDir2 = await makeClawDir('claw-ok');
+
+    const session = makeSessionJson([
+      { role: 'user', content: 'task' },
+      { role: 'assistant', content: 'done' },
+    ]);
+    await fs.writeFile(path.join(clawDir1, 'dialog', 'archive', `1000000000001_fail0000.json`), session, 'utf-8');
+    await fs.writeFile(path.join(clawDir2, 'dialog', 'archive', `1000000000002_ok000000.json`), session, 'utf-8');
+
+    // 第一次 Call 1 失败，后续调用正常
+    mockLlmCall
+      .mockRejectedValueOnce(new Error('claw-fail error'))
+      .mockResolvedValue(makeTextResponse('ok dream'));
+
+    await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig });
+
+    // claw-ok 的 inbox 应有消息
+    const inboxFiles = fsSync.readdirSync(path.join(clawDir2, 'inbox', 'pending'));
+    expect(inboxFiles.some(f => f.includes('deep_dream'))).toBe(true);
+  });
+
+  // ── 元压缩触发 ──────────────────────────────────────────────
+
+  it('元压缩：compressions 超过 maxCompressionTokens 时触发第 3 次 LLM 调用', async () => {
+    const clawDir = path.join(clawforumDir, 'claws', 'claw-meta');
+    const archiveDir = path.join(clawDir, 'dialog', 'archive');
+    await fs.mkdir(archiveDir, { recursive: true });
+    await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
+
+    // 两个 session 文件，第一个产生超长压缩（超过 maxCompressionTokens=100 的阈值）
+    const session = makeSessionJson([
+      { role: 'user', content: 'task details' },
+      { role: 'assistant', content: 'completed the work' },
+    ]);
+    await fs.writeFile(path.join(archiveDir, `1000000000010_meta0001.json`), session, 'utf-8');
+    await fs.writeFile(path.join(archiveDir, `1000000000020_meta0002.json`), session, 'utf-8');
+
+    // Call 1（file1）→ dream, Call 2（file1）→ 超长压缩（> 100*4 = 400 chars）
+    // Call 1（file2）→ dream, Call 2（file2）→ compression
+    // 元压缩在 Call 1 file2 前触发 → 额外一次调用
+    const longCompression = 'x'.repeat(500); // 500 chars → ~125 tokens > maxCompressionTokens=100
+    mockLlmCall
+      .mockResolvedValueOnce(makeTextResponse('dream 1'))           // Call 1 file1
+      .mockResolvedValueOnce(makeTextResponse(longCompression))     // Call 2 file1（超长）
+      .mockResolvedValueOnce(makeTextResponse('meta compressed'))   // 元压缩
+      .mockResolvedValueOnce(makeTextResponse('dream 2'))           // Call 1 file2
+      .mockResolvedValueOnce(makeTextResponse('compression 2'));    // Call 2 file2
+
+    await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig, maxCompressionTokens: 100 });
+
+    // 5 次 LLM 调用：Call1+Call2 for file1, 元压缩, Call1+Call2 for file2
+    expect(mockLlmCall).toHaveBeenCalledTimes(5);
+  });
+
+  // ── 时间戳升序处理 ──────────────────────────────────────────
+
+  it('archive 文件按时间戳升序处理（旧文件的压缩传给新文件）', async () => {
+    const clawDir = path.join(clawforumDir, 'claws', 'claw-order');
+    const archiveDir = path.join(clawDir, 'dialog', 'archive');
+    await fs.mkdir(archiveDir, { recursive: true });
+    await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
+
+    const session = makeSessionJson([
+      { role: 'user', content: 'work' },
+      { role: 'assistant', content: 'done' },
+    ]);
+    // 时间戳：新文件 ts=2000，旧文件 ts=1000
+    await fs.writeFile(path.join(archiveDir, `2000000000000_new00000.json`), session, 'utf-8');
+    await fs.writeFile(path.join(archiveDir, `1000000000000_old00000.json`), session, 'utf-8');
+
+    const callOrder: string[] = [];
+    mockLlmCall.mockImplementation(async (opts: { messages: Array<{ content: string }> }) => {
+      // 从 user message content 判断当前处理的是哪个文件
+      const content = opts.messages[0]?.content ?? '';
+      callOrder.push(typeof content === 'string' ? content.slice(0, 30) : '');
+      return makeTextResponse('response');
+    });
+
+    await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig });
+
+    // 4 次调用（两文件各 Call1+Call2）
+    expect(mockLlmCall).toHaveBeenCalledTimes(4);
+
+    // 第 2 次 Call 1（call index 2）的 userMsg 应包含第 1 次 Call 2 产生的压缩
+    // 即：第 3 次调用（index=2）的 messages[0].content 应包含压缩内容
+    const call3Args = mockLlmCall.mock.calls[2][0] as { messages: Array<{ content: string }> };
+    const call3Content = call3Args.messages[0]?.content ?? '';
+    // 第 1 个文件处理后，compressions 有内容，第 2 个文件的 buildDreamInput 会包含"前序会话压缩摘要"
+    expect(typeof call3Content === 'string' ? call3Content : '').toContain('前序会话');
+  });
 });

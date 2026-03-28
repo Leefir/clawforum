@@ -280,4 +280,103 @@ Prompt: ...
       expect(idxNew).toBeLessThan(idxOld);
     }
   });
+
+  // ── computeWeight：progress.json 加权 ─────────────────────
+
+  it('近期完成的契约权重高于普通契约', async () => {
+    // contract-recent：有近期完成的 subtask
+    const recentDir = path.join(clawforumDir, 'claws', 'claw-1', 'contract', 'archive', 'contract-recent');
+    await fs.mkdir(recentDir, { recursive: true });
+    await fs.writeFile(path.join(recentDir, 'progress.json'), JSON.stringify({
+      subtasks: {
+        s1: { status: 'completed', completed_at: new Date(Date.now() - 1000 * 60 * 60).toISOString() }, // 1 小时前
+      },
+    }), 'utf-8');
+
+    // contract-old：有很久以前完成的 subtask（几乎没有加权）
+    const oldDir = path.join(clawforumDir, 'claws', 'claw-2', 'contract', 'archive', 'contract-old-done');
+    await fs.mkdir(oldDir, { recursive: true });
+    await fs.writeFile(path.join(oldDir, 'progress.json'), JSON.stringify({
+      subtasks: {
+        s1: { status: 'completed', completed_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString() }, // 60 天前
+      },
+    }), 'utf-8');
+
+    let capturedPrompt = '';
+    mockScheduleSubAgent.mockImplementation(async (_ts: unknown, _sw: unknown, opts: { prompt: string }) => {
+      capturedPrompt = opts.prompt;
+      return taskId;
+    });
+    await writeTaskCompletion(motionDir, taskId, '=== started ===');
+
+    await runRandomDream(makeOpts(clawforumDir, motionDir));
+
+    const lines = capturedPrompt.split('\n').filter(l => l.match(/^\d+\./));
+    const idxRecent = lines.findIndex(l => l.includes('contract-recent'));
+    const idxOldDone = lines.findIndex(l => l.includes('contract-old-done'));
+    if (idxRecent >= 0 && idxOldDone >= 0) {
+      expect(idxRecent).toBeLessThan(idxOldDone);
+    }
+  });
+
+  it('有失败 subtask 的契约权重更高', async () => {
+    // contract-failed：有 failed subtask
+    const failedDir = path.join(clawforumDir, 'claws', 'claw-1', 'contract', 'archive', 'contract-failed');
+    await fs.mkdir(failedDir, { recursive: true });
+    await fs.writeFile(path.join(failedDir, 'progress.json'), JSON.stringify({
+      subtasks: {
+        s1: { status: 'failed' },
+      },
+    }), 'utf-8');
+
+    // contract-normal：无 progress.json
+    const normalDir = path.join(clawforumDir, 'claws', 'claw-2', 'contract', 'archive', 'contract-normal');
+    await fs.mkdir(normalDir, { recursive: true });
+
+    let capturedPrompt = '';
+    mockScheduleSubAgent.mockImplementation(async (_ts: unknown, _sw: unknown, opts: { prompt: string }) => {
+      capturedPrompt = opts.prompt;
+      return taskId;
+    });
+    await writeTaskCompletion(motionDir, taskId, '=== started ===');
+
+    await runRandomDream(makeOpts(clawforumDir, motionDir));
+
+    const lines = capturedPrompt.split('\n').filter(l => l.match(/^\d+\./));
+    const idxFailed = lines.findIndex(l => l.includes('contract-failed'));
+    const idxNormal = lines.findIndex(l => l.includes('contract-normal'));
+    if (idxFailed >= 0 && idxNormal >= 0) {
+      expect(idxFailed).toBeLessThan(idxNormal);
+    }
+  });
+
+  // ── waitForTaskResult 超时路径 ──────────────────────────────
+
+  it('sub-agent 超时：.txt 始终不出现，不写 inbox', async () => {
+    vi.useFakeTimers();
+    try {
+      await fs.mkdir(
+        path.join(clawforumDir, 'claws', 'claw-1', 'contract', 'archive', 'contract-timeout'),
+        { recursive: true }
+      );
+      await fs.mkdir(path.join(motionDir, 'tasks', 'results'), { recursive: true });
+      // 只有 .log，没有 .txt
+      fsSync.writeFileSync(
+        path.join(motionDir, 'tasks', 'results', `${taskId}.log`),
+        '=== started ==='
+      );
+
+      const runPromise = runRandomDream(makeOpts(clawforumDir, motionDir));
+
+      // 推进超过 1 小时（3_600_000 ms）
+      await vi.advanceTimersByTimeAsync(3_600_001);
+      await runPromise;
+
+      // 不应写 inbox
+      const inboxFiles = fsSync.readdirSync(path.join(motionDir, 'inbox', 'pending'));
+      expect(inboxFiles.filter(f => f.includes('random_dream'))).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
