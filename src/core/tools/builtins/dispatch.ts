@@ -8,6 +8,7 @@ import { spawnTool } from './spawn.js';
 import * as fsNative from 'fs';
 import * as path from 'path';
 import { CONTRACT_AGENT_SYSTEM_PROMPT, buildDispatcherUserMessage } from '../../../prompts/index.js';
+import { TOOL_PROFILES } from '../profiles.js';
 
 /**
  * Extract text from message content (handles string, array, or object formats)
@@ -155,7 +156,7 @@ dispatcher 不能：
         // 通过 spawn 工具创建契约创建子代理，确保 task_started 写入 parentStreamWriter
         const spawnResult = await spawnTool.execute({
           prompt: augmentedPrompt,
-          tools: ['exec', 'read', 'write', 'skill', 'status'],
+          tools: TOOL_PROFILES['subagent'],
           timeout: 600,
           maxSteps: DEFAULT_MAX_STEPS,
           systemPrompt: CONTRACT_AGENT_SYSTEM_PROMPT,

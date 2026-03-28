@@ -56,12 +56,6 @@ export async function skillInstallUserCommand(sourcePath: string): Promise<void>
   const dispatchExists = fsNative.existsSync(destDispatch);
   await copyDir(absSource, destDispatch);
   console.log(`${dispatchExists ? 'Updated' : 'Synced'} dispatch-skills/${skillName}`);
-
-  // 3. Sync to motion/skills/{skillName}/ (available to subagents spawned by motion)
-  const destMotionSkills = path.join(motionDir, 'skills', skillName);
-  const motionSkillsExists = fsNative.existsSync(destMotionSkills);
-  await copyDir(absSource, destMotionSkills);
-  console.log(`${motionSkillsExists ? 'Updated' : 'Synced'} motion/skills/${skillName}`);
 }
 
 /**

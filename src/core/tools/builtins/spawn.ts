@@ -9,9 +9,7 @@ import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import type { Message } from '../../../types/message.js';
-
-// Default tools available to subagents
-const SUBAGENT_TOOLS = ['read', 'write', 'ls', 'search', 'status', 'exec', 'skill', 'memory_search'];
+import { TOOL_PROFILES } from '../profiles.js';
 
 /**
  * Schedule a subagent and write task_started to the stream.
@@ -36,7 +34,7 @@ export async function scheduleSubAgentWithTracking(
     kind: 'subagent',
     prompt: args.prompt,
     messages: args.messages,
-    tools: args.tools ?? SUBAGENT_TOOLS,
+    tools: args.tools ?? TOOL_PROFILES['subagent'],
     timeout: args.timeout ?? SPAWN_DEFAULT_TIMEOUT_S,
     maxSteps: args.maxSteps ?? DEFAULT_MAX_STEPS,
     idleTimeoutMs: args.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
@@ -74,7 +72,7 @@ export const spawnTool: ITool = {
       tools: {
         type: 'array',
         items: { type: 'string' },
-        description: `Tools available to the subagent (default: ${SUBAGENT_TOOLS.join(', ')})`,
+        description: `Tools available to the subagent (default: ${TOOL_PROFILES['subagent'].join(', ')})`,
       },
       timeout: {
         type: 'number',
@@ -155,7 +153,7 @@ export const spawnTool: ITool = {
       };
     }
 
-    const tools = Array.isArray(args.tools) ? (args.tools as string[]) : SUBAGENT_TOOLS;
+    const tools = Array.isArray(args.tools) ? (args.tools as string[]) : TOOL_PROFILES['subagent'];
     const timeout = typeof args.timeout === 'number' ? args.timeout : SPAWN_DEFAULT_TIMEOUT_S;
     const maxSteps = typeof args.maxSteps === 'number' 
       ? args.maxSteps 
