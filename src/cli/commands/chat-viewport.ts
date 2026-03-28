@@ -372,7 +372,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const taskId = event.taskId as string;
         const callerType = (event.callerType as string) ?? 'subagent';
         const streamPath = path.join(options.agentDir, 'tasks', 'results', `${taskId}.stream.jsonl`);
-        const tw: TaskWatch = { callerType: callerType as any, fileSize: 0, leftover: '', watcher: null };
+        const tw: TaskWatch = {
+          callerType: callerType as any,
+          silent: (event.silent as boolean) ?? false,
+          fileSize: 0, leftover: '', watcher: null,
+        };
         taskWatchMap.set(taskId, tw);
         try {
           tw.watcher = fsNative.watch(streamPath, { persistent: false }, () => pollTaskStream(taskId));
@@ -427,6 +431,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Task stream watching (for dispatch/spawn subagent progress)
   interface TaskWatch {
     callerType: 'dispatcher' | 'subagent';
+    silent: boolean;
     fileSize: number;
     leftover: string;
     watcher: ReturnType<typeof fsNative.watch> | null;
@@ -705,14 +710,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     callerType: string,
     event: { type: string; [key: string]: unknown },
   ) => {
+    const tw = taskWatchMap.get(taskId);
     const prefix = callerType;
     switch (event.type) {
       case 'tool_call':
+        if (tw?.silent) break;
         stopSpinner();
         appendOutput('\x1b[36m', `→ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
+        if (tw?.silent) break;
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
         appendOutput('\x1b[2m', fitLine(`  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`));
