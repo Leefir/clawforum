@@ -54,7 +54,6 @@ export const ClawGlobalConfigSchema = z.object({
   watchdog: z.object({
     interval_ms: z.number().min(5000).default(30000),
     disk_warning_mb: z.number().min(10).default(500),
-    log_archive_days: z.number().min(1).max(365).default(30),
     claw_inactivity_timeout_ms: z.number().min(60000).default(300000),
   }).optional(),
   cron: z.object({

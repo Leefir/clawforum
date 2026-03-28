@@ -122,7 +122,6 @@ function writeWatchdogInboxMessage(type: string, content: Record<string, unknown
 }
 
 // Cron state
-let lastArchiveDate: string | null = null;
 const lastInactivityNotified: Map<string, number> = new Map();
 const clawPreviouslyAlive: Map<string, boolean> = new Map();
 const inactivityNotifyCount: Map<string, number> = new Map();  // consecutive notification count, used for backoff
@@ -310,76 +309,6 @@ function maybeCronClawCrash(pm: ProcessManager): void {
   }
 }
 
-// Log archival (daily at 00:00)
-function maybeCronArchive(): void {
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  
-  if (lastArchiveDate === today) return;
-  if (now.getUTCHours() !== 0 || now.getUTCMinutes() >= 5) return;
-  
-  log('[watchdog] Running daily archive...');
-  
-  const archiveDays = getGlobalConfig().watchdog?.log_archive_days ?? 30;
-  const thirtyDaysAgo = Date.now() - archiveDays * 24 * 60 * 60 * 1000;
-  const archiveDir = path.join(getClawforumDir(), 'logs', 'archive');
-  fs.mkdirSync(archiveDir, { recursive: true });
-  
-  // Scan motion/dialog/archive/
-  const motionArchiveDir = path.join(getMotionDir(), 'dialog', 'archive');
-  if (fs.existsSync(motionArchiveDir)) {
-    for (const file of fs.readdirSync(motionArchiveDir)) {
-      if (!file.endsWith('.json')) continue;
-      const filePath = path.join(motionArchiveDir, file);
-      try {
-        const stat = fs.statSync(filePath);
-        if (stat.mtimeMs < thirtyDaysAgo) {
-          fs.renameSync(filePath, path.join(archiveDir, `motion_${file}`));
-        }
-      } catch { /* skip: file deleted during scan */ }
-    }
-  }
-  
-  // Scan claws/*/dialog/archive/
-  const clawsDir = path.join(getClawforumDir(), 'claws');
-  if (fs.existsSync(clawsDir)) {
-    for (const clawId of fs.readdirSync(clawsDir)) {
-      const clawArchiveDir = path.join(clawsDir, clawId, 'dialog', 'archive');
-      if (!fs.existsSync(clawArchiveDir)) continue;
-      for (const file of fs.readdirSync(clawArchiveDir)) {
-        if (!file.endsWith('.json')) continue;
-        const filePath = path.join(clawArchiveDir, file);
-        try {
-          const stat = fs.statSync(filePath);
-          if (stat.mtimeMs < thirtyDaysAgo) {
-            fs.renameSync(filePath, path.join(archiveDir, `${clawId}_${file}`));
-          }
-        } catch { /* skip: file deleted during scan */ }
-      }
-    }
-  }
-  
-  // 清理 claws/*/outbox/done/ 中的过期文件（M6）
-  if (fs.existsSync(clawsDir)) {
-    for (const clawId of fs.readdirSync(clawsDir)) {
-      const outboxDoneDir = path.join(clawsDir, clawId, 'outbox', 'done');
-      if (!fs.existsSync(outboxDoneDir)) continue;
-      for (const file of fs.readdirSync(outboxDoneDir)) {
-        const filePath = path.join(outboxDoneDir, file);
-        try {
-          const stat = fs.statSync(filePath);
-          if (stat.mtimeMs < thirtyDaysAgo) {
-            fs.unlinkSync(filePath);
-          }
-        } catch { /* skip */ }
-      }
-    }
-  }
-  
-  lastArchiveDate = today;
-  log('[watchdog] Daily archive complete');
-}
-
 // Daemon main loop
 export async function daemonCommand(): Promise<void> {
   log('[watchdog] Daemon starting...');
@@ -438,8 +367,7 @@ export async function daemonCommand(): Promise<void> {
       motionRestartFailures = 0;  // Motion healthy, reset counter
     }
     
-    // 2. Simple cron (disk_check moved to CronRunner)
-    maybeCronArchive();
+    // 2. Cron checks (disk_check moved to CronRunner in daemon.ts)
     maybeCronClawInactivity(pm);
     maybeCronClawCrash(pm);
     saveWatchdogState();   // 持久化通知状态（每 tick 一次）
