@@ -9,6 +9,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import * as readline from 'readline';
 import { isInitialized, loadGlobalConfig, getMotionDir } from '../config.js';
 import { initCommand } from './init.js';
 import {
@@ -22,36 +23,65 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 
-const ONBOARDING_SUBTASKS = [
-  {
-    id: 'language',
-    description: 'IMPORTANT: You must write ALL your messages in English until this subtask is marked complete — regardless of what language you normally use. Ask the user which language they prefer. Whatever language the user replies in — or explicitly states — that is their answer. Switch to that language immediately for all future subtasks. Write the preference to USER.md (not inside clawspace/).',
-  },
-  {
-    id: 'identity',
-    description: 'You are the coordinator of Claws — "Motion" is your system role, not your name. Ask the user what they want to call you, and what kind of vibe or presence they want from you. Write the result to IDENTITY.md (not inside clawspace/).',
-  },
-  {
-    id: 'user',
-    description: 'Learn who they are: name, how to address them, any relevant context. Write to USER.md (not inside clawspace/).',
-  },
-  {
-    id: 'soul',
-    description: 'Open SOUL.md together. Talk about what matters to them and how they want you to behave. Update SOUL.md (not inside clawspace/) with what you learn.',
-  },
-  {
-    id: 'first-claw',
-    description: 'Help the user create their first Claw. Ask what task or project they want to work on. A Claw is a separate context window for a specific ongoing task — all Claws have identical capabilities, they just handle different work. Run both commands: exec: clawforum claw create <name>, then exec: clawforum claw daemon <name>',
-  },
-  {
-    id: 'first-contract',
-    description: 'Help the user assign the first contract to their new Claw. Ask what they want to get done, then create the contract via dispatch: { "task": "为 <claw-name> 创建契约：<task description>" }',
-  },
-  {
-    id: 'ready',
-    description: 'Onboarding is complete. Let them know everything is set up and the Claw is working on their first task.',
-  },
-];
+function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
+  let langInstruction: string;
+  if (language === 'auto') {
+    langInstruction = "Detect the user's preferred language from their first message and respond in it immediately.";
+  } else if (language.startsWith('auto (hint:')) {
+    langInstruction = `Infer the user's language from this hint: ${language}. Respond in that language immediately.`;
+  } else {
+    langInstruction = `The user has selected "${language}". Use this language from your very first message.`;
+  }
+
+  return [
+    {
+      id: 'language',
+      description: `${langInstruction} Write the language preference to USER.md (not inside clawspace/).`,
+    },
+    {
+      id: 'identity',
+      description: 'You are the coordinator of Claws — "Motion" is your system role, not your name. Ask the user what they want to call you, and what kind of vibe or presence they want from you. Write the result to IDENTITY.md (not inside clawspace/).',
+    },
+    {
+      id: 'user',
+      description: 'Learn who they are: name, how to address them, any relevant context. Write to USER.md (not inside clawspace/).',
+    },
+    {
+      id: 'soul',
+      description: 'Open SOUL.md together. Talk about what matters to them and how they want you to behave. Update SOUL.md (not inside clawspace/) with what you learn.',
+    },
+    {
+      id: 'first-claw',
+      description: 'Help the user create their first Claw. Ask what task or project they want to work on. A Claw is a separate context window for a specific ongoing task — all Claws have identical capabilities, they just handle different work. Run both commands: exec: clawforum claw create <name>, then exec: clawforum claw daemon <name>',
+    },
+    {
+      id: 'first-contract',
+      description: 'Help the user assign the first contract to their new Claw. Ask what they want to get done, then create the contract via dispatch: { "task": "为 <claw-name> 创建契约：<task description>" }',
+    },
+    {
+      id: 'ready',
+      description: 'Onboarding is complete. Let them know everything is set up and the Claw is working on their first task.',
+    },
+  ];
+}
+
+async function pickLanguage(): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    console.log('\nSelect language / 选择语言:');
+    console.log('  1. English');
+    console.log('  2. 中文');
+    console.log('  or type any word for auto detect\n');
+    rl.question('> ', (answer) => {
+      rl.close();
+      const t = answer.trim();
+      if (t === '1') resolve('English');
+      else if (t === '2') resolve('中文');
+      else if (t === '') resolve('auto');
+      else resolve(`auto (hint: "${t}")`);
+    });
+  });
+}
 
 type OnboardingStatus =
   | { state: 'complete' }
@@ -119,57 +149,56 @@ export async function startCommand(): Promise<void> {
 }
 
 async function _start(): Promise<void> {
-  // Step 1: workspace not initialized → run interactive init (prompts for LLM config)
-  if (!isInitialized()) {
+  // Step 1: workspace init
+  const wasFirstRun = !isInitialized();
+  if (wasFirstRun) {
     await initCommand(true);
   }
   loadGlobalConfig();
 
-  // Step 2: motion not initialized → write template files
+  // Step 2: motion init
   const motionDir = getMotionDir();
   if (!fs.existsSync(path.join(motionDir, 'AGENTS.md'))) {
     await motionInitCommand(true);
   }
 
-  // Step 3: check Onboarding status
+  // Step 3: onboarding 状态
   const onboarding = getOnboardingStatus(motionDir);
 
-  // Onboarding complete → go straight to chat, no inbox message needed
+  // onboarding 已完成 → 直接进 chat
   if (onboarding.state === 'complete') {
     const pm = createMotionPM();
     if (!pm.isAlive('motion')) {
       await pm.spawn('motion', motionDir);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
-    // Ensure watchdog is running for crash recovery
-    if (!isWatchdogAlive()) {
-      await watchdogStartCommand();
-    }
+    if (!isWatchdogAlive()) await watchdogStartCommand();
     await motionChatCommand();
     return;
   }
 
-  // Step 4: start daemon if needed
-  const pm = createMotionPM();
-  if (!pm.isAlive('motion')) {
-    await pm.spawn('motion', motionDir);
-    await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
-  }
-  // Ensure watchdog is running for crash recovery
-  if (!isWatchdogAlive()) {
-    await watchdogStartCommand();
-  }
-
-  const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-  const manager = new ContractManager(motionDir, motionFs);
   const inboxDir = path.join(motionDir, 'inbox', 'pending');
 
-  if (onboarding.state === 'not_found') {
-    // Create Onboarding contract from scratch
+  if (wasFirstRun && onboarding.state === 'not_found') {
+    // ★ 首次运行：后台启动 daemon，前台展示语言选择（并行）
+    const pm = createMotionPM();
+    const daemonReady = (async () => {
+      if (!pm.isAlive('motion')) {
+        await pm.spawn('motion', motionDir);
+        await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
+      }
+      if (!isWatchdogAlive()) await watchdogStartCommand();
+    })();
+
+    const language = await pickLanguage();
+    await daemonReady;
+
+    const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+    const manager = new ContractManager(motionDir, motionFs);
     const contractId = await manager.create({
       title: 'Onboarding',
-      goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk. Start all messages in English until the language subtask is complete.',
-      subtasks: ONBOARDING_SUBTASKS,
+      goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
+      subtasks: buildOnboardingSubtasks(language),
       acceptance: [],
     });
 
@@ -182,20 +211,42 @@ async function _start(): Promise<void> {
       idPrefix: 'start',
       filenameTag: 'start',
     });
+
   } else {
-    // Onboarding in progress — remind Motion of the pending subtasks
-    const pendingList = onboarding.pending.join(', ');
-    writeInboxMessage({
-      inboxDir,
-      type: 'message',
-      source: 'system',
-      priority: 'high',
-      body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
-      idPrefix: 'start',
-      filenameTag: 'start',
-    });
+    // 非首次但 not_found（极少），或 in_progress
+    const pm = createMotionPM();
+    if (!pm.isAlive('motion')) {
+      await pm.spawn('motion', motionDir);
+      await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
+    }
+    if (!isWatchdogAlive()) await watchdogStartCommand();
+
+    if (onboarding.state === 'not_found') {
+      const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+      const manager = new ContractManager(motionDir, motionFs);
+      const contractId = await manager.create({
+        title: 'Onboarding',
+        goal: 'Get to know the user and establish your identity before anything else.',
+        subtasks: buildOnboardingSubtasks('auto'),
+        acceptance: [],
+      });
+      writeInboxMessage({
+        inboxDir,
+        type: 'message', source: 'system', priority: 'high',
+        body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
+        idPrefix: 'start', filenameTag: 'start',
+      });
+    } else {
+      const pendingList = onboarding.pending.join(', ');
+      writeInboxMessage({
+        inboxDir,
+        type: 'message', source: 'system', priority: 'high',
+        body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
+        idPrefix: 'start', filenameTag: 'start',
+      });
+    }
   }
 
-  // Step 5: open Motion chat
+  // Step 5: 打开 chat
   await motionChatCommand();
 }
