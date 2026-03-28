@@ -634,7 +634,7 @@ function showTraceOverview(
   console.log(`Contract: ${titleLine} (${contractId})`);
 
   const startedStr = new Date(startedAt).toLocaleString();
-  const totalSteps = events.filter(e => e.type === 'tool_call').length;
+  const totalSteps = events.filter(e => e.type === 'tool_result').length;
   console.log(`Claw: ${clawId} | Started: ${startedStr} | Steps: ${totalSteps}`);
   console.log('');
 
@@ -642,7 +642,6 @@ function showTraceOverview(
   let round = 0;
   let stepSeq = 0;
   let textBuf = '';
-  let pendingToolCall: string | null = null;
   let nextRoundTrigger: string | null = null;
 
   const flushText = () => {
@@ -684,16 +683,15 @@ function showTraceOverview(
         break;
       }
       case 'tool_call': {
-        stepSeq++;
-        pendingToolCall = ev.name || 'unknown';
+        // 不再用于计数，计数改为在 tool_result 时进行
         break;
       }
       case 'tool_result': {
-        const name = pendingToolCall || 'unknown';
+        stepSeq++;
+        const name = ev.name || 'unknown';
         const mark = ev.success === false ? ' ✗' : '';
         const summaryPart = ev.summary ? ` ${ev.summary}` : '';
         console.log(`[#${stepSeq}] ${name}:${mark}${summaryPart}`);
-        pendingToolCall = null;
         break;
       }
       case 'user_notify': {
@@ -716,15 +714,15 @@ async function showStepDetail(
   events: StreamEvent[],
   targetStep: number,
 ): Promise<void> {
-  // 第一阶段：从 stream 事件里取目标步骤的 name + tool_use_id
-  let toolCallCount = 0;
+  // 第一阶段：找第 N 个 tool_result，取其 tool_use_id
+  let resultCount = 0;
   let targetToolName = '';
   let targetToolUseId = '';
 
   for (const ev of events) {
-    if (ev.type === 'tool_call') {
-      toolCallCount++;
-      if (toolCallCount === targetStep) {
+    if (ev.type === 'tool_result') {
+      resultCount++;
+      if (resultCount === targetStep) {
         targetToolName = ev.name || 'unknown';
         targetToolUseId = (ev.tool_use_id as string) || '';
         break;
