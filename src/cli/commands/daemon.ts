@@ -214,6 +214,7 @@ export async function daemonCommand(name: string): Promise<void> {
                 maxSteps: DEFAULT_MAX_STEPS,
                 parentClawId: 'motion',
                 originClawId: 'motion',
+                silent: globalConfig.motion?.retrospective_silent ?? false,
               }
             );
           } catch (e) {
