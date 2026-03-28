@@ -186,7 +186,7 @@ export class SubAgent {
 
       // Stream writer callbacks for per-task stream.jsonl
       const streamCallbacks = sw ? {
-        onToolCall: (name: string) => {
+        onToolCall: (name: string, _toolUseId: string) => {
           sw.write({ type: 'tool_call', name });
         },
         onToolResult: (name: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
@@ -219,9 +219,9 @@ export class SubAgent {
           tools,                    // Enable native tool_use
           onTextDelta: resetIdle ? () => resetIdle() : undefined,
           onThinkingDelta: resetIdle ? () => resetIdle() : undefined,
-          onToolCall: async (name) => {
+          onToolCall: async (name, toolUseId) => {
             resetIdle?.();
-            streamCallbacks.onToolCall?.(name);
+            streamCallbacks.onToolCall?.(name, toolUseId);
             auditStepTools.push(name);
             await this.appendToLog(`Tool called: ${name}\n`);
           },

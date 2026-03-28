@@ -69,7 +69,7 @@ export interface StreamCallbacks {
   onTextDelta?: (delta: string) => void;
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
-  onToolCall?: (toolName: string) => void;
+  onToolCall?: (toolName: string, toolUseId: string) => void;
   onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
   onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
@@ -495,7 +495,7 @@ export class ClawRuntime {
         onTextDelta: (d) => { resetIdle?.(); callbacks?.onTextDelta?.(d); },
         onTextEnd: callbacks?.onTextEnd,
         onThinkingDelta: (d) => { resetIdle?.(); callbacks?.onThinkingDelta?.(d); },
-        onToolCall: (n) => { resetIdle?.(); callbacks?.onToolCall?.(n); },
+        onToolCall: (n, id) => { resetIdle?.(); callbacks?.onToolCall?.(n, id); },
         onToolResult: callbacks?.onToolResult,
         onBeforeLLMCall: callbacks?.onBeforeLLMCall,
       });
@@ -651,7 +651,7 @@ export class ClawRuntime {
   async chat(
     userMessage: string,
     options?: {
-      onToolCall?: (toolName: string) => void;
+      onToolCall?: (toolName: string, toolUseId: string) => void;
       onBeforeLLMCall?: () => void;
       onToolResult?: (toolName: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
       onTextDelta?: (delta: string) => void;  // streaming text delta
