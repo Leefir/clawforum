@@ -78,7 +78,7 @@ dispatch: {
 }
 ```
 
-task 里描述要做什么，不要预设目标 claw 名称——claw 选择由 dispatcher 决定。
+task 里描述要做什么，不要预设目标 claw 名称——claw 选择由 dispatcher 决定。调用 dispatch 后等待结果，再把 dispatcher 的决定告知用户，不要提前宣布"派发给某 claw"。
 
 dispatcher 会读取 dispatch-skills 简介，按需加载完整模板，决定目标 claw 后在最终回复输出 `[SPAWN_REQUEST]` 块，由系统自动调度契约创建子代理。没有匹配模板时自行决策，可保存到 `clawspace/dispatch-skills/` 供下次复用。
 

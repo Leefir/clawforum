@@ -26,7 +26,7 @@ export function buildDispatcherUserMessage(
 1. 决定目标 claw（已有哪个最合适 / 需要新建）
    - 判断依据：上下文效率。如果现有 claw 的对话状态专注于不同的项目或任务域，复用会带入无关上下文，应新建 claw
    - Claw 的能力（dispatch-skills、分析模式）可以安装复制，上下文不该混用
-   - 先用 `clawforum claw list` 查看现有 claw，结合任务判断
+   - 先用 \`clawforum claw list\` 查看现有 claw，结合任务判断
 2. 如需新建 claw：直接用工具新建（exec: clawforum claw create <name>）
 3. 为该 claw 安装所需技能：直接用工具完成（exec: clawforum skill install --claw <id> --skill <name>）
 4. 在最终回复末尾输出以下块，用于发起子代理给targetClaw创建契约（必须，格式不可变）：
