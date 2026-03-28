@@ -61,7 +61,7 @@ escalation:
 - subtask id 用 kebab-case
 - type "script" 对应 script_file；type "llm" 对应 prompt_file（不可混用，否则验收静默失败）
 - **每个 subtask_id 在 acceptance 里只能出现一次**：同一 subtask_id 写两条验收只有第一条生效
-- 验收脚本从 clawDir 运行，用 \`clawspace/<filename>\` 检查文件
+- 验收脚本从 clawDir 运行，用 \`clawspace/<filename>\` 检查文件。验收脚本只检查任务交付物（claw 写入clawspace/ 的文件），不检查任务的输入或依赖
 - **优先用 script**：能用脚本客观检查的（文件存在、字数、格式）一律用 script；只有无法用脚本验证质量或正确性时，才用 llm
 - deliverables：契约完成后应存在的交付物路径列表（描述性字段，供复盘参考，与 subtask 输出路径保持一致）
 
