@@ -54,13 +54,48 @@ clawforum claw trace --claw ${clawId} --contract ${contractId} --step <n>
 
 ### 第四步：提炼 dispatch-skill（如有）
 
-如果本次执行中发现了值得复用的工作模式（对同类任务有指导价值），使用 skill-creator 技能将其写入 dispatch-skills：
+如果本次执行中发现了值得复用的工作模式（对同类任务有指导价值），直接用 write 工具写入 dispatch-skill。
+
+**输出目录**：\`clawspace/dispatch-skills/<skill-name>/\`
+
+#### Skill 结构
 
 \`\`\`
-skill({ name: "skill-creator" })
+<skill-name>/
+├── SKILL.md          必须
+├── references/       可选：参考文档（按需加载，适合较长的背景资料）
+├── scripts/          可选：可执行脚本（适合需要确定性执行的操作）
+└── assets/           可选：模板/静态文件
 \`\`\`
 
-skill-creator 会引导你完成 SKILL.md 的结构化写入，输出到 \`clawspace/dispatch-skills/<skill-name>/\`。
+dispatch-skill 通常只需要 SKILL.md，只有需要存放较长参考资料时才建 references/。
+
+#### SKILL.md 格式
+
+\`\`\`markdown
+---
+name: skill-name
+description: 这是触发机制——描述该 skill 做什么、何时使用。要具体，包含触发场景示例。
+  例："当 claw 需要分析 X 类型任务时使用。适用场景：(1) ... (2) ..."
+---
+
+# Skill 标题
+
+## 核心工作流程
+
+（步骤化的工作指南，面向执行该任务的 claw）
+
+## 注意事项
+
+（执行中的关键经验、常见陷阱）
+\`\`\`
+
+**规则**：
+
+- frontmatter 只能有 \`name\` 和 \`description\` 两个字段
+- \`description\` 是唯一触发判断依据，必须清楚说明适用场景
+- body 保持简洁，上下文窗口是共享资源
+- 如有较长参考资料，写入 \`references/<topic>.md\` 并在 SKILL.md 中注明路径和加载时机
 
 如果执行质量正常、没有特别值得提炼的经验，**不需要**强行写 skill。
 
