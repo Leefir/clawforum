@@ -53,7 +53,7 @@ escalation:
 
 ```bash
 #!/bin/bash
-if [ -f "clawspace/output.md" ]; then exit 0; else exit 1; fi
+if [ -f "clawspace/<contract-slug>/report.md" ]; then exit 0; else exit 1; fi
 ```
 
 ### LLM 验收提示词示例
@@ -63,7 +63,7 @@ if [ -f "clawspace/output.md" ]; then exit 0; else exit 1; fi
 ```
 请判断以下 subtask 是否完成。
 
-验收标准：clawspace/output.md 存在且包含完整分析
+验收标准：clawspace/<contract-slug>/report.md 存在且包含完整分析
 
 {{evidence}}
 

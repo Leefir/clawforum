@@ -21,9 +21,9 @@ export function buildDispatcherUserMessage(
     userMessage += `\n\n${skillsSummary}`;
   }
 
-  userMessage += `\n\n## 第一阶段：思考（在任何工具调用之前完成）
+  userMessage += `\n\n## 第一阶段：推理（纯文字，不调用任何工具）
 
-请先在回复里写出以下推理，不要跳过：
+请先在回复里写出以下推理：
 
 **用户意图（background）**
 为什么要做这件事？与具体行动无关的动机和背景。
@@ -38,39 +38,42 @@ export function buildDispatcherUserMessage(
 **子任务拆分**
 拆成哪几个子任务？每个子任务做什么、产出到 clawspace/<contract-slug>/ 哪个路径？
 
-**目标 claw**`;
+## 第二阶段：执行
+
+推理完成后，按顺序执行：
+
+### 1. 确定目标 claw`;
 
   if (targetClaw) {
-    userMessage += `\n目标 claw 已由用户指定：**${targetClaw}**，直接使用，无需判断。`;
+    userMessage += `
+目标 claw 已由用户指定：**${targetClaw}**，直接使用。`;
   } else {
-    userMessage += `\n先用 \`clawforum claw list\` 查现有 claw，判断复用还是新建。
+    userMessage += `
+用 \`clawforum claw list\` 查现有 claw，判断复用还是新建：
 - 判断依据：上下文效率，不根据 claw 名称推断能力
-- 如果现有 claw 的对话状态专注于不同的项目或任务域，复用会带入无关上下文，应新建 claw
-- Claw 的能力可以安装复制，上下文不该混用
-- 如需新建：\`clawforum claw create <name> && clawforum claw daemon <name>\`
-- **targetClaw 必须是 claw id（kebab-case）**，不能是 UUID 或 taskId`;
+- 如果现有 claw 的对话状态专注于不同的项目或任务域，应新建 claw
+- 如需新建：
+  exec: clawforum claw create <name>
+  exec: clawforum claw daemon <name>
+- targetClaw 必须是 claw id（kebab-case），不能是 UUID 或 taskId`;
   }
 
-  userMessage += `\n
-**dispatch-skills**
-根据任务判断是否需要安装 dispatch-skills（\`exec: clawforum skill install --claw <id> --skill <name>\`）。
+  userMessage += `
 
-## 第二阶段：创建契约
+### 2. 安装 dispatch-skills（如需要）
+exec: clawforum skill install --claw <id> --skill <name>
 
-第一阶段推理完成后，执行以下步骤：
+### 3. 加载 clawforum-guide skill 查契约 YAML 格式和验收写法
+skill({ name: "clawforum-guide" })
 
-1. **加载 clawforum-guide skill 查契约 YAML 格式和验收写法**：
-   \`skill({ name: "clawforum-guide" })\`
+### 4. 写契约文件
+clawspace/contract-drafts/<contract-slug>/contract.yaml（含 background、goal、expectations、subtasks、acceptance、escalation）
+clawspace/contract-drafts/<contract-slug>/acceptance/<subtask-id>.sh 或 .prompt.txt
 
-2. **在 clawspace/contract-drafts/<contract-slug>/ 下写契约文件**：
-   - contract.yaml（含 background、goal、expectations、subtasks、acceptance、escalation）
-   - acceptance/<subtask-id>.sh 或 acceptance/<subtask-id>.prompt.txt
+### 5. 提交契约
+exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
 
-3. **提交契约**：
-   \`exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>\`
-
-4. **在最终回复末尾输出（格式不可变，供系统解析）**：
-
+### 6. 在最终回复末尾输出（格式不可变）
 \`\`\`
 [CONTRACT_DONE]{"contractId":"<id>","targetClaw":"<claw-id>"}[/CONTRACT_DONE]
 \`\`\`
