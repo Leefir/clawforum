@@ -223,7 +223,13 @@ export async function daemonCommand(name: string): Promise<void> {
               console.warn('[daemon] by-contract index missing targetClaw, skipping retrospective:', contractId);
               continue;
             }
-          } catch { continue; }
+          } catch (e) {
+            const code = (e as NodeJS.ErrnoException).code;
+            if (code !== 'ENOENT') {
+              console.warn('[daemon] Failed to read by-contract index, skipping retrospective:', contractId, e instanceof Error ? e.message : String(e));
+            }
+            continue;
+          }
 
           // 加载契约 YAML 原始字符串
           const clawsBaseDir = path.resolve(dir, '..', 'claws');
@@ -274,7 +280,7 @@ export async function daemonCommand(name: string): Promise<void> {
             );
           } catch (e) {
             console.warn('[daemon] retrospective schedule failed, keeping pending files for retry:', e);
-            return;  // 不删文件，留待下次 daemon 重启时重试
+            continue;  // 不删文件，留待下次 daemon 重启时重试
           }
 
           // 调度成功后才清理 by-contract 索引（best-effort）
