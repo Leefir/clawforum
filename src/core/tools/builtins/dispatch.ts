@@ -62,8 +62,7 @@ dispatcher 不能：
   schema = {
     type: 'object',
     properties: {
-      task:     { type: 'string', description: '要完成的任务描述' },
-      context:  { type: 'string', description: '当前对话的相关上下文（简短）' },
+      goal:     { type: 'string', description: '本次目标：用户这次想完成什么（Motion 对用户意图的目标描述，不含 claw 名称）' },
       maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认继承主循环 max_steps）' },
       idleTimeoutMs: {
         type: 'number',
@@ -74,7 +73,7 @@ dispatcher 不能：
         description: '目标 claw id（kebab-case）。仅当用户明确指定了目标 claw 时填写，否则省略——claw 选择由 dispatcher 决定。若用户要求新建特定名称的 claw，请先创建 claw 再调用 dispatch。',
       },
     },
-    required: ['task'],
+    required: ['goal'],
   };
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
@@ -100,8 +99,7 @@ dispatcher 不能：
     }
 
     const userMessage = buildDispatcherUserMessage(
-      args.task as string,
-      args.context as string | undefined,
+      args.goal as string,
       skillsSummary,
       args.targetClaw as string | undefined,
     );

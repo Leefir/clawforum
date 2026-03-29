@@ -5,18 +5,13 @@
  */
 
 export function buildDispatcherUserMessage(
-  task: string,
-  context?: string,
+  goal: string,
   skillsSummary?: string,
   targetClaw?: string,
 ): string {
   let userMessage = `---\n你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。\n- 不能再调用 \`dispatch\`（递归防护）\n- 不能调用 \`spawn\`（会报错）\n- 不能自己写契约 YAML 或验收脚本（由 SPAWN_REQUEST 触发的专属子代理负责）\n`;
 
-  userMessage += `\n## 任务\n${task}`;
-
-  if (context) {
-    userMessage += `\n\n## 上下文\n${context}`;
-  }
+  userMessage += `\n## 任务\n${goal}`;
 
   if (skillsSummary) {
     userMessage += `\n\n${skillsSummary}\n通过 skill({ name: "<skill-name>", skillsDir: "clawspace/dispatch-skills" }) 加载完整模板。`;
