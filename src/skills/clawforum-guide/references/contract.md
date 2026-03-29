@@ -5,14 +5,18 @@
 ```yaml
 schema_version: 1
 title: "任务标题（50字以内）"
+background: "用户意图：为什么要做这件事（与具体行动无关的动机和背景）"
 goal: "描述这份契约要达成的目标"
-deliverables:
-  - clawspace/output.md
+expectations: |
+  全局执行要求和质量期望：
+  - 用户的约束和偏好
+  - 成果质量标准
+  - 预期产出路径（如有交付物）
 subtasks:
   - id: collect-data
-    description: "动词 + 做什么 + 具体输出路径"
+    description: "动词 + 做什么 + 具体输出路径（用 clawspace/<contract-slug>/ 子目录），含该子任务特有的细化要求"
   - id: write-report
-    description: "基于收集的数据撰写报告，保存到 clawspace/output.md"
+    description: "基于收集的数据撰写报告，保存到 clawspace/<contract-slug>/report.md"
 acceptance:
   - subtask_id: collect-data
     type: script
@@ -23,6 +27,13 @@ acceptance:
 escalation:
   max_retries: 3
 ```
+
+## 字段说明
+
+- `background`：用户意图，与具体行动无关的动机和背景
+- `goal`：本次契约要达成的目标（要做什么）
+- `expectations`：全局执行要求和质量期望，适用于所有子任务；若有交付物，在此注明预期路径
+- `subtasks[].description`：该子任务的具体行动，含特有的细化要求；产出文件用 `clawspace/<contract-slug>/` 子目录
 
 ## Subtask ID 命名规范
 
