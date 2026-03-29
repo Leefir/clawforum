@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mariozechner/pi-tui':
-        specifier: ^0.58.3
-        version: 0.58.3
+        specifier: ^0.63.1
+        version: 0.63.1
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -227,8 +227,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@mariozechner/pi-tui@0.58.3':
-    resolution: {integrity: sha512-eofZKuDFTrClu0fuZAInlG3w+2nAyJ25qz5bOAJylMzoTqlzsOSzqAeL0y2ZN/Nuy9ahwOzKQIXUwbrTXEVybw==}
+  '@mariozechner/pi-tui@0.63.1':
+    resolution: {integrity: sha512-G5p+eh1EPkFCNaaggX6vRrqttnDscK6npgmEOknoCQXZtch8XNgh9Lf3VJ0A2lZXSgR7IntG5dfXHPH/Ki64wA==}
     engines: {node: '>=20.0.0'}
 
   '@rollup/rollup-android-arm-eabi@4.59.0':
@@ -1076,7 +1076,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@mariozechner/pi-tui@0.58.3':
+  '@mariozechner/pi-tui@0.63.1':
     dependencies:
       '@types/mime-types': 2.1.4
       chalk: 5.6.2
