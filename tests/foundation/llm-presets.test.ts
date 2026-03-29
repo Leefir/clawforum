@@ -43,3 +43,39 @@ describe('resolvePreset', () => {
     expect(() => resolvePreset('nonexistent-provider')).toThrow(/openai/);
   });
 });
+
+// Phase 81: envVar 字段
+import { PRESETS } from '../../src/foundation/llm/presets.js';
+
+describe('PRESETS envVar — Phase 81 env var 自动识别', () => {
+  it('anthropic 有 envVar=ANTHROPIC_API_KEY', () => {
+    expect(PRESETS['anthropic'].envVar).toBe('ANTHROPIC_API_KEY');
+  });
+
+  it('openai 有 envVar=OPENAI_API_KEY', () => {
+    expect(PRESETS['openai'].envVar).toBe('OPENAI_API_KEY');
+  });
+
+  it('deepseek 有 envVar=DEEPSEEK_API_KEY', () => {
+    expect(PRESETS['deepseek'].envVar).toBe('DEEPSEEK_API_KEY');
+  });
+
+  it('gemini 有 envVar=GEMINI_API_KEY', () => {
+    expect(PRESETS['gemini'].envVar).toBe('GEMINI_API_KEY');
+  });
+
+  it('custom-anthropic 无 envVar（自定义 provider 不自动检测）', () => {
+    expect(PRESETS['custom-anthropic'].envVar).toBeUndefined();
+  });
+
+  it('custom-openai 无 envVar', () => {
+    expect(PRESETS['custom-openai'].envVar).toBeUndefined();
+  });
+
+  it('所有已知非 custom preset 均有 envVar 字段', () => {
+    const knownPresets = ['anthropic', 'openai', 'deepseek', 'moonshot', 'minimax', 'gemini', 'ollama'];
+    for (const id of knownPresets) {
+      expect(PRESETS[id].envVar, `${id} 应有 envVar`).toBeTruthy();
+    }
+  });
+});

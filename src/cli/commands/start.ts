@@ -23,15 +23,12 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 
-function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
+export function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
   let langInstruction: string;
   if (language === 'auto') {
     langInstruction = "Detect the user's preferred language from their first message and respond in it immediately.";
-  } else if (language.startsWith('auto (hint:')) {
-    const hint = language.replace(/^auto \(hint: "(.*)"\)$/, '$1');
-    langInstruction = `Infer the user's language from this hint word typed by the user: "${hint}". Respond in that language immediately.`;
   } else {
-    langInstruction = `The user has selected "${language}". Use this language from your very first message.`;
+    langInstruction = `The user typed "${language}" at the language prompt. Infer the language from this text and respond in that language immediately.`;
   }
 
   return [
@@ -66,20 +63,20 @@ function buildOnboardingSubtasks(language: string): Array<{ id: string; descript
   ];
 }
 
-async function pickLanguage(): Promise<string> {
+export async function pickLanguage(): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
     console.log('\nSelect language / 选择语言:');
     console.log('  1. English');
     console.log('  2. 中文');
-    console.log('  or type any word for auto detect\n');
+    console.log('  or type any word for auto-detect (e.g. hello, 你好)\n');
     rl.question('> ', (answer) => {
       rl.close();
       const t = answer.trim();
       if (t === '1') resolve('English');
       else if (t === '2') resolve('中文');
       else if (t === '') resolve('auto');
-      else resolve(`auto (hint: "${t}")`);
+      else resolve(t);
     });
   });
 }
@@ -92,7 +89,7 @@ type OnboardingStatus =
 /**
  * Find the Onboarding contract and determine its completion state.
  */
-function getOnboardingStatus(motionDir: string): OnboardingStatus {
+export function getOnboardingStatus(motionDir: string): OnboardingStatus {
   const dirs = ['contract/active', 'contract/paused', 'contract/archive'];
 
   for (const dir of dirs) {
