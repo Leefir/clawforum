@@ -94,7 +94,14 @@ dispatcher 不能：
         if (isError) return result;
 
         const blockMatch = result.match(/\[CONTRACT_DONE\]\s*(\{[\s\S]*?\})\s*\[\/CONTRACT_DONE\]/);
-        if (!blockMatch) return result;
+        if (!blockMatch) {
+          ctx.monitor?.log('warn', {
+            context: 'dispatch.contractDoneNotFound',
+            taskId,
+            hint: 'Dispatcher finished without [CONTRACT_DONE] block — no retrospective will be scheduled',
+          });
+          return result;
+        }
 
         let parsed: { contractId?: string; targetClaw?: string };
         try {
