@@ -28,7 +28,7 @@ vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | u
 });
 
 const { initCommand } = await import('../../src/cli/commands/init.js');
-const { getGlobalConfigPath, loadGlobalConfig } = await import('../../src/cli/config.js');
+const { loadGlobalConfig } = await import('../../src/cli/config.js');
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -47,9 +47,22 @@ function teardownTempDir() {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
 
+const knownVars = ['ANTHROPIC_API_KEY','OPENAI_API_KEY','DEEPSEEK_API_KEY',
+  'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY'];
+
+function clearKnownVars(): Record<string, string | undefined> {
+  const saved: Record<string, string | undefined> = {};
+  knownVars.forEach(v => { saved[v] = process.env[v]; delete process.env[v]; });
+  return saved;
+}
+
+function restoreKnownVars(saved: Record<string, string | undefined>) {
+  knownVars.forEach(v => { if (saved[v] !== undefined) process.env[v] = saved[v]; });
+}
+
 // ── tests ──────────────────────────────────────────────────────────────────────
 
-describe('initCommand — API Key 配置', () => {
+describe('initCommand — Branch 1: 扫描环境变量', () => {
   beforeEach(() => {
     setupTempDir();
     mockRl.question.mockClear();
@@ -61,10 +74,10 @@ describe('initCommand — API Key 配置', () => {
     teardownTempDir();
   });
 
-  it('选择环境变量 → 检测到变量 → 选编号 → 使用对应值', async () => {
+  it('检测到变量 → 选编号 → 使用对应值', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-env-test';
-    // provider='', apiKeyChoice='1', pick='1'(选第一个检测到的), model=''
-    rlAnswers.queue = ['', '1', '1', ''];
+    // configMethod='1', pick='1'(第一个), model=''
+    rlAnswers.queue = ['1', '1', ''];
 
     try {
       await initCommand(true);
@@ -74,12 +87,13 @@ describe('initCommand — API Key 配置', () => {
 
     const config = loadGlobalConfig();
     expect(config.llm.primary.api_key).toBe('sk-ant-env-test');
+    expect(config.llm.primary.preset).toBe('anthropic');
   });
 
-  it('选择环境变量 → 检测到变量 → 直接输入变量名 → 使用对应值', async () => {
+  it('检测到变量 → 直接输入变量名 → 使用对应值', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-env-test2';
-    // provider='', apiKeyChoice='1', pick='ANTHROPIC_API_KEY'(直接输变量名), model=''
-    rlAnswers.queue = ['', '1', 'ANTHROPIC_API_KEY', ''];
+    // configMethod='1', pick='ANTHROPIC_API_KEY', model=''
+    rlAnswers.queue = ['1', 'ANTHROPIC_API_KEY', ''];
 
     try {
       await initCommand(true);
@@ -91,55 +105,114 @@ describe('initCommand — API Key 配置', () => {
     expect(config.llm.primary.api_key).toBe('sk-ant-env-test2');
   });
 
-  it('选择环境变量 → 未检测到变量 → 手动输入变量名 → 使用对应值', async () => {
-    process.env.MY_CUSTOM_KEY = 'sk-custom-123';
-    // 清除所有已知 preset envVar
-    const knownVars = ['ANTHROPIC_API_KEY','OPENAI_API_KEY','DEEPSEEK_API_KEY',
-      'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY'];
-    const saved: Record<string, string | undefined> = {};
-    knownVars.forEach(v => { saved[v] = process.env[v]; delete process.env[v]; });
-
-    // provider='', apiKeyChoice='1', varName='MY_CUSTOM_KEY', model=''
-    rlAnswers.queue = ['', '1', 'MY_CUSTOM_KEY', ''];
+  it('未检测到变量 → 输入自定义变量名 → 变量在已知 preset 中 → 使用对应值', async () => {
+    // 清空已知变量后只保留 OPENAI_API_KEY，但不让它被扫描到（直接输入变量名场景）
+    const saved = clearKnownVars();
+    process.env.OPENAI_API_KEY = 'sk-openai-123';
+    // configMethod='1', varName='OPENAI_API_KEY', model=''
+    rlAnswers.queue = ['1', 'OPENAI_API_KEY', ''];
 
     try {
       await initCommand(true);
     } finally {
-      delete process.env.MY_CUSTOM_KEY;
-      knownVars.forEach(v => { if (saved[v] !== undefined) process.env[v] = saved[v]; });
+      delete process.env.OPENAI_API_KEY;
+      restoreKnownVars(saved);
     }
 
     const config = loadGlobalConfig();
-    expect(config.llm.primary.api_key).toBe('sk-custom-123');
+    expect(config.llm.primary.api_key).toBe('sk-openai-123');
+    expect(config.llm.primary.preset).toBe('openai');
   });
 
-  it('选择环境变量 → 未检测到 → 变量名为空 → process.exit(1)', async () => {
-    const knownVars = ['ANTHROPIC_API_KEY','OPENAI_API_KEY','DEEPSEEK_API_KEY',
-      'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY'];
-    const saved: Record<string, string | undefined> = {};
-    knownVars.forEach(v => { saved[v] = process.env[v]; delete process.env[v]; });
-
-    rlAnswers.queue = ['', '1', ''];
+  it('未检测到变量 → 变量名为空 → process.exit(1)', async () => {
+    const saved = clearKnownVars();
+    // configMethod='1', varName=''
+    rlAnswers.queue = ['1', ''];
 
     try {
       await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
     } finally {
-      knownVars.forEach(v => { if (saved[v] !== undefined) process.env[v] = saved[v]; });
+      restoreKnownVars(saved);
     }
   });
 
-  it('选择手动输入 → 使用手动输入的值', async () => {
-    // provider='', apiKeyChoice=''(default=2), apiKey='sk-manual', model=''
-    rlAnswers.queue = ['', '', 'sk-manual', ''];
+  it('检测到变量 → 输入无效（非编号非变量名格式）→ process.exit(1)', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-xxx';
+    // configMethod='1', pick='sk-ant-api03-...'（key 格式，不是变量名）
+    rlAnswers.queue = ['1', 'sk-ant-api03-invalid'];
+
+    try {
+      await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+    } finally {
+      delete process.env.ANTHROPIC_API_KEY;
+    }
+  });
+});
+
+describe('initCommand — Branch 2: 手动配置', () => {
+  beforeEach(() => {
+    setupTempDir();
+    mockRl.question.mockClear();
+    mockRl.close.mockClear();
+    rlAnswers.queue = [];
+  });
+
+  afterEach(() => {
+    teardownTempDir();
+  });
+
+  it('选 OpenAI 格式 → 填完整信息 → 写入配置', async () => {
+    // configMethod='2', fmt='2'(OpenAI), baseUrl, apiKey, model
+    rlAnswers.queue = ['2', '2', 'https://api.openai.com/v1', 'sk-manual', 'gpt-4o'];
 
     await initCommand(true);
 
     const config = loadGlobalConfig();
+    expect(config.llm.primary.preset).toBe('custom-openai');
     expect(config.llm.primary.api_key).toBe('sk-manual');
+    expect(config.llm.primary.model).toBe('gpt-4o');
+    expect((config.llm.primary as any).base_url).toBe('https://api.openai.com/v1');
   });
 
-  it('手动输入但 API Key 为空 → process.exit(1)', async () => {
-    rlAnswers.queue = ['', '', '', ''];
+  it('选 Anthropic 格式 → 填完整信息 → 写入配置', async () => {
+    rlAnswers.queue = ['2', '1', 'https://api.anthropic.com', 'sk-ant-key', 'claude-3-7-sonnet'];
+
+    await initCommand(true);
+
+    const config = loadGlobalConfig();
+    expect(config.llm.primary.preset).toBe('custom-anthropic');
+    expect(config.llm.primary.api_key).toBe('sk-ant-key');
+  });
+
+  it('Base URL 为空 → process.exit(1)', async () => {
+    // configMethod='2', fmt='2', baseUrl=''
+    rlAnswers.queue = ['2', '2', ''];
+
+    await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+  });
+
+  it('API Key 为空 → process.exit(1)', async () => {
+    // configMethod='2', fmt='2', baseUrl, apiKey=''
+    rlAnswers.queue = ['2', '2', 'https://api.example.com', ''];
+
+    await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+  });
+});
+
+describe('initCommand — Branch 3: 选择 provider（未实现）', () => {
+  beforeEach(() => {
+    setupTempDir();
+    mockRl.question.mockClear();
+    mockRl.close.mockClear();
+    rlAnswers.queue = [];
+  });
+
+  afterEach(() => {
+    teardownTempDir();
+  });
+
+  it('选 3 → process.exit(1)', async () => {
+    rlAnswers.queue = ['3'];
 
     await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
   });

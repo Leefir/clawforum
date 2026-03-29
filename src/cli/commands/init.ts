@@ -9,6 +9,12 @@ import { saveGlobalConfig, isInitialized } from '../config.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
+const FORMAT_MAP: Record<string, string> = {
+  '1': 'custom-anthropic',
+  '2': 'custom-openai',
+  '3': 'custom-gemini',
+};
+
 export async function initCommand(silent = false): Promise<void> {
   // Check if already initialized
   if (isInitialized()) {
@@ -39,7 +45,6 @@ export async function initCommand(silent = false): Promise<void> {
     return new Promise((resolve) => {
       const fullPrompt = `${prompt}: `;
       let muted = false;
-      // Suppress echo by intercepting _writeToOutput after the prompt is shown
       const original = (rl as any)._writeToOutput?.bind(rl);
       (rl as any)._writeToOutput = (str: string) => {
         if (!muted) original?.(str);
@@ -50,79 +55,97 @@ export async function initCommand(silent = false): Promise<void> {
         process.stdout.write('\n');
         resolve(answer.trim());
       });
-      muted = true; // start suppressing after prompt is queued
+      muted = true;
     });
   };
 
   try {
-    // Select preset
-    const presetEntries = Object.entries(PRESETS);
-    console.log('Select provider:');
-    const half = Math.ceil(presetEntries.length / 2);
-    for (let i = 0; i < half; i++) {
-      const [lid, lp] = presetEntries[i];
-      const right = presetEntries[i + half];
-      const leftStr = `${i + 1}. ${lid.padEnd(12)} (${lp.displayName})`;
-      const rightStr = right ? `${i + half + 1}. ${right[0].padEnd(12)} (${right[1].displayName})` : '';
-      console.log(`  ${leftStr.padEnd(32)}  ${rightStr}`);
-    }
-    const presetAnswer = await question('\n> ', '1');
-    const presetIndex = parseInt(presetAnswer, 10) - 1;
-    if (presetIndex < 0 || presetIndex >= presetEntries.length) {
-      console.error('Invalid selection');
-      process.exit(1);
-    }
-    const [presetId, preset] = presetEntries[presetIndex];
+    // Configure LLM API
+    console.log('Configure LLM API:');
+    console.log('  1. Scan environment variables');
+    console.log('  2. Enter API key manually');
+    console.log('  3. Select provider');
+    const configMethod = await question('\n> ', '1');
 
-    // Base URL (only for custom presets without a default)
+    let presetId = '';
+    let apiKey = '';
+    let model = '';
     let baseUrl: string | undefined;
-    if (!preset.defaultBaseUrl) {
-      baseUrl = await question('Base URL');
-      if (!baseUrl) {
-        console.error('Base URL is required for this provider');
-        process.exit(1);
-      }
-    }
 
-    // API Key - 用户选择检测环境变量或手动输入
-    let apiKey: string;
-    console.log('\nAPI Key:');
-    console.log('  1. Read from environment variable');
-    console.log('  2. Enter manually');
-    const apiKeyChoice = await question('\n> ', '2');
-    if (apiKeyChoice === '1') {
-      // 扫描所有已知 preset 的 envVar，找出已设置的
+    if (configMethod === '1') {
+      // ── Branch 1: scan env vars ──
       const detected = Object.values(PRESETS)
         .map(p => p.envVar)
         .filter((v): v is string => !!v && !!process.env[v])
-        .filter((v, i, arr) => arr.indexOf(v) === i); // 去重
+        .filter((v, i, arr) => arr.indexOf(v) === i);
 
       let varName: string;
       if (detected.length > 0) {
-        console.log('\nDetected environment variables:');
+        console.log('\nDetected:');
         detected.forEach((v, i) => console.log(`  ${i + 1}. ${v}`));
-        const pick = await question('\n> ');
+        const pick = await question('\n> (number or variable name)');
         const idx = parseInt(pick, 10) - 1;
-        if (idx >= 0 && idx < detected.length) {
+        if (pick.trim() && idx >= 0 && idx < detected.length) {
           varName = detected[idx];
-        } else {
+        } else if (/^[A-Z][A-Z0-9_]*$/.test(pick.trim())) {
           varName = pick.trim();
+        } else {
+          console.error('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
+          process.exit(1);
         }
       } else {
-        console.log('\nNo API key environment variables detected.');
-        varName = await question('Enter variable name');
+        console.log('\n  No API key environment variables detected.');
+        varName = await question('Variable name');
+        if (!varName) { console.error('Variable name is required'); process.exit(1); }
       }
-      if (!varName) { console.error('Variable name is required'); process.exit(1); }
+
       apiKey = process.env[varName] ?? '';
       if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
       console.log(`✓ API Key read from environment (${varName})`);
-    } else {
+
+      const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
+      if (matchedEntry) {
+        [presetId] = matchedEntry;
+        const matchedPreset = matchedEntry[1];
+        model = await question('Model', matchedPreset.defaultModel ?? 'unknown');
+      } else {
+        // Unknown var — ask format
+        console.log('\nCould not determine provider. Select API format:');
+        console.log('  1. Anthropic');
+        console.log('  2. OpenAI');
+        console.log('  3. Gemini');
+        const fmt = await question('\n> ', '2');
+        presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
+        baseUrl = await question('Base URL');
+        if (!baseUrl) { console.error('Base URL is required'); process.exit(1); }
+        model = await question('Model');
+        if (!model) { console.error('Model is required'); process.exit(1); }
+      }
+
+    } else if (configMethod === '2') {
+      // ── Branch 2: manual ──
+      console.log('\nAPI Format:');
+      console.log('  1. Anthropic');
+      console.log('  2. OpenAI');
+      console.log('  3. Gemini');
+      const fmt = await question('\n> ', '2');
+      presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
+      baseUrl = await question('Base URL');
+      if (!baseUrl) { console.error('Base URL is required'); process.exit(1); }
       apiKey = await passwordQuestion('API Key');
       if (!apiKey) { console.error('API Key is required'); process.exit(1); }
-    }
+      model = await question('Model');
+      if (!model) { console.error('Model is required'); process.exit(1); }
 
-    // Model (default from preset)
-    const model = await question('Model', preset.defaultModel ?? 'unknown');
+    } else if (configMethod === '3') {
+      // ── Branch 3: not yet implemented ──
+      console.error('Provider selection is not yet implemented. Please use option 1 or 2.');
+      process.exit(1);
+
+    } else {
+      console.error('Invalid selection');
+      process.exit(1);
+    }
 
     // Build config
     const config = {
