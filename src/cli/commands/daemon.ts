@@ -14,12 +14,12 @@ import { MotionRuntime } from '../../core/motion/runtime.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
 import type { InboxMessageInfo } from '../../core/runtime.js';
-import type { Message } from '../../types/message.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from './stream-writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { SkillRegistry } from '../../core/skill/registry.js';
+import { ContractManager } from '../../core/contract/manager.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
 import { buildRetroPrompt } from '../../prompts/index.js';
@@ -211,32 +211,31 @@ export async function daemonCommand(name: string): Promise<void> {
           const contractId = meta.contract_id;
           if (!contractId) continue;
 
-          // 查 by-contract 反向索引（Step D 写入）
+          // 查 by-contract 反向索引（Step 5 写入的新格式）
           const byContractPath = path.join(
             dir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`,
           );
-          let contractTaskId: string;
           let targetClaw: string | null = null;
           try {
             const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
-            contractTaskId = typeof raw.contractTaskId === 'string' ? raw.contractTaskId : '';
             targetClaw = typeof raw.targetClaw === 'string' ? raw.targetClaw : null;
-            if (!contractTaskId) continue;
             if (!targetClaw) {
-              console.warn('[daemon] by-contract index missing targetClaw, skipping retrospective for contract:', contractId);
+              console.warn('[daemon] by-contract index missing targetClaw, skipping retrospective:', contractId);
               continue;
             }
           } catch { continue; }
 
-          // 加载契约创建子代理的完整 messages（Step A 写入）
-          const messagesPath = path.join(
-            dir, 'tasks', 'results', `${contractTaskId}.messages.json`,
-          );
-          let messages: Message[];
+          // 加载契约 YAML 原始字符串
+          const clawsBaseDir = path.resolve(dir, '..', 'claws');
+          const clawDir = path.join(clawsBaseDir, targetClaw);
+          const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+          const contractManager = new ContractManager(clawDir, clawFs);
+
+          let contractYaml: string;
           try {
-            messages = JSON.parse(await fsAsync.readFile(messagesPath, 'utf-8'));
+            contractYaml = await contractManager.readContractYamlRaw(contractId);
           } catch (e) {
-            console.warn('[daemon] Failed to load messages.json for retrospective:', contractTaskId, e instanceof Error ? e.message : String(e));
+            console.warn('[daemon] Failed to load contract YAML for retrospective:', contractId, e instanceof Error ? e.message : String(e));
             continue;
           }
 
@@ -255,7 +254,7 @@ export async function daemonCommand(name: string): Promise<void> {
           }
 
           // 构建复盘 prompt
-          const retroPrompt = buildRetroPrompt(targetClaw, contractId, skillsSummary);
+          const retroPrompt = buildRetroPrompt(targetClaw, contractId, contractYaml, skillsSummary);
 
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
@@ -265,7 +264,6 @@ export async function daemonCommand(name: string): Promise<void> {
               streamWriter,
               {
                 prompt: retroPrompt,
-                messages,
                 tools: ['read', 'write', 'skill', 'exec'],
                 timeout: 600,
                 maxSteps: DEFAULT_MAX_STEPS,
@@ -279,15 +277,9 @@ export async function daemonCommand(name: string): Promise<void> {
             return;  // 不删文件，留待下次 daemon 重启时重试
           }
 
-          // 调度成功后才清理（best-effort）
+          // 调度成功后才清理 by-contract 索引（best-effort）
           await fsAsync.unlink(byContractPath).catch(e =>
             console.warn('[daemon] Failed to clean by-contract file:', e instanceof Error ? e.message : String(e))
-          );
-          const pendingPath = path.join(
-            dir, 'clawspace', 'pending-retrospective', `${contractTaskId}.json`,
-          );
-          await fsAsync.unlink(pendingPath).catch(e =>
-            console.warn('[daemon] Failed to clean pending-retrospective file:', e instanceof Error ? e.message : String(e))
           );
         }
       }
