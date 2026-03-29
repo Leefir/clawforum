@@ -29,7 +29,6 @@ const execFileAsync = promisify(execFile);
 const CONTRACT_DEFAULTS = {
   schema_version: 1,
   auth_level: 'auto' as const,
-  deliverables: [] as string[],
 };
 
 // YAML contract file structure (exported for CLI use)
@@ -37,8 +36,9 @@ export interface ContractYaml {
   schema_version?: number;
   id?: string;
   title: string;
+  background?: string;      // 用户意图
   goal: string;
-  deliverables?: string[];
+  expectations?: string;    // 全局执行要求和质量期望
   subtasks: Array<{
     id: string;
     description: string;
@@ -358,8 +358,9 @@ export class ContractManager {
       schema_version: contractYaml.schema_version ?? CONTRACT_DEFAULTS.schema_version,
       id: contractId,
       title: contractYaml.title,
+      background: contractYaml.background,
       goal: contractYaml.goal,
-      deliverables: contractYaml.deliverables ?? CONTRACT_DEFAULTS.deliverables,
+      expectations: contractYaml.expectations,
       subtasks: contractYaml.subtasks,
       acceptance: contractYaml.acceptance ?? [],
       auth_level: contractYaml.auth_level ?? CONTRACT_DEFAULTS.auth_level,
@@ -1025,6 +1026,13 @@ export class ContractManager {
     return yaml.load(content) as ContractYaml;
   }
 
+  // 新增：供外部（daemon.ts）直接读取 YAML 原始字符串
+  public async readContractYamlRaw(contractId: string): Promise<string> {
+    const dir = await this.contractDir(contractId);
+    const contractPath = `${dir}/${contractId}/contract.yaml`;
+    return this.fs.read(contractPath);
+  }
+
   private async loadContract(contractId: string): Promise<Contract> {
     const yamlContract = await this.loadContractYaml(contractId);
     const progress = await this.getProgress(contractId);
@@ -1038,7 +1046,7 @@ export class ContractManager {
       priority: 'normal',
       creator: 'system',
       goal: yamlContract.goal,
-      deliverables: yamlContract.deliverables ?? CONTRACT_DEFAULTS.deliverables,
+      deliverables: [],  // deliverables 字段已弃用，保留空数组兼容 Contract 接口
       subtasks: yamlContract.subtasks.map(st => ({
         id: st.id,
         description: st.description,
