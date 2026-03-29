@@ -79,12 +79,13 @@ export async function initCommand(silent = false): Promise<void> {
         .filter((v): v is string => !!v && !!process.env[v])
         .filter((v, i, arr) => arr.indexOf(v) === i);
 
-      let varName: string;
       if (detected.length > 0) {
+        // Has detected vars: let user pick from list or enter a name
         console.log('\nDetected:');
         detected.forEach((v, i) => console.log(`  ${i + 1}. ${v}`));
         const pick = await question('\n> (number or variable name)');
         const idx = parseInt(pick, 10) - 1;
+        let varName: string;
         if (pick.trim() && idx >= 0 && idx < detected.length) {
           varName = detected[idx];
         } else if (/^[A-Z][A-Z0-9_]*$/.test(pick.trim())) {
@@ -92,25 +93,41 @@ export async function initCommand(silent = false): Promise<void> {
         } else {
           console.error('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
           process.exit(1);
+          return;
         }
+
+        apiKey = process.env[varName] ?? '';
+        if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
+        console.log(`✓ API Key read from environment (${varName})`);
+
+        const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
+        if (matchedEntry) {
+          [presetId] = matchedEntry;
+          model = await question('Model', matchedEntry[1].defaultModel ?? 'unknown');
+        } else {
+          console.log('\nCould not determine provider. Select API format:');
+          console.log('  1. Anthropic');
+          console.log('  2. OpenAI');
+          console.log('  3. Gemini');
+          const fmt = await question('\n> ', '2');
+          presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
+          baseUrl = await question('Base URL');
+          if (!baseUrl) { console.error('Base URL is required'); process.exit(1); }
+          model = await question('Model');
+          if (!model) { console.error('Model is required'); process.exit(1); }
+        }
+
       } else {
+        // No detected vars: ask for var name, then format/baseUrl/model
         console.log('\n  No API key environment variables detected.');
-        varName = await question('Variable name');
+        const varName = await question('Enter environment variable name (e.g. MY_API_KEY)');
         if (!varName) { console.error('Variable name is required'); process.exit(1); }
-      }
 
-      apiKey = process.env[varName] ?? '';
-      if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
-      console.log(`✓ API Key read from environment (${varName})`);
+        apiKey = process.env[varName] ?? '';
+        if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
+        console.log(`✓ API Key read from environment (${varName})`);
 
-      const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
-      if (matchedEntry) {
-        [presetId] = matchedEntry;
-        const matchedPreset = matchedEntry[1];
-        model = await question('Model', matchedPreset.defaultModel ?? 'unknown');
-      } else {
-        // Unknown var — ask format
-        console.log('\nCould not determine provider. Select API format:');
+        console.log('\nSelect API format:');
         console.log('  1. Anthropic');
         console.log('  2. OpenAI');
         console.log('  3. Gemini');
