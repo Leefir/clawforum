@@ -4,31 +4,7 @@ import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
-import { spawnTool } from './spawn.js';
-import * as fsNative from 'fs';
-import * as path from 'path';
-import { CONTRACT_AGENT_SYSTEM_PROMPT, buildDispatcherUserMessage } from '../../../prompts/index.js';
-import { TOOL_PROFILES } from '../profiles.js';
-
-/**
- * Extract text from message content (handles string, array, or object formats)
- */
-function extractText(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content.map(c => {
-      if (typeof c === 'string') return c;
-      if (typeof c === 'object' && c !== null) {
-        const obj = c as Record<string, unknown>;
-        if (typeof obj.text === 'string') return obj.text;
-        if (typeof obj.content === 'string') return obj.content;
-        if (Array.isArray(obj.content)) return extractText(obj.content);
-      }
-      return '';
-    }).join('\n');
-  }
-  return '';
-}
+import { buildDispatcherUserMessage } from '../../../prompts/index.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -36,13 +12,13 @@ export class DispatchTool implements ITool {
 
 dispatcher 可以：
 - 决定目标 claw（新建或复用），并通过 exec 调用 CLI 安装所需技能
-- 在最终回复输出 [SPAWN_REQUEST] 块，由系统自动调度“契约创建子代理”
+- 在最终回复输出 [CONTRACT_DONE] 块，供系统解析契约创建结果
 - 通过 exec 调用 CLI 执行其他系统操作
 - 直接使用工具完成独立任务
 
 dispatcher 不能：
 - 直接调用 spawn 工具（会报错）
-- 通过 exec 直接创建契约（系统根据dispatcher输出的 SPAWN_REQUEST调度“契约创建子代理”，子代理有创建契约的全面提示词，会完成契约创建）
+- 直接调用 dispatch 工具（递归防护）
 
 优先用 dispatch 的场景：
 - 任务需要给 claw 创建契约
@@ -113,143 +89,41 @@ dispatcher 不能：
     let removeHandler: (() => void) | null = null;
 
     removeHandler = taskSystem.addTaskResultHandler(async (taskId, callerType, result, isError) => {
-      // ========== Step C: 处理 Dispatcher 的 SPAWN_REQUEST ==========
-      // taskId 定向：只处理本次 dispatch 启动的那个 dispatcher
       if (callerType === 'dispatcher' && taskId === dispatcherTaskId) {
-        removeHandler?.();   // 无论成功/失败都清理，防止 handler 泄漏
-        if (isError) {
-          return result;     // 失败直接透传，不处理 SPAWN_REQUEST
-        }
+        removeHandler?.();
+        if (isError) return result;
 
-        const blockMatch = result.match(/\[SPAWN_REQUEST\]\s*(\{[\s\S]*?\})\s*\[\/SPAWN_REQUEST\]/);
+        const blockMatch = result.match(/\[CONTRACT_DONE\]\s*(\{[\s\S]*?\})\s*\[\/CONTRACT_DONE\]/);
         if (!blockMatch) return result;
 
-        let parsed: { targetClaw?: string; prompt?: string };
+        let parsed: { contractId?: string; targetClaw?: string };
         try {
           parsed = JSON.parse(blockMatch[1]);
-        } catch (e) {
-          ctx.monitor?.log('warn', {
-            context: 'dispatch.parseSpawnRequest',
-            taskId,
-            error: e instanceof Error ? e.message : String(e),
-            raw: blockMatch[1].slice(0, 200),
-          });
+        } catch {
+          ctx.monitor?.log('warn', { context: 'dispatch.parseContractDone', raw: blockMatch[1].slice(0, 200) });
           return result;
         }
-        const { targetClaw, prompt: spawnPrompt } = parsed;
-        if (!spawnPrompt) return result;
 
-        // 校验 targetClaw 存在
-        if (targetClaw) {
-          const clawsDir = path.resolve(ctx.clawDir, '..', 'claws');
-          const clawDir = path.join(clawsDir, targetClaw);
-          if (!fsNative.existsSync(clawDir)) {
-            ctx.monitor?.log('warn', {
-              context: 'dispatch.invalidTargetClaw',
-              targetClaw,
-              reason: 'claw directory does not exist',
-            });
-            const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
-            return `${summary}\n\n[SPAWN_REQUEST 已忽略：targetClaw "${targetClaw}" 不存在，请先创建该 claw]`;
-          }
-        }
-
-        const augmentedPrompt = spawnPrompt;
-
-        // 通过 spawn 工具创建契约创建子代理，确保 task_started 写入 parentStreamWriter
-        const spawnResult = await spawnTool.execute({
-          prompt: augmentedPrompt,
-          tools: TOOL_PROFILES['subagent'],
-          timeout: 600,
-          maxSteps: DEFAULT_MAX_STEPS,
-          systemPrompt: CONTRACT_AGENT_SYSTEM_PROMPT,
-        }, ctx);
-
-        if (!spawnResult.success || !spawnResult.metadata?.taskId) {
-          ctx.monitor?.log('error', {
-            context: 'dispatch.spawnContractAgent',
-            error: spawnResult.content,
-          });
-          return result;  // 无法调度，跳过 SPAWN_REQUEST
-        }
-        const contractTaskId = spawnResult.metadata.taskId as string;
+        const { contractId, targetClaw } = parsed;
+        if (!contractId || !targetClaw) return result;
 
         try {
-          await ctx.fs.ensureDir('clawspace/pending-retrospective');
+          await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
           await ctx.fs.writeAtomic(
-            `clawspace/pending-retrospective/${contractTaskId}.json`,
-            JSON.stringify({ contractTaskId, dispatcherTaskId: taskId, targetClaw: targetClaw ?? null, createdAt: new Date().toISOString() }),
+            `clawspace/pending-retrospective/by-contract/${contractId}.json`,
+            JSON.stringify({ contractId, dispatcherTaskId: taskId, targetClaw, createdAt: new Date().toISOString() }),
           );
         } catch (e) {
           ctx.monitor?.log('error', {
-            context: 'dispatch.writePendingRetrospective',
-            contractTaskId,
+            context: 'dispatch.writeByContract',
+            contractId,
             error: e instanceof Error ? e.message : String(e),
           });
         }
 
-        // ========== Step D: 注册专属 handler 等待契约创建子代理结果，建立反向索引 ==========
-        let removeContractHandler: (() => void) | null = null;
-        removeContractHandler = taskSystem.addTaskResultHandler(async (tid, _callerType, res, isErr) => {
-          if (tid !== contractTaskId) return res;        // 不是目标任务，跳过
-          removeContractHandler?.();                      // 无论成功/失败都清理
-
-          if (isErr) return res;
-
-          // 从 messages.json 里找 exec tool_result 提取 contractId
-          let cid: string | undefined;
-
-          // 先试 messages 文件（可靠）
-          try {
-            const msgsRaw = await ctx.fs.read(`tasks/results/${tid}.messages.json`);
-            const msgs: Array<{ role: string; content: unknown }> = JSON.parse(msgsRaw);
-            for (const msg of msgs) {
-              if (msg.role !== 'user') continue;
-              const text = extractText(msg.content);
-              const m = text.match(/Contract created:\s+(\d+-[a-f0-9]+)\s+for claw/);
-              if (m) { cid = m[1]; break; }
-            }
-          } catch (e) {
-            const code = (e as NodeJS.ErrnoException).code;
-            if (code !== 'ENOENT') {
-              ctx.monitor?.log('warn', {
-                context: 'dispatch.parseMessages',
-                taskId: tid,
-                error: e instanceof Error ? e.message : String(e),
-              });
-            }
-          }
-
-          // 降级：兼容旧的 CONTRACT_CREATED 格式
-          if (!cid) {
-            const m = res.match(/CONTRACT_CREATED:\s+(\d+-[a-f0-9]+)/);
-            cid = m?.[1];
-          }
-
-          if (!cid) return res;
-
-          try {
-            await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
-            await ctx.fs.writeAtomic(
-              `clawspace/pending-retrospective/by-contract/${cid}.json`,
-              JSON.stringify({ contractId: cid, contractTaskId: tid, targetClaw: targetClaw ?? null, createdAt: new Date().toISOString() }),
-            );
-          } catch (e) {
-            ctx.monitor?.log('warn', {
-              context: 'dispatch.writeByContract',
-              taskId: tid,
-              contractId: cid,
-              error: e instanceof Error ? e.message : String(e),
-            });
-          }
-
-          return res;
-        });
-
-        const summary = result.replace(/\[SPAWN_REQUEST\][\s\S]*?\[\/SPAWN_REQUEST\]/g, '').trim();
-        return summary || `Dispatcher 完成。契约创建子代理已启动（taskId: ${contractTaskId}）。`;
+        const summary = result.replace(/\[CONTRACT_DONE\][\s\S]*?\[\/CONTRACT_DONE\]/g, '').trim();
+        return summary || `契约已创建（contractId: ${contractId}，targetClaw: ${targetClaw}）。`;
       }
-
       return result;
     });
 

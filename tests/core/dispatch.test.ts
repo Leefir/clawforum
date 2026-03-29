@@ -56,7 +56,7 @@ describe('DispatchTool', () => {
 
   it('should reject dispatch when callerType is dispatcher (recursion prevention)', async () => {
     const ctx = makeCtx('dispatcher');
-    const result = await tool.execute({ task: 'do something' }, ctx);
+    const result = await tool.execute({ goal: 'do something' }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.content).toContain('recursion');
@@ -65,7 +65,7 @@ describe('DispatchTool', () => {
   it('should allow dispatch when callerType is claw', async () => {
     const mockSchedule = vi.fn().mockResolvedValue('task-123');
     const ctx = makeCtx('claw', mockSchedule);
-    const result = await tool.execute({ task: 'do something' }, ctx);
+    const result = await tool.execute({ goal: 'do something' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('task-123');
@@ -87,7 +87,7 @@ Content.
 
     const mockSchedule = vi.fn().mockResolvedValue('task-abc');
     const ctx = makeCtx('claw', mockSchedule);
-    const result = await tool.execute({ task: 'generate report' }, ctx);
+    const result = await tool.execute({ goal: 'generate report' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('task-abc');
@@ -96,7 +96,7 @@ Content.
   it('should succeed without dispatch-skills directory', async () => {
     const mockSchedule = vi.fn().mockResolvedValue('task-xyz');
     const ctx = makeCtx('claw', mockSchedule);
-    const result = await tool.execute({ task: 'some task' }, ctx);
+    const result = await tool.execute({ goal: 'some task' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('task-xyz');
@@ -111,7 +111,7 @@ Content.
       const mockSchedule = vi.fn().mockResolvedValue('task-dialog');
       const ctx = makeCtx('claw', mockSchedule, { dialogMessages });
 
-      await tool.execute({ task: 'follow up' }, ctx);
+      await tool.execute({ goal: 'follow up' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
       const passedMessages = mockSchedule.mock.calls[0][0].messages;
@@ -127,7 +127,7 @@ Content.
       const mockSchedule = vi.fn().mockResolvedValue('task-single');
       const ctx = makeCtx('claw', mockSchedule);
 
-      await tool.execute({ task: 'standalone task' }, ctx);
+      await tool.execute({ goal: 'standalone task' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
       const passedMessages = mockSchedule.mock.calls[0][0].messages;
@@ -144,7 +144,7 @@ Content.
       // Motion 调用：clawId='motion', originClawId=undefined
       const ctx = makeCtx('claw', mockSchedule, { clawId: 'motion' });
 
-      await tool.execute({ task: 'do something' }, ctx);
+      await tool.execute({ goal: 'do something' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
       expect(mockSchedule.mock.calls[0][0].originClawId).toBe('motion');
@@ -158,7 +158,7 @@ Content.
         originClawId: 'motion' 
       });
 
-      await tool.execute({ task: 'nested dispatch' }, ctx);
+      await tool.execute({ goal: 'nested dispatch' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
       // 应该继承，不被覆盖
@@ -170,7 +170,7 @@ Content.
       // claw 调用：clawId='claw1', originClawId=undefined
       const ctx = makeCtx('claw', mockSchedule, { clawId: 'claw1' });
 
-      await tool.execute({ task: 'claw task' }, ctx);
+      await tool.execute({ goal: 'claw task' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
       // 应该使用 clawId 作为 originClawId
