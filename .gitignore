@@ -34,3 +34,4 @@ Thumbs.db
 .env.local
 .env.*.local
 skills/skill-creator/
+clawspace/
