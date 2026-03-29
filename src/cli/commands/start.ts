@@ -185,12 +185,12 @@ async function _start(): Promise<void> {
         await pm.spawn('motion', motionDir);
         await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
       }
-      if (!isWatchdogAlive()) await watchdogStartCommand();
     })();
     daemonReady.catch(() => {}); // 防止并行期间 UnhandledPromiseRejection；await 时仍正确 rethrow
 
     const language = await pickLanguage();
     await daemonReady;
+    if (!isWatchdogAlive()) await watchdogStartCommand();
 
     const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
     const manager = new ContractManager(motionDir, motionFs);

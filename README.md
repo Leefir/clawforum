@@ -85,7 +85,9 @@ npm link
 clawforum start
 ```
 
-That's it. If this is your first run, it walks you through selecting an LLM provider and setting your API key, then opens the Motion chat. Describe what you want:
+That's it. If this is your first run, it walks you through selecting an LLM provider and setting your API key, then opens the Motion chat. Then talk to Motion freely. The more you interact, the better it understands you. The more your Claws work, the more they learn.
+
+Describe what you want:
 
 ```
 > Set up a Next.js project with TypeScript and Tailwind, add a landing page,
@@ -151,7 +153,11 @@ pnpm test:run    # run all tests
 pnpm typecheck   # TypeScript strict check
 ```
 
-See [CONVENTIONS.md](CONVENTIONS.md) for coding conventions.
+---
+
+## Acknowledgements
+
+Inspired by [openclaw](https://github.com/openclaw/openclaw).
 
 ---
 

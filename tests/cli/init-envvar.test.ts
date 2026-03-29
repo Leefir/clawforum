@@ -1,9 +1,5 @@
 /**
- * Phase 81 — init.ts 环境变量自动识别测试
- *
- * 覆盖：
- *   - preset 对应 envVar 已设置 → API Key 从环境变量读取，无需手动输入
- *   - preset 对应 envVar 未设置 → 走 passwordQuestion 手动输入路径
+ * Phase 81 — init.ts API Key 配置测试
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -13,7 +9,6 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 // ── readline mock ──────────────────────────────────────────────────────────────
-// answers 队列：按顺序返回每次 question() 的答案（空字符串 = 使用 default）
 const { rlAnswers } = vi.hoisted(() => ({ rlAnswers: { queue: [] as string[] } }));
 
 const mockRl = {
@@ -28,7 +23,6 @@ vi.mock('readline', () => ({
   createInterface: vi.fn(() => mockRl),
 }));
 
-// mock process.exit 防止测试进程被终止
 vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | undefined) => {
   throw new Error(`process.exit(${_code})`);
 });
@@ -55,7 +49,7 @@ function teardownTempDir() {
 
 // ── tests ──────────────────────────────────────────────────────────────────────
 
-describe('initCommand — env var 自动识别', () => {
+describe('initCommand — API Key 配置', () => {
   beforeEach(() => {
     setupTempDir();
     mockRl.question.mockClear();
@@ -67,10 +61,10 @@ describe('initCommand — env var 自动识别', () => {
     teardownTempDir();
   });
 
-  it('ANTHROPIC_API_KEY 已设置 → 跳过 API Key 提示，config 写入 env 值', async () => {
+  it('选择环境变量 → 检测到变量 → 选编号 → 使用对应值', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-env-test';
-    // readline 答案：provider=''(default=1=anthropic), model=''(use default)
-    rlAnswers.queue = ['', ''];
+    // provider='', apiKeyChoice='1', pick='1'(选第一个检测到的), model=''
+    rlAnswers.queue = ['', '1', '1', ''];
 
     try {
       await initCommand(true);
@@ -78,15 +72,14 @@ describe('initCommand — env var 自动识别', () => {
       delete process.env.ANTHROPIC_API_KEY;
     }
 
-    const configPath = getGlobalConfigPath();
-    expect(fs.existsSync(configPath)).toBe(true);
     const config = loadGlobalConfig();
     expect(config.llm.primary.api_key).toBe('sk-ant-env-test');
   });
 
-  it('ANTHROPIC_API_KEY 已设置 → question 只被调用两次（provider + model，无 API Key）', async () => {
+  it('选择环境变量 → 检测到变量 → 直接输入变量名 → 使用对应值', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-env-test2';
-    rlAnswers.queue = ['', ''];
+    // provider='', apiKeyChoice='1', pick='ANTHROPIC_API_KEY'(直接输变量名), model=''
+    rlAnswers.queue = ['', '1', 'ANTHROPIC_API_KEY', ''];
 
     try {
       await initCommand(true);
@@ -94,27 +87,59 @@ describe('initCommand — env var 自动识别', () => {
       delete process.env.ANTHROPIC_API_KEY;
     }
 
-    // provider(1次) + model(1次) = 2 次；passwordQuestion 未被触发
-    expect(mockRl.question).toHaveBeenCalledTimes(2);
+    const config = loadGlobalConfig();
+    expect(config.llm.primary.api_key).toBe('sk-ant-env-test2');
   });
 
-  it('ANTHROPIC_API_KEY 未设置 → passwordQuestion 被调用（第二次 question），返回手动输入值', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    // provider='', apiKey='sk-manual', model=''
-    rlAnswers.queue = ['', 'sk-manual', ''];
+  it('选择环境变量 → 未检测到变量 → 手动输入变量名 → 使用对应值', async () => {
+    process.env.MY_CUSTOM_KEY = 'sk-custom-123';
+    // 清除所有已知 preset envVar
+    const knownVars = ['ANTHROPIC_API_KEY','OPENAI_API_KEY','DEEPSEEK_API_KEY',
+      'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY'];
+    const saved: Record<string, string | undefined> = {};
+    knownVars.forEach(v => { saved[v] = process.env[v]; delete process.env[v]; });
+
+    // provider='', apiKeyChoice='1', varName='MY_CUSTOM_KEY', model=''
+    rlAnswers.queue = ['', '1', 'MY_CUSTOM_KEY', ''];
+
+    try {
+      await initCommand(true);
+    } finally {
+      delete process.env.MY_CUSTOM_KEY;
+      knownVars.forEach(v => { if (saved[v] !== undefined) process.env[v] = saved[v]; });
+    }
+
+    const config = loadGlobalConfig();
+    expect(config.llm.primary.api_key).toBe('sk-custom-123');
+  });
+
+  it('选择环境变量 → 未检测到 → 变量名为空 → process.exit(1)', async () => {
+    const knownVars = ['ANTHROPIC_API_KEY','OPENAI_API_KEY','DEEPSEEK_API_KEY',
+      'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY'];
+    const saved: Record<string, string | undefined> = {};
+    knownVars.forEach(v => { saved[v] = process.env[v]; delete process.env[v]; });
+
+    rlAnswers.queue = ['', '1', ''];
+
+    try {
+      await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+    } finally {
+      knownVars.forEach(v => { if (saved[v] !== undefined) process.env[v] = saved[v]; });
+    }
+  });
+
+  it('选择手动输入 → 使用手动输入的值', async () => {
+    // provider='', apiKeyChoice=''(default=2), apiKey='sk-manual', model=''
+    rlAnswers.queue = ['', '', 'sk-manual', ''];
 
     await initCommand(true);
 
     const config = loadGlobalConfig();
     expect(config.llm.primary.api_key).toBe('sk-manual');
-    // provider + apiKey + model = 3 次
-    expect(mockRl.question).toHaveBeenCalledTimes(3);
   });
 
-  it('ANTHROPIC_API_KEY 未设置且 API Key 输入为空 → process.exit(1)', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    // provider='', apiKey=''(空) → should exit
-    rlAnswers.queue = ['', ''];
+  it('手动输入但 API Key 为空 → process.exit(1)', async () => {
+    rlAnswers.queue = ['', '', '', ''];
 
     await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
   });

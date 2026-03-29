@@ -84,19 +84,41 @@ export async function initCommand(silent = false): Promise<void> {
       }
     }
 
-    // API Key - 优先环境变量
+    // API Key - 用户选择检测环境变量或手动输入
     let apiKey: string;
-    const envVar = preset.envVar;
-    const envValue = envVar ? process.env[envVar] : undefined;
-    if (envValue) {
-      console.log(`✓ API Key detected from environment (${envVar})`);
-      apiKey = envValue;
+    console.log('\nAPI Key:');
+    console.log('  1. Read from environment variable');
+    console.log('  2. Enter manually');
+    const apiKeyChoice = await question('\n> ', '2');
+    if (apiKeyChoice === '1') {
+      // 扫描所有已知 preset 的 envVar，找出已设置的
+      const detected = Object.values(PRESETS)
+        .map(p => p.envVar)
+        .filter((v): v is string => !!v && !!process.env[v])
+        .filter((v, i, arr) => arr.indexOf(v) === i); // 去重
+
+      let varName: string;
+      if (detected.length > 0) {
+        console.log('\nDetected environment variables:');
+        detected.forEach((v, i) => console.log(`  ${i + 1}. ${v}`));
+        const pick = await question('\n> ');
+        const idx = parseInt(pick, 10) - 1;
+        if (idx >= 0 && idx < detected.length) {
+          varName = detected[idx];
+        } else {
+          varName = pick.trim();
+        }
+      } else {
+        console.log('\nNo API key environment variables detected.');
+        varName = await question('Enter variable name');
+      }
+      if (!varName) { console.error('Variable name is required'); process.exit(1); }
+      apiKey = process.env[varName] ?? '';
+      if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
+      console.log(`✓ API Key read from environment (${varName})`);
     } else {
       apiKey = await passwordQuestion('API Key');
-      if (!apiKey) {
-        console.error('API Key is required');
-        process.exit(1);
-      }
+      if (!apiKey) { console.error('API Key is required'); process.exit(1); }
     }
 
     // Model (default from preset)
