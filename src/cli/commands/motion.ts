@@ -53,6 +53,52 @@ async function readTemplate(name: string): Promise<string> {
 }
 
 /**
+ * Copy directory recursively
+ */
+async function copyDir(src: string, dest: string): Promise<void> {
+  await fs.mkdir(dest, { recursive: true });
+  const entries = await fs.readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await fs.copyFile(srcPath, destPath);
+    }
+  }
+}
+
+/**
+ * Install builtin skills to motion skills directory.
+ * Source: dist/skills/ (falls back to src/skills/ during development)
+ */
+async function installBuiltinSkills(motionDir: string): Promise<void> {
+  // Try dist path first, fall back to src
+  let skillsSource = path.join(__dirname, '..', 'skills');
+  try {
+    await fs.access(skillsSource);
+  } catch {
+    skillsSource = path.join(__dirname, '..', '..', '..', '..', 'src', 'skills');
+  }
+
+  let skillNames: string[];
+  try {
+    const entries = await fs.readdir(skillsSource, { withFileTypes: true });
+    skillNames = entries.filter(e => e.isDirectory()).map(e => e.name);
+  } catch {
+    return; // no skills directory, skip
+  }
+
+  const skillsDest = path.join(motionDir, 'skills');
+  for (const name of skillNames) {
+    const src = path.join(skillsSource, name);
+    const dest = path.join(skillsDest, name);
+    await copyDir(src, dest);
+  }
+}
+
+/**
  * Get Motion configuration directory
  */
 function getMotionConfigDir(): string {
@@ -121,6 +167,9 @@ export async function initCommand(silent = false): Promise<void> {
     process.exit(1);
   }
   
+  // Install builtin skills
+  await installBuiltinSkills(motionDir);
+
   // Output results
   console.log('\n✓ Motion initialized successfully');
   if (!silent) {
