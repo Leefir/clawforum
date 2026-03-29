@@ -1,68 +1,160 @@
 # Clawforum
 
-Describe what you want. A team of AI agents figures out the rest.
+**Describe what you want. A team of AI agents figures out the rest.**
 
-Clawforum runs a coordinator (Motion) that breaks down your goals into structured contracts and delegates them to specialized worker agents (Claws). Each Claw works autonomously — reading files, running commands, searching, writing — and every subtask is verified against acceptance criteria before it counts as done. You stay in the loop without being in the way.
+![node >=22](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
+![license MIT](https://img.shields.io/badge/license-MIT-blue)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 
-## Getting started
+**Motion** coordinates. **Claws** execute. Every step is verified before it moves forward, the full execution trail visible throughout. You just talk to Motion. The rest happens on its own.
+
+<!-- demo: clawforum start → Motion chat → task completion -->
+
+---
+
+## Features
+
+- **Contracts with automatic acceptance** — every subtask has explicit pass/fail criteria (script or LLM). Claws redo failing work before it counts as done.
+- **Motion + parallel Claws** — a dedicated coordinator breaks your goals into contracts and dispatches them to independent worker agents running in parallel.
+- **Transparent by design** — always know what each agent is working on right now, what it has done, and what it was assigned. Not just a final result handed to you after the fact.
+- **Local-first** — connect Ollama to run entirely offline with no API key. Works with any major LLM provider out of the box.
+- **Night dreams** — agents periodically reflect on past work sessions and archived contracts, extracting insights that carry forward into future tasks — getting more contextually aware over time.
+
+---
+
+## How It Works
+
+```
+You
+ └─→ Motion  (coordinator)
+      ├─ breaks goals into contracts
+      └─→ Claw  (worker)
+           ├─ works autonomously on its assignment
+           └─ done → verified before moving on
+```
+
+Multiple Claws can run in parallel — Motion coordinates them all.
+
+- Motion and each Claw run as separate daemon processes
+- A Watchdog monitors all processes and auto-restarts crashes
+- Agent communication is file-based — no network, no hidden state
+- Sessions and contracts persist across restarts
+
+---
+
+## Highlights
+
+**Contracts with automatic acceptance**
+
+Most agent frameworks just run and hope. Clawforum doesn't count a subtask as done until it passes acceptance criteria — a shell script, a file check, or an LLM review. Failed checks notify the Claw to redo the work before moving on.
+
+**Motion + parallel Claws**
+
+Motion is a coordinator, not a worker. It breaks your goal into contracts and dispatches them to Claws that run in parallel and independently. You never need to manage Claws directly — tell Motion what you want and it handles the rest.
+
+**Transparent by design**
+
+Every assignment, every message, every decision lives in plain files on your machine. You can open any agent's inbox and see exactly what it was told to do, or check its work log to see what it did and why. Agent frameworks that hide execution state make it impossible to trust or verify results — Clawforum doesn't. As a bonus, messages survive crashes and restarts automatically.
+
+**Local-first, provider-agnostic**
+
+Connect Ollama and run with no API key, no network, no data leaving your machine. Or use Anthropic, OpenAI, DeepSeek, Gemini, and more — swap providers in one line of config.
+
+**Night dreams**
+
+Agents periodically reflect on past work sessions and archived contracts, extracting insights that carry forward into future tasks. The system gets more contextually aware over time — without interrupting anything in progress.
+
+---
+
+## Installation
 
 ```bash
-pnpm install
-pnpm build
+git clone https://github.com/leefir/clawforum
+cd clawforum
+pnpm install && pnpm build
 npm link
+```
 
-# Start
+**Requires**: Node.js ≥ 22
+
+---
+
+## Quick Start
+
+```bash
 clawforum start
-
-# Or open chat directly (if already initialized)
-clawforum motion chat
 ```
 
-## Basic workflow
+That's it. If this is your first run, it walks you through selecting an LLM provider and setting your API key, then opens the Motion chat. Describe what you want:
 
-1. **Chat with Motion** — describe what you want done. Motion assigns contracts to Claws.
-2. **Claws work autonomously** — each Claw reads its contract, uses tools, and calls `done` when a subtask is complete. Acceptance criteria are verified automatically.
-3. **Check in via Motion** — Motion handles most communication with Claws. You can also chat with a Claw directly:
+```
+> Set up a Next.js project with TypeScript and Tailwind, add a landing page,
+  and write tests for the main components.
+```
+
+Check in any time:
 
 ```bash
-clawforum claw chat myclaw
+clawforum status        # see all running agents
+clawforum motion chat   # resume the Motion chat
 ```
 
-## Contracts
+---
 
-A contract is a structured work assignment from Motion to a Claw. It has a goal, deliverables, and a checklist of subtasks — each with its own acceptance criteria. The Claw works through the subtasks and marks each done; the system verifies before moving on. Motion is notified when all subtasks pass.
+## LLM Providers
 
-In normal use, just tell Motion what you need — it handles contract creation and assignment. The CLI command is available if you want to assign work directly:
+Clawforum works with any major LLM provider — Anthropic, OpenAI, DeepSeek, Gemini, Ollama, and more. Select your provider interactively with `clawforum init`; if the corresponding API key environment variable is already set, it's detected automatically.
+
+```yaml
+# ~/.clawforum/config.yaml
+llm:
+  primary:
+    preset: anthropic
+    api_key: ${ANTHROPIC_API_KEY}
+    model: claude-3-7-sonnet-20250219
+```
+
+---
+
+## Commands
+
+**Everyday**
 
 ```bash
-clawforum contract create --claw myclaw --goal "your goal here"
+clawforum start          # init + launch Motion + open chat
+clawforum motion chat    # reopen Motion chat
+clawforum status         # see all running agents
+clawforum stop           # gracefully stop everything
 ```
 
-## Other commands
+**Advanced**
 
 ```bash
-clawforum claw list          # list all Claws and their status
-clawforum claw stop myclaw   # stop a running Claw daemon
-clawforum motion stop        # stop Motion daemon
-clawforum watchdog start     # start system watchdog (monitors health, disk, inactivity)
-clawforum watchdog stop
+clawforum claw list                # list all Claws and their status
+clawforum claw chat <name>         # talk to a specific Claw directly
+clawforum claw trace [--claw <n>]  # inspect contract execution step by step
 ```
+
+---
 
 ## Configuration
 
-`config.yaml` is created by `clawforum init`. Key settings:
+Configuration lives in `~/.clawforum/config.yaml` and is created by `clawforum init`.
+See [docs/configuration.md](docs/configuration.md) for the full reference.
 
-```yaml
-llm:
-  primary:
-    model: your-model-name
-    base_url: ...   # optional
+---
 
-motion:
-  max_steps: 100
-  max_concurrent_tasks: 3   # how many SubAgents a Claw can run in parallel
+## Contributing
+
+```bash
+pnpm test:run    # run all tests
+pnpm typecheck   # TypeScript strict check
 ```
 
-## Acknowledgements
+See [CONVENTIONS.md](CONVENTIONS.md) for coding conventions.
 
-Inspired by openclaw.
+---
+
+## License
+
+MIT
