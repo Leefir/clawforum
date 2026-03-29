@@ -112,7 +112,15 @@ dispatcher 不能：
         }
 
         const { contractId, targetClaw } = parsed;
-        if (!contractId || !targetClaw) return result;
+        if (!contractId || !targetClaw) {
+          ctx.monitor?.log('warn', {
+            context: 'dispatch.contractDoneMissingFields',
+            taskId,
+            parsed,
+            hint: '[CONTRACT_DONE] block parsed but contractId or targetClaw missing — no retrospective will be scheduled',
+          });
+          return result;
+        }
 
         try {
           await ctx.fs.ensureDir('clawspace/pending-retrospective/by-contract');
