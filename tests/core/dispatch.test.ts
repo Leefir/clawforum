@@ -177,4 +177,89 @@ Content.
       expect(mockSchedule.mock.calls[0][0].originClawId).toBe('claw1');
     });
   });
+
+  describe('CONTRACT_DONE handler', () => {
+    function makeCtxWithMonitor(monitorLog: ReturnType<typeof vi.fn>) {
+      let capturedHandler: ((taskId: string, callerType: string, result: string, isError: boolean) => Promise<string>) | null = null;
+      const taskSystem = {
+        scheduleSubAgent: vi.fn().mockResolvedValue('task-handler-test'),
+        addTaskResultHandler: vi.fn().mockImplementation((handler: any) => {
+          capturedHandler = handler;
+          return () => {};
+        }),
+      };
+      const ctx = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        callerType: 'claw',
+        fs: mockFs,
+        taskSystem: taskSystem as any,
+        monitor: { log: monitorLog } as any,
+      });
+      return { ctx, taskSystem, getHandler: () => capturedHandler };
+    }
+
+    it('should warn when dispatcher finishes without [CONTRACT_DONE] block', async () => {
+      const monitorLog = vi.fn();
+      const { ctx, getHandler } = makeCtxWithMonitor(monitorLog);
+
+      await tool.execute({ goal: 'test task' }, ctx);
+
+      const handler = getHandler();
+      expect(handler).not.toBeNull();
+
+      await handler!('task-handler-test', 'dispatcher', 'Dispatcher finished with no marker.', false);
+
+      expect(monitorLog).toHaveBeenCalledWith('warn', expect.objectContaining({
+        context: 'dispatch.contractDoneNotFound',
+      }));
+    });
+
+    it('should warn when [CONTRACT_DONE] parsed but fields missing', async () => {
+      const monitorLog = vi.fn();
+      const { ctx, getHandler } = makeCtxWithMonitor(monitorLog);
+
+      await tool.execute({ goal: 'test task' }, ctx);
+
+      const handler = getHandler();
+      await handler!(
+        'task-handler-test',
+        'dispatcher',
+        'Done.\n[CONTRACT_DONE]{"targetClaw":"my-claw"}[/CONTRACT_DONE]',
+        false,
+      );
+
+      expect(monitorLog).toHaveBeenCalledWith('warn', expect.objectContaining({
+        context: 'dispatch.contractDoneMissingFields',
+      }));
+    });
+
+    it('should write by-contract file and return summary on valid [CONTRACT_DONE]', async () => {
+      const monitorLog = vi.fn();
+      const { ctx, getHandler } = makeCtxWithMonitor(monitorLog);
+
+      await tool.execute({ goal: 'test task' }, ctx);
+
+      const handler = getHandler();
+      const resultText = 'Work done.\n[CONTRACT_DONE]{"contractId":"c-001","targetClaw":"my-claw"}[/CONTRACT_DONE]';
+      const summary = await handler!('task-handler-test', 'dispatcher', resultText, false);
+
+      // by-contract 文件写入
+      const byContractPath = path.join(
+        tempDir, 'clawspace', 'pending-retrospective', 'by-contract', 'c-001.json',
+      );
+      const raw = JSON.parse(await fs.readFile(byContractPath, 'utf-8'));
+      expect(raw.contractId).toBe('c-001');
+      expect(raw.targetClaw).toBe('my-claw');
+      expect(raw.dispatcherTaskId).toBe('task-handler-test');
+
+      // 摘要不含 CONTRACT_DONE 块
+      expect(summary).not.toContain('[CONTRACT_DONE]');
+      expect(summary).toContain('Work done.');
+
+      // 无 warn 日志
+      expect(monitorLog).not.toHaveBeenCalledWith('warn', expect.anything());
+    });
+  });
 });
