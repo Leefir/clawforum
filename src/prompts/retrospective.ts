@@ -7,9 +7,15 @@
 export function buildRetroPrompt(
   clawId: string,
   contractId: string,
+  contractYaml: string,
   skillsSummary?: string,
 ): string {
-  return `对话历史里是本次契约的创建过程（包含创建者的原始意图和契约设计）。契约已执行完成，请对本次执行进行复盘。
+  return `以下是本次执行的契约（含创建意图和设计）。契约已执行完成，请对本次执行进行复盘。
+
+## 契约
+\`\`\`yaml
+${contractYaml}
+\`\`\`
 
 目标 claw：${clawId}
 契约 ID：${contractId}
@@ -50,7 +56,7 @@ clawforum claw trace --claw ${clawId} --contract ${contractId} --step <n>
 
 ### 第三步：评估执行质量
 
-结合对话历史里的契约创建意图，判断：
+结合上方契约的 background、goal、expectations，判断：
 - 各 subtask 执行结果如何？有无多次重试？失败根因是什么？
 - 交付物是否达到契约预期的质量？（可用 read + claw 参数查看交付物内容）
 - claw 的工作方式是否高效？有无明显浪费或绕路？
