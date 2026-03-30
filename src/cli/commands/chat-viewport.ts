@@ -758,6 +758,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'turn_error':
       case 'turn_interrupted':
         stopSpinner();
+        streamingSuffix = '';
+        updateDisplay();
         stopTaskWatch(taskId);
         break;
     }
