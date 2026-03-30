@@ -149,15 +149,12 @@ dispatcher 不能：
       ? args.idleTimeoutMs
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
-    // 构造包含完整对话上下文的 messages 数组
+    // 构造包含完整对话上下文的 messages 数组（不含 userMessage，SubAgent 通过 prompt 追加）
     const dialogMessages = ctx.dialogMessages ?? [];
     if (dialogMessages.length === 0) {
       console.warn('[dispatch] dialogMessages not provided or empty — dispatcher will run without conversation context');
     }
-    const dispatcherMessages: Message[] = [
-      ...dialogMessages,
-      { role: 'user' as const, content: userMessage },
-    ];
+    const dispatcherMessages: Message[] = [...dialogMessages];
 
     // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
     const toolsForLLM = this.getToolsForLLM();

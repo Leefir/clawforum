@@ -408,7 +408,10 @@ export class TaskSystem {
       if (task.kind === 'tool') {
         const callback = this.pendingCallbacks.get(task.id);
         this.pendingCallbacks.delete(task.id); // Clean up
-        await this.executeToolTask(task, callback!, signal);
+        if (!callback) {
+          throw new Error(`Tool task ${task.id} (${(task as ToolTask).toolName}) missing callback — cannot execute`);
+        }
+        await this.executeToolTask(task, callback, signal);
       } else {
         await this.executeTask(task, signal);
       }
