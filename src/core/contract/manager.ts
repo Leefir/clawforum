@@ -506,6 +506,29 @@ export class ContractManager {
         });
         return;
       }
+
+      // Guard: skip if acceptance already running or subtask already completed
+      const currentStatus = progress.subtasks[subtaskId].status;
+      if (currentStatus === 'in_progress') {
+        result = { passed: false, feedback: `Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.` };
+        this.monitor?.log('warn', {
+          context: 'ContractManager._completeSubtaskSync',
+          contractId,
+          subtaskId,
+          message: 'Duplicate done() call ignored - acceptance in progress',
+        });
+        return;
+      }
+      if (currentStatus === 'completed') {
+        result = { passed: false, feedback: `Subtask "${subtaskId}" is already completed.` };
+        this.monitor?.log('warn', {
+          context: 'ContractManager._completeSubtaskSync',
+          contractId,
+          subtaskId,
+          message: 'Subtask already completed',
+        });
+        return;
+      }
       
       progress.subtasks[subtaskId] = {
         ...progress.subtasks[subtaskId],
