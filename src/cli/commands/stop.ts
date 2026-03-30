@@ -41,6 +41,12 @@ export async function stopAllCommand(): Promise<void> {
     console.log('All claws stopped');
   }
 
+  // 写入 clean-stop 标记，供下次启动时识别
+  const cleanStopFile = path.join(baseDir, 'clean-stop');
+  try {
+    fs.writeFileSync(cleanStopFile, String(Date.now()), 'utf-8');
+  } catch { /* best-effort */ }
+
   console.log('Done.');
 
   // Cleanup: pgrep兜底，清理残留的daemon-entry.js孤儿进程
