@@ -119,7 +119,7 @@ describe('chat-viewport Phase 72', () => {
 
     it('flushThinking 应使用 appendOutput', () => {
       const flushThinkingMatch = sourceCode.match(
-        /const flushThinking = \(\) => \{[\s\S]{0,400}?\};/
+        /const flushThinking = \(\) => \{[\s\S]{0,600}?\};/
       );
       expect(flushThinkingMatch).toBeTruthy();
       expect(flushThinkingMatch![0]).toContain('appendOutput');

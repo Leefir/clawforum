@@ -207,10 +207,10 @@ export async function chatCommand(): Promise<void> {
       const { startCommand: startWatchdog } = await import('./watchdog.js');
       await startWatchdog();
     },
-    showSubagentStream: globalConfig.viewport?.show_subagent_stream,
+    showRecapStream: globalConfig.viewport?.show_recap_stream,
     showSystemMessages: globalConfig.viewport?.show_system_messages,
     showContractEvents: globalConfig.viewport?.show_contract_events,
-    trimOutputNewlines: globalConfig.viewport?.trim_output_newlines ?? true,
+    trimOutputNewlines: globalConfig.viewport?.trim_output_newlines,
   });
 }
 

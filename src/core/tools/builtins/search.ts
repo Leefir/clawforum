@@ -64,7 +64,7 @@ async function walkNative(
 
 export const searchTool: ITool = {
   name: 'search',
-  description: 'Search for text in files. Allowed: clawspace/, skills/, prompts/. Motion can search any claw path via `claw` parameter.',
+  description: 'Search for text in LOCAL files only (not web/network). Returns file:line: content matches, case-insensitive, default max 5 results. Allowed paths: clawspace/, skills/, prompts/. Motion can search another claw via `claw: "<id>"`, or all claws via `claw: "*"`.',
   schema: {
     type: 'object',
     properties: {

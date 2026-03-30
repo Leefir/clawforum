@@ -16,7 +16,7 @@ export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
   label: string;      // 显示名，如 'motion' 或 'claw-search'
   ensureDaemon?: () => Promise<void>;  // 调用方提供：检查 daemon 是否运行，没运行就启动
-  showSubagentStream?: boolean;   // 子代理 stream，默认 false
+  showRecapStream?: boolean;   // 复盘子代理 stream，默认 false
   showSystemMessages?: boolean;   // system message，默认 false
   showContractEvents?: boolean;   // contract 子任务完成信息，默认 true
   trimOutputNewlines?: boolean;   // LLM 输出首尾换行清理，默认 true
@@ -48,7 +48,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     await options.ensureDaemon();
   }
 
-  const showSubagentStream = options.showSubagentStream ?? false;
+  const showRecapStream = options.showRecapStream ?? false;
   const showSystemMessages = options.showSystemMessages ?? false;
   const showContractEvents = options.showContractEvents ?? true;
   const trimOutputNewlines = options.trimOutputNewlines ?? true;
@@ -253,7 +253,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         .split('\n')
         .map((line, i) => (i === 0 ? prefix : indent) + line)
         .join('\n');
-      appendOutput('\x1b[2m', formatted);
+      appendOutput('\x1b[2m', formatted, true);
       thinkingBuffer = '';
     }
   };
@@ -364,6 +364,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'user_notify': {
         stopSpinner();   // 防止 spinner 在通知输出时继续转
         streamingSuffix = '';   // 清除游标/spinner 残留
+        updateDisplay();
         const sub = event.subtype as string;
         const subtaskId = event.subtaskId as string;
         if (sub === 'contract_created') {
@@ -736,18 +737,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     callerType: string,
     event: { type: string; [key: string]: unknown },
   ) => {
-    if (!showSubagentStream) return;
     const tw = taskWatchMap.get(taskId);
     const prefix = callerType;
     switch (event.type) {
       case 'tool_call':
-        if (tw?.silent) break;
+        if (tw?.silent && !showRecapStream) break;
         stopSpinner();
         appendOutput('\x1b[36m', `└─ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
-        if (tw?.silent) break;
+        if (tw?.silent && !showRecapStream) break;
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
         streamingSuffix = '';

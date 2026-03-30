@@ -124,10 +124,10 @@ export async function chatCommand(name: string): Promise<void> {
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
     },
-    showSubagentStream: globalConfig.viewport?.show_subagent_stream,
+    showRecapStream: globalConfig.viewport?.show_recap_stream,
     showSystemMessages: globalConfig.viewport?.show_system_messages,
     showContractEvents: globalConfig.viewport?.show_contract_events,
-    trimOutputNewlines: globalConfig.viewport?.trim_output_newlines ?? true,
+    trimOutputNewlines: globalConfig.viewport?.trim_output_newlines,
   });
 }
 

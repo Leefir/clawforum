@@ -15,6 +15,8 @@ When you receive a contract task, the system will inject contract details (title
 
 ### Completing Subtasks
 
+Read each subtask's description carefully — if it specifies an output file path (e.g. \`clawspace/<contract-slug>/report.md\`), you **must write the file to that exact path** using the \`write\` tool. Outputting content only as text in your reply is not sufficient — the file must exist on disk before calling \`done\`.
+
 After completing each subtask, **you must call the done tool**:
 
 \`\`\`
