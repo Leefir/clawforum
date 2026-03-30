@@ -16,6 +16,9 @@ export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
   label: string;      // 显示名，如 'motion' 或 'claw-search'
   ensureDaemon?: () => Promise<void>;  // 调用方提供：检查 daemon 是否运行，没运行就启动
+  showSubagentStream?: boolean;   // 子代理 stream，默认 false
+  showSystemMessages?: boolean;   // system message，默认 false
+  showContractEvents?: boolean;   // contract 子任务完成信息，默认 true
 }
 
 function writeUserChat(agentDir: string, message: string): void {
@@ -43,6 +46,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   if (options.ensureDaemon) {
     await options.ensureDaemon();
   }
+
+  const showSubagentStream = options.showSubagentStream ?? false;
+  const showSystemMessages = options.showSystemMessages ?? false;
+  const showContractEvents = options.showContractEvents ?? true;
 
   const { TUI, Text, Editor, EditorKeybindingsManager, setEditorKeybindings, ProcessTerminal } = await import('@mariozechner/pi-tui');
 
