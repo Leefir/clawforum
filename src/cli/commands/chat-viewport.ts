@@ -10,7 +10,7 @@ import chokidar from 'chokidar';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
-import { sliceFromStart, fitLine } from '../utils/string.js';
+import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -68,7 +68,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   // 单一输出区域（永久内容 + 流式后缀合并显示，消除组件间距）
-  interface OutputLine { color: string; text: string; }
+  interface OutputLine { color: string; text: string; wrap?: boolean; }
   const outputText = new Text(`[${options.label}] Watching daemon activity...`, 0, 0);
   const outputLines: OutputLine[] = [
     { color: '', text: `[${options.label}] Watching daemon activity...` },
@@ -105,12 +105,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const updateDisplay = () => {
     const cols = process.stdout.columns ?? 80;
     const body = outputLines
-      .flatMap(({ color, text }) =>
-        text.split('\n').map(line => {
-          const fitted = fitLine(line, cols);
-          return color ? `${color}${fitted}\x1b[0m` : fitted;
-        })
-      )
+      .flatMap(({ color, text, wrap }) => {
+        const lines = wrap ? wrapLine(text, cols) : [fitLine(text, cols)];
+        return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
+      })
       .join('\n');
     const full = streamingSuffix ? body + '\n' + streamingSuffix : body;
     outputText.setText(full);
@@ -215,9 +213,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 输入组件
   const editor = new Editor(tui, editorTheme);
 
-  const appendOutput = (color: string, text: string) => {
+  const appendOutput = (color: string, text: string, wrap = false) => {
     for (const line of text.split('\n')) {
-      outputLines.push({ color, text: line });
+      outputLines.push({ color, text: line, wrap });
     }
     updateDisplay();
   };
@@ -225,12 +223,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const flushStreaming = () => {
     if (streamingBuffer) {
       const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
-      const indent = ' '.repeat(1 + 1);  // ⏺(1列) + 空格(1列) = 2
+      const indent = '  ';
       const formatted = streamingBuffer
         .split('\n')
         .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
-      .join('\n');
-      appendOutput('', formatted);
+        .join('\n');
+      appendOutput('', formatted, true);
       streamingBuffer = '';
       streamingSuffix = '';
       updateDisplay();   // 清空游标后立即重渲染
@@ -949,7 +947,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     }
 
     // 显示用户消息
-    appendOutput('\x1b[32m', `> ${trimmed}`);
+    appendOutput('\x1b[32m', `> ${trimmed}`, true);
     editor.setText('');
     editor.addToHistory(trimmed);
 

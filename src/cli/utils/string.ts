@@ -43,3 +43,21 @@ export function fitLine(s: string, cols?: number): string {
   if (stringWidth(flat) <= width) return flat;
   return sliceFromStart(flat, width - 1) + '…';
 }
+
+/**
+ * 将单行字符串按终端宽度折行，返回多行数组。
+ * 正确处理 emoji / CJK 等宽字符。不截断内容。
+ */
+export function wrapLine(s: string, cols?: number): string[] {
+  const width = cols ?? (process.stdout.columns ?? 80);
+  if (stringWidth(s) <= width) return [s];
+  const lines: string[] = [];
+  let remaining = s;
+  while (stringWidth(remaining) > width) {
+    const chunk = sliceFromStart(remaining, width);
+    lines.push(chunk);
+    remaining = remaining.slice(chunk.length);
+  }
+  if (remaining) lines.push(remaining);
+  return lines;
+}
