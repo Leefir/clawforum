@@ -109,6 +109,7 @@ export async function chatCommand(name: string): Promise<void> {
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
 
+  const globalConfig = loadGlobalConfig();
   await runChatViewport({
     agentDir: clawDir,
     label: name,
@@ -123,6 +124,9 @@ export async function chatCommand(name: string): Promise<void> {
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
     },
+    showSubagentStream: globalConfig.viewport?.show_subagent_stream,
+    showSystemMessages: globalConfig.viewport?.show_system_messages,
+    showContractEvents: globalConfig.viewport?.show_contract_events,
   });
 }
 

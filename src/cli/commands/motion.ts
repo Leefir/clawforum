@@ -181,7 +181,7 @@ export async function initCommand(silent = false): Promise<void> {
  * motion chat - start interactive chat session (viewport mode)
  */
 export async function chatCommand(): Promise<void> {
-  loadGlobalConfig();
+  const globalConfig = loadGlobalConfig();
   const motionDir = getMotionDir();
 
   // Check whether Motion has been initialized
@@ -207,6 +207,9 @@ export async function chatCommand(): Promise<void> {
       const { startCommand: startWatchdog } = await import('./watchdog.js');
       await startWatchdog();
     },
+    showSubagentStream: globalConfig.viewport?.show_subagent_stream,
+    showSystemMessages: globalConfig.viewport?.show_system_messages,
+    showContractEvents: globalConfig.viewport?.show_contract_events,
   });
 }
 
