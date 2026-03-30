@@ -19,6 +19,7 @@ export interface ChatViewportOptions {
   showSubagentStream?: boolean;   // 子代理 stream，默认 false
   showSystemMessages?: boolean;   // system message，默认 false
   showContractEvents?: boolean;   // contract 子任务完成信息，默认 true
+  trimOutputNewlines?: boolean;   // LLM 输出首尾换行清理，默认 true
 }
 
 function writeUserChat(agentDir: string, message: string): void {
@@ -50,6 +51,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const showSubagentStream = options.showSubagentStream ?? false;
   const showSystemMessages = options.showSystemMessages ?? false;
   const showContractEvents = options.showContractEvents ?? true;
+  const trimOutputNewlines = options.trimOutputNewlines ?? true;
 
   const { TUI, Text, Editor, EditorKeybindingsManager, setEditorKeybindings, ProcessTerminal } = await import('@mariozechner/pi-tui');
 
@@ -231,7 +233,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (streamingBuffer) {
       const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
       const indent = '  ';
-      const formatted = streamingBuffer
+      const content = trimOutputNewlines ? streamingBuffer.trim() : streamingBuffer;
+      const formatted = content
         .split('\n')
         .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
         .join('\n');
@@ -245,7 +248,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (thinkingBuffer) {
       const prefix = '⏺ ';
       const indent = ' '.repeat(stringWidth(prefix));
-      const formatted = thinkingBuffer
+      const content = trimOutputNewlines ? thinkingBuffer.trim() : thinkingBuffer;
+      const formatted = content
         .split('\n')
         .map((line, i) => (i === 0 ? prefix : indent) + line)
         .join('\n');

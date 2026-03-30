@@ -127,6 +127,7 @@ export async function chatCommand(name: string): Promise<void> {
     showSubagentStream: globalConfig.viewport?.show_subagent_stream,
     showSystemMessages: globalConfig.viewport?.show_system_messages,
     showContractEvents: globalConfig.viewport?.show_contract_events,
+    trimOutputNewlines: globalConfig.viewport?.trim_output_newlines ?? true,
   });
 }
 
