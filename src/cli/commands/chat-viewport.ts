@@ -85,8 +85,18 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let ownStep = 0;
   let ownMaxSteps = 100;
 
-  type ThinkingMode = 'line' | 'full' | 'none';
+  type ThinkingMode = 'compact' | 'full' | 'off';
   let thinkingMode: ThinkingMode = 'full';
+
+  // --- 命令注册表 ---
+  interface ViewportCommand {
+    name: string;
+    description: string;
+    usage?: string;
+    execute: (args: string[]) => void;
+  }
+  const commandRegistry = new Map<string, ViewportCommand>();
+  const registerCmd = (cmd: ViewportCommand) => commandRegistry.set(cmd.name, cmd);
 
   // Braille spinner 动画
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -263,11 +273,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         thinkingBuffer += event.delta as string;
         if (thinkingMode === 'full') {
           setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
-        } else if (thinkingMode === 'line') {
+        } else if (thinkingMode === 'compact') {
           const snippet = thinkingBuffer.replace(/\s+/g, ' ').trim().slice(-60);
           setStreamingSuffix('\x1b[2m(' + snippet + ')\x1b[0m');
         }
-        // 'none': 不更新 suffix
+        // 'off': 不更新 suffix
         break;
 
       case 'text_delta':
@@ -792,6 +802,89 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
   const daemonCheckInterval = setInterval(checkDaemonAlive, 3000);
 
+  // --- 注册 slash 命令 ---
+
+  registerCmd({
+    name: 'think',
+    description: '切换思考内容显示模式',
+    usage: '/think [off|compact|full]',
+    execute: (args) => {
+      const arg = args[0] as ThinkingMode | undefined;
+      if (!arg) {
+        // 无参：在 full 和 off 之间切换
+        thinkingMode = thinkingMode === 'off' ? 'full' : 'off';
+      } else if (arg === 'off' || arg === 'compact' || arg === 'full') {
+        thinkingMode = arg;
+      } else {
+        appendOutput('\x1b[31m', `[think] 无效模式 "${arg}"，可选：off / compact / full`);
+        return;
+      }
+      appendOutput('\x1b[2m', `[thinking: ${thinkingMode}]`);
+    },
+  });
+
+  registerCmd({
+    name: 'attach',
+    description: '将 claw 加入监视面板（仅 motion）',
+    usage: '/attach <clawId>',
+    execute: (args) => {
+      if (!isMotion) {
+        appendOutput('\x1b[31m', '[attach] 仅 motion chat 支持 /attach');
+        return;
+      }
+      const clawId = args[0];
+      if (!clawId) {
+        appendOutput('\x1b[31m', '[attach] 用法：/attach <clawId>');
+        return;
+      }
+      const clawDir = path.join(clawsDir, clawId);
+      if (!fsNative.existsSync(clawDir)) {
+        appendOutput('\x1b[31m', `[attach] claw "${clawId}" 不存在`);
+      } else if (clawTrackMap.has(clawId)) {
+        appendOutput('\x1b[2m', `[attach] ${clawId} 已在面板中`);
+      } else {
+        const t = makeClawTrack();
+        t.referenceMs = Date.now();
+        clawTrackMap.set(clawId, t);
+        try {
+          const w = fsNative.watch(path.join(clawDir, 'stream.jsonl'), { persistent: false }, () => refreshClawStatus(clawId));
+          w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
+          clawWatchers.set(clawId, w);
+        } catch { /* polling fallback */ }
+        updateClawPanel();
+        appendOutput('\x1b[2m', `[attach] ${clawId} 已加入面板`);
+      }
+    },
+  });
+
+  registerCmd({
+    name: 'detach',
+    description: '从监视面板移除 claw（仅 motion）',
+    usage: '/detach <clawId>  或  /detach --all',
+    execute: (args) => {
+      const arg = args[0];
+      if (!arg) {
+        appendOutput('', '用法：/detach <claw-id>  或  /detach --all');
+        return;
+      }
+      if (arg === '--all') {
+        for (const [id] of clawTrackMap) {
+          clawWatchers.get(id)?.close();
+          clawWatchers.delete(id);
+        }
+        clawTrackMap.clear();
+        updateClawPanel();
+        appendOutput('\x1b[2m', '[detach] 已清空所有 claw');
+      } else {
+        clawWatchers.get(arg)?.close();
+        clawWatchers.delete(arg);
+        clawTrackMap.delete(arg);
+        updateClawPanel();
+        appendOutput('\x1b[2m', `[detach] ${arg} 已从面板移除`);
+      }
+    },
+  });
+
   // 输入提交处理
   editor.onSubmit = (text: string) => {
     const trimmed = text.trim();
@@ -806,67 +899,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       return;
     }
 
-    // slash 命令
-    if (trimmed.startsWith('/')) {
-      const parts = trimmed.slice(1).split(/\s+/);
-      const name = parts[0];
-      const arg = parts[1] as ThinkingMode | undefined;
-      if (name === 'think') {
-        if (!arg) {
-          thinkingMode = thinkingMode === 'line' ? 'full' : thinkingMode === 'full' ? 'none' : 'line';
-        } else if (arg === 'full' || arg === 'line' || arg === 'none') {
-          thinkingMode = arg;
-        }
-        appendOutput('\x1b[2m', `[thinking: ${thinkingMode}]`);
-      } else if (name === 'attach') {
-        if (!isMotion) {
-          appendOutput('\x1b[31m', '[attach] 仅 motion chat 支持 /attach');
-        } else if (!parts[1]) {
-          appendOutput('\x1b[31m', '[attach] 用法：/attach <clawId>');
-        } else {
-          const clawId = parts[1];
-          const clawDir = path.join(clawsDir, clawId);
-          if (!fsNative.existsSync(clawDir)) {
-            appendOutput('\x1b[31m', `[attach] claw "${clawId}" 不存在`);
-          } else if (clawTrackMap.has(clawId)) {
-            appendOutput('\x1b[2m', `[attach] ${clawId} 已在面板中`);
-          } else {
-            // 手动加入（无契约 claw）
-            const t = makeClawTrack();
-            t.referenceMs = Date.now();
-            clawTrackMap.set(clawId, t);
-            // 开 watcher
-            try {
-              const w = fsNative.watch(path.join(clawDir, 'stream.jsonl'), { persistent: false }, () => refreshClawStatus(clawId));
-              w.on('error', () => { w.close(); clawWatchers.delete(clawId); });
-              clawWatchers.set(clawId, w);
-            } catch { /* polling fallback */ }
-            updateClawPanel();
-            appendOutput('\x1b[2m', `[attach] ${clawId} 已加入面板`);
-          }
-        }
-      } else if (name === 'detach') {
-        const arg = parts[1];
-        if (!arg || arg === '--help') {
-          appendOutput('', '用法：/detach <claw-id>  或  /detach --all');
-        } else if (arg === '--all') {
-          for (const [id] of clawTrackMap) {
-            clawWatchers.get(id)?.close();
-            clawWatchers.delete(id);
-          }
-          clawTrackMap.clear();
-          updateClawPanel();
-          appendOutput('\x1b[2m', '[detach] 已清空所有 claw');
-        } else {
-          const clawId = arg;
-          clawWatchers.get(clawId)?.close();
-          clawWatchers.delete(clawId);
-          clawTrackMap.delete(clawId);
-          updateClawPanel();
-          appendOutput('\x1b[2m', `[detach] ${clawId} 已从面板移除`);
-        }
+    // slash 命令（仅匹配 /word 格式，/path/with/slashes 不触发）
+    const cmdMatch = trimmed.match(/^\/([a-zA-Z_][\w-]*)(?:\s+(.*))?$/);
+    if (cmdMatch) {
+      const name = cmdMatch[1];
+      const rawTail = (cmdMatch[2] ?? '').trim();
+      const args = rawTail ? rawTail.split(/\s+/) : [];
+      const cmd = commandRegistry.get(name);
+      if (cmd) {
+        cmd.execute(args);
       } else {
-        appendOutput('\x1b[2m', `[unknown command: /${name}]`);
+        appendOutput('\x1b[2m', `[unknown command: /${name}]  输入 /help 查看可用命令`);
       }
       editor.setText('');
       tui.requestRender();
