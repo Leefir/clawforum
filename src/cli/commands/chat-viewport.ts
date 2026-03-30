@@ -228,10 +228,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         .split('\n')
         .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
         .join('\n');
-      appendOutput('', formatted, true);
       streamingBuffer = '';
       streamingSuffix = '';
-      updateDisplay();   // 清空游标后立即重渲染
+      appendOutput('', formatted, true);
     }
   };
 

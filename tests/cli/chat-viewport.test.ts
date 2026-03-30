@@ -110,7 +110,7 @@ describe('chat-viewport Phase 72', () => {
 
     it('flushStreaming 应使用 appendOutput', () => {
       const flushStreamingMatch = sourceCode.match(
-        /const flushStreaming = \(\) => \{[\s\S]{0,300}?\};/
+        /const flushStreaming = \(\) => \{[\s\S]{0,600}?\};/
       );
       expect(flushStreamingMatch).toBeTruthy();
       expect(flushStreamingMatch![0]).toContain('appendOutput');
