@@ -157,33 +157,42 @@ export async function contractLogCommand(clawId: string, contractId?: string): P
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
   const manager = new ContractManager(clawDir, clawFs);
 
-  const contract = await manager.loadActive();
-  if (!contract) {
-    console.log(`No active contract for claw ${clawId}`);
-    return;
+  // 若未指定 contractId，用 active 契约
+  let resolvedId = contractId;
+  if (!resolvedId) {
+    const active = await manager.loadActive();
+    if (!active) {
+      console.log(`No active contract for claw ${clawId}`);
+      return;
+    }
+    resolvedId = active.id;
   }
 
-  if (contractId && contract.id !== contractId) {
-    console.log(`Contract ${contractId} is not active. Active: ${contract.id}`);
-    return;
+  // 读契约 YAML（active/paused/archive 均可）
+  let contractYaml: ContractYaml;
+  try {
+    const raw = await manager.readContractYamlRaw(resolvedId);
+    contractYaml = yaml.load(raw) as ContractYaml;
+  } catch {
+    console.error(`Contract "${resolvedId}" not found for claw ${clawId}`);
+    process.exit(1);
   }
 
-  // 直接读 progress.json（ContractManager 无公开 loadProgress 方法）
-  const progressPath = path.join(clawDir, 'contract', 'active', contract.id, 'progress.json');
+  // 读 progress（active/paused/archive 均可）
   let progress: ProgressData | null = null;
   try {
-    progress = JSON.parse(await fs.readFile(progressPath, 'utf-8'));
-  } catch { /* 无 progress 文件时忽略 */ }
+    progress = await manager.getProgress(resolvedId);
+  } catch { /* progress 文件缺失时忽略 */ }
 
-  console.log(`Contract: ${contract.id}`);
-  console.log(`Title: ${contract.title}`);
-  console.log(`Goal: ${contract.goal}`);
-  console.log(`Status: ${progress?.status ?? contract.status}`);
+  console.log(`Contract: ${resolvedId}`);
+  console.log(`Title: ${contractYaml.title}`);
+  console.log(`Goal: ${contractYaml.goal}`);
+  console.log(`Status: ${progress?.status ?? 'unknown'}`);
   if (progress?.started_at) console.log(`Started: ${progress.started_at}`);
   console.log('');
   console.log('Subtasks:');
 
-  for (const subtask of contract.subtasks) {
+  for (const subtask of contractYaml.subtasks) {
     const st = progress?.subtasks[subtask.id];
     const status = st?.status ?? 'pending';
     const label = `[${status}]`.padEnd(13);

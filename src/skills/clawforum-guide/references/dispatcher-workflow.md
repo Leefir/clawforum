@@ -32,16 +32,32 @@ expectations: |
   - 产出文件路径（若有，例如：clawspace/<contract-slug>/report.md）
 subtasks:
   - id: collect-data
-    description: "动词 + 做什么 + 具体输出路径（clawspace/<contract-slug>/子目录），含该子任务特有的细化要求"
+    description: "动词 + 做什么，将结果写入 clawspace/<contract-slug>/report.md；含该子任务特有的细化要求"
 acceptance:
   - subtask_id: collect-data
-    type: script
-    script_file: acceptance/collect-data.sh
+    type: llm
+    prompt_file: acceptance/collect-data.prompt.txt
 escalation:
   max_retries: 3
 ```
 
-**重要**：每个有产出文件的子任务，description 里必须写明路径（`clawspace/<contract-slug>/<文件名>`）。Claw 依赖这个路径决定把文件写到哪里。
+### acceptance/collect-data.prompt.txt
+
+```
+检查 clawspace/<contract-slug>/report.md 是否存在且包含……
+
+子任务描述：{{subtask_description}}
+完成证据：{{evidence}}
+```
+
+可用变量：`{{evidence}}`（done 时填写的描述）、`{{subtask_description}}`、`{{artifacts}}`。
+
+**重要**：
+- 每个有产出文件的子任务，description 里必须写明路径（`clawspace/<contract-slug>/<文件名>`）。Claw 依赖这个路径决定把文件写到哪里。
+- **禁止把验收条件写在 subtask 内部**（`subtask.acceptance: |` 格式无效，系统不会读取）。验收必须写在顶层 `acceptance` 数组里。
+- `type: llm` 必须用 `prompt_file`（指向 acceptance/ 目录下的 .prompt.txt 文件），**不能用 `prompt` 内联文本**——系统会报错。
+- `type: script` 用 `script_file`（指向 acceptance/ 目录下的 .sh 文件）。
+- prompt 里应包含对产出文件的存在性和内容检查（文件不存在 → 验收不通过）。
 
 详细字段说明和验收规则见 [contract.md](contract.md)。
 
