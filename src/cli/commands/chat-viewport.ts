@@ -224,12 +224,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushStreaming = () => {
     if (streamingBuffer) {
-      const prefix = '⏺ ';
-      const indent = ' '.repeat(stringWidth(prefix));
+      const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
+      const indent = ' '.repeat(1 + 1);  // ⏺(1列) + 空格(1列) = 2
       const formatted = streamingBuffer
         .split('\n')
-        .map((line, i) => (i === 0 ? prefix : indent) + line)
-        .join('\n');
+        .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
+      .join('\n');
       appendOutput('', formatted);
       streamingBuffer = '';
       streamingSuffix = '';
