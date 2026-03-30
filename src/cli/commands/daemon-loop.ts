@@ -92,13 +92,28 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
     } catch { /* 状态持久化失败不影响主循环 */ }
   };
 
-  // 启动时恢复（崩溃重启继续退避）
-  try {
-    const saved = JSON.parse(fsNative.readFileSync(llmRetryStateFile, 'utf-8'));
-    if (typeof saved.llmRetryCount === 'number') llmRetryCount = saved.llmRetryCount;
-    if (typeof saved.llmRetryDelayMs === 'number') llmRetryDelayMs = saved.llmRetryDelayMs;
-    if (typeof saved.llmRetryPending === 'boolean') llmRetryPending = saved.llmRetryPending;
-  } catch { /* 首次启动或文件损坏，使用默认值 */ }
+  // 检查 clean-stop 标记：intentional stop → 清零退避状态
+  const clawforumDir = path.dirname(agentDir);   // agentDir = .clawforum/motion，dirname = .clawforum
+  const cleanStopFile = path.join(clawforumDir, 'clean-stop');
+  const isCleanStop = (() => {
+    try {
+      fsNative.accessSync(cleanStopFile);
+      fsNative.unlinkSync(cleanStopFile);   // 消费标记，只生效一次
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  // 启动时恢复（崩溃重启继续退避；clean stop 后跳过，保持默认值）
+  if (!isCleanStop) {
+    try {
+      const saved = JSON.parse(fsNative.readFileSync(llmRetryStateFile, 'utf-8'));
+      if (typeof saved.llmRetryCount === 'number') llmRetryCount = saved.llmRetryCount;
+      if (typeof saved.llmRetryDelayMs === 'number') llmRetryDelayMs = saved.llmRetryDelayMs;
+      if (typeof saved.llmRetryPending === 'boolean') llmRetryPending = saved.llmRetryPending;
+    } catch { /* 首次启动或文件损坏，使用默认值 */ }
+  }
 
   const stop = () => { stopped = true; };
 
