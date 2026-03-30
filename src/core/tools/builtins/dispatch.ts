@@ -1,6 +1,6 @@
 import type { ITool, ToolResult, ExecContext, ToolPermissions } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
-import type { Message, ToolDefinition } from '../../../types/message.js';
+import type { Message, ToolDefinition, ToolUseBlock, ToolResultBlock } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
@@ -162,24 +162,27 @@ dispatcher 不能：
     for (const msg of dialogMessages) {
       if (msg.role === 'assistant' && Array.isArray(msg.content)) {
         for (const block of msg.content) {
-          if (block.type === 'tool_use' && (block as { name: string }).name === 'dispatch') {
-            dispatchToolUseIds.add((block as { id: string }).id);
+          if (block.type === 'tool_use') {
+            const toolUse = block as ToolUseBlock;
+            if (toolUse.name === 'dispatch') {
+              dispatchToolUseIds.add(toolUse.id);
+            }
           }
         }
       }
     }
 
-    const dispatcherMessages: Message[] = dispatchToolUseIds.size === 0
+    let dispatcherMessages: Message[] = dispatchToolUseIds.size === 0
       ? [...dialogMessages]
       : dialogMessages.reduce<Message[]>((acc, msg) => {
           if (msg.role === 'assistant' && Array.isArray(msg.content)) {
             const filtered = msg.content.filter(
-              b => !(b.type === 'tool_use' && dispatchToolUseIds.has((b as { id: string }).id))
+              b => !(b.type === 'tool_use' && dispatchToolUseIds.has((b as ToolUseBlock).id))
             );
             if (filtered.length > 0) acc.push({ ...msg, content: filtered });
           } else if (msg.role === 'user' && Array.isArray(msg.content)) {
             const filtered = msg.content.filter(
-              b => !(b.type === 'tool_result' && dispatchToolUseIds.has((b as { tool_use_id: string }).tool_use_id))
+              b => !(b.type === 'tool_result' && dispatchToolUseIds.has((b as ToolResultBlock).tool_use_id))
             );
             if (filtered.length > 0) acc.push({ ...msg, content: filtered });
           } else {
@@ -187,6 +190,14 @@ dispatcher 不能：
           }
           return acc;
         }, []);
+
+    // 过滤后可能尾部是 user message（被删掉的 dispatch assistant message 之前的用户输入）。
+    // SubAgent 会追加 dispatcher prompt 作为 user message，连续两条 user 违反 API 要求。
+    // 裁掉尾部 user message，保证最后一条是 assistant（或为空），prompt 可安全追加。
+    while (dispatcherMessages.length > 0 &&
+           dispatcherMessages[dispatcherMessages.length - 1].role === 'user') {
+      dispatcherMessages.pop();
+    }
 
     // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
     const toolsForLLM = this.getToolsForLLM();
