@@ -224,7 +224,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushStreaming = () => {
     if (streamingBuffer) {
-      appendOutput('', streamingBuffer);
+      const prefix = '⏺ ';
+      const indent = ' '.repeat(stringWidth(prefix));
+      const formatted = streamingBuffer
+        .split('\n')
+        .map((line, i) => (i === 0 ? prefix : indent) + line)
+        .join('\n');
+      appendOutput('', formatted);
       streamingBuffer = '';
       streamingSuffix = '';
       updateDisplay();   // 清空游标后立即重渲染
@@ -233,10 +239,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushThinking = () => {
     if (thinkingBuffer) {
-      if (thinkingMode === 'full') {
-        appendOutput('\x1b[2m', thinkingBuffer);
-      }
-      // 'compact' / 'off': 不写入永久区，直接丢弃
+      const prefix = '⏺ ';
+      const indent = ' '.repeat(stringWidth(prefix));
+      const formatted = thinkingBuffer
+        .split('\n')
+        .map((line, i) => (i === 0 ? prefix : indent) + line)
+        .join('\n');
+      appendOutput('\x1b[2m', formatted);
       thinkingBuffer = '';
     }
   };
@@ -295,7 +304,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        appendOutput('\x1b[36m', `→ ${event.name}`);
+        appendOutput('\x1b[36m', `▶ ${event.name}`);
         startSpinner(`${event.name}...`);
         break;
 
@@ -726,7 +735,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_call':
         if (tw?.silent) break;
         stopSpinner();
-        appendOutput('\x1b[36m', `→ ${prefix}:${event.name}`);
+        appendOutput('\x1b[36m', `▶ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
