@@ -75,6 +75,11 @@ export const ClawGlobalConfigSchema = z.object({
       }).optional(),
     }).optional(),
   }).optional(),
+  viewport: z.object({
+    show_subagent_stream: z.boolean().default(false),
+    show_system_messages: z.boolean().default(false),
+    show_contract_events: z.boolean().default(true),
+  }).optional(),
 });
 
 export const ClawConfigSchema = z.object({
