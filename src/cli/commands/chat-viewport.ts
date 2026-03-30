@@ -264,7 +264,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushThinking();
         flushStreaming();
         const srcs = event.sources as Array<{ text: string; type: string }> | undefined;
-        if (srcs && srcs.length > 0) {
+        if (showSystemMessages && srcs && srcs.length > 0) {
           // 显示所有非 user_chat 的来源（系统消息、inbox 消息等）
           const sysParts = srcs.filter(s => s.type !== 'user_chat').map(s => s.text);
           if (sysParts.length > 0) {
@@ -368,19 +368,19 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const title = (event.title as string) ?? '';
           const count = (event.subtaskCount as number) ?? 0;
-          appendOutput('\x1b[2m', `  ✓ [contract] "${title}" created for ${claw} (${count} subtasks)`);
+          if (showContractEvents) appendOutput('\x1b[2m', `  ✓ [contract] "${title}" created for ${claw} (${count} subtasks)`);
         } else if (sub === 'subtask_completed') {
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const completed = event.completedCount as number | undefined;
           const total = event.subtaskTotal as number | undefined;
           const progress = completed != null && total != null ? `, ${completed} of ${total}` : '';
-          appendOutput('\x1b[2m', `  ✓ [contract] ${subtaskId} passed${progress} (${claw})`);
+          if (showContractEvents) appendOutput('\x1b[2m', `  ✓ [contract] ${subtaskId} passed${progress} (${claw})`);
         } else if (sub === 'acceptance_failed') {
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          appendOutput('\x1b[2m', fitLine(`  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`));
+          if (showContractEvents) appendOutput('\x1b[2m', fitLine(`  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`));
         } else if (sub === 'llm_error') {
           // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
@@ -733,6 +733,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     callerType: string,
     event: { type: string; [key: string]: unknown },
   ) => {
+    if (!showSubagentStream) return;
     const tw = taskWatchMap.get(taskId);
     const prefix = callerType;
     switch (event.type) {
