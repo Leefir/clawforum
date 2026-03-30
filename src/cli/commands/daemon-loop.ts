@@ -92,10 +92,11 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
     } catch { /* 状态持久化失败不影响主循环 */ }
   };
 
-  // 检查 clean-stop 标记：intentional stop → 清零退避状态
-  const clawforumDir = path.dirname(agentDir);   // agentDir = .clawforum/motion，dirname = .clawforum
-  const cleanStopFile = path.join(clawforumDir, 'clean-stop');
+  // 检查 clean-stop 标记（仅 motion daemon）：intentional stop → 清零退避状态
+  // options.heartbeat 只有 motion 传入，用于区分 motion 和 claw daemon
   const isCleanStop = (() => {
+    if (!options.heartbeat) return false;   // claw daemon，不检查
+    const cleanStopFile = path.join(path.dirname(agentDir), 'clean-stop');
     try {
       fsNative.accessSync(cleanStopFile);
       fsNative.unlinkSync(cleanStopFile);   // 消费标记，只生效一次
