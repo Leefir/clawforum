@@ -445,6 +445,15 @@ export class ContractManager {
         const validIds = Object.keys(progress.subtasks).join(', ');
         throw new ToolError(`Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`);
       }
+
+      // Guard: reject duplicate done() call
+      const currentStatus = progress.subtasks[subtaskId].status;
+      if (currentStatus === 'in_progress') {
+        throw new ToolError(`Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.`);
+      }
+      if (currentStatus === 'completed') {
+        throw new ToolError(`Subtask "${subtaskId}" is already completed.`);
+      }
       
       // Mark as in_progress during acceptance verification
       progress.subtasks[subtaskId] = {

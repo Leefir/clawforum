@@ -295,6 +295,26 @@ describe('ContractManager', () => {
     expect(progress.subtasks['task-1'].status).toBe('todo');
   });
 
+  it('should return error feedback on duplicate done() call for already-completed subtask', async () => {
+    const contractId = await manager.create({
+      schema_version: 1 as const,
+      title: 'Test',
+      goal: 'Test',
+      subtasks: [{ id: 'task-1', description: 'Task 1' }, { id: 'task-2', description: 'Task 2' }],
+      acceptance: [],  // sync path (no acceptance config)
+      auth_level: 'auto' as const,
+    });
+
+    // First call: completes successfully
+    const first = await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });
+    expect(first.passed).toBe(true);
+
+    // Second call on already-completed subtask: should return error feedback
+    const second = await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done again' });
+    expect(second.passed).toBe(false);
+    expect(second.feedback).toContain('already completed');
+  });
+
   it('should mark contract completed when all subtasks done', async () => {
     const contractYaml = {
       schema_version: 1 as const,
