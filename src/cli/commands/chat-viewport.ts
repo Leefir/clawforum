@@ -233,10 +233,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushThinking = () => {
     if (thinkingBuffer) {
-      if (thinkingMode === 'full') {
-        appendOutput('\x1b[2m', thinkingBuffer);
-      }
-      // 'compact' / 'off': 不写入永久区，直接丢弃
+      const prefix = '⏺ ';
+      const indent = ' '.repeat(stringWidth(prefix));
+      const formatted = thinkingBuffer
+        .split('\n')
+        .map((line, i) => (i === 0 ? prefix : indent) + line)
+        .join('\n');
+      appendOutput('\x1b[2m', formatted);
       thinkingBuffer = '';
     }
   };
