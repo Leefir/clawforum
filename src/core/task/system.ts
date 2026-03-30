@@ -67,7 +67,7 @@ export class TaskSystem {
 
   // Task result handlers (array for concurrent dispatch support)
   private _taskResultHandlers: Array<
-    (taskId: string, callerType: string | undefined, result: string, isError: boolean) => Promise<string>
+    (taskId: string, callerType: 'subagent' | 'dispatcher' | undefined, result: string, isError: boolean) => Promise<string>
   > = [];
 
   /**
@@ -76,7 +76,7 @@ export class TaskSystem {
    * returned by the previous handler (pipeline pattern).
    */
   addTaskResultHandler(
-    handler: (taskId: string, callerType: string | undefined, result: string, isError: boolean) => Promise<string>,
+    handler: (taskId: string, callerType: 'subagent' | 'dispatcher' | undefined, result: string, isError: boolean) => Promise<string>,
   ): () => void {
     this._taskResultHandlers.push(handler);
     return () => {
