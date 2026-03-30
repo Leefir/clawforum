@@ -18,6 +18,7 @@ import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
+import type { SkillRegistry } from '../skill/registry.js';
 import type { Message } from '../../types/message.js';
 
 export interface SubAgentOptions {
@@ -39,6 +40,7 @@ export interface SubAgentOptions {
   taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
+  skillRegistry?: SkillRegistry;            // skill 工具需要
   subagentMaxSteps?: number;                 // 传给子 SubAgent
   messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
   originClawId?: string;                     // 创建链路源头，传给子 SubAgent
@@ -65,6 +67,7 @@ export class SubAgent {
   private taskSystem?: TaskSystem;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
+  private skillRegistry?: SkillRegistry;
   private subagentMaxSteps?: number;
   private messages?: Message[];
   private originClawId?: string;
@@ -90,6 +93,7 @@ export class SubAgent {
     this.taskSystem = options.taskSystem;
     this.outboxWriter = options.outboxWriter;
     this.contractManager = options.contractManager;
+    this.skillRegistry = options.skillRegistry;
     this.subagentMaxSteps = options.subagentMaxSteps;
     this.messages = options.messages;
     this.originClawId = options.originClawId;
@@ -146,6 +150,7 @@ export class SubAgent {
         taskSystem: this.taskSystem,
         outboxWriter: this.outboxWriter,
         contractManager: this.contractManager,
+        skillRegistry: this.skillRegistry,
         subagentMaxSteps: this.subagentMaxSteps ?? this.maxSteps,
         profile: executorProfile,
       });

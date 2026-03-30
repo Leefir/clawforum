@@ -18,6 +18,9 @@ import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolResult } from '../tools/executor.js';
 import type { Message, ToolDefinition } from '../../types/message.js';
+import type { OutboxWriter } from '../communication/outbox.js';
+import type { ContractManager } from '../contract/manager.js';
+import type { SkillRegistry } from '../skill/registry.js';
 
 export interface SubAgentTask {
   kind: 'subagent';
@@ -58,6 +61,9 @@ export class TaskSystem {
   private monitor: JsonlMonitor;
   private registry: ToolRegistry;
   private llm?: ILLMService;
+  private skillRegistry?: SkillRegistry;
+  private contractManager?: ContractManager;
+  private outboxWriter?: OutboxWriter;
 
   // Task result handlers (array for concurrent dispatch support)
   private _taskResultHandlers: Array<
@@ -260,6 +266,18 @@ export class TaskSystem {
 
   setLLMService(llm: ILLMService): void {
     this.llm = llm;
+  }
+
+  setSkillRegistry(registry: SkillRegistry): void {
+    this.skillRegistry = registry;
+  }
+
+  setContractManager(manager: ContractManager): void {
+    this.contractManager = manager;
+  }
+
+  setOutboxWriter(writer: OutboxWriter): void {
+    this.outboxWriter = writer;
   }
 
   private static readonly PENDING_QUEUE_MAX = 1000;
@@ -487,6 +505,9 @@ export class TaskSystem {
         messages: task.messages,
         originClawId: task.originClawId,
         taskSystem: this,   // dispatcher 的 spawn 工具需要
+        skillRegistry: this.skillRegistry,
+        contractManager: this.contractManager,
+        outboxWriter: this.outboxWriter,
         taskStreamWriter: { write: writeTaskEvent },
       });
 

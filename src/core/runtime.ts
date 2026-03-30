@@ -210,6 +210,11 @@ export class ClawRuntime {
     // 12. Create OutboxWriter first (needed by ExecContextImpl)
     this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs);
 
+    // Inject late-created dependencies into TaskSystem (created before SkillRegistry/ContractManager/OutboxWriter)
+    this.taskSystem.setSkillRegistry(this.skillRegistry);
+    this.taskSystem.setContractManager(this.contractManager);
+    this.taskSystem.setOutboxWriter(this.outboxWriter);
+
     // 13. Create ExecContextImpl (inject all dependencies; tools use clawFs)
     this.execContext = new ExecContextImpl({
       clawId,

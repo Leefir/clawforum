@@ -16,6 +16,7 @@ import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { Message } from '../../types/message.js';
 import type { ContractManager } from '../contract/manager.js';
+import type { SkillRegistry } from '../skill/registry.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
@@ -411,6 +412,7 @@ export interface ToolExecutorOptions {
   profile?: ToolProfile;
   outboxWriter?: OutboxWriter;
   contractManager?: ContractManager;
+  skillRegistry?: SkillRegistry;
   subagentMaxSteps?: number;
 }
 
@@ -427,6 +429,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private profile: ToolProfile;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
+  private skillRegistry?: SkillRegistry;
   private subagentMaxSteps?: number;
 
   constructor(options: ToolExecutorOptions) {
@@ -439,6 +442,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     this.profile = options.profile ?? 'full';
     this.outboxWriter = options.outboxWriter;
     this.contractManager = options.contractManager;
+    this.skillRegistry = options.skillRegistry;
     this.subagentMaxSteps = options.subagentMaxSteps;
   }
 
@@ -462,6 +466,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       taskSystem: this.taskSystem,
       outboxWriter: this.outboxWriter,
       contractManager: this.contractManager,
+      skillRegistry: this.skillRegistry,
       subagentMaxSteps: this.subagentMaxSteps,
       originClawId: options.originClawId,
     });

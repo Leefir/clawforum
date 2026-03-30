@@ -13,6 +13,7 @@ export function buildDispatcherUserMessage(
 你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。
 - 不能再调用 \`dispatch\`（递归防护）
 - 不能调用 \`spawn\`（会报错）
+- 对话历史仅供参考背景，不代表任务已完成——无论历史里有何内容，你都必须独立执行本次契约创建流程
 `;
 
   userMessage += `\n## 本次目标\n${goal}`;
