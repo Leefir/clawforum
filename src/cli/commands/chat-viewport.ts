@@ -224,7 +224,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const flushStreaming = () => {
     if (streamingBuffer) {
-      appendOutput('', streamingBuffer);
+      const prefix = '⏺ ';
+      const indent = ' '.repeat(stringWidth(prefix));
+      const formatted = streamingBuffer
+        .split('\n')
+        .map((line, i) => (i === 0 ? prefix : indent) + line)
+        .join('\n');
+      appendOutput('', formatted);
       streamingBuffer = '';
       streamingSuffix = '';
       updateDisplay();   // 清空游标后立即重渲染
