@@ -304,7 +304,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        appendOutput('\x1b[36m', `→ ${event.name}`);
+        appendOutput('\x1b[36m', `▶ ${event.name}`);
         startSpinner(`${event.name}...`);
         break;
 
@@ -735,7 +735,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_call':
         if (tw?.silent) break;
         stopSpinner();
-        appendOutput('\x1b[36m', `→ ${prefix}:${event.name}`);
+        appendOutput('\x1b[36m', `▶ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
