@@ -48,7 +48,6 @@ export const ClawGlobalConfigSchema = z.object({
     subagent_max_steps: z.number().min(1).max(200).optional(),
     max_concurrent_tasks: z.number().min(1).max(20).default(3),
     llm_idle_timeout_ms: z.number().min(0).max(600000).default(60000),
-    retrospective_silent: z.boolean().default(false),
   }).optional(),
   tool_timeout_ms: z.number().min(1000).max(600000).default(60000),
   watchdog: z.object({
