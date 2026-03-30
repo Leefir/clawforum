@@ -128,7 +128,6 @@ const inactivityNotifyCount: Map<string, number> = new Map();  // consecutive no
 
 interface WatchdogState {
   lastInactivityNotified: Record<string, number>;
-  clawPreviouslyAlive: Record<string, boolean>;
   inactivityNotifyCount: Record<string, number>;
 }
 
@@ -143,9 +142,6 @@ function loadWatchdogState(): void {
     for (const [k, v] of Object.entries(state.lastInactivityNotified ?? {})) {
       lastInactivityNotified.set(k, v);
     }
-    for (const [k, v] of Object.entries(state.clawPreviouslyAlive ?? {})) {
-      clawPreviouslyAlive.set(k, v);
-    }
     for (const [k, v] of Object.entries(state.inactivityNotifyCount ?? {})) {
       inactivityNotifyCount.set(k, v);
     }
@@ -157,7 +153,6 @@ function loadWatchdogState(): void {
 function saveWatchdogState(): void {
   const state: WatchdogState = {
     lastInactivityNotified: Object.fromEntries(lastInactivityNotified),
-    clawPreviouslyAlive: Object.fromEntries(clawPreviouslyAlive),
     inactivityNotifyCount: Object.fromEntries(inactivityNotifyCount),
   };
   try {
