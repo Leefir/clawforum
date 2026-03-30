@@ -218,11 +218,14 @@ export async function daemonCommand(name: string): Promise<void> {
           let targetClaw: string | null = null;
           try {
             const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
-            targetClaw = typeof raw.targetClaw === 'string' ? raw.targetClaw : null;
-            if (!targetClaw) {
-              console.warn('[daemon] by-contract index missing targetClaw, skipping retrospective:', contractId);
+            const rawTarget = typeof raw === 'object' && raw !== null && typeof raw.targetClaw === 'string'
+              ? raw.targetClaw
+              : null;
+            if (!rawTarget || !/^[a-z0-9-]+$/.test(rawTarget)) {
+              console.warn('[daemon] by-contract index has invalid targetClaw, skipping retrospective:', contractId, rawTarget);
               continue;
             }
+            targetClaw = rawTarget;
           } catch (e) {
             const code = (e as NodeJS.ErrnoException).code;
             if (code !== 'ENOENT') {
@@ -232,6 +235,7 @@ export async function daemonCommand(name: string): Promise<void> {
           }
 
           // 加载契约 YAML 原始字符串
+          if (!targetClaw) continue;  // 防御性检查，前面已验证
           const clawsBaseDir = path.resolve(dir, '..', 'claws');
           const clawDir = path.join(clawsBaseDir, targetClaw);
           const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
