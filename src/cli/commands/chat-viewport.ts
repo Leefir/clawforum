@@ -885,6 +885,29 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     },
   });
 
+  registerCmd({
+    name: 'clear',
+    description: '清空输出区域',
+    execute: () => {
+      outputLines.length = 0;
+      streamingSuffix = '';
+      updateDisplay();
+    },
+  });
+
+  registerCmd({
+    name: 'help',
+    description: '显示可用命令列表',
+    execute: () => {
+      const lines = ['可用命令：'];
+      for (const cmd of commandRegistry.values()) {
+        lines.push(`  ${cmd.usage ?? '/' + cmd.name}  — ${cmd.description}`);
+      }
+      lines.push('快捷键：ESC 中断当前 turn  /  Ctrl+C 或 Ctrl+D 退出  /  Ctrl+L 清屏');
+      appendOutput('\x1b[2m', lines.join('\n'));
+    },
+  });
+
   // 输入提交处理
   editor.onSubmit = (text: string) => {
     const trimmed = text.trim();
@@ -935,6 +958,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // 使用 includes 匹配批量输入（如 \x03\x03\x1b\x1b）
     if (data.includes('\x03') || data.includes('\x04')) {
       resolveExit();
+      return { consume: true };
+    }
+    // Ctrl+L → 清屏
+    if (data.includes('\x0c')) {
+      outputLines.length = 0;
+      streamingSuffix = '';
+      updateDisplay();
       return { consume: true };
     }
     // ESC → 中断 daemon react（只在活跃 turn 时有效）
