@@ -163,20 +163,25 @@ dispatcher 不能：
     const toolsForLLM = this.getToolsForLLM();
 
     // 调度 dispatcher（之后填入 dispatcherTaskId 供钩子定向）
-    dispatcherTaskId = await taskSystem.scheduleSubAgent({
-      kind: 'subagent',
-      messages: dispatcherMessages,  // 完整对话上下文
-      prompt: userMessage,            // 保留（兼容 fallback）
-      tools: [],                     // 空 = 使用 registry 全部工具
-      timeout: 3600,                 // 总超时 1 小时
-      maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,
-      parentClawId: ctx.clawId,
-      systemPrompt,
-      callerType: 'dispatcher',
-      idleTimeoutMs,
-      originClawId: ctx.originClawId ?? ctx.clawId,
-      toolsForLLM,                   // 使用 Motion 完整工具列表，确保 KV cache 命中
-    });
+    try {
+      dispatcherTaskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
+        messages: dispatcherMessages,  // 完整对话上下文
+        prompt: userMessage,            // 保留（兼容 fallback）
+        tools: [],                     // 空 = 使用 registry 全部工具
+        timeout: 3600,                 // 总超时 1 小时
+        maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,
+        parentClawId: ctx.clawId,
+        systemPrompt,
+        callerType: 'dispatcher',
+        idleTimeoutMs,
+        originClawId: ctx.originClawId ?? ctx.clawId,
+        toolsForLLM,                   // 使用 Motion 完整工具列表，确保 KV cache 命中
+      });
+    } catch (e) {
+      removeHandler?.();
+      throw e;
+    }
 
     const taskId = dispatcherTaskId;
 

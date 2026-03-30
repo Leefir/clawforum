@@ -236,7 +236,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (thinkingMode === 'full') {
         appendOutput('\x1b[2m', thinkingBuffer);
       }
-      // 'line' / 'none': 不写入永久区，直接丢弃
+      // 'compact' / 'off': 不写入永久区，直接丢弃
       thinkingBuffer = '';
     }
   };
