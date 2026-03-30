@@ -1,6 +1,6 @@
 import type { ITool, ToolResult, ExecContext, ToolPermissions } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
-import type { Message, ToolDefinition, ToolUseBlock, ToolResultBlock } from '../../../types/message.js';
+import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
@@ -155,49 +155,9 @@ dispatcher 不能：
       console.warn('[dispatch] dialogMessages not provided or empty — dispatcher will run without conversation context');
     }
 
-    // 过滤 dispatch tool_use/tool_result 对：
-    // dispatcher 看到 "Dispatcher started. Task ID: ..." 会误以为任务已在处理中。
-    // 成对删除：先收集所有 dispatch tool_use id，再同时移除对应的 tool_use 和 tool_result。
-    const dispatchToolUseIds = new Set<string>();
-    for (const msg of dialogMessages) {
-      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-        for (const block of msg.content) {
-          if (block.type === 'tool_use') {
-            const toolUse = block as ToolUseBlock;
-            if (toolUse.name === 'dispatch') {
-              dispatchToolUseIds.add(toolUse.id);
-            }
-          }
-        }
-      }
-    }
-
-    let dispatcherMessages: Message[] = dispatchToolUseIds.size === 0
-      ? [...dialogMessages]
-      : dialogMessages.reduce<Message[]>((acc, msg) => {
-          if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-            const filtered = msg.content.filter(
-              b => !(b.type === 'tool_use' && dispatchToolUseIds.has((b as ToolUseBlock).id))
-            );
-            if (filtered.length > 0) acc.push({ ...msg, content: filtered });
-          } else if (msg.role === 'user' && Array.isArray(msg.content)) {
-            const filtered = msg.content.filter(
-              b => !(b.type === 'tool_result' && dispatchToolUseIds.has((b as ToolResultBlock).tool_use_id))
-            );
-            if (filtered.length > 0) acc.push({ ...msg, content: filtered });
-          } else {
-            acc.push(msg);
-          }
-          return acc;
-        }, []);
-
-    // 过滤后可能尾部是 user message（被删掉的 dispatch assistant message 之前的用户输入）。
-    // SubAgent 会追加 dispatcher prompt 作为 user message，连续两条 user 违反 API 要求。
-    // 裁掉尾部 user message，保证最后一条是 assistant（或为空），prompt 可安全追加。
-    while (dispatcherMessages.length > 0 &&
-           dispatcherMessages[dispatcherMessages.length - 1].role === 'user') {
-      dispatcherMessages.pop();
-    }
+    // messages 截止至当前 dispatch tool_use（loop 在执行工具前已追加），tool_result 尚未产生。
+    // 历史 dispatch 对（tool_use + tool_result）保持完整，确保 KV cache 命中。
+    const dispatcherMessages: Message[] = [...dialogMessages];
 
     // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
     const toolsForLLM = this.getToolsForLLM();

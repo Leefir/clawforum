@@ -117,10 +117,6 @@ export const THINKING_TOKEN_RESERVE = 1024;
 /** Default max tokens for LLM calls */
 export const REACT_DEFAULT_MAX_TOKENS = 4096;
 
-/** Session context token limit for sliding window truncation.
- * Leaves ~100k tokens for system prompt + output in 200k context models. */
-export const SESSION_CONTEXT_MAX_TOKENS = 100_000;
-
 // ----------------------------------------------------------------------------
 // Daemon / CLI
 // ----------------------------------------------------------------------------

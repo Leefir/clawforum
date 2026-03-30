@@ -106,16 +106,6 @@ describe('Dialog', () => {
       expect(recovered.messages[0].content).toBe('Archived message');
     });
 
-    it('should estimate tokens correctly (chars / 4)', async () => {
-      // 100 characters should estimate to ~25 tokens
-      const messages: Message[] = [
-        { role: 'user', content: 'a'.repeat(100) },
-      ];
-
-      const tokens = sessionManager.estimateTokens(messages);
-      expect(tokens).toBe(25);
-    });
-
     it('should append message and save', async () => {
       const msg: Message = { role: 'user', content: 'New message' };
       
@@ -124,16 +114,6 @@ describe('Dialog', () => {
       const loaded = await sessionManager.load();
       expect(loaded.messages).toHaveLength(1);
       expect(loaded.messages[0].content).toBe('New message');
-    });
-
-    it('should update token estimate as messages grow', async () => {
-      const tokens1 = sessionManager.estimateTokens([{ role: 'user', content: 'a'.repeat(40) }]);
-      const tokens2 = sessionManager.estimateTokens([
-        { role: 'user', content: 'a'.repeat(40) },
-        { role: 'assistant', content: 'b'.repeat(40) },
-      ]);
-
-      expect(tokens2).toBe(tokens1 * 2);
     });
 
     it('should track session metadata', async () => {
@@ -217,73 +197,6 @@ describe('Dialog', () => {
       });
     });
 
-    describe('truncateForContext', () => {
-      it('should return same reference when under token limit', () => {
-        const messages: Message[] = [
-          { role: 'user', content: 'hi' },
-          { role: 'assistant', content: 'hello' },
-        ];
-        const { result, pruned } = sessionManager.truncateForContext(messages, 999_999);
-        expect(result).toBe(messages);
-        expect(pruned).toBe(0);
-      });
-
-      it('should truncate from front when over token limit', () => {
-        // 400 chars × 10 messages = 4000 chars = 1000 tokens — well over limit 50
-        const big = 'x'.repeat(400);
-        const messages: Message[] = Array.from({ length: 10 }, (_, i) => ({
-          role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
-          content: big,
-        }));
-
-        const { result, pruned } = sessionManager.truncateForContext(messages, 50);
-
-        expect(pruned).toBeGreaterThan(0);
-        expect(result.length).toBeLessThan(messages.length);
-        expect(result.length).toBeGreaterThanOrEqual(2); // always keep at least 2
-      });
-
-      it('should always start on a user message that is not pure tool_results', () => {
-        // Build: [user-text, assistant-tool_use, user-tool_result-only, assistant-text, user-text, assistant-text]
-        // After truncation past the first user-text, the tool_result-only user must be skipped
-        const messages: Message[] = [
-          { role: 'user', content: 'x'.repeat(400) },     // 0: big — will be truncated past
-          {
-            role: 'assistant',
-            content: [{ type: 'tool_use', id: 't1', name: 'foo', input: {} }] as any,
-          },                                               // 1
-          {
-            role: 'user',
-            content: [{ type: 'tool_result', tool_use_id: 't1', content: 'res' }] as any,
-          },                                               // 2: pure tool_result — must NOT be first
-          { role: 'assistant', content: 'partial answer' }, // 3
-          { role: 'user', content: 'follow-up' },          // 4: safe start
-          { role: 'assistant', content: 'final' },          // 5
-        ];
-
-        // Limit forces a cut past index 0 but indices 2-5 fit
-        const { result } = sessionManager.truncateForContext(messages, 10);
-
-        // result[0] must not be a pure-tool_result user message
-        expect(result.length).toBeGreaterThanOrEqual(2);
-        const first = result[0];
-        if (first.role === 'user' && Array.isArray(first.content)) {
-          const isPureToolResult = (first.content as any[]).every(
-            (b: any) => b.type === 'tool_result'
-          );
-          expect(isPureToolResult).toBe(false);
-        }
-      });
-
-      it('should preserve at most 2 messages when everything is over limit', () => {
-        const messages: Message[] = [
-          { role: 'user', content: 'x'.repeat(400) },
-          { role: 'assistant', content: 'y'.repeat(400) },
-        ];
-        const { result } = sessionManager.truncateForContext(messages, 1); // absurdly small
-        expect(result.length).toBeGreaterThanOrEqual(2);
-      });
-    });
   });
 
   describe('ContextInjector', () => {

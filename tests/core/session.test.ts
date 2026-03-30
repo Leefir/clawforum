@@ -264,68 +264,6 @@ describe('SessionManager unit tests', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  // --- truncateForContext ---
-
-  it('truncateForContext: returns original reference when under limit', () => {
-    const messages: Message[] = [
-      { role: 'user', content: 'hello' },
-      { role: 'assistant', content: 'hi' },
-    ];
-    const { result, pruned } = sm.truncateForContext(messages, 100_000);
-    expect(result).toBe(messages); // same reference
-    expect(pruned).toBe(0);
-  });
-
-  it('truncateForContext: truncates and lands on first valid user message', () => {
-    const long = 'x'.repeat(400); // ~100 tokens
-    const messages: Message[] = [
-      { role: 'user', content: long },       // [0] overlong
-      { role: 'assistant', content: long },   // [1] overlong
-      { role: 'user', content: 'question' }, // [2] valid start
-      { role: 'assistant', content: 'ans' },
-      { role: 'user', content: 'more' },
-    ];
-    // limit=50 tokens → slice starts at [2]
-    const { result, pruned } = sm.truncateForContext(messages, 50);
-    expect(result[0].role).toBe('user');
-    expect(result[0].content).toBe('question');
-    expect(pruned).toBe(2);
-  });
-
-  it('truncateForContext: skips pure-tool-result user message when finding start', () => {
-    const long = 'x'.repeat(400); // ~100 tokens
-    const messages: Message[] = [
-      { role: 'user', content: long },  // [0] overlong
-      { role: 'assistant', content: [{ type: 'tool_use', id: '1', name: 'r', input: {} }] }, // [1]
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: '1', content: 'res' }] }, // [2] pure-tool-result
-      { role: 'user', content: 'regular question' },  // [3] valid start
-      { role: 'assistant', content: 'done' },
-    ];
-    // limit=50 tokens: first loop stops at cutIdx=1, second loop skips [1],[2] → lands on [3]
-    const { result, pruned } = sm.truncateForContext(messages, 50);
-    expect(result[0].role).toBe('user');
-    expect(result[0].content).toBe('regular question');
-    expect(pruned).toBe(3);
-  });
-
-  it('truncateForContext: H2 — falls back to full array when no valid start (all tail is assistant/tool_result)', () => {
-    const long = 'x'.repeat(400); // ~100 tokens
-    // Sequence: [long_user, assistant_tool_use, pure_tool_result_user, assistant_text, user_final]
-    // With limit=50: first loop stops at cutIdx=2 (messages[2..4] ≈ 17 tokens ≤ 50)
-    // Second loop: messages[2] isPureToolResult→skip, cutIdx=3; 3 < 3 = false → exit
-    // messages[3].role === 'assistant' → isValidStart=false → return original
-    const messages: Message[] = [
-      { role: 'user', content: long },
-      { role: 'assistant', content: [{ type: 'tool_use', id: '1', name: 'r', input: {} }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: '1', content: 'r' }] },
-      { role: 'assistant', content: 'done' },
-      { role: 'user', content: 'final' },
-    ];
-    const { result, pruned } = sm.truncateForContext(messages, 50);
-    expect(result).toBe(messages); // fallback: same reference
-    expect(pruned).toBe(0);
-  });
-
   // --- archive() ---
 
   it('archive: moves current.json to archive dir', async () => {

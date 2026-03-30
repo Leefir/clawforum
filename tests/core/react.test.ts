@@ -852,4 +852,116 @@ describe('ReAct Loop', () => {
     // messages should have user + assistant appended
     expect(messages).toHaveLength(2);
   });
+
+  describe('consecutive parse error detection', () => {
+    /**
+     * 生成包含格式错误 JSON 的 tool_use stream（无法通过 JSON.parse）
+     */
+    function createMalformedToolUseStream(toolName: string, callId: string): AsyncIterableIterator<StreamChunk> {
+      return (async function* () {
+        yield { type: 'tool_use_start' as const, toolUse: { id: callId, name: toolName, partialInput: '' } };
+        yield { type: 'tool_use_delta' as const, toolUse: { id: '', name: '', partialInput: '{bad json' } };
+        yield { type: 'done' as const };
+      })();
+    }
+
+    it('should throw after 3 consecutive parse errors', async () => {
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p1'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p2'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p3'));
+
+      const messages: Message[] = [{ role: 'user', content: 'Write a file' }];
+
+      await expect(runReact({
+        messages,
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+      })).rejects.toThrow('工具输入 JSON 连续解析失败 3 次');
+
+      // executor.execute should never be called — parse error short-circuits before tool execution
+      expect(mockExecutor.execute).not.toHaveBeenCalled();
+    });
+
+    it('should not throw after only 2 consecutive parse errors', async () => {
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p1'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p2'))
+        .mockImplementationOnce(() => (async function* () {
+          yield { type: 'text_delta' as const, delta: 'Giving up, sorry.' };
+          yield { type: 'done' as const };
+        })());
+
+      const messages: Message[] = [{ role: 'user', content: 'Write a file' }];
+
+      const result = await runReact({
+        messages,
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+      });
+
+      expect(result.finalText).toBe('Giving up, sorry.');
+      expect(result.stopReason).toBe('end_turn');
+    });
+
+    it('should reset counter after a successful tool call', async () => {
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        // 2 parse errors
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p1'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p2'))
+        // 1 successful tool call → resets counter
+        .mockImplementationOnce(() => (async function* () {
+          yield { type: 'tool_use_start' as const, toolUse: { id: 'call-ok', name: 'read', partialInput: '' } };
+          yield { type: 'tool_use_delta' as const, toolUse: { id: '', name: '', partialInput: '{"path":"x.txt"}' } };
+          yield { type: 'done' as const };
+        })())
+        // 2 more parse errors — counter was reset, so still below threshold
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p3'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p4'))
+        // final text
+        .mockImplementationOnce(() => (async function* () {
+          yield { type: 'text_delta' as const, delta: 'Done.' };
+          yield { type: 'done' as const };
+        })());
+
+      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        content: 'file content',
+      });
+
+      const messages: Message[] = [{ role: 'user', content: 'Do stuff' }];
+
+      const result = await runReact({
+        messages,
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+        maxSteps: 10,
+      });
+
+      // Should complete without throwing — counter reset after successful call
+      expect(result.finalText).toBe('Done.');
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw with tool name in error message', async () => {
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p1'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p2'))
+        .mockReturnValueOnce(createMalformedToolUseStream('write', 'call-p3'));
+
+      await expect(runReact({
+        messages: [{ role: 'user', content: 'test' }],
+        systemPrompt: '',
+        llm: mockLLM,
+        executor: mockExecutor,
+        ctx: mockCtx,
+      })).rejects.toThrow('write');
+    });
+  });
 });

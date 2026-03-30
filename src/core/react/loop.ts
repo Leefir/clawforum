@@ -132,6 +132,12 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   } = options;
 
   let stepCount = 0;
+  let consecutiveParseErrors = 0;
+  const MAX_CONSECUTIVE_PARSE_ERRORS = 3;
+  // 每步是否全为 parse error，由 onToolResult 回调统计（在 toToolResultBlock 之前触发，有 metadata）
+  let stepAllParseErrors = false;
+  let stepToolCount = 0;
+  let stepParseErrorCount = 0;
 
   while (stepCount < maxSteps) {
     // Sync step counter to context
@@ -175,16 +181,24 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
       appendAssistantMessage(messages, response.content);
 
       // Execute tool calls: read-only tools in parallel, write tools sequentially
+      // 通过内部 onToolResult 包装统计 parse error（ToolResult 有 metadata，ToolResultBlock 没有）
+      stepToolCount = toolCalls.length;
+      stepParseErrorCount = 0;
+      const trackingOnToolResult = (toolName: string, toolUseId: string, result: ToolResult, step: number, maxSteps: number) => {
+        if (result.metadata?.parseError === true) stepParseErrorCount++;
+        onToolResult?.(toolName, toolUseId, result, step, maxSteps);
+      };
       const toolResults = await executeToolCalls(
         toolCalls,
         executor,
         ctx,
         options.registry,
         onToolCall,
-        onToolResult,
+        trackingOnToolResult,
         stepCount,
         maxSteps
       );
+      stepAllParseErrors = stepToolCount > 0 && stepParseErrorCount === stepToolCount;
 
       // 检查是否被中断（工具执行后）
       if (ctx.signal?.aborted) {
@@ -193,6 +207,19 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 
       // Append tool results as user message
       appendToolResults(messages, toolResults);
+
+      // 检测连续解析失败：LLM 持续生成格式错误的 JSON 会导致无限循环直到 maxSteps 耗尽
+      if (stepAllParseErrors) {
+        consecutiveParseErrors++;
+        if (consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS) {
+          const toolNames = toolCalls.map(t => t.name).join(', ');
+          throw new Error(
+            `工具输入 JSON 连续解析失败 ${MAX_CONSECUTIVE_PARSE_ERRORS} 次（工具: ${toolNames}），终止执行`
+          );
+        }
+      } else {
+        consecutiveParseErrors = 0;
+      }
 
       // Increment step and continue loop
       ctx.incrementStep();
@@ -363,7 +390,11 @@ async function executeSingleTool(
 
     // Input JSON failed to parse — return error immediately without calling the tool
     if (__parseError) {
-      return { success: false, content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '').slice(0, 200)}` };
+      return {
+        success: false,
+        content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '').slice(0, 200)}`,
+        metadata: { parseError: true },
+      };
     }
 
     return await executor.execute({

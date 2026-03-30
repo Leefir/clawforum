@@ -40,7 +40,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { MaxStepsExceededError } from '../types/errors.js';
-import { SESSION_CONTEXT_MAX_TOKENS, MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../constants.js';
+import { MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../constants.js';
 
 /**
  * ClawRuntime constructor options
@@ -465,8 +465,7 @@ export class ClawRuntime {
    * @protected available for reuse by subclass MotionRuntime
    */
   protected async _runReact(messages: Message[], callbacks?: StreamCallbacks): Promise<void> {
-    const { result: contextMessages } = this.sessionManager.truncateForContext(messages, SESSION_CONTEXT_MAX_TOKENS);
-    this.execContext.dialogMessages = contextMessages;  // 注入截断后的对话上下文供 dispatch 工具读取
+    this.execContext.dialogMessages = messages;
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
@@ -486,7 +485,7 @@ export class ClawRuntime {
 
     try {
       await runReact({
-        messages: contextMessages,
+        messages: messages,
         systemPrompt,
         llm: this.llm,
         executor: this.toolExecutor,
@@ -495,7 +494,7 @@ export class ClawRuntime {
         registry: this.toolRegistry,  // Enable parallel execution for readonly tools
         maxSteps: this.options.maxSteps,
         onStepComplete: async () => {
-          await this.sessionManager.save(contextMessages);
+          await this.sessionManager.save(messages);
         },
         onTextDelta: (d) => { resetIdle?.(); callbacks?.onTextDelta?.(d); },
         onTextEnd: callbacks?.onTextEnd,
@@ -507,7 +506,7 @@ export class ClawRuntime {
     } finally {
       clearTimeout(idleTimerId);
     }
-    await this.sessionManager.save(contextMessages);
+    await this.sessionManager.save(messages);
   }
 
   /**
