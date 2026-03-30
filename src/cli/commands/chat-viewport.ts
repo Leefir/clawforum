@@ -312,7 +312,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        appendOutput('\x1b[36m', `▶ ${event.name}`);
+        appendOutput('\x1b[36m', `└─ ${event.name}`);
         startSpinner(`${event.name}...`);
         break;
 
@@ -323,9 +323,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
-        appendOutput('\x1b[2m', fitLine(`  ${icon} [${step}/${maxSteps}] ${event.summary as string}`));
         streamingSuffix = '';
-        updateDisplay();
+        appendOutput('\x1b[2m', fitLine(`   ${icon} [${step}/${maxSteps}] ${event.summary as string}`));
         break;
       }
 
@@ -744,16 +743,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_call':
         if (tw?.silent) break;
         stopSpinner();
-        appendOutput('\x1b[36m', `▶ ${prefix}:${event.name}`);
+        appendOutput('\x1b[36m', `└─ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
         if (tw?.silent) break;
         stopSpinner();
         const icon = event.success ? '✓' : '✗';
-        appendOutput('\x1b[2m', fitLine(`  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`));
         streamingSuffix = '';
-        updateDisplay();
+        appendOutput('\x1b[2m', fitLine(`   ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`));
         break;
       }
       case 'turn_end':
