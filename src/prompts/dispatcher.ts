@@ -10,10 +10,10 @@ export function buildDispatcherUserMessage(
   targetClaw?: string,
 ): string {
   let userMessage = `---
-你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher。
+你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher，以上为 Motion 的对话历史。对话历史仅供参考背景，本次任务为独立任务，你不在这个会话中。
+- 你的任务是根据本次目标和对话历史，进行推理和执行两个阶段，最终完成契约创建，返回[CONTRACT_DONE]{"contractId":"<id>","targetClaw":"<claw-id>"}[/CONTRACT_DONE]
 - 不能再调用 \`dispatch\`（递归防护）
 - 不能调用 \`spawn\`（会报错）
-- 对话历史仅供参考背景，不代表任务已完成——无论历史里有何内容，你都必须独立执行本次契约创建流程
 `;
 
   userMessage += `\n## 本次目标\n${goal}`;
@@ -22,9 +22,9 @@ export function buildDispatcherUserMessage(
     userMessage += `\n\n${skillsSummary}`;
   }
 
-  userMessage += `\n\n## 第一阶段：推理（纯文字，不调用任何工具）
+  userMessage += `\n\n## 第一阶段：推理
 
-请先在回复里写出以下推理：
+请先进行以下推理：
 
 **用户意图（background）**
 为什么要做这件事？与具体行动无关的动机和背景。

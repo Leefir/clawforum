@@ -114,13 +114,14 @@ Content.
       await tool.execute({ goal: 'follow up' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
-      const passedMessages = mockSchedule.mock.calls[0][0].messages;
-      expect(passedMessages).toBeDefined();
-      expect(passedMessages.length).toBe(3); // 2 dialog + 1 task prompt
-      expect(passedMessages[0]).toEqual({ role: 'user', content: 'Hello' });
-      expect(passedMessages[1]).toEqual({ role: 'assistant', content: 'Hi there' });
-      expect(passedMessages[2].role).toBe('user');
-      expect(passedMessages[2].content).toContain('follow up');
+      const call = mockSchedule.mock.calls[0][0];
+      // messages contains only dialog history; userMessage is passed separately via prompt
+      expect(call.messages).toBeDefined();
+      expect(call.messages.length).toBe(2);
+      expect(call.messages[0]).toEqual({ role: 'user', content: 'Hello' });
+      expect(call.messages[1]).toEqual({ role: 'assistant', content: 'Hi there' });
+      // userMessage is in prompt field, SubAgent appends it to messages before LLM call
+      expect(call.prompt).toContain('follow up');
     });
 
     it('should send only task prompt when ctx.dialogMessages is undefined', async () => {
@@ -130,11 +131,11 @@ Content.
       await tool.execute({ goal: 'standalone task' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
-      const passedMessages = mockSchedule.mock.calls[0][0].messages;
-      expect(passedMessages).toBeDefined();
-      expect(passedMessages.length).toBe(1);
-      expect(passedMessages[0].role).toBe('user');
-      expect(passedMessages[0].content).toContain('standalone task');
+      const call = mockSchedule.mock.calls[0][0];
+      // no dialog history, messages is empty; userMessage is in prompt
+      expect(call.messages).toBeDefined();
+      expect(call.messages.length).toBe(0);
+      expect(call.prompt).toContain('standalone task');
     });
   });
 

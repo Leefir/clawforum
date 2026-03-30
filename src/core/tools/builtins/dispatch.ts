@@ -154,7 +154,39 @@ dispatcher 不能：
     if (dialogMessages.length === 0) {
       console.warn('[dispatch] dialogMessages not provided or empty — dispatcher will run without conversation context');
     }
-    const dispatcherMessages: Message[] = [...dialogMessages];
+
+    // 过滤 dispatch tool_use/tool_result 对：
+    // dispatcher 看到 "Dispatcher started. Task ID: ..." 会误以为任务已在处理中。
+    // 成对删除：先收集所有 dispatch tool_use id，再同时移除对应的 tool_use 和 tool_result。
+    const dispatchToolUseIds = new Set<string>();
+    for (const msg of dialogMessages) {
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          if (block.type === 'tool_use' && (block as { name: string }).name === 'dispatch') {
+            dispatchToolUseIds.add((block as { id: string }).id);
+          }
+        }
+      }
+    }
+
+    const dispatcherMessages: Message[] = dispatchToolUseIds.size === 0
+      ? [...dialogMessages]
+      : dialogMessages.reduce<Message[]>((acc, msg) => {
+          if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+            const filtered = msg.content.filter(
+              b => !(b.type === 'tool_use' && dispatchToolUseIds.has((b as { id: string }).id))
+            );
+            if (filtered.length > 0) acc.push({ ...msg, content: filtered });
+          } else if (msg.role === 'user' && Array.isArray(msg.content)) {
+            const filtered = msg.content.filter(
+              b => !(b.type === 'tool_result' && dispatchToolUseIds.has((b as { tool_use_id: string }).tool_use_id))
+            );
+            if (filtered.length > 0) acc.push({ ...msg, content: filtered });
+          } else {
+            acc.push(msg);
+          }
+          return acc;
+        }, []);
 
     // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
     const toolsForLLM = this.getToolsForLLM();
