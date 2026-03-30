@@ -329,13 +329,13 @@ export class TaskSystem {
     const taskPath = `tasks/pending/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
 
-    // Register callback only after file write succeeds (avoids leaked entry on write failure)
-    this.pendingCallbacks.set(taskId, executeCallback);
-
-    // Add to pending queue
+    // Guard: check queue capacity before registering callback
     if (this.pendingQueue.length >= TaskSystem.PENDING_QUEUE_MAX) {
       throw new Error(`pendingQueue full (${TaskSystem.PENDING_QUEUE_MAX} tasks pending)`);
     }
+
+    // Register callback only after file write succeeds and queue capacity confirmed
+    this.pendingCallbacks.set(taskId, executeCallback);
     this.pendingQueue.push(task);
 
     // Log
