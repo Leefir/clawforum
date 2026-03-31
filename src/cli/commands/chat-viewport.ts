@@ -825,7 +825,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (daemonDead) return;
     try {
       const pid = parseInt(fsNative.readFileSync(pidFile, 'utf-8').trim(), 10);
-      if (isNaN(pid)) return;
+      if (!Number.isFinite(pid)) return;
       try {
         process.kill(pid, 0); // 检测存活
       } catch {
