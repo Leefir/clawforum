@@ -943,7 +943,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         lines.push(`  ${cmd.usage ?? '/' + cmd.name}  — ${cmd.description}`);
       }
       lines.push('快捷键：ESC 中断当前 turn  /  Ctrl+C 或 Ctrl+D 退出  /  Ctrl+L 清屏');
-      appendOutput('\x1b[2m', lines.join('\n'));
+      appendOutput('\x1b[2m', lines.join('\n'), true);
     },
   });
 
