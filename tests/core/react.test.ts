@@ -964,4 +964,60 @@ describe('ReAct Loop', () => {
       })).rejects.toThrow('write');
     });
   });
+
+  describe('max_tokens handling', () => {
+    /**
+     * 辅助：生成 max_tokens 截断的 tool_use stream
+     */
+    function createMaxTokensToolUseStream(toolName: string, callId: string, partialInput: string): AsyncIterableIterator<StreamChunk> {
+      return (async function* () {
+        yield { type: 'tool_use_start' as const, toolUse: { id: callId, name: toolName, partialInput: '' } };
+        yield { type: 'tool_use_delta' as const, toolUse: { id: '', name: '', partialInput: partialInput } };
+        yield { type: 'done' as const, stopReason: 'max_tokens' };  // 截断
+      })();
+    }
+
+    it('should append truncated tool_result and continue loop when max_tokens hits during tool_use', async () => {
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        // 第一次：max_tokens 截断 tool_use（输入不完整 JSON）
+        .mockReturnValueOnce(createMaxTokensToolUseStream('write', 'call-trunc', '{"content":"partial'))
+        // 第二次：LLM 收到截断通知，改为正常结束
+        .mockImplementationOnce(() => (async function* () {
+          yield { type: 'text_delta' as const, delta: 'OK, will split.' };
+          yield { type: 'done' as const };
+        })());
+
+      const messages: Message[] = [{ role: 'user', content: 'Write a long file' }];
+      const result = await runReact({ messages, systemPrompt: '', llm: mockLLM, executor: mockExecutor, ctx: mockCtx });
+
+      // executor 不应被调用（工具未执行）
+      expect(mockExecutor.execute).not.toHaveBeenCalled();
+      // LLM 被调用了两次（第一次截断，第二次纠正）
+      expect(mockLLM.stream).toHaveBeenCalledTimes(2);
+      // 第二次 LLM 调用的 messages 里应含截断 tool_result（is_error）
+      const secondCallMessages = (mockLLM.stream as ReturnType<typeof vi.fn>).mock.calls[1][0].messages as Message[];
+      const userMsgWithToolResult = secondCallMessages.find((m: Message) => 
+        m.role === 'user' && Array.isArray(m.content) && m.content.some((b: any) => b.type === 'tool_result')
+      );
+      expect(userMsgWithToolResult).toBeTruthy();
+      const toolResult = (userMsgWithToolResult!.content as any[]).find((b: any) => b.type === 'tool_result');
+      expect(toolResult?.is_error).toBe(true);
+      expect(toolResult?.content).toContain('TRUNCATED');
+      expect(result.finalText).toBe('OK, will split.');
+    });
+
+    it('should return stopReason=max_tokens immediately when no tool_use in truncated response', async () => {
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce((async function* () {
+          yield { type: 'text_delta' as const, delta: 'Some partial text' };
+          yield { type: 'done' as const, stopReason: 'max_tokens' };
+        })());
+
+      const messages: Message[] = [{ role: 'user', content: 'Tell me something long' }];
+      const result = await runReact({ messages, systemPrompt: '', llm: mockLLM, executor: mockExecutor, ctx: mockCtx });
+
+      expect(result.stopReason).toBe('max_tokens');
+      expect(mockLLM.stream).toHaveBeenCalledTimes(1);
+    });
+  });
 });
