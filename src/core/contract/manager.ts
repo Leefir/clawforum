@@ -705,7 +705,7 @@ export class ContractManager {
       } else {
         // Rejected - track retry count and feedback
         subtask.retry_count = (subtask.retry_count || 0) + 1;
-        subtask.last_failed_feedback = result.feedback.slice(0, 200);
+        subtask.last_failed_feedback = result.feedback;
         
         // Reset to todo for retry
         subtask.status = 'todo';
@@ -849,7 +849,7 @@ export class ContractManager {
         if (subtask && subtask.status === 'in_progress') {
           subtask.status = 'todo';
           subtask.retry_count = (subtask.retry_count || 0) + 1;
-          subtask.last_failed_feedback = `acceptance error: ${errorMsg.slice(0, 200)}`;
+          subtask.last_failed_feedback = `acceptance error: ${errorMsg}`;
           await this.saveProgress(contractId, progress);
         }
       });

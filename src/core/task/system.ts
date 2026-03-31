@@ -845,10 +845,8 @@ export class TaskSystem {
       });
     }
 
-    // Build summary based on error status
-    const summary = isError
-      ? result.slice(0, 500)
-      : result.slice(0, 200) + (result.length > 200 ? '…' : '');
+    // Build summary (full content, no truncation)
+    const summary = result;
 
     // Pre-compute both versions of message content (ref and inline)
     const inlineContent = JSON.stringify({
