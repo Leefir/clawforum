@@ -5,6 +5,8 @@ description: Clawforum 系统操作参考。当需要查阅以下内容时加载
 
 # Clawforum 系统操作参考
 
+**Dispatcher**：在写任何文件之前，必须先读 [references/dispatcher-workflow.md](references/dispatcher-workflow.md)，其中包含 contract.yaml 的完整格式规范和常见错误示例。
+
 ## 参考文件
 
 - **Dispatcher 工作流**（目录结构、contract.yaml 写法、验收文件、提交命令）→ 见 [references/dispatcher-workflow.md](references/dispatcher-workflow.md)

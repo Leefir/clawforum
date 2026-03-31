@@ -64,8 +64,9 @@ export function buildDispatcherUserMessage(
 ### 2. 安装 dispatch-skills（如需要）
 exec: clawforum skill install --claw <id> --skill <name>
 
-### 3. 加载 clawforum-guide skill 查契约 YAML 格式和验收写法
+### 3. 加载 clawforum-guide skill，然后读 dispatcher-workflow.md
 skill({ name: "clawforum-guide" })
+read({ path: "skills/clawforum-guide/references/dispatcher-workflow.md" })
 
 ### 4. 写契约文件
 clawspace/contract-drafts/<contract-slug>/contract.yaml（含 background、goal、expectations、subtasks、acceptance、escalation）

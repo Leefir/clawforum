@@ -338,7 +338,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         flushStreaming();
-        appendOutput('\x1b[36m', `└─ ${event.name}`);
+        appendOutput('\x1b[36m', `⚙ ${event.name}`);
         startSpinner(`${event.name}...`);
         break;
 
@@ -773,7 +773,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'tool_call':
         if (tw?.silent && !showRecapStream) break;
         stopSpinner();
-        appendOutput('\x1b[36m', `└─ ${prefix}:${event.name}`);
+        appendOutput('\x1b[36m', `⚙ ${prefix}:${event.name}`);
         startSpinner(`${prefix}:${event.name}...`);
         break;
       case 'tool_result': {
@@ -1062,10 +1062,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   tui.setFocus(editor);
 
   // 防御层：任何未捕获异常先还原终端，防止 terminal emulator 因 raw mode 未还原而闪退
+  const crashLogPath = path.join(options.agentDir, 'logs', 'chat-crash.log');
   const uncaughtHandler = (err: unknown) => {
+    // 写入崩溃日志文件（terminal 关闭后仍可读）
+    try {
+      const stack = (err instanceof Error) ? err.stack : String(err);
+      fsNative.appendFileSync(crashLogPath, `\n[${new Date().toISOString()}] uncaught:\n${stack}\n`);
+    } catch { /* ignore */ }
     process.stderr.write(`[chat] uncaught error: ${err}\n`);
     try { tui.stop(); } catch { /* ignore */ }
-    process.exit(1);
+    // 刷新 stdout 后再退出，防止 escape sequences 被截断触发 Terminal.app crash
+    process.stdout.write('', () => process.exit(1));
   };
   process.on('uncaughtException', uncaughtHandler);
   process.on('unhandledRejection', uncaughtHandler);
