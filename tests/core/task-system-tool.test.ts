@@ -216,7 +216,7 @@ describe('TaskSystem Tool Tasks', () => {
       );
       expect(resultFile).toContain(longResult);
       
-      // Inbox should have full summary (no truncation)
+      // Inbox should have truncated summary preview (resultRef points to full content)
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
       expect(inboxFiles.length).toBeGreaterThan(0);
       
@@ -228,8 +228,10 @@ describe('TaskSystem Tool Tasks', () => {
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
       expect(match).toBeTruthy();
       const content = JSON.parse(match![2]);
-      // Summary should contain full content (no truncation)
-      expect(content.summary).toBe(longResult);
+      // Summary should be truncated preview (500 chars) when resultRef exists
+      expect(content.summary.length).toBeLessThanOrEqual(500);
+      expect(content.summary).toContain('x'.repeat(100));
+      expect(content.resultRef).toBeTruthy(); // resultRef should exist
     });
 
     it('should send error result with summary + resultRef', async () => {

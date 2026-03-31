@@ -754,8 +754,8 @@ export class TaskSystem {
       });
     }
 
-    // Build summary (full content, no truncation)
-    const summary = fullContent;
+    // Build summary (preview if resultRef exists, full content otherwise)
+    const summary = resultRef ? fullContent.slice(0, 500) : fullContent;
 
     // Pre-compute both versions of message content (ref and inline)
     const inlineContent = JSON.stringify({
@@ -845,8 +845,8 @@ export class TaskSystem {
       });
     }
 
-    // Build summary (full content, no truncation)
-    const summary = result;
+    // Build summary (preview if resultRef exists, full content otherwise)
+    const summary = resultRef ? result.slice(0, 500) : result;
 
     // Pre-compute both versions of message content (ref and inline)
     const inlineContent = JSON.stringify({
