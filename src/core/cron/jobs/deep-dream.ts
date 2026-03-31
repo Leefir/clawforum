@@ -205,8 +205,8 @@ async function runDeepDreamForClaw(
       compression = responseText(res);
     } catch (err) {
       console.error(`[cron:deep-dream] ${clawId}: Call 2 failed for ${sf.filename}:`, err);
-      // 压缩失败不阻断流程，直接用原始 dreamOutput
-      compression = dreamOutput;
+      // 压缩失败不阻断流程，截取前 4000 chars 防 meta-compression 超上下文
+      compression = dreamOutput.slice(0, 4000);
     }
 
     compressions.push(compression);
