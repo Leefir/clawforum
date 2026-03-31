@@ -189,7 +189,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
     if (t.lastOutput) {
       const prefix = `${leftText} · "`;
-      const available = cols - prefix.length - 1;
+      const available = cols - stringWidth(prefix) - 1;
       const snippet = sliceFromStart(t.lastOutput.trimStart().replace(/\n/g, ' '), available);
       return `${leftColor}${prefix}${snippet}"\x1b[0m`;
     }
