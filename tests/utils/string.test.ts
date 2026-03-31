@@ -86,3 +86,51 @@ describe('wrapLine — ANSI 字符串折行', () => {
     expect(lines).toEqual(['hello', ' worl', 'd']);
   });
 });
+
+describe('wrapLine hangIndent', () => {
+  it('无 hangIndent 时行为不变', () => {
+    const result = wrapLine('abcde', 3);
+    expect(result).toEqual(['abc', 'de']);
+  });
+
+  it('hangIndent 空字符串等价于无参数', () => {
+    expect(wrapLine('abcde', 3, '')).toEqual(wrapLine('abcde', 3));
+  });
+
+  it('续段加 hangIndent 前缀', () => {
+    // '  ' + 续内容，可用宽 = cols - 2
+    const result = wrapLine('abcdefgh', 5, '  ');
+    // 第一段：5 cols → 'abcde'
+    // 续段：cols-2=3 → '  fgh'
+    expect(result[0]).toBe('abcde');
+    expect(result[1]).toBe('  fgh');
+  });
+
+  it('hangIndent 含 ANSI 时按视觉宽计算', () => {
+    // ANSI hangIndent 视觉宽 2
+    const ansiIndent = '\x1b[2m│\x1b[0m ';
+    const result = wrapLine('abcdefgh', 5, ansiIndent);
+    expect(result[0]).toBe('abcde');
+    // 续段：可用 5-2=3，加 ansiIndent 前缀
+    expect(result[1]).toBe(ansiIndent + 'fgh');
+  });
+
+  it('CJK 内容 + hangIndent', () => {
+    // '中文内容内容内容' 每字 2 cols
+    // cols=6：第一段 '中文内'（6 cols），续段 cols-2=4 → '  容内'，再续 '  容内'
+    const result = wrapLine('中文内容内容内容', 6, '  ');
+    expect(result[0]).toBe('中文内');
+    expect(result[1]).toBe('  容内');
+    expect(result[2]).toBe('  容内');
+  });
+
+  it('⏺ 前缀行折行，续段对齐正文', () => {
+    // dotPrefix 视觉宽 2，hangIndent='  '
+    const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
+    const line = dotPrefix + 'abcdefgh';
+    // cols=6：dotPrefix(2)+abcd(4)=6 → 第一段
+    const result = wrapLine(line, 6, '  ');
+    expect(result[0]).toBe(dotPrefix + 'abcd');
+    expect(result[1]).toBe('  efgh');
+  });
+});

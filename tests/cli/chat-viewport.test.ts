@@ -193,4 +193,36 @@ describe('chat-viewport Phase 72', () => {
       expect(helpSection).toContain(', true)');
     });
   });
+
+  // ==========================================================================
+  // Phase 91: hangIndent 支持
+  // ==========================================================================
+  describe('Phase 91: hangIndent', () => {
+    it('OutputLine 接口 含 hangIndent 字段', () => {
+      expect(sourceCode).toContain('hangIndent');
+    });
+
+    it('appendOutput 签名含第四参数 hangIndent', () => {
+      const match = sourceCode.match(/const appendOutput = \([^)]+\)/);
+      expect(match![0]).toContain('hangIndent');
+    });
+
+    it('updateDisplay 把 hangIndent 传给 wrapLine', () => {
+      expect(sourceCode).toMatch(/wrapLine\(line, cols, hangIndent\)/);
+    });
+
+    it('flushStreaming 传 indent 作为 hangIndent', () => {
+      const flushMatch = sourceCode.match(
+        /const flushStreaming[\s\S]{0,500}?appendOutput\([^)]+\)/
+      );
+      expect(flushMatch![0]).toMatch(/appendOutput\(.*indent\)/);
+    });
+
+    it('flushThinking 传 indent 作为 hangIndent', () => {
+      const flushMatch = sourceCode.match(
+        /const flushThinking[\s\S]{0,500}?appendOutput\([^)]+\)/
+      );
+      expect(flushMatch![0]).toMatch(/appendOutput\(.*indent\)/);
+    });
+  });
 });
