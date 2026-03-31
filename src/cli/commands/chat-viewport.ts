@@ -119,7 +119,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
       })
       .join('\n');
-    const full = streamingSuffix ? body + '\n' + streamingSuffix : body;
+
+    const suffixBody = streamingSuffix
+      ? streamingSuffix.split('\n')
+          .flatMap(line => wrapLine(line, cols))
+          .join('\n')
+      : '';
+
+    const full = suffixBody ? body + '\n' + suffixBody : body;
     outputText.setText(full);
     tui.requestRender();
   };
@@ -289,7 +296,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         thinkingBuffer += event.delta as string;
         if (thinkingMode === 'full') {
-          setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
+          const prefix = '⏺ ';
+          const indent = '  ';
+          const preview = thinkingBuffer
+            .split('\n')
+            .map((line, i) => (i === 0 ? prefix : indent) + line)
+            .join('\n');
+          setStreamingSuffix('\x1b[2m' + preview + '\x1b[0m');
         } else if (thinkingMode === 'compact') {
           const snippet = thinkingBuffer.replace(/\s+/g, ' ').trim().slice(-60);
           setStreamingSuffix('\x1b[2m(' + snippet + ')\x1b[0m');
@@ -301,7 +314,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         streamingBuffer += event.delta as string;
-        setStreamingSuffix(streamingBuffer + '▋');
+        {
+          const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
+          const indent = '  ';
+          const preview = (streamingBuffer + '▋')
+            .split('\n')
+            .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
+            .join('\n');
+          setStreamingSuffix(preview);
+        }
         break;
 
       case 'text_end':
@@ -347,7 +368,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         updateDisplay();
         {
           const msg = (event as Record<string, unknown>).message;
-          appendOutput('\x1b[33m', fitLine(typeof msg === 'string' ? msg : '⏎ Interrupted'));
+          appendOutput('\x1b[33m', typeof msg === 'string' ? msg : '⏎ Interrupted');
         }
         break;
 
@@ -358,7 +379,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        appendOutput('\x1b[31m', fitLine(`✗ Error: ${event.error as string}`));
+        appendOutput('\x1b[31m', `✗ Error: ${event.error as string}`);
         break;
 
       case 'user_notify': {
@@ -384,13 +405,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           const claw = (event.clawId as string) ?? '';
           if (!claw || claw === options.label) break;  // 隐藏自己的契约通知
           const fb = (event.feedback as string) ?? '';
-          if (showContractEvents) appendOutput('\x1b[2m', fitLine(`  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`));
+          if (showContractEvents) appendOutput('\x1b[2m', `  ✗ [contract] ${subtaskId} failed: ${fb} (${claw})`);
         } else if (sub === 'llm_error') {
           // llm_error 始终显示（无论来源）
           const claw = (event.clawId as string) ?? '';
           const errMsg = (event.error as string) ?? '';
           const forClaw = claw ? ` (${claw})` : '';
-          appendOutput('\x1b[31m', fitLine(`  ✗ [llm] ${errMsg}${forClaw}`));
+          appendOutput('\x1b[31m', `  ✗ [llm] ${errMsg}${forClaw}`);
         }
         break;
       }
