@@ -201,7 +201,7 @@ describe('TaskSystem Tool Tasks', () => {
     });
 
     it('should save full result to tasks/results/', async () => {
-      const longResult = 'x'.repeat(1000); // Long result to test truncation
+      const longResult = 'x'.repeat(1000); // Long result to test full content
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: longResult });
       
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
@@ -216,7 +216,7 @@ describe('TaskSystem Tool Tasks', () => {
       );
       expect(resultFile).toContain(longResult);
       
-      // Inbox should have truncated summary
+      // Inbox should have full summary (no truncation)
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
       expect(inboxFiles.length).toBeGreaterThan(0);
       
@@ -228,8 +228,8 @@ describe('TaskSystem Tool Tasks', () => {
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
       expect(match).toBeTruthy();
       const content = JSON.parse(match![2]);
-      expect(content.summary.length).toBeLessThanOrEqual(201); // 200 + '…'
-      expect(content.summary.endsWith('…')).toBe(true);
+      // Summary should contain full content (no truncation)
+      expect(content.summary).toBe(longResult);
     });
 
     it('should send error result with summary + resultRef', async () => {

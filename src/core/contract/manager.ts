@@ -825,7 +825,7 @@ export class ContractManager {
         `subtask_id: ${subtaskId}`,
         '---',
         '',
-        `Acceptance verification failed with error: ${errorMsg.slice(0, 500)}`,
+        `Acceptance verification failed with error: ${errorMsg}`,
       ].join('\n');
       
       await this.fs.ensureDir('inbox/pending');
@@ -1214,7 +1214,7 @@ export class ContractManager {
       // Fallback: text-based JSON parsing (backward compat with old prompt files)
       const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON — ${text.slice(0, 60)}` };
+        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON — ${text}` };
       }
 
       const jsonStr = jsonMatch[1] || jsonMatch[0];
