@@ -1021,11 +1021,10 @@ describe('ReAct Loop', () => {
     });
 
     it('should throw after 3 consecutive max_tokens tool_use truncations', async () => {
-      const truncStream = () => createMaxTokensToolUseStream('write', 'call-trunc', '{"content":"partial');
       (mockLLM.stream as ReturnType<typeof vi.fn>)
-        .mockReturnValueOnce(truncStream())
-        .mockReturnValueOnce(truncStream())
-        .mockReturnValueOnce(truncStream());
+        .mockReturnValueOnce(createMaxTokensToolUseStream('write', 'call-trunc-1', '{"content":"partial'))
+        .mockReturnValueOnce(createMaxTokensToolUseStream('write', 'call-trunc-2', '{"content":"partial'))
+        .mockReturnValueOnce(createMaxTokensToolUseStream('write', 'call-trunc-3', '{"content":"partial'));
 
       const messages: Message[] = [{ role: 'user', content: 'Write a very long file' }];
       await expect(
