@@ -289,7 +289,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         thinkingBuffer += event.delta as string;
         if (thinkingMode === 'full') {
-          setStreamingSuffix('\x1b[2m' + thinkingBuffer + '\x1b[0m');
+          const prefix = '⏺ ';
+          const indent = '  ';
+          const preview = thinkingBuffer
+            .split('\n')
+            .map((line, i) => (i === 0 ? prefix : indent) + line)
+            .join('\n');
+          setStreamingSuffix('\x1b[2m' + preview + '\x1b[0m');
         } else if (thinkingMode === 'compact') {
           const snippet = thinkingBuffer.replace(/\s+/g, ' ').trim().slice(-60);
           setStreamingSuffix('\x1b[2m(' + snippet + ')\x1b[0m');
