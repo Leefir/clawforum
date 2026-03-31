@@ -273,7 +273,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         toolName,
         executeCallback,
         ctx.clawId,
-        { isIdempotent: tool.idempotent }
+        { isIdempotent: tool.idempotent, callerType: ctx.callerType === 'claw' ? undefined : ctx.callerType }
       );
       return {
         success: true,
