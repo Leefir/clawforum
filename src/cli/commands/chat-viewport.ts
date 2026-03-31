@@ -8,7 +8,7 @@ import * as path from 'path';
 import chokidar from 'chokidar';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
-import { getClawActivityInfo, getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
+import { getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
 import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
 
@@ -90,9 +90,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let escTimeoutId: ReturnType<typeof setTimeout> | null = null;  // ESC 5秒超时定时器
 
   // 状态栏追踪
-  let ownTurnCount = 0;
-  let ownStep = 0;
-  let ownMaxSteps = 100;
 
   type ThinkingMode = 'compact' | 'full' | 'off';
   let thinkingMode: ThinkingMode = 'full';
@@ -275,8 +272,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     switch (event.type) {
       case 'turn_start': {
         inTurn = true;
-        ownTurnCount++;
-        ownStep = 0;
         flushThinking();
         flushStreaming();
         const srcs = event.sources as Array<{ text: string; type: string }> | undefined;
@@ -344,8 +339,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
       case 'tool_result': {
         stopSpinner();
-        if (event.step != null) ownStep = event.step as number;
-        if (event.maxSteps != null) ownMaxSteps = event.maxSteps as number;
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
@@ -1099,8 +1092,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         if (!line.trim()) continue;
         try {
           const ev = JSON.parse(line);
-          if (ev.type === 'turn_start')       { ownTurnCount++; ownStep = 0; inTurn = true; }
-          else if (ev.type === 'tool_result') { ownStep = ev.step ?? ownStep; ownMaxSteps = ev.maxSteps ?? ownMaxSteps; }
+          if (ev.type === 'turn_start')       { inTurn = true; }
           else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted' || ev.type === 'turn_error') {
             inTurn = false;
           }
