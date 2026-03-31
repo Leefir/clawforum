@@ -1019,5 +1019,53 @@ describe('ReAct Loop', () => {
       expect(result.stopReason).toBe('max_tokens');
       expect(mockLLM.stream).toHaveBeenCalledTimes(1);
     });
+
+    it('should throw after 3 consecutive max_tokens tool_use truncations', async () => {
+      const truncStream = () => createMaxTokensToolUseStream('write', 'call-trunc', '{"content":"partial');
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(truncStream())
+        .mockReturnValueOnce(truncStream())
+        .mockReturnValueOnce(truncStream());
+
+      const messages: Message[] = [{ role: 'user', content: 'Write a very long file' }];
+      await expect(
+        runReact({ messages, systemPrompt: '', llm: mockLLM, executor: mockExecutor, ctx: mockCtx })
+      ).rejects.toThrow(/连续.*次.*max_tokens.*截断/);
+
+      expect(mockLLM.stream).toHaveBeenCalledTimes(3);
+      expect(mockExecutor.execute).not.toHaveBeenCalled();
+    });
+
+    it('should reset counter after successful step following max_tokens truncation', async () => {
+      const truncStream = () => createMaxTokensToolUseStream('write', 'call-trunc', '{"content":"partial');
+      (mockLLM.stream as ReturnType<typeof vi.fn>)
+        // 第 1 次：max_tokens 截断
+        .mockReturnValueOnce(truncStream())
+        // 第 2 次：正常 tool_use（read 工具）
+        .mockReturnValueOnce((async function* () {
+          yield { type: 'tool_use_start' as const, toolUse: { id: 'call-ok', name: 'read', partialInput: '' } };
+          yield { type: 'tool_use_delta' as const, toolUse: { id: '', name: '', partialInput: '{"path":"x.txt"}' } };
+          yield { type: 'done' as const };
+        })())
+        // 第 3 次：max_tokens 截断（计数应从 0 重新开始，不应抛错）
+        .mockReturnValueOnce(truncStream())
+        // 第 4 次：正常结束
+        .mockReturnValueOnce((async function* () {
+          yield { type: 'text_delta' as const, delta: 'Done.' };
+          yield { type: 'done' as const };
+        })());
+
+      // Mock executor to return success for the read tool call
+      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        content: 'file content',
+      });
+
+      const messages: Message[] = [{ role: 'user', content: 'Do something' }];
+      const result = await runReact({ messages, systemPrompt: '', llm: mockLLM, executor: mockExecutor, ctx: mockCtx });
+
+      expect(result.finalText).toBe('Done.');
+      expect(mockLLM.stream).toHaveBeenCalledTimes(4);
+    });
   });
 });

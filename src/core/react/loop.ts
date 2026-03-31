@@ -134,6 +134,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   let stepCount = 0;
   let consecutiveParseErrors = 0;
   const MAX_CONSECUTIVE_PARSE_ERRORS = 3;
+  let consecutiveMaxTokensToolUse = 0;
+  const MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE = 3;
   // 每步是否全为 parse error，由 onToolResult 回调统计（在 toToolResultBlock 之前触发，有 metadata）
   let stepAllParseErrors = false;
   let stepToolCount = 0;
@@ -221,6 +223,9 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
         consecutiveParseErrors = 0;
       }
 
+      // 重置连续 max_tokens+tool_use 计数器
+      consecutiveMaxTokensToolUse = 0;
+
       // Increment step and continue loop
       ctx.incrementStep();
       stepCount = ctx.stepNumber;
@@ -248,7 +253,13 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     if (response.stop_reason === 'max_tokens') {
       const toolCalls = extractToolCalls(response.content);
       if (toolCalls.length > 0) {
-        // tool_use 被截断：补 tool_result，继续 loop 让 LLM 纠正
+        // tool_use 被截断：检查连续次数，补 tool_result，继续 loop
+        consecutiveMaxTokensToolUse++;
+        if (consecutiveMaxTokensToolUse >= MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE) {
+          throw new Error(
+            `LLM 连续 ${MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE} 次 max_tokens 截断 tool_use，终止执行。请减少 system prompt 或 tool schema 体积。`
+          );
+        }
         appendAssistantMessage(messages, response.content);
         const truncatedResults: ToolResultBlock[] = toolCalls.map(tc => ({
           type: 'tool_result' as const,
