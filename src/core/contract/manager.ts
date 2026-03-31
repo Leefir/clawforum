@@ -1134,7 +1134,7 @@ export class ContractManager {
       });
       return { passed: true, feedback: 'Script acceptance passed' };
     } catch (err: any) {
-      const stderr = err?.stderr ?? err?.message ?? String(err);
+      const stderr = err?.stderr || err?.stdout || err?.message || String(err);
       const isTimeout = err?.killed === true;
       const prefix = isTimeout ? '验收脚本超时' : '验收失败';
       return { passed: false, feedback: `${prefix}: ${stderr.split('\n').find((l: string) => l.trim()) ?? stderr.trim()}` };

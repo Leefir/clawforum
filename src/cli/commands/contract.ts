@@ -14,23 +14,28 @@ import { MOTION_CLAW_ID } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 
 
+function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
+  const parsed = yaml.load(yamlContent);
+  if (typeof parsed !== 'object' || parsed === null) {
+    console.error('Error: contract YAML must be an object');
+    process.exit(1);
+  }
+  const contract = parsed as ContractYaml;
+  if (!contract.title) { console.error('Error: contract YAML missing required field: title'); process.exit(1); }
+  if (!contract.goal) { console.error('Error: contract YAML missing required field: goal'); process.exit(1); }
+  if (!Array.isArray(contract.subtasks)) {
+    console.error(`Error: contract YAML "subtasks" must be an array (use "- id: ..." list syntax), got: ${typeof contract.subtasks}`);
+    process.exit(1);
+  }
+  return contract;
+}
+
 /**
  * Create a contract for a claw
  */
 export async function contractCreateCommand(clawId: string, filePath: string): Promise<void> {
   const yamlContent = await fs.readFile(filePath, 'utf-8');
-  const contractYaml = yaml.load(yamlContent);
-  if (typeof contractYaml !== 'object' || contractYaml === null) {
-    console.error('Error: contract YAML must be an object');
-    process.exit(1);
-  }
-  const contract = contractYaml as ContractYaml;
-
-  // 基本字段验证
-  if (!contract.title || !contract.goal || !Array.isArray(contract.subtasks)) {
-    console.error('Error: contract YAML must have title, goal, subtasks[]');
-    process.exit(1);
-  }
+  const contract = parseAndValidateContractYaml(yamlContent);
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
@@ -79,19 +84,8 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
 export async function contractCreateFromDirCommand(clawId: string, dirPath: string): Promise<void> {
   const absDir = path.resolve(dirPath);
 
-  // 读 contract.yaml
   const yamlContent = await fs.readFile(path.join(absDir, 'contract.yaml'), 'utf-8');
-  const contractYaml = yaml.load(yamlContent);
-  if (typeof contractYaml !== 'object' || contractYaml === null) {
-    console.error('Error: contract.yaml must be an object');
-    process.exit(1);
-  }
-  const contract = contractYaml as ContractYaml;
-
-  if (!contract.title || !contract.goal || !Array.isArray(contract.subtasks)) {
-    console.error('Error: contract.yaml must have title, goal, subtasks[]');
-    process.exit(1);
-  }
+  const contract = parseAndValidateContractYaml(yamlContent);
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });

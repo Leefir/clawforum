@@ -54,6 +54,20 @@ escalation:
 
 **重要**：
 - 每个有产出文件的子任务，description 里必须写明路径（`clawspace/<contract-slug>/<文件名>`）。Claw 依赖这个路径决定把文件写到哪里。
+- **`subtasks` 必须是数组（`- id: ...` 列表），不能是对象映射**：
+
+  ```yaml
+  # ❌ 错误：mapping 格式，系统拒绝（Array.isArray 返回 false）
+  subtasks:
+    collect-data:
+      description: "..."
+
+  # ✅ 正确：array 格式，每项用 - id:
+  subtasks:
+    - id: collect-data
+      description: "..."
+  ```
+
 - **禁止把验收条件写在 subtask 内部**（`subtask.acceptance: |` 格式无效，系统不会读取）。验收必须写在顶层 `acceptance` 数组里。
 - `type: llm` 必须用 `prompt_file`（指向 acceptance/ 目录下的 .prompt.txt 文件），**不能用 `prompt` 内联文本**——系统会报错。
 - `type: script` 用 `script_file`（指向 acceptance/ 目录下的 .sh 文件）。
