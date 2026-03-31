@@ -392,7 +392,7 @@ async function executeSingleTool(
     if (__parseError) {
       return {
         success: false,
-        content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '').slice(0, 200)}`,
+        content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '')}`,
         metadata: { parseError: true },
       };
     }
@@ -540,7 +540,7 @@ async function collectStreamResponse(
       parsedInput = JSON.parse(currentToolUse.input || '{}');
     } catch (err) {
       console.error(`[loop] Failed to parse tool input for "${currentToolUse.name}": ${err instanceof Error ? err.message : String(err)}`);
-      parsedInput = { __parseError: true, __raw: (currentToolUse.input ?? '').slice(0, 500) };
+      parsedInput = { __parseError: true, __raw: currentToolUse.input ?? '' };
     }
     contentBlocks.push({
       type: 'tool_use',

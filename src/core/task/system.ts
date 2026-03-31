@@ -754,10 +754,8 @@ export class TaskSystem {
       });
     }
 
-    // Build summary based on error status
-    const summary = isError
-      ? fullContent.slice(0, 500)
-      : fullContent.slice(0, 200) + (fullContent.length > 200 ? '…' : '');
+    // Build summary (full content, no truncation)
+    const summary = fullContent;
 
     // Pre-compute both versions of message content (ref and inline)
     const inlineContent = JSON.stringify({
@@ -933,7 +931,7 @@ export class TaskSystem {
       `timestamp: ${new Date().toISOString()}`,
       '---',
       '',
-      JSON.stringify({ taskId: task.id, is_error: true, result: `Task failed: ${errorMsg.slice(0, 200)}` }),
+      JSON.stringify({ taskId: task.id, is_error: true, result: `Task failed: ${errorMsg}` }),
     ].join('\n');
     await this.fs.ensureDir('inbox/pending');
     await this.fs.writeAtomic(`inbox/pending/${filename}`, content);

@@ -315,10 +315,10 @@ export class ToolExecutorImpl implements IToolExecutor {
       appendAudit(ctx.clawDir, {
         ts: new Date().toISOString(),
         tool: toolName,
-        args: JSON.stringify(args).slice(0, 80),
+        args: JSON.stringify(args),
         ok: auditResult.success,
         duration_ms: duration,
-        error: auditResult.success ? '' : auditResult.content.slice(0, 200),
+        error: auditResult.success ? '' : auditResult.content,
       }).catch(err => console.warn('[audit] Failed to write audit log:', err));
     }
     
