@@ -7,6 +7,11 @@ export function sliceFromStart(s: string, maxCols: number): string {
   let w = 0;
   let i = 0;
   while (i < s.length) {
+    // 跳过 ANSI CSI 序列：\x1b[ ... m（零可见宽度）
+    if (s[i] === '\x1b' && s[i + 1] === '[') {
+      const end = s.indexOf('m', i + 2);
+      if (end !== -1) { i = end + 1; continue; }
+    }
     const cp = s.codePointAt(i) ?? 0;
     const charLen = cp > 0xFFFF ? 2 : 1;
     const cw = stringWidth(s.slice(i, i + charLen));

@@ -128,7 +128,7 @@ describe('chat-viewport Phase 72', () => {
 
     it('updateDisplay 应使用 fitLine 动态渲染', () => {
       const updateDisplayMatch = sourceCode.match(
-        /const updateDisplay = \(\) => \{[\s\S]{0,500}?\};/
+        /const updateDisplay = \(\) => \{[\s\S]{0,800}?\};/
       );
       expect(updateDisplayMatch).toBeTruthy();
       expect(updateDisplayMatch![0]).toContain('fitLine');

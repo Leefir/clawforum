@@ -119,7 +119,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
       })
       .join('\n');
-    const full = streamingSuffix ? body + '\n' + streamingSuffix : body;
+
+    const suffixBody = streamingSuffix
+      ? streamingSuffix.split('\n')
+          .flatMap(line => wrapLine(line, cols))
+          .join('\n')
+      : '';
+
+    const full = suffixBody ? body + '\n' + suffixBody : body;
     outputText.setText(full);
     tui.requestRender();
   };
