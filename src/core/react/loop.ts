@@ -246,13 +246,28 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 
     // Handle max_tokens stop reason
     if (response.stop_reason === 'max_tokens') {
-      const text = extractText(response.content);
-      appendAssistantMessage(messages, response.content);
-      return {
-        finalText: text + '\n\n[Response truncated due to length limit]',
-        stepsUsed: stepCount,
-        stopReason: 'max_tokens',
-      };
+      const toolCalls = extractToolCalls(response.content);
+      if (toolCalls.length > 0) {
+        // tool_use 被截断：补 tool_result，继续 loop 让 LLM 纠正
+        appendAssistantMessage(messages, response.content);
+        const truncatedResults: ToolResultBlock[] = toolCalls.map(tc => ({
+          type: 'tool_result' as const,
+          tool_use_id: tc.id,
+          content: `[TRUNCATED] 输出超过单次 token 上限（${REACT_DEFAULT_MAX_TOKENS} tokens），工具调用被截断未执行。请将内容拆分为多次较小的调用。`,
+          is_error: true,
+        }));
+        appendToolResults(messages, truncatedResults);
+        // 不 return，继续 loop（不计入 stepCount，不调 onStepComplete）
+      } else {
+        // 纯文本截断：行为不变
+        const text = extractText(response.content);
+        appendAssistantMessage(messages, response.content);
+        return {
+          finalText: text + '\n\n[Response truncated due to length limit]',
+          stepsUsed: stepCount,
+          stopReason: 'max_tokens',
+        };
+      }
     }
 
     // Unknown stop reason, treat as end_turn
