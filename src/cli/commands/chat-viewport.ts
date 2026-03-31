@@ -231,8 +231,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 输入组件
   const editor = new Editor(tui, editorTheme);
 
+  const OUTPUT_LINES_CAP = 5000;
+
   const appendOutput = (color: string, text: string, wrap = false) => {
     outputLines.push({ color, text, wrap });
+    if (outputLines.length > OUTPUT_LINES_CAP) {
+      outputLines.splice(0, outputLines.length - OUTPUT_LINES_CAP);
+    }
     updateDisplay();
   };
 
