@@ -257,7 +257,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
           is_error: true,
         }));
         appendToolResults(messages, truncatedResults);
-        // 不 return，继续 loop（不计入 stepCount，不调 onStepComplete）
+        // 不增加 stepCount，不调 onStepComplete，继续 loop
+        continue;
       } else {
         // 纯文本截断：行为不变
         const text = extractText(response.content);
