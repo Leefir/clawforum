@@ -172,6 +172,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
         console.warn('[loop] stop_reason=tool_use but no tool calls found in response');
         const text = extractText(response.content);
         appendAssistantMessage(messages, response.content);
+        consecutiveMaxTokensToolUse = 0;  // 无实际截断，重置计数
         return {
           finalText: text,
           stepsUsed: stepCount,

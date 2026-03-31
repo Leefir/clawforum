@@ -1065,6 +1065,8 @@ describe('ReAct Loop', () => {
 
       expect(result.finalText).toBe('Done.');
       expect(mockLLM.stream).toHaveBeenCalledTimes(4);
+      // 验证 read 工具确实被执行了（是执行成功触发了计数器重置，而非仅仅没有抛错）
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
     });
   });
 });
