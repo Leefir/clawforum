@@ -315,7 +315,7 @@ export class ToolExecutorImpl implements IToolExecutor {
       appendAudit(ctx.clawDir, {
         ts: new Date().toISOString(),
         tool: toolName,
-        args: JSON.stringify(args),
+        args: JSON.stringify(args).slice(0, 80),
         ok: auditResult.success,
         duration_ms: duration,
         error: auditResult.success ? '' : auditResult.content,

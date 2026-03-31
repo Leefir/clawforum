@@ -268,7 +268,7 @@ describe('ToolExecutor', () => {
       await fs.chmod(readonlyDir, 0o755).catch(() => {});
     });
 
-    it('should include full args in audit log', async () => {
+    it('should include truncated args in audit log', async () => {
       registry.register({
         name: 'test-tool',
         description: 'Test tool',
@@ -295,8 +295,8 @@ describe('ToolExecutor', () => {
       
       expect(auditContent).toBeTruthy();
       const entry = JSON.parse(auditContent.trim());
-      // Args should include full content
-      expect(entry.args).toContain('x'.repeat(200));
+      // Args should be truncated to 80 chars (with braces)
+      expect(entry.args.length).toBeLessThanOrEqual(85);
     });
   });
 });
