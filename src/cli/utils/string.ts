@@ -62,7 +62,7 @@ export function wrapLine(s: string, cols?: number, hangIndent = ''): string[] {
   let remaining = s;
   let first = true;
   while (stringWidth(remaining) > (first ? width : width - indentW)) {
-    const avail = first ? width : width - indentW;
+    const avail = Math.max(1, first ? width : width - indentW);
     const chunk = sliceFromStart(remaining, avail);
     lines.push(first ? chunk : hangIndent + chunk);
     remaining = remaining.slice(chunk.length);
