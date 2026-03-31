@@ -301,7 +301,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         stopSpinner();
         flushThinking();
         streamingBuffer += event.delta as string;
-        setStreamingSuffix(streamingBuffer + '▋');
+        {
+          const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
+          const indent = '  ';
+          const preview = (streamingBuffer + '▋')
+            .split('\n')
+            .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
+            .join('\n');
+          setStreamingSuffix(preview);
+        }
         break;
 
       case 'text_end':
