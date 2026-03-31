@@ -252,7 +252,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         .join('\n');
       streamingBuffer = '';
       streamingSuffix = '';
-      appendOutput('', formatted, true);
+      appendOutput('', formatted, true, indent);
     }
   };
 
@@ -265,7 +265,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         .split('\n')
         .map((line, i) => (i === 0 ? prefix : indent) + line)
         .join('\n');
-      appendOutput('\x1b[2m', formatted, true);
+      appendOutput('\x1b[2m', formatted, true, indent);
       thinkingBuffer = '';
     }
   };
