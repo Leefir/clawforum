@@ -77,7 +77,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   // 单一输出区域（永久内容 + 流式后缀合并显示，消除组件间距）
-  interface OutputLine { color: string; text: string; wrap?: boolean; }
+  interface OutputLine { color: string; text: string; wrap?: boolean; hangIndent?: string; }
   const outputText = new Text(`[${options.label}] Watching daemon activity...`, 0, 0);
   const outputLines: OutputLine[] = [
     { color: '', text: `[${options.label}] Watching daemon activity...` },
@@ -114,9 +114,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const updateDisplay = () => {
     const cols = process.stdout.columns ?? 80;
     const body = outputLines
-      .flatMap(({ color, text, wrap }) => {
+      .flatMap(({ color, text, wrap, hangIndent }) => {
         const lines = wrap
-          ? text.split('\n').flatMap(line => wrapLine(line, cols))
+          ? text.split('\n').flatMap(line => wrapLine(line, cols, hangIndent))
           : [fitLine(text, cols)];
         return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
       })
@@ -233,8 +233,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const OUTPUT_LINES_CAP = 5000;
 
-  const appendOutput = (color: string, text: string, wrap = false) => {
-    outputLines.push({ color, text, wrap });
+  const appendOutput = (color: string, text: string, wrap = false, hangIndent = '') => {
+    outputLines.push({ color, text, wrap, hangIndent });
     if (outputLines.length > OUTPUT_LINES_CAP) {
       outputLines.splice(0, outputLines.length - OUTPUT_LINES_CAP);
     }
