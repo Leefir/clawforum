@@ -115,7 +115,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     const cols = process.stdout.columns ?? 80;
     const body = outputLines
       .flatMap(({ color, text, wrap }) => {
-        const lines = wrap ? wrapLine(text, cols) : [fitLine(text, cols)];
+        const lines = wrap
+          ? text.split('\n').flatMap(line => wrapLine(line, cols))
+          : [fitLine(text, cols)];
         return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
       })
       .join('\n');
@@ -230,9 +232,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const editor = new Editor(tui, editorTheme);
 
   const appendOutput = (color: string, text: string, wrap = false) => {
-    for (const line of text.split('\n')) {
-      outputLines.push({ color, text: line, wrap });
-    }
+    outputLines.push({ color, text, wrap });
     updateDisplay();
   };
 
@@ -943,7 +943,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         lines.push(`  ${cmd.usage ?? '/' + cmd.name}  — ${cmd.description}`);
       }
       lines.push('快捷键：ESC 中断当前 turn  /  Ctrl+C 或 Ctrl+D 退出  /  Ctrl+L 清屏');
-      appendOutput('\x1b[2m', lines.join('\n'));
+      appendOutput('\x1b[2m', lines.join('\n'), true);
     },
   });
 

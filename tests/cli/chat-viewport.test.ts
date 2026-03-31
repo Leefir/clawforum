@@ -157,4 +157,40 @@ describe('chat-viewport Phase 72', () => {
       expect(buildClawLineBody).toContain('fitLine');
     });
   });
+
+  // ==========================================================================
+  // Phase 90: appendOutput 职责边界
+  // ==========================================================================
+  describe('Phase 90: appendOutput 职责边界', () => {
+    it('appendOutput 内部不应 split text', () => {
+      const appendOutputMatch = sourceCode.match(
+        /const appendOutput = [^{]+\{[\s\S]{0,300}?\};/
+      );
+      expect(appendOutputMatch).toBeTruthy();
+      // 不应有 split 循环
+      expect(appendOutputMatch![0]).not.toContain('text.split');
+      expect(appendOutputMatch![0]).not.toContain('for (const line of');
+    });
+
+    it('updateDisplay wrap=true 路径应先 split(\\n) 再 flatMap wrapLine', () => {
+      const updateDisplayMatch = sourceCode.match(
+        /const updateDisplay = \(\) => \{[\s\S]{0,800}?\};/
+      );
+      expect(updateDisplayMatch).toBeTruthy();
+      const body = updateDisplayMatch![0];
+      expect(body).toContain("split('\\n')");
+      expect(body).toContain('.flatMap(');
+      expect(body).toContain('wrapLine(');
+    });
+
+    it('/help appendOutput 调用应使用 wrap=true', () => {
+      // 找到 help 命令区域（以可用命令列表为特征）
+      const helpStart = sourceCode.indexOf("'可用命令：'");
+      expect(helpStart).toBeGreaterThan(-1);
+      const helpSection = sourceCode.slice(helpStart, helpStart + 500);
+      // 该区域的 appendOutput 调用应有 true 参数
+      expect(helpSection).toContain('lines.join(');
+      expect(helpSection).toContain(', true)');
+    });
+  });
 });
