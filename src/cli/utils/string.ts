@@ -52,17 +52,22 @@ export function fitLine(s: string, cols?: number): string {
 /**
  * 将单行字符串按终端宽度折行，返回多行数组。
  * 正确处理 emoji / CJK 等宽字符。不截断内容。
+ * @param hangIndent - 续行缩进前缀（默认空字符串），用于视觉上区分首行和续行
  */
-export function wrapLine(s: string, cols?: number): string[] {
+export function wrapLine(s: string, cols?: number, hangIndent = ''): string[] {
   const width = cols ?? (process.stdout.columns ?? 80);
   if (stringWidth(s) <= width) return [s];
+  const indentW = stringWidth(hangIndent);
   const lines: string[] = [];
   let remaining = s;
-  while (stringWidth(remaining) > width) {
-    const chunk = sliceFromStart(remaining, width);
-    lines.push(chunk);
+  let first = true;
+  while (stringWidth(remaining) > (first ? width : width - indentW)) {
+    const avail = first ? width : width - indentW;
+    const chunk = sliceFromStart(remaining, avail);
+    lines.push(first ? chunk : hangIndent + chunk);
     remaining = remaining.slice(chunk.length);
+    first = false;
   }
-  if (remaining) lines.push(remaining);
+  if (remaining) lines.push(first ? remaining : hangIndent + remaining);
   return lines;
 }
