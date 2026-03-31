@@ -48,6 +48,7 @@ export interface ToolTask {
   isIdempotent: boolean;  // Determines if retry is allowed
   maxRetries: number;     // Max retry attempts (default 2)
   retryCount: number;     // Current retry count (initial 0)
+  callerType?: 'subagent' | 'dispatcher';  // 决定 inbox 消息 from 字段
 }
 
 interface TaskState {
@@ -328,7 +329,7 @@ export class TaskSystem {
     toolName: string,
     executeCallback: () => Promise<ToolResult>,
     parentClawId: string,
-    options?: { isIdempotent?: boolean; maxRetries?: number }
+    options?: { isIdempotent?: boolean; maxRetries?: number; callerType?: 'subagent' | 'dispatcher' }
   ): Promise<string> {
     const taskId = randomUUID();
     const isIdempotent = options?.isIdempotent ?? false;
@@ -341,6 +342,7 @@ export class TaskSystem {
       isIdempotent,
       maxRetries: isIdempotent ? (options?.maxRetries ?? 2) : 0,
       retryCount: 0,
+      callerType: options?.callerType,
     };
 
     // Save to pending directory before registering in memory
@@ -782,7 +784,7 @@ export class TaskSystem {
       '---',
       `id: ${msgId}`,
       `type: message`,
-      `from: task_system`,
+      `from: ${task.callerType ?? 'task_system'}`,
       `to: ${task.parentClawId}`,
       `priority: ${priority}`,
       `timestamp: ${new Date().toISOString()}`,
@@ -871,7 +873,7 @@ export class TaskSystem {
       '---',
       `id: ${msgId}`,
       `type: message`,
-      `from: subagent`,
+      `from: ${task.callerType ?? 'subagent'}`,
       `to: ${task.parentClawId}`,
       `priority: ${priority}`,
       `timestamp: ${new Date().toISOString()}`,
@@ -923,7 +925,7 @@ export class TaskSystem {
       '---',
       `id: ${msgId}`,
       `type: message`,
-      `from: task_system`,
+      `from: ${task.callerType ?? 'task_system'}`,
       `to: ${task.parentClawId}`,
       `priority: high`,
       `timestamp: ${new Date().toISOString()}`,
