@@ -428,6 +428,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         taskWatchMap.set(taskId, tw);
         try {
           tw.watcher = fsNative.watch(streamPath, { persistent: false }, () => pollTaskStream(taskId));
+          tw.watcher.on('error', () => {
+            tw.watcher?.close();
+            tw.watcher = null;
+          });
         } catch { /* fallback to poll */ }
         break;
       }
