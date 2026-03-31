@@ -297,7 +297,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         thinkingBuffer += event.delta as string;
         if (thinkingMode === 'full') {
           const prefix = '⏺ ';
-          const indent = '  ';
+          const indent = ' '.repeat(stringWidth(prefix));
           const preview = thinkingBuffer
             .split('\n')
             .map((line, i) => (i === 0 ? prefix : indent) + line)
