@@ -80,6 +80,7 @@ export interface AcceptanceResult {
 export class ContractManager {
   private fs: IFileSystem;
   private clawDir: string;
+  private readonly clawId: string;
   private monitor?: IMonitor;
   private llm?: ILLMService;
   private verifierRegistry?: ToolRegistry;
@@ -91,6 +92,7 @@ export class ContractManager {
 
   constructor(
     clawDir: string,
+    clawId: string,
     fs: IFileSystem,
     monitor?: IMonitor,
     llm?: ILLMService,
@@ -98,6 +100,7 @@ export class ContractManager {
     motionInboxDir?: string,
   ) {
     this.clawDir = clawDir;
+    this.clawId = clawId;
     this.fs = fs;
     this.monitor = monitor;
     this.llm = llm;
@@ -551,10 +554,9 @@ export class ContractManager {
       } catch (err) {
         console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
       }
-      const clawId = path.basename(this.clawDir);
       const subtaskTotal = contractYaml.subtasks.length;
       const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
-      this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId, completedCount, subtaskTotal });
+      this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId: this.clawId, completedCount, subtaskTotal });
 
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -670,10 +672,9 @@ export class ContractManager {
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
-        const clawId = path.basename(this.clawDir);
-        const subtaskTotal = contractYaml.subtasks.length;
+          const subtaskTotal = contractYaml.subtasks.length;
         const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
-        this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId, completedCount, subtaskTotal });
+        this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId: this.clawId, completedCount, subtaskTotal });
         
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -715,8 +716,7 @@ export class ContractManager {
         } catch (err) {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
-        const clawId = path.basename(this.clawDir);
-        this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: result.feedback, clawId });
+          this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: result.feedback, clawId: this.clawId });
         
         await this.saveProgress(contractId, progress);
         
@@ -782,13 +782,13 @@ export class ContractManager {
       body = feedback || 'No feedback provided';
     }
     
-    const clawId = path.basename(this.clawDir);
+    
     const content = [
       '---',
       `id: ${ts}-${uuid8}`,
       `type: ${verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection'}`,
       `from: contract_system`,
-      `to: ${clawId}`,
+      `to: ${this.clawId}`,
       `priority: ${verdict === 'rejected' ? 'high' : 'normal'}`,
       `timestamp: ${now.toISOString()}`,
       ...Object.entries(extraFields).map(([k, v]) => `${k}: ${v}`),
@@ -814,13 +814,12 @@ export class ContractManager {
       const uuid8 = msgId.slice(0, 8);
       const filename = `${ts}_high_${uuid8}.md`;
       
-      const clawId = path.basename(this.clawDir);
       const content = [
         '---',
         `id: ${ts}-${uuid8}`,
         `type: acceptance_error`,
         `from: contract_system`,
-        `to: ${clawId}`,
+        `to: ${this.clawId}`,
         `priority: high`,
         `timestamp: ${now.toISOString()}`,
         `contract_id: ${contractId}`,
@@ -910,13 +909,12 @@ export class ContractManager {
     retryCount: number,
   ): void {
     try {
-      const clawId = path.basename(this.clawDir);
       const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
         type: 'contract_escalation',
-        source: clawId,
+        source: this.clawId,
         priority: 'high',
         extraFields: {
           contract_id: contractId,
@@ -940,13 +938,12 @@ export class ContractManager {
    */
   private notifyMotionAcceptanceTimeout(contractId: string, subtaskId: string): void {
     try {
-      const clawId = path.basename(this.clawDir);
       const motionInbox = this.motionInboxDir;
 
       writeInboxMessage({
         inboxDir: motionInbox,
         type: 'acceptance_timeout',
-        source: clawId,
+        source: this.clawId,
         priority: 'high',
         extraFields: { contract_id: contractId, subtask_id: subtaskId },
         body: `LLM acceptance verifier timed out for subtask "${subtaskId}".`,
@@ -1240,14 +1237,14 @@ export class ContractManager {
    * Notify Motion of contract completion (best-effort with retry)
    */
   private notifyMotionCompletion(contractId: string, contractTitle: string): void {
-    const clawId = path.basename(this.clawDir);
+    
     const opts = {
       inboxDir: this.motionInboxDir,
       type: 'review_request' as const,
-      source: clawId,
+      source: this.clawId,
       priority: 'low' as const,
-      extraFields: { claw_id: clawId, contract_id: contractId },
-      body: `[system] Contract "${contractTitle}" (${contractId}) completed by ${clawId}.`,
+      extraFields: { claw_id: this.clawId, contract_id: contractId },
+      body: `[system] Contract "${contractTitle}" (${contractId}) completed by ${this.clawId}.`,
     };
 
     try {
