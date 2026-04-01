@@ -6,11 +6,16 @@
 import * as path from 'path';
 import * as fsNative from 'fs';
 
+export interface ClawOutboxInfo {
+  clawId: string;
+  count: number;
+}
+
 /**
- * 扫描所有 claw outbox/pending，有未读则返回摘要字符串，否则返回 null。
+ * 扫描所有 claw outbox/pending，有未读则返回结构化列表，否则返回 null。
  * 调用方负责决定何时写 inbox 通知。
  */
-export function scanClawOutboxes(baseDir: string): string | null {
+export function scanClawOutboxes(baseDir: string): ClawOutboxInfo[] | null {
   try {
     const clawsDir = path.join(baseDir, 'claws');
     if (!fsNative.existsSync(clawsDir)) return null;
@@ -35,9 +40,7 @@ export function scanClawOutboxes(baseDir: string): string | null {
 
     if (Object.keys(counts).length === 0) return null;
 
-    return Object.entries(counts)
-      .map(([id, n]) => `${id}(${n})`)
-      .join(', ');
+    return Object.entries(counts).map(([id, n]) => ({ clawId: id, count: n }));
   } catch (error) {
     process.stderr.write(`[OutboxScanner] scan failed: ${error}\n`);
     return null;
