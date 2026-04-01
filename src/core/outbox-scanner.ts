@@ -1,6 +1,6 @@
 /**
  * Outbox Scanner - 扫描所有 Claw 的 outbox/pending，
- * 返回摘要字符串供调用方决策，不直接写 inbox。
+ * 返回结构化列表供调用方决策，不直接写 inbox。
  */
 
 import * as path from 'path';

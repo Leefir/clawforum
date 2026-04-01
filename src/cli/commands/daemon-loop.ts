@@ -180,14 +180,18 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
                 `- "${id}" 有 ${count} 条未读消息，可执行 \`clawforum claw outbox ${id}\` 查看`
             );
             const body = `有 ${outboxInfos.length} 个 claw 有未读消息：\n${lines.join('\n')}`;
-            writeInboxMessage({
-              inboxDir: inboxPendingDir,
-              type: 'claw_outbox',
-              source: 'system',
-              priority: 'normal',
-              body,
-              filenameTag: 'claw_outbox',
-            });
+            try {
+              writeInboxMessage({
+                inboxDir: inboxPendingDir,
+                type: 'claw_outbox',
+                source: 'system',
+                priority: 'normal',
+                body,
+                filenameTag: 'claw_outbox',
+              });
+            } catch (e) {
+              console.warn(`${label} Failed to write claw_outbox inbox message:`, e instanceof Error ? e.message : String(e));
+            }
           }
         } else {
           lastOutboxNotifyTs = 0;  // outbox 已清空，重置静默期
