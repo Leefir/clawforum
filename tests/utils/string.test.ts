@@ -133,4 +133,20 @@ describe('wrapLine hangIndent', () => {
     expect(result[0]).toBe(dotPrefix + 'abcd');
     expect(result[1]).toBe('  efgh');
   });
+
+  it('hangIndent 宽度 >= cols 时不死循环（极窄终端防御）', () => {
+    // cols=1, hangIndent='  '(宽度2)：续段可用宽 Math.max(1,1-2)=1，不会死循环
+    const result = wrapLine('abcde', 1, '  ');
+    // 每次至少消耗 1 字符，最终终止
+    expect(result.length).toBeGreaterThan(0);
+    // 所有字符均被输出（首段无 hangIndent，续段有）
+    const content = result.join('').replace(/  /g, '');
+    expect(content).toBe('abcde');
+  });
+
+  it('hangIndent 宽度 === cols 时不死循环', () => {
+    // cols=2, hangIndent='  '(宽度2)：续段可用宽 Math.max(1,0)=1
+    const result = wrapLine('abcde', 2, '  ');
+    expect(result.length).toBeGreaterThan(0);
+  });
 });

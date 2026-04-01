@@ -11,7 +11,7 @@ export function buildDispatcherUserMessage(
 ): string {
   let userMessage = `---
 你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher，以上为 Motion 的对话历史。对话历史仅供参考背景，本次任务为独立任务，你不在这个会话中。
-- 你的任务是根据本次目标和对话历史，进行推理和执行两个阶段，最终完成契约创建，返回[CONTRACT_DONE]{"contractId":"<id>","targetClaw":"<claw-id>"}[/CONTRACT_DONE]
+- 你的任务：完成契约创建（写文件 + 提交），任务完成后在最终回复末尾输出结果标记
 - 不能再调用 \`dispatch\`（递归防护）
 - 不能调用 \`spawn\`（会报错）
 `;
@@ -22,7 +22,9 @@ export function buildDispatcherUserMessage(
     userMessage += `\n\n${skillsSummary}`;
   }
 
-  userMessage += `\n\n## 第一阶段：推理
+  userMessage += `\n\n**重要**：第二阶段必须从工具调用开始，不得跳过任何步骤直接输出结果标记。
+
+## 第一阶段：推理
 
 请先进行以下推理：
 
@@ -47,7 +49,7 @@ export function buildDispatcherUserMessage(
 
   if (targetClaw) {
     userMessage += `
-目标 claw 已由用户指定：**${targetClaw}**，直接使用。`;
+目标 claw 已由用户指定：**${targetClaw}**。先执行 \`clawforum claw list\` 确认它存在且处于 daemon 状态，如未运行则 \`clawforum claw daemon ${targetClaw}\` 启动。`;
   } else {
     userMessage += `
 用 \`clawforum claw list\` 查现有 claw，判断复用还是新建：
@@ -64,18 +66,62 @@ export function buildDispatcherUserMessage(
 ### 2. 安装 dispatch-skills（如需要）
 exec: clawforum skill install --claw <id> --skill <name>
 
-### 3. 加载 clawforum-guide skill，然后读 dispatcher-workflow.md
-skill({ name: "clawforum-guide" })
-read({ path: "skills/clawforum-guide/references/dispatcher-workflow.md" })
+### 3. 写契约文件
 
-### 4. 写契约文件
-clawspace/contract-drafts/<contract-slug>/contract.yaml（含 background、goal、expectations、subtasks、acceptance、escalation）
-clawspace/contract-drafts/<contract-slug>/acceptance/<subtask-id>.sh 或 .prompt.txt
+目录结构：
+\`\`\`
+clawspace/contract-drafts/<contract-slug>/
+  contract.yaml
+  acceptance/
+    <subtask-id>.prompt.txt  ← type: llm
+    <subtask-id>.sh          ← type: script
+\`\`\`
 
-### 5. 提交契约
+\`<contract-slug>\`：kebab-case，描述本次契约内容，如 \`pdf-to-markdown-survey\`。
+
+**contract.yaml 格式**（字段来自第一阶段推理）：
+\`\`\`yaml
+schema_version: 1
+title: "任务标题（50字以内）"
+background: "用户意图：为什么要做这件事（与具体行动无关的动机和背景）"
+goal: "要完成什么"
+expectations: |
+  全局执行要求和质量期望：
+  - 用户的约束和偏好
+  - 成果质量标准
+  - 产出文件路径（若有，例如：clawspace/<contract-slug>/report.md）
+subtasks:
+  - id: collect-data
+    description: "动词 + 做什么，将结果写入 clawspace/<contract-slug>/report.md；含该子任务特有的细化要求"
+acceptance:
+  - subtask_id: collect-data
+    type: llm
+    prompt_file: acceptance/collect-data.prompt.txt
+escalation:
+  max_retries: 3
+\`\`\`
+
+**acceptance/.prompt.txt 格式**（type: llm 时）：
+\`\`\`
+检查 clawspace/<contract-slug>/report.md 是否存在且包含……
+
+子任务描述：{{subtask_description}}
+完成证据：{{evidence}}
+\`\`\`
+
+可用变量：\`{{evidence}}\`（done 时填写的描述）、\`{{subtask_description}}\`、\`{{artifacts}}\`。
+
+**关键规则**：
+- \`subtasks\` 必须是数组（\`- id: ...\` 列表），不能是对象映射（\`collect-data: { description: ... }\` 格式系统拒绝）
+- 验收条件不能写在 subtask 内部，必须写在顶层 \`acceptance\` 数组里
+- \`type: llm\` 必须用 \`prompt_file\`（指向 acceptance/ 目录下的 .prompt.txt），不能用 \`prompt\` 内联文本
+- \`type: script\` 用 \`script_file\`（指向 acceptance/ 目录下的 .sh 文件）
+- 每个有产出文件的子任务，description 里必须写明路径（Claw 依赖此路径决定文件写到哪里）
+
+### 4. 提交契约
 exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
 
-### 6. 在最终回复末尾输出（格式不可变）
+### 5. 在最终回复末尾输出（格式不可变）
 \`\`\`
 [CONTRACT_DONE]{"contractId":"<id>","targetClaw":"<claw-id>"}[/CONTRACT_DONE]
 \`\`\`

@@ -782,12 +782,13 @@ export class ContractManager {
       body = feedback || 'No feedback provided';
     }
     
+    const clawId = path.basename(this.clawDir);
     const content = [
       '---',
       `id: ${ts}-${uuid8}`,
       `type: ${verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection'}`,
       `from: contract_system`,
-      `to: claw`,
+      `to: ${clawId}`,
       `priority: ${verdict === 'rejected' ? 'high' : 'normal'}`,
       `timestamp: ${now.toISOString()}`,
       ...Object.entries(extraFields).map(([k, v]) => `${k}: ${v}`),
@@ -813,12 +814,13 @@ export class ContractManager {
       const uuid8 = msgId.slice(0, 8);
       const filename = `${ts}_high_${uuid8}.md`;
       
+      const clawId = path.basename(this.clawDir);
       const content = [
         '---',
         `id: ${ts}-${uuid8}`,
         `type: acceptance_error`,
         `from: contract_system`,
-        `to: claw`,
+        `to: ${clawId}`,
         `priority: high`,
         `timestamp: ${now.toISOString()}`,
         `contract_id: ${contractId}`,

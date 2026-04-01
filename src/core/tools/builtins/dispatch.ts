@@ -149,7 +149,7 @@ dispatcher 不能：
       ? args.idleTimeoutMs
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
-    // 构造包含完整对话上下文的 messages 数组（不含 userMessage，SubAgent 通过 prompt 追加）
+    // 构造包含完整对话上下文的 messages 数组
     const dialogMessages = ctx.dialogMessages ?? [];
     if (dialogMessages.length === 0) {
       console.warn('[dispatch] dialogMessages not provided or empty — dispatcher will run without conversation context');
@@ -159,6 +159,41 @@ dispatcher 不能：
     // 历史 dispatch 对（tool_use + tool_result）保持完整，确保 KV cache 命中。
     const dispatcherMessages: Message[] = [...dialogMessages];
 
+    // --- 关闭悬空的 dispatch tool_use ---
+    //
+    // dialogMessages 末尾是 assistant: tool_use(dispatch)，没有对应的 tool_result。
+    // 原因：loop 在调用工具前已把 tool_use 追加到 messages，但 tool_result 在工具
+    // 返回后才生成——而 dispatcher 作为异步任务，在工具返回之前就已拿到 messages 副本。
+    //
+    // 如果直接在 tool_use 后追加普通 user message（dispatcher 指令），会违反 Anthropic
+    // API 规范（tool_use 后必须跟 tool_result），导致 LLM 行为不稳定：它会把"完成
+    // dispatch 调用"误解为自己的任务，转而发通知报告而不是执行 dispatcher workflow。
+    //
+    // 修复：注入一个合并的 user message，同时包含：
+    //   - tool_result：语法上关闭 dispatch tool_use（content 是占位符，dispatcher 无需知道
+    //     Motion 实际收到的 "Dispatcher started..." 信息）
+    //   - text：dispatcher 指令（与原 prompt 字段内容相同）
+    // 两者合并为同一个 user message，保证消息结构 [tool_use → user(tool_result+text)] 合法。
+    const lastMsg = dispatcherMessages[dispatcherMessages.length - 1];
+    let dispatchToolUseId: string | undefined;
+    if (lastMsg?.role === 'assistant' && Array.isArray(lastMsg.content)) {
+      const lastBlock = lastMsg.content[lastMsg.content.length - 1];
+      if (lastBlock?.type === 'tool_use' && lastBlock.name === 'dispatch') {
+        dispatchToolUseId = (lastBlock as { type: string; id: string; name: string }).id;
+      }
+    }
+    if (dispatchToolUseId) {
+      dispatcherMessages.push({
+        role: 'user',
+        content: [
+          // 占位 tool_result：关闭 dispatch 调用，content 无需与 Motion 实际收到的相同
+          { type: 'tool_result', tool_use_id: dispatchToolUseId, content: 'Dispatcher activated.' },
+          // dispatcher 指令紧跟其后，同属一个 user turn
+          { type: 'text', text: userMessage },
+        ],
+      });
+    }
+
     // 使用 Motion 的完整工具列表，确保 KV cache 命中（system prompt + tools 前缀一致）
     const toolsForLLM = this.getToolsForLLM();
 
@@ -166,8 +201,8 @@ dispatcher 不能：
     try {
       dispatcherTaskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
-        messages: dispatcherMessages,  // 完整对话上下文
-        prompt: userMessage,            // 保留（兼容 fallback）
+        messages: dispatcherMessages,           // 完整对话上下文（含注入的合并 user message）
+        prompt: dispatchToolUseId ? '' : userMessage,  // 已注入则留空，否则 fallback
         tools: [],                     // 空 = 使用 registry 全部工具
         timeout: 3600,                 // 总超时 1 小时
         maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,

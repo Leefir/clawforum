@@ -225,4 +225,48 @@ describe('chat-viewport Phase 72', () => {
       expect(flushMatch![0]).toMatch(/appendOutput\(.*indent\)/);
     });
   });
+
+  // ==========================================================================
+  // Phase 91 step5-7: 死循环修复 / 死代码清理 / indent 一致性
+  // ==========================================================================
+  describe('Phase 91 step5: wrapLine Math.max 防死循环', () => {
+    it('wrapLine 实现中应有 Math.max(1', () => {
+      const wrapLineSrc = fs.readFileSync(
+        path.join(__dirname, '../../src/cli/utils/string.ts'), 'utf-8'
+      );
+      const wrapLineStart = wrapLineSrc.indexOf('export function wrapLine');
+      expect(wrapLineStart).toBeGreaterThan(-1);
+      const wrapLineBody = wrapLineSrc.slice(wrapLineStart, wrapLineStart + 700);
+      expect(wrapLineBody).toContain('Math.max(1');
+    });
+  });
+
+  describe('Phase 91 step6: 死代码已清除', () => {
+    it('getClawActivityInfo 不应出现在 import 中', () => {
+      expect(sourceCode).not.toContain('getClawActivityInfo');
+    });
+
+    it('ownTurnCount 不应存在', () => {
+      expect(sourceCode).not.toContain('ownTurnCount');
+    });
+
+    it('ownStep 不应存在', () => {
+      expect(sourceCode).not.toContain('ownStep');
+    });
+
+    it('ownMaxSteps 不应存在', () => {
+      expect(sourceCode).not.toContain('ownMaxSteps');
+    });
+  });
+
+  describe('Phase 91 step7: thinking_delta indent 用 stringWidth 计算', () => {
+    it('thinking_delta 中 indent 应使用 stringWidth(prefix)', () => {
+      const tdStart = sourceCode.indexOf("case 'thinking_delta':");
+      expect(tdStart).toBeGreaterThan(-1);
+      const tdEnd = sourceCode.indexOf('break;', tdStart);
+      expect(tdEnd).toBeGreaterThan(-1);
+      const tdSection = sourceCode.slice(tdStart, tdEnd + 6);
+      expect(tdSection).toContain('stringWidth(prefix)');
+    });
+  });
 });
