@@ -139,6 +139,9 @@ export class SubAgent {
 
     let turnEnded = false;
 
+    // Turn start: written before any potentially-throwing init so catch always pairs it
+    sw?.write({ ts: Date.now(), type: 'turn_start' });
+
     try {
       // Initialize executor with appropriate profile (spawn disabled for subagent, enabled for dispatcher)
       const callerType = this.callerType ?? 'subagent';
@@ -208,9 +211,6 @@ export class SubAgent {
           });
         },
       } : {};
-
-      // Turn start (run() level, write exactly once)
-      sw?.write({ ts: Date.now(), type: 'turn_start' });
 
       const result = await Promise.race([
         runReact({
