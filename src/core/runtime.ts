@@ -66,6 +66,7 @@ export interface InboxMessageInfo {
 
 /** daemon streaming callbacks (used by processBatch / _runReact) */
 export interface StreamCallbacks {
+  // LLM 级（不变）
   onTextDelta?: (delta: string) => void;
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
@@ -74,6 +75,12 @@ export interface StreamCallbacks {
   onBeforeLLMCall?: () => void;
   onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
   onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // inbox messages detected (for review_request handling)
+
+  // Turn 级（新增）
+  onTurnStart?: (sources: Array<{ text: string; type: string }>) => void;
+  onTurnEnd?: () => void;
+  onTurnError?: (error: string) => void;
+  onTurnInterrupted?: (reason: 'user' | 'system', timeoutMs?: number) => void;
 }
 
 /**
