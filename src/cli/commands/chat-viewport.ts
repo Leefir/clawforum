@@ -365,7 +365,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         updateDisplay();
         {
           const msg = (event as Record<string, unknown>).message;
-          appendOutput('\x1b[33m', typeof msg === 'string' ? msg : '⏎ Interrupted');
+          appendOutput('\x1b[33m', typeof msg === 'string' ? msg : 'Interrupted (Esc)');
         }
         break;
 
