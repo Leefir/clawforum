@@ -660,11 +660,24 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     if (session.messages.length === 0) return;
 
+    // Retry is also a turn (no inbox sources)
+    callbacks?.onTurnStart?.([]);
+
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
     try {
       await this._runReact(session.messages, callbacks);
+      callbacks?.onTurnEnd?.();
+    } catch (err) {
+      if (err instanceof SystemAbortError) {
+        callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+      } else if (err instanceof Error && err.message === 'Execution aborted') {
+        callbacks?.onTurnInterrupted?.('user');
+      } else {
+        callbacks?.onTurnError?.(err instanceof Error ? err.message : String(err));
+      }
+      throw err;
     } finally {
       this.currentAbortController = null;
       this.execContext.signal = undefined;
