@@ -1,7 +1,7 @@
 /**
  * ContractManager 测试 - 状态转换
  * 
- * 构造函数: new ContractManager(clawDir, fs, monitor?)
+ * 构造函数: new ContractManager(clawDir, clawId, fs, monitor?, llm?, verifierRegistry?, motionInboxDir?)
  * 
  * 新增测试：
  * - loadActive() 按 started_at 排序
@@ -34,7 +34,7 @@ describe('ContractManager', () => {
     await fs.mkdir(CLAW_DIR, { recursive: true });
 
     nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
-    manager = new ContractManager(CLAW_DIR, nodeFs, undefined);
+    manager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, undefined);
   });
 
   it('should create contract with running status and todo subtasks', async () => {
@@ -480,7 +480,7 @@ describe('ContractManager', () => {
   describe('monitor error reporting', () => {
     it('should log error to monitor when loadActive finds corrupted progress.json', async () => {
       const mockMonitor = { log: vi.fn() };
-      const monitorManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+      const monitorManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
 
       // 写入损坏的 progress.json
       const contractId = 'corrupt-contract';
@@ -497,7 +497,7 @@ describe('ContractManager', () => {
 
     it('should log error to monitor when loadPaused finds corrupted progress.json', async () => {
       const mockMonitor = { log: vi.fn() };
-      const monitorManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+      const monitorManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
 
       const contractId = 'corrupt-paused-contract';
       const contractDir = path.join(CLAW_DIR, 'contract', 'paused', contractId);
@@ -513,7 +513,7 @@ describe('ContractManager', () => {
 
     it('should log warn to monitor when unknown subtaskId is used in completeSubtask', async () => {
       const mockMonitor = { log: vi.fn() };
-      const monitorManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+      const monitorManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
 
       const contractId = await monitorManager.create({
         schema_version: 1,
@@ -547,7 +547,7 @@ describe('ContractManager', () => {
         return fs.writeFile(path.join(CLAW_DIR, p), c);
       });
 
-      const failManager = new ContractManager(CLAW_DIR, nodeFs);
+      const failManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs);
       await expect(failManager.create({
         schema_version: 1,
         title: 'Test',
@@ -603,7 +603,7 @@ describe('ContractManager', () => {
   describe('moveToArchive and notify consistency', () => {
     it('should NOT notify Motion when moveToArchive fails', async () => {
       const mockMonitor = { log: vi.fn() };
-      const testManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+      const testManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
 
       // Create contract with no-op acceptance (no script_file/prompt_file = no acceptance)
       const contractId = await testManager.create({
@@ -639,7 +639,7 @@ describe('ContractManager', () => {
 
     it('should notify Motion when moveToArchive succeeds', async () => {
       const mockMonitor = { log: vi.fn() };
-      const testManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+      const testManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
 
       const contractId = await testManager.create({
         schema_version: 1,
@@ -670,7 +670,7 @@ describe('ContractManager', () => {
   describe('LLM acceptance', () => {
     it('should reset subtask to todo when verifier throws exception', async () => {
       const mockMonitor = { log: vi.fn() };
-      const testManager = new ContractManager(CLAW_DIR, nodeFs, mockMonitor as any);
+      const testManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
 
       // Create contract with LLM acceptance
       const contractId = await testManager.create({
@@ -737,7 +737,7 @@ describe('ContractManager', () => {
 
       const nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
       // 6th constructor arg is motionInboxDir
-      notifyManager = new ContractManager(CLAW_DIR, nodeFs, undefined, undefined, undefined, motionInboxDir);
+      notifyManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, undefined, undefined, undefined, motionInboxDir);
     });
 
     afterEach(async () => {
