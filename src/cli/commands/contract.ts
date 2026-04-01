@@ -50,16 +50,15 @@ function notifyContractCreated(clawDir: string, clawId: string, contractId: stri
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
   try {
     const subtaskLines = contract.subtasks.map(s => `- ${s.id}: ${s.description}`).join('\n');
-    const body = [
-      `新契约已创建（${contractId}）：${contract.title}`,
-      `目标：${contract.goal}`,
-      ``,
-      `子任务：`,
-      subtaskLines,
-      ``,
+    const lines = [`新契约已创建（${contractId}）：${contract.title}`];
+    if (contract.background) lines.push(`背景：${contract.background}`);
+    lines.push(`目标：${contract.goal}`);
+    if (contract.expectations) lines.push(`执行要求：${contract.expectations}`);
+    lines.push(``, `子任务：`, subtaskLines, ``,
       `执行完每个子任务后，调用 done 提交验收：`,
       `done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`,
-    ].join('\n');
+    );
+    const body = lines.join('\n');
     writeInboxMessage({
       inboxDir: path.join(clawDir, 'inbox', 'pending'),
       type: 'message',
