@@ -7,12 +7,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { scanClawOutboxes } from '../../src/core/outbox-scanner.js';
 
-async function createTempDir(): Promise<string> {
+function createTempDir(): string {
   const tempDir = fs.mkdtempSync('/tmp/clawforum-outbox-test-');
   return tempDir;
 }
 
-async function cleanupTempDir(tempDir: string): Promise<void> {
+function cleanupTempDir(tempDir: string): void {
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
   } catch {
@@ -23,12 +23,12 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
 describe('OutboxScanner', () => {
   let tempDir: string;
 
-  beforeEach(async () => {
-    tempDir = await createTempDir();
+  beforeEach(() => {
+    tempDir = createTempDir();
   });
 
-  afterEach(async () => {
-    await cleanupTempDir(tempDir);
+  afterEach(() => {
+    cleanupTempDir(tempDir);
   });
 
   it('should return null when claws directory does not exist', () => {
