@@ -73,7 +73,6 @@ export interface StreamCallbacks {
   onToolCall?: (toolName: string, toolUseId: string) => void;
   onToolResult?: (toolName: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onBeforeLLMCall?: () => void;
-  onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
   onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // inbox messages detected (for review_request handling)
 
   // Turn 级（新增）
@@ -526,11 +525,6 @@ export class ClawRuntime {
 
     const { injected, sources, count, infos } = await this._drainOwnInbox();
     if (count === 0) return 0;
-
-    // Notify daemon-loop which messages were injected
-    if (callbacks?.onInboxDrained) {
-      callbacks.onInboxDrained(sources);
-    }
 
     // Notify daemon-loop of inbox messages for review_request handling
     if (callbacks?.onInboxMessages && infos.length > 0) {
