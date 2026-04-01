@@ -239,7 +239,7 @@ export async function daemonCommand(name: string): Promise<void> {
           const clawsBaseDir = path.resolve(dir, '..', 'claws');
           const clawDir = path.join(clawsBaseDir, targetClaw);
           const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-          const contractManager = new ContractManager(clawDir, clawFs);
+          const contractManager = new ContractManager(clawDir, targetClaw, clawFs);
 
           let contractYaml: string;
           try {
