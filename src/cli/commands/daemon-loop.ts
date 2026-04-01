@@ -171,7 +171,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
       // motion: scan claw outboxes for unread messages
       if (options.heartbeat) {
-        const outboxInfos = scanClawOutboxes(path.join(agentDir, '..'));
+        const outboxInfos = await scanClawOutboxes(path.join(agentDir, '..'));
         if (outboxInfos !== null) {
           if (Date.now() - lastOutboxNotifyTs >= OUTBOX_NOTIFY_COOLDOWN_MS) {
             lastOutboxNotifyTs = Date.now();
