@@ -716,10 +716,10 @@ describe('ContractManager', () => {
       expect(progress.subtasks['t1'].last_failed_feedback).toContain('MaxStepsExceeded');
     });
 
-    it('should use CONTRACT_VERIFIER_MAX_STEPS=50 constant', async () => {
-      // Verify the constant is correctly defined
-      const { CONTRACT_VERIFIER_MAX_STEPS } = await import('../../src/constants.js');
-      expect(CONTRACT_VERIFIER_MAX_STEPS).toBe(50);
+    it('should use DEFAULT_MAX_STEPS=100 for verifier', async () => {
+      // Verify the verifier uses the default max steps (unified with other subagents)
+      const { DEFAULT_MAX_STEPS } = await import('../../src/constants.js');
+      expect(DEFAULT_MAX_STEPS).toBe(100);
     });
   });
 
