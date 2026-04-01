@@ -298,6 +298,7 @@ export async function daemonCommand(name: string): Promise<void> {
   const { promise, stop } = startDaemonLoop({
     runtime,
     agentDir: dir,
+    clawId: name,
     inboxPendingDir,
     label: isMotion ? '[motion daemon]' : '[daemon]',
     streamWriter,

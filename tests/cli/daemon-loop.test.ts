@@ -105,6 +105,7 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
     const { stop } = startDaemonLoop({
       runtime: mockRuntime,
       agentDir: '/tmp/test-agent-fix9',
+      clawId: 'test-agent-fix9',
       inboxPendingDir: '/tmp/test-inbox-fix9',
       label: '[test-fix9]',
       fallbackTimeoutMs: 60_000,
@@ -156,6 +157,7 @@ describe('startDaemonLoop - LLM retry', () => {
     const { stop } = startDaemonLoop({
       runtime: mockRuntime,
       agentDir: '/tmp/daemon-llm-retry-test',
+      clawId: 'daemon-llm-retry-test',
       inboxPendingDir: '/tmp/daemon-llm-retry-test/inbox/pending',
       label: '[retry-test]',
       fallbackTimeoutMs: 1_000,
@@ -194,6 +196,7 @@ describe('startDaemonLoop - LLM retry', () => {
     const { stop } = startDaemonLoop({
       runtime: mockRuntime,
       agentDir: '/tmp/agent-max-retry',
+      clawId: 'agent-max-retry',
       inboxPendingDir: '/tmp/agent-max-retry/inbox/pending',
       label: '[max-retry-test]',
       fallbackTimeoutMs: 100,
@@ -252,6 +255,7 @@ describe('startDaemonLoop - LLM retry', () => {
     const { stop } = startDaemonLoop({
       runtime: mockRuntime,
       agentDir: '/tmp/non-llm-error-test',
+      clawId: 'non-llm-error-test',
       inboxPendingDir: '/tmp/non-llm-error-test/inbox/pending',
       label: '[non-llm-test]',
       fallbackTimeoutMs: 500,

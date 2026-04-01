@@ -17,6 +17,7 @@ import { SystemAbortError } from '../../core/react/loop.js';
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
   agentDir: string;                      // agent root directory, used to listen for interrupt signals
+  clawId: string;                        // agent identifier (kebab-case)
   inboxPendingDir: string;
   label: string;                         // log prefix, e.g. '[motion daemon]' or '[daemon]'
   onBatchComplete?: () => Promise<void>; // callback invoked after a chain reaction finishes
@@ -64,7 +65,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, agentDir, inboxPendingDir, label, onBatchComplete, streamWriter, notifyMotionDir } = options;
+  const { runtime, agentDir, clawId, inboxPendingDir, label, onBatchComplete, streamWriter, notifyMotionDir } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   let stopped = false;
   let startupFired = false;
@@ -330,7 +331,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           }
           // Notify motion when LLM max retries exhausted (claw only)
           if (isLLMMaxRetry && notifyMotionDir) {
-            const clawId = path.basename(agentDir);
             const errMsg = err instanceof Error ? err.message : String(err);
             // viewport notification
             try {
