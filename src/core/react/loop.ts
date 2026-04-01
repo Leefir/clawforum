@@ -15,7 +15,7 @@ import type { ILLMService, LLMCallOptions } from '../../foundation/llm/index.js'
 import type { StreamChunk } from '../../foundation/llm/types.js';
 import type { IToolExecutor, ExecContext, ToolResult, IToolRegistry } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
-import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
+import { REACT_DEFAULT_MAX_TOKENS, MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from '../../constants.js';
 
 /**
  * Error thrown when system idle timeout aborts execution
@@ -133,9 +133,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 
   let stepCount = 0;
   let consecutiveParseErrors = 0;
-  const MAX_CONSECUTIVE_PARSE_ERRORS = 3;
   let consecutiveMaxTokensToolUse = 0;
-  const MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE = 3;
   // 每步是否全为 parse error，由 onToolResult 回调统计（在 toToolResultBlock 之前触发，有 metadata）
   let stepAllParseErrors = false;
   let stepToolCount = 0;

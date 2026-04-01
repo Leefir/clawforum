@@ -12,7 +12,7 @@ import type { IFileSystem } from '../../foundation/fs/types.js';
 
 import { JsonlMonitor } from '../../foundation/monitor/index.js';
 import { SubAgent } from '../subagent/agent.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
+import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
@@ -96,7 +96,7 @@ export class TaskSystem {
     private fs: IFileSystem,
     options: { maxConcurrent?: number } = {}
   ) {
-    this.maxConcurrent = options.maxConcurrent ?? 3;
+    this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_TASKS;
     this.monitor = new JsonlMonitor({ logsDir: path.join(clawDir, 'logs') });
     // Create tool registry for subagents
     this.registry = new ToolRegistry();

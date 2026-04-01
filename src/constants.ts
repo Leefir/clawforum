@@ -137,6 +137,33 @@ export const OUTBOX_NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
 export const STARTUP_CHECK_COOLDOWN_MS = 10 * 60 * 1000;
 
 // ----------------------------------------------------------------------------
+// React Loop / Execution
+// ----------------------------------------------------------------------------
+
+/** Maximum consecutive parse errors before aborting */
+export const MAX_CONSECUTIVE_PARSE_ERRORS = 3;
+
+/** Maximum consecutive max_tokens tool_use before aborting */
+export const MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE = 3;
+
+// ----------------------------------------------------------------------------
+// Task System
+// ----------------------------------------------------------------------------
+
+/** Default maximum concurrent tasks */
+export const DEFAULT_MAX_CONCURRENT_TASKS = 3;
+
+// ----------------------------------------------------------------------------
+// UI / Display
+// ----------------------------------------------------------------------------
+
+/** Maximum characters for summary storage */
+export const SUMMARY_MAX_CHARS = 500;
+
+/** Maximum output lines cap for viewport */
+export const OUTPUT_LINES_CAP = 5000;
+
+// ----------------------------------------------------------------------------
 // LLM Stream
 // ----------------------------------------------------------------------------
 

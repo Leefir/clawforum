@@ -1,4 +1,5 @@
 import stringWidth from 'string-width';
+import { SUMMARY_MAX_CHARS } from '../../constants.js';
 
 /**
  * 按视觉列宽从头截取字符串（正确处理 emoji / CJK 等宽字符）
@@ -21,8 +22,6 @@ export function sliceFromStart(s: string, maxCols: number): string {
   }
   return s.slice(0, i);
 }
-
-const SUMMARY_MAX_CHARS = 500;
 
 /**
  * 将字符串处理为存储摘要：

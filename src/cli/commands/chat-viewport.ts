@@ -11,6 +11,7 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
 import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
+import { OUTPUT_LINES_CAP } from '../../constants.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -227,8 +228,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // 输入组件
   const editor = new Editor(tui, editorTheme);
-
-  const OUTPUT_LINES_CAP = 5000;
 
   const appendOutput = (color: string, text: string, wrap = false, hangIndent = '') => {
     outputLines.push({ color, text, wrap, hangIndent });

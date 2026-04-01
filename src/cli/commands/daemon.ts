@@ -20,7 +20,7 @@ import { Heartbeat } from '../../core/heartbeat.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { SkillRegistry } from '../../core/skill/registry.js';
 import { ContractManager } from '../../core/contract/manager.js';
-import { DEFAULT_MAX_STEPS } from '../../constants.js';
+import { DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
 import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
 import { buildRetroPrompt } from '../../prompts/index.js';
 import { CronRunner, parseSchedule } from '../../core/cron/runner.js';
@@ -98,7 +98,7 @@ export async function daemonCommand(name: string): Promise<void> {
         toolProfile: 'full',
         toolTimeoutMs: globalConfig.tool_timeout_ms,
         subagentMaxSteps: globalConfig.motion?.subagent_max_steps,
-        maxConcurrentTasks: globalConfig.motion?.max_concurrent_tasks ?? 3,
+        maxConcurrentTasks: globalConfig.motion?.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS,
         idleTimeoutMs: globalConfig.motion?.llm_idle_timeout_ms,
       })
     : new ClawRuntime({
