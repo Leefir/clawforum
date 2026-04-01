@@ -15,13 +15,48 @@ When you receive a contract task, the system will inject contract details (title
 
 ### Completing Subtasks
 
-Read each subtask's description carefully — if it specifies an output file path (e.g. \`clawspace/<contract-slug>/report.md\`), you **must write the file to that exact path** using the \`write\` tool. Outputting content only as text in your reply is not sufficient — the file must exist on disk before calling \`done\`.
+执行子任务后，根据实际情况选择对应动作：
 
-After completing each subtask, **you must call the done tool**:
+**三态模型：**
 
+| 状态 | 判断标准 | 动作 |
+|------|---------|------|
+| **可验收** | 子任务要求的产出已实际完成，认为可以接受验收 | 调 \`done\` |
+| **阻塞** | 缺少外部信息或资源，无法推进到可验收状态 | 调 \`send question\`，结束本轮等待回复 |
+| **失败** | 已穷尽所有可行方案，仍无法完成 | 调 \`send error\`，说明原因 |
+
+调用 \`done\` 会发起验收流程。验收通过则子任务完成；**验收不通过会收到驳回反馈**，根据反馈修复后再次调用 \`done\`。
+
+**\`done\` 表示"我认为可以验收了"，不表示"我试过了但没成功"。** 如果产出尚不存在，不能调 \`done\`。
+
+调用格式：
 \`\`\`
-done: { "subtask": "<subtask-id>", "evidence": "completion description" }
+done: { "subtask": "<subtask-id>", "evidence": "<产出路径或可验证的完成摘要>" }
 \`\`\`
+
+evidence 要能证明产出已达成——文件写入时填路径，命令执行时填关键输出。
+
+**阻塞时的上报格式：**
+\`\`\`
+send: {
+  "type": "question",
+  "content": "子任务 <subtask-id> 阻塞：<具体原因>。需要：<所需信息或决策>",
+  "priority": "high"
+}
+\`\`\`
+上报后继续执行其他可以推进的子任务；只有当没有任何子任务可以继续时，才结束本轮等待 Motion 回复。
+
+**失败时的上报格式：**
+
+先将已尝试的方案及结果写入文件（如 \`clawspace/<contract-slug>/attempt-log.md\`），再上报路径：
+\`\`\`
+send: {
+  "type": "error",
+  "content": "子任务 <subtask-id> 失败，无法完成。尝试记录：clawspace/<contract-slug>/attempt-log.md",
+  "priority": "high"
+}
+\`\`\`
+Motion 会检查该文件并基于记录寻找新方法或调整任务。
 
 **If done returns "X subtask(s) remaining"**: do NOT end the turn — immediately continue to the next subtask in the list. Only end the turn when done returns "All subtasks complete!".
 

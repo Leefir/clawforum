@@ -147,11 +147,7 @@ export const STREAM_MAX_DURATION_MS = 5 * 60 * 1000;
 // Contract
 // ----------------------------------------------------------------------------
 
-/** 契约 LLM 验收流式空闲超时 (ms) — 30 秒无 chunk 则中断 */
-export const CONTRACT_LLM_IDLE_TIMEOUT_MS = 30_000;
-
 /** 契约脚本验收超时 (ms) */
 export const CONTRACT_SCRIPT_TIMEOUT_MS = 60_000;
 
-/** 契约 LLM verifier SubAgent 最大步数 */
-export const CONTRACT_VERIFIER_MAX_STEPS = 50;
+

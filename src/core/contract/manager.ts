@@ -17,7 +17,7 @@ import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../typ
 import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, CONTRACT_LLM_IDLE_TIMEOUT_MS, CONTRACT_VERIFIER_MAX_STEPS } from '../../constants.js';
+import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -1192,8 +1192,8 @@ export class ContractManager {
         llm: this.llm,
         registry,
         fs: this.fs as any,
-        maxSteps: CONTRACT_VERIFIER_MAX_STEPS,
-        idleTimeoutMs: CONTRACT_LLM_IDLE_TIMEOUT_MS,
+        maxSteps: DEFAULT_MAX_STEPS,
+        idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
         onIdleTimeout: () => this.notifyMotionAcceptanceTimeout(contractId, subtaskId),
       });
 
