@@ -32,7 +32,7 @@ describe('doneTool', () => {
     await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(CLAW_DIR, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
-    manager = new ContractManager(CLAW_DIR, nodeFs, undefined);
+    manager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, undefined);
   });
 
   afterEach(async () => {

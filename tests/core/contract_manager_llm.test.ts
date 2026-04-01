@@ -198,7 +198,7 @@ describe('ContractManager Acceptance Flow', () => {
     } as unknown as ILLMService;
 
     mockRegistry = new ToolRegistry();
-    manager = new ContractManager(clawDir, nodeFs, mockMonitor, mockLLM, mockRegistry);
+    manager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor, mockLLM, mockRegistry);
   });
 
   afterEach(async () => {
@@ -489,7 +489,7 @@ describe('ContractManager Acceptance Flow', () => {
       const contractId = 'test-llm-not-injected';
       // manager without llm
       const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-      const noLLMManager = new ContractManager(clawDir, nodeFs, mockMonitor);
+      const noLLMManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor);
 
       await setupContract(tempDir, contractId, {
         schema_version: 1,
@@ -781,7 +781,7 @@ describe('ContractManager Acceptance Flow', () => {
       expect(content).toContain('type: acceptance_result');
       expect(content).toContain('priority: normal');
       expect(content).toContain('from: contract_system');
-      expect(content).toContain('to: claw');
+      expect(content).toContain('to: test-claw');
       expect(content).toContain(`contract_id: ${contractId}`);
       expect(content).toContain('subtask_id: task-1');
       expect(content).toContain('verdict: passed');
@@ -822,7 +822,7 @@ describe('ContractManager Acceptance Flow', () => {
       expect(content).toContain('type: acceptance_rejection');
       expect(content).toContain('priority: high');
       expect(content).toContain('from: contract_system');
-      expect(content).toContain('to: claw');
+      expect(content).toContain('to: test-claw');
       expect(content).toContain(`contract_id: ${contractId}`);
       expect(content).toContain('subtask_id: task-1');
       expect(content).toContain('verdict: rejected');

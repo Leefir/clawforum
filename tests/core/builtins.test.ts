@@ -536,7 +536,7 @@ describe('Builtin Tools', () => {
     });
 
     it('should show "No active contract" when contractManager has no active contract', async () => {
-      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const manager = new ContractManager(tempDir, 'test-claw', mockFs, undefined);
       (ctx as any).contractManager = manager;
 
       const result = await statusTool.execute({}, ctx);
@@ -546,7 +546,7 @@ describe('Builtin Tools', () => {
     });
 
     it('should show subtask list with ○ icons when contract is active', async () => {
-      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const manager = new ContractManager(tempDir, 'test-claw', mockFs, undefined);
       await manager.create({
         schema_version: 1 as const,
         title: 'Test Contract',
@@ -572,7 +572,7 @@ describe('Builtin Tools', () => {
     });
 
     it('should show ✓ for completed subtask and ○ for todo subtask', async () => {
-      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const manager = new ContractManager(tempDir, 'test-claw', mockFs, undefined);
       const contractId = await manager.create({
         schema_version: 1 as const,
         title: 'Mixed Status',
@@ -647,7 +647,7 @@ describe('Builtin Tools', () => {
 
     // subtask failed 状态显示 ✗
     it('should show ✗ icon for failed subtask', async () => {
-      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const manager = new ContractManager(tempDir, 'test-claw', mockFs, undefined);
       const contractId = await manager.create({
         title: 'Fail Test',
         goal: 'test',
@@ -709,7 +709,7 @@ describe('Builtin Tools', () => {
 
     // Batch 4 新增测试：subtask failed 状态显示 ✗
     it('should show ✗ icon for failed subtask', async () => {
-      const manager = new ContractManager(tempDir, mockFs, undefined);
+      const manager = new ContractManager(tempDir, 'test-claw', mockFs, undefined);
       const contractId = await manager.create({
         title: 'Fail Test',
         goal: 'test',
