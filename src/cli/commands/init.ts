@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized } from '../config.js';
+import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
@@ -91,13 +92,11 @@ export async function initCommand(silent = false): Promise<void> {
         } else if (/^[A-Z][A-Z0-9_]*$/.test(pick.trim())) {
           varName = pick.trim();
         } else {
-          console.error('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
-          process.exit(1);
-          return;
+          throw new CliError('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
         }
 
         apiKey = process.env[varName] ?? '';
-        if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
+        if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
         console.log(`✓ API Key read from environment (${varName})`);
 
         const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
@@ -112,19 +111,19 @@ export async function initCommand(silent = false): Promise<void> {
           const fmt = await question('\n> ', '2');
           presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
           baseUrl = await question('Base URL');
-          if (!baseUrl) { console.error('Base URL is required'); process.exit(1); }
+          if (!baseUrl) { throw new CliError('Base URL is required'); }
           model = await question('Model');
-          if (!model) { console.error('Model is required'); process.exit(1); }
+          if (!model) { throw new CliError('Model is required'); }
         }
 
       } else {
         // No detected vars: ask for var name, then format/baseUrl/model
         console.log('\n  No API key environment variables detected.');
         const varName = await question('Enter environment variable name (e.g. MY_API_KEY)');
-        if (!varName) { console.error('Variable name is required'); process.exit(1); }
+        if (!varName) { throw new CliError('Variable name is required'); }
 
         apiKey = process.env[varName] ?? '';
-        if (!apiKey) { console.error(`Environment variable ${varName} is not set`); process.exit(1); }
+        if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
         console.log(`✓ API Key read from environment (${varName})`);
 
         console.log('\nSelect API format:');
@@ -134,9 +133,9 @@ export async function initCommand(silent = false): Promise<void> {
         const fmt = await question('\n> ', '2');
         presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
         baseUrl = await question('Base URL');
-        if (!baseUrl) { console.error('Base URL is required'); process.exit(1); }
+        if (!baseUrl) { throw new CliError('Base URL is required'); }
         model = await question('Model');
-        if (!model) { console.error('Model is required'); process.exit(1); }
+        if (!model) { throw new CliError('Model is required'); }
       }
 
     } else if (configMethod === '2') {
@@ -148,20 +147,18 @@ export async function initCommand(silent = false): Promise<void> {
       const fmt = await question('\n> ', '2');
       presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
       baseUrl = await question('Base URL');
-      if (!baseUrl) { console.error('Base URL is required'); process.exit(1); }
+      if (!baseUrl) { throw new CliError('Base URL is required'); }
       apiKey = await passwordQuestion('API Key');
-      if (!apiKey) { console.error('API Key is required'); process.exit(1); }
+      if (!apiKey) { throw new CliError('API Key is required'); }
       model = await question('Model');
-      if (!model) { console.error('Model is required'); process.exit(1); }
+      if (!model) { throw new CliError('Model is required'); }
 
     } else if (configMethod === '3') {
       // ── Branch 3: not yet implemented ──
-      console.error('Provider selection is not yet implemented. Please use option 1 or 2.');
-      process.exit(1);
+      throw new CliError('Provider selection is not yet implemented. Please use option 1 or 2.');
 
     } else {
-      console.error('Invalid selection');
-      process.exit(1);
+      throw new CliError('Invalid selection');
     }
 
     // Build config
@@ -210,8 +207,7 @@ export async function initCommand(silent = false): Promise<void> {
     }
 
   } catch (error) {
-    console.error('Init failed:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    throw new CliError(`Init failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
     rl.close();
   }

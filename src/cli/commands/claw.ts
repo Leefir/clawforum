@@ -16,6 +16,7 @@ import {
   getGlobalConfigPath,
   CLAW_SUBDIRS,
 } from '../config.js';
+import { CliError, handleCliError } from '../../utils/error.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { buildAgentsMdTemplate } from '../../prompts/index.js';
@@ -66,8 +67,7 @@ export async function createCommand(name: string): Promise<void> {
   
   // Check if claw already exists
   if (clawExists(name)) {
-    console.error(`Error: Claw "${name}" already exists`);
-    process.exit(1);
+    throw new CliError(`Claw "${name}" already exists`);
   }
   
   const clawDir = getClawDir(name);
@@ -101,8 +101,7 @@ export async function chatCommand(name: string): Promise<void> {
   loadGlobalConfig();
 
   if (!clawExists(name)) {
-    console.error(`Error: Claw "${name}" does not exist`);
-    process.exit(1);
+    throw new CliError(`Claw "${name}" does not exist`);
   }
 
   const clawDir = getClawDir(name);
@@ -142,8 +141,7 @@ export async function stopCommand(name: string): Promise<void> {
   loadGlobalConfig();
   
   if (!clawExists(name)) {
-    console.error(`Error: Claw "${name}" does not exist`);
-    process.exit(1);
+    throw new CliError(`Claw "${name}" does not exist`);
   }
 
   const globalConfigPath = getGlobalConfigPath();
@@ -164,8 +162,7 @@ export async function stopCommand(name: string): Promise<void> {
   if (success) {
     console.log(`Stopped Claw "${name}"`);
   } else {
-    console.error(`Failed to stop Claw "${name}"`);
-    process.exit(1);
+    throw new CliError(`Failed to stop Claw "${name}"`);
   }
 }
 
@@ -310,7 +307,7 @@ export async function listCommand(): Promise<void> {
     console.log(`\nTotal: ${claws.length} claws (${claws.filter(c => c.status === 'running').length} running)\n`);
   } catch (error) {
     console.error('Failed to list claws:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    process.exitCode = handleCliError(error);
   }
 }
 
@@ -321,8 +318,7 @@ export async function healthCommand(name: string): Promise<void> {
   loadGlobalConfig();
 
   if (!clawExists(name)) {
-    console.error(`Error: Claw "${name}" does not exist`);
-    process.exit(1);
+    throw new CliError(`Claw "${name}" does not exist`);
   }
 
   const clawDir = getClawDir(name);
@@ -392,8 +388,7 @@ export async function sendCommand(
   loadGlobalConfig();
   
   if (!clawExists(name)) {
-    console.error(`Error: Claw "${name}" does not exist`);
-    process.exit(1);
+    throw new CliError(`Claw "${name}" does not exist`);
   }
 
   const globalConfigPath = getGlobalConfigPath();
@@ -434,8 +429,7 @@ export async function outboxCommand(
   loadGlobalConfig();
 
   if (!clawExists(name)) {
-    console.error(`Error: Claw "${name}" does not exist`);
-    process.exit(1);
+    throw new CliError(`Claw "${name}" does not exist`);
   }
 
   const clawDir = getClawDir(name);
@@ -537,8 +531,7 @@ export async function clawTraceCommand(
   loadGlobalConfig();
 
   if (!clawExists(clawId)) {
-    console.error(`Error: Claw "${clawId}" does not exist`);
-    process.exit(1);
+    throw new CliError(`Claw "${clawId}" does not exist`);
   }
 
   const clawDir = getClawDir(clawId);
@@ -546,8 +539,7 @@ export async function clawTraceCommand(
   // 1. 读取 started_at
   const startedAt = await readContractStartedAt(clawDir, contractId);
   if (!startedAt) {
-    console.error(`Error: Contract "${contractId}" not found for claw "${clawId}"`);
-    process.exit(1);
+    throw new CliError(`Contract "${contractId}" not found for claw "${clawId}"`);
   }
 
   // 2. 扫描并过滤 stream 文件
@@ -773,8 +765,7 @@ async function showStepDetail(
   }
 
   if (!targetToolName) {
-    console.error(`Error: Step ${targetStep} not found`);
-    process.exit(1);
+    throw new CliError(`Step ${targetStep} not found`);
   }
 
   // 读取 dialog/current.json + 所有 archive/*.json，按 mtime 升序合并

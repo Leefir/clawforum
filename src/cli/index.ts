@@ -8,6 +8,7 @@ if (!process.env.CLAWFORUM_ROOT) {
 }
 
 import { program } from 'commander';
+import { handleCliError, CliError } from './errors.js';
 import { initCommand } from './commands/init.js';
 import { startCommand } from './commands/start.js';
 import * as path from 'path';
@@ -53,8 +54,7 @@ program
     try {
       await stopAllCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -66,8 +66,7 @@ program
     try {
       await statusCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -79,8 +78,7 @@ program
     try {
       await startCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -92,8 +90,7 @@ program
     try {
       await initCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -110,8 +107,7 @@ clawCmd
     try {
       await createCommand(name);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -123,8 +119,7 @@ clawCmd
     try {
       await chatCommand(name);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -136,8 +131,7 @@ clawCmd
     try {
       await stopCommand(name);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -149,8 +143,7 @@ clawCmd
     try {
       await listCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -162,8 +155,7 @@ clawCmd
     try {
       await healthCommand(name);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -177,13 +169,11 @@ clawCmd
       // 验证 priority 值
       const validPriorities = ['critical', 'high', 'normal', 'low'];
       if (!validPriorities.includes(opts.priority)) {
-        console.error(`Invalid priority: ${opts.priority}. Must be one of: ${validPriorities.join(', ')}`);
-        process.exit(1);
+        throw new CliError(`Invalid priority: ${opts.priority}. Must be one of: ${validPriorities.join(', ')}`);
       }
       await sendCommand(name, message, { priority: opts.priority as any });
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -196,8 +186,7 @@ clawCmd
     try {
       await outboxCommand(name, { limit: parseInt(opts.limit, 10) });
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -213,8 +202,7 @@ clawCmd
       const { clawTraceCommand } = await import('./commands/claw.js');
       await clawTraceCommand(opts.claw, opts.contract, opts.step);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -230,8 +218,7 @@ clawCmd
       const { ProcessManager } = await import('../foundation/process/manager.js');
       loadGlobalConfig();
       if (!clawExists(name)) {
-        console.error(`Error: Claw "${name}" does not exist`);
-        process.exit(1);
+        throw new CliError(`Claw "${name}" does not exist`);
       }
       const clawDir = getClawDir(name);
       const baseDir = path.dirname(getGlobalConfigPath());
@@ -244,8 +231,7 @@ clawCmd
       const pid = await pm.spawn(name, clawDir);
       console.log(`Started Claw "${name}" (PID: ${pid})`);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -255,7 +241,7 @@ clawCmd.on('command:*', (ops) => {
   for (const c of clawCmd.commands) {
     console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 // motion command group
@@ -271,8 +257,7 @@ motionCmd
     try {
       await motionInitCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -284,8 +269,7 @@ motionCmd
     try {
       await motionChatCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -297,8 +281,7 @@ motionCmd
     try {
       await motionStopCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -327,8 +310,7 @@ motionCmd
       const pid = await pm.spawn('motion', motionDir);
       console.log(`Started Motion daemon (PID: ${pid})`);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -338,7 +320,7 @@ motionCmd.on('command:*', (ops) => {
   for (const c of motionCmd.commands) {
     console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 // contract command group
@@ -356,19 +338,16 @@ contractCmd
   .action(async (opts: { claw: string; file?: string; dir?: string }) => {
     try {
       if (opts.file && opts.dir) {
-        console.error('Error: --file and --dir are mutually exclusive');
-        process.exit(1);
+        throw new CliError('--file and --dir are mutually exclusive');
       } else if (opts.file) {
         await contractCreateCommand(opts.claw, opts.file);
       } else if (opts.dir) {
         await contractCreateFromDirCommand(opts.claw, opts.dir);
       } else {
-        console.error('Error: must provide --file or --dir');
-        process.exit(1);
+        throw new CliError('must provide --file or --dir');
       }
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -381,8 +360,7 @@ contractCmd
     try {
       await contractLogCommand(opts.claw, opts.contract);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -392,7 +370,7 @@ contractCmd.on('command:*', (ops) => {
   for (const c of contractCmd.commands) {
     console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 // skill command group
@@ -409,26 +387,23 @@ skillCmd
     try {
       if (opts.claw) {
         if (!opts.skill) {
-          console.error('Error: --skill <name> is required with --claw');
-          process.exit(1);
+          throw new CliError('--skill <name> is required with --claw');
         }
         await skillInstallClawCommand(opts.claw, opts.skill);
       } else {
         if (!source) {
-          console.error('Error: source path is required');
-          process.exit(1);
+          throw new CliError('source path is required');
         }
         await skillInstallUserCommand(source);
       }
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
 skillCmd.on('command:*', (ops) => {
   console.error(`error: unknown command '${ops[0]}'\n`);
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 // watchdog command group
@@ -444,8 +419,7 @@ watchdogCmd
     try {
       await watchdogStartCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -457,8 +431,7 @@ watchdogCmd
     try {
       await watchdogStopCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -470,8 +443,7 @@ watchdogCmd
     try {
       await watchdogDaemonCommand();
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = handleCliError(error);
     }
   });
 
@@ -481,7 +453,7 @@ watchdogCmd.on('command:*', (ops) => {
   for (const c of watchdogCmd.commands) {
     console.error(`  ${c.name().padEnd(12)}  ${c.description()}`);
   }
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 program.parse();

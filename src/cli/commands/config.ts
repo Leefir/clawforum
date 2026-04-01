@@ -12,6 +12,7 @@ import {
 } from '../config.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { z } from 'zod';
+import { CliError } from '../errors.js';
 
 // Preset choices for interactive selection
 const PRESET_CHOICES = Object.entries(PRESETS).map(([id, preset], index) => ({
@@ -58,8 +59,7 @@ async function selectPreset(rl: readline.Interface): Promise<string> {
   const num = parseInt(answer, 10);
   const choice = PRESET_CHOICES.find(c => c.num === num);
   if (!choice) {
-    console.error('Invalid selection');
-    process.exit(1);
+    throw new CliError('Invalid selection');
   }
   return choice.id;
 }
@@ -96,17 +96,13 @@ async function providerAdd(): Promise<void> {
     // Check for duplicate label
     const existing = findProviderIndex(config, label);
     if (existing) {
-      console.error(`\n✗ Error: A provider with label "${label}" already exists`);
-      rl.close();
-      process.exit(1);
+      throw new CliError(`A provider with label "${label}" already exists`);
     }
     
     // API Key
     const apiKey = await question(rl, 'API Key (or ${ENV_VAR})');
     if (!apiKey) {
-      console.error('\n✗ Error: API Key is required');
-      rl.close();
-      process.exit(1);
+      throw new CliError('API Key is required');
     }
     
     // Base URL for custom presets
@@ -114,9 +110,7 @@ async function providerAdd(): Promise<void> {
     if (!preset.defaultBaseUrl) {
       baseUrl = await question(rl, 'Base URL');
       if (!baseUrl) {
-        console.error('\n✗ Error: Base URL is required for custom presets');
-        rl.close();
-        process.exit(1);
+        throw new CliError('Base URL is required for custom presets');
       }
     }
     
@@ -226,13 +220,11 @@ async function providerRemove(label: string): Promise<void> {
   
   const found = findProviderIndex(config, label);
   if (!found) {
-    console.error(`✗ Provider "${label}" not found`);
-    process.exit(1);
+    throw new CliError(`Provider "${label}" not found`);
   }
   
   if (found.type === 'primary') {
-    console.error('✗ Cannot remove primary provider. Use "set-primary" to change it first.');
-    process.exit(1);
+    throw new CliError('Cannot remove primary provider. Use "set-primary" to change it first.');
   }
   
   // Remove from fallbacks
@@ -247,8 +239,7 @@ async function providerSetPrimary(label: string): Promise<void> {
   
   const found = findProviderIndex(config, label);
   if (!found) {
-    console.error(`✗ Provider "${label}" not found`);
-    process.exit(1);
+    throw new CliError(`Provider "${label}" not found`);
   }
   
   if (found.type === 'primary') {
@@ -288,21 +279,18 @@ async function providerMove(label: string, position: string): Promise<void> {
   
   const found = findProviderIndex(config, label);
   if (!found) {
-    console.error(`✗ Provider "${label}" not found`);
-    process.exit(1);
+    throw new CliError(`Provider "${label}" not found`);
   }
   
   if (found.type === 'primary') {
-    console.error('✗ Cannot move primary provider');
-    process.exit(1);
+    throw new CliError('Cannot move primary provider');
   }
   
   const newPos = parseInt(position, 10) - 1;
   const fallbacks = config.llm.fallbacks!;
   
   if (newPos < 0 || newPos >= fallbacks.length) {
-    console.error(`✗ Invalid position. Must be 1-${fallbacks.length}`);
-    process.exit(1);
+    throw new CliError(`Invalid position. Must be 1-${fallbacks.length}`);
   }
   
   // Move element

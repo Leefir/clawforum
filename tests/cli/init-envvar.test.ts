@@ -124,25 +124,25 @@ describe('initCommand — Branch 1: 扫描环境变量', () => {
     expect(config.llm.primary.preset).toBe('openai');
   });
 
-  it('未检测到变量 → 变量名为空 → process.exit(1)', async () => {
+  it('未检测到变量 → 变量名为空 → throws CliError', async () => {
     const saved = clearKnownVars();
     // configMethod='1', varName=''
     rlAnswers.queue = ['1', ''];
 
     try {
-      await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+      await expect(initCommand(true)).rejects.toThrow('Variable name is required');
     } finally {
       restoreKnownVars(saved);
     }
   });
 
-  it('检测到变量 → 输入无效（非编号非变量名格式）→ process.exit(1)', async () => {
+  it('检测到变量 → 输入无效（非编号非变量名格式）→ throws CliError', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-xxx';
     // configMethod='1', pick='sk-ant-api03-...'（key 格式，不是变量名）
     rlAnswers.queue = ['1', 'sk-ant-api03-invalid'];
 
     try {
-      await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+      await expect(initCommand(true)).rejects.toThrow('Invalid input. Enter a number or a variable name');
     } finally {
       delete process.env.ANTHROPIC_API_KEY;
     }
@@ -184,18 +184,18 @@ describe('initCommand — Branch 2: 手动配置', () => {
     expect(config.llm.primary.api_key).toBe('sk-ant-key');
   });
 
-  it('Base URL 为空 → process.exit(1)', async () => {
+  it('Base URL 为空 → throws CliError', async () => {
     // configMethod='2', fmt='2', baseUrl=''
     rlAnswers.queue = ['2', '2', ''];
 
-    await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+    await expect(initCommand(true)).rejects.toThrow('Base URL is required');
   });
 
-  it('API Key 为空 → process.exit(1)', async () => {
+  it('API Key 为空 → throws CliError', async () => {
     // configMethod='2', fmt='2', baseUrl, apiKey=''
     rlAnswers.queue = ['2', '2', 'https://api.example.com', ''];
 
-    await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+    await expect(initCommand(true)).rejects.toThrow('API Key is required');
   });
 });
 
@@ -211,9 +211,9 @@ describe('initCommand — Branch 3: 选择 provider（未实现）', () => {
     teardownTempDir();
   });
 
-  it('选 3 → process.exit(1)', async () => {
+  it('选 3 → throws CliError', async () => {
     rlAnswers.queue = ['3'];
 
-    await expect(initCommand(true)).rejects.toThrow('process.exit(1)');
+    await expect(initCommand(true)).rejects.toThrow('Provider selection is not yet implemented');
   });
 });

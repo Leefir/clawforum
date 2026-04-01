@@ -177,4 +177,17 @@ export const STREAM_MAX_DURATION_MS = 5 * 60 * 1000;
 /** 契约脚本验收超时 (ms) */
 export const CONTRACT_SCRIPT_TIMEOUT_MS = 60_000;
 
+// ----------------------------------------------------------------------------
+// LLM Retry / Error Handling
+// ----------------------------------------------------------------------------
+
+/** Maximum retries for transient LLM failures in daemon loop */
+export const LLM_MAX_RETRIES = 3;
+
+/** Initial retry delay for LLM failures (ms) — doubles each retry up to max */
+export const LLM_RETRY_INITIAL_DELAY_MS = 30_000;
+
+/** Maximum retry delay for LLM failures (ms) — caps exponential backoff */
+export const LLM_RETRY_MAX_DELAY_MS = 300_000;
+
 

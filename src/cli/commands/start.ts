@@ -21,6 +21,7 @@ import { ContractManager } from '../../core/contract/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { PROCESS_SPAWN_CONFIRM_MS, MOTION_CLAW_ID } from '../../constants.js';
+import { CliError } from '../errors.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 
 export function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
@@ -141,8 +142,7 @@ export async function startCommand(): Promise<void> {
   try {
     await _start();
   } catch (error) {
-    console.error('clawforum start failed:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    throw new CliError('clawforum start failed: ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 

@@ -28,6 +28,7 @@ import { runDiskMonitor } from '../../core/cron/jobs/disk-monitor.js';
 import { runLlmStats } from '../../core/cron/jobs/llm-stats.js';
 import { runDeepDream } from '../../core/cron/jobs/deep-dream.js';
 import { runRandomDream } from '../../core/cron/jobs/random-dream.js';
+import { CliError } from '../errors.js';
 
 
 
@@ -61,8 +62,7 @@ export async function daemonCommand(name: string): Promise<void> {
       try {
         const lockPid = parseInt(fsNative.readFileSync(lockFile, 'utf-8').trim(), 10);
         process.kill(lockPid, 0); // 存活
-        console.error(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
-        process.exit(1);
+        throw new CliError(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
       } catch {
         // 持有者已死，删除 stale lock 并重试（ENOENT = 已被别人删，同样继续）
         try { fsNative.unlinkSync(lockFile); } catch (e: any) {

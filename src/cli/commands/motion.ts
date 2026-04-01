@@ -17,6 +17,7 @@ import { ProcessManager } from '../../foundation/process/manager.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
+import { CliError } from '../errors.js';
 
 /**
  * Create a ProcessManager dedicated to Motion
@@ -163,8 +164,7 @@ export async function initCommand(silent = false): Promise<void> {
   }
   
   if (failed.length > 0) {
-    console.error(`\nFailed to process templates: ${failed.join(', ')}`);
-    process.exit(1);
+    throw new CliError(`Failed to process templates: ${failed.join(', ')}`);
   }
   
   // Install builtin skills
@@ -188,8 +188,7 @@ export async function chatCommand(): Promise<void> {
   try {
     await fs.access(path.join(motionDir, 'AGENTS.md'));
   } catch {
-    console.error('Motion not initialized. Run: clawforum motion init');
-    process.exit(1);
+    throw new CliError('Motion not initialized. Run: clawforum motion init');
   }
 
   await runChatViewport({

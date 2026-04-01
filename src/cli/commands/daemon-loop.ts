@@ -10,7 +10,15 @@ import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
-import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS, STARTUP_CHECK_COOLDOWN_MS } from '../../constants.js';
+import {
+  DAEMON_FALLBACK_TIMEOUT_MS,
+  INTERRUPT_RECOVERY_DELAY_MS,
+  OUTBOX_NOTIFY_COOLDOWN_MS,
+  STARTUP_CHECK_COOLDOWN_MS,
+  LLM_MAX_RETRIES,
+  LLM_RETRY_INITIAL_DELAY_MS,
+  LLM_RETRY_MAX_DELAY_MS,
+} from '../../constants.js';
 import { notifyInbox, notifyStream } from '../../utils/notify.js';
 import { SystemAbortError } from '../../core/react/loop.js';
 
@@ -73,9 +81,8 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
   // LLM failure retry state
   const LLM_ERROR_PATTERN = /all providers failed/i;
-  const LLM_MAX_RETRIES = 3;
   let llmRetryCount = 0;
-  let llmRetryDelayMs = 30_000;
+  let llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
   let llmRetryPending = false; // set by catch, consumed by next iteration's try
 
   // 状态文件路径
@@ -236,7 +243,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             llmRetryPending = false;
             await runtime.retryLastTurn(wrappedCallbacks);
             llmRetryCount = 0;
-            llmRetryDelayMs = 30_000;
+            llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
             saveLlmRetryState();
             await onBatchComplete?.();
           } else {
@@ -250,7 +257,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
               // Turn finished (not interrupted) — reset LLM retry state
               llmRetryCount = 0;
-              llmRetryDelayMs = 30_000;
+              llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
               saveLlmRetryState();
               await onBatchComplete?.();
             } else {
@@ -288,14 +295,14 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           const delaySec = Math.round(llmRetryDelayMs / 1000);
           console.warn(`${label} LLM error, retrying in ${delaySec}s (${llmRetryCount}/${LLM_MAX_RETRIES}): ${err.message}`);
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
-          llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, 300_000);
+          llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, LLM_RETRY_MAX_DELAY_MS);
           llmRetryPending = true; // next iteration will call retryLastTurn
           saveLlmRetryState();
         } else {
           // Non-LLM error, or max retries exceeded — reset and wait
           const isLLMMaxRetry = err instanceof Error && LLM_ERROR_PATTERN.test(err.message);
           llmRetryCount = 0;
-          llmRetryDelayMs = 30_000;
+          llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
           saveLlmRetryState();
           console.error(`${label} processBatch error:`, err);
           // Notify motion when LLM max retries exhausted (claw only)
