@@ -9,7 +9,7 @@ import type { ClawRuntime, InboxMessageInfo } from '../../core/runtime.js';
 import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
-import { scanClawOutboxes } from '../../core/outbox-scanner.js';
+import { scanClawOutboxes, type ClawOutboxInfo } from '../../core/outbox-scanner.js';
 import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS, STARTUP_CHECK_COOLDOWN_MS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SystemAbortError } from '../../core/react/loop.js';
@@ -171,16 +171,21 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
       // motion: scan claw outboxes for unread messages
       if (options.heartbeat) {
-        const outboxSummary = scanClawOutboxes(path.join(agentDir, '..'));
-        if (outboxSummary !== null) {
+        const outboxInfos = scanClawOutboxes(path.join(agentDir, '..'));
+        if (outboxInfos !== null) {
           if (Date.now() - lastOutboxNotifyTs >= OUTBOX_NOTIFY_COOLDOWN_MS) {
             lastOutboxNotifyTs = Date.now();
+            const lines = outboxInfos.map(
+              ({ clawId: id, count }) =>
+                `- "${id}" 有 ${count} 条未读消息，可执行 \`clawforum claw outbox ${id}\` 查看`
+            );
+            const body = `有 ${outboxInfos.length} 个 claw 有未读消息：\n${lines.join('\n')}`;
             writeInboxMessage({
               inboxDir: inboxPendingDir,
               type: 'claw_outbox',
               source: 'system',
               priority: 'normal',
-              body: `未处理 claw outbox: ${outboxSummary}`,
+              body,
               filenameTag: 'claw_outbox',
             });
           }
