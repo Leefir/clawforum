@@ -69,7 +69,18 @@ export function buildDispatcherUserMessage(
   userMessage += `
 
 ### 2. 安装 dispatch-skills（如需要）
+
+**两类技能目录，定位不同：**
+- \`skills/\`：Motion 自己用的技能（如 \`clawforum-guide\`）
+- \`clawspace/dispatch-skills/\`：可安装到 claw 的任务模板，摘要已在上方列出
+
+如需查看某个 dispatch-skill 的完整内容：
+skill: { "name": "<skill-name>", "skillsDir": "clawspace/dispatch-skills" }
+
+如需将 dispatch-skill 安装到目标 claw：
 exec: clawforum skill install --claw <id> --skill <name>
+
+**注意**：直接调用 \`skill: { "name": "..." }\`（不带 \`skillsDir\`）只查 Motion 自己的 \`skills/\`，找不到 dispatch-skill。
 
 ### 3. 写契约文件
 

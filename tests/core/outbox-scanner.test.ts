@@ -46,14 +46,14 @@ describe('OutboxScanner', () => {
     expect(result).toBeNull();
   });
 
-  it('should return summary string when claw has unread outbox messages', () => {
+  it('should return structured info when claw has unread outbox messages', () => {
     const claw1Dir = path.join(tempDir, 'claws', 'claw1');
     const outboxDir = path.join(claw1Dir, 'outbox', 'pending');
     fs.mkdirSync(outboxDir, { recursive: true });
     fs.writeFileSync(path.join(outboxDir, 'msg1.md'), 'test message');
 
     const result = scanClawOutboxes(tempDir);
-    expect(result).toBe('claw1(1)');
+    expect(result).toEqual([{ clawId: 'claw1', count: 1 }]);
   });
 
   it('should summarize multiple claws with unread messages', () => {
@@ -75,9 +75,10 @@ describe('OutboxScanner', () => {
     // claw3: empty
 
     const result = scanClawOutboxes(tempDir);
-    expect(result).toContain('claw1(2)');
-    expect(result).toContain('claw2(1)');
-    expect(result).not.toContain('claw3');
+    expect(result).not.toBeNull();
+    expect(result!.find(i => i.clawId === 'claw1')?.count).toBe(2);
+    expect(result!.find(i => i.clawId === 'claw2')?.count).toBe(1);
+    expect(result!.find(i => i.clawId === 'claw3')).toBeUndefined();
   });
 
   it('should ignore non-.md files in outbox', () => {
@@ -91,7 +92,7 @@ describe('OutboxScanner', () => {
     fs.writeFileSync(path.join(outboxDir, 'readme.txt'), 'test');
 
     const result = scanClawOutboxes(tempDir);
-    expect(result).toBe('claw1(2)'); // Only .md files counted
+    expect(result).toEqual([{ clawId: 'claw1', count: 2 }]); // Only .md files counted
   });
 
   it('should return null when outbox/pending is a file (ENOTDIR error)', () => {
