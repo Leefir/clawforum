@@ -54,10 +54,10 @@ function notifyContractCreated(clawDir: string, clawId: string, contractId: stri
     if (contract.background) lines.push(`背景：${contract.background}`);
     lines.push(`目标：${contract.goal}`);
     if (contract.expectations) lines.push(`执行要求：${contract.expectations}`);
-    lines.push(``, `子任务：`, subtaskLines, ``,
-      `执行完每个子任务后，调用 done 提交验收：`,
-      `done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`,
-    );
+    lines.push(`子任务：`);
+    lines.push(subtaskLines);
+    lines.push(`执行完每个子任务后，调用 done 提交验收：`);
+    lines.push(`done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`);
     const body = lines.join('\n');
     writeInboxMessage({
       inboxDir: path.join(clawDir, 'inbox', 'pending'),

@@ -9,7 +9,7 @@ import type { ClawRuntime, InboxMessageInfo } from '../../core/runtime.js';
 import type { StreamWriter } from './stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
-import { scanClawOutboxes, type ClawOutboxInfo } from '../../core/outbox-scanner.js';
+import { scanClawOutboxes } from '../../core/outbox-scanner.js';
 import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS, STARTUP_CHECK_COOLDOWN_MS } from '../../constants.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SystemAbortError } from '../../core/react/loop.js';
