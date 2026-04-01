@@ -12,6 +12,7 @@ export const TOOL_PROFILES: Record<ToolProfile, string[]> = {
   readonly: ['read', 'search', 'ls', 'status', 'memory_search'],
   subagent: ['read', 'write', 'search', 'ls', 'exec', 'skill', 'memory_search'],
   dream:    ['read', 'search', 'ls', 'memory_search'],
+  verifier: ['read', 'ls', 'search', 'exec'],
 };
 
 /**

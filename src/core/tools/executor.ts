@@ -108,6 +108,15 @@ export const PERMISSION_PRESETS: Record<ToolProfile, ToolPermissions> = {
     network: false,
     system: false,
   },
+  verifier: {
+    read: true,
+    write: false,
+    execute: true,
+    spawn: false,
+    send: false,
+    network: false,
+    system: false,
+  },
 };
 
 /**

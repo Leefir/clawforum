@@ -193,10 +193,9 @@ export class ClawRuntime {
 
     // 10. Create ContractManager (with LLM and verifier registry for acceptance)
     const verifierRegistry = new ToolRegistry();
-    verifierRegistry.register(readTool);
-    verifierRegistry.register(lsTool);
-    verifierRegistry.register(searchTool);
-    verifierRegistry.register(execTool);
+    for (const tool of this.toolRegistry.getForProfile('verifier')) {
+      verifierRegistry.register(tool);
+    }
     const motionInboxDir = path.join(workspaceDir, 'motion', 'inbox', 'pending');
     this.contractManager = new ContractManager(clawDir, clawId, this.systemFs, this.monitor, this.llm, verifierRegistry, motionInboxDir);
 
