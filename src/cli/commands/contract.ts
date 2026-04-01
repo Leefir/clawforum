@@ -17,15 +17,13 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
   const parsed = yaml.load(yamlContent);
   if (typeof parsed !== 'object' || parsed === null) {
-    console.error('Error: contract YAML must be an object');
-    process.exit(1);
+    throw new Error('Contract YAML must be an object');
   }
   const contract = parsed as ContractYaml;
-  if (!contract.title) { console.error('Error: contract YAML missing required field: title'); process.exit(1); }
-  if (!contract.goal) { console.error('Error: contract YAML missing required field: goal'); process.exit(1); }
+  if (!contract.title) { throw new Error('Contract YAML missing required field: title'); }
+  if (!contract.goal) { throw new Error('Contract YAML missing required field: goal'); }
   if (!Array.isArray(contract.subtasks)) {
-    console.error(`Error: contract YAML "subtasks" must be an array (use "- id: ..." list syntax), got: ${typeof contract.subtasks}`);
-    process.exit(1);
+    throw new Error(`Contract YAML "subtasks" must be an array (use "- id: ..." list syntax), got: ${typeof contract.subtasks}`);
   }
   return contract;
 }
@@ -151,8 +149,7 @@ export async function contractLogCommand(clawId: string, contractId?: string): P
     const raw = await manager.readContractYamlRaw(resolvedId);
     contractYaml = yaml.load(raw) as ContractYaml;
   } catch {
-    console.error(`Contract "${resolvedId}" not found for claw ${clawId}`);
-    process.exit(1);
+    throw new Error(`Contract "${resolvedId}" not found for claw ${clawId}`);
   }
 
   // 读 progress（active/paused/archive 均可）
