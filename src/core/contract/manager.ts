@@ -781,8 +781,7 @@ export class ContractManager {
     } else {
       body = feedback || 'No feedback provided';
     }
-    
-    
+
     const content = [
       '---',
       `id: ${ts}-${uuid8}`,

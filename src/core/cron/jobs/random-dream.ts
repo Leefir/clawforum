@@ -67,6 +67,7 @@ interface ProgressData {
 
 /** 计算契约权重（越高越优先） */
 function computeWeight(
+  contractId: string,
   contractDir: string,
   clawId: string,
   processedIds: Set<string>,
@@ -76,7 +77,6 @@ function computeWeight(
   const hints: string[] = [];
 
   // 已被处理过：大幅降权
-  const contractId = path.basename(contractDir);
   if (processedIds.has(contractId)) {
     weight -= 80;
     hints.push('已处理');
@@ -140,7 +140,7 @@ function discoverWeightedContracts(
       const contractDir = path.join(archiveDir, contractId);
       if (!fs.statSync(contractDir).isDirectory()) continue;
 
-      const { weight, hint } = computeWeight(contractDir, clawId, processedIds, clawsSeen);
+      const { weight, hint } = computeWeight(contractId, contractDir, clawId, processedIds, clawsSeen);
       contracts.push({ clawId, contractId, contractDir, weight, hint });
     }
     // 注意：clawsSeen 在排序后才有意义，这里先收集全部，排序时更新
