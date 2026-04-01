@@ -96,19 +96,19 @@ expectations: |
   - 成果质量标准
   - 产出文件路径（若有，例如：clawspace/<contract-slug>/report.md）
 subtasks:
-  - id: collect-data
-    description: "动词 + 做什么，将结果写入 clawspace/<contract-slug>/report.md；含该子任务特有的细化要求"
+  - id: <subtask-id>
+    description: "动词 + 做什么，将结果写入 clawspace/<contract-slug>/<file>；含该子任务特有的细化要求"
 acceptance:
-  - subtask_id: collect-data
+  - subtask_id: <subtask-id>
     type: llm
-    prompt_file: acceptance/collect-data.prompt.txt
+    prompt_file: acceptance/<subtask-id>.prompt.txt
 escalation:
   max_retries: 3
 \`\`\`
 
 **acceptance/.prompt.txt 格式**（type: llm 时）：
 \`\`\`
-检查 clawspace/<contract-slug>/report.md 是否存在且包含……
+检查 clawspace/<contract-slug>/<file> 是否存在且包含……
 
 子任务描述：{{subtask_description}}
 完成证据：{{evidence}}
@@ -117,7 +117,7 @@ escalation:
 可用变量：\`{{evidence}}\`（done 时填写的描述）、\`{{subtask_description}}\`、\`{{artifacts}}\`。
 
 **关键规则**：
-- \`subtasks\` 必须是数组（\`- id: ...\` 列表），不能是对象映射（\`collect-data: { description: ... }\` 格式系统拒绝）
+- \`subtasks\` 必须是数组（\`- id: ...\` 列表），不能是对象映射（\`<subtask-id>: { description: ... }\` 格式系统拒绝）
 - 验收条件不能写在 subtask 内部，必须写在顶层 \`acceptance\` 数组里
 - \`type: llm\` 必须用 \`prompt_file\`（指向 acceptance/ 目录下的 .prompt.txt），不能用 \`prompt\` 内联文本
 - \`type: script\` 用 \`script_file\`（指向 acceptance/ 目录下的 .sh 文件）
