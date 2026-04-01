@@ -137,6 +137,8 @@ export class SubAgent {
       }, { once: true });
     }
 
+    let turnEnded = false;
+
     try {
       // Initialize executor with appropriate profile (spawn disabled for subagent, enabled for dispatcher)
       const callerType = this.callerType ?? 'subagent';
@@ -205,8 +207,10 @@ export class SubAgent {
             maxSteps,
           });
         },
-        onBeforeLLMCall: () => { sw.write({ type: 'turn_start' }); },
       } : {};
+
+      // Turn start (run() level, write exactly once)
+      sw?.write({ ts: Date.now(), type: 'turn_start' });
 
       const result = await Promise.race([
         runReact({
@@ -233,9 +237,6 @@ export class SubAgent {
           },
           onToolResult: (name, toolUseId, result, step, maxSteps) => {
             streamCallbacks.onToolResult?.(name, toolUseId, result, step, maxSteps);
-          },
-          onBeforeLLMCall: () => {
-            streamCallbacks.onBeforeLLMCall?.();
           },
           onStepComplete: async () => {
             try {
@@ -286,27 +287,32 @@ export class SubAgent {
         });
       }
 
+      sw?.write({ ts: Date.now(), type: 'turn_end' });
+      turnEnded = true;
+
       // Extract final text result
       return result.finalText || '[No output produced]';
     } catch (error) {
-      // Re-throw ToolTimeoutError directly — the timeoutPromise already constructs it correctly.
-      // Do NOT rely on timeoutController.signal.aborted: it is set to true at line 227 even when
-      // runReact succeeds normally, so a post-race error (e.g. appendToLog) would be misclassified.
-      if (error instanceof ToolTimeoutError) {
-        throw error;
-      }
-
       // Log error
       const errMsg = error instanceof Error ? error.message : String(error);
       await this.appendToLog(`=== Error: ${errMsg} ===\n`);
+
+      if (error instanceof ToolTimeoutError) {
+        sw?.write({ ts: Date.now(), type: 'turn_interrupted', message: `Timeout after ${this.timeoutMs}ms` });
+      } else {
+        sw?.write({ ts: Date.now(), type: 'turn_error', error: errMsg });
+      }
+      turnEnded = true;
 
       throw error;
     } finally {
       // 统一清理所有 timer，避免内存泄漏
       clearTimeout(timeoutId);
       clearTimeout(idleTimerId);
-      // Write turn_end to task stream (idempotent if already written)
-      sw?.write({ type: 'turn_end' });
+      // Safety net: write turn_end only if no specific turn end event was already written
+      if (!turnEnded) {
+        sw?.write({ ts: Date.now(), type: 'turn_end' });
+      }
     }
   }
 
