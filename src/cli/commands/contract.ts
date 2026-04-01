@@ -39,7 +39,7 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawFs);
+  const manager = new ContractManager(clawDir, clawId, clawFs);
 
   const contractId = await manager.create(contract);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
@@ -89,7 +89,7 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawFs);
+  const manager = new ContractManager(clawDir, clawId, clawFs);
 
   const contractId = await manager.create(contract);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
@@ -149,7 +149,7 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
 export async function contractLogCommand(clawId: string, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawFs);
+  const manager = new ContractManager(clawDir, clawId, clawFs);
 
   // 若未指定 contractId，用 active 契约
   let resolvedId = contractId;
