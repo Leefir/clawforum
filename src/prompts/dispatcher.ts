@@ -49,7 +49,11 @@ export function buildDispatcherUserMessage(
 
   if (targetClaw) {
     userMessage += `
-目标 claw 已由用户指定：**${targetClaw}**。先执行 \`clawforum claw list\` 确认它存在且处于 daemon 状态，如未运行则 \`clawforum claw daemon ${targetClaw}\` 启动。`;
+目标 claw 已由用户指定：**${targetClaw}**。
+执行 \`clawforum claw list\` 确认它存在且处于 daemon 状态。
+如未运行，执行：
+  exec: clawforum claw daemon ${targetClaw}
+  exec: clawforum claw list   ← 再次确认状态已变为 running，再继续`;
   } else {
     userMessage += `
 用 \`clawforum claw list\` 查现有 claw，判断复用还是新建：
@@ -58,6 +62,7 @@ export function buildDispatcherUserMessage(
 - 如需新建：
   exec: clawforum claw create <name>
   exec: clawforum claw daemon <name>
+  exec: clawforum claw list   ← 确认 daemon 已运行再继续
 - targetClaw 必须是 claw id（kebab-case），不能是 UUID 或 taskId`;
   }
 
