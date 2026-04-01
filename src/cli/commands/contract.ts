@@ -11,7 +11,7 @@ import { ContractManager, type ContractYaml, type ProgressData } from '../../cor
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { getClawDir, getMotionDir } from '../config.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
-import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { notifySystem, notifyStream } from '../../utils/notify.js';
 
 
 function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
@@ -29,45 +29,36 @@ function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
 }
 
 function notifyContractCreated(clawDir: string, clawId: string, contractId: string, contract: ContractYaml): void {
-  // best-effort：通知 viewport
-  const line = JSON.stringify({
+  // best-effort：通知 viewport via stream.jsonl
+  const streamLine = JSON.stringify({
     ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
     contractId, clawId, title: contract.title, subtaskCount: contract.subtasks.length,
   }) + '\n';
 
-  try {
-    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
-  } catch { /* daemon 未运行时忽略 */ }
+  notifyStream(path.join(clawDir, 'stream.jsonl'), streamLine, 'contract');
 
   if (clawId !== MOTION_CLAW_ID) {
-    try {
-      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
-    } catch { /* best-effort */ }
+    notifyStream(path.join(getMotionDir(), 'stream.jsonl'), streamLine, 'motion');
   }
 
+
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
-  try {
-    const subtaskLines = contract.subtasks.map(s => `- ${s.id}: ${s.description}`).join('\n');
-    const lines = [`新契约已创建（${contractId}）：${contract.title}`];
-    if (contract.background) lines.push(`背景：${contract.background}`);
-    lines.push(`目标：${contract.goal}`);
-    if (contract.expectations) lines.push(`执行要求：${contract.expectations}`);
-    lines.push(`子任务：`);
-    lines.push(subtaskLines);
-    lines.push(`执行完每个子任务后，调用 done 提交验收：`);
-    lines.push(`done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`);
-    const body = lines.join('\n');
-    writeInboxMessage({
-      inboxDir: path.join(clawDir, 'inbox', 'pending'),
-      type: 'message',
-      source: 'system',
-      priority: 'high',
-      body,
-      idPrefix: 'contract-new',
-    });
-  } catch (e) {
-    console.warn('[contract] Failed to send inbox notification:', e instanceof Error ? e.message : String(e));
-  }
+  const subtaskLines = contract.subtasks.map(s => `- ${s.id}: ${s.description}`).join('\n');
+  const lines = [`新契约已创建（${contractId}）：${contract.title}`];
+  if (contract.background) lines.push(`背景：${contract.background}`);
+  lines.push(`目标：${contract.goal}`);
+  if (contract.expectations) lines.push(`执行要求：${contract.expectations}`);
+  lines.push(`子任务：`);
+  lines.push(subtaskLines);
+  lines.push(`执行完每个子任务后，调用 done 提交验收：`);
+  lines.push(`done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`);
+  const body = lines.join('\n');
+  notifySystem(
+    path.join(clawDir, 'inbox', 'pending'),
+    body,
+    { type: 'message', priority: 'high', idPrefix: 'contract-new' },
+    'contract'
+  );
 }
 
 /**

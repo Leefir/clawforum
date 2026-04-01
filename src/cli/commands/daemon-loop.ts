@@ -11,7 +11,7 @@ import type { StreamWriter } from './stream-writer.js';
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';
 import { DAEMON_FALLBACK_TIMEOUT_MS, INTERRUPT_RECOVERY_DELAY_MS, OUTBOX_NOTIFY_COOLDOWN_MS, STARTUP_CHECK_COOLDOWN_MS } from '../../constants.js';
-import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { notifyInbox, notifyStream } from '../../utils/notify.js';
 import { SystemAbortError } from '../../core/react/loop.js';
 
 export interface DaemonLoopOptions {
@@ -151,7 +151,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           if (!alreadyPending && startupCheckCooledDown) {
             fsNative.mkdirSync(path.join(agentDir, 'status'), { recursive: true });
             fsNative.writeFileSync(startupCheckTsFile, String(Date.now()));
-            writeInboxMessage({
+            notifyInbox({
               inboxDir: inboxPendingDir,
               type: 'startup_check',
               source: 'daemon',
@@ -180,18 +180,14 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
                 `- "${id}" 有 ${count} 条未读消息，可执行 \`clawforum claw outbox ${id}\` 查看`
             );
             const body = `有 ${outboxInfos.length} 个 claw 有未读消息：\n${lines.join('\n')}`;
-            try {
-              writeInboxMessage({
-                inboxDir: inboxPendingDir,
-                type: 'claw_outbox',
-                source: 'system',
-                priority: 'normal',
-                body,
-                filenameTag: 'claw_outbox',
-              });
-            } catch (e) {
-              console.warn(`${label} Failed to write claw_outbox inbox message:`, e instanceof Error ? e.message : String(e));
-            }
+            notifyInbox({
+              inboxDir: inboxPendingDir,
+              type: 'claw_outbox',
+              source: 'system',
+              priority: 'normal',
+              body,
+              filenameTag: 'claw_outbox',
+            }, label);
           }
         } else {
           lastOutboxNotifyTs = 0;  // outbox 已清空，重置静默期
@@ -303,29 +299,20 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           saveLlmRetryState();
           console.error(`${label} processBatch error:`, err);
           // Notify motion when LLM max retries exhausted (claw only)
-          if (isLLMMaxRetry && notifyMotionDir) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            // viewport notification
-            try {
-              const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype: 'llm_error', clawId, error: errMsg }) + '\n';
-              fsNative.appendFileSync(path.join(notifyMotionDir, 'stream.jsonl'), line);
-            } catch (notifyErr) {
-              console.warn(`${label} Failed to notify motion stream: ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`);
-            }
-            // inbox notification for motion LLM
-            try {
-              writeInboxMessage({
-                inboxDir: path.join(notifyMotionDir, 'inbox', 'pending'),
-                type: 'watchdog_claw_llm_error',
-                source: clawId,
-                priority: 'high',
-                body: `Claw ${clawId} LLM error after ${LLM_MAX_RETRIES} retries: ${errMsg}`,
-                idPrefix: 'llm-error',
-              });
-            } catch (notifyErr) {
-              console.warn(`${label} Failed to notify motion inbox: ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`);
-            }
-          }
+           if (isLLMMaxRetry && notifyMotionDir) {
+             const errMsg = err instanceof Error ? err.message : String(err);
+             const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype: 'llm_error', clawId, error: errMsg }) + '\n';
+             notifyStream(path.join(notifyMotionDir, 'stream.jsonl'), line, label);
+             notifyInbox({
+               inboxDir: path.join(notifyMotionDir, 'inbox', 'pending'),
+               type: 'watchdog_claw_llm_error',
+               source: clawId,
+               priority: 'high',
+               body: `Claw ${clawId} LLM error after ${LLM_MAX_RETRIES} retries: ${errMsg}`,
+               idPrefix: 'llm-error',
+             }, label);
+           }
+
           await waitForInbox(inboxPendingDir, fallbackTimeout);
         }
       }
