@@ -32,7 +32,7 @@ import { readTool } from './tools/builtins/read.js';
 import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
-import { runReact } from './react/loop.js';
+import { runReact, SystemAbortError } from './react/loop.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
 import { TaskSystem } from './task/system.js';
@@ -549,14 +549,30 @@ export class ClawRuntime {
     // Save injected messages immediately so interrupt doesn't lose them
     await this.sessionManager.save(messages);
 
+    // Turn start: inbox drained and persisted, processing about to begin
+    callbacks?.onTurnStart?.(sources);
+
     // AbortController support (same as chat() mode)
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
     try {
       await this._runReact(messages, callbacks);
+
+      // Turn completed normally
+      callbacks?.onTurnEnd?.();
+
       return count;
     } catch (err) {
+      // Turn-level error/interrupt event
+      if (err instanceof SystemAbortError) {
+        callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+      } else if (err instanceof Error && err.message === 'Execution aborted') {
+        callbacks?.onTurnInterrupted?.('user');
+      } else {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        callbacks?.onTurnError?.(errorMsg);
+      }
       // Note: do NOT save messages here - _runReact modifies messages in-place
       // and may leave them in an invalid state (e.g., tool_use without tool_result).
       // Valid states are already covered by:
