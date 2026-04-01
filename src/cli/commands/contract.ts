@@ -30,6 +30,49 @@ function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
   return contract;
 }
 
+function notifyContractCreated(clawDir: string, clawId: string, contractId: string, contract: ContractYaml): void {
+  // best-effort：通知 viewport
+  const line = JSON.stringify({
+    ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
+    contractId, clawId, title: contract.title, subtaskCount: contract.subtasks.length,
+  }) + '\n';
+
+  try {
+    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
+  } catch { /* daemon 未运行时忽略 */ }
+
+  if (clawId !== MOTION_CLAW_ID) {
+    try {
+      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
+    } catch { /* best-effort */ }
+  }
+
+  // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
+  try {
+    const subtaskLines = contract.subtasks.map(s => `- ${s.id}: ${s.description}`).join('\n');
+    const body = [
+      `新契约已创建（${contractId}）：${contract.title}`,
+      `目标：${contract.goal}`,
+      ``,
+      `子任务：`,
+      subtaskLines,
+      ``,
+      `执行完每个子任务后，调用 done 提交验收：`,
+      `done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`,
+    ].join('\n');
+    writeInboxMessage({
+      inboxDir: path.join(clawDir, 'inbox', 'pending'),
+      type: 'message',
+      source: 'system',
+      priority: 'high',
+      body,
+      idPrefix: 'contract-new',
+    });
+  } catch (e) {
+    console.warn('[contract] Failed to send inbox notification:', e instanceof Error ? e.message : String(e));
+  }
+}
+
 /**
  * Create a contract for a claw
  */
@@ -44,38 +87,7 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
   const contractId = await manager.create(contract);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
 
-  // best-effort：通知 viewport
-  const line = JSON.stringify({
-    ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
-    contractId, clawId, title: contract.title, subtaskCount: contract.subtasks.length,
-  }) + '\n';
-
-  // 写目标 claw（独立）
-  try {
-    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
-  } catch { /* daemon 未运行时忽略 */ }
-
-  // 若非 motion 自身的契约，通知 motion viewport（不依赖 CLAW_ORIGIN_ID env var）
-  if (clawId !== MOTION_CLAW_ID) {
-    try {
-      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
-    } catch { /* best-effort */ }
-  }
-
-  // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）
-  try {
-    const inboxDir = path.join(clawDir, 'inbox', 'pending');
-    writeInboxMessage({
-      inboxDir,
-      type: 'message',
-      source: 'system',
-      priority: 'high',
-      body: `新契约已创建（${contractId}）：${contract.title}\n目标：${contract.goal}\n请开始执行。`,
-      idPrefix: 'contract-new',
-    });
-  } catch (e) {
-    console.warn('[contract] Failed to send inbox notification:', e instanceof Error ? e.message : String(e));
-  }
+  notifyContractCreated(clawDir, clawId, contractId, contract);
 }
 
 /**
@@ -112,35 +124,7 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
     }
   }
 
-  // best-effort：通知 viewport（复用 contractCreateCommand 逻辑）
-  const line = JSON.stringify({
-    ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
-    contractId, clawId, title: contract.title, subtaskCount: contract.subtasks.length,
-  }) + '\n';
-
-  try {
-    fsNative.appendFileSync(path.join(clawDir, 'stream.jsonl'), line);
-  } catch { /* daemon 未运行时忽略 */ }
-
-  if (clawId !== MOTION_CLAW_ID) {
-    try {
-      fsNative.appendFileSync(path.join(getMotionDir(), 'stream.jsonl'), line);
-    } catch { /* best-effort */ }
-  }
-
-  // inbox 通知
-  try {
-    writeInboxMessage({
-      inboxDir: path.join(clawDir, 'inbox', 'pending'),
-      type: 'message',
-      source: 'system',
-      priority: 'high',
-      body: `新契约已创建（${contractId}）：${contract.title}\n目标：${contract.goal}\n请开始执行。`,
-      idPrefix: 'contract-new',
-    });
-  } catch (e) {
-    console.warn('[contract] Failed to send inbox notification:', e instanceof Error ? e.message : String(e));
-  }
+  notifyContractCreated(clawDir, clawId, contractId, contract);
 }
 
 /**
