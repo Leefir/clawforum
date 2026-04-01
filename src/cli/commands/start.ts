@@ -20,7 +20,7 @@ import {
 import { ContractManager } from '../../core/contract/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
-import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
+import { PROCESS_SPAWN_CONFIRM_MS, MOTION_CLAW_ID } from '../../constants.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 
 export function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
@@ -193,7 +193,7 @@ async function _start(): Promise<void> {
     if (!isWatchdogAlive()) await watchdogStartCommand();
 
     const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-    const manager = new ContractManager(motionDir, motionFs);
+    const manager = new ContractManager(motionDir, MOTION_CLAW_ID, motionFs);
     const contractId = await manager.create({
       title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
@@ -222,7 +222,7 @@ async function _start(): Promise<void> {
 
     if (onboarding.state === 'not_found') {
       const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-      const manager = new ContractManager(motionDir, motionFs);
+      const manager = new ContractManager(motionDir, MOTION_CLAW_ID, motionFs);
       const contractId = await manager.create({
         title: 'Onboarding',
         goal: 'Get to know the user and establish your identity before anything else.',
