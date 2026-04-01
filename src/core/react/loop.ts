@@ -470,86 +470,97 @@ async function collectStreamResponse(
   let stopReason = 'end_turn';
   let usage: { input_tokens: number; output_tokens: number } | undefined;
 
-  for await (const chunk of llm.stream(callOptions)) {
-    // 每个 chunk 后检查 signal，确保及时响应 abort
+  try {
+    for await (const chunk of llm.stream(callOptions)) {
+      // 每个 chunk 后检查 signal，确保及时响应 abort
+      if (callOptions.signal?.aborted) {
+        throwAbortError(callOptions.signal);
+      }
+      switch (chunk.type) {
+        case 'text_delta':
+          // Flush thinking before text starts
+          if (currentThinking) {
+            contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
+            currentThinking = '';
+            currentSignature = '';
+          }
+          if (chunk.delta) {
+            currentText += chunk.delta;
+            onTextDelta?.(chunk.delta);
+          }
+          break;
+
+        case 'thinking_delta':
+          if (chunk.delta) {
+            currentThinking += chunk.delta;
+            onThinkingDelta?.(chunk.delta);
+          }
+          break;
+
+        case 'thinking_signature':
+          if (chunk.signature) {
+            currentSignature = chunk.signature;
+          }
+          break;
+
+        case 'tool_use_start':
+          // Flush thinking before tool_use
+          if (currentThinking) {
+            contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
+            currentThinking = '';
+            currentSignature = '';
+          }
+          // 保存之前的 text block
+          if (currentText) {
+            contentBlocks.push({ type: 'text', text: currentText });
+            currentText = '';
+            onTextEnd?.();
+          }
+          // 保存之前的 tool_use（如果有多个）
+          if (currentToolUse) {
+            contentBlocks.push({
+              type: 'tool_use',
+              id: currentToolUse.id,
+              name: currentToolUse.name,
+              input: JSON.parse(currentToolUse.input || '{}'),
+            });
+          }
+          currentToolUse = {
+            id: chunk.toolUse!.id,
+            name: chunk.toolUse!.name,
+            input: '',
+          };
+          stopReason = 'tool_use';
+          break;
+
+        case 'tool_use_delta':
+          if (currentToolUse && chunk.toolUse?.partialInput) {
+            currentToolUse.input += chunk.toolUse.partialInput;
+          }
+          break;
+
+        case 'done':
+          if (chunk.usage) {
+            usage = {
+              input_tokens: chunk.usage.inputTokens,
+              output_tokens: chunk.usage.outputTokens,
+            };
+          }
+          if (chunk.stopReason && chunk.stopReason !== 'end_turn') {
+            stopReason = chunk.stopReason;
+          }
+          break;
+      }
+    }
+  } catch (err) {
+    // Provider（anthropic/openai）在 signal 被 abort 时抛出 Error('Execution aborted')，
+    // 但丢失了 signal.reason，无法区分 idle timeout 和用户中断。
+    // 此处用 signal.reason 重新生成正确的错误类型。
     if (callOptions.signal?.aborted) {
       throwAbortError(callOptions.signal);
+      // throwAbortError 是 never，不会 fall through
     }
-    switch (chunk.type) {
-      case 'text_delta':
-        // Flush thinking before text starts
-        if (currentThinking) {
-          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
-          currentThinking = '';
-          currentSignature = '';
-        }
-        if (chunk.delta) {
-          currentText += chunk.delta;
-          onTextDelta?.(chunk.delta);
-        }
-        break;
-
-      case 'thinking_delta':
-        if (chunk.delta) {
-          currentThinking += chunk.delta;
-          onThinkingDelta?.(chunk.delta);
-        }
-        break;
-
-      case 'thinking_signature':
-        if (chunk.signature) {
-          currentSignature = chunk.signature;
-        }
-        break;
-
-      case 'tool_use_start':
-        // Flush thinking before tool_use
-        if (currentThinking) {
-          contentBlocks.push({ type: 'thinking', thinking: currentThinking, signature: currentSignature });
-          currentThinking = '';
-          currentSignature = '';
-        }
-        // 保存之前的 text block
-        if (currentText) {
-          contentBlocks.push({ type: 'text', text: currentText });
-          currentText = '';
-          onTextEnd?.();
-        }
-        // 保存之前的 tool_use（如果有多个）
-        if (currentToolUse) {
-          contentBlocks.push({
-            type: 'tool_use',
-            id: currentToolUse.id,
-            name: currentToolUse.name,
-            input: JSON.parse(currentToolUse.input || '{}'),
-          });
-        }
-        currentToolUse = {
-          id: chunk.toolUse!.id,
-          name: chunk.toolUse!.name,
-          input: '',
-        };
-        stopReason = 'tool_use';
-        break;
-
-      case 'tool_use_delta':
-        if (currentToolUse && chunk.toolUse?.partialInput) {
-          currentToolUse.input += chunk.toolUse.partialInput;
-        }
-        break;
-
-      case 'done':
-        if (chunk.usage) {
-          usage = {
-            input_tokens: chunk.usage.inputTokens,
-            output_tokens: chunk.usage.outputTokens,
-          };
-        }
-        if (chunk.stopReason && chunk.stopReason !== 'end_turn') {
-          stopReason = chunk.stopReason;
-        }
-        break;
-    }
+    throw err;
   }
 
   // 保存最后的 blocks
