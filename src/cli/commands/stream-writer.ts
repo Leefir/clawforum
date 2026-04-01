@@ -90,6 +90,25 @@ export class StreamWriter {
           maxSteps,
         });
       },
+      onTurnStart: (sources: Array<{ text: string; type: string }>) => {
+        this.write({
+          ts: Date.now(),
+          type: 'turn_start',
+          sources: sources.length > 0 ? sources : undefined,
+        });
+      },
+      onTurnEnd: () => {
+        this.write({ ts: Date.now(), type: 'turn_end' });
+      },
+      onTurnError: (error: string) => {
+        this.write({ ts: Date.now(), type: 'turn_error', error });
+      },
+      onTurnInterrupted: (reason: 'user' | 'system', timeoutMs?: number) => {
+        const message = reason === 'system' && timeoutMs != null
+          ? `Interrupted by system, ${Math.round(timeoutMs / 1000)}s timeout`
+          : undefined;
+        this.write({ ts: Date.now(), type: 'turn_interrupted', ...(message ? { message } : {}) });
+      },
     };
   }
 }

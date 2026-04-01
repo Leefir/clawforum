@@ -198,31 +198,13 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         }
       }
 
-      let turnStarted = false;
-      let currentSources: Array<{ text: string; type: string }> = [];
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
 
       // Build wrappedCallbacks outside try so catch block can access it for retryLastTurn
       const callbacks = streamWriter?.createCallbacks();
-      const wrappedCallbacks = callbacks ? {
-        ...callbacks,
-        onInboxDrained: (sources: Array<{ text: string; type: string }>) => {
-          currentSources = sources;
-          callbacks.onInboxDrained?.(sources);
-        },
-        onBeforeLLMCall: () => {
-          if (!turnStarted) {
-            streamWriter?.write({
-              ts: Date.now(),
-              type: 'turn_start',
-              sources: currentSources.length > 0 ? currentSources : undefined,
-            });
-            turnStarted = true;
-          }
-          callbacks.onBeforeLLMCall?.();
-        },
-        onInboxMessages: options.onInboxMessages,  // forward for review_request handling
-      } : (options.onInboxMessages ? { onInboxMessages: options.onInboxMessages } : undefined);
+      const wrappedCallbacks = callbacks
+        ? { ...callbacks, onInboxMessages: options.onInboxMessages }
+        : (options.onInboxMessages ? { onInboxMessages: options.onInboxMessages } : undefined);
 
       try {
         // Start polling for the interrupt file
@@ -260,9 +242,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             llmRetryCount = 0;
             llmRetryDelayMs = 30_000;
             saveLlmRetryState();
-            if (turnStarted) {
-              streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
-            }
             await onBatchComplete?.();
           } else {
             const injected = await runtime.processBatch(wrappedCallbacks);
@@ -277,9 +256,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               llmRetryCount = 0;
               llmRetryDelayMs = 30_000;
               saveLlmRetryState();
-              if (turnStarted) {
-                streamWriter?.write({ ts: Date.now(), type: 'turn_end' });
-              }
               await onBatchComplete?.();
             } else {
               await waitForInbox(inboxPendingDir, fallbackTimeout);
@@ -300,17 +276,10 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
         // Distinguish system idle timeout, user interrupts from genuine errors
         if (err instanceof SystemAbortError) {
-          // System idle timeout
-          if (turnStarted) {
-            const secs = Math.round(err.timeoutMs / 1000);
-            streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted', message: `Interrupted by system, ${secs}s timeout` });
-          }
+          // System idle timeout — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (err instanceof Error && err.message === 'Execution aborted') {
-          // User interrupt
-          if (turnStarted) {
-            streamWriter?.write({ ts: Date.now(), type: 'turn_interrupted' });
-          }
+          // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (
@@ -322,7 +291,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryCount++;
           const delaySec = Math.round(llmRetryDelayMs / 1000);
           console.warn(`${label} LLM error, retrying in ${delaySec}s (${llmRetryCount}/${LLM_MAX_RETRIES}): ${err.message}`);
-          streamWriter?.write({ ts: Date.now(), type: 'turn_error', error: `${err.message} [retrying in ${delaySec}s]` });
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
           llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, 300_000);
           llmRetryPending = true; // next iteration will call retryLastTurn
@@ -334,10 +302,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryDelayMs = 30_000;
           saveLlmRetryState();
           console.error(`${label} processBatch error:`, err);
-          if (turnStarted) {
-            const msg = err instanceof Error ? err.message : String(err);
-            streamWriter?.write({ ts: Date.now(), type: 'turn_error', error: msg });
-          }
           // Notify motion when LLM max retries exhausted (claw only)
           if (isLLMMaxRetry && notifyMotionDir) {
             const errMsg = err instanceof Error ? err.message : String(err);

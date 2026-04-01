@@ -32,7 +32,7 @@ import { readTool } from './tools/builtins/read.js';
 import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
-import { runReact } from './react/loop.js';
+import { runReact, SystemAbortError } from './react/loop.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
 import { TaskSystem } from './task/system.js';
@@ -66,6 +66,7 @@ export interface InboxMessageInfo {
 
 /** daemon streaming callbacks (used by processBatch / _runReact) */
 export interface StreamCallbacks {
+  // LLM 级（不变）
   onTextDelta?: (delta: string) => void;
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
@@ -74,6 +75,12 @@ export interface StreamCallbacks {
   onBeforeLLMCall?: () => void;
   onInboxDrained?: (sources: Array<{ text: string; type: string }>) => void;  // inbox has been drained; passes message summaries with type
   onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // inbox messages detected (for review_request handling)
+
+  // Turn 级（新增）
+  onTurnStart?: (sources: Array<{ text: string; type: string }>) => void;
+  onTurnEnd?: () => void;
+  onTurnError?: (error: string) => void;
+  onTurnInterrupted?: (reason: 'user' | 'system', timeoutMs?: number) => void;
 }
 
 /**
@@ -542,14 +549,30 @@ export class ClawRuntime {
     // Save injected messages immediately so interrupt doesn't lose them
     await this.sessionManager.save(messages);
 
+    // Turn start: inbox drained and persisted, processing about to begin
+    callbacks?.onTurnStart?.(sources);
+
     // AbortController support (same as chat() mode)
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
     try {
       await this._runReact(messages, callbacks);
+
+      // Turn completed normally
+      callbacks?.onTurnEnd?.();
+
       return count;
     } catch (err) {
+      // Turn-level error/interrupt event
+      if (err instanceof SystemAbortError) {
+        callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+      } else if (err instanceof Error && err.message === 'Execution aborted') {
+        callbacks?.onTurnInterrupted?.('user');
+      } else {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        callbacks?.onTurnError?.(errorMsg);
+      }
       // Note: do NOT save messages here - _runReact modifies messages in-place
       // and may leave them in an invalid state (e.g., tool_use without tool_result).
       // Valid states are already covered by:
@@ -637,11 +660,24 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     if (session.messages.length === 0) return;
 
+    // Retry is also a turn (no inbox sources)
+    callbacks?.onTurnStart?.([]);
+
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
     try {
       await this._runReact(session.messages, callbacks);
+      callbacks?.onTurnEnd?.();
+    } catch (err) {
+      if (err instanceof SystemAbortError) {
+        callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+      } else if (err instanceof Error && err.message === 'Execution aborted') {
+        callbacks?.onTurnInterrupted?.('user');
+      } else {
+        callbacks?.onTurnError?.(err instanceof Error ? err.message : String(err));
+      }
+      throw err;
     } finally {
       this.currentAbortController = null;
       this.execContext.signal = undefined;
