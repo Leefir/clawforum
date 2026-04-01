@@ -660,8 +660,8 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     if (session.messages.length === 0) return;
 
-    // Retry is also a turn (no inbox sources)
-    callbacks?.onTurnStart?.([]);
+    // Retry is also a turn (tag it so stream consumers know it's a retry)
+    callbacks?.onTurnStart?.([{ text: 'LLM retry', type: 'system_retry' }]);
 
     const abortController = new AbortController();
     this.currentAbortController = abortController;
