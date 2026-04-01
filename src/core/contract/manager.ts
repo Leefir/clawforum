@@ -18,6 +18,7 @@ import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
+import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -63,7 +64,7 @@ export interface ProgressData {
     evidence?: string;
     artifacts?: string[];
     retry_count?: number;           // 默认 0，每次验收失败 +1
-    last_failed_feedback?: string;  // 截断到 200 字符
+    last_failed_feedback?: string;
   }>;
   started_at?: string;
   checkpoint?: string | null;
@@ -1195,6 +1196,7 @@ export class ContractManager {
         maxSteps: DEFAULT_MAX_STEPS,
         idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
         onIdleTimeout: () => this.notifyMotionAcceptanceTimeout(contractId, subtaskId),
+        systemPrompt: CONTRACT_VERIFIER_SYSTEM_PROMPT,
       });
 
       // Run verification
