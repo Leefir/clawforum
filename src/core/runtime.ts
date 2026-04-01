@@ -660,6 +660,23 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     if (session.messages.length === 0) return;
 
+    // Find the last user message boundary for safe retry.
+    // If messages end after assistant/tool_result steps, truncate back to the last
+    // user message so we don't re-run from a partial state that could re-execute
+    // non-idempotent tools.
+    let retryMessages = session.messages;
+    const lastUserIdx = [...session.messages].map(m => m.role).lastIndexOf('user');
+    if (lastUserIdx === -1) {
+      // No user message at all — nothing to retry
+      return;
+    }
+    if (lastUserIdx < session.messages.length - 1) {
+      // Messages have assistant/tool content after the last user message.
+      // Truncate so the retry starts from a clean user turn boundary.
+      retryMessages = session.messages.slice(0, lastUserIdx + 1);
+      await this.sessionManager.save(retryMessages);
+    }
+
     // Retry is also a turn (tag it so stream consumers know it's a retry)
     callbacks?.onTurnStart?.([{ text: 'LLM retry', type: 'system_retry' }]);
 
@@ -667,7 +684,7 @@ export class ClawRuntime {
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
     try {
-      await this._runReact(session.messages, callbacks);
+      await this._runReact(retryMessages, callbacks);
       callbacks?.onTurnEnd?.();
     } catch (err) {
       if (err instanceof SystemAbortError) {
