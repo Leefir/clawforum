@@ -45,7 +45,7 @@ export async function scanClawOutboxes(baseDir: string): Promise<ClawOutboxInfo[
 
     return Object.entries(counts).map(([id, n]) => ({ clawId: id, count: n }));
   } catch (error) {
-    process.stderr.write(`[OutboxScanner] scan failed: ${error}\n`);
+    console.warn('[OutboxScanner] scan failed:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }
