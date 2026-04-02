@@ -97,7 +97,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         llmRetryDelayMs,
         llmRetryPending,
       }));
-    } catch { /* 状态持久化失败不影响主循环 */ }
+    } catch { /* Ignore: state persistence failure should not break the main loop */ }
   };
 
   // 检查 clean-stop 标记（仅 motion daemon）：intentional stop → 清零退避状态
@@ -121,7 +121,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       if (typeof saved.llmRetryCount === 'number') llmRetryCount = saved.llmRetryCount;
       if (typeof saved.llmRetryDelayMs === 'number') llmRetryDelayMs = saved.llmRetryDelayMs;
       if (typeof saved.llmRetryPending === 'boolean') llmRetryPending = saved.llmRetryPending;
-    } catch { /* 首次启动或文件损坏，使用默认值 */ }
+    } catch { /* Ignore: first start or corrupted file, use defaults */ }
   }
 
   const stop = () => { stopped = true; };
@@ -134,24 +134,24 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         const inboxEmpty = (() => {
           try {
             return fsNative.readdirSync(inboxPendingDir).filter(f => f.endsWith('.md')).length === 0;
-          } catch { return true; }
+          } catch { /* Ignore: inbox check failure, assume not empty to be safe */ return true; }
         })();
         const hasActive = (() => {
           try {
             return fsNative.readdirSync(path.join(agentDir, 'contract', 'active'), { withFileTypes: true }).some(e => e.isDirectory());
-          } catch { return false; }
+          } catch { /* Ignore: contract check failure, assume no active contracts */ return false; }
         })();
         if (inboxEmpty && hasActive) {
           // Dedup: only write if no startup_check already pending (heartbeat pattern)
           const alreadyPending = (() => {
             try {
               return fsNative.readdirSync(inboxPendingDir).some(f => f.includes('_startup_check_'));
-            } catch { return false; }
+            } catch { /* Ignore: pending check failure, assume no pending startup_check */ return false; }
           })();
           // Cooldown: prevent spam from rapid daemon restarts
           const startupCheckTsFile = path.join(agentDir, 'status', 'startup_check_ts');
           const lastStartupCheckTs = (() => {
-            try { return parseInt(fsNative.readFileSync(startupCheckTsFile, 'utf-8').trim(), 10); } catch { return 0; }
+            try { return parseInt(fsNative.readFileSync(startupCheckTsFile, 'utf-8').trim(), 10); } catch { /* Ignore: timestamp read failure, use 0 (no cooldown) */ return 0; }
           })();
           const startupCheckCooledDown = Date.now() - lastStartupCheckTs >= STARTUP_CHECK_COOLDOWN_MS;
 

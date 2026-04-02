@@ -107,11 +107,11 @@ describe('OutboxScanner', () => {
     fs.mkdirSync(path.join(claw2Dir, 'outbox', 'pending'), { recursive: true });
     fs.writeFileSync(path.join(claw2Dir, 'outbox', 'pending', 'msg.md'), 'test');
 
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = await scanClawOutboxes(tempDir);
     expect(result).toBeNull(); // ENOTDIR is rethrown, outer catch returns null
-    expect(stderrSpy).toHaveBeenCalled();
-    stderrSpy.mockRestore();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('should return null and write to stderr when claws dir scan throws', async () => {
@@ -119,10 +119,10 @@ describe('OutboxScanner', () => {
     const clawsPath = path.join(tempDir, 'claws');
     fs.writeFileSync(clawsPath, 'i am a file not a dir');
 
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = await scanClawOutboxes(tempDir);
     expect(result).toBeNull();
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[OutboxScanner]'));
-    stderrSpy.mockRestore();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[OutboxScanner]'), expect.any(String));
+    warnSpy.mockRestore();
   });
 });
