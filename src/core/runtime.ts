@@ -188,6 +188,7 @@ export class ClawRuntime {
     // 8. Create TaskSystem
     this.taskSystem = new TaskSystem(clawDir, this.systemFs, {
       maxConcurrent: this.options.maxConcurrentTasks,
+      auditWriter: this.auditWriter,
     });
     await this.taskSystem.initialize();
     this.taskSystem.setLLMService(this.llm);

@@ -50,6 +50,7 @@ export interface ToolTask {
   maxRetries: number;     // Max retry attempts (default 2)
   retryCount: number;     // Current retry count (initial 0)
   callerType?: 'subagent' | 'dispatcher';  // 决定 inbox 消息 from 字段
+  toolUseId?: string;   // 对应 LLM tool_use block id，用于 tool_async_result
 }
 
 interface TaskState {
@@ -66,6 +67,7 @@ export class TaskSystem {
   private skillRegistry?: SkillRegistry;
   private contractManager?: ContractManager;
   private outboxWriter?: OutboxWriter;
+  private auditWriter?: AuditWriter;
 
   // Task result handlers (array for concurrent dispatch support)
   private _taskResultHandlers: Array<
@@ -95,9 +97,10 @@ export class TaskSystem {
   constructor(
     private clawDir: string,
     private fs: IFileSystem,
-    options: { maxConcurrent?: number } = {}
+    options: { maxConcurrent?: number; auditWriter?: AuditWriter } = {}
   ) {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_TASKS;
+    this.auditWriter = options.auditWriter;
     this.monitor = new JsonlMonitor({ logsDir: path.join(clawDir, 'logs') });
     // Create tool registry for subagents
     this.registry = new ToolRegistry();
@@ -315,6 +318,7 @@ export class TaskSystem {
       maxSteps: task.maxSteps,
       queuePosition: this.pendingQueue.length,
     });
+    this.auditWriter?.write('task_scheduled', taskId, 'kind=subagent', `parent=${task.parentClawId}`);
 
     // Trigger dispatch
     this._dispatch();
@@ -330,7 +334,7 @@ export class TaskSystem {
     toolName: string,
     executeCallback: () => Promise<ToolResult>,
     parentClawId: string,
-    options?: { isIdempotent?: boolean; maxRetries?: number; callerType?: 'subagent' | 'dispatcher' }
+    options?: { isIdempotent?: boolean; maxRetries?: number; callerType?: 'subagent' | 'dispatcher'; toolUseId?: string }
   ): Promise<string> {
     const taskId = randomUUID();
     const isIdempotent = options?.isIdempotent ?? false;
@@ -344,6 +348,7 @@ export class TaskSystem {
       maxRetries: isIdempotent ? (options?.maxRetries ?? 2) : 0,
       retryCount: 0,
       callerType: options?.callerType,
+      toolUseId: options?.toolUseId,
     };
 
     // Save to pending directory before registering in memory
@@ -366,6 +371,7 @@ export class TaskSystem {
       toolName,
       queuePosition: this.pendingQueue.length,
     });
+    this.auditWriter?.write('task_scheduled', taskId, 'kind=tool', `parent=${parentClawId}`, `tool=${toolName}`);
 
     // Trigger dispatch
     this._dispatch();
@@ -450,12 +456,14 @@ export class TaskSystem {
       `tasks/pending/${taskId}.json`,
       `tasks/running/${taskId}.json`
     );
+    this.auditWriter?.write('task_started', taskId);
   }
 
   /**
    * Execute a task - internal method
    */
   private async executeTask(task: SubAgentTask, signal: AbortSignal): Promise<void> {
+    const taskStartTime = Date.now();
     let taskFailed = false;
 
     // Per-task stream writer setup
@@ -561,6 +569,7 @@ export class TaskSystem {
         parentClawId: task.parentClawId,
         resultLength: result.length,
       });
+      this.auditWriter?.write('task_completed', task.id, 'ok', `ms=${Date.now() - taskStartTime}`);
     } catch (error) {
       taskFailed = true;
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -599,6 +608,7 @@ export class TaskSystem {
         parentClawId: task.parentClawId,
         error: errorMsg,
       });
+      this.auditWriter?.write('task_completed', task.id, 'err', `ms=${Date.now() - taskStartTime}`);
     } finally {
       // Close task stream
       closeTaskStream();
@@ -620,6 +630,7 @@ export class TaskSystem {
     executeCallback: () => Promise<ToolResult>,
     signal: AbortSignal,
   ): Promise<void> {
+    const taskStartTime = Date.now();
     let lastError: string | undefined;
     let success = false;
     const maxAttempts = task.maxRetries + 1; // Initial + retries
@@ -653,6 +664,11 @@ export class TaskSystem {
           toolName: task.toolName,
           retriesUsed: attempt,
         });
+        this.auditWriter?.write('task_completed', task.id, 'ok', `ms=${Date.now() - taskStartTime}`);
+        // tool_async_result：仅当 toolUseId 已记录时写入
+        if (task.toolUseId) {
+          this.auditWriter?.write('tool_async_result', task.toolName, task.toolUseId, `task=${task.id}`);
+        }
         break; // Exit retry loop on success
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -727,6 +743,7 @@ export class TaskSystem {
         error: finalError,
         retriesExhausted: task.maxRetries > 0,
       });
+      this.auditWriter?.write('task_completed', task.id, 'err', `ms=${Date.now() - taskStartTime}`);
     }
 
     // Move from running to done/failed based on success

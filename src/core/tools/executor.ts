@@ -287,7 +287,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         toolName,
         executeCallback,
         ctx.clawId,
-        { isIdempotent: tool.idempotent, callerType: ctx.callerType === 'claw' ? undefined : ctx.callerType }
+        { isIdempotent: tool.idempotent, callerType: ctx.callerType === 'claw' ? undefined : ctx.callerType, toolUseId: options.toolUseId }
       );
       ctx.auditWriter?.write(
         'tool_async_start',
