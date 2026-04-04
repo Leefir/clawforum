@@ -8,7 +8,7 @@ import { runReact } from '../react/loop.js';
 import { ToolExecutor } from '../tools/executor.js';
 import { ToolRegistry } from '../tools/registry.js';
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { Logger } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
@@ -30,7 +30,7 @@ export interface SubAgentOptions {
   llm: ILLMService;
   registry: ToolRegistry;
   fs: IFileSystem;
-  monitor?: IMonitor;
+  monitor?: Logger;
   maxSteps?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -57,7 +57,7 @@ export class SubAgent {
   private llm: ILLMService;
   private registry: ToolRegistry;
   private fs: IFileSystem;
-  private monitor?: IMonitor;
+  private monitor?: Logger;
   private maxSteps: number;
   private timeoutMs: number;
   private signal?: AbortSignal;

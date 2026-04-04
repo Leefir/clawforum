@@ -2,7 +2,7 @@
  * ClawRuntime - assembles all modules into a runnable Claw instance
  *
  * This is the final assembly layer for Phase 1, integrating the following modules into a unified runtime:
- * - Foundation: NodeFileSystem, LLMService, JsonlMonitor, LocalTransport
+ * - Foundation: NodeFileSystem, LLMService, JsonlLogger, LocalTransport
  * - Core: Dialog, Tools, ReAct, Communication, Task, Skill, Contract
  */
 
@@ -18,7 +18,7 @@ import { parseFrontmatter } from '../utils/frontmatter.js';
 
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { LLMService } from '../foundation/llm/service.js';
-import { JsonlMonitor } from '../foundation/monitor/monitor.js';
+import { JsonlLogger } from '../foundation/monitor/monitor.js';
 import { LocalTransport } from '../foundation/transport/local.js';
 
 import { SessionManager } from './dialog/session.js';
@@ -93,7 +93,7 @@ export class ClawRuntime {
    */
   protected systemFs!: NodeFileSystem;  // used by system components (no permission check)
   private clawFs!: NodeFileSystem;    // used by tools (with permission check)
-  private monitor!: JsonlMonitor;
+  private monitor!: JsonlLogger;
   protected llm!: LLMService;
   private transport!: LocalTransport;
 
@@ -151,9 +151,9 @@ export class ClawRuntime {
       console.warn('[runtime] Failed to cleanup temp files:', err);
     });
 
-    // 3. Create JsonlMonitor
+    // 3. Create JsonlLogger
     const logsDir = monitorDir || path.join(clawDir, 'logs');
-    this.monitor = new JsonlMonitor({ logsDir });
+    this.monitor = new JsonlLogger({ logsDir });
 
     // 4. Create LLMService
     this.llm = new LLMService(

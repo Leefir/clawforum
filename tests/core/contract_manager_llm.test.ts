@@ -62,7 +62,7 @@ vi.mock('../../src/core/subagent/agent.js', () => ({
 // Now import the modules under test
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
-import { JsonlMonitor } from '../../src/foundation/monitor/index.js';
+import { JsonlLogger } from '../../src/foundation/monitor/index.js';
 import type { ILLMService } from '../../src/foundation/llm/index.js';
 import { ToolRegistry } from '../../src/core/tools/registry.js';
 
@@ -165,7 +165,7 @@ describe('ContractManager Acceptance Flow', () => {
   let tempDir: string;
   let clawDir: string;
   let manager: ContractManager;
-  let mockMonitor: JsonlMonitor;
+  let mockMonitor: JsonlLogger;
   let mockLLM: ILLMService;
   let mockRegistry: ToolRegistry;
 
@@ -190,7 +190,7 @@ describe('ContractManager Acceptance Flow', () => {
     const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
     const logsDir = path.join(clawDir, 'logs');
     await fs.mkdir(logsDir, { recursive: true });
-    mockMonitor = new JsonlMonitor({ logsDir });
+    mockMonitor = new JsonlLogger({ logsDir });
 
     mockLLM = {
       call: vi.fn(),

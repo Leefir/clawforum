@@ -9,7 +9,7 @@
  */
 
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { Logger } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { ExecContext, ToolPermissions } from './executor.js';
@@ -43,7 +43,7 @@ export interface ExecContextImplOptions {
   fs: IFileSystem;
   
   /** Optional monitor for logging */
-  monitor?: IMonitor;
+  monitor?: Logger;
   
   /** Optional LLM service */
   llm?: ILLMService;
@@ -90,7 +90,7 @@ export class ExecContextImpl implements ExecContext {
   callerType: 'claw' | 'subagent' | 'dispatcher';
   permissions: ToolPermissions;
   fs: IFileSystem;
-  monitor?: IMonitor;
+  monitor?: Logger;
   llm?: ILLMService;
   stepNumber: number;
   maxSteps: number;

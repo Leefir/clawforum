@@ -3,8 +3,8 @@
  * Self-contained type definitions to avoid circular imports
  */
 
-// Base monitor event
-export interface MonitorEvent {
+// Base log event
+export interface LogEvent {
   id: string;
   timestamp: string;
   type: string;
@@ -13,8 +13,8 @@ export interface MonitorEvent {
   data: Record<string, unknown>;
 }
 
-// Monitor interface - 精简为仅保留核心方法
-export interface IMonitor {
+// Logger interface - 精简为仅保留核心方法
+export interface Logger {
   log(type: string, data: Record<string, unknown>): void;
   flush(): Promise<void>;
   close(): Promise<void>;

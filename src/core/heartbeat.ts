@@ -7,12 +7,12 @@
 import * as path from 'path';
 import * as fsNative from 'fs';
 import { writeInboxMessage } from '../utils/inbox-writer.js';
-import type { IMonitor } from '../foundation/monitor/types.js';
+import type { Logger } from '../foundation/monitor/types.js';
 
 export interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
   interval?: number;
-  monitor?: IMonitor;
+  monitor?: Logger;
 }
 
 /**
@@ -22,7 +22,7 @@ export class Heartbeat {
   private baseDir: string;
   private interval: number;
   private lastRun: number;
-  private monitor?: IMonitor;
+  private monitor?: Logger;
 
   constructor(baseDir: string, options: HeartbeatOptions = {}) {
     this.baseDir = baseDir;

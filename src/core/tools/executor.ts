@@ -10,7 +10,7 @@
 import type { JSONSchema7 } from '../../types/message.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { Logger } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
@@ -131,7 +131,7 @@ export interface ExecContext {
   callerType: 'claw' | 'subagent' | 'dispatcher';
   fs: IFileSystem;
   llm?: ILLMService;
-  monitor?: IMonitor;
+  monitor?: Logger;
   profile: ToolProfile;
   permissions: ToolPermissions;
   hasPermission(permission: keyof ToolPermissions): boolean;
@@ -410,7 +410,7 @@ export interface ToolExecutorOptions {
   registry: IToolRegistry;
   clawDir: string;
   fs: IFileSystem;
-  monitor?: IMonitor;
+  monitor?: Logger;
   llm?: ILLMService;
   taskSystem?: TaskSystem;
   profile?: ToolProfile;
@@ -427,7 +427,7 @@ export interface ToolExecutorOptions {
 export class ToolExecutor extends ToolExecutorImpl {
   private clawDir: string;
   private fs: IFileSystem;
-  private monitor?: IMonitor;
+  private monitor?: Logger;
   private llm?: ILLMService;
   private taskSystem?: TaskSystem;
   private profile: ToolProfile;

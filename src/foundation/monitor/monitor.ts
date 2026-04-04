@@ -1,5 +1,5 @@
 /**
- * JsonlMonitor - IMonitor implementation using JSONL files
+ * JsonlLogger - Logger implementation using JSONL files
  * 
  * Writes all events to a single monitor.jsonl file.
  * 
@@ -11,15 +11,15 @@
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import type {
-  IMonitor,
-  MonitorEvent,
+  Logger,
+  LogEvent,
 } from './types.js';
 import { appendJsonl } from './jsonl.js';
 
 /**
  * Monitor configuration
  */
-export interface JsonlMonitorOptions {
+export interface JsonlLoggerOptions {
   /** Directory for log files */
   logsDir: string;
 }
@@ -27,7 +27,7 @@ export interface JsonlMonitorOptions {
 /**
  * JSONL-based monitor implementation
  */
-export class JsonlMonitor implements IMonitor {
+export class JsonlLogger implements Logger {
   private readonly logsDir: string;
   private readonly filePath: string;
   
@@ -36,7 +36,7 @@ export class JsonlMonitor implements IMonitor {
   private closed = false;
   private logPromises = new Set<Promise<void>>();
   
-  constructor(options: JsonlMonitorOptions) {
+  constructor(options: JsonlLoggerOptions) {
     this.logsDir = options.logsDir;
     this.filePath = path.join(this.logsDir, 'monitor.jsonl');
   }
@@ -68,7 +68,7 @@ export class JsonlMonitor implements IMonitor {
     
     await this.ensureDir();
     
-    const record: MonitorEvent = {
+    const record: LogEvent = {
       id: this.generateId(),
       timestamp: new Date().toISOString(),
       type: metadata?.type ?? 'event',
@@ -86,7 +86,7 @@ export class JsonlMonitor implements IMonitor {
   }
   
   // ========================================================================
-  // IMonitor Implementation
+  // Logger Implementation
   // ========================================================================
   
   log(type: string, data: Record<string, unknown>): void {

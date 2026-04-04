@@ -14,8 +14,8 @@ export * from './core/index.js';
 export type { IFileSystem, FileEntry, FileSystemOptions } from './foundation/fs/types.js';
 export { NodeFileSystem } from './foundation/fs/node-fs.js';
 
-export type { IMonitor, MonitorEvent } from './foundation/monitor/types.js';
-export { JsonlMonitor } from './foundation/monitor/index.js';
+export type { Logger, LogEvent } from './foundation/monitor/types.js';
+export { JsonlLogger } from './foundation/monitor/index.js';
 
 export type { ILLMService } from './foundation/llm/index.js';
 export { LLMService } from './foundation/llm/service.js';

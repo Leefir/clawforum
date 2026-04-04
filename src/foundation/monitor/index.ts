@@ -2,7 +2,7 @@
  * Monitor module (F3)
  * Phase 0: Interface definition + JSONL implementation
  * 
- * Exports: IMonitor interface, JsonlMonitor implementation
+ * Exports: Logger interface, JsonlLogger implementation
  * 
  * Note: Monitor has been slimmed down. LLM/Tool/Contract events
  * are now tracked in audit.tsv. This module is only for internal
@@ -11,13 +11,13 @@
 
 // Types and interfaces
 export type {
-  MonitorEvent,
-  IMonitor,
+  LogEvent,
+  Logger,
 } from './types.js';
 
 // Implementation
-export { JsonlMonitor } from './monitor.js';
-export type { JsonlMonitorOptions } from './monitor.js';
+export { JsonlLogger } from './monitor.js';
+export type { JsonlLoggerOptions } from './monitor.js';
 
 // JSONL utilities
 export { appendJsonl, readJsonl, streamJsonl } from './jsonl.js';

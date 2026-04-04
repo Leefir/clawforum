@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SubAgent } from '../../src/core/subagent/agent.js';
 import type { IFileSystem } from '../../src/foundation/fs/types.js';
-import type { IMonitor } from '../../src/foundation/monitor/types.js';
+import type { Logger } from '../../src/foundation/monitor/types.js';
 import type { ILLMService } from '../../src/foundation/llm/index.js';
 import type { ToolRegistry } from '../../src/core/tools/registry.js';
 
@@ -35,7 +35,7 @@ vi.mock('../../src/core/tools/executor.js', () => ({
 import { runReact } from '../../src/core/react/loop.js';
 
 function makeSubAgent(
-  overrides: { fs?: Partial<IFileSystem>; monitor?: Partial<IMonitor> } = {},
+  overrides: { fs?: Partial<IFileSystem>; monitor?: Partial<Logger> } = {},
 ) {
   const mockFs: IFileSystem = {
     read: vi.fn().mockResolvedValue(''),
@@ -53,14 +53,14 @@ function makeSubAgent(
     ...overrides.fs,
   } as unknown as IFileSystem;
 
-  const mockMonitor: IMonitor = {
+  const mockMonitor: Logger = {
     log: vi.fn(),
     logFileOperation: vi.fn(),
     logError: vi.fn(),
     flush: vi.fn().mockResolvedValue(undefined),
     query: vi.fn().mockResolvedValue([]),
     ...overrides.monitor,
-  } as unknown as IMonitor;
+  } as unknown as Logger;
 
   const mockRegistry = {
     getAll: vi.fn().mockReturnValue([]),

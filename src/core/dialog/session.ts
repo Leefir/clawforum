@@ -10,7 +10,7 @@
 
 import * as path from 'path';
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { Logger } from '../../foundation/monitor/types.js';
 import type { Message, ToolUseBlock, ToolResultBlock } from '../../types/message.js';
 import type { SessionData } from './types.js';
 import { randomUUID } from 'crypto';
@@ -35,7 +35,7 @@ export class SessionManager {
     private readonly fs: IFileSystem,
     dialogDir: string,
     private readonly clawId: string = randomUUID(),
-    private readonly monitor?: IMonitor
+    private readonly monitor?: Logger
   ) {
     this.currentPath = path.join(dialogDir, 'current.json');
     this.archiveDir = path.join(dialogDir, 'archive');

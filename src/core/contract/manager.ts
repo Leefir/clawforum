@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as fsNative from 'fs';
 import type { IFileSystem } from '../../foundation/fs/types.js';
-import type { IMonitor } from '../../foundation/monitor/types.js';
+import type { Logger } from '../../foundation/monitor/types.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../types/contract.js';
 import { ToolError, ToolTimeoutError } from '../../types/errors.js';
@@ -83,7 +83,7 @@ export class ContractManager {
   private fs: IFileSystem;
   private clawDir: string;
   private readonly clawId: string;
-  private monitor?: IMonitor;
+  private monitor?: Logger;
   private llm?: ILLMService;
   private verifierRegistry?: ToolRegistry;
   private activeDir = 'contract/active';
@@ -97,7 +97,7 @@ export class ContractManager {
     clawDir: string,
     clawId: string,
     fs: IFileSystem,
-    monitor?: IMonitor,
+    monitor?: Logger,
     llm?: ILLMService,
     verifierRegistry?: ToolRegistry,
     motionInboxDir?: string,

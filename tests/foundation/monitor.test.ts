@@ -3,7 +3,7 @@
  * 
  * Tests:
  * - JSONL append/read operations
- * - JsonlMonitor event logging
+ * - JsonlLogger event logging
  * - Query filtering (clawId, time range)
  * - Metrics aggregation
  * - Concurrent write safety
@@ -15,7 +15,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { JsonlMonitor } from '../../src/foundation/monitor/monitor.js';
+import { JsonlLogger } from '../../src/foundation/monitor/monitor.js';
 import { appendJsonl, readJsonl, streamJsonl } from '../../src/foundation/monitor/jsonl.js';
 
 /**
@@ -167,13 +167,13 @@ describe('Monitor', () => {
     });
   });
   
-  describe('JsonlMonitor', () => {
+  describe('JsonlLogger', () => {
     let tempDir: string;
-    let monitor: JsonlMonitor;
+    let monitor: JsonlLogger;
     
     beforeEach(async () => {
       tempDir = await createTempDir();
-      monitor = new JsonlMonitor({ logsDir: tempDir });
+      monitor = new JsonlLogger({ logsDir: tempDir });
     });
     
     afterEach(async () => {
