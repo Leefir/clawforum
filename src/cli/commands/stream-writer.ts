@@ -30,7 +30,10 @@ export class StreamWriter {
     fsNative.mkdirSync(dir, { recursive: true });
     // 归档旧文件（保留审计历史）
     if (fsNative.existsSync(this.filePath)) {
-      const archived = this.filePath.replace('.jsonl', `.${Date.now()}.jsonl`);
+      const agentDir = path.dirname(this.filePath);
+      const archiveDir = path.join(agentDir, 'logs', 'stream');
+      fsNative.mkdirSync(archiveDir, { recursive: true });
+      const archived = path.join(archiveDir, `stream.${Date.now()}.jsonl`);
       try {
         fsNative.renameSync(this.filePath, archived);
       } catch (err) {
