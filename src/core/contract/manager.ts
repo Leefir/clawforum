@@ -23,6 +23,7 @@ import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { SubAgent } from '../subagent/agent.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { ReportResultTool } from '../tools/report-result.js';
+import { AuditWriter } from '../../foundation/audit/writer.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -89,6 +90,7 @@ export class ContractManager {
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
   private motionInboxDir: string;
+  private auditWriter?: AuditWriter;
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
   constructor(
@@ -99,7 +101,9 @@ export class ContractManager {
     llm?: ILLMService,
     verifierRegistry?: ToolRegistry,
     motionInboxDir?: string,
+    auditWriter?: AuditWriter,
   ) {
+    this.auditWriter = auditWriter;
     this.clawDir = clawDir;
     this.clawId = clawId;
     this.fs = fs;
@@ -107,6 +111,7 @@ export class ContractManager {
     this.llm = llm;
     this.verifierRegistry = verifierRegistry;
     this.motionInboxDir = motionInboxDir ?? path.resolve(clawDir, '..', '..', 'motion', 'inbox', 'pending');
+    this.auditWriter = auditWriter;
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
@@ -399,6 +404,8 @@ export class ContractManager {
     } catch (err) {
       console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
     }
+    this.auditWriter?.write('contract_created', contractId, `subtasks=${contractYaml.subtasks.length}`, `title=${contractYaml.title}`);
+    // 保留原有：
     this.monitor?.log('contract_created', { contractId });
     return contractId;
   }
@@ -559,6 +566,14 @@ export class ContractManager {
       const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
       this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId: this.clawId, completedCount, subtaskTotal });
 
+      // Audit: subtask_completed
+      this.auditWriter?.write(
+        'subtask_completed',
+        `${contractId}/${subtaskId}`,
+        `progress=${completedCount}/${subtaskTotal}`,
+        `claw=${this.clawId}`,
+      );
+
       // Check whether all subtasks are complete
       allCompleted = await this.checkAllCompleted(contractId, progress);
       if (allCompleted) {
@@ -676,7 +691,18 @@ export class ContractManager {
           const subtaskTotal = contractYaml.subtasks.length;
         const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
         this._notifyMotionStream('subtask_completed', { contractId, subtaskId, clawId: this.clawId, completedCount, subtaskTotal });
-        
+
+        // Audit: subtask_completed
+        this.auditWriter?.write(
+          'subtask_completed',
+          `${contractId}/${subtaskId}`,
+          `progress=${completedCount}/${subtaskTotal}`,
+          `claw=${this.clawId}`,
+        );
+
+        // Audit: acceptance_passed
+        this.auditWriter?.write('acceptance_passed', `${contractId}/${subtaskId}`);
+
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
         if (allCompleted) {
@@ -718,7 +744,14 @@ export class ContractManager {
           console.warn('[contract] onNotify error:', err instanceof Error ? err.message : String(err));
         }
           this._notifyMotionStream('acceptance_failed', { contractId, subtaskId, feedback: result.feedback, clawId: this.clawId });
-        
+
+        // Audit: acceptance_failed
+        this.auditWriter?.write(
+          'acceptance_failed',
+          `${contractId}/${subtaskId}`,
+          `feedback=${result.feedback}`,
+        );
+
         await this.saveProgress(contractId, progress);
         
         // Format rejection feedback
@@ -979,7 +1012,7 @@ export class ContractManager {
       progress.checkpoint = checkpointNote;
       await this.saveProgress(contractId, progress);
     });
-    this.monitor?.log('contract_updated', { contractId, status: 'paused', checkpoint: checkpointNote });
+    this.auditWriter?.write('contract_paused', contractId, `checkpoint=${checkpointNote}`);
   }
 
   /**
@@ -1002,7 +1035,7 @@ export class ContractManager {
       progress.checkpoint = null;
       await this.saveProgress(contractId, progress);
     });
-    this.monitor?.log('contract_updated', { contractId, status: 'running' });
+    this.auditWriter?.write('contract_resumed', contractId);
     return this.loadContract(contractId);
   }
 
@@ -1024,7 +1057,7 @@ export class ContractManager {
       progress.checkpoint = `cancelled: ${reason}`;
       await this.saveProgress(contractId, progress);
     });
-    this.monitor?.log('contract_updated', { contractId, status: 'cancelled', reason });
+    this.auditWriter?.write('contract_cancelled', contractId, `reason=${reason}`);
   }
 
   /**
@@ -1100,10 +1133,9 @@ export class ContractManager {
   private async updateContractStatus(contractId: string, status: ContractStatus): Promise<void> {
     // In Phase 1, the contract YAML is read-only; status changes are recorded in progress.json
     // In a real project, you may need to update the status field in the contract file itself
-    this.monitor?.log(status === 'completed' ? 'contract_completed' : 'contract_updated', {
-      contractId,
-      status,
-    });
+    if (status === 'completed') {
+      this.auditWriter?.write('contract_completed', contractId);
+    }
   }
 
   private async checkAllCompleted(contractId: string, progress: ProgressData): Promise<boolean> {

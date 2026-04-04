@@ -34,6 +34,7 @@ import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
 import { runReact, SystemAbortError } from './react/loop.js';
 import type { StreamCallbacks, StreamSink } from '../foundation/recording/context.js';
+import { AuditWriter } from '../foundation/audit/writer.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
 import { TaskSystem } from './task/system.js';
@@ -78,6 +79,7 @@ export class ClawRuntime {
   protected initialized = false;
   private running = false;
   private currentAbortController: AbortController | null = null;
+  protected auditWriter!: AuditWriter;
 
   // Foundation
   /**
@@ -121,6 +123,9 @@ export class ClawRuntime {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+
+    // 0. 创建 AuditWriter（后续所有 audit 事件共用此实例）
+    this.auditWriter = new AuditWriter(path.join(this.options.clawDir, 'audit.tsv'));
 
     const { clawId, clawDir, llmConfig, monitorDir, maxSteps, toolProfile } = this.options;
 
@@ -191,7 +196,10 @@ export class ClawRuntime {
       verifierRegistry.register(tool);
     }
     const motionInboxDir = path.join(workspaceDir, 'motion', 'inbox', 'pending');
-    this.contractManager = new ContractManager(clawDir, clawId, this.systemFs, this.monitor, this.llm, verifierRegistry, motionInboxDir);
+    this.contractManager = new ContractManager(
+      clawDir, clawId, this.systemFs, this.monitor, this.llm, verifierRegistry, motionInboxDir,
+      this.auditWriter,
+    );
 
     // 11. Create ContextInjector (inject skillRegistry and contractManager)
     this.contextInjector = new ContextInjector({
