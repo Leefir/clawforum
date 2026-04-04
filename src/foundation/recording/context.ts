@@ -1,17 +1,11 @@
 import type { Message } from '../../types/message.js';
+import type { AuditWriter } from '../audit/writer.js';
 
 /**
  * stream.jsonl 写入接口（由 StreamWriter 结构兼容，无需 implements 声明）
  */
 export interface IStreamWriter {
   write(event: { ts: number; type: string; [key: string]: unknown }): void;
-}
-
-/**
- * audit.tsv 写入接口（由 AuditWriter 实现，step 2 创建）
- */
-export interface IAuditWriter {
-  write(type: string, ...cols: (string | number)[]): void;
 }
 
 /**
@@ -29,6 +23,6 @@ export interface IAuditWriter {
  */
 export interface RecordingContext {
   streamWriter: IStreamWriter;
-  auditWriter: IAuditWriter;
+  auditWriter: AuditWriter;
   saveMessages: (msgs: Message[]) => Promise<void>;
 }
