@@ -13,6 +13,10 @@ import {
   LLMError,
   LLMAllProvidersFailedError,
 } from '../../types/errors.js';
+import { appendFileSync, mkdirSync, writeFileSync } from 'fs';
+import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { AuditWriter } from '../audit/writer.js';
 import type {
   ProviderConfig,
   LLMServiceConfig,
@@ -101,22 +105,46 @@ export class LLMService implements ILLMService {
   // Circuit breakers for each provider (primary + fallbacks)
   private breakers: CircuitBreaker[];
   
+  private auditWriter?: AuditWriter;
+  private errorLogDir?: string;
+
   constructor(
     config: LLMServiceConfig,
     monitor?: IMonitor,
     clawId?: string,
+    auditWriter?: AuditWriter,
+    errorLogDir?: string,
   ) {
     this.config = config;
     this.primary = createProvider(config.primary);
     this.fallbacks = (config.fallbacks ?? []).map(createProvider);
     this.monitor = monitor;
     this.clawId = clawId;
+    this.auditWriter = auditWriter;
+    this.errorLogDir = errorLogDir;
     
     // Initialize circuit breakers if configured
     const cb = config.circuitBreaker;
     this.breakers = cb
       ? [this.primary, ...this.fallbacks].map(() => new CircuitBreaker(cb.failureThreshold, cb.resetTimeoutMs))
       : [];
+  }
+
+  private writeErrorLog(ref: string, failures: Array<{ provider: string; error: Error }>): void {
+    if (!this.errorLogDir) return;
+    try {
+      mkdirSync(this.errorLogDir, { recursive: true });
+      const body = JSON.stringify(
+        failures.map(f => ({
+          provider: f.provider,
+          message: f.error.message,
+          stack: f.error.stack,
+          code: (f.error as any).code,
+        })),
+        null, 2
+      );
+      writeFileSync(path.join(this.errorLogDir, `${ref}.json`), body);
+    } catch { /* 日志写失败不能影响业务 */ }
   }
   
   /**
@@ -158,6 +186,10 @@ export class LLMService implements ILLMService {
           
           // Reset to primary
           this.currentProviderIndex = -1;
+          this.auditWriter?.write('llm_call', this.primary.model,
+            `in=${response.usage?.input_tokens ?? 0}`,
+            `out=${response.usage?.output_tokens ?? 0}`,
+            `ms=${Date.now() - startTime}`);
           return response;
           
         } catch (error) {
@@ -225,6 +257,10 @@ export class LLMService implements ILLMService {
         });
         
         this.currentProviderIndex = i;
+        this.auditWriter?.write('llm_call', fb.model,
+          `in=${response.usage?.input_tokens ?? 0}`,
+          `out=${response.usage?.output_tokens ?? 0}`,
+          `ms=${Date.now() - startTime}`);
         return response;
         
       } catch (fallbackError) {
@@ -248,6 +284,12 @@ export class LLMService implements ILLMService {
     }
     
     // All providers failed
+    const ref = randomUUID().slice(0, 8);
+    this.writeErrorLog(ref, failures);
+    this.auditWriter?.write('llm_error', this.primary.model,
+      `err=${failures.map(f => f.error.message).join('; ')}`,
+      `ms=${Date.now() - startTime}`,
+      `ref=${ref}`);
     throw new LLMAllProvidersFailedError(failures);
   }
   
@@ -260,6 +302,7 @@ export class LLMService implements ILLMService {
    *         mid-stream errors will fail over without retry
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
+    const startTime = Date.now();
     const providers: Array<{ adapter: IProviderAdapter; breakerIndex: number }> = [
       { adapter: this.primary, breakerIndex: 0 },
       ...this.fallbacks.map((fb, i) => ({ adapter: fb, breakerIndex: i + 1 })),
@@ -268,9 +311,9 @@ export class LLMService implements ILLMService {
     const failures: Array<{ provider: string; error: Error }> = [];
 
     for (let pi = 0; pi < providers.length; pi++) {
-      const { adapter: provider, breakerIndex } = providers[pi];
+      const { adapter, breakerIndex } = providers[pi];
 
-      if (!provider.stream) continue;
+      if (!adapter.stream) continue;
 
       // Check circuit breaker
       const breaker = this.breakers[breakerIndex];
@@ -282,10 +325,12 @@ export class LLMService implements ILLMService {
       let success = false;
       let hasYielded = false;
       let lastError: Error | null = null;
+      let doneChunk: StreamChunk | undefined;
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
         try {
-          for await (const chunk of provider.stream(options)) {
+          for await (const chunk of adapter.stream(options)) {
             hasYielded = true;
+            if (chunk.type === 'done') doneChunk = chunk;
             yield chunk;
           }
           success = true;
@@ -314,12 +359,16 @@ export class LLMService implements ILLMService {
         breaker?.onSuccess();
         // Update current provider index (-1 = primary, 0..N = fallbacks)
         this.currentProviderIndex = pi === 0 ? -1 : pi - 1;
+        this.auditWriter?.write('llm_call', adapter.model,
+          `in=${doneChunk?.usage?.inputTokens ?? 0}`,
+          `out=${doneChunk?.usage?.outputTokens ?? 0}`,
+          `ms=${Date.now() - startTime}`);
         return; // Success, exit generator
       } else {
         // Circuit breaker: record failure
         breaker?.onFailure();
         failures.push({
-          provider: provider.name,
+          provider: adapter.name,
           error: lastError ?? new Error('Unknown stream error'),
         });
         // Continue to next provider
@@ -327,6 +376,12 @@ export class LLMService implements ILLMService {
     }
 
     // All providers failed
+    const ref = randomUUID().slice(0, 8);
+    this.writeErrorLog(ref, failures);
+    this.auditWriter?.write('llm_error', this.primary.model,
+      `err=${failures.map(f => f.error.message).join('; ')}`,
+      `ms=${Date.now() - startTime}`,
+      `ref=${ref}`);
     throw new LLMAllProvidersFailedError(failures);
   }
   
