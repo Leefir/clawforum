@@ -21,6 +21,7 @@ import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { SkillRegistry } from '../skill/registry.js';
+import { AuditWriter } from '../../foundation/audit/writer.js';
 
 export interface SubAgentTask {
   kind: 'subagent';
@@ -460,6 +461,7 @@ export class TaskSystem {
     // Per-task stream writer setup
     const taskDir = path.join(this.clawDir, 'tasks', 'results', task.id);
     fsSync.mkdirSync(taskDir, { recursive: true });
+    const taskAuditWriter = new AuditWriter(path.join(taskDir, 'audit.tsv'));
     const taskStreamPath = path.join(taskDir, 'stream.jsonl');
     let taskStreamFd: number | null = null;
     try {
@@ -533,6 +535,7 @@ export class TaskSystem {
         contractManager: this.contractManager,
         outboxWriter: this.outboxWriter,
         taskStreamWriter: { write: writeTaskEvent },
+        auditWriter: taskAuditWriter,
       });
 
       const result = await subAgent.run();

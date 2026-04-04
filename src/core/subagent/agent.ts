@@ -20,6 +20,7 @@ import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { Message } from '../../types/message.js';
+import type { IAuditWriter } from '../../foundation/recording/context.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -45,6 +46,7 @@ export interface SubAgentOptions {
   messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
   originClawId?: string;                     // 创建链路源头，传给子 SubAgent
   taskStreamWriter?: { write(event: Record<string, unknown>): void };
+  auditWriter?: IAuditWriter;   // tasks/results/{id}/audit.tsv，step 11+ 写事件
 }
 
 export class SubAgent {
@@ -72,6 +74,7 @@ export class SubAgent {
   private messages?: Message[];
   private originClawId?: string;
   private taskStreamWriter?: { write(event: Record<string, unknown>): void };
+  private auditWriter?: IAuditWriter;
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
@@ -98,6 +101,7 @@ export class SubAgent {
     this.messages = options.messages;
     this.originClawId = options.originClawId;
     this.taskStreamWriter = options.taskStreamWriter;
+    this.auditWriter = options.auditWriter;
   }
 
   /**
@@ -199,11 +203,24 @@ export class SubAgent {
 
       // Stream writer callbacks for per-task stream.jsonl
       const streamCallbacks = sw ? {
+        onBeforeLLMCall: () => {
+          sw.write({ ts: Date.now(), type: 'llm_start' });
+        },
+        onTextDelta: (delta: string) => {
+          sw.write({ ts: Date.now(), type: 'text_delta', delta });
+        },
+        onThinkingDelta: (delta: string) => {
+          sw.write({ ts: Date.now(), type: 'thinking_delta', delta });
+        },
+        onTextEnd: () => {
+          sw.write({ ts: Date.now(), type: 'text_end' });
+        },
         onToolCall: (name: string, toolUseId: string) => {
-          sw.write({ type: 'tool_call', name, tool_use_id: toolUseId });
+          sw.write({ ts: Date.now(), type: 'tool_call', name, tool_use_id: toolUseId });
         },
         onToolResult: (name: string, toolUseId: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           sw.write({
+            ts: Date.now(),
             type: 'tool_result',
             name,
             tool_use_id: toolUseId,
@@ -230,8 +247,10 @@ export class SubAgent {
           maxSteps: this.maxSteps,
           registry: this.registry,  // Enable parallel execution for readonly tools
           tools,                    // Enable native tool_use
-          onTextDelta: resetIdle ? () => resetIdle() : undefined,
-          onThinkingDelta: resetIdle ? () => resetIdle() : undefined,
+          onBeforeLLMCall: streamCallbacks.onBeforeLLMCall,
+          onTextDelta: (delta: string) => { resetIdle?.(); streamCallbacks.onTextDelta?.(delta); },
+          onThinkingDelta: (delta: string) => { resetIdle?.(); streamCallbacks.onThinkingDelta?.(delta); },
+          onTextEnd: streamCallbacks.onTextEnd,
           onToolCall: async (name, toolUseId) => {
             resetIdle?.();
             streamCallbacks.onToolCall?.(name, toolUseId);
