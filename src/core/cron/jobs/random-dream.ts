@@ -8,7 +8,7 @@ import {
   RANDOM_DREAM_SYSTEM_PROMPT,
   buildRandomDreamPrompt,
 } from '../../../prompts/random-dream.js';
-import type { IStreamWriter } from '../../../foundation/recording/context.js';
+import type { StreamSink } from '../../../foundation/recording/context.js';
 
 // ─── 类型定义 ────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ export interface RandomDreamOptions {
   clawforumDir: string;
   motionDir: string;
   taskSystem: TaskSystem;
-  streamWriter: IStreamWriter;
+  streamWriter: StreamSink;
 }
 
 interface WeightedContract {

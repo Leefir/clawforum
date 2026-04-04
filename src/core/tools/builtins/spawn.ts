@@ -7,7 +7,7 @@
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
 import type { TaskSystem } from '../../task/system.js';
-import type { IStreamWriter } from '../../../foundation/recording/context.js';
+import type { StreamSink } from '../../../foundation/recording/context.js';
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import type { Message } from '../../../types/message.js';
 import { TOOL_PROFILES } from '../profiles.js';
@@ -18,7 +18,7 @@ import { TOOL_PROFILES } from '../profiles.js';
  */
 export async function scheduleSubAgentWithTracking(
   taskSystem: TaskSystem,
-  streamWriter: IStreamWriter,
+  streamWriter: StreamSink,
   args: {
     prompt: string;
     messages?: Message[];

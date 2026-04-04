@@ -33,7 +33,7 @@ import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
 import { runReact, SystemAbortError } from './react/loop.js';
-import type { StreamCallbacks, IStreamWriter } from '../foundation/recording/context.js';
+import type { StreamCallbacks, StreamSink } from '../foundation/recording/context.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
 import { TaskSystem } from './task/system.js';
@@ -851,7 +851,7 @@ export class ClawRuntime {
     this.contractManager?.setOnNotify(cb);
   }
 
-  setParentStreamWriter(writer: IStreamWriter): void {
+  setParentStreamWriter(writer: StreamSink): void {
     this.execContext.parentStreamWriter = writer;
   }
 
