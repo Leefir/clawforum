@@ -31,8 +31,6 @@ export class JsonlLogger implements Logger {
   private readonly logsDir: string;
   private readonly filePath: string;
   
-  // Track pending writes for graceful shutdown
-  private pendingWrites = 0;
   private closed = false;
   private logPromises = new Set<Promise<void>>();
   
@@ -77,12 +75,7 @@ export class JsonlLogger implements Logger {
       data,
     };
     
-    this.pendingWrites++;
-    try {
-      await appendJsonl(this.filePath, record as unknown as Record<string, unknown>);
-    } finally {
-      this.pendingWrites--;
-    }
+    await appendJsonl(this.filePath, record as unknown as Record<string, unknown>);
   }
   
   // ========================================================================
@@ -90,6 +83,7 @@ export class JsonlLogger implements Logger {
   // ========================================================================
   
   log(type: string, data: Record<string, unknown>): void {
+    if (this.closed) return;
     const { clawId, contractId, ...rest } = data;
     const promise = this.writeEvent(rest, { 
       type, 

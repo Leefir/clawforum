@@ -124,10 +124,10 @@ export async function daemonCommand(name: string): Promise<void> {
   await runtime.resumeContractIfPaused();
 
   // git init（claw 首次启动时无 .git，motion init 已处理 motion 的情况）
-  await initAgentGit(dir).catch(() => {});
+  await initAgentGit(dir);
 
   // recovery-snapshot：将上次中断遗留的 working tree 变更固化
-  await commitAgentDir(dir, 'recovery-snapshot').catch(() => {});
+  await commitAgentDir(dir, 'recovery-snapshot');
 
   // motion 专属：heartbeat（0 表示禁用）
   let heartbeat: Heartbeat | null = null;
@@ -139,6 +139,14 @@ export async function daemonCommand(name: string): Promise<void> {
       });
     }
   }
+
+  // 共用核心循环
+  const streamWriter = new StreamWriter(dir, {
+    maxFiles: globalConfig.stream?.retention?.max_files ?? null,
+    maxDays: globalConfig.stream?.retention?.max_days ?? null,
+  });
+  streamWriter.open();
+  runtime.setParentStreamWriter(streamWriter);
 
   // motion 专属：cron 调度器
   let cronRunner: CronRunner | null = null;
@@ -206,14 +214,6 @@ export async function daemonCommand(name: string): Promise<void> {
       console.warn(`[daemon] Failed to clean up heartbeat files: ${e?.message}`);
     }
   }
-
-  // 共用核心循环
-  const streamWriter = new StreamWriter(dir, {
-    maxFiles: globalConfig.stream?.retention?.max_files ?? null,
-    maxDays: globalConfig.stream?.retention?.max_days ?? null,
-  });
-  streamWriter.open();
-  runtime.setParentStreamWriter(streamWriter);
 
   // daemon_start: 计算 AGENTS.md 的 sha256 前 6 位作为 system prompt 版本标识
   const auditWriter = runtime.getAuditWriter();
