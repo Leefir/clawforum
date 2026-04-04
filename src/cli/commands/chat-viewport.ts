@@ -416,7 +416,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'task_started': {
         const taskId = event.taskId as string;
         const callerType = (event.callerType as string) ?? 'subagent';
-        const streamPath = path.join(options.agentDir, 'tasks', 'results', `${taskId}.stream.jsonl`);
+        const streamPath = path.join(options.agentDir, 'tasks', 'results', taskId, 'stream.jsonl');
         const tw: TaskWatch = {
           callerType: callerType as any,
           silent: (event.silent as boolean) ?? false,
@@ -724,7 +724,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const pollTaskStream = (taskId: string) => {
     const tw = taskWatchMap.get(taskId);
     if (!tw) return;
-    const streamPath = path.join(options.agentDir, 'tasks', 'results', `${taskId}.stream.jsonl`);
+    const streamPath = path.join(options.agentDir, 'tasks', 'results', taskId, 'stream.jsonl');
     try {
       const stat = fsNative.statSync(streamPath);
       if (stat.size <= tw.fileSize) return;

@@ -160,7 +160,7 @@ export class TaskSystem {
               });
             } else {
               // subagent 任务：检测是否已写出结果
-              const resultPath = `tasks/results/${task.id}.txt`;
+              const resultPath = `tasks/results/${task.id}/result.txt`;
               const resultExists = await this.fs.read(resultPath).then(() => true).catch(() => false);
               
               if (resultExists) {
@@ -458,7 +458,9 @@ export class TaskSystem {
     let taskFailed = false;
 
     // Per-task stream writer setup
-    const taskStreamPath = path.join(this.clawDir, 'tasks', 'results', `${task.id}.stream.jsonl`);
+    const taskDir = path.join(this.clawDir, 'tasks', 'results', task.id);
+    fsSync.mkdirSync(taskDir, { recursive: true });
+    const taskStreamPath = path.join(taskDir, 'stream.jsonl');
     let taskStreamFd: number | null = null;
     try {
       taskStreamFd = fsSync.openSync(taskStreamPath, 'a');
@@ -743,7 +745,7 @@ export class TaskSystem {
     // Try to write full result to tasks/results/
     let resultRef: string | undefined;
     try {
-      const resultPath = `tasks/results/${task.id}.txt`;
+      const resultPath = `tasks/results/${task.id}/result.txt`;
       await this.fs.writeAtomic(resultPath, fullContent);
       resultRef = resultPath;
     } catch (writeErr) {
@@ -834,7 +836,7 @@ export class TaskSystem {
     // Try to write full result to tasks/results/
     let resultRef: string | undefined;
     try {
-      const resultPath = `tasks/results/${task.id}.txt`;
+      const resultPath = `tasks/results/${task.id}/result.txt`;
       await this.fs.writeAtomic(resultPath, result);
       resultRef = resultPath;
     } catch (writeErr) {

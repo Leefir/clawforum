@@ -84,7 +84,7 @@ export class SubAgent {
     this.maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
-    this.logPath = `tasks/results/${this.agentId}.log`;
+    this.logPath = `tasks/results/${this.agentId}/daemon.log`;
     this.toolsForLLM = options.toolsForLLM;
     this.idleTimeoutMs = options.idleTimeoutMs;
     this.onIdleTimeout = options.onIdleTimeout;
@@ -168,6 +168,9 @@ export class SubAgent {
           ]
         : [{ role: 'user' as const, content: this.prompt }];
 
+      // Ensure task directory exists
+      await this.fs.ensureDir(`tasks/results/${this.agentId}`);
+
       // Log start
       await this.appendToLog(`=== SubAgent ${this.agentId} started ===\n`);
       await this.appendToLog(`Prompt: ${this.prompt}\n`);
@@ -176,7 +179,7 @@ export class SubAgent {
       let auditStep = 0;
       let auditStepTools: string[] = [];
       let auditStepStart = Date.now();
-      const stepsLogPath = `tasks/results/${this.agentId}-steps.jsonl`;
+      const stepsLogPath = `tasks/results/${this.agentId}/steps.jsonl`;
 
       // System prompt for subagent (use custom or default from prompts module)
       const systemPrompt = this.systemPrompt ?? DEFAULT_SUBAGENT_SYSTEM_PROMPT;
@@ -276,7 +279,7 @@ export class SubAgent {
       // 持久化 messages 供复盘子代理继承（best-effort，不影响主流程）
       try {
         await this.fs.writeAtomic(
-          `tasks/results/${this.agentId}.messages.json`,
+          `tasks/results/${this.agentId}/messages.json`,
           JSON.stringify(messages),
         );
       } catch (e) {
