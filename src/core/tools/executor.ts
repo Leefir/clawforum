@@ -18,6 +18,7 @@ import type { Message } from '../../types/message.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { StreamSink } from '../../foundation/recording/context.js';
+import type { AuditWriter } from '../../foundation/audit/writer.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
@@ -168,6 +169,8 @@ export interface ExecContext {
   readonly isMotionChain: boolean;
   getElapsedMs(): number;
   incrementStep(): void;
+  /** Audit writer for tool events */
+  auditWriter?: AuditWriter;
 }
 
 /**
@@ -210,6 +213,7 @@ export interface ExecuteOptions {
   ctx: ExecContext;
   timeoutMs?: number;
   async?: boolean;   // 新增：true 时走异步路径
+  toolUseId?: string;   // 新增：LLM 生成的 tool_use block id
 }
 
 /**
@@ -284,6 +288,12 @@ export class ToolExecutorImpl implements IToolExecutor {
         executeCallback,
         ctx.clawId,
         { isIdempotent: tool.idempotent, callerType: ctx.callerType === 'claw' ? undefined : ctx.callerType }
+      );
+      ctx.auditWriter?.write(
+        'tool_async_start',
+        toolName,
+        options.toolUseId ?? '',
+        `task=${taskId}`,
       );
       return {
         success: true,

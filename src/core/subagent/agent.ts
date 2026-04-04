@@ -231,6 +231,11 @@ export class SubAgent {
             step: step + 1,
             maxSteps,
           });
+          this.auditWriter?.write(
+            'tool_result', name, toolUseId,
+            result.success ? 'ok' : 'err',
+            `summary=${oneLine(result.content ?? '')}`,
+          );
         },
       } : {};
 

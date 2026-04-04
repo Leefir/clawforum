@@ -21,6 +21,7 @@ import type { ContractManager } from '../contract/manager.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { Message } from '../../types/message.js';
 import type { StreamSink } from '../../foundation/recording/context.js';
+import type { AuditWriter } from '../../foundation/audit/writer.js';
 
 /**
  * Options for creating execution context
@@ -75,6 +76,8 @@ export interface ExecContextImplOptions {
   dialogMessages?: Message[];
   /** 创建链路的源头 clawId，由 dispatch/spawn 传播 */
   originClawId?: string;
+  /** Audit writer for tool events */
+  auditWriter?: AuditWriter;
 }
 
 /**
@@ -100,6 +103,7 @@ export class ExecContextImpl implements ExecContext {
   outboxWriter?: OutboxWriter;
   dialogMessages?: Message[];
   originClawId?: string;
+  auditWriter?: AuditWriter;
   
   private startTime: number;
 
@@ -122,6 +126,7 @@ export class ExecContextImpl implements ExecContext {
     this.parentStreamWriter = options.parentStreamWriter;
     this.dialogMessages = options.dialogMessages;
     this.originClawId = options.originClawId;
+    this.auditWriter = options.auditWriter;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

@@ -428,6 +428,7 @@ async function executeSingleTool(
       args: toolArgs,
       ctx,
       async: asyncMode === true,
+      toolUseId: toolCall.id,
     });
   } catch (err) {
     const errorType = err instanceof Error ? err.constructor.name : 'Error';

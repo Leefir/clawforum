@@ -33,6 +33,7 @@ import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
 import { runReact, SystemAbortError } from './react/loop.js';
+import type { ToolResult } from './tools/executor.js';
 import type { StreamCallbacks, StreamSink } from '../foundation/recording/context.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
 import { InboxWatcher } from './communication/inbox.js';
@@ -41,6 +42,7 @@ import { TaskSystem } from './task/system.js';
 import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
+import { oneLine } from '../foundation/utils/string.js';
 import { MaxStepsExceededError } from '../types/errors.js';
 import { MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../constants.js';
 
@@ -237,6 +239,7 @@ export class ClawRuntime {
       contractManager: this.contractManager,
       subagentMaxSteps: this.options.subagentMaxSteps,
       outboxWriter: this.outboxWriter,
+      auditWriter: this.auditWriter,
     });
 
     // 14. Create ToolExecutorImpl
@@ -490,6 +493,20 @@ export class ClawRuntime {
     } : undefined;
     resetIdle?.();
 
+    // Wrap onToolResult to write audit event
+    const origOnToolResult = callbacks?.onToolResult;
+    const auditOnToolResult = (
+      name: string, toolUseId: string,
+      result: ToolResult, step: number, maxSteps: number
+    ) => {
+      this.auditWriter.write(
+        'tool_result', name, toolUseId,
+        result.success ? 'ok' : 'err',
+        `summary=${oneLine(result.content ?? '')}`,
+      );
+      origOnToolResult?.(name, toolUseId, result, step, maxSteps);
+    };
+
     try {
       await runReact({
         messages: messages,
@@ -507,7 +524,7 @@ export class ClawRuntime {
         onTextEnd: callbacks?.onTextEnd,
         onThinkingDelta: (d) => { resetIdle?.(); callbacks?.onThinkingDelta?.(d); },
         onToolCall: (n, id) => { resetIdle?.(); callbacks?.onToolCall?.(n, id); },
-        onToolResult: callbacks?.onToolResult,
+        onToolResult: auditOnToolResult,
         onBeforeLLMCall: callbacks?.onBeforeLLMCall,
       });
     } finally {
