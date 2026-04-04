@@ -8,7 +8,8 @@
 import * as path from 'path';
 import * as fsNative from 'fs';
 import * as fsAsync from 'fs/promises';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { AuditWriter } from '../../foundation/audit/writer.js';
 import { ClawRuntime } from '../../core/runtime.js';
 import { MotionRuntime } from '../../core/motion/runtime.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
@@ -198,6 +199,15 @@ export async function daemonCommand(name: string): Promise<void> {
   const streamWriter = new StreamWriter(dir);
   streamWriter.open();
   runtime.setParentStreamWriter(streamWriter);
+
+  // daemon_start: 计算 AGENTS.md 的 sha256 前 6 位作为 system prompt 版本标识
+  const auditWriter = runtime.getAuditWriter();
+  let promptHash = 'n/a';
+  try {
+    const agentsContent = fsNative.readFileSync(path.join(dir, 'AGENTS.md'), 'utf-8');
+    promptHash = createHash('sha256').update(agentsContent).digest('hex').slice(0, 6);
+  } catch { /* AGENTS.md 不存在时跳过 */ }
+  auditWriter.write('daemon_start', `sha256:${promptHash}`);
   runtime.setContractNotifyCallback((type, data) => {
     streamWriter.write({ ts: Date.now(), type: 'user_notify', subtype: type, ...data });
   });
@@ -295,6 +305,23 @@ export async function daemonCommand(name: string): Promise<void> {
       }
     : undefined;
 
+  // 注册 uncaughtException / unhandledRejection 处理程序
+  const writeCrash = (reason: unknown): void => {
+    const msg = reason instanceof Error
+      ? `${reason.message}\n${reason.stack ?? ''}`
+      : String(reason);
+    auditWriter.write('daemon_crash', `err=${msg}`);
+  };
+
+  process.on('uncaughtException', (err) => {
+    writeCrash(err);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    writeCrash(reason);
+    process.exit(1);
+  });
+
   const { promise, stop } = startDaemonLoop({
     runtime,
     agentDir: dir,
@@ -317,6 +344,7 @@ export async function daemonCommand(name: string): Promise<void> {
       console.error('[daemon] runtime.stop() failed:', e instanceof Error ? e.message : String(e));
     }
     streamWriter.close();
+    auditWriter.write('daemon_stop', `reason=${signal.toLowerCase()}`);
     // 清理 PID 文件和 lockfile（只有文件仍属于本进程才删除，防止误删新 daemon 的文件）
     try {
       const storedPid = fsNative.readFileSync(pidFile, 'utf-8').trim();

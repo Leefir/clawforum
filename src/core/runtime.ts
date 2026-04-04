@@ -863,4 +863,8 @@ export class ClawRuntime {
     this.execContext.parentStreamWriter = writer;
   }
 
+  getAuditWriter(): AuditWriter {
+    return this.auditWriter;
+  }
+
 }
