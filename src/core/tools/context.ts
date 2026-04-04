@@ -20,6 +20,7 @@ import type { SkillRegistry } from '../skill/registry.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { Message } from '../../types/message.js';
+import type { IStreamWriter } from '../../foundation/recording/context.js';
 
 /**
  * Options for creating execution context
@@ -68,7 +69,7 @@ export interface ExecContextImplOptions {
   outboxWriter?: OutboxWriter;
   
   /** Parent stream writer for event forwarding */
-  parentStreamWriter?: { write(event: Record<string, unknown>): void };
+  parentStreamWriter?: IStreamWriter;
   
   /** 当前对话 messages（供 dispatch 工具读取） */
   dialogMessages?: Message[];
@@ -90,7 +91,7 @@ export class ExecContextImpl implements ExecContext {
   llm?: ILLMService;
   stepNumber: number;
   maxSteps: number;
-  parentStreamWriter?: { write(event: Record<string, unknown>): void };
+  parentStreamWriter?: IStreamWriter;
   signal?: AbortSignal;
   taskSystem?: TaskSystem;
   skillRegistry?: SkillRegistry;

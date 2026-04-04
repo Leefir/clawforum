@@ -13,7 +13,7 @@ import type { ILLMService } from '../../foundation/llm/index.js';
 import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { SUBAGENT_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
-import { oneLine } from '../../cli/utils/string.js';
+import { oneLine } from '../../foundation/utils/string.js';
 import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
@@ -21,6 +21,7 @@ import type { ContractManager } from '../contract/manager.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { Message } from '../../types/message.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
+import type { IStreamWriter } from '../../foundation/recording/context.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -45,7 +46,7 @@ export interface SubAgentOptions {
   subagentMaxSteps?: number;                 // 传给子 SubAgent
   messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
   originClawId?: string;                     // 创建链路源头，传给子 SubAgent
-  taskStreamWriter?: { write(event: Record<string, unknown>): void };
+  taskStreamWriter?: IStreamWriter;
   auditWriter?: AuditWriter;   // tasks/results/{id}/audit.tsv，step 11+ 写事件
 }
 
@@ -73,7 +74,7 @@ export class SubAgent {
   private subagentMaxSteps?: number;
   private messages?: Message[];
   private originClawId?: string;
-  private taskStreamWriter?: { write(event: Record<string, unknown>): void };
+  private taskStreamWriter?: IStreamWriter;
   private auditWriter?: AuditWriter;
 
   constructor(options: SubAgentOptions) {

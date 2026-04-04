@@ -17,6 +17,7 @@ import type { OutboxWriter } from '../communication/outbox.js';
 import type { Message } from '../../types/message.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { SkillRegistry } from '../skill/registry.js';
+import type { IStreamWriter } from '../../foundation/recording/context.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
@@ -154,7 +155,7 @@ export interface ExecContext {
   /** Max steps for subagents created via spawn tool */
   subagentMaxSteps?: number;
   /** Parent stream writer for event forwarding */
-  parentStreamWriter?: { write(event: Record<string, unknown>): void };
+  parentStreamWriter?: IStreamWriter;
   /** Outbox writer for send tool */
   outboxWriter?: OutboxWriter;
   /** TaskSystem for async tool execution */

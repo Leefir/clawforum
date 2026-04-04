@@ -1,6 +1,8 @@
 import stringWidth from 'string-width';
 import { SUMMARY_MAX_CHARS } from '../../constants.js';
 
+export { oneLine } from '../../foundation/utils/string.js';
+
 /**
  * 按视觉列宽从头截取字符串（正确处理 emoji / CJK 等宽字符）
  */
@@ -21,18 +23,6 @@ export function sliceFromStart(s: string, maxCols: number): string {
     i += charLen;
   }
   return s.slice(0, i);
-}
-
-/**
- * 将字符串处理为存储摘要：
- * - trimStart 清除前导空格
- * - 固定字符上限（500），超出追加 '…'
- * - 换行原样保留，由 viewport 渲染时处理
- */
-export function oneLine(s: string): string {
-  const content = (s ?? '').trimStart();
-  if (content.length <= SUMMARY_MAX_CHARS) return content;
-  return content.slice(0, SUMMARY_MAX_CHARS) + '…';
 }
 
 /**

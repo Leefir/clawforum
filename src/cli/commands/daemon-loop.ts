@@ -6,7 +6,7 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import type { ClawRuntime, InboxMessageInfo } from '../../core/runtime.js';
-import type { StreamWriter } from './stream-writer.js';
+import type { StreamWriter } from '../../foundation/recording/stream-writer.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
 import { scanClawOutboxes } from '../../core/outbox-scanner.js';

@@ -33,6 +33,7 @@ import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
 import { runReact, SystemAbortError } from './react/loop.js';
+import type { StreamCallbacks, IStreamWriter } from '../foundation/recording/context.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
 import { TaskSystem } from './task/system.js';
@@ -64,22 +65,9 @@ export interface InboxMessageInfo {
   body: string;
 }
 
-/** daemon streaming callbacks (used by processBatch / _runReact) */
-export interface StreamCallbacks {
-  // LLM 级（不变）
-  onTextDelta?: (delta: string) => void;
-  onTextEnd?: () => void;
-  onThinkingDelta?: (delta: string) => void;
-  onToolCall?: (toolName: string, toolUseId: string) => void;
-  onToolResult?: (toolName: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
-  onBeforeLLMCall?: () => void;
-  onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // inbox messages detected (for review_request handling)
-
-  // Turn 级（新增）
-  onTurnStart?: (sources: Array<{ text: string; type: string }>) => void;
-  onTurnEnd?: () => void;
-  onTurnError?: (error: string) => void;
-  onTurnInterrupted?: (reason: 'user' | 'system', timeoutMs?: number) => void;
+/** daemon 专用回调，在 StreamCallbacks 基础上增加 inbox 通知 */
+export interface DaemonStreamCallbacks extends StreamCallbacks {
+  onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;
 }
 
 /**
@@ -518,7 +506,7 @@ export class ClawRuntime {
    * MVP alignment: batch-process inbox messages (polling-based batch instead of event-driven)
    * @returns number of injected messages (0 = nothing pending)
    */
-  async processBatch(callbacks?: StreamCallbacks): Promise<number> {
+  async processBatch(callbacks?: DaemonStreamCallbacks): Promise<number> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -863,7 +851,7 @@ export class ClawRuntime {
     this.contractManager?.setOnNotify(cb);
   }
 
-  setParentStreamWriter(writer: { write(event: Record<string, unknown>): void }): void {
+  setParentStreamWriter(writer: IStreamWriter): void {
     this.execContext.parentStreamWriter = writer;
   }
 
