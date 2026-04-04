@@ -547,6 +547,7 @@ export class ClawRuntime {
 
     // Turn start: inbox drained and persisted, processing about to begin
     callbacks?.onTurnStart?.(sources);
+    this.auditWriter.write('turn_start');
 
     // AbortController support (same as chat() mode)
     const abortController = new AbortController();
@@ -557,17 +558,21 @@ export class ClawRuntime {
 
       // Turn completed normally
       callbacks?.onTurnEnd?.();
+      this.auditWriter.write('turn_end');
 
       return count;
     } catch (err) {
       // Turn-level error/interrupt event
       if (err instanceof SystemAbortError) {
         callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+        this.auditWriter.write('turn_interrupted', 'reason=system');
       } else if (err instanceof Error && err.message === 'Execution aborted') {
         callbacks?.onTurnInterrupted?.('user');
+        this.auditWriter.write('turn_interrupted', 'reason=user');
       } else {
         const errorMsg = err instanceof Error ? err.message : String(err);
         callbacks?.onTurnError?.(errorMsg);
+        this.auditWriter.write('turn_error', `err=${errorMsg}`);
       }
       // Note: do NOT save messages here - _runReact modifies messages in-place
       // and may leave them in an invalid state (e.g., tool_use without tool_result).
@@ -630,14 +635,27 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     const messages = [...session.messages, msg];
     await this.sessionManager.save(messages);
+    this.auditWriter.write('turn_start');
 
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
     try {
       await this._runReact(messages, callbacks);
+      this.auditWriter.write('turn_end');
     } catch (err) {
       // Note: do NOT save messages here - see processBatch catch block for explanation
+      if (err instanceof SystemAbortError) {
+        callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+        this.auditWriter.write('turn_interrupted', 'reason=system');
+      } else if (err instanceof Error && err.message === 'Execution aborted') {
+        callbacks?.onTurnInterrupted?.('user');
+        this.auditWriter.write('turn_interrupted', 'reason=user');
+      } else {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        callbacks?.onTurnError?.(errorMsg);
+        this.auditWriter.write('turn_error', `err=${errorMsg}`);
+      }
       throw err;
     } finally {
       this.currentAbortController = null;
@@ -675,6 +693,7 @@ export class ClawRuntime {
 
     // Retry is also a turn (tag it so stream consumers know it's a retry)
     callbacks?.onTurnStart?.([{ text: 'LLM retry', type: 'system_retry' }]);
+    this.auditWriter.write('turn_start');
 
     const abortController = new AbortController();
     this.currentAbortController = abortController;
@@ -682,13 +701,18 @@ export class ClawRuntime {
     try {
       await this._runReact(retryMessages, callbacks);
       callbacks?.onTurnEnd?.();
+      this.auditWriter.write('turn_end');
     } catch (err) {
       if (err instanceof SystemAbortError) {
         callbacks?.onTurnInterrupted?.('system', err.timeoutMs);
+        this.auditWriter.write('turn_interrupted', 'reason=system');
       } else if (err instanceof Error && err.message === 'Execution aborted') {
         callbacks?.onTurnInterrupted?.('user');
+        this.auditWriter.write('turn_interrupted', 'reason=user');
       } else {
-        callbacks?.onTurnError?.(err instanceof Error ? err.message : String(err));
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        callbacks?.onTurnError?.(errorMsg);
+        this.auditWriter.write('turn_error', `err=${errorMsg}`);
       }
       throw err;
     } finally {

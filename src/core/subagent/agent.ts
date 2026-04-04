@@ -146,6 +146,7 @@ export class SubAgent {
 
     // Turn start: written before any potentially-throwing init so catch always pairs it
     sw?.write({ ts: Date.now(), type: 'turn_start' });
+    this.auditWriter?.write('turn_start');
 
     try {
       // Initialize executor with appropriate profile (spawn disabled for subagent, enabled for dispatcher)
@@ -311,6 +312,7 @@ export class SubAgent {
       }
 
       sw?.write({ ts: Date.now(), type: 'turn_end' });
+      this.auditWriter?.write('turn_end');
       turnEnded = true;
 
       // Extract final text result
@@ -322,8 +324,10 @@ export class SubAgent {
 
       if (error instanceof ToolTimeoutError) {
         sw?.write({ ts: Date.now(), type: 'turn_interrupted', message: `Timeout after ${this.timeoutMs}ms` });
+        this.auditWriter?.write('turn_interrupted', 'reason=system');
       } else {
         sw?.write({ ts: Date.now(), type: 'turn_error', error: errMsg });
+        this.auditWriter?.write('turn_error', `err=${errMsg}`);
       }
       turnEnded = true;
 
@@ -335,6 +339,7 @@ export class SubAgent {
       // Safety net: write turn_end only if no specific turn end event was already written
       if (!turnEnded) {
         sw?.write({ ts: Date.now(), type: 'turn_end' });
+        this.auditWriter?.write('turn_end');
       }
     }
   }
