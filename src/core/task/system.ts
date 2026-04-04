@@ -165,11 +165,13 @@ export class TaskSystem {
             } else {
               // subagent 任务：检测是否已写出结果
               const resultPath = `tasks/results/${task.id}/result.txt`;
+              const sentPath  = `tasks/results/${task.id}/result.txt.sent`;
               const resultExists = await this.fs.read(resultPath).then(() => true).catch(() => false);
               
               if (resultExists) {
-                // 结果已写出：补发 inbox，移入 done（不重新执行）
+                // 结果已写出：先重命名为 .sent 防止重启后重复投递，再补发 inbox
                 const resultContent = await this.fs.read(resultPath);
+                await this.fs.move(resultPath, sentPath).catch(() => {});
                 await this.sendResult(task, resultContent, false).catch((e) => {
                   this.monitor.log('error', {
                     context: 'recoverTasks.resend_result_failed',

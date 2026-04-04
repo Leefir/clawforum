@@ -145,6 +145,7 @@ export class SessionManager {
 
     // Move current.json to archive
     await this.fs.move(this.currentPath, archivePath);
+    this.createdAt = null;  // 重置，下次 save() 生成新会话时间戳
   }
 
   /**
