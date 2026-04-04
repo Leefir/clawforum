@@ -18,6 +18,7 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
+import { initAgentGit } from '../../foundation/git/agent-git.js';
 
 /**
  * Create a ProcessManager dedicated to Motion
@@ -169,6 +170,11 @@ export async function initCommand(silent = false): Promise<void> {
   
   // Install builtin skills
   await installBuiltinSkills(motionDir);
+
+  // Init git for motion directory
+  await initAgentGit(motionDir).catch(err =>
+    console.warn('[git] motion git init failed:', err instanceof Error ? err.message : String(err))
+  );
 
   // Output results
   console.log('\n✓ Motion initialized successfully');

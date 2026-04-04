@@ -534,11 +534,12 @@ Test message
       expect(userMsg?.content).not.toContain('Message for subagent');
 
       // Audit log should show inbox_skip for the subagent message
-      const auditLog = await fs.readFile(path.join(clawDir, 'logs', 'audit.log'), 'utf-8');
-      const entries = auditLog.trim().split('\n').map(line => JSON.parse(line));
-      const skipEntry = entries.find((e: { event: string }) => e.event === 'inbox_skip');
+      const auditLog = await fs.readFile(path.join(clawDir, 'audit.tsv'), 'utf-8');
+      const entries = auditLog.trim().split('\n').map(line => line.split('\t'));
+      const skipEntry = entries.find((e: string[]) => e[1] === 'inbox_skip');
       expect(skipEntry).toBeDefined();
-      expect(skipEntry.to).toBe('some-subagent-uuid');
+      // TSV columns: ts, type, file, type=..., from=..., to=..., reason=...
+      expect(skipEntry[5]).toContain('to=some-subagent-uuid');
     });
 
     it('should return 0 and not call LLM when all inbox messages are addressed to other agents', async () => {

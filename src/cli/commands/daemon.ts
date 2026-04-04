@@ -30,6 +30,7 @@ import { runLlmStats } from '../../core/cron/jobs/llm-stats.js';
 import { runDeepDream } from '../../core/cron/jobs/deep-dream.js';
 import { runRandomDream } from '../../core/cron/jobs/random-dream.js';
 import { CliError } from '../errors.js';
+import { initAgentGit, commitAgentDir } from '../../foundation/git/agent-git.js';
 
 
 
@@ -89,6 +90,9 @@ export async function daemonCommand(name: string): Promise<void> {
     ? buildLLMConfig(globalConfig)
     : buildLLMConfig(globalConfig, clawConfig!);
 
+  // 审计日志配置
+  const auditMaxSizeMb = globalConfig.audit?.retention?.max_size_mb ?? null;
+
   // Runtime
   const runtime = isMotion
     ? new MotionRuntime({
@@ -101,6 +105,7 @@ export async function daemonCommand(name: string): Promise<void> {
         subagentMaxSteps: globalConfig.motion?.subagent_max_steps,
         maxConcurrentTasks: globalConfig.motion?.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS,
         idleTimeoutMs: globalConfig.motion?.llm_idle_timeout_ms,
+        auditMaxSizeMb,
       })
     : new ClawRuntime({
         clawId: name,
@@ -112,10 +117,17 @@ export async function daemonCommand(name: string): Promise<void> {
         subagentMaxSteps: clawConfig!.subagent_max_steps,
         maxConcurrentTasks: clawConfig!.max_concurrent_tasks,
         idleTimeoutMs: globalConfig.motion?.llm_idle_timeout_ms,
+        auditMaxSizeMb,
       } as ClawRuntimeOptions);
 
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
+
+  // git init（claw 首次启动时无 .git，motion init 已处理 motion 的情况）
+  await initAgentGit(dir).catch(() => {});
+
+  // recovery-snapshot：将上次中断遗留的 working tree 变更固化
+  await commitAgentDir(dir, 'recovery-snapshot').catch(() => {});
 
   // motion 专属：heartbeat（0 表示禁用）
   let heartbeat: Heartbeat | null = null;
@@ -196,18 +208,55 @@ export async function daemonCommand(name: string): Promise<void> {
   }
 
   // 共用核心循环
-  const streamWriter = new StreamWriter(dir);
+  const streamWriter = new StreamWriter(dir, {
+    maxFiles: globalConfig.stream?.retention?.max_files ?? null,
+    maxDays: globalConfig.stream?.retention?.max_days ?? null,
+  });
   streamWriter.open();
   runtime.setParentStreamWriter(streamWriter);
 
   // daemon_start: 计算 AGENTS.md 的 sha256 前 6 位作为 system prompt 版本标识
   const auditWriter = runtime.getAuditWriter();
+
+  // 检测上次是否非正常退出（SIGKILL / OOM 等无法写 daemon_crash 的情况）
+  function detectUncleanExit(): void {
+    const auditPath = path.join(dir, 'audit.tsv');
+    if (!fsNative.existsSync(auditPath)) return;
+    try {
+      const stat = fsNative.statSync(auditPath);
+      if (stat.size === 0) return;
+      const chunkSize = 512;
+      const offset = Math.max(0, stat.size - chunkSize);
+      const fd = fsNative.openSync(auditPath, 'r');
+      const buf = Buffer.alloc(Math.min(chunkSize, stat.size));
+      fsNative.readSync(fd, buf, 0, buf.length, offset);
+      fsNative.closeSync(fd);
+      const chunk = buf.toString('utf-8');
+      const lastLine = chunk.split('\n').filter(Boolean).at(-1) ?? '';
+      const type = lastLine.split('\t')[1];
+      if (
+        type === 'daemon_stop' ||
+        type === 'daemon_unclean_exit' ||
+        type === 'daemon_crash'
+      ) return;
+      const lastTs = lastLine.split('\t')[0] ?? new Date().toISOString();
+      auditWriter.write('daemon_unclean_exit', `last_ts=${lastTs}`);
+    } catch {
+      // 读取失败不影响启动
+    }
+  }
+  detectUncleanExit();
+
   let promptHash = 'n/a';
   try {
     const agentsContent = fsNative.readFileSync(path.join(dir, 'AGENTS.md'), 'utf-8');
     promptHash = createHash('sha256').update(agentsContent).digest('hex').slice(0, 6);
   } catch { /* AGENTS.md 不存在时跳过 */ }
   auditWriter.write('daemon_start', `sha256:${promptHash}`);
+
+  // daemon-start commit（fire-and-forget，不阻塞启动）
+  commitAgentDir(dir, `daemon-start ${new Date().toISOString()}`).catch(() => {});
+
   runtime.setContractNotifyCallback((type, data) => {
     streamWriter.write({ ts: Date.now(), type: 'user_notify', subtype: type, ...data });
   });

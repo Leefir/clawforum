@@ -12,6 +12,7 @@ import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { AuditWriter } from '../../foundation/audit/writer.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, getContractCreatedMs, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
 
@@ -40,13 +41,13 @@ function getWatchdogPidFile(): string {
 /**
  * Create a ProcessManager dedicated to Motion
  */
-function createMotionPM(): ProcessManager {
+function createMotionPM(auditWriter?: AuditWriter): ProcessManager {
   const baseDir = path.dirname(getMotionDir());
   const nfs = new NodeFileSystem({ baseDir, enforcePermissions: false });
   return new ProcessManager(nfs, baseDir, (id) => {
     if (id === 'motion') return path.join(baseDir, 'motion');
     return path.join(baseDir, 'claws', id);
-  });
+  }, auditWriter);
 }
 
 // Watchdog PID management
@@ -312,15 +313,24 @@ export async function daemonCommand(): Promise<void> {
   loadWatchdogState();   // 恢复通知状态
   log('[watchdog] State loaded.');
   
+  // Create auditWriter for watchdog
+  const auditMaxSizeMb = getGlobalConfig().audit?.retention?.max_size_mb ?? null;
+  const auditWriter = new AuditWriter(
+    path.join(getClawforumDir(), 'audit.tsv'),
+    auditMaxSizeMb,
+  );
+  auditWriter.write('watchdog_start');
+  
   let stopped = false;
   
   // Create Motion ProcessManager (reused across loop iterations)
-  const pm = createMotionPM();
+  const pm = createMotionPM(auditWriter);
   
   process.on('SIGTERM', () => {
     log('[watchdog] Received SIGTERM, shutting down...');
     stopped = true;
     removeWatchdogPid();
+    auditWriter.write('watchdog_stop');
     process.exit(0);
   });
   
@@ -328,6 +338,7 @@ export async function daemonCommand(): Promise<void> {
     log('[watchdog] Received SIGINT, shutting down...');
     stopped = true;
     removeWatchdogPid();
+    auditWriter.write('watchdog_stop');
     process.exit(0);
   });
   
@@ -337,7 +348,27 @@ export async function daemonCommand(): Promise<void> {
   while (!stopped) {
     // 1. Check motion liveness
     const status = pm.getAliveStatus('motion');
+    
+    // watchdog_check: 枚举所有存活进程
+    const aliveIds: string[] = [];
+    if (status.alive) aliveIds.push('motion');
+    const clawsBaseDir = path.join(getClawforumDir(), 'claws');
+    if (existsSync(clawsBaseDir)) {
+      for (const id of fs.readdirSync(clawsBaseDir)) {
+        try {
+          if (fs.statSync(path.join(clawsBaseDir, id)).isDirectory() && pm.isAlive(id)) {
+            aliveIds.push(id);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    auditWriter.write('watchdog_check', `alive=${aliveIds.join(',')}`);
+    
     if (!status.alive) {
+      log(`[watchdog] motion down (${status.reason}), restarting...`);
+      auditWriter.write('watchdog_restart_triggered', 'motion');
       log(`[watchdog] motion down (${status.reason}), restarting...`);
       try {
         // First clean up any stale PID file that may exist

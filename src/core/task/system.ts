@@ -766,6 +766,7 @@ export class TaskSystem {
     let resultRef: string | undefined;
     try {
       const resultPath = `tasks/results/${task.id}/result.txt`;
+      await this.fs.ensureDir(`tasks/results/${task.id}`);
       await this.fs.writeAtomic(resultPath, fullContent);
       resultRef = resultPath;
     } catch (writeErr) {
@@ -857,6 +858,7 @@ export class TaskSystem {
     let resultRef: string | undefined;
     try {
       const resultPath = `tasks/results/${task.id}/result.txt`;
+      await this.fs.ensureDir(`tasks/results/${task.id}`);
       await this.fs.writeAtomic(resultPath, result);
       resultRef = resultPath;
     } catch (writeErr) {

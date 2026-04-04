@@ -1,7 +1,7 @@
 /**
  * Tool Executor tests - Phase 2 质量审查补充
  * 
- * 覆盖 audit.log JSONL 记录功能（设计缺口 C）
+ * 覆盖 audit.tsv TSV 记录功能（设计缺口 C）
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -14,6 +14,7 @@ import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
 import { ToolRegistry } from '../../src/core/tools/registry.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
+import { AuditWriter } from '../../src/foundation/audit/writer.js';
 
 async function createTempDir(): Promise<string> {
   const tempDir = path.join(tmpdir(), `clawforum-executor-test-${randomUUID()}`);
@@ -35,15 +36,18 @@ describe('ToolExecutor', () => {
   let ctx: ExecContextImpl;
   let registry: ToolRegistry;
   let executor: ToolExecutorImpl;
+  let auditWriter: AuditWriter;
 
   beforeEach(async () => {
     tempDir = await createTempDir();
     mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
+    auditWriter = new AuditWriter(path.join(tempDir, 'audit.tsv'));
     ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
       profile: 'full',
       fs: mockFs,
+      auditWriter,
     });
     registry = new ToolRegistry();
     executor = new ToolExecutorImpl(registry);
@@ -164,7 +168,7 @@ describe('ToolExecutor', () => {
     });
   });
 
-  // Phase 2 质量审查：audit.log 测试
+  // Phase 2 质量审查：audit.tsv 测试
   describe('audit logging', () => {
     it('should write audit log on successful tool execution', async () => {
       // Register a simple tool
@@ -185,19 +189,17 @@ describe('ToolExecutor', () => {
         ctx,
       });
 
-      // Wait for async audit log to complete
-      await new Promise(r => setTimeout(r, 100));
-
-      // Check audit.log exists
-      const auditPath = path.join(tempDir, 'logs', 'audit.log');
+      // Check audit.tsv exists
+      const auditPath = path.join(tempDir, 'audit.tsv');
       const auditContent = await fs.readFile(auditPath, 'utf-8').catch(() => '');
       
       expect(auditContent).toBeTruthy();
-      const entry = JSON.parse(auditContent.trim());
-      expect(entry.tool).toBe('test-tool');
-      expect(entry.ok).toBe(true);
-      expect(entry.ts).toBeTruthy();
-      expect(entry.duration_ms).toBeGreaterThanOrEqual(0);
+      // TSV format: timestamp, type, toolName, status, duration, summary
+      const parts = auditContent.trim().split('\t');
+      expect(parts[1]).toBe('tool_exec');
+      expect(parts[2]).toBe('test-tool');
+      expect(parts[3]).toBe('ok');
+      expect(parts[4]).toMatch(/^ms=/);
     });
 
     it('should write audit log on failed tool execution', async () => {
@@ -218,29 +220,30 @@ describe('ToolExecutor', () => {
         ctx,
       });
 
-      // Wait for async audit log to complete
-      await new Promise(r => setTimeout(r, 100));
-
-      const auditPath = path.join(tempDir, 'logs', 'audit.log');
+      const auditPath = path.join(tempDir, 'audit.tsv');
       const auditContent = await fs.readFile(auditPath, 'utf-8').catch(() => '');
       
       expect(auditContent).toBeTruthy();
-      const entry = JSON.parse(auditContent.trim());
-      expect(entry.ok).toBe(false);
-      expect(entry.error).toContain('Something went wrong');
+      const parts = auditContent.trim().split('\t');
+      expect(parts[1]).toBe('tool_exec');
+      expect(parts[2]).toBe('failing-tool');
+      expect(parts[3]).toBe('err');
+      expect(parts[5]).toContain('Something went wrong');
     });
 
     it('should not block execution when audit log fails', async () => {
-      // Make clawDir read-only to cause audit log failure
+      // Create auditWriter pointing to non-existent path to simulate failure
       const readonlyDir = path.join(tempDir, 'readonly');
       await fs.mkdir(readonlyDir, { recursive: true });
-      await fs.chmod(readonlyDir, 0o444);
+      await fs.chmod(readonlyDir, 0o555);
       
+      const failingAuditWriter = new AuditWriter(path.join(readonlyDir, 'audit.tsv'));
       const readonlyCtx = new ExecContextImpl({
         clawId: 'test-claw',
-        clawDir: readonlyDir,
+        clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
+        auditWriter: failingAuditWriter,
       });
 
       registry.register({
@@ -254,7 +257,7 @@ describe('ToolExecutor', () => {
         },
       });
 
-      // Should not throw even though audit log will fail
+      // Should not throw even though audit log will fail (AuditWriter silently fails)
       const result = await executor.execute({
         toolName: 'test-tool',
         args: {},
@@ -266,37 +269,6 @@ describe('ToolExecutor', () => {
 
       // Restore permissions for cleanup
       await fs.chmod(readonlyDir, 0o755).catch(() => {});
-    });
-
-    it('should include truncated args in audit log', async () => {
-      registry.register({
-        name: 'test-tool',
-        description: 'Test tool',
-        schema: { type: 'object', properties: {}, required: [] },
-        requiredPermissions: ['read'],
-        readonly: true,
-        async execute() {
-          return { success: true, content: 'ok' };
-        },
-      });
-
-      const longArgs = { data: 'x'.repeat(200) };
-      await executor.execute({
-        toolName: 'test-tool',
-        args: longArgs,
-        ctx,
-      });
-
-      // Wait for async audit log to complete
-      await new Promise(r => setTimeout(r, 100));
-
-      const auditPath = path.join(tempDir, 'logs', 'audit.log');
-      const auditContent = await fs.readFile(auditPath, 'utf-8').catch(() => '');
-      
-      expect(auditContent).toBeTruthy();
-      const entry = JSON.parse(auditContent.trim());
-      // Args should be truncated to 80 chars (with braces)
-      expect(entry.args.length).toBeLessThanOrEqual(85);
     });
   });
 });

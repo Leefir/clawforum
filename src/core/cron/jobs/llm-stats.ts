@@ -1,23 +1,17 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-interface LlmCallEntry {
-  timestamp: string;
-  type: string;
-  data: {
-    provider: string;
-    model: string;
-    success: boolean;
-    latencyMs: number;
-    inputTokens: number;
-    outputTokens: number;
-    isFallback: boolean;
-    retryCount: number;
-    clawId: string;
-  };
+interface ParsedLlmRow {
+  ts: string;        // ISO timestamp（audit.tsv col 0）
+  success: boolean;  // llm_call = true, llm_error = false
+  model: string;     // col 2
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+  clawId: string;    // 从文件路径推导
 }
 
-interface ProviderStats {
+interface ModelStats {
   calls: number;
   inputTokens: number;
   outputTokens: number;
@@ -38,10 +32,8 @@ export interface LlmStatsSummary {
   failedCalls: number;
   totalInputTokens: number;
   totalOutputTokens: number;
-  totalRetries: number;
-  fallbackCalls: number;
   avgLatencyMs: number;                           // 成功调用的平均延迟
-  byProvider: Record<string, ProviderStats>;
+  byModel: Record<string, ModelStats>;
   byClaw: Record<string, ClawStats>;
 }
 
@@ -77,51 +69,63 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
   );
 }
 
-function collectEntries(opts: LlmStatsOptions, targetDate: string): LlmCallEntry[] {
-  const results: LlmCallEntry[] = [];
+function collectEntries(opts: LlmStatsOptions, targetDate: string): ParsedLlmRow[] {
+  const results: ParsedLlmRow[] = [];
 
-  // motion + all claws
-  const candidates = [
-    path.join(opts.motionDir, 'logs', 'llm-calls.jsonl'),
+  const candidates: Array<{ file: string; clawId: string }> = [
+    { file: path.join(opts.motionDir, 'audit.tsv'), clawId: 'motion' },
     ...(() => {
       const clawsDir = path.join(opts.clawforumDir, 'claws');
       if (!fs.existsSync(clawsDir)) return [];
-      return fs.readdirSync(clawsDir).map(id =>
-        path.join(clawsDir, id, 'logs', 'llm-calls.jsonl')
-      );
+      return fs.readdirSync(clawsDir).map(id => ({
+        file: path.join(clawsDir, id, 'audit.tsv'),
+        clawId: id,
+      }));
     })(),
   ];
 
-  for (const filePath of candidates) {
-    if (!fs.existsSync(filePath)) continue;
-    const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
+  for (const { file, clawId } of candidates) {
+    if (!fs.existsSync(file)) continue;
+    const lines = fs.readFileSync(file, 'utf-8').split('\n');
     for (const line of lines) {
       if (!line.trim()) continue;
-      try {
-        const entry = JSON.parse(line) as LlmCallEntry;
-        if (entry.type !== 'llm_call') continue;
-        if (!entry.timestamp.startsWith(targetDate)) continue;
-        results.push(entry);
-      } catch { /* skip malformed lines */ }
+      const cols = line.split('\t');
+      const ts = cols[0] ?? '';
+      const type = cols[1] ?? '';
+      if (type !== 'llm_call' && type !== 'llm_error') continue;
+      if (!ts.startsWith(targetDate)) continue;
+
+      const kv = (key: string): number => {
+        const col = cols.find(c => c.startsWith(`${key}=`));
+        return col ? parseInt(col.slice(key.length + 1), 10) || 0 : 0;
+      };
+
+      results.push({
+        ts,
+        success: type === 'llm_call',
+        model: cols[2] ?? 'unknown',
+        inputTokens: kv('in'),
+        outputTokens: kv('out'),
+        latencyMs: type === 'llm_call' ? kv('ms') : 0,
+        clawId,
+      });
     }
   }
 
   return results;
 }
 
-function aggregate(entries: LlmCallEntry[], targetDate: string): LlmStatsSummary {
-  const byProvider: Record<string, ProviderStats> = {};
+function aggregate(entries: ParsedLlmRow[], targetDate: string): LlmStatsSummary {
+  const byModel: Record<string, ModelStats> = {};
   const byClaw: Record<string, ClawStats> = {};
 
   let successCalls = 0;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
-  let totalRetries = 0;
-  let fallbackCalls = 0;
   let latencySum = 0;
   let latencyCount = 0;
 
-  for (const { data: d } of entries) {
+  for (const d of entries) {
     if (d.success) {
       successCalls++;
       latencySum += d.latencyMs;
@@ -129,16 +133,14 @@ function aggregate(entries: LlmCallEntry[], targetDate: string): LlmStatsSummary
     }
     totalInputTokens += d.inputTokens ?? 0;
     totalOutputTokens += d.outputTokens ?? 0;
-    totalRetries += d.retryCount ?? 0;
-    if (d.isFallback) fallbackCalls++;
 
-    // byProvider
-    const ps = byProvider[d.provider] ?? { calls: 0, inputTokens: 0, outputTokens: 0, latencyMsTotal: 0 };
-    ps.calls++;
-    ps.inputTokens += d.inputTokens ?? 0;
-    ps.outputTokens += d.outputTokens ?? 0;
-    ps.latencyMsTotal += d.latencyMs ?? 0;
-    byProvider[d.provider] = ps;
+    // byModel
+    const ms = byModel[d.model] ?? { calls: 0, inputTokens: 0, outputTokens: 0, latencyMsTotal: 0 };
+    ms.calls++;
+    ms.inputTokens += d.inputTokens ?? 0;
+    ms.outputTokens += d.outputTokens ?? 0;
+    ms.latencyMsTotal += d.latencyMs ?? 0;
+    byModel[d.model] = ms;
 
     // byClaw
     const cs = byClaw[d.clawId] ?? { calls: 0, inputTokens: 0, outputTokens: 0 };
@@ -156,10 +158,8 @@ function aggregate(entries: LlmCallEntry[], targetDate: string): LlmStatsSummary
     failedCalls: entries.length - successCalls,
     totalInputTokens,
     totalOutputTokens,
-    totalRetries,
-    fallbackCalls,
     avgLatencyMs: latencyCount > 0 ? Math.round(latencySum / latencyCount) : 0,
-    byProvider,
+    byModel,
     byClaw,
   };
 }

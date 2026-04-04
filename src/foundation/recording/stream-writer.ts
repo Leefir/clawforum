@@ -12,12 +12,19 @@ export interface StreamEvent {
   [key: string]: unknown;
 }
 
+export interface StreamRetentionOptions {
+  maxFiles?: number | null;
+  maxDays?: number | null;
+}
+
 export class StreamWriter {
   private fd: number | null = null;
   private filePath: string;
+  private retention: StreamRetentionOptions;
 
-  constructor(agentDir: string) {
+  constructor(agentDir: string, retention: StreamRetentionOptions = {}) {
     this.filePath = path.join(agentDir, 'stream.jsonl');
+    this.retention = retention;
   }
 
   /** daemon 启动时调用：归档旧文件并打开 fd */
@@ -40,7 +47,42 @@ export class StreamWriter {
         console.error('[StreamWriter] Failed to archive stream.jsonl, will overwrite:', err instanceof Error ? err.message : String(err));
       }
     }
+    this.pruneArchives();
     this.fd = fsNative.openSync(this.filePath, 'a');
+  }
+
+  private pruneArchives(): void {
+    const { maxFiles, maxDays } = this.retention;
+    if (!maxFiles && !maxDays) return;
+    try {
+      const archiveDir = path.join(path.dirname(this.filePath), 'logs', 'stream');
+      if (!fsNative.existsSync(archiveDir)) return;
+
+      // 只处理符合命名规范的归档文件，按时间戳降序（最新在前）
+      const files = fsNative.readdirSync(archiveDir)
+        .filter(f => /^stream\.\d+\.jsonl$/.test(f))
+        .map(f => ({
+          fullPath: path.join(archiveDir, f),
+          ts: parseInt(f.split('.')[1], 10),
+        }))
+        .sort((a, b) => b.ts - a.ts);
+
+      const toDelete = new Set<string>();
+
+      if (maxFiles != null) {
+        files.slice(maxFiles).forEach(f => toDelete.add(f.fullPath));
+      }
+      if (maxDays != null) {
+        const cutoff = Date.now() - maxDays * 24 * 60 * 60 * 1000;
+        files.filter(f => f.ts < cutoff).forEach(f => toDelete.add(f.fullPath));
+      }
+
+      for (const p of toDelete) {
+        try { fsNative.unlinkSync(p); } catch { /* ignore */ }
+      }
+    } catch (err) {
+      console.warn('[StreamWriter] pruneArchives failed:', err instanceof Error ? err.message : String(err));
+    }
   }
 
   /** 写一行事件 */

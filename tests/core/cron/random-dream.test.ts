@@ -51,10 +51,10 @@ function makeOpts(clawforumDir: string, motionDir: string): RandomDreamOptions {
 
 /** 在 motionDir 创建 tasks/results 目录并写入完成信号 */
 async function writeTaskCompletion(motionDir: string, taskId: string, logContent: string) {
-  const resultsDir = path.join(motionDir, 'tasks', 'results');
-  await fs.mkdir(resultsDir, { recursive: true });
-  await fs.writeFile(path.join(resultsDir, `${taskId}.txt`), 'done', 'utf-8');
-  await fs.writeFile(path.join(resultsDir, `${taskId}.log`), logContent, 'utf-8');
+  const taskResultDir = path.join(motionDir, 'tasks', 'results', taskId);
+  await fs.mkdir(taskResultDir, { recursive: true });
+  await fs.writeFile(path.join(taskResultDir, 'result.txt'), 'done', 'utf-8');
+  await fs.writeFile(path.join(taskResultDir, 'daemon.log'), logContent, 'utf-8');
 }
 
 // ─── 测试 ─────────────────────────────────────────────────────
@@ -163,14 +163,14 @@ Prompt: ...
     it('Fix 5 回归：仅 .log 存在时不提前返回', async () => {
       vi.useFakeTimers();
       try {
-        // 创建 .log（sub-agent 启动时就存在）
-        const resultsDir = path.join(motionDir, 'tasks', 'results');
-        await fs.mkdir(resultsDir, { recursive: true });
+        // 创建 daemon.log（sub-agent 启动时就存在），但 result.txt 不存在
+        const taskResultDir = path.join(motionDir, 'tasks', 'results', taskId);
+        await fs.mkdir(taskResultDir, { recursive: true });
         fsSync.writeFileSync(
-          path.join(resultsDir, `${taskId}.log`),
+          path.join(taskResultDir, 'daemon.log'),
           '=== SubAgent started ===\nPrompt: ...'
         );
-        // .txt 不存在
+        // result.txt 不存在
 
         const runPromise = runRandomDream(makeOpts(clawforumDir, motionDir));
 
@@ -181,10 +181,10 @@ Prompt: ...
         const inboxFiles = fsSync.readdirSync(path.join(motionDir, 'inbox', 'pending'));
         expect(inboxFiles.filter(f => f.includes('random_dream'))).toHaveLength(0);
 
-        // 写入 .txt + 更新 .log（模拟 sub-agent 完成）
-        fsSync.writeFileSync(path.join(resultsDir, `${taskId}.txt`), 'done');
+        // 写入 result.txt + 更新 daemon.log（模拟 sub-agent 完成）
+        fsSync.writeFileSync(path.join(taskResultDir, 'result.txt'), 'done');
         fsSync.writeFileSync(
-          path.join(resultsDir, `${taskId}.log`),
+          path.join(taskResultDir, 'daemon.log'),
           `[DREAM_OUTPUT contract_id="contract-001"]跨 claw 洞见[/DREAM_OUTPUT]`
         );
 
@@ -359,10 +359,11 @@ Prompt: ...
         path.join(clawforumDir, 'claws', 'claw-1', 'contract', 'archive', 'contract-timeout'),
         { recursive: true }
       );
-      await fs.mkdir(path.join(motionDir, 'tasks', 'results'), { recursive: true });
-      // 只有 .log，没有 .txt
+      const taskResultDir = path.join(motionDir, 'tasks', 'results', taskId);
+      await fs.mkdir(taskResultDir, { recursive: true });
+      // 只有 daemon.log，没有 result.txt
       fsSync.writeFileSync(
-        path.join(motionDir, 'tasks', 'results', `${taskId}.log`),
+        path.join(taskResultDir, 'daemon.log'),
         '=== started ==='
       );
 

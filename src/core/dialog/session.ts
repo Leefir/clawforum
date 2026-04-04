@@ -11,7 +11,7 @@
 import * as path from 'path';
 import type { IFileSystem } from '../../foundation/fs/types.js';
 import type { IMonitor } from '../../foundation/monitor/types.js';
-import type { Message } from '../../types/message.js';
+import type { Message, ToolUseBlock, ToolResultBlock } from '../../types/message.js';
 import type { SessionData } from './types.js';
 import { randomUUID } from 'crypto';
 
@@ -79,6 +79,33 @@ export class SessionManager {
       updatedAt: now,
       messages: [],
       prunedMarkers: [],
+    };
+  }
+
+  /**
+   * Repair session if last assistant message has unanswered tool_use blocks.
+   * Returns repaired messages + count of injected synthetic results (0 = no repair needed).
+   */
+  static repair(messages: Message[]): { repaired: Message[]; toolCount: number } {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'assistant') return { repaired: messages, toolCount: 0 };
+
+    const content = Array.isArray(last.content) ? last.content : [];
+    const toolUseBlocks = content.filter(
+      (b): b is ToolUseBlock => b.type === 'tool_use'
+    );
+    if (toolUseBlocks.length === 0) return { repaired: messages, toolCount: 0 };
+
+    const syntheticResults: ToolResultBlock[] = toolUseBlocks.map(block => ({
+      type: 'tool_result',
+      tool_use_id: block.id,
+      content: `Tool call '${block.name}' with input ${JSON.stringify(block.input)} was interrupted: process restarted.`,
+      is_error: true,
+    }));
+
+    return {
+      repaired: [...messages, { role: 'user', content: syntheticResults }],
+      toolCount: toolUseBlocks.length,
     };
   }
 

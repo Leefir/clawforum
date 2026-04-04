@@ -7,7 +7,7 @@ import * as fsNative from 'fs';
 import * as fsp from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { StreamWriter } from '../../src/cli/commands/stream-writer.js';
+import { StreamWriter } from '../../src/foundation/recording/stream-writer.js';
 
 describe('StreamWriter', () => {
   let tmpDir: string;

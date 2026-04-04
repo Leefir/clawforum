@@ -43,6 +43,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { oneLine } from '../foundation/utils/string.js';
+import { commitAgentDir } from '../foundation/git/agent-git.js';
 import { MaxStepsExceededError } from '../types/errors.js';
 import { MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../constants.js';
 
@@ -60,6 +61,7 @@ export interface ClawRuntimeOptions {
   subagentMaxSteps?: number;
   maxConcurrentTasks?: number;
   idleTimeoutMs?: number;  // 覆盖 DEFAULT_LLM_IDLE_TIMEOUT_MS（0 = 禁用）
+  auditMaxSizeMb?: number | null;   // 审计日志大小限制（MB），null = 不限
 }
 
 /** Inbox message info for onInboxMessages callback */
@@ -81,6 +83,7 @@ export class ClawRuntime {
   protected initialized = false;
   private running = false;
   private currentAbortController: AbortController | null = null;
+  private turnCount = 0;
   protected auditWriter!: AuditWriter;
 
   // Foundation
@@ -127,7 +130,10 @@ export class ClawRuntime {
     if (this.initialized) return;
 
     // 0. 创建 AuditWriter（后续所有 audit 事件共用此实例）
-    this.auditWriter = new AuditWriter(path.join(this.options.clawDir, 'audit.tsv'));
+    this.auditWriter = new AuditWriter(
+      path.join(this.options.clawDir, 'audit.tsv'),
+      this.options.auditMaxSizeMb ?? null,
+    );
 
     const { clawId, clawDir, llmConfig, monitorDir, maxSteps, toolProfile } = this.options;
 
@@ -152,7 +158,6 @@ export class ClawRuntime {
     // 4. Create LLMService
     this.llm = new LLMService(
       llmConfig,
-      this.monitor,
       clawId,
       this.auditWriter,
       path.join(this.options.clawDir, 'logs', 'llm-errors'),
@@ -175,6 +180,19 @@ export class ClawRuntime {
         console.warn('[runtime] Failed to archive session on startup:', err?.message);
       }
     });
+
+    // Session repair：检测未完成的 tool_use，注入合成 tool_result
+    {
+      const session = await this.sessionManager.load().catch(() => null);
+      if (session) {
+        const { repaired, toolCount } = SessionManager.repair(session.messages);
+        if (toolCount > 0) {
+          await this.sessionManager.save(repaired);
+          this.auditWriter.write('session_repaired', `tools=${toolCount}`);
+          commitAgentDir(this.options.clawDir, `session-repair tools=${toolCount}`).catch(() => {});
+        }
+      }
+    }
 
     // 7. Create ToolRegistry and register built-in tools
     this.toolRegistry = new ToolRegistry();
@@ -392,11 +410,14 @@ export class ClawRuntime {
 
     // Move to done immediately after reading (messages are in memory; original files no longer needed)
     await fs.mkdir(doneDir, { recursive: true });
+    const doneFileNames = new Map<string, string>();
     for (const info of fileInfos) {
+      const doneFileName = `${Date.now()}_${info.name}`;   // pre-generate
+      doneFileNames.set(info.name, doneFileName);
       try {
         await fs.rename(
           path.join(pendingDir, info.name),
-          path.join(doneDir, `${Date.now()}_${info.name}`)
+          path.join(doneDir, doneFileName)
         );
       } catch (err: any) {
         if (err?.code !== 'ENOENT') {
@@ -418,26 +439,28 @@ export class ClawRuntime {
     });
 
     // Audit log: record all messages (including skipped ones)
-    const auditPath = path.join(this.options.clawDir, 'logs', 'audit.log');
-    await fs.mkdir(path.dirname(auditPath), { recursive: true });
     for (const info of fileInfos) {
       const skipped = injectedInfos.indexOf(info) === -1;
-      const entry = {
-        ts: new Date().toISOString(),
-        event: skipped ? 'inbox_skip' : 'inbox_inject',
-        file: info.name,
-        type: info.meta.type ?? 'message',
-        source: info.meta.source ?? info.meta.from ?? 'unknown',
-        to: info.meta.to ?? '',
-        priority: info.meta.priority ?? 'unknown',
-      };
-      fs.appendFile(auditPath, JSON.stringify(entry) + '\n').catch(e =>
-        this.monitor?.log('error', {
-          context: 'Runtime.auditLog',
-          file: info.name,
-          error: e instanceof Error ? e.message : String(e),
-        })
-      );
+      if (skipped) {
+        this.auditWriter.write(
+          'inbox_skip',
+          info.name,
+          `type=${info.meta.type ?? 'message'}`,
+          `from=${info.meta.from ?? info.meta.source ?? 'unknown'}`,
+          `to=${info.meta.to ?? ''}`,
+          'reason=not_addressed',
+        );
+      } else {
+        const doneFile = doneFileNames.get(info.name) ?? info.name;
+        this.auditWriter.write(
+          'inbox_inject',
+          doneFile,
+          `type=${info.meta.type ?? 'message'}`,
+          `from=${info.meta.from ?? info.meta.source ?? 'unknown'}`,
+          `to=${info.meta.to ?? this.options.clawId}`,
+          `pri=${info.meta.priority ?? 'normal'}`,
+        );
+      }
     }
 
     const systemParts: string[] = [];
@@ -532,6 +555,11 @@ export class ClawRuntime {
       clearTimeout(idleTimerId);
     }
     await this.sessionManager.save(messages);
+
+    // turn auto-commit（fire-and-forget）
+    this.turnCount++;
+    commitAgentDir(this.options.clawDir, `turn-${this.turnCount} ${new Date().toISOString()}`)
+      .catch(() => {});
   }
 
   /**

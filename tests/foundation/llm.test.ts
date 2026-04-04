@@ -14,7 +14,7 @@ import type {
   Message,
   ToolDefinition
 } from '../../src/types/message.js';
-import type { LLMCallEvent } from '../../src/foundation/monitor/types.js';
+
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { AnthropicAdapter } from '../../src/foundation/llm/anthropic.js';
 import { OpenAIAdapter } from '../../src/foundation/llm/openai.js';
@@ -387,55 +387,6 @@ describe('LLM Service', () => {
 
       expect((response.content[0] as { text: string }).text).toBe('Success');
       expect(mockFetch).toHaveBeenCalledTimes(3); // 3 retries
-    });
-
-    it('should call monitor.logLLMCall on success', async () => {
-      const mockFetch = vi.fn().mockResolvedValue(
-        createMockResponse(
-          createAnthropicResponse([{ type: 'text', text: 'OK' }])
-        )
-      );
-      vi.stubGlobal('fetch', mockFetch);
-
-      // Create mock monitor
-      const loggedEvents: LLMCallEvent[] = [];
-      const mockMonitor = {
-        logLLMCall: (event: LLMCallEvent) => {
-          loggedEvents.push(event);
-        },
-        logToolCall: vi.fn(),
-        logFileOperation: vi.fn(),
-        log: vi.fn(),
-        logError: vi.fn(),
-        flush: vi.fn().mockResolvedValue(undefined),
-        query: vi.fn().mockResolvedValue([]),
-        getMetrics: vi.fn().mockResolvedValue({}),
-        close: vi.fn().mockResolvedValue(undefined),
-      };
-
-      const service = new LLMService(
-        {
-          primary: primaryConfig,
-          maxAttempts: 1,
-          retryDelayMs: 100,
-        },
-        mockMonitor,
-        'test-claw'
-      );
-
-      await service.call({
-        messages: [{ role: 'user', content: 'Hi' }],
-      });
-
-      // Wait for async log
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      expect(loggedEvents).toHaveLength(1);
-      expect(loggedEvents[0].provider).toBe('primary');
-      expect(loggedEvents[0].model).toBe('model-1');
-      expect(loggedEvents[0].success).toBe(true);
-      expect(loggedEvents[0].isFallback).toBe(false);
-      expect(loggedEvents[0].clawId).toBe('test-claw');
     });
 
     it('should reset fallback status after primary succeeds', async () => {

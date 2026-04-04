@@ -196,7 +196,7 @@ describe('TaskSystem Tool Tasks', () => {
       expect(content.is_error).toBe(false);
       // Should have summary and resultRef instead of full result
       expect(content.summary).toBeDefined();
-      expect(content.resultRef).toBe(`tasks/results/${taskId}.txt`);
+      expect(content.resultRef).toBe(`tasks/results/${taskId}/result.txt`);
       expect(content.result).toBeUndefined(); // Full result should not be in inbox
     });
 
@@ -211,7 +211,7 @@ describe('TaskSystem Tool Tasks', () => {
       
       // Full result should be in results directory
       const resultFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'results', `${taskId}.txt`),
+        path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt'),
         'utf-8'
       );
       expect(resultFile).toContain(longResult);
@@ -261,7 +261,7 @@ describe('TaskSystem Tool Tasks', () => {
       expect(content.toolName).toBe('testTool');
       expect(content.is_error).toBe(true);
       expect(content.summary).toBeDefined();
-      expect(content.resultRef).toBe(`tasks/results/${taskId}.txt`);
+      expect(content.resultRef).toBe(`tasks/results/${taskId}/result.txt`);
     });
 
     it('should move task to done after completion', async () => {

@@ -32,25 +32,10 @@ import { DEFAULT_MAX_STEPS } from '../../constants.js';
 // Note: ToolRegistry type imported via IToolRegistry interface
 
 /**
- * Append audit log entry (best-effort, non-blocking)
- * Design doc gap C: MVP has audit.log JSONL, TS implementation was missing
+ * Extract one-line summary for audit
  */
-async function appendAudit(clawDir: string, entry: {
-  ts: string;
-  tool: string;
-  args: string;
-  ok: boolean;
-  duration_ms: number;
-  error: string;
-}): Promise<void> {
-  try {
-    const auditPath = path.join(clawDir, 'logs', 'audit.log');
-    const line = JSON.stringify(entry) + '\n';
-    await fs.mkdir(path.dirname(auditPath), { recursive: true });
-    await fs.appendFile(auditPath, line);
-  } catch (err) {
-    console.warn('[executor] Failed to append audit log:', err);
-  }
+function oneLine(s: string): string {
+  return s.replace(/\n/g, '\\n').slice(0, 120);
 }
 
 // ============================================================================
@@ -329,17 +314,16 @@ export class ToolExecutorImpl implements IToolExecutor {
         clearTimeout(timeoutId);
       }
       
-      // Audit logging (Design doc gap C: best-effort, non-blocking)
+      // Audit logging via auditWriter (TSV format)
       const duration = Date.now() - startTime;
       const auditResult = result ?? { success: false, content: 'unknown' };
-      appendAudit(ctx.clawDir, {
-        ts: new Date().toISOString(),
-        tool: toolName,
-        args: JSON.stringify(args).slice(0, 80),
-        ok: auditResult.success,
-        duration_ms: duration,
-        error: auditResult.success ? '' : auditResult.content,
-      }).catch(err => console.warn('[audit] Failed to write audit log:', err));
+      ctx.auditWriter?.write(
+        'tool_exec',
+        toolName,
+        auditResult.success ? 'ok' : 'err',
+        `ms=${duration}`,
+        `summary=${oneLine(auditResult.content ?? '')}`,
+      );
     }
     
     return result!;

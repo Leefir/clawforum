@@ -1,12 +1,11 @@
 /**
  * JsonlMonitor - IMonitor implementation using JSONL files
  * 
- * Each event type is written to a separate JSONL file:
- * - llm-calls.jsonl
- * - tool-calls.jsonl
- * - contracts.jsonl
- * - errors.jsonl
- * - events.jsonl (generic events)
+ * Writes all events to a single monitor.jsonl file.
+ * 
+ * Note: LLM/Tool/Contract events have been migrated to audit.tsv,
+ * use that for call tracking. This monitor is now only for
+ * internal error logging and debugging.
  */
 
 import * as path from 'path';
@@ -14,11 +13,8 @@ import { promises as fs } from 'fs';
 import type {
   IMonitor,
   MonitorEvent,
-  MonitorEventType,
-  LLMCallEvent,
-  ToolCallEvent,
 } from './types.js';
-import { appendJsonl, readJsonl } from './jsonl.js';
+import { appendJsonl } from './jsonl.js';
 
 /**
  * Monitor configuration
@@ -29,30 +25,20 @@ export interface JsonlMonitorOptions {
 }
 
 /**
- * Internal event record with metadata
- */
-interface EventRecord {
-  id: string;
-  timestamp: string;
-  type: MonitorEventType;
-  clawId?: string;
-  contractId?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any;
-}
-
-/**
  * JSONL-based monitor implementation
  */
 export class JsonlMonitor implements IMonitor {
   private readonly logsDir: string;
+  private readonly filePath: string;
   
   // Track pending writes for graceful shutdown
   private pendingWrites = 0;
   private closed = false;
+  private logPromises = new Set<Promise<void>>();
   
   constructor(options: JsonlMonitorOptions) {
     this.logsDir = options.logsDir;
+    this.filePath = path.join(this.logsDir, 'monitor.jsonl');
   }
   
   /**
@@ -63,40 +49,6 @@ export class JsonlMonitor implements IMonitor {
   }
   
   /**
-   * Get file path for event type
-   * Maps event types to safe filenames (avoid reserved names like 'system')
-   */
-  private getFilePath(type: MonitorEventType): string {
-    const filenameMap: Record<MonitorEventType, string> = {
-      'llm_call': 'llm-calls.jsonl',
-      'tool_call': 'tool-calls.jsonl',
-      'contract_created': 'contracts.jsonl',
-      'contract_updated': 'contracts.jsonl',
-      'contract_completed': 'contracts.jsonl',
-      'contract_failed': 'contracts.jsonl',
-      'contract_acceptance_started': 'contracts.jsonl',
-      'subagent_spawned': 'subagents.jsonl',
-      'subagent_scheduled': 'subagents.jsonl',
-      'subagent_completed': 'subagents.jsonl',
-      'tool_task_spawned': 'tool-tasks.jsonl',
-      'tool_task_scheduled': 'tool-tasks.jsonl',
-      'tool_task_completed': 'tool-tasks.jsonl',
-      'tool_task_retry': 'tool-tasks.jsonl',
-      'task_recovered': 'events.jsonl',
-      'task_recovered_as_done': 'events.jsonl',
-      'task_discarded': 'events.jsonl',
-      'task_recovery_complete': 'events.jsonl',
-      'file_operation': 'file-ops.jsonl',
-      'error': 'errors.jsonl',
-      'warn': 'events.jsonl',
-      'info': 'events.jsonl',
-      'system': 'events.jsonl',  // Map 'system' to 'events.jsonl'
-    };
-    const filename = filenameMap[type] ?? `${type.replace(/_/g, '-')}.jsonl`;
-    return path.join(this.logsDir, filename);
-  }
-  
-  /**
    * Generate unique event ID
    */
   private generateId(): string {
@@ -104,12 +56,11 @@ export class JsonlMonitor implements IMonitor {
   }
   
   /**
-   * Write event to appropriate JSONL file
+   * Write event to monitor.jsonl
    */
   private async writeEvent(
-    type: MonitorEventType,
-    data: Record<string, unknown> | unknown,
-    metadata?: { clawId?: string; contractId?: string }
+    data: Record<string, unknown>,
+    metadata?: { clawId?: string; contractId?: string; type?: string }
   ): Promise<void> {
     if (this.closed) {
       throw new Error('Monitor is closed');
@@ -117,19 +68,18 @@ export class JsonlMonitor implements IMonitor {
     
     await this.ensureDir();
     
-    const record: EventRecord = {
+    const record: MonitorEvent = {
       id: this.generateId(),
       timestamp: new Date().toISOString(),
-      type,
-      ...metadata,
-      data: data as Record<string, unknown>,
+      type: metadata?.type ?? 'event',
+      ...(metadata?.clawId ? { clawId: metadata.clawId } : {}),
+      ...(metadata?.contractId ? { contractId: metadata.contractId } : {}),
+      data,
     };
-    
-    const filePath = this.getFilePath(type);
     
     this.pendingWrites++;
     try {
-      await appendJsonl(filePath, record as unknown as Record<string, unknown>);
+      await appendJsonl(this.filePath, record as unknown as Record<string, unknown>);
     } finally {
       this.pendingWrites--;
     }
@@ -139,56 +89,12 @@ export class JsonlMonitor implements IMonitor {
   // IMonitor Implementation
   // ========================================================================
   
-  private logPromises = new Set<Promise<void>>();
-
-  logLLMCall(event: LLMCallEvent): void {
-    const promise = this.writeEvent('llm_call', event as unknown);
-    this.logPromises.add(promise);
-    // Clean up completed promises using finally
-    promise.finally(() => {
-      this.logPromises.delete(promise);
-    });
-  }
-  
-  logToolCall(event: ToolCallEvent): void {
-    const promise = this.writeEvent('tool_call', event as unknown);
-    this.logPromises.add(promise);
-    promise.finally(() => {
-      this.logPromises.delete(promise);
-    });
-  }
-  
-  logFileOperation(event: {
-    operation: string;
-    path: string;
-    success: boolean;
-    size?: number;
-    error?: string;
-  }): void {
-    const promise = this.writeEvent('file_operation', event);
-    this.logPromises.add(promise);
-    promise.finally(() => {
-      this.logPromises.delete(promise);
-    });
-  }
-  
-  log(type: MonitorEventType, data: Record<string, unknown>): void {
+  log(type: string, data: Record<string, unknown>): void {
     const { clawId, contractId, ...rest } = data;
-    const promise = this.writeEvent(type, rest, { clawId: clawId as string, contractId: contractId as string });
-    this.logPromises.add(promise);
-    promise.finally(() => {
-      this.logPromises.delete(promise);
-    });
-  }
-  
-  logError(error: Error, context?: Record<string, unknown>): void {
-    const promise = this.writeEvent('error', {
-      error: {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      },
-      context,
+    const promise = this.writeEvent(rest, { 
+      type, 
+      clawId: clawId as string, 
+      contractId: contractId as string 
     });
     this.logPromises.add(promise);
     promise.finally(() => {
@@ -201,104 +107,6 @@ export class JsonlMonitor implements IMonitor {
     while (this.logPromises.size > 0) {
       await Promise.all(this.logPromises);
     }
-  }
-  
-  async query(filters: {
-    type?: MonitorEventType;
-    clawId?: string;
-    contractId?: string;
-    startTime?: Date;
-    endTime?: Date;
-    limit?: number;
-  }): Promise<MonitorEvent[]> {
-    const { type, clawId, contractId, startTime, endTime, limit } = filters;
-    
-    // If type specified, only read that file
-    const typesToQuery: MonitorEventType[] = type 
-      ? [type] 
-      : ['llm_call', 'tool_call', 'contract_updated', 'file_operation', 'error', 'system'];
-    
-    const allEvents: MonitorEvent[] = [];
-    
-    for (const eventType of typesToQuery) {
-      const filePath = this.getFilePath(eventType);
-      const records = await readJsonl<EventRecord>(filePath);
-      
-      for (const record of records) {
-        // Apply filters
-        if (clawId && record.clawId !== clawId) continue;
-        if (contractId && record.contractId !== contractId) continue;
-        
-        if (startTime || endTime) {
-          const recordTime = new Date(record.timestamp);
-          if (startTime && recordTime < startTime) continue;
-          if (endTime && recordTime > endTime) continue;
-        }
-        
-        allEvents.push(record as MonitorEvent);
-      }
-    }
-    
-    // Sort by timestamp (oldest first)
-    allEvents.sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    
-    // Apply limit
-    if (limit && limit > 0) {
-      return allEvents.slice(0, limit);
-    }
-    
-    return allEvents;
-  }
-  
-  async getMetrics(timeRange: {
-    start: Date;
-    end: Date;
-  }): Promise<{
-    llmCalls: number;
-    toolCalls: number;
-    errors: number;
-    totalTokens: number;
-    averageLatency: number;
-  }> {
-    const { start, end } = timeRange;
-    
-    let llmCalls = 0;
-    let toolCalls = 0;
-    let errors = 0;
-    let totalTokens = 0;
-    let totalLatency = 0;
-    let latencyCount = 0;
-    
-    // Query LLM calls
-    const llmRecords = await this.query({ type: 'llm_call', startTime: start, endTime: end });
-    for (const record of llmRecords) {
-      llmCalls++;
-      const data = record.data as unknown as LLMCallEvent;
-      if (data.inputTokens) totalTokens += data.inputTokens;
-      if (data.outputTokens) totalTokens += data.outputTokens;
-      if (data.latencyMs) {
-        totalLatency += data.latencyMs;
-        latencyCount++;
-      }
-    }
-    
-    // Query tool calls
-    const toolRecords = await this.query({ type: 'tool_call', startTime: start, endTime: end });
-    toolCalls = toolRecords.length;
-    
-    // Query errors
-    const errorRecords = await this.query({ type: 'error', startTime: start, endTime: end });
-    errors = errorRecords.length;
-    
-    return {
-      llmCalls,
-      toolCalls,
-      errors,
-      totalTokens,
-      averageLatency: latencyCount > 0 ? Math.round(totalLatency / latencyCount) : 0,
-    };
   }
   
   async close(): Promise<void> {

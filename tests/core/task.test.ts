@@ -231,7 +231,7 @@ describe('Task System + SubAgent', () => {
       const content = await nodeFs.readFile(path.join(inboxDir, inboxFiles[0]), 'utf-8');
       expect(content).toContain('from: subagent');
       expect(content).toContain('to: motion');
-      expect(content).toContain(`"resultRef":"tasks/results/${taskId}.txt"`);
+      expect(content).toContain(`"resultRef":"tasks/results/${taskId}/result.txt"`);
     });
 
     it('should cancel task', async () => {
@@ -302,8 +302,8 @@ describe('Task System + SubAgent', () => {
       // 等待任务完成 + monitor 异步写入
       await new Promise(r => setTimeout(r, 500));
 
-      // subagent_completed → logs/subagents.jsonl
-      const logPath = path.join(tempDir, 'logs', 'subagents.jsonl');
+      // subagent_completed → logs/monitor.jsonl
+      const logPath = path.join(tempDir, 'logs', 'monitor.jsonl');
       const logContent = await fs.readFile(logPath, 'utf-8').catch(() => '');
       expect(logContent).toContain('subagent_completed');
       expect(logContent).toContain(taskId);
@@ -333,8 +333,8 @@ describe('Task System + SubAgent', () => {
       const inboxContent = await fs.readFile(path.join(inboxDir, mdFiles[0]), 'utf-8');
       expect(inboxContent).toContain('"is_error":true');
 
-      // error 事件 → logs/errors.jsonl（验证 monitor.log 被调用）
-      const logPath = path.join(tempDir, 'logs', 'errors.jsonl');
+      // error 事件 → logs/monitor.jsonl（验证 monitor.log 被调用）
+      const logPath = path.join(tempDir, 'logs', 'monitor.jsonl');
       const logContent = await fs.readFile(logPath, 'utf-8').catch(() => '');
       expect(logContent).toContain(taskId);
     });

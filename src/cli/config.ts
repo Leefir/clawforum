@@ -80,6 +80,17 @@ export const ClawGlobalConfigSchema = z.object({
     show_contract_events: z.boolean().default(true),
     trim_output_newlines: z.boolean().default(true),
   }).optional(),
+  audit: z.object({
+    retention: z.object({
+      max_size_mb: z.number().min(1).nullable().default(null),
+    }).optional(),
+  }).optional(),
+  stream: z.object({
+    retention: z.object({
+      max_files: z.number().min(1).nullable().default(null),
+      max_days: z.number().min(1).nullable().default(null),
+    }).optional(),
+  }).optional(),
 });
 
 export const ClawConfigSchema = z.object({

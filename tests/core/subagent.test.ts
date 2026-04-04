@@ -55,8 +55,6 @@ function makeSubAgent(
 
   const mockMonitor: IMonitor = {
     log: vi.fn(),
-    logLLMCall: vi.fn(),
-    logToolCall: vi.fn(),
     logFileOperation: vi.fn(),
     logError: vi.fn(),
     flush: vi.fn().mockResolvedValue(undefined),
@@ -106,7 +104,7 @@ describe('SubAgent', () => {
       // fs.append fails for the steps JSONL, succeeds for main log
       (mockFs.append as ReturnType<typeof vi.fn>).mockImplementation(
         (filePath: string) => {
-          if (filePath.includes('-steps.jsonl')) {
+          if (filePath.includes('/steps.jsonl')) {
             return Promise.reject(new Error('append failed'));
           }
           return Promise.resolve();
@@ -135,7 +133,7 @@ describe('SubAgent', () => {
       const { agent, mockFs } = makeSubAgent();
 
       (mockFs.append as ReturnType<typeof vi.fn>).mockImplementation((p: string) =>
-        p.includes('-steps.jsonl') ? Promise.reject(new Error('fail')) : Promise.resolve(),
+        p.includes('/steps.jsonl') ? Promise.reject(new Error('fail')) : Promise.resolve(),
       );
 
       let stepCallCount = 0;

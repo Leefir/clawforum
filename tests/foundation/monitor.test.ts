@@ -181,66 +181,12 @@ describe('Monitor', () => {
       await cleanupTempDir(tempDir);
     });
     
-    it('should log LLM calls to llm-calls.jsonl', async () => {
-      monitor.logLLMCall({
-        timestamp: new Date().toISOString(),
-        provider: 'anthropic',
-        model: 'claude-3-sonnet',
-        success: true,
-        latencyMs: 1234,
-        inputTokens: 100,
-        outputTokens: 50,
-        isFallback: false,
-        retryCount: 0,
-      });
-      
-      await monitor.flush(); // Ensure write completes
-      
-      const filePath = path.join(tempDir, 'llm-calls.jsonl');
-      const records = await readJsonl(filePath);
-      
-      expect(records).toHaveLength(1);
-      expect(records[0].data.provider).toBe('anthropic');
-      expect(records[0].data.success).toBe(true);
-    });
-    
-    it('should log tool calls to tool-calls.jsonl', async () => {
-      monitor.logToolCall({
-        toolName: 'read',
-        args: { path: 'test.txt' },
-        result: 'content',
-        durationMs: 10,
-      });
-      
-      await monitor.flush();
-      
-      const filePath = path.join(tempDir, 'tool-calls.jsonl');
-      const records = await readJsonl(filePath);
-      
-      expect(records).toHaveLength(1);
-      expect(records[0].data.toolName).toBe('read');
-    });
-    
-    it('should log errors to errors.jsonl', async () => {
-      const error = new Error('Something went wrong');
-      monitor.logError(error, { context: 'test' });
-      
-      await monitor.flush();
-      
-      const filePath = path.join(tempDir, 'errors.jsonl');
-      const records = await readJsonl(filePath);
-      
-      expect(records).toHaveLength(1);
-      expect(records[0].data.error.message).toBe('Something went wrong');
-      expect(records[0].data.context).toEqual({ context: 'test' });
-    });
-    
-    it('should log generic events to events.jsonl', async () => {
+    it('should log events to monitor.jsonl', async () => {
       monitor.log('system', { action: 'startup', version: '0.1.0' });
       
       await monitor.flush();
       
-      const filePath = path.join(tempDir, 'events.jsonl');
+      const filePath = path.join(tempDir, 'monitor.jsonl');
       const records = await readJsonl(filePath);
       
       expect(records).toHaveLength(1);
@@ -248,146 +194,31 @@ describe('Monitor', () => {
       expect(records[0].data.action).toBe('startup');
     });
     
-    it('should include clawId and contractId in events', async () => {
-      monitor.log('contract_created', {
-        clawId: 'claw-001',
-        contractId: 'contract-123',
-        data: { title: 'Test Contract' },
-      });
+    it('should include clawId and contractId in logged events', async () => {
+      monitor.log('contract_created', { clawId: 'claw-001', contractId: 'contract-123', title: 'Test' });
       
       await monitor.flush();
       
-      const filePath = path.join(tempDir, 'contracts.jsonl');
+      const filePath = path.join(tempDir, 'monitor.jsonl');
       const records = await readJsonl(filePath);
       
       expect(records[0].clawId).toBe('claw-001');
       expect(records[0].contractId).toBe('contract-123');
+      expect(records[0].data.title).toBe('Test');
     });
     
-    it('should query events by clawId', async () => {
-      // Log events for different claws
-      monitor.log('system', { clawId: 'claw-001', data: {} });
-      monitor.log('system', { clawId: 'claw-002', data: {} });
-      monitor.log('system', { clawId: 'claw-001', data: {} });
-      
-      await monitor.flush();
-      
-      const events = await monitor.query({ type: 'system', clawId: 'claw-001' });
-      
-      expect(events).toHaveLength(2);
-      expect(events.every(e => e.clawId === 'claw-001')).toBe(true);
-    });
-    
-    it('should query events by time range', async () => {
-      const now = Date.now();
-      const past = new Date(now - 10000).toISOString();
-      const future = new Date(now + 10000).toISOString();
-      
-      // Manually write events with specific timestamps
-      const filePath = path.join(tempDir, 'events.jsonl');
-      await fs.writeFile(
-        filePath,
-        `{"timestamp":"${past}","type":"system","data":{}}\n` +
-        `{"timestamp":"${future}","type":"system","data":{}}\n`,
-        'utf-8'
-      );
-      
-      const events = await monitor.query({
-        type: 'system',
-        startTime: new Date(now - 5000),
-        endTime: new Date(now + 5000),
-      });
-      
-      // Only the event within time range should be returned
-      expect(events.length).toBeLessThan(2);
-    });
-    
-    it('should return empty array when querying non-existent file', async () => {
-      const events = await monitor.query({ type: 'nonexistent' });
-      expect(events).toEqual([]);
-    });
-    
-    it('should calculate metrics correctly', async () => {
-      // Log multiple LLM calls
-      for (let i = 0; i < 5; i++) {
-        monitor.logLLMCall({
-          timestamp: new Date().toISOString(),
-          provider: 'anthropic',
-          model: 'claude-3',
-          success: i < 4, // 4 success, 1 failure
-          latencyMs: 1000 + i * 100,
-          inputTokens: 100,
-          outputTokens: 50,
-          isFallback: false,
-          retryCount: 0,
-        });
-      }
-      
-      // Log tool calls
-      for (let i = 0; i < 3; i++) {
-        monitor.logToolCall({
-          toolName: 'read',
-          args: {},
-          durationMs: 10,
-        });
-      }
-      
-      // Log an error
-      monitor.logError(new Error('test error'));
-      
-      await monitor.flush();
-      
-      const metrics = await monitor.getMetrics({
-        start: new Date(Date.now() - 60000),
-        end: new Date(Date.now() + 60000),
-      });
-      
-      expect(metrics.llmCalls).toBe(5);
-      expect(metrics.toolCalls).toBe(3);
-      expect(metrics.errors).toBe(1);
-      expect(metrics.totalTokens).toBe(750); // (100+50) * 5
-    });
-    
-    it('should handle 100 concurrent log calls without data loss', async () => {
+    it('should handle 100 concurrent logs without data loss', async () => {
       const logs = Array.from({ length: 100 }, (_, i) => 
-        monitor.logLLMCall({
-          timestamp: new Date().toISOString(),
-          provider: 'anthropic',
-          model: 'claude-3',
-          success: true,
-          latencyMs: i,
-          inputTokens: i,
-          outputTokens: i,
-          isFallback: false,
-          retryCount: 0,
-        })
+        monitor.log('system', { index: i })
       );
       
       await Promise.all(logs);
       await monitor.flush();
       
-      const filePath = path.join(tempDir, 'llm-calls.jsonl');
+      const filePath = path.join(tempDir, 'monitor.jsonl');
       const records = await readJsonl(filePath);
       
       expect(records).toHaveLength(100);
-      
-      // Check that all latency values are unique (no duplicates from race conditions)
-      const latencies = records.map(r => r.data.latencyMs).sort((a, b) => a - b);
-      const uniqueLatencies = [...new Set(latencies)];
-      expect(uniqueLatencies).toHaveLength(100);
-    });
-    
-    it('should limit query results', async () => {
-      // Log 10 events
-      for (let i = 0; i < 10; i++) {
-        monitor.log('system', { index: i });
-      }
-      
-      await monitor.flush();
-      
-      const events = await monitor.query({ type: 'system', limit: 5 });
-      
-      expect(events).toHaveLength(5);
     });
   });
 });

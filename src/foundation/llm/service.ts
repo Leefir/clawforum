@@ -7,7 +7,7 @@
  * - Monitor integration for logging
  */
 
-import type { IMonitor, LLMCallEvent } from '../monitor/types.js';
+
 import type { LLMResponse } from '../../types/message.js';
 import {
   LLMError,
@@ -96,7 +96,6 @@ export class LLMService implements ILLMService {
   private primary: IProviderAdapter;
   private fallbacks: IProviderAdapter[];
   private config: LLMServiceConfig;
-  private monitor?: IMonitor;
   private clawId?: string;
   
   // Track current provider: -1 = primary, 0..N = fallbacks[i]
@@ -110,7 +109,6 @@ export class LLMService implements ILLMService {
 
   constructor(
     config: LLMServiceConfig,
-    monitor?: IMonitor,
     clawId?: string,
     auditWriter?: AuditWriter,
     errorLogDir?: string,
@@ -118,7 +116,6 @@ export class LLMService implements ILLMService {
     this.config = config;
     this.primary = createProvider(config.primary);
     this.fallbacks = (config.fallbacks ?? []).map(createProvider);
-    this.monitor = monitor;
     this.clawId = clawId;
     this.auditWriter = auditWriter;
     this.errorLogDir = errorLogDir;
@@ -170,19 +167,6 @@ export class LLMService implements ILLMService {
           
           // Circuit breaker: record success
           this.breakers[0]?.onSuccess();
-          
-          // Log successful call
-          this.logLLMCall({
-            timestamp: new Date().toISOString(),
-            provider: this.primary.name,
-            model: this.primary.model,
-            success: true,
-            latencyMs: Date.now() - startTime,
-            inputTokens: response.usage?.input_tokens,
-            outputTokens: response.usage?.output_tokens,
-            isFallback: false,
-            retryCount,
-          });
           
           // Reset to primary
           this.currentProviderIndex = -1;
@@ -243,19 +227,6 @@ export class LLMService implements ILLMService {
         // Circuit breaker: record success
         this.breakers[i + 1]?.onSuccess();
         
-        // Log fallback success
-        this.logLLMCall({
-          timestamp: new Date().toISOString(),
-          provider: fb.name,
-          model: fb.model,
-          success: true,
-          latencyMs: Date.now() - startTime,
-          inputTokens: response.usage?.input_tokens,
-          outputTokens: response.usage?.output_tokens,
-          isFallback: true,
-          retryCount,
-        });
-        
         this.currentProviderIndex = i;
         this.auditWriter?.write('llm_call', fb.model,
           `in=${response.usage?.input_tokens ?? 0}`,
@@ -266,18 +237,6 @@ export class LLMService implements ILLMService {
       } catch (fallbackError) {
         // Circuit breaker: record failure
         this.breakers[i + 1]?.onFailure();
-        
-        // Log fallback failure
-        this.logLLMCall({
-          timestamp: new Date().toISOString(),
-          provider: fb.name,
-          model: fb.model,
-          success: false,
-          latencyMs: Date.now() - startTime,
-          isFallback: true,
-          retryCount,
-          error: (fallbackError as Error).message,
-        });
         
         failures.push({ provider: fb.name, error: fallbackError as Error });
       }
@@ -431,11 +390,4 @@ export class LLMService implements ILLMService {
   /**
    * Log LLM call to monitor (if configured)
    */
-  private logLLMCall(event: LLMCallEvent): void {
-    if (this.monitor) {
-      // Inject clawId if available
-      const eventWithClawId = this.clawId ? { ...event, clawId: this.clawId } : event;
-      this.monitor.logLLMCall(eventWithClawId);
-    }
-  }
 }
