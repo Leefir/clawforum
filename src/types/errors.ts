@@ -19,23 +19,18 @@ export type ErrorCode =
   | 'LLM_CALL_FAILED'
   | 'LLM_RATE_LIMITED'
   | 'LLM_TIMEOUT'
-  | 'LLM_INVALID_RESPONSE'
   | 'LLM_ALL_PROVIDERS_FAILED'
   
   // Contract errors (4xx)
   | 'CONTRACT_NOT_FOUND'
   | 'CONTRACT_INVALID_STATE'
-  | 'CONTRACT_VALIDATION_FAILED'
-  | 'SUBTASK_NOT_FOUND'
   
   // File system errors (5xx)
   | 'FS_READ_ERROR'
   | 'FS_WRITE_ERROR'
   | 'FS_NOT_FOUND'
-  | 'FS_ALREADY_EXISTS'
   
   // General errors (9xx)
-  | 'CONFIG_INVALID'
   | 'MAX_STEPS_EXCEEDED'
   | 'UNKNOWN_ERROR';
 
@@ -175,17 +170,6 @@ export class LLMTimeoutError extends LLMError {
   }
 }
 
-export class LLMInvalidResponseError extends LLMError {
-  readonly code: ErrorCode = 'LLM_INVALID_RESPONSE';
-  
-  constructor(provider: string, response: unknown) {
-    super(
-      `Invalid response from provider "${provider}"`,
-      { provider, response }
-    );
-  }
-}
-
 export class LLMAllProvidersFailedError extends LLMError {
   readonly code: ErrorCode = 'LLM_ALL_PROVIDERS_FAILED';
   readonly failures: Array<{ provider: string; error: Error }>;
@@ -215,28 +199,6 @@ export class ContractNotFoundError extends ContractError {
   }
 }
 
-export class ContractValidationError extends ContractError {
-  readonly code: ErrorCode = 'CONTRACT_VALIDATION_FAILED';
-  
-  constructor(validationErrors: string[]) {
-    super(
-      `Contract validation failed: ${validationErrors.join('; ')}`,
-      { validationErrors }
-    );
-  }
-}
-
-export class SubTaskNotFoundError extends ContractError {
-  readonly code: ErrorCode = 'SUBTASK_NOT_FOUND';
-  
-  constructor(contractId: string, subTaskId: string) {
-    super(
-      `SubTask "${subTaskId}" not found in contract "${contractId}"`,
-      { contractId, subTaskId }
-    );
-  }
-}
-
 // ============================================================================
 // File System Errors
 // ============================================================================
@@ -253,14 +215,6 @@ export class FileNotFoundError extends FileSystemError {
   }
 }
 
-export class FileAlreadyExistsError extends FileSystemError {
-  readonly code: ErrorCode = 'FS_ALREADY_EXISTS';
-  
-  constructor(path: string) {
-    super(`File already exists: "${path}"`, { path });
-  }
-}
-
 // ============================================================================
 // Runtime Errors
 // ============================================================================
@@ -272,17 +226,6 @@ export class MaxStepsExceededError extends ClawError {
     super(
       `Maximum steps (${maxSteps}) exceeded`,
       { maxSteps }
-    );
-  }
-}
-
-export class ConfigInvalidError extends ClawError {
-  readonly code: ErrorCode = 'CONFIG_INVALID';
-  
-  constructor(configPath: string, validationError: string) {
-    super(
-      `Invalid config at "${configPath}": ${validationError}`,
-      { configPath, validationError }
     );
   }
 }

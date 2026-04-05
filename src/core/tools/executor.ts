@@ -31,10 +31,7 @@ import { ExecContextImpl } from './context.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 // Note: ToolRegistry type imported via IToolRegistry interface
 
-/**
- * Extract one-line summary for audit
- */
-function oneLine(s: string): string {
+function escapeForLog(s: string): string {
   return s.replace(/\n/g, '\\n').slice(0, 120);
 }
 
@@ -322,7 +319,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         toolName,
         auditResult.success ? 'ok' : 'err',
         `ms=${duration}`,
-        `summary=${oneLine(auditResult.content ?? '')}`,
+        `summary=${escapeForLog(auditResult.content ?? '')}`,
       );
     }
     

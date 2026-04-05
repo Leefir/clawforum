@@ -12,14 +12,14 @@ import { doneTool } from '../../src/core/tools/builtins/done.js';
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
-const TEST_DIR = '.test-done-tool';
-const CLAW_DIR = path.join(TEST_DIR, 'claws', 'test-claw');
+const testDir = '.test-done-tool';
+const clawDir = path.join(testDir, 'claws', 'test-claw');
 
 /** 最小 ExecContext，只注入 contractManager */
 function makeCtx(contractManager: ContractManager) {
   return {
     clawId: 'test-claw',
-    clawDir: CLAW_DIR,
+    clawDir: clawDir,
     contractManager,
   } as any;
 }
@@ -29,14 +29,14 @@ describe('doneTool', () => {
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
-    await fs.mkdir(CLAW_DIR, { recursive: true });
-    nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
-    manager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, undefined);
+    await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
+    await fs.mkdir(clawDir, { recursive: true });
+    nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    manager = new ContractManager(clawDir, 'test-claw', nodeFs, undefined);
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
   });
 
   it('should return "All subtasks complete!" when last subtask accepted', async () => {

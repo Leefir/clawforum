@@ -21,8 +21,8 @@ vi.mock('child_process', async (importOriginal) => {
   return { ...actual };
 });
 
-const TEST_DIR = '.test-contract-manager';
-const CLAW_DIR = path.join(TEST_DIR, 'claws', 'test-claw');
+const testDir = '.test-contract-manager';
+const clawDir = path.join(testDir, 'claws', 'test-claw');
 
 describe('ContractManager', () => {
   let manager: ContractManager;
@@ -30,11 +30,11 @@ describe('ContractManager', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
-    await fs.mkdir(CLAW_DIR, { recursive: true });
+    await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
+    await fs.mkdir(clawDir, { recursive: true });
 
-    nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
-    manager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, undefined);
+    nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    manager = new ContractManager(clawDir, 'test-claw', nodeFs, undefined);
   });
 
   it('should create contract with running status and todo subtasks', async () => {
@@ -371,7 +371,7 @@ describe('ContractManager', () => {
     expect(contractId).toBeTruthy();
 
     // 手动损坏 progress.json（create() 创建在 active/ 子目录下）
-    const progressPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.json');
+    const progressPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.json');
     await fs.writeFile(progressPath, '{ broken json', 'utf-8');
 
     // 应该抛出包含解析错误的 ToolError
@@ -392,12 +392,12 @@ describe('ContractManager', () => {
     });
 
     // 预先写入锁文件，模拟另一个进程持有锁
-    const lockPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.lock');
+    const lockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
     await fs.writeFile(lockPath, '{}', 'utf-8');
 
     // pause() 先 fs.move(active → paused)，锁文件随目录一起移动到 paused/。
     // 50ms 后从移动后的位置释放锁，确保第二次重试能拿到锁
-    const movedLockPath = path.join(CLAW_DIR, 'contract', 'paused', contractId, 'progress.lock');
+    const movedLockPath = path.join(clawDir, 'contract', 'paused', contractId, 'progress.lock');
     setTimeout(() => fs.unlink(movedLockPath).catch(() => {}), 50);
 
     // pause() 内部走 acquireLock → 第一次 EEXIST → wait 100ms → 锁已释放 → 第二次成功
@@ -418,7 +418,7 @@ describe('ContractManager', () => {
     });
 
     // 写入锁文件（持有者 = 当前进程，模拟活跃锁），不释放
-    const lockPath = path.join(CLAW_DIR, 'contract', 'active', contractId, 'progress.lock');
+    const lockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
     await fs.writeFile(lockPath, JSON.stringify({ pid: process.pid, time: Date.now() }), 'utf-8');
 
     await expect(manager.pause(contractId, 'checkpoint'))
@@ -447,9 +447,9 @@ describe('ContractManager', () => {
     expect(result.allCompleted).toBe(true);
 
     // 契约已移入 archive（active/ 目录不再存在）
-    const archivePath = path.join(CLAW_DIR, 'contract', 'archive', contractId);
+    const archivePath = path.join(clawDir, 'contract', 'archive', contractId);
     await expect(fs.access(archivePath)).resolves.not.toThrow();
-    const activePath = path.join(CLAW_DIR, 'contract', 'active', contractId);
+    const activePath = path.join(clawDir, 'contract', 'active', contractId);
     await expect(fs.access(activePath)).rejects.toThrow();
   });
 
@@ -473,18 +473,18 @@ describe('ContractManager', () => {
     expect(result.allCompleted).toBeFalsy();
 
     // 契约仍在 active/
-    const activePath = path.join(CLAW_DIR, 'contract', 'active', contractId);
+    const activePath = path.join(clawDir, 'contract', 'active', contractId);
     await expect(fs.access(activePath)).resolves.not.toThrow();
   });
 
   describe('monitor error reporting', () => {
     it('should log error to monitor when loadActive finds corrupted progress.json', async () => {
       const mockMonitor = { log: vi.fn() };
-      const monitorManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
+      const monitorManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor as any);
 
       // 写入损坏的 progress.json
       const contractId = 'corrupt-contract';
-      const contractDir = path.join(CLAW_DIR, 'contract', 'active', contractId);
+      const contractDir = path.join(clawDir, 'contract', 'active', contractId);
       await fs.mkdir(contractDir, { recursive: true });
       await fs.writeFile(path.join(contractDir, 'progress.json'), '{ invalid json !!');
 
@@ -497,10 +497,10 @@ describe('ContractManager', () => {
 
     it('should log error to monitor when loadPaused finds corrupted progress.json', async () => {
       const mockMonitor = { log: vi.fn() };
-      const monitorManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
+      const monitorManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor as any);
 
       const contractId = 'corrupt-paused-contract';
-      const contractDir = path.join(CLAW_DIR, 'contract', 'paused', contractId);
+      const contractDir = path.join(clawDir, 'contract', 'paused', contractId);
       await fs.mkdir(contractDir, { recursive: true });
       await fs.writeFile(path.join(contractDir, 'progress.json'), '{ bad json ]');
 
@@ -513,7 +513,7 @@ describe('ContractManager', () => {
 
     it('should log warn to monitor when unknown subtaskId is used in completeSubtask', async () => {
       const mockMonitor = { log: vi.fn() };
-      const monitorManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
+      const monitorManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor as any);
 
       const contractId = await monitorManager.create({
         schema_version: 1,
@@ -544,10 +544,10 @@ describe('ContractManager', () => {
       vi.spyOn(nodeFs, 'writeAtomic').mockImplementation(async (p: string, c: string) => {
         if (p.includes('progress.json')) throw new Error('disk full');
         // 其他调用走真实实现
-        return fs.writeFile(path.join(CLAW_DIR, p), c);
+        return fs.writeFile(path.join(clawDir, p), c);
       });
 
-      const failManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs);
+      const failManager = new ContractManager(clawDir, 'test-claw', nodeFs);
       await expect(failManager.create({
         schema_version: 1,
         title: 'Test',
@@ -559,7 +559,7 @@ describe('ContractManager', () => {
       })).rejects.toThrow('disk full');
 
       // active/ 下不应存在任何 contract.yaml
-      const activeDir = path.join(CLAW_DIR, 'contract', 'active');
+      const activeDir = path.join(clawDir, 'contract', 'active');
       const dirs = await fs.readdir(activeDir).catch(() => [] as string[]);
       for (const dir of dirs) {
         const yamlPath = path.join(activeDir, dir, 'contract.yaml');
@@ -603,7 +603,7 @@ describe('ContractManager', () => {
   describe('moveToArchive and notify consistency', () => {
     it('should NOT notify Motion when moveToArchive fails', async () => {
       const mockMonitor = { log: vi.fn() };
-      const testManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
+      const testManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor as any);
 
       // Create contract with no-op acceptance (no script_file/prompt_file = no acceptance)
       const contractId = await testManager.create({
@@ -639,7 +639,7 @@ describe('ContractManager', () => {
 
     it('should notify Motion when moveToArchive succeeds', async () => {
       const mockMonitor = { log: vi.fn() };
-      const testManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
+      const testManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor as any);
 
       const contractId = await testManager.create({
         schema_version: 1,
@@ -670,7 +670,7 @@ describe('ContractManager', () => {
   describe('LLM acceptance', () => {
     it('should reset subtask to todo when verifier throws exception', async () => {
       const mockMonitor = { log: vi.fn() };
-      const testManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, mockMonitor as any);
+      const testManager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor as any);
 
       // Create contract with LLM acceptance
       const contractId = await testManager.create({
@@ -686,7 +686,7 @@ describe('ContractManager', () => {
       });
 
       // Create prompt file (use native fs with absolute path)
-      const contractDir = path.join(CLAW_DIR, 'contract/active', contractId);
+      const contractDir = path.join(clawDir, 'contract/active', contractId);
       await fs.mkdir(path.join(contractDir, 'acceptance'), { recursive: true });
       await fs.writeFile(
         path.join(contractDir, 'acceptance', 't1.prompt.txt'),
@@ -735,9 +735,9 @@ describe('ContractManager', () => {
       const motionInboxDir = path.join(motionTmpDir, 'inbox', 'pending');
       await fs.mkdir(motionInboxDir, { recursive: true });
 
-      const nodeFs = new NodeFileSystem({ baseDir: CLAW_DIR, enforcePermissions: false });
+      const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
       // 6th constructor arg is motionInboxDir
-      notifyManager = new ContractManager(CLAW_DIR, 'test-claw', nodeFs, undefined, undefined, undefined, motionInboxDir);
+      notifyManager = new ContractManager(clawDir, 'test-claw', nodeFs, undefined, undefined, undefined, motionInboxDir);
     });
 
     afterEach(async () => {
@@ -789,6 +789,82 @@ describe('ContractManager', () => {
       mkdirSpy.mockRestore();
       appendSpy.mockRestore();
       warnSpy.mockRestore();
+    });
+  });
+
+  // === Phase 97 Step 44: Contract / SubTask 删字段验证 ===
+
+  describe('Contract shape after field removal (Step 44)', () => {
+    const minimalYaml = {
+      schema_version: 1 as const,
+      title: 'Shape Test',
+      goal: 'Verify contract shape',
+      subtasks: [
+        { id: 'st-1', description: 'Subtask 1' },
+        { id: 'st-2', description: 'Subtask 2' },
+      ],
+      acceptance: [
+        { subtask_id: 'st-1', type: 'script' as const, script_file: 'acceptance/st-1.sh' },
+        { subtask_id: 'st-2', type: 'script' as const, script_file: 'acceptance/st-2.sh' },
+      ],
+      auth_level: 'auto' as const,
+    };
+
+    it('loadActive() 返回的 Contract 不含已删字段', async () => {
+      await manager.create(minimalYaml);
+      const contract = await manager.loadActive();
+      expect(contract).not.toBeNull();
+
+      // 已删字段不存在于返回对象
+      expect(contract).not.toHaveProperty('deliverables');
+      expect(contract).not.toHaveProperty('context_files');
+      expect(contract).not.toHaveProperty('skills');
+      expect(contract).not.toHaveProperty('deadline');
+      expect(contract).not.toHaveProperty('output_files');
+      expect(contract).not.toHaveProperty('result_summary');
+      expect(contract).not.toHaveProperty('error_message');
+      expect(contract).not.toHaveProperty('assignee');
+    });
+
+    it('SubTask 对象不含已删字段', async () => {
+      const contractId = await manager.create(minimalYaml);
+      await manager.pause(contractId, 'test');
+      const contract = await manager.resume(contractId);
+
+      for (const subtask of contract.subtasks) {
+        expect(subtask).not.toHaveProperty('assignee');
+        expect(subtask).not.toHaveProperty('result');
+        expect(subtask).not.toHaveProperty('error');
+      }
+    });
+
+    it('必填字段始终存在且类型正确', async () => {
+      await manager.create(minimalYaml);
+      const contract = await manager.loadActive();
+      expect(contract).not.toBeNull();
+
+      expect(typeof contract!.id).toBe('string');
+      expect(typeof contract!.title).toBe('string');
+      expect(typeof contract!.goal).toBe('string');
+      expect(contract!.priority).toBe('normal');
+      expect(contract!.creator).toBe('system');
+      expect(['auto', 'notify', 'confirm']).toContain(contract!.auth_level);
+      expect(Array.isArray(contract!.subtasks)).toBe(true);
+    });
+
+    it('SubTask 必填字段完整', async () => {
+      const contractId = await manager.create(minimalYaml);
+      await manager.pause(contractId, 'test');
+      const contract = await manager.resume(contractId);
+
+      expect(contract.subtasks).toHaveLength(2);
+      for (const subtask of contract.subtasks) {
+        expect(typeof subtask.id).toBe('string');
+        expect(typeof subtask.description).toBe('string');
+        expect(['todo', 'in_progress', 'completed', 'failed']).toContain(subtask.status);
+        expect(typeof subtask.created_at).toBe('string');
+        expect(typeof subtask.updated_at).toBe('string');
+      }
     });
   });
 });

@@ -183,14 +183,6 @@ export class LLMService implements ILLMService {
           // Don't retry on user abort (would add multi-second delay)
           if (lastError.name === 'AbortError') throw lastError;
           
-          // Don't retry on certain errors (client errors)
-          if (error instanceof LLMError) {
-            const code = (error as LLMError & { code?: string }).code;
-            if (code === 'LLM_INVALID_RESPONSE') {
-              break; // Don't retry invalid response
-            }
-          }
-          
           // Wait before retry (exponential backoff with 30s max)
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(

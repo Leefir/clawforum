@@ -33,9 +33,6 @@ export interface SubTask {
   id: string;
   description: string;
   status: SubtaskStatus;
-  assignee?: string;  // Claw ID
-  result?: string;
-  error?: string;
   created_at: string;
   updated_at: string;
   completed_at?: string;
@@ -48,19 +45,13 @@ export interface Contract {
   status: ContractStatus;
   priority: Priority;
   
-  // Creator and assignee
+  // Creator
   creator: string;     // Motion ID or Claw ID that created this
-  assignee?: string;   // Claw ID assigned to execute
-  
+
   // Task structure
   goal: string;
-  deliverables: string[];
   subtasks: SubTask[];
-  
-  // Context
-  context_files?: string[];
-  skills?: string[];   // Required skills
-  
+
   // Auth level for actions
   auth_level: 'auto' | 'notify' | 'confirm';
   
@@ -69,12 +60,6 @@ export interface Contract {
   updated_at: string;
   started_at?: string;
   completed_at?: string;
-  deadline?: string;
-  
-  // Results
-  result_summary?: string;
-  output_files?: string[];
-  error_message?: string;
 }
 
 export interface InboxMessage {

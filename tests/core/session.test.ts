@@ -16,18 +16,18 @@ import { SessionManager } from '../../src/core/dialog/session.js';
 import type { Message } from '../../src/types/message.js';
 
 describe('Session Persistence', () => {
-  const TEST_DIR = '.test-session';
+  const testDir = '.test-session';
   beforeEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true });
-    await fs.mkdir(TEST_DIR, { recursive: true });
+    await fs.rm(testDir, { recursive: true, force: true });
+    await fs.mkdir(testDir, { recursive: true });
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true });
+    await fs.rm(testDir, { recursive: true, force: true });
   });
 
   it('should save and load session atomically', async () => {
-    const sessionFile = path.join(TEST_DIR, 'session.json');
+    const sessionFile = path.join(testDir, 'session.json');
     const sessionData = {
       id: 'test-session',
       clawId: 'test-claw',
@@ -50,7 +50,7 @@ describe('Session Persistence', () => {
   });
 
   it('should recover from corrupted session', async () => {
-    const sessionFile = path.join(TEST_DIR, 'session.json');
+    const sessionFile = path.join(testDir, 'session.json');
     
     // 写入损坏的 JSON
     await fs.writeFile(sessionFile, '{ invalid json }', 'utf-8');
@@ -60,7 +60,7 @@ describe('Session Persistence', () => {
   });
 
   it('should handle concurrent writes safely', async () => {
-    const sessionFile = path.join(TEST_DIR, 'session.json');
+    const sessionFile = path.join(testDir, 'session.json');
     
     // 模拟并发写入
     const write1 = async () => {
@@ -85,7 +85,7 @@ describe('Session Persistence', () => {
   });
 
   it('should cold-start with empty state when no session file', async () => {
-    const sessionFile = path.join(TEST_DIR, 'nonexistent.json');
+    const sessionFile = path.join(testDir, 'nonexistent.json');
     
     const exists = await fs.access(sessionFile).then(() => true).catch(() => false);
     expect(exists).toBe(false);
@@ -105,7 +105,7 @@ describe('Session Persistence', () => {
   // === 新增测试：Archive 恢复 ===
 
   it('should recover from latest archive when current.json is missing', async () => {
-    const archiveDir = path.join(TEST_DIR, 'dialog', 'archive');
+    const archiveDir = path.join(testDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
 
     // 创建多个 archive 文件（按时间戳命名）
@@ -132,7 +132,7 @@ describe('Session Persistence', () => {
   });
 
   it('should return null when archive is corrupted', async () => {
-    const archiveDir = path.join(TEST_DIR, 'archive');
+    const archiveDir = path.join(testDir, 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
 
     const corrupted = path.join(archiveDir, '1000_corrupted.json');
@@ -144,7 +144,7 @@ describe('Session Persistence', () => {
   });
 
   it('should return null when archive directory does not exist', async () => {
-    const nonExistentDir = path.join(TEST_DIR, 'nonexistent');
+    const nonExistentDir = path.join(testDir, 'nonexistent');
     
     const exists = await fs.access(nonExistentDir).then(() => true).catch(() => false);
     expect(exists).toBe(false);
@@ -157,7 +157,7 @@ describe('Session Persistence', () => {
   // === 新增：SessionManager 集成测试 ===
 
   it('should return null when session file does not exist (ENOENT)', async () => {
-    const currentFile = path.join(TEST_DIR, 'dialog', 'nonexistent-session.json');
+    const currentFile = path.join(testDir, 'dialog', 'nonexistent-session.json');
     
     // ENOENT 应该返回 null 而不是抛出
     const exists = await fs.access(currentFile).then(() => true).catch(() => false);
@@ -165,7 +165,7 @@ describe('Session Persistence', () => {
   });
 
   it('should distinguish ENOENT from JSON corruption', async () => {
-    const dialogDir = path.join(TEST_DIR, 'dialog');
+    const dialogDir = path.join(testDir, 'dialog');
     const currentFile = path.join(dialogDir, 'corrupted.json');
     
     await fs.mkdir(dialogDir, { recursive: true });
@@ -179,7 +179,7 @@ describe('Session Persistence', () => {
   });
 
   it('should loadLatestArchive return latest by timestamp', async () => {
-    const archiveDir = path.join(TEST_DIR, 'dialog', 'archive');
+    const archiveDir = path.join(testDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
 
     // 创建按时间戳命名的 archive 文件
@@ -214,7 +214,7 @@ describe('Session Persistence', () => {
   });
 
   it('should handle corrupted archive gracefully', async () => {
-    const archiveDir = path.join(TEST_DIR, 'dialog', 'archive');
+    const archiveDir = path.join(testDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
 
     // 创建有效的 archive

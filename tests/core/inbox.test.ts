@@ -12,25 +12,26 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { tmpdir } from 'os';
 import { InboxWatcher } from '../../src/core/communication/inbox.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import type { InboxMessage } from '../../src/types/contract.js';
 import { INBOX_MAX_QUEUE_SIZE } from '../../src/constants.js';
 
-// 使用真实 fs 但限制在测试目录
-const TEST_DIR = path.resolve('.test-inbox');
-
 describe('InboxWatcher', () => {
   const processedMessages: InboxMessage[] = [];
+  let testDir: string;
 
   beforeEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
-    await fs.mkdir(TEST_DIR, { recursive: true });
+    testDir = path.join(tmpdir(), `clawforum-inbox-${randomUUID()}`);
+    await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
+    await fs.mkdir(testDir, { recursive: true });
     processedMessages.length = 0;
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
   });
 
   it('should parse message priority from frontmatter', async () => {
@@ -44,7 +45,7 @@ timestamp: 2026-03-15T12:00:00Z
 ---
 Test message content`;
 
-    const msgPath = path.join(TEST_DIR, 'test_message.md');
+    const msgPath = path.join(testDir, 'test_message.md');
     await fs.writeFile(msgPath, msgContent, 'utf-8');
 
     // 读取并解析
@@ -64,7 +65,7 @@ Test message content`;
 
   it('should move failed messages to failed directory', async () => {
     // 创建 mock 文件系统操作来测试失败处理逻辑
-    const clawDir = path.join(TEST_DIR, 'test-claw');
+    const clawDir = path.join(testDir, 'test-claw');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     const failedDir = path.join(clawDir, 'inbox', 'failed');
     
@@ -91,7 +92,7 @@ Test message content`;
   // === 新增测试 ===
 
   it('should deduplicate file processing', async () => {
-    const clawDir = path.join(TEST_DIR, 'dedup-test');
+    const clawDir = path.join(testDir, 'dedup-test');
     await fs.mkdir(clawDir, { recursive: true });
     
     const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
@@ -123,7 +124,7 @@ Test message content`;
   });
 
   it('should sort queue by priority (critical > high > normal > low)', async () => {
-    const clawDir = path.join(TEST_DIR, 'priority-test');
+    const clawDir = path.join(testDir, 'priority-test');
     await fs.mkdir(clawDir, { recursive: true });
     
     const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
@@ -149,7 +150,7 @@ Test message content`;
   });
 
   it('should sort queue by timestamp for same priority (FIFO)', async () => {
-    const clawDir = path.join(TEST_DIR, 'fifo-test');
+    const clawDir = path.join(testDir, 'fifo-test');
     await fs.mkdir(clawDir, { recursive: true });
     
     const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
@@ -171,7 +172,7 @@ Test message content`;
   });
 
   it('should include UUID in done/failed filenames', async () => {
-    const clawDir = path.join(TEST_DIR, 'uuid-test');
+    const clawDir = path.join(testDir, 'uuid-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     const doneDir = path.join(clawDir, 'inbox', 'done');
     
@@ -199,7 +200,7 @@ Test message content`;
   // === 新增：更多队列管理测试 ===
 
   it('should use Set for deduplication tracking', async () => {
-    const clawDir = path.join(TEST_DIR, 'set-dedup-test');
+    const clawDir = path.join(testDir, 'set-dedup-test');
     await fs.mkdir(clawDir, { recursive: true });
     
     const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
@@ -211,7 +212,7 @@ Test message content`;
   });
 
   it('should add and cleanup file path in processedFiles Set', async () => {
-    const clawDir = path.join(TEST_DIR, 'processed-set-test');
+    const clawDir = path.join(testDir, 'processed-set-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 
@@ -238,7 +239,7 @@ Test message content`;
   });
 
   it('should load existing messages on cold start', async () => {
-    const clawDir = path.join(TEST_DIR, 'cold-start-test');
+    const clawDir = path.join(testDir, 'cold-start-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 
@@ -273,7 +274,7 @@ Test message content`;
   });
 
   it('should drop lowest priority message when queue is full', async () => {
-    const clawDir = path.join(TEST_DIR, 'queue-limit-test');
+    const clawDir = path.join(testDir, 'queue-limit-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     const failedDir = path.join(clawDir, 'inbox', 'failed');
     await fs.mkdir(pendingDir, { recursive: true });
@@ -316,7 +317,7 @@ Test message content`;
   });
 
   it('should process messages in priority order after cold start', async () => {
-    const clawDir = path.join(TEST_DIR, 'priority-cold-start');
+    const clawDir = path.join(testDir, 'priority-cold-start');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 
@@ -357,8 +358,75 @@ Test message content`;
     expect(processed).toContain('low-msg');
   });
 
+  // === 验证降级行为（integration with validation.ts）===
+
+  it('非法 priority frontmatter 降级为 normal 并正常入队', async () => {
+    const clawDir = path.join(testDir, 'invalid-priority-test');
+    const pendingDir = path.join(clawDir, 'inbox', 'pending');
+    await fs.mkdir(pendingDir, { recursive: true });
+
+    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    const inbox = new InboxWatcher(clawDir, nodeFs);
+
+    const msgFile = path.join(pendingDir, '1000_normal_p.md');
+    await fs.writeFile(msgFile, '---\ntype: message\npriority: urgent\nid: p-fallback\n---\nBody', 'utf-8');
+
+    const received: InboxMessage[] = [];
+    await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
+    await (inbox as any).handleNewFile(msgFile);
+    await new Promise(r => setTimeout(r, 100));
+    await inbox.stop();
+
+    expect(received).toHaveLength(1);
+    expect(received[0].priority).toBe('normal');
+    expect(received[0].id).toBe('p-fallback');
+  });
+
+  it('未知 type frontmatter 降级为 message 并正常入队', async () => {
+    const clawDir = path.join(testDir, 'invalid-type-test');
+    const pendingDir = path.join(clawDir, 'inbox', 'pending');
+    await fs.mkdir(pendingDir, { recursive: true });
+
+    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    const inbox = new InboxWatcher(clawDir, nodeFs);
+
+    const msgFile = path.join(pendingDir, '1000_normal_t.md');
+    await fs.writeFile(msgFile, '---\ntype: unknown_event\npriority: normal\nid: t-fallback\n---\nBody', 'utf-8');
+
+    const received: InboxMessage[] = [];
+    await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
+    await (inbox as any).handleNewFile(msgFile);
+    await new Promise(r => setTimeout(r, 100));
+    await inbox.stop();
+
+    expect(received).toHaveLength(1);
+    expect(received[0].type).toBe('message');
+    expect(received[0].id).toBe('t-fallback');
+  });
+
+  it('watchdog_ 前缀 type 原样透传，不降级', async () => {
+    const clawDir = path.join(testDir, 'watchdog-type-test');
+    const pendingDir = path.join(clawDir, 'inbox', 'pending');
+    await fs.mkdir(pendingDir, { recursive: true });
+
+    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
+    const inbox = new InboxWatcher(clawDir, nodeFs);
+
+    const msgFile = path.join(pendingDir, '1000_normal_wd.md');
+    await fs.writeFile(msgFile, '---\ntype: watchdog_ping\npriority: normal\nid: wd-passthrough\n---\nBody', 'utf-8');
+
+    const received: InboxMessage[] = [];
+    await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
+    await (inbox as any).handleNewFile(msgFile);
+    await new Promise(r => setTimeout(r, 100));
+    await inbox.stop();
+
+    expect(received).toHaveLength(1);
+    expect(received[0].type).toBe('watchdog_ping');
+  });
+
   it('should move malformed message to failed/ on parse error (Phase 44 H3)', async () => {
-    const clawDir = path.join(TEST_DIR, 'parse-fail-test');
+    const clawDir = path.join(testDir, 'parse-fail-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 

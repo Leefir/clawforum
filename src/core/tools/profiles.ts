@@ -14,10 +14,3 @@ export const TOOL_PROFILES: Record<ToolProfile, string[]> = {
   dream:    ['read', 'search', 'ls', 'memory_search'],
   verifier: ['read', 'ls', 'search', 'exec'],
 };
-
-/**
- * Check if a tool is allowed in a profile
- */
-export function isToolAllowed(toolName: string, profile: ToolProfile): boolean {
-  return TOOL_PROFILES[profile].includes(toolName);
-}

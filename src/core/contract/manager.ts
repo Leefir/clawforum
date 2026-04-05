@@ -1110,7 +1110,6 @@ export class ContractManager {
       priority: 'normal',
       creator: 'system',
       goal: yamlContract.goal,
-      deliverables: [],  // deliverables 字段已弃用，保留空数组兼容 Contract 接口
       subtasks: yamlContract.subtasks.map(st => ({
         id: st.id,
         description: st.description,

@@ -18,8 +18,6 @@ import { randomUUID } from 'crypto';
 import type {
   ITransport,
   InboxMessage,
-  OutboxMessage,
-  Contract,
   InboxStatus,
 } from './index.js';
 import type { HeartbeatEntry, Priority } from '../../types/contract.js';
@@ -28,25 +26,7 @@ import { writeAtomic } from '../fs/atomic.js';
 import { createWatcher } from '../fs/watcher.js';
 import type { Watcher } from '../fs/types.js';
 import { parseFrontmatter } from '../../utils/frontmatter.js';
-
-// Validation helpers (duplicated from inbox.ts - consider moving to shared utils)
-const VALID_PRIORITIES: InboxMessage['priority'][] = ['critical', 'high', 'normal', 'low'];
-const VALID_TYPES = ['message', 'user_chat', 'user_inbox_message', 'crash_notification', 'heartbeat', 'claw_outbox'];
-
-function validatePriority(value: unknown): InboxMessage['priority'] {
-  if (typeof value === 'string' && VALID_PRIORITIES.includes(value as InboxMessage['priority'])) {
-    return value as InboxMessage['priority'];
-  }
-  return 'normal';
-}
-
-function validateType(value: unknown): InboxMessage['type'] {
-  if (typeof value !== 'string') return 'message';
-  if (VALID_TYPES.includes(value)) return value as InboxMessage['type'];
-  if (value.startsWith('watchdog_')) return value; // 动态 watchdog 类型
-  console.warn(`[inbox] Unknown type: ${value}, using 'message'`);
-  return 'message';
-}
+import { validatePriority, validateType } from './validation.js';
 
 /**
  * Local transport configuration
@@ -335,26 +315,8 @@ export class LocalTransport implements ITransport {
             const content = await fs.readFile(event.path, 'utf-8');
             const { meta, body } = parseFrontmatter(content);
 
-            // Validate type/priority inline (matching inbox.ts semantics)
-            const VALID_TYPES: InboxMessage['type'][] = [
-              'message', 'user_chat', 'user_inbox_message',
-              'crash_notification', 'heartbeat', 'claw_outbox',
-            ];
-            const VALID_PRIORITIES: InboxMessage['priority'][] = ['critical', 'high', 'normal', 'low'];
-
-            const rawType = meta.type;
-            const validatedType: InboxMessage['type'] =
-              typeof rawType === 'string' &&
-              (VALID_TYPES.includes(rawType as InboxMessage['type']) || rawType.startsWith('watchdog_'))
-                ? (rawType as InboxMessage['type'])
-                : 'message';
-
-            const rawPriority = meta.priority;
-            const validatedPriority: InboxMessage['priority'] =
-              typeof rawPriority === 'string' &&
-              VALID_PRIORITIES.includes(rawPriority as InboxMessage['priority'])
-                ? (rawPriority as InboxMessage['priority'])
-                : 'normal';
+            const validatedType = validateType(meta.type);
+            const validatedPriority = validatePriority(meta.priority);
 
             const msg: InboxMessage = {
               id: meta.id ?? randomUUID(),
@@ -382,38 +344,6 @@ export class LocalTransport implements ITransport {
       await watcher.close();
       this.watchers.delete(`${clawId}-inbox`);
     };
-  }
-
-  // ========================================================================
-  // Outbox Operations (Stubs - Phase 1)
-  // ========================================================================
-
-  async sendMotionMessage(_motionId: string, _msg: OutboxMessage): Promise<void> {
-    throw new Error('sendMotionMessage not implemented in Phase 0');
-  }
-
-  async readOutbox(_clawId: string, _options?: { limit?: number; since?: Date }): Promise<OutboxMessage[]> {
-    throw new Error('readOutbox not implemented in Phase 0');
-  }
-
-  // ========================================================================
-  // Contract Operations (Stubs - Phase 1)
-  // ========================================================================
-
-  async dispatchContract(_clawId: string, _contract: Contract): Promise<void> {
-    throw new Error('dispatchContract not implemented in Phase 0');
-  }
-
-  async getContract(_contractId: string): Promise<Contract | null> {
-    throw new Error('getContract not implemented in Phase 0');
-  }
-
-  async updateContract(_contractId: string, _updates: Partial<Omit<Contract, 'id'>>): Promise<void> {
-    throw new Error('updateContract not implemented in Phase 0');
-  }
-
-  async listContracts(_clawId: string, _status?: Contract['status']): Promise<Contract[]> {
-    throw new Error('listContracts not implemented in Phase 0');
   }
 
   // ========================================================================

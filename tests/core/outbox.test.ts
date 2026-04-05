@@ -13,15 +13,15 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 describe('Outbox (Send Tool)', () => {
-  const TEST_DIR = '.test-outbox';
+  const testDir = '.test-outbox';
 
   beforeEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true });
-    await fs.mkdir(TEST_DIR, { recursive: true });
+    await fs.rm(testDir, { recursive: true, force: true });
+    await fs.mkdir(testDir, { recursive: true });
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true });
+    await fs.rm(testDir, { recursive: true, force: true });
   });
 
   /**
@@ -80,19 +80,19 @@ ${args.content}`;
   }
 
   it('should create outbox/pending/ directory if needed', async () => {
-    await executeSendTool(TEST_DIR, {
+    await executeSendTool(testDir, {
       type: 'report',
       priority: 'normal',
       content: 'Test message',
     });
 
-    const pendingDir = path.join(TEST_DIR, 'outbox', 'pending');
+    const pendingDir = path.join(testDir, 'outbox', 'pending');
     const stat = await fs.stat(pendingDir);
     expect(stat.isDirectory()).toBe(true);
   });
 
   it('should generate filename with correct format', async () => {
-    const result = await executeSendTool(TEST_DIR, {
+    const result = await executeSendTool(testDir, {
       type: 'report',
       priority: 'high',
       content: 'Test content',
@@ -110,7 +110,7 @@ ${args.content}`;
   });
 
   it('should validate type enum', async () => {
-    await expect(executeSendTool(TEST_DIR, {
+    await expect(executeSendTool(testDir, {
       type: 'invalid' as any,
       priority: 'normal',
       content: 'Test',
@@ -118,7 +118,7 @@ ${args.content}`;
   });
 
   it('should validate priority enum', async () => {
-    await expect(executeSendTool(TEST_DIR, {
+    await expect(executeSendTool(testDir, {
       type: 'report',
       priority: 'urgent' as any,
       content: 'Test',
@@ -126,7 +126,7 @@ ${args.content}`;
   });
 
   it('should write correct frontmatter structure', async () => {
-    const result = await executeSendTool(TEST_DIR, {
+    const result = await executeSendTool(testDir, {
       type: 'question',
       priority: 'critical',
       content: 'What is the answer?',
@@ -144,13 +144,13 @@ ${args.content}`;
   });
 
   it('should generate unique UUID8 for each message', async () => {
-    const result1 = await executeSendTool(TEST_DIR, {
+    const result1 = await executeSendTool(testDir, {
       type: 'report',
       priority: 'normal',
       content: 'Message 1',
     });
 
-    const result2 = await executeSendTool(TEST_DIR, {
+    const result2 = await executeSendTool(testDir, {
       type: 'report',
       priority: 'normal',
       content: 'Message 2',
@@ -165,7 +165,7 @@ ${args.content}`;
       ['report', 'question', 'result', 'error'];
 
     for (const type of types) {
-      const result = await executeSendTool(TEST_DIR, {
+      const result = await executeSendTool(testDir, {
         type,
         priority: 'normal',
         content: `Test ${type}`,
@@ -181,7 +181,7 @@ ${args.content}`;
       ['critical', 'high', 'normal', 'low'];
 
     for (const priority of priorities) {
-      const result = await executeSendTool(TEST_DIR, {
+      const result = await executeSendTool(testDir, {
         type: 'report',
         priority,
         content: `Test ${priority}`,
@@ -200,7 +200,7 @@ ${args.content}`;
 
 **Bold text**`;
 
-    const result = await executeSendTool(TEST_DIR, {
+    const result = await executeSendTool(testDir, {
       type: 'report',
       priority: 'normal',
       content,
@@ -214,13 +214,13 @@ ${args.content}`;
 
   it('should use atomic write (no partial files)', async () => {
     // 创建文件后不应该有 .tmp 文件残留
-    const result = await executeSendTool(TEST_DIR, {
+    const result = await executeSendTool(testDir, {
       type: 'report',
       priority: 'normal',
       content: 'Test',
     });
 
-    const outboxDir = path.join(TEST_DIR, 'outbox', 'pending');
+    const outboxDir = path.join(testDir, 'outbox', 'pending');
     const files = await fs.readdir(outboxDir);
     
     // 不应该有 .tmp 文件

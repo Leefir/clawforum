@@ -15,13 +15,11 @@ import { ITool, ToolResult, ExecContext } from '../../src/core/tools/executor.js
 import type { JSONSchema7 } from '../../src/types/message.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
+import { tmpdir } from 'os';
 import { readTool } from '../../src/core/tools/builtins/read.js';
 import { lsTool } from '../../src/core/tools/builtins/ls.js';
 import { searchTool } from '../../src/core/tools/builtins/search.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEST_DIR = path.join(__dirname, '../../.test-task-system-tool');
 
 // Mock tool for testing
 const createMockTool = (supportsAsync: boolean): ITool => ({
@@ -61,10 +59,13 @@ const createMockFs = () => ({
 describe('TaskSystem Tool Tasks', () => {
   let taskSystem: TaskSystem;
   let mockFs: ReturnType<typeof createMockFs>;
+  let testDir: string;
   let testClawDir: string;
 
   beforeEach(async () => {
-    testClawDir = path.join(TEST_DIR, `test-${Date.now()}`);
+    testDir = path.join(tmpdir(), `clawforum-task-sys-${randomUUID()}`);
+    await fs.mkdir(testDir, { recursive: true });
+    testClawDir = path.join(testDir, `test-${Date.now()}`);
     await fs.mkdir(testClawDir, { recursive: true });
     await fs.mkdir(path.join(testClawDir, 'tasks', 'pending'), { recursive: true });
     await fs.mkdir(path.join(testClawDir, 'tasks', 'running'), { recursive: true });
@@ -90,7 +91,7 @@ describe('TaskSystem Tool Tasks', () => {
         ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       } as any,
-      { maxConcurrent: 3 }
+      { maxConcurrent: 3, retryBaseDelayMs: 10 }
     );
     
     await taskSystem.initialize();
@@ -99,7 +100,7 @@ describe('TaskSystem Tool Tasks', () => {
   afterEach(async () => {
     await taskSystem.shutdown(1000).catch(() => {});
     // Clean up test dir
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
   });
 
   describe('scheduleTool', () => {
@@ -170,7 +171,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
       
       expect(executeCallback).toHaveBeenCalled();
       
@@ -207,7 +208,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
       
       // Full result should be in results directory
       const resultFile = await fs.readFile(
@@ -240,7 +241,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
       
       // Check inbox/pending/ for the error result message
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -270,7 +271,7 @@ describe('TaskSystem Tool Tasks', () => {
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
       
       // Wait for async execution
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
       
       // Task should be in done directory
       const doneFile = await fs.readFile(
@@ -308,7 +309,7 @@ describe('TaskSystem Tool Tasks', () => {
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3 });
+      const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10 });
       await taskSystem2.initialize();
 
       const taskId = await taskSystem2.scheduleTool(
@@ -333,7 +334,7 @@ describe('TaskSystem Tool Tasks', () => {
   describe('pending queue with dispatcher', () => {
     it('should queue tasks when max concurrent reached and dispatch when slots free', async () => {
       // Fill up to max concurrent (3) with slow tasks
-      const slowCallback = () => new Promise<ToolResult>(r => setTimeout(() => r({ success: true, content: 'slow' }), 500));
+      const slowCallback = () => new Promise<ToolResult>(r => setTimeout(() => r({ success: true, content: 'slow' }), 50));
       
       // Schedule 3 slow tasks
       const taskIds: string[] = [];
@@ -397,7 +398,7 @@ describe('TaskSystem Tool Tasks', () => {
       expect(taskSystem.listPending().length).toBeGreaterThanOrEqual(2);
       
       // Wait for all to complete
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
       
       // All 5 tasks should have been executed
       expect(executionOrder.length).toBe(5);
@@ -440,7 +441,7 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        { maxConcurrent: 3 }
+        { maxConcurrent: 3, retryBaseDelayMs: 10 }
       );
       await taskSystem2.initialize();
 
@@ -481,7 +482,7 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        { maxConcurrent: 3 }
+        { maxConcurrent: 3, retryBaseDelayMs: 10 }
       );
       await taskSystem2.initialize();
 
@@ -526,7 +527,7 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        { maxConcurrent: 3 }
+        { maxConcurrent: 3, retryBaseDelayMs: 10 }
       );
       await taskSystem2.initialize();
 
@@ -573,7 +574,7 @@ describe('TaskSystem Tool Tasks', () => {
         ),
         ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
-      } as any, { maxConcurrent: 3 });
+      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10 });
 
       // First restart: result.txt → .sent, inbox message written
       const ts1 = makeTs();
@@ -630,7 +631,7 @@ describe('TaskSystem Tool Tasks', () => {
         ),
         ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
-      } as any, { maxConcurrent: 3 });
+      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10 });
       await ts.initialize();
       await ts.shutdown(100).catch(() => {});
 
@@ -651,7 +652,7 @@ describe('TaskSystem Tool Tasks', () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: longContent });
 
       const taskId = await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
 
       // Check inbox/pending/ for the result message
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -677,7 +678,7 @@ describe('TaskSystem Tool Tasks', () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'direct result' });
 
       await taskSystem.scheduleTool('testTool', executeCallback, 'parent-claw');
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
 
       // Inbox file must be .md (not .json or other)
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -705,12 +706,12 @@ describe('TaskSystem Tool Tasks', () => {
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3 });
+      const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10 });
       await taskSystem2.initialize();
 
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
       await taskSystem2.scheduleTool('testTool', executeCallback, 'parent-claw');
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
 
       // Check inbox/pending/ for the result message
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -812,7 +813,7 @@ describe('TaskSystem Tool Tasks', () => {
       });
 
       // Wait for 3 attempts + backoffs (500ms + 1000ms) + margin
-      await new Promise(r => setTimeout(r, 2500));
+      await new Promise(r => setTimeout(r, 100));
 
       // Should have been called 3 times (1 initial + 2 retries)
       expect(alwaysFailCallback).toHaveBeenCalledTimes(3);
@@ -890,7 +891,7 @@ describe('TaskSystem Tool Tasks', () => {
         isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
       };
 
-      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3 });
+      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3, retryBaseDelayMs: 10 });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -951,7 +952,7 @@ describe('TaskSystem Tool Tasks', () => {
         'parent-claw',
       );
 
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 50));
 
       expect(logSpy).toHaveBeenCalledWith('error', expect.objectContaining({
         taskId,
@@ -967,7 +968,7 @@ describe('TaskSystem Tool Tasks', () => {
     it('should discard ToolTask on daemon restart and send error to parent', async () => {
       // Simulate daemon restart: ToolTask written to tasks/pending/ but no callback registered
       // New behavior: move to failed/ and send error message to parent inbox
-      const freshDir = path.join(TEST_DIR, `callback-loss-${Date.now()}`);
+      const freshDir = path.join(testDir, `callback-loss-${Date.now()}`);
       await fs.mkdir(path.join(freshDir, 'tasks', 'pending'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'tasks', 'running'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'tasks', 'done'), { recursive: true });
@@ -1002,7 +1003,7 @@ describe('TaskSystem Tool Tasks', () => {
           ensureDir: (p: string) => fs.mkdir(path.join(freshDir, p), { recursive: true }),
           isDirectory: (p: string) => fs.stat(path.join(freshDir, p)).then(s => s.isDirectory()).catch(() => false),
         } as any,
-        { maxConcurrent: 3 },
+        { maxConcurrent: 3, retryBaseDelayMs: 10 },
       );
 
       await freshSystem.initialize();

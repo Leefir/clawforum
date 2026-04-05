@@ -93,14 +93,16 @@ export class TaskSystem {
   private pendingQueue: Array<SubAgentTask | ToolTask> = [];
   // Store tool callbacks separately (not serializable to disk)
   private pendingCallbacks: Map<string, () => Promise<ToolResult>> = new Map();
+  private retryBaseDelayMs: number;
 
   constructor(
     private clawDir: string,
     private fs: IFileSystem,
-    options: { maxConcurrent?: number; auditWriter?: AuditWriter } = {}
+    options: { maxConcurrent?: number; auditWriter?: AuditWriter; retryBaseDelayMs?: number } = {}
   ) {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_TASKS;
     this.auditWriter = options.auditWriter;
+    this.retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
     this.monitor = new JsonlLogger({ logsDir: path.join(clawDir, 'logs') });
     // Create tool registry for subagents
     this.registry = new ToolRegistry();
@@ -718,8 +720,8 @@ export class TaskSystem {
             error: errorMsg,
           });
 
-          // Exponential backoff: 500ms, 1000ms, etc.
-          const backoffMs = 500 * (attempt + 1);
+          // Exponential backoff: retryBaseDelayMs, retryBaseDelayMs*2, etc.
+          const backoffMs = this.retryBaseDelayMs * (attempt + 1);
           await new Promise(r => setTimeout(r, backoffMs));
           
           // Check abort signal after sleep

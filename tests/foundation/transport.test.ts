@@ -291,23 +291,6 @@ describe('Transport', () => {
       expect(parsed.status).toBe('idle');
     });
 
-    it('should throw not implemented for stub methods', async () => {
-      await expect(transport.sendMotionMessage('motion-1', {
-        id: 'msg-1',
-        type: 'response',
-        from: 'claw-1',
-        to: 'motion-1',
-        content: 'test',
-        timestamp: new Date().toISOString(),
-      })).rejects.toThrow(/not implemented/i);
-
-      await expect(transport.readOutbox('claw-1')).rejects.toThrow(/not implemented/i);
-      await expect(transport.dispatchContract('claw-1', {} as any)).rejects.toThrow(/not implemented/i);
-      await expect(transport.getContract('contract-1')).rejects.toThrow(/not implemented/i);
-      await expect(transport.updateContract('contract-1', {})).rejects.toThrow(/not implemented/i);
-      await expect(transport.listContracts('claw-1')).rejects.toThrow(/not implemented/i);
-    });
-
     it('should initialize directory structure', async () => {
       // Verify claws directory exists
       const clawsDir = path.join(tempDir, 'claws');

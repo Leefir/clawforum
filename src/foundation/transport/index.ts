@@ -39,8 +39,8 @@ export interface ClawHealth {
  * Transport interface - Communication abstraction
  */
 
-import type { InboxMessage, OutboxMessage, Contract } from '../../types/index.js';
-export type { InboxMessage, OutboxMessage, Contract };
+import type { InboxMessage } from '../../types/index.js';
+export type { InboxMessage };
 
 export interface ITransport {
   // ========================================================================
@@ -61,20 +61,6 @@ export interface ITransport {
   markAsRead(clawId: string, messageId: string): Promise<void>;
   getInboxStatus(clawId: string): Promise<InboxStatus>;
   watchInbox(clawId: string, callback: (message: InboxMessage) => void): Promise<() => Promise<void>>;
-
-  // ========================================================================
-  // Outbox Operations
-  // ========================================================================
-  sendMotionMessage(motionId: string, msg: OutboxMessage): Promise<void>;
-  readOutbox(clawId: string, options?: { limit?: number; since?: Date }): Promise<OutboxMessage[]>;
-
-  // ========================================================================
-  // Contract Operations
-  // ========================================================================
-  dispatchContract(clawId: string, contract: Contract): Promise<void>;
-  getContract(contractId: string): Promise<Contract | null>;
-  updateContract(contractId: string, updates: Partial<Omit<Contract, 'id'>>): Promise<void>;
-  listContracts(clawId: string, status?: Contract['status']): Promise<Contract[]>;
 
   // ========================================================================
   // Health Monitoring
