@@ -16,7 +16,6 @@ export { CLAW_SUBDIRS } from '../types/paths.js';
 export const LLMProviderSchema = z.object({
   preset: z.string().optional(),         // 新：对应 PRESETS 中的 key
   label: z.string().optional(),          // 新：显示用别名
-  name: z.string().optional(),           // 保留向后兼容，若无 preset 则用 name 作为 preset
   api_key: z.string(),
   base_url: z.string().optional(),
   model: z.string(),
@@ -36,7 +35,6 @@ export const ClawGlobalConfigSchema = z.object({
   version: z.string().default('1'),
   llm: z.object({
     primary: LLMProviderSchema,
-    fallback: LLMProviderSchema.optional(),          // 保留，向后兼容
     fallbacks: z.array(LLMProviderSchema).optional(), // 新增：多级 fallback 链
     retry_attempts: z.number().min(0).max(10).default(3),
     retry_delay_ms: z.number().min(0).max(60000).default(1000),
@@ -229,9 +227,9 @@ export function clawExists(name: string): boolean {
 
 // Convert snake_case to camelCase, resolve preset
 export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): ProviderConfig {
-  const presetId = p.preset ?? p.name;  // 向后兼容：若无 preset 则用 name
+  const presetId = p.preset;
   if (!presetId) {
-    throw new Error('Provider config must have either "preset" or "name" field');
+    throw new Error('Provider config must have "preset" field');
   }
   
   const preset = resolvePreset(presetId);
@@ -260,11 +258,7 @@ export function buildLLMConfig(
     ? toProviderConfig(clawConfig.llm.primary)
     : toProviderConfig(globalConfig.llm.primary);
   
-  // Merge fallbacks + fallback（旧字段自动并入列表末尾，向后兼容）
-  const fallbackList = [
-    ...(globalConfig.llm.fallbacks ?? []),
-    ...(globalConfig.llm.fallback ? [globalConfig.llm.fallback] : []),
-  ];
+  const fallbackList = globalConfig.llm.fallbacks ?? [];
   
   // Circuit breaker config
   const cb = globalConfig.llm.circuit_breaker;

@@ -37,7 +37,6 @@ export type ErrorCode =
   // General errors (9xx)
   | 'CONFIG_INVALID'
   | 'MAX_STEPS_EXCEEDED'
-  | 'SUBAGENT_FAILED'
   | 'UNKNOWN_ERROR';
 
 export interface ErrorDetails {
@@ -284,17 +283,6 @@ export class ConfigInvalidError extends ClawError {
     super(
       `Invalid config at "${configPath}": ${validationError}`,
       { configPath, validationError }
-    );
-  }
-}
-
-export class SubAgentFailedError extends ClawError {
-  readonly code: ErrorCode = 'SUBAGENT_FAILED';
-  
-  constructor(agentId: string, output: string) {
-    super(
-      `SubAgent "${agentId}" failed: ${output}`,
-      { agentId, output }
     );
   }
 }

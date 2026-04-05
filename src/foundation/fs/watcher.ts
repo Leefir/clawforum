@@ -123,27 +123,3 @@ export function createWatcher(
   
   return new ChokidarWatcher(watcher, watchPath);
 }
-
-/**
- * Watch a directory for new files (convenience function for inbox monitoring)
- * @param dirPath - Directory to watch
- * @param callback - Called when new file is added
- * @returns Watcher handle
- */
-export function watchDirForNewFiles(
-  dirPath: string,
-  callback: (filePath: string) => void
-): Watcher {
-  return createWatcher(
-    dirPath,
-    (event) => {
-      if (event.type === 'add') {
-        callback(event.path);
-      }
-    },
-    {
-      recursive: false,
-      ignored: [/\/$/, /\.tmp_[^/]+$/, /~$/], // Ignore temp files and backup files
-    }
-  );
-}

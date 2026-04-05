@@ -59,5 +59,4 @@ export {
   FileAlreadyExistsError,
   MaxStepsExceededError,
   ConfigInvalidError,
-  SubAgentFailedError,
 } from './errors.js';

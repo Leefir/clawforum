@@ -10,8 +10,6 @@ import type {
   IFileSystem,
   FileSystemOptions,
   FileEntry,
-  Watcher,
-  WatchEvent,
 } from './index.js';
 import type { PermissionChecker } from './permissions.js';
 import {
@@ -20,21 +18,17 @@ import {
 } from './permissions.js';
 import {
   readFile,
-  readFileBuffer,
   writeAtomic,
   appendFile,
   ensureDir,
   deleteFile,
   removeDir,
   moveFile,
-  copyFile,
   exists,
   stat,
-  isFile,
   isDirectory,
   cleanupOrphanedTemp,
 } from './atomic.js';
-import { createWatcher } from './watcher.js';
 import {
   FileNotFoundError,
   PermissionError,
@@ -131,7 +125,7 @@ export class NodeFileSystem implements IFileSystem {
   
   async read(relativePath: string): Promise<string> {
     const absolute = this.resolveAndCheck(relativePath, 'read');
-    
+
     try {
       return await readFile(absolute);
     } catch (error) {
@@ -141,20 +135,7 @@ export class NodeFileSystem implements IFileSystem {
       throw error;
     }
   }
-  
-  async readBuffer(relativePath: string): Promise<Buffer> {
-    const absolute = this.resolveAndCheck(relativePath, 'read');
-    
-    try {
-      return await readFileBuffer(absolute);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new FileNotFoundError(relativePath);
-      }
-      throw error;
-    }
-  }
-  
+
   async writeAtomic(relativePath: string, content: string): Promise<void> {
     const absolute = this.resolveAndCheck(relativePath, 'write');
     
@@ -282,11 +263,6 @@ export class NodeFileSystem implements IFileSystem {
     }
   }
   
-  async isFile(relativePath: string): Promise<boolean> {
-    const absolute = this.resolveAndCheck(relativePath, 'read');
-    return await isFile(absolute);
-  }
-  
   async isDirectory(relativePath: string): Promise<boolean> {
     const absolute = this.resolveAndCheck(relativePath, 'read');
     return await isDirectory(absolute);
@@ -310,126 +286,20 @@ export class NodeFileSystem implements IFileSystem {
       throw error;
     }
   }
-  
-  resolve(relativePath: string): string {
-    return path.resolve(this.options.baseDir, path.normalize(relativePath));
-  }
-  
-  // ========================================================================
-  // File Watching
-  // ========================================================================
-  
-  watch(
-    relativePath: string, 
-    callback: (event: WatchEvent) => void
-  ): Watcher {
-    const absolute = this.resolveAndCheck(relativePath, 'read');
-    
-    return createWatcher(absolute, callback, {
-      recursive: true,
-      ignored: [
-        /(^|[/\\])\../,  // Hidden files
-        /\.tmp_[^/]+$/,   // Temp files
-        /~$/,             // Backup files
-      ],
-    });
-  }
-  
-  // ========================================================================
-  // Advanced Operations
-  // ========================================================================
-  
+
   async move(fromPath: string, toPath: string): Promise<void> {
     const fromAbsolute = this.resolveAndCheck(fromPath, 'write');
     const toAbsolute = this.resolveAndCheck(toPath, 'write');
-    
+
     // Ensure destination directory exists
     await ensureDir(path.dirname(toAbsolute));
-    
+
     await moveFile(fromAbsolute, toAbsolute);
   }
-  
-  async copy(fromPath: string, toPath: string): Promise<void> {
-    const fromAbsolute = this.resolveAndCheck(fromPath, 'read');
-    const toAbsolute = this.resolveAndCheck(toPath, 'write');
-    
-    // Ensure destination directory exists
-    await ensureDir(path.dirname(toAbsolute));
-    
-    await copyFile(fromAbsolute, toAbsolute);
-  }
-  
-  async glob(
-    pattern: string,
-    options?: {
-      cwd?: string;
-      ignore?: string[];
-    }
-  ): Promise<string[]> {
-    const cwd = options?.cwd ?? '.';
-    const absoluteCwd = this.resolveAndCheck(cwd, 'read');
-    
-    const results: string[] = [];
-    
-    // Convert a glob pattern to a RegExp with standard glob semantics
-    // * matches any chars except / (single path segment)
-    // ** matches any chars including / (crosses directories)
-    // ? matches any single char except /
-    const globToRegex = (glob: string): RegExp => {
-      let result = '^';
-      let i = 0;
-      while (i < glob.length) {
-        const ch = glob[i];
-        if (ch === '*' && glob[i + 1] === '*') {
-          result += '.*';
-          i += 2;
-          if (glob[i] === '/') i++; // consume **/ trailing slash
-        } else if (ch === '*') {
-          result += '[^/]*';
-          i++;
-        } else if (ch === '?') {
-          result += '[^/]';
-          i++;
-        } else {
-          result += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-          i++;
-        }
-      }
-      result += '$';
-      return new RegExp(result);
-    };
-    const regex = globToRegex(pattern);
 
-    async function* findFiles(dir: string): AsyncGenerator<string> {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        const relativePath = path.relative(absoluteCwd, fullPath);
-
-        // Check ignore patterns
-        if (options?.ignore?.some(ign => relativePath.match(globToRegex(ign)))) {
-          continue;
-        }
-        
-        if (entry.isDirectory()) {
-          yield* findFiles(fullPath);
-        } else if (regex.test(entry.name) || regex.test(relativePath)) {
-          yield fullPath;
-        }
-      }
-    }
-    
-    for await (const file of findFiles(absoluteCwd)) {
-      const relativePath = path.relative(this.options.baseDir, file);
-      results.push(relativePath);
-    }
-    
-    return results;
-  }
-  
   // ========================================================================
   // Cleanup
-  // ========================================================================
+  // =======================================================================
   
   /**
    * Clean up orphaned temp files (call on startup)

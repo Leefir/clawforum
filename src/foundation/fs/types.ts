@@ -59,15 +59,7 @@ export interface IFileSystem {
    * @throws FileNotFoundError if file doesn't exist
    */
   read(path: string): Promise<string>;
-  
-  /**
-   * Read file content as Buffer (for binary files)
-   * @param path - Relative path within claw space
-   * @returns File content as Buffer
-   * @throws FileNotFoundError if file doesn't exist
-   */
-  readBuffer(path: string): Promise<Buffer>;
-  
+
   /**
    * Write file atomically (write-to-temp + rename)
    * @param path - Relative path within claw space
@@ -136,12 +128,6 @@ export interface IFileSystem {
   exists(path: string): Promise<boolean>;
   
   /**
-   * Check if path is a file
-   * @param path - Relative path within claw space
-   */
-  isFile(path: string): Promise<boolean>;
-  
-  /**
    * Check if path is a directory
    * @param path - Relative path within claw space
    */
@@ -158,54 +144,6 @@ export interface IFileSystem {
     isFile: boolean;
     isDirectory: boolean;
   }>;
-  
-  /**
-   * Resolve absolute path (for validation)
-   * @param path - Relative path
-   * @returns Absolute path
-   */
-  resolve(path: string): string;
-  
-  // ========================================================================
-  // File Watching
-  // ========================================================================
-  
-  /**
-   * Watch a path for changes
-   * @param path - Path to watch (file or directory)
-   * @param callback - Called on each change event
-   * @returns Watcher handle
-   */
-  watch(path: string, callback: (event: WatchEvent) => void): Watcher;
-  
-  // ========================================================================
-  // Advanced Operations
-  // ========================================================================
-  
-  /**
-   * Move/rename a file or directory
-   * @param from - Source path
-   * @param to - Destination path
-   */
-  move(from: string, to: string): Promise<void>;
-  
-  /**
-   * Copy a file
-   * @param from - Source path
-   * @param to - Destination path
-   */
-  copy(from: string, to: string): Promise<void>;
-  
-  /**
-   * Search for files matching pattern
-   * @param pattern - Glob pattern
-   * @param options - Search options
-   * @returns Matching file paths
-   */
-  glob(pattern: string, options?: {
-    cwd?: string;
-    ignore?: string[];
-  }): Promise<string[]>;
 }
 
 /**

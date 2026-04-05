@@ -539,6 +539,110 @@ describe('TaskSystem Tool Tasks', () => {
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
+
+    it('should rename result.txt to .sent and send inbox message once on subagent recovery', async () => {
+      // Simulate: subagent completed (result.txt written), daemon crashed before moving to done/
+      const taskId = 'subagent-with-result';
+      const task: SubAgentTask = {
+        kind: 'subagent',
+        id: taskId,
+        prompt: 'test',
+        tools: [],
+        maxSteps: 10,
+        timeout: 60,
+        parentClawId: 'parent-claw',
+        createdAt: new Date().toISOString(),
+      };
+      await fs.mkdir(path.join(testClawDir, 'tasks', 'results', taskId), { recursive: true });
+      await fs.writeFile(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt'), 'task output');
+      await fs.writeFile(
+        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        JSON.stringify(task)
+      );
+
+      const makeTs = () => new TaskSystem(testClawDir, {
+        read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+        write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+        delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
+        exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+        list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries =>
+          entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+        ),
+        ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+        isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+      } as any, { maxConcurrent: 3 });
+
+      // First restart: result.txt → .sent, inbox message written
+      const ts1 = makeTs();
+      await ts1.initialize();
+      await ts1.shutdown(100).catch(() => {});
+
+      // sendResult() 内部会重写 result.txt，但 .sent 标记必须存在
+      const sentTxt = await fs.access(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt.sent')).then(() => true).catch(() => false);
+      expect(sentTxt).toBe(true);     // .sent 标记存在，表示已投递
+
+      const inboxAfterFirst = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxAfterFirst).toHaveLength(1);
+
+      // Second restart: task is in done/, inbox should stay at 1 (no duplicate)
+      const ts2 = makeTs();
+      await ts2.initialize();
+      await ts2.shutdown(100).catch(() => {});
+
+      const inboxAfterSecond = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxAfterSecond).toHaveLength(1);
+    });
+
+    it('should NOT re-execute when only result.txt.sent exists (task still in running/ after partial recovery)', async () => {
+      // Simulate: rename succeeded + sendResult succeeded, but fs.move(running→done) failed
+      // Next restart: only result.txt.sent exists, task still in running/
+      const taskId = 'subagent-already-sent';
+      const task: SubAgentTask = {
+        kind: 'subagent',
+        id: taskId,
+        prompt: 'test',
+        tools: [],
+        maxSteps: 10,
+        timeout: 60,
+        parentClawId: 'parent-claw',
+        createdAt: new Date().toISOString(),
+      };
+      await fs.mkdir(path.join(testClawDir, 'tasks', 'results', taskId), { recursive: true });
+      await fs.writeFile(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt.sent'), 'task output');
+      await fs.writeFile(
+        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        JSON.stringify(task)
+      );
+
+      const ts = new TaskSystem(testClawDir, {
+        read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
+        write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
+        append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
+        delete: (p: string) => fs.unlink(path.join(testClawDir, p)),
+        move: (from: string, to: string) => fs.rename(path.join(testClawDir, from), path.join(testClawDir, to)),
+        exists: (p: string) => fs.access(path.join(testClawDir, p)).then(() => true).catch(() => false),
+        list: (p: string) => fs.readdir(path.join(testClawDir, p), { withFileTypes: true }).then(entries =>
+          entries.map(e => ({ name: e.name, path: path.join(p, e.name), isDirectory: e.isDirectory() }))
+        ),
+        ensureDir: (p: string) => fs.mkdir(path.join(testClawDir, p), { recursive: true }),
+        isDirectory: (p: string) => fs.stat(path.join(testClawDir, p)).then(s => s.isDirectory()).catch(() => false),
+      } as any, { maxConcurrent: 3 });
+      await ts.initialize();
+      await ts.shutdown(100).catch(() => {});
+
+      // Task must NOT be re-queued (result was already delivered)
+      expect(ts.listPending()).not.toContain(taskId);
+      // No new inbox message (duplicate prevented)
+      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+      expect(inboxFiles).toHaveLength(0);
+      // Task moved to done/
+      const inDone = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      expect(inDone).toBe(true);
+    });
   });
 
   describe('sendToolResult', () => {

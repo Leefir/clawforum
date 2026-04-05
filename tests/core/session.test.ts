@@ -291,6 +291,26 @@ describe('SessionManager unit tests', () => {
     await expect(sm.archive()).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('archive: resets createdAt so next save() gets a fresh timestamp', async () => {
+    // First session
+    await sm.save([{ role: 'user', content: 'old' }]);
+    const first = await sm.load();
+    const oldCreatedAt = first.createdAt;
+
+    await sm.archive();
+
+    // Small delay so timestamps are distinguishable
+    await new Promise(r => setTimeout(r, 5));
+
+    // New session after archive
+    await sm.save([{ role: 'user', content: 'new' }]);
+    const second = await sm.load();
+
+    // createdAt must be later than the archived session's createdAt
+    expect(second.createdAt).not.toBe(oldCreatedAt);
+    expect(new Date(second.createdAt).getTime()).toBeGreaterThan(new Date(oldCreatedAt).getTime());
+  });
+
   // --- load() with archive recovery ---
 
   it('load: recovers from archive when current.json is gone', async () => {

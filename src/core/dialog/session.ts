@@ -78,7 +78,6 @@ export class SessionManager {
       createdAt: now,
       updatedAt: now,
       messages: [],
-      prunedMarkers: [],
     };
   }
 
@@ -126,7 +125,6 @@ export class SessionManager {
       createdAt: this.createdAt,
       updatedAt: now,
       messages,
-      prunedMarkers: [], // Phase 3: will track compression markers
     };
 
     await this.fs.writeAtomic(this.currentPath, JSON.stringify(data, null, 2));
@@ -212,7 +210,6 @@ export class SessionManager {
       createdAt: data.createdAt ?? new Date().toISOString(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
       messages: Array.isArray(data.messages) ? data.messages : [],
-      prunedMarkers: Array.isArray(data.prunedMarkers) ? data.prunedMarkers : [],
     };
   }
 }

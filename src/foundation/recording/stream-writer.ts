@@ -6,13 +6,13 @@ import * as path from 'path';
 import type { StreamCallbacks } from './context.js';
 import { oneLine } from '../utils/string.js';
 
-export interface StreamEvent {
+interface StreamEvent {
   ts: number;
   type: string;
   [key: string]: unknown;
 }
 
-export interface StreamRetentionOptions {
+interface StreamRetentionOptions {
   maxFiles?: number | null;
   maxDays?: number | null;
 }

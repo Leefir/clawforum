@@ -22,8 +22,6 @@ export { NodeFileSystem } from './node-fs.js';
 // Permission utilities
 export {
   createPermissionChecker,
-  checkReadPermission,
-  checkWritePermission,
 } from './permissions.js';
 export type {
   PermissionOptions,
@@ -31,23 +29,19 @@ export type {
 } from './permissions.js';
 
 // Watcher utilities
-export { createWatcher, watchDirForNewFiles } from './watcher.js';
+export { createWatcher } from './watcher.js';
 
 // Atomic file operations (for advanced use)
 export {
   readFile,
-  readFileBuffer,
   writeAtomic,
   appendFile,
   ensureDir,
   deleteFile,
   removeDir,
   moveFile,
-  copyFile,
   exists,
   stat,
-  isFile,
   isDirectory,
   cleanupOrphanedTemp,
-  cleanupTempFiles,
 } from './atomic.js';

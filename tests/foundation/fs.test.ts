@@ -181,12 +181,9 @@ describe('FileSystem', () => {
       await expect(fs.read('missing.txt')).rejects.toThrow(FileNotFoundError);
     });
     
-    it('should copy and move files', async () => {
+    it('should move files', async () => {
       await fs.writeAtomic('source.txt', 'original');
-      
-      await fs.copy('source.txt', 'copy.txt');
-      expect(await fs.read('copy.txt')).toBe('original');
-      
+
       await fs.move('source.txt', 'moved.txt');
       expect(await fs.exists('source.txt')).toBe(false);
       expect(await fs.read('moved.txt')).toBe('original');
@@ -286,7 +283,7 @@ describe('FileSystem', () => {
         expect(fs).toBeDefined();
         expect(typeof fs.read).toBe('function');
         expect(typeof fs.writeAtomic).toBe('function');
-        expect(typeof fs.watch).toBe('function');
+        expect(typeof fs.move).toBe('function');
       } finally {
         await cleanupTempDir(tempDir);
       }
@@ -365,55 +362,4 @@ describe('FileSystem', () => {
     });
   });
 
-  // M4 fix: glob() regex should not cross path separators with *
-  describe('glob pattern matching', () => {
-    let tempDir: string;
-    let nodeFs: NodeFileSystem;
-
-    beforeEach(async () => {
-      tempDir = await createTempDir();
-      nodeFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
-
-      // Create test directory structure
-      await nativeFs.mkdir(path.join(tempDir, 'src'), { recursive: true });
-      await nativeFs.mkdir(path.join(tempDir, 'src', 'utils'), { recursive: true });
-      await nativeFs.mkdir(path.join(tempDir, 'tests'), { recursive: true });
-      await nativeFs.writeFile(path.join(tempDir, 'src', 'foo.ts'), 'export const foo = 1;');
-      await nativeFs.writeFile(path.join(tempDir, 'src', 'bar.ts'), 'export const bar = 2;');
-      await nativeFs.writeFile(path.join(tempDir, 'src', 'utils', 'helper.ts'), 'export const helper = 3;');
-      await nativeFs.writeFile(path.join(tempDir, 'tests', 'foo.test.ts'), 'test("foo");');
-    });
-
-    afterEach(async () => {
-      await cleanupTempDir(tempDir);
-    });
-
-    it('should match files in single directory with *', async () => {
-      const results = await nodeFs.glob('src/*.ts', { cwd: '.' });
-      expect(results.sort()).toEqual(['src/bar.ts', 'src/foo.ts']);
-    });
-
-    it('should not match nested files with single *', async () => {
-      const results = await nodeFs.glob('src/*.ts', { cwd: '.' });
-      expect(results).not.toContain('src/utils/helper.ts');
-    });
-
-    it('should match nested files with **', async () => {
-      const results = await nodeFs.glob('src/**/*.ts', { cwd: '.' });
-      expect(results.sort()).toEqual(['src/bar.ts', 'src/foo.ts', 'src/utils/helper.ts']);
-    });
-
-    it('should match specific file with ?', async () => {
-      const results = await nodeFs.glob('src/f?o.ts', { cwd: '.' });
-      expect(results).toEqual(['src/foo.ts']);
-    });
-
-    it('should support ignore patterns with **', async () => {
-      const results = await nodeFs.glob('**/*.ts', { cwd: '.', ignore: ['tests/**'] });
-      expect(results).not.toContain('tests/foo.test.ts');
-      expect(results).toContain('src/foo.ts');
-      expect(results).toContain('src/bar.ts');
-      expect(results).toContain('src/utils/helper.ts');
-    });
-  });
 });

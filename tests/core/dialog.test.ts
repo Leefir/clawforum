@@ -138,7 +138,6 @@ describe('Dialog', () => {
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T01:00:00Z',
           messages: [{ role: 'user', content: 'Archived message' }],
-          prunedMarkers: [],
         };
         await nodeFs.writeAtomic(
           'dialog/archive/20240101_120000.json',
@@ -164,7 +163,6 @@ describe('Dialog', () => {
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T01:00:00Z',
           messages: [{ role: 'user', content: 'Recovered from archive' }],
-          prunedMarkers: [],
         };
         await nodeFs.writeAtomic(
           'dialog/archive/20240101_120000.json',
@@ -245,46 +243,6 @@ describe('Dialog', () => {
       expect(prompt).not.toContain('Memory');
     });
 
-    it('should inject fixed prefix into session', async () => {
-      await nodeFs.writeAtomic('AGENTS.md', 'System prompt here');
-      
-      const session = {
-        version: 1,
-        clawId: 'test-claw',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        messages: [{ role: 'user', content: 'User question' }] as Message[],
-        prunedMarkers: [],
-      };
-
-      await injector.injectFixedPrefix(session);
-
-      // First message should be system with AGENTS content
-      expect(session.messages[0].role).toBe('system');
-      expect(session.messages[0].content).toContain('System prompt here');
-      // Original user message should still be there
-      expect(session.messages[1].role).toBe('user');
-      expect(session.messages[1].content).toBe('User question');
-    });
-
-    it('should inject with no files gracefully', async () => {
-      const session = {
-        version: 1,
-        clawId: 'test-claw',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        messages: [{ role: 'user', content: 'Q' }] as Message[],
-        prunedMarkers: [],
-      };
-
-      // No AGENTS.md or MEMORY.md
-      await injector.injectFixedPrefix(session);
-
-      // No system message should be added (nothing to inject)
-      expect(session.messages).toHaveLength(1);
-      expect(session.messages[0].role).toBe('user');
-    });
-
     // buildParts: skill 注入
     it('should include skills in buildParts when skillRegistry is provided', async () => {
       const mockSkillRegistry = {
@@ -357,66 +315,5 @@ describe('Dialog', () => {
       expect(prompt).toContain('[ ] `x`');
     });
 
-    // injectFixedPrefix: includeContracts=true + 有效 contract
-    it('should inject contract when includeContracts is true', async () => {
-      const mockContractManager = {
-        loadActive: vi.fn().mockResolvedValue({
-          id: 'c1', title: 'Test', goal: 'Test goal',
-          subtasks: [{ id: 'task1', description: 'Do task', status: 'completed' }],
-        }),
-      } as any;
-      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
-      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
-
-      await inj.injectFixedPrefix(session, { includeContracts: true });
-      expect(session.messages).toHaveLength(1);
-      expect(session.messages[0].content).toContain('## Active Contract');
-      expect(session.messages[0].content).toContain('[x] `task1`');
-    });
-
-    // injectFixedPrefix: includeContracts=true + loadActive 抛异常 → 静默跳过
-    it('should skip contract silently in injectFixedPrefix when loadActive throws', async () => {
-      const mockContractManager = {
-        loadActive: vi.fn().mockRejectedValue(new Error('fail')),
-      } as any;
-      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
-      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
-
-      await inj.injectFixedPrefix(session, { includeContracts: true });
-      // No system message should be added (no agents/memory/contract content)
-      expect(session.messages).toHaveLength(0);
-    });
-
-    // injectFixedPrefix: includeContracts=true + loadActive 返回 null
-    it('should not inject contract when loadActive returns null', async () => {
-      const mockContractManager = {
-        loadActive: vi.fn().mockResolvedValue(null),
-      } as any;
-      const inj = new ContextInjector({ fs: nodeFs, contractManager: mockContractManager });
-      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
-
-      await inj.injectFixedPrefix(session, { includeContracts: true });
-      expect(session.messages).toHaveLength(0);
-    });
-
-    // injectFixedPrefix: includeSkills=true + 非空 skill context
-    it('should inject skills when includeSkills is true', async () => {
-      const mockSkillRegistry = {
-        formatForContext: vi.fn().mockReturnValue('## Skills\n- skill1'),
-      } as any;
-      const inj = new ContextInjector({ fs: nodeFs, skillRegistry: mockSkillRegistry });
-      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
-
-      await inj.injectFixedPrefix(session, { includeSkills: true });
-      expect(session.messages).toHaveLength(1);
-      expect(session.messages[0].content).toContain('## Skills');
-    });
-
-    // injectFixedPrefix: includeTools=true → 不报错（TODO 分支）
-    it('should not throw when includeTools is true (TODO stub)', async () => {
-      const session = { messages: [] as Message[], sessionId: 's1', clawId: 'claw1', model: 'claude-3' };
-      await expect(injector.injectFixedPrefix(session, { includeTools: true })).resolves.toBeUndefined();
-      expect(session.messages).toHaveLength(0); // No content injected
-    });
   });
 });

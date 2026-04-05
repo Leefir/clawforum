@@ -9,7 +9,7 @@ import * as fsNative from 'fs';
 import { writeInboxMessage } from '../utils/inbox-writer.js';
 import type { Logger } from '../foundation/monitor/types.js';
 
-export interface HeartbeatOptions {
+interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
   interval?: number;
   monitor?: Logger;

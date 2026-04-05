@@ -5,7 +5,7 @@
  * - All operations use fs/promises for async I/O
  */
 
-import { promises as fs, constants } from 'fs';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
@@ -14,13 +14,6 @@ import { randomUUID } from 'crypto';
  */
 export async function readFile(filePath: string): Promise<string> {
   return fs.readFile(filePath, 'utf-8');
-}
-
-/**
- * Read file as Buffer (for binary files)
- */
-export async function readFileBuffer(filePath: string): Promise<Buffer> {
-  return fs.readFile(filePath);
 }
 
 /**
@@ -105,13 +98,6 @@ export async function moveFile(src: string, dst: string): Promise<void> {
 }
 
 /**
- * Copy a file
- */
-export async function copyFile(src: string, dst: string): Promise<void> {
-  await fs.copyFile(src, dst, constants.COPYFILE_FICLONE);
-}
-
-/**
  * Check if path exists
  */
 export async function exists(filePath: string): Promise<boolean> {
@@ -141,18 +127,6 @@ export async function stat(filePath: string): Promise<{
     isFile: stats.isFile(),
     isDirectory: stats.isDirectory(),
   };
-}
-
-/**
- * Check if path is a file
- */
-export async function isFile(filePath: string): Promise<boolean> {
-  try {
-    const stats = await fs.stat(filePath);
-    return stats.isFile();
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -198,6 +172,3 @@ export async function cleanupOrphanedTemp(dirPath: string): Promise<string[]> {
   
   return cleaned;
 }
-
-// Alias for backward compatibility
-export { cleanupOrphanedTemp as cleanupTempFiles };

@@ -158,7 +158,7 @@ function getRelativeToClaw(
  * Check read permission for a path
  * @throws PathNotInClawSpaceError if path is outside claw space
  */
-export function checkReadPermission(
+function checkReadPermission(
   targetPath: string,
   options: PermissionOptions
 ): void {
@@ -191,7 +191,7 @@ export function checkReadPermission(
  * @throws PathNotInClawSpaceError if path is outside claw space
  * @throws WriteOperationForbiddenError if path is in read-only area
  */
-export function checkWritePermission(
+function checkWritePermission(
   targetPath: string,
   options: PermissionOptions
 ): void {

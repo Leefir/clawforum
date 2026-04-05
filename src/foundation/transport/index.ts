@@ -14,21 +14,6 @@ import type { Priority } from '../../types/index.js';
 export type { Priority };
 
 /**
- * Generic transport message envelope
- */
-export interface TransportMessage<T = unknown> {
-  id: string;
-  timestamp: string;
-  priority: Priority;
-  payload: T;
-  metadata?: {
-    source?: string;
-    attempt?: number;
-    expiresAt?: string;
-  };
-}
-
-/**
  * Inbox status for a Claw
  */
 export interface InboxStatus {

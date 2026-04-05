@@ -164,23 +164,39 @@ export class TaskSystem {
               });
             } else {
               // subagent 任务：检测是否已写出结果
-              const resultPath = `tasks/results/${task.id}/result.txt`;
-              const sentPath  = `tasks/results/${task.id}/result.txt.sent`;
-              const resultExists = await this.fs.read(resultPath).then(() => true).catch(() => false);
-              
-              if (resultExists) {
-                // 结果已写出：先重命名为 .sent 防止重启后重复投递，再补发 inbox
-                const resultContent = await this.fs.read(resultPath);
-                await this.fs.move(resultPath, sentPath).catch(() => {});
-                await this.sendResult(task, resultContent, false).catch((e) => {
-                  this.monitor.log('error', {
-                    context: 'recoverTasks.resend_result_failed',
-                    taskId: task.id,
-                    error: e instanceof Error ? e.message : String(e),
-                  });
-                  // resend 失败降级：发 fallbackError，parent 知道任务状态
-                  this.sendFallbackError(task, 'Result resend failed after recovery').catch(() => {});
+              const resultPath  = `tasks/results/${task.id}/result.txt`;
+              const sentMarker  = `tasks/results/${task.id}/result.txt.sent`;
+              // 先检查 .sent 标记（表示上次恢复已成功投递，只需清理）
+              const alreadySent = await this.fs.read(sentMarker).then(() => true).catch(() => false);
+              const resultExists = !alreadySent && await this.fs.read(resultPath).then(() => true).catch(() => false);
+
+              if (alreadySent) {
+                // 上次恢复已投递，仅清理 running/ 残留
+                await this.fs.move(entry.path, `tasks/done/${task.id}.json`).catch(() => {
+                  this.fs.delete(entry.path).catch(() => {});
                 });
+                this.monitor.log('task_recovered_as_done', {
+                  taskId: task.id,
+                  reason: 'already_sent',
+                });
+              } else if (resultExists) {
+                // 结果已写出，补发 inbox；成功后写 .sent 标记防止重复投递
+                const resultContent = await this.fs.read(resultPath);
+                const resultSent = await this.sendResult(task, resultContent, false)
+                  .then(() => true)
+                  .catch((e) => {
+                    this.monitor.log('error', {
+                      context: 'recoverTasks.resend_result_failed',
+                      taskId: task.id,
+                      error: e instanceof Error ? e.message : String(e),
+                    });
+                    // resend 失败降级：发 fallbackError，parent 知道任务状态
+                    this.sendFallbackError(task, 'Result resend failed after recovery').catch(() => {});
+                    return false;
+                  });
+                if (resultSent) {
+                  await this.fs.writeAtomic(sentMarker, '1').catch(() => {});
+                }
                 await this.fs.move(entry.path, `tasks/done/${task.id}.json`).catch(() => {
                   this.fs.delete(entry.path).catch(() => {});
                 });

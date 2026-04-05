@@ -61,18 +61,6 @@ describe('CLI Config', () => {
       expect(result.apiFormat).toBe('openai');
     });
 
-    it('should set apiFormat=anthropic when using name backward compat', () => {
-      const result = toProviderConfig({
-        name: 'anthropic',
-        api_key: 'test-key',
-        model: 'claude-3-5-haiku',
-        max_tokens: 4096,
-        temperature: 0.7,
-        timeout_ms: 60000,
-      });
-      expect(result.apiFormat).toBe('anthropic');
-    });
-
     it('should use label as name when provided', () => {
       const result = toProviderConfig({
         preset: 'openai',
@@ -88,7 +76,7 @@ describe('CLI Config', () => {
 
     it('should map snake_case to camelCase', () => {
       const input = {
-        name: 'anthropic',
+        preset: 'anthropic',
         api_key: 'test-key',
         base_url: 'https://api.anthropic.com',
         model: 'claude-3-5-haiku',
@@ -110,7 +98,7 @@ describe('CLI Config', () => {
 
     it('should handle optional base_url', () => {
       const input = {
-        name: 'anthropic',
+        preset: 'anthropic',
         api_key: 'test-key',
         model: 'claude-3-5-haiku',
         max_tokens: 4096,
@@ -142,7 +130,7 @@ describe('CLI Config', () => {
         version: '1',
         llm: {
           primary: {
-            name: 'anthropic',
+            preset: 'anthropic',
             api_key: 'test-key',
             model: 'claude-3-5-haiku',
             max_tokens: 4096,
@@ -197,7 +185,7 @@ describe('CLI Config', () => {
         version: '1',
         llm: {
           primary: {
-            name: 'anthropic',
+            preset: 'anthropic',
             api_key: 'test-key',
             model: 'claude-3-5-haiku',
             max_tokens: 4096,
@@ -228,7 +216,7 @@ describe('CLI Config', () => {
         version: '1',
         llm: {
           primary: {
-            name: 'anthropic',
+            preset: 'anthropic',
             api_key: 'test-key',
             model: 'claude-3-5-haiku',
             max_tokens: 4096,
@@ -251,7 +239,7 @@ describe('CLI Config', () => {
         version: '1',
         llm: {
           primary: {
-            name: 'anthropic',
+            preset: 'anthropic',
             api_key: 'test-key',
             model: 'claude-3-5-haiku',
             max_tokens: 4096,
