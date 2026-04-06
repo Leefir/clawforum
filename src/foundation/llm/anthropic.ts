@@ -369,6 +369,8 @@ export class AnthropicAdapter implements IProviderAdapter {
       if (messages[i].role === 'user') { lastUserIdx = i; break; }
     }
 
+    const dropThinking = this.config.dropThinkingBlocks ?? false;
+
     return messages.map((m, idx) => {
       const role = m.role === 'assistant' ? 'assistant' : 'user';
       const addCache = idx === lastUserIdx;
@@ -383,20 +385,25 @@ export class AnthropicAdapter implements IProviderAdapter {
 
       const blocks = m.content as Array<{type?: string}>;
 
+      // Filter thinking blocks if dropThinkingBlocks is enabled (for MiniMax and other providers)
+      const effectiveBlocks = dropThinking
+        ? blocks.filter(b => b.type !== 'thinking')
+        : blocks;
+
       // Check if message contains structured blocks (tool_use, tool_result, or thinking)
-      const hasStructuredBlocks = blocks.some(
+      const hasStructuredBlocks = effectiveBlocks.some(
         b => b.type === 'tool_use' || b.type === 'tool_result' || b.type === 'thinking'
       );
 
       if (hasStructuredBlocks) {
         if (addCache) {
           // Copy last block with cache_control
-          const copy: unknown[] = [...blocks];
+          const copy: unknown[] = [...effectiveBlocks];
           copy[copy.length - 1] = { ...(copy[copy.length - 1] as Record<string, unknown>), cache_control: { type: 'ephemeral' } };
           return { role, content: copy };
         }
         // Keep array format for structured messages
-        return { role, content: blocks as unknown[] };
+        return { role, content: effectiveBlocks as unknown[] };
       }
 
       // Text-only or think-only

@@ -25,6 +25,7 @@ export const LLMProviderSchema = z.object({
   thinking: z.boolean().optional(),
   thinking_budget_tokens: z.number().min(1).optional(),
   extra_headers: z.record(z.string()).optional(),
+  drop_thinking_blocks: z.boolean().optional(),
 });
 
 export const CircuitBreakerSchema = z.object({
@@ -246,6 +247,7 @@ export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): Provider
     thinking: p.thinking,
     thinkingBudgetTokens: p.thinking_budget_tokens,
     extraHeaders: p.extra_headers,
+    dropThinkingBlocks: p.drop_thinking_blocks,
     apiFormat: preset.apiFormat,
   };
 }

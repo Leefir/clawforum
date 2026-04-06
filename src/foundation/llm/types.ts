@@ -43,6 +43,9 @@ export interface ProviderConfig {
   /** Extra headers to include in API requests (e.g., for OpenRouter) */
   extraHeaders?: Record<string, string>;
 
+  /** Drop thinking blocks when sending messages (for MiniMax and other providers that don't support them) */
+  dropThinkingBlocks?: boolean;
+
   /** API format, resolved from preset */
   apiFormat: ApiFormat;
 }
