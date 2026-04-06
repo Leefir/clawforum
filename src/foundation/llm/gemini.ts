@@ -329,9 +329,14 @@ export class GeminiAdapter implements IProviderAdapter {
 
     const finishReason = candidate.finishReason ?? 'STOP';
     const hasToolUse = content.some(b => b.type === 'tool_use');
+    const stopReason =
+      hasToolUse                      ? 'tool_use' :
+      finishReason === 'MAX_TOKENS'   ? 'max_tokens' :
+      finishReason === 'SAFETY'       ? 'content_filter' :
+      'end_turn';
     return {
       content,
-      stop_reason: hasToolUse ? 'tool_use' : finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn',
+      stop_reason: stopReason,
       usage: data.usageMetadata ? {
         input_tokens: data.usageMetadata.promptTokenCount,
         output_tokens: data.usageMetadata.candidatesTokenCount,

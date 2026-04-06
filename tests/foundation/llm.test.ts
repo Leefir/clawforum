@@ -973,6 +973,22 @@ describe('OpenAIAdapter — Phase 98 fixes', () => {
     expect(headers['HTTP-Referer']).toBe('https://test.local');
     expect(headers['X-Title']).toBe('Test');
   });
+
+  // Bug Fix 3：provider 未发 finish_reason 时 stopReason 有默认值
+  it('stream: provider 未发 finish_reason 时 done chunk stopReason 为 end_turn', async () => {
+    const events = [
+      JSON.stringify({ choices: [{ delta: { content: 'hi' }, finish_reason: null }] }),
+      '[DONE]',
+      // 注意：没有任何 event 携带 finish_reason: 'stop'
+    ];
+    vi.mocked(fetch).mockResolvedValue(createSSEStreamResponse(events));
+    const chunks: StreamChunk[] = [];
+    for await (const c of new OpenAIAdapter(config).stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(c);
+    }
+    const done = chunks.find(c => c.type === 'done');
+    expect(done?.stopReason).toBe('end_turn');
+  });
 });
 
 describe('AnthropicAdapter — dropThinkingBlocks', () => {
@@ -1021,6 +1037,39 @@ describe('AnthropicAdapter — dropThinkingBlocks', () => {
       expect(blocks.every((b: any) => b.type !== 'thinking')).toBe(true);
       expect(blocks.some((b: any) => b.type === 'text')).toBe(true);
     }
+  });
+
+  it('dropThinkingBlocks=true 时全为 thinking 的 assistant 消息被整体跳过', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(createMockResponse({
+      content: [{ type: 'text', text: 'ok' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 5 },
+    }));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const cfg = {
+      name: 'minimax', apiKey: 'k', baseUrl: 'https://api.minimax.io/anthropic',
+      model: 'MiniMax-M1', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'anthropic' as const, dropThinkingBlocks: true,
+    };
+
+    const messages: Message[] = [
+      { role: 'user', content: 'think' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: '纯思考无文本', signature: 'sig' },
+        ],
+      },
+      { role: 'user', content: 'continue' },
+    ];
+
+    await new AnthropicAdapter(cfg).call({ messages });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    // 纯 thinking 的 assistant 消息应被跳过，不出现在 body.messages
+    const assistantMsgs = body.messages.filter((m: any) => m.role === 'assistant');
+    expect(assistantMsgs).toHaveLength(0);
   });
 });
 
@@ -1074,5 +1123,27 @@ describe('GeminiAdapter — Phase 98 fixes', () => {
     const done = chunks.find(c => c.type === 'done');
     expect(done?.usage?.inputTokens).toBe(10);
     expect(done?.usage?.outputTokens).toBe(5);
+  });
+
+  it('call: finishReason SAFETY → stop_reason content_filter', async () => {
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({
+      candidates: [{
+        content: { parts: [{ text: 'partial' }] },
+        finishReason: 'SAFETY',
+      }],
+      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 3 },
+    }));
+
+    const cfg = {
+      name: 'gemini', apiKey: 'k',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.5-pro', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'gemini' as const,
+    };
+
+    const res = await new (await import('../../src/foundation/llm/gemini.js')).GeminiAdapter(cfg).call({
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(res.stop_reason).toBe('content_filter');
   });
 });
