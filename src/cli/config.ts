@@ -18,7 +18,7 @@ export const LLMProviderSchema = z.object({
   label: z.string().optional(),          // 新：显示用别名
   api_key: z.string(),
   base_url: z.string().optional(),
-  model: z.string(),
+  model: z.string().optional(),
   max_tokens: z.number().min(1).max(128000).default(4096),
   temperature: z.number().min(0).max(2).default(0.7),
   timeout_ms: z.number().min(1000).max(600000).default(60000),
