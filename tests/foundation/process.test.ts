@@ -204,6 +204,34 @@ describe('ProcessManager', () => {
     });
   });
 
+  describe('getAliveStatus edge cases', () => {
+    it('空 PID 文件返回 alive:false，reason 含 "empty"', () => {
+      const statusDir = path.join(tempDir, 'claws', 'empty-pid-claw', 'status');
+      fs.mkdirSync(statusDir, { recursive: true });
+      fs.writeFileSync(path.join(statusDir, 'pid'), '   ');  // 空白
+
+      const result = processManager.getAliveStatus('empty-pid-claw');
+      expect(result.alive).toBe(false);
+      expect(result.reason).toMatch(/empty/i);
+    });
+
+    it('PID 文件内容非数字返回 alive:false，reason 含 "invalid"', () => {
+      const statusDir = path.join(tempDir, 'claws', 'bad-pid-claw', 'status');
+      fs.mkdirSync(statusDir, { recursive: true });
+      fs.writeFileSync(path.join(statusDir, 'pid'), 'not-a-number');
+
+      const result = processManager.getAliveStatus('bad-pid-claw');
+      expect(result.alive).toBe(false);
+      expect(result.reason).toMatch(/invalid/i);
+    });
+
+    it('PID 文件不存在返回 alive:false，reason 含 "no PID file"', () => {
+      const result = processManager.getAliveStatus('no-pid-file-claw');
+      expect(result.alive).toBe(false);
+      expect(result.reason).toMatch(/no PID file/i);
+    });
+  });
+
   describe('isAlive with live process', () => {
     it('should return true when pid file points to current process', () => {
       // 使用当前进程 PID（肯定存在）

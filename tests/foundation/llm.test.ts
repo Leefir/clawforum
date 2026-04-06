@@ -208,8 +208,28 @@ describe('LLM Service', () => {
 
       const adapter = new AnthropicAdapter(config);
       const messages: Message[] = [{ role: 'user', content: 'Hi' }];
-      
+
       await expect(adapter.call({ messages })).rejects.toThrow(LLMTimeoutError);
+    });
+
+    it('外部 signal 主动 abort 时抛出 "Execution aborted"，而非 LLMTimeoutError', async () => {
+      // 预先 abort 的信号模拟用户 Ctrl+C 中断
+      const controller = new AbortController();
+      controller.abort();
+
+      const mockFetch = vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError'));
+      vi.stubGlobal('fetch', mockFetch);
+
+      const adapter = new AnthropicAdapter(config);
+      const messages: Message[] = [{ role: 'user', content: 'Hi' }];
+
+      const err = await adapter.call({ messages, signal: controller.signal }).catch(e => e);
+
+      // 不应是 LLMTimeoutError
+      expect(err).not.toBeInstanceOf(LLMTimeoutError);
+      // 应是 AbortError（Execution aborted）
+      expect(err.message).toBe('Execution aborted');
+      expect(err.name).toBe('AbortError');
     });
 
     it('should throw LLMError on network error', async () => {

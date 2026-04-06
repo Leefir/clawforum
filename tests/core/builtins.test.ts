@@ -890,6 +890,39 @@ describe('Builtin Tools', () => {
       expect(result.content).toContain('[stdout]');
       expect(result.content).toContain('stdout output');
     });
+
+    it('abort signal 已触发时命令被取消，返回 success:false', async () => {
+      const controller = new AbortController();
+      controller.abort(); // 预先 abort
+
+      const abortCtx = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        fs: mockFs,
+        signal: controller.signal,
+      });
+
+      const result = await execTool.execute({ command: 'echo should-not-run' }, abortCtx);
+
+      // 被 abort 的命令应返回失败
+      expect(result.success).toBe(false);
+      expect(result.content).toMatch(/abort|cancel|operation/i);
+    });
+
+    it('clawDir 不存在时返回 ENOENT 错误（success:false）', async () => {
+      const missingDirCtx = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: path.join(tempDir, 'nonexistent-dir-xyz'),
+        profile: 'full',
+        fs: mockFs,
+      });
+
+      const result = await execTool.execute({ command: 'echo hi' }, missingDirCtx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Error');
+    });
   });
 
   describe('spawn tool', () => {
@@ -919,8 +952,8 @@ describe('Builtin Tools', () => {
     it('should accept maxSteps parameter up to 50', async () => {
       // maxSteps > 50 should be capped or rejected
       // This test verifies the parameter is accepted
-      const result = await spawnTool.execute({ 
-        prompt: 'test task', 
+      const result = await spawnTool.execute({
+        prompt: 'test task',
         maxSteps: 100  // Over the 50 limit
       }, ctx);
 
@@ -928,6 +961,69 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(false);
       // Error should be about TaskSystem, not about maxSteps
       expect(result.content).toContain('TaskSystem');
+    });
+
+    it('messages 非数组时忽略，正常走 TaskSystem 路径', async () => {
+      // 注入最小 fake TaskSystem，使代码能越过 !taskSystem 检查
+      const fakeTaskSystem = {
+        scheduleTask: vi.fn().mockResolvedValue('fake-task-id'),
+        // scheduleSubAgentWithTracking 内部调用的是 scheduleTask
+      };
+      const ctxWithTs = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        fs: mockFs,
+        taskSystem: fakeTaskSystem as any,
+      });
+
+      // messages 不是数组 → 应被忽略（返回 undefined），不报 Invalid messages 错误
+      // scheduleSubAgentWithTracking 最终可能失败，但错误不是 messages 相关
+      const result = await spawnTool.execute({ prompt: 'test', messages: 'not-an-array' as any }, ctxWithTs);
+      // 不应是 Invalid messages 错误
+      expect(result.content).not.toContain('Invalid messages');
+    });
+
+    it('messages 含无效元素时返回 Invalid messages 错误', async () => {
+      const fakeTaskSystem = {
+        scheduleTask: vi.fn().mockResolvedValue('fake-task-id'),
+      };
+      const ctxWithTs = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        fs: mockFs,
+        taskSystem: fakeTaskSystem as any,
+      });
+
+      // messages 数组中含 null 元素 → 应触发 Invalid messages
+      const result = await spawnTool.execute({
+        prompt: 'test',
+        messages: [null] as any,
+      }, ctxWithTs);
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Invalid messages');
+    });
+
+    it('messages 含无 role 字段的对象时返回 Invalid messages 错误', async () => {
+      const fakeTaskSystem = {
+        scheduleTask: vi.fn().mockResolvedValue('fake-task-id'),
+      };
+      const ctxWithTs = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        fs: mockFs,
+        taskSystem: fakeTaskSystem as any,
+      });
+
+      // role 不是 string
+      const result = await spawnTool.execute({
+        prompt: 'test',
+        messages: [{ role: 42, content: 'hello' }] as any,
+      }, ctxWithTs);
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Invalid messages');
     });
   });
 

@@ -11,6 +11,8 @@ import { ClawRuntime } from '../../src/core/runtime.js';
 import type { LLMServiceConfig } from '../../src/foundation/llm/types.js';
 import type { LLMResponse } from '../../src/types/message.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
+import { MaxStepsExceededError } from '../../src/types/errors.js';
+import type { Message } from '../../src/types/message.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -769,6 +771,102 @@ Test message`;
 
       // AbortController must be null after retryLastTurn resolves
       expect((runtime as unknown as { currentAbortController: unknown }).currentAbortController).toBeNull();
+    });
+  });
+
+  // ─── processBatch() outbox error-path edge cases ──────────────────────────
+
+  describe('processBatch() — outbox error notification edge cases', () => {
+    /**
+     * 子类覆盖 _drainOwnInbox 和 _runReact，
+     * 绕过真实 LLM / FS 调用，专注测试 catch 块行为。
+     */
+    class TestRuntime extends ClawRuntime {
+      public drainResult: {
+        injected: Message[];
+        sources: Array<{ text: string; type: string }>;
+        count: number;
+        infos: Array<{ meta: Record<string, string>; body: string }>;
+      } = { injected: [], sources: [], count: 0, infos: [] };
+      public reactError: Error | null = null;
+
+      protected override async _drainOwnInbox() {
+        return this.drainResult;
+      }
+
+      protected override async _runReact(_messages: Message[]) {
+        if (this.reactError) throw this.reactError;
+      }
+    }
+
+    let testClawDir: string;
+    let testTempDir: string;
+
+    beforeEach(async () => {
+      testTempDir = path.join(tmpdir(), `clawforum-runtime-edge-${randomUUID()}`);
+      testClawDir = path.join(testTempDir, 'claws', 'edge-claw');
+      await fs.mkdir(testClawDir, { recursive: true });
+    });
+
+    afterEach(async () => {
+      await fs.rm(testTempDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    it('MaxStepsExceededError 通知 sender 并重抛错误', async () => {
+      const runtime = new TestRuntime({
+        clawId: 'edge-claw',
+        clawDir: testClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      runtime.drainResult = {
+        injected: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+        sources: [],
+        count: 1,
+        infos: [{ meta: { from: 'sender-claw', contract_id: 'c-1' }, body: 'hello' }],
+      };
+      runtime.reactError = new MaxStepsExceededError(10);
+
+      // 错误应被重抛
+      await expect(runtime.processBatch()).rejects.toThrow(MaxStepsExceededError);
+
+      // outbox 应写入了错误响应
+      const outboxDir = path.join(testClawDir, 'outbox', 'pending');
+      const files = (await fs.readdir(outboxDir)).filter(f => f.endsWith('.md'));
+      expect(files.length).toBeGreaterThan(0);
+
+      const content = await fs.readFile(path.join(outboxDir, files[0]), 'utf-8');
+      expect(content).toContain('Maximum steps');
+      expect(content).toContain('sender-claw');
+    });
+
+    it('outbox write 失败不影响原始错误重抛', async () => {
+      const runtime = new TestRuntime({
+        clawId: 'edge-claw',
+        clawDir: testClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+
+      runtime.drainResult = {
+        injected: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+        sources: [],
+        count: 1,
+        infos: [{ meta: { from: 'sender-claw' }, body: 'hello' }],
+      };
+      const originalError = new Error('LLM exploded');
+      runtime.reactError = originalError;
+
+      // 注入一个会抛出的 outboxWriter
+      (runtime as any).outboxWriter = {
+        write: async () => { throw new Error('outbox disk full'); },
+      };
+
+      // 应抛出原始错误，而非 outbox 错误
+      const err = await runtime.processBatch().catch(e => e);
+      expect(err).toBe(originalError);
+      expect(err.message).toBe('LLM exploded');
     });
   });
 });

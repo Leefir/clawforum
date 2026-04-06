@@ -345,5 +345,49 @@ describe('Transport', () => {
       // 确认文件在 done 目录（文件名可能不同）
       expect(doneFiles[0]).toMatch(/\.md$/);
     });
+
+    it('markAsRead 消息 ID 不存在时抛出 not found 错误', async () => {
+      const msg: InboxMessage = {
+        id: 'existing-msg',
+        type: 'message',
+        from: 'sender',
+        to: 'claw-1',
+        content: 'hello',
+        priority: 'normal',
+        timestamp: new Date().toISOString(),
+      };
+      await transport.sendInboxMessage('claw-1', msg);
+
+      // 尝试 ack 一个不存在的 id
+      await expect(transport.markAsRead('claw-1', 'nonexistent-id'))
+        .rejects.toThrow(/nonexistent-id.*not found|not found/i);
+    });
+
+    it('readInbox TOCTOU：文件在 readdir 后、readFile 前被删除，返回空数组而非崩溃', async () => {
+      // 写一个消息文件，然后在 readdir 之后删除它
+      const clawId = 'toctou-claw';
+      const pendingDir = path.join(tempDir, 'claws', clawId, 'inbox', 'pending');
+      await fs.mkdir(pendingDir, { recursive: true });
+
+      const msgFile = path.join(pendingDir, '1000_normal_toctou.md');
+      await fs.writeFile(
+        msgFile,
+        '---\nid: toctou-msg\ntype: message\nfrom: x\npriority: normal\ntimestamp: 2026-01-01T00:00:00Z\n---\nBody',
+        'utf-8',
+      );
+
+      // 删除文件，模拟被并发进程移走
+      await fs.unlink(msgFile);
+
+      // readInbox 在 readdir 之后 readFile 之前文件不存在 → 外层 catch 兜底，返回 []
+      const messages = await transport.readInbox(clawId);
+      expect(messages).toEqual([]);
+    });
+
+    it('markAsRead pending 目录不存在时抛出错误', async () => {
+      // 不创建 pending 目录，直接 markAsRead
+      await expect(transport.markAsRead('ghost-claw', 'any-id'))
+        .rejects.toThrow();
+    });
   });
 });
