@@ -131,6 +131,7 @@ export class OpenAIAdapter implements IProviderAdapter {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.config.apiKey}`,
+          ...this.config.extraHeaders,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -204,6 +205,7 @@ export class OpenAIAdapter implements IProviderAdapter {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.config.apiKey}`,
+          ...this.config.extraHeaders,
         },
         body: JSON.stringify(body),
         signal: controller.signal,

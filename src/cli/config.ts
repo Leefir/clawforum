@@ -24,6 +24,7 @@ export const LLMProviderSchema = z.object({
   timeout_ms: z.number().min(1000).max(600000).default(60000),
   thinking: z.boolean().optional(),
   thinking_budget_tokens: z.number().min(1).optional(),
+  extra_headers: z.record(z.string()).optional(),
 });
 
 export const CircuitBreakerSchema = z.object({
@@ -244,6 +245,7 @@ export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): Provider
     timeoutMs: p.timeout_ms,
     thinking: p.thinking,
     thinkingBudgetTokens: p.thinking_budget_tokens,
+    extraHeaders: p.extra_headers,
     apiFormat: preset.apiFormat,
   };
 }

@@ -40,6 +40,9 @@ export interface ProviderConfig {
   /** Extended thinking budget tokens (defaults to max_tokens - 1024) */
   thinkingBudgetTokens?: number;
 
+  /** Extra headers to include in API requests (e.g., for OpenRouter) */
+  extraHeaders?: Record<string, string>;
+
   /** API format, resolved from preset */
   apiFormat: ApiFormat;
 }
