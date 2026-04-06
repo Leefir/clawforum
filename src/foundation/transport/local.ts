@@ -185,7 +185,7 @@ export class LocalTransport implements ITransport {
       if (a.priority !== b.priority) {
         return b.priority - a.priority; // Higher priority first
       }
-      return a.timestamp - b.timestamp; // Older first
+      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(); // Older first
     });
 
     let result = messages.map(m => m.msg);
