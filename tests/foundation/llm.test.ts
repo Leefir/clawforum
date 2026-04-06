@@ -865,3 +865,214 @@ describe('OpenAIAdapter.call - formatMessages (M2)', () => {
     expect(assistantMsg.tool_calls).toHaveLength(1);
   });
 });
+
+
+// ============================================================================
+// Phase 98 adapter fixes — unit tests with mock fetch
+// ============================================================================
+
+describe('OpenAIAdapter — Phase 98 fixes', () => {
+  const config = {
+    name: 'openai', apiKey: 'k', baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+    apiFormat: 'openai' as const,
+  };
+
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn()));
+  afterEach(() => vi.unstubAllGlobals());
+
+  // 修复 1：stop_reason 规范化（call）
+  it('call: finish_reason tool_calls → stop_reason tool_use', async () => {
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({
+      choices: [{ message: { content: '' }, finish_reason: 'tool_calls' }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    }));
+    const res = await new OpenAIAdapter(config).call({ messages: [{ role: 'user', content: 'hi' }] });
+    expect(res.stop_reason).toBe('tool_use');
+  });
+
+  it('call: finish_reason stop → stop_reason end_turn', async () => {
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({
+      choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }],
+    }));
+    const res = await new OpenAIAdapter(config).call({ messages: [{ role: 'user', content: 'hi' }] });
+    expect(res.stop_reason).toBe('end_turn');
+  });
+
+  it('call: finish_reason length → stop_reason max_tokens', async () => {
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({
+      choices: [{ message: { content: 'hi' }, finish_reason: 'length' }],
+    }));
+    const res = await new OpenAIAdapter(config).call({ messages: [{ role: 'user', content: 'hi' }] });
+    expect(res.stop_reason).toBe('max_tokens');
+  });
+
+  // 修复 2：streaming done chunk 携带 stopReason + usage
+  it('stream: done chunk 携带 stopReason 和 usage', async () => {
+    const events = [
+      JSON.stringify({ choices: [{ delta: { content: 'hi' }, finish_reason: null }] }),
+      JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5 } }),
+      '[DONE]',
+    ];
+    vi.mocked(fetch).mockResolvedValue(createSSEStreamResponse(events));
+    const chunks: StreamChunk[] = [];
+    for await (const c of new OpenAIAdapter(config).stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(c);
+    }
+    const done = chunks.find(c => c.type === 'done');
+    expect(done?.stopReason).toBe('end_turn');
+    expect(done?.usage?.inputTokens).toBe(10);
+    expect(done?.usage?.outputTokens).toBe(5);
+  });
+
+  // 修复 3：reasoning_content → thinking_delta（deepseek-reasoner）
+  it('stream: delta.reasoning_content → thinking_delta chunk', async () => {
+    const events = [
+      JSON.stringify({ choices: [{ delta: { reasoning_content: '思考中...' } }] }),
+      JSON.stringify({ choices: [{ delta: { content: '答案' } }] }),
+      '[DONE]',
+    ];
+    vi.mocked(fetch).mockResolvedValue(createSSEStreamResponse(events));
+    const chunks: StreamChunk[] = [];
+    for await (const c of new OpenAIAdapter(config).stream({ messages: [{ role: 'user', content: 'prove' }] })) {
+      chunks.push(c);
+    }
+    const thinking = chunks.filter(c => c.type === 'thinking_delta');
+    expect(thinking).toHaveLength(1);
+    expect(thinking[0].delta).toBe('思考中...');
+  });
+
+  // 修复 4：HTML entity decode（xAI/grok）
+  it('call: HTML 编码的 tool arguments 正确 decode', async () => {
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({
+      choices: [{
+        message: {
+          tool_calls: [{
+            id: 'call_1', type: 'function',
+            function: { name: 'search', arguments: '{"query":&quot;hello world&quot;}' },
+          }],
+          content: null,
+        },
+        finish_reason: 'tool_calls',
+      }],
+    }));
+    const res = await new OpenAIAdapter(config).call({ messages: [{ role: 'user', content: 'search' }] });
+    const tool = res.content.find(b => b.type === 'tool_use') as any;
+    expect(tool.input.query).toBe('hello world');
+  });
+
+  // 修复 5：extraHeaders 合并进 fetch headers
+  it('extraHeaders 传入 fetch 请求头', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(createMockResponse({
+      choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+    }));
+    vi.stubGlobal('fetch', mockFetch);
+    const cfgWithHeaders = { ...config, extraHeaders: { 'HTTP-Referer': 'https://test.local', 'X-Title': 'Test' } };
+    await new OpenAIAdapter(cfgWithHeaders).call({ messages: [{ role: 'user', content: 'hi' }] });
+    const headers = mockFetch.mock.calls[0][1].headers;
+    expect(headers['HTTP-Referer']).toBe('https://test.local');
+    expect(headers['X-Title']).toBe('Test');
+  });
+});
+
+describe('AnthropicAdapter — dropThinkingBlocks', () => {
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn()));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('dropThinkingBlocks=true 时 thinking block 从 messages 中过滤', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(createMockResponse({
+      content: [{ type: 'text', text: 'ok' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 5 },
+    }));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const cfg = {
+      name: 'minimax', apiKey: 'k', baseUrl: 'https://api.minimax.io/anthropic',
+      model: 'MiniMax-M1', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'anthropic' as const, dropThinkingBlocks: true,
+    };
+
+    const messages: Message[] = [
+      { role: 'user', content: 'think' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: '内部推理', signature: 'sig123' },
+          { type: 'text', text: '答案' },
+        ],
+      },
+      { role: 'user', content: 'continue' },
+    ];
+
+    await new AnthropicAdapter(cfg).call({ messages });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    // 找到 assistant 消息（非最后一条，最后一条是 user）
+    const assistantMsg = body.messages.find((m: any, idx: number) => m.role === 'assistant' && idx === 1);
+    
+    // 当只有 text block 时，content 会被简化为字符串
+    if (typeof assistantMsg.content === 'string') {
+      // 纯文本情况：thinking 被过滤，只剩 text，被格式化为字符串
+      expect(assistantMsg.content).toBe('答案');
+    } else {
+      // 数组情况：检查没有 thinking，有 text
+      const blocks = assistantMsg.content;
+      expect(blocks.every((b: any) => b.type !== 'thinking')).toBe(true);
+      expect(blocks.some((b: any) => b.type === 'text')).toBe(true);
+    }
+  });
+});
+
+describe('GeminiAdapter — Phase 98 fixes', () => {
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn()));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('stream: finishReason=STOP 无 usageMetadata → 仍然 yield done chunk', async () => {
+    // 最后 event 只有 finishReason，没有 usageMetadata
+    const events = [
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: 'hello' }] }, finishReason: null }] }),
+      JSON.stringify({ candidates: [{ content: { parts: [] }, finishReason: 'STOP' }] }),
+      // 注意：没有 usageMetadata
+    ];
+    vi.mocked(fetch).mockResolvedValue(createSSEStreamResponse(events));
+
+    const cfg = {
+      name: 'gemini', apiKey: 'k', baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.5-pro', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'gemini' as const,
+    };
+
+    const chunks: StreamChunk[] = [];
+    for await (const c of new (await import('../../src/foundation/llm/gemini.js')).GeminiAdapter(cfg).stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(c);
+    }
+
+    const done = chunks.find(c => c.type === 'done');
+    expect(done).toBeTruthy();
+    expect(done?.stopReason).toBe('end_turn');
+  });
+
+  it('stream: usageMetadata 在 finishReason 之前 → done chunk 携带 usage', async () => {
+    const events = [
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: 'hi' }] }, finishReason: null }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 } }),
+      JSON.stringify({ candidates: [{ content: { parts: [] }, finishReason: 'STOP' }] }),
+    ];
+    vi.mocked(fetch).mockResolvedValue(createSSEStreamResponse(events));
+
+    const cfg = {
+      name: 'gemini', apiKey: 'k', baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.5-pro', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'gemini' as const,
+    };
+
+    const chunks: StreamChunk[] = [];
+    for await (const c of new (await import('../../src/foundation/llm/gemini.js')).GeminiAdapter(cfg).stream({ messages: [{ role: 'user', content: 'hi' }] })) {
+      chunks.push(c);
+    }
+
+    const done = chunks.find(c => c.type === 'done');
+    expect(done?.usage?.inputTokens).toBe(10);
+    expect(done?.usage?.outputTokens).toBe(5);
+  });
+});
