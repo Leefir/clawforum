@@ -371,16 +371,16 @@ export class AnthropicAdapter implements IProviderAdapter {
 
     const dropThinking = this.config.dropThinkingBlocks ?? false;
 
-    return messages.map((m, idx) => {
+    return messages.flatMap((m, idx): Array<{ role: string; content: string | unknown[] }> => {
       const role = m.role === 'assistant' ? 'assistant' : 'user';
       const addCache = idx === lastUserIdx;
 
       // String content: add cache_control by converting to array
       if (!Array.isArray(m.content)) {
         if (addCache) {
-          return { role, content: [{ type: 'text', text: m.content as string, cache_control: { type: 'ephemeral' } }] };
+          return [{ role, content: [{ type: 'text', text: m.content as string, cache_control: { type: 'ephemeral' } }] }];
         }
-        return { role, content: m.content as string };
+        return [{ role, content: m.content as string }];
       }
 
       const blocks = m.content as Array<{type?: string}>;
@@ -400,22 +400,26 @@ export class AnthropicAdapter implements IProviderAdapter {
           // Copy last block with cache_control
           const copy: unknown[] = [...effectiveBlocks];
           copy[copy.length - 1] = { ...(copy[copy.length - 1] as Record<string, unknown>), cache_control: { type: 'ephemeral' } };
-          return { role, content: copy };
+          return [{ role, content: copy }];
         }
         // Keep array format for structured messages
-        return { role, content: effectiveBlocks as unknown[] };
+        return [{ role, content: effectiveBlocks as unknown[] }];
       }
 
       // Text-only or think-only
-      const text = (blocks as Array<{type?: string; text?: string}>)
+      const text = (effectiveBlocks as Array<{type?: string; text?: string}>)
         .filter(b => b.type === 'text')
         .map(b => b.text || '')
         .join('');
 
+      // Skip messages that become empty after dropping thinking blocks.
+      // This happens when an assistant message contained only thinking blocks.
+      if (!text && !addCache) return [];
+
       if (addCache) {
-        return { role, content: [{ type: 'text', text, cache_control: { type: 'ephemeral' } }] };
+        return [{ role, content: [{ type: 'text', text, cache_control: { type: 'ephemeral' } }] }];
       }
-      return { role, content: text };
+      return [{ role, content: text }];
     });
   }
   

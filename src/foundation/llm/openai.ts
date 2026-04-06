@@ -293,7 +293,7 @@ export class OpenAIAdapter implements IProviderAdapter {
                 lastFinishReason === 'tool_calls' ? 'tool_use' :
                 lastFinishReason === 'length'     ? 'max_tokens' :
                 lastFinishReason === 'stop'       ? 'end_turn' :
-                lastFinishReason;
+                lastFinishReason ?? 'end_turn';
               yield {
                 type: 'done',
                 stopReason,
