@@ -40,6 +40,12 @@ export interface ProviderConfig {
   /** Extended thinking budget tokens (defaults to max_tokens - 1024) */
   thinkingBudgetTokens?: number;
 
+  /** Thinking mode: 'adaptive' for Claude 4.6+, 'enabled' (budget_tokens) for older models */
+  thinkingMode?: 'adaptive' | 'enabled';
+
+  /** Effort level for adaptive thinking (Claude 4.6+), defaults to 'high' */
+  thinkingEffort?: 'low' | 'medium' | 'high';
+
   /** Extra headers to include in API requests (e.g., for OpenRouter) */
   extraHeaders?: Record<string, string>;
 
