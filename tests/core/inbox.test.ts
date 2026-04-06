@@ -22,6 +22,15 @@ import { INBOX_MAX_QUEUE_SIZE } from '../../src/constants.js';
 describe('InboxWatcher', () => {
   const processedMessages: InboxMessage[] = [];
   let testDir: string;
+  // 跟踪本测试中启动的所有 watcher，afterEach 统一 stop，防止断言失败时泄漏
+  const activeWatchers: InboxWatcher[] = [];
+
+  function makeInbox(dir: string): InboxWatcher {
+    const nfs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
+    const w = new InboxWatcher(dir, nfs);
+    activeWatchers.push(w);
+    return w;
+  }
 
   beforeEach(async () => {
     testDir = path.join(tmpdir(), `clawforum-inbox-${randomUUID()}`);
@@ -31,6 +40,10 @@ describe('InboxWatcher', () => {
   });
 
   afterEach(async () => {
+    // 先停所有 watcher（防止 fs.rm 时 watcher 仍监听目录引发报错）
+    for (const w of activeWatchers.splice(0)) {
+      await w.stop().catch(() => {});
+    }
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
   });
 
@@ -94,9 +107,7 @@ Test message content`;
   it('should deduplicate file processing', async () => {
     const clawDir = path.join(testDir, 'dedup-test');
     await fs.mkdir(clawDir, { recursive: true });
-    
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
     
     const processed: string[] = [];
     await inbox.start(async (msg: InboxMessage) => {
@@ -119,16 +130,12 @@ Test message content`;
 
     // 应该只处理一次
     expect(processed.filter(id => id === 'msg-1')).toHaveLength(1);
-
-    await inbox.stop();
   });
 
   it('should sort queue by priority (critical > high > normal > low)', async () => {
     const clawDir = path.join(testDir, 'priority-test');
     await fs.mkdir(clawDir, { recursive: true });
-    
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     // 手动构建队列
     const queue = (inbox as any).queue;
@@ -152,9 +159,7 @@ Test message content`;
   it('should sort queue by timestamp for same priority (FIFO)', async () => {
     const clawDir = path.join(testDir, 'fifo-test');
     await fs.mkdir(clawDir, { recursive: true });
-    
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const queue = (inbox as any).queue;
     queue.push(
@@ -182,9 +187,8 @@ Test message content`;
     const msgFile = path.join(pendingDir, 'test.md');
     await fs.writeFile(msgFile, '---\ntype: normal\n---\nTest', 'utf-8');
 
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
-    
+    const inbox = makeInbox(clawDir);
+
     // 触发 moveToDone
     await (inbox as any).moveToDone(msgFile);
 
@@ -202,9 +206,7 @@ Test message content`;
   it('should use Set for deduplication tracking', async () => {
     const clawDir = path.join(testDir, 'set-dedup-test');
     await fs.mkdir(clawDir, { recursive: true });
-    
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
     
     // 验证 processedFiles 是 Set
     const processedFiles = (inbox as any).processedFiles;
@@ -216,8 +218,7 @@ Test message content`;
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, 'test.md');
     await fs.writeFile(msgFile, '---\ntype: normal\nid: test-1\n---\nBody', 'utf-8');
@@ -234,8 +235,6 @@ Test message content`;
 
     // 处理完成后，Set 应被清理（防止内存泄漏）
     expect(processedFiles.has(msgFile)).toBe(false);
-
-    await inbox.stop();
   });
 
   it('should load existing messages on cold start', async () => {
@@ -255,8 +254,7 @@ Test message content`;
       'utf-8'
     );
 
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const processed: string[] = [];
     await inbox.start(async (msg: InboxMessage) => {
@@ -269,8 +267,6 @@ Test message content`;
     // 应该处理已存在的文件
     expect(processed).toContain('msg-1');
     expect(processed).toContain('msg-2');
-
-    await inbox.stop();
   });
 
   it('should drop lowest priority message when queue is full', async () => {
@@ -280,8 +276,7 @@ Test message content`;
     await fs.mkdir(pendingDir, { recursive: true });
     await fs.mkdir(failedDir, { recursive: true });
 
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     // Fill internal queue to the limit with low-priority items
     const queue = (inbox as any).queue;
@@ -312,8 +307,6 @@ Test message content`;
       // may have already been dequeued and processed
       (await fs.readdir(path.join(clawDir, 'inbox', 'done')).catch(() => [])).some((f: string) => f.includes('high'));
     expect(hasHighMsg).toBe(true);
-
-    await inbox.stop();
   });
 
   it('should process messages in priority order after cold start', async () => {
@@ -339,8 +332,7 @@ Test message content`;
       'utf-8'
     );
 
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const processed: string[] = [];
     await inbox.start(async (msg: InboxMessage) => {
@@ -349,8 +341,6 @@ Test message content`;
 
     // 等待冷启动处理
     await new Promise(r => setTimeout(r, 300));
-
-    await inbox.stop();
 
     // 验证所有消息都被处理
     expect(processed).toContain('critical-msg');
@@ -365,8 +355,7 @@ Test message content`;
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
 
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, '1000_normal_p.md');
     await fs.writeFile(msgFile, '---\ntype: message\npriority: urgent\nid: p-fallback\n---\nBody', 'utf-8');
@@ -375,7 +364,6 @@ Test message content`;
     await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
     await (inbox as any).handleNewFile(msgFile);
     await new Promise(r => setTimeout(r, 100));
-    await inbox.stop();
 
     expect(received).toHaveLength(1);
     expect(received[0].priority).toBe('normal');
@@ -386,9 +374,7 @@ Test message content`;
     const clawDir = path.join(testDir, 'invalid-type-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
-
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, '1000_normal_t.md');
     await fs.writeFile(msgFile, '---\ntype: unknown_event\npriority: normal\nid: t-fallback\n---\nBody', 'utf-8');
@@ -397,7 +383,6 @@ Test message content`;
     await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
     await (inbox as any).handleNewFile(msgFile);
     await new Promise(r => setTimeout(r, 100));
-    await inbox.stop();
 
     expect(received).toHaveLength(1);
     expect(received[0].type).toBe('message');
@@ -408,9 +393,7 @@ Test message content`;
     const clawDir = path.join(testDir, 'watchdog-type-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
-
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, '1000_normal_wd.md');
     await fs.writeFile(msgFile, '---\ntype: watchdog_ping\npriority: normal\nid: wd-passthrough\n---\nBody', 'utf-8');
@@ -419,7 +402,6 @@ Test message content`;
     await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
     await (inbox as any).handleNewFile(msgFile);
     await new Promise(r => setTimeout(r, 100));
-    await inbox.stop();
 
     expect(received).toHaveLength(1);
     expect(received[0].type).toBe('watchdog_ping');
@@ -429,9 +411,7 @@ Test message content`;
     const clawDir = path.join(testDir, 'parse-fail-test');
     const pendingDir = path.join(clawDir, 'inbox', 'pending');
     await fs.mkdir(pendingDir, { recursive: true });
-
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const inbox = new InboxWatcher(clawDir, nodeFs);
+    const inbox = makeInbox(clawDir);
 
     // Malformed: has opening --- but no closing ---
     const malformedFile = path.join(pendingDir, '1000_normal_malformed.md');
