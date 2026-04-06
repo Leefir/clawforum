@@ -25,6 +25,18 @@ import type {
 import { STREAM_MAX_DURATION_MS } from '../../constants.js';
 
 /**
+ * Decode HTML entities in tool call arguments (xAI/grok sometimes HTML-encodes JSON)
+ */
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
+}
+
+/**
  * OpenAI API request body
  */
 interface OpenAIRequest {
@@ -256,6 +268,10 @@ export class OpenAIAdapter implements IProviderAdapter {
     
     // Track tool calls across chunks (index -> partial data)
     const toolCallBuffers = new Map<number, { id: string; name: string; arguments: string; started: boolean }>();
+    
+    // Track finish_reason and usage for final done chunk
+    let lastFinishReason: string | undefined;
+    let lastUsage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
 
     try {
       while (true) {
@@ -273,7 +289,19 @@ export class OpenAIAdapter implements IProviderAdapter {
           const data = line.slice(6).trim();
           if (!data || data === '[DONE]') {
             if (data === '[DONE]') {
-              yield { type: 'done' };
+              const stopReason =
+                lastFinishReason === 'tool_calls' ? 'tool_use' :
+                lastFinishReason === 'length'     ? 'max_tokens' :
+                lastFinishReason === 'stop'       ? 'end_turn' :
+                lastFinishReason;
+              yield {
+                type: 'done',
+                stopReason,
+                usage: lastUsage ? {
+                  inputTokens: lastUsage.prompt_tokens ?? 0,
+                  outputTokens: lastUsage.completion_tokens ?? 0,
+                } : undefined,
+              };
             }
             continue;
           }
@@ -286,12 +314,25 @@ export class OpenAIAdapter implements IProviderAdapter {
             continue;
           }
 
-          const delta = (event.choices as Array<Record<string, unknown>>)?.[0]?.delta as Record<string, unknown> | undefined;
+          // Track finish_reason and usage from event
+          const choice = (event.choices as Array<Record<string, unknown>>)?.[0];
+          const finishReason = choice?.finish_reason as string | undefined;
+          if (finishReason) lastFinishReason = finishReason;
+          
+          const usage = event.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
+          if (usage?.prompt_tokens !== undefined) lastUsage = usage;
+
+          const delta = choice?.delta as Record<string, unknown> | undefined;
           if (!delta) continue;
 
           // Text content
           if (delta.content) {
             yield { type: 'text_delta', delta: String(delta.content) };
+          }
+          
+          // DeepSeek Reasoner thinking
+          if (delta.reasoning_content) {
+            yield { type: 'thinking_delta', delta: String(delta.reasoning_content) };
           }
 
           // Tool calls
@@ -461,7 +502,7 @@ export class OpenAIAdapter implements IProviderAdapter {
     if (message?.tool_calls) {
       for (const tc of message.tool_calls) {
         try {
-          const input = JSON.parse(tc.function.arguments);
+          const input = JSON.parse(decodeHtmlEntities(tc.function.arguments));
           content.push({
             type: 'tool_use',
             id: tc.id,
@@ -474,15 +515,23 @@ export class OpenAIAdapter implements IProviderAdapter {
             type: 'tool_use',
             id: tc.id,
             name: tc.function.name,
-            input: tc.function.arguments,
+            input: decodeHtmlEntities(tc.function.arguments),
           });
         }
       }
     }
     
+    // Normalize stop_reason to internal format
+    const finishReason = choice?.finish_reason ?? 'stop';
+    const stopReason =
+      finishReason === 'tool_calls' ? 'tool_use' :
+      finishReason === 'length'     ? 'max_tokens' :
+      finishReason === 'stop'       ? 'end_turn' :
+      finishReason;
+    
     return {
       content,
-      stop_reason: choice?.finish_reason ?? 'stop',
+      stop_reason: stopReason,
       usage: data.usage ? {
         input_tokens: data.usage.prompt_tokens,
         output_tokens: data.usage.completion_tokens,
