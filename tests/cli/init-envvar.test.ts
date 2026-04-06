@@ -48,7 +48,8 @@ function teardownTempDir() {
 }
 
 const knownVars = ['ANTHROPIC_API_KEY','OPENAI_API_KEY','DEEPSEEK_API_KEY',
-  'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY'];
+  'MOONSHOT_API_KEY','MINIMAX_API_KEY','GEMINI_API_KEY','OLLAMA_API_KEY',
+  'XAI_API_KEY','OPENROUTER_API_KEY','DASHSCOPE_API_KEY'];
 
 function clearKnownVars(): Record<string, string | undefined> {
   const saved: Record<string, string | undefined> = {};
