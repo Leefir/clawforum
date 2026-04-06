@@ -26,6 +26,7 @@ export const LLMProviderSchema = z.object({
   thinking_budget_tokens: z.number().min(1).optional(),
   extra_headers: z.record(z.string()).optional(),
   drop_thinking_blocks: z.boolean().optional(),
+  reasoning_effort: z.enum(['low', 'medium', 'high']).optional(),
 });
 
 export const CircuitBreakerSchema = z.object({
@@ -249,6 +250,7 @@ export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): Provider
     extraHeaders: p.extra_headers,
     dropThinkingBlocks: p.drop_thinking_blocks,
     apiFormat: preset.apiFormat,
+    reasoningEffort: p.reasoning_effort,
   };
 }
 

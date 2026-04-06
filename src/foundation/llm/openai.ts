@@ -68,6 +68,7 @@ interface OpenAIResponse {
     message: {
       role: string;
       content: string | null;
+      reasoning_content?: string;
       tool_calls?: Array<{
         id: string;
         type: 'function';
@@ -120,6 +121,10 @@ export class OpenAIAdapter implements IProviderAdapter {
       body.temperature = temperature;
     } else if (this.config.temperature !== undefined) {
       body.temperature = this.config.temperature;
+    }
+    
+    if (this.config.reasoningEffort) {
+      (body as unknown as Record<string, unknown>).reasoning_effort = this.config.reasoningEffort;
     }
     
     if (tools && tools.length > 0) {
@@ -200,6 +205,9 @@ export class OpenAIAdapter implements IProviderAdapter {
 
     if (temperature !== undefined) body.temperature = temperature;
     else if (this.config.temperature !== undefined) body.temperature = this.config.temperature;
+    if (this.config.reasoningEffort) {
+      (body as unknown as Record<string, unknown>).reasoning_effort = this.config.reasoningEffort;
+    }
     if (tools && tools.length > 0) {
       body.tools = this.formatTools(tools);
     }
@@ -333,6 +341,11 @@ export class OpenAIAdapter implements IProviderAdapter {
           // DeepSeek Reasoner thinking
           if (delta.reasoning_content) {
             yield { type: 'thinking_delta', delta: String(delta.reasoning_content) };
+          }
+          
+          // OpenAI o-series reasoning (delta.reasoning)
+          if (delta.reasoning) {
+            yield { type: 'thinking_delta', delta: String(delta.reasoning) };
           }
 
           // Tool calls
@@ -492,6 +505,11 @@ export class OpenAIAdapter implements IProviderAdapter {
     const choice = data.choices[0];
     const message = choice?.message;
     const content: ContentBlock[] = [];
+    
+    // OpenAI o-series reasoning content
+    if (message?.reasoning_content) {
+      content.push({ type: 'thinking', thinking: message.reasoning_content } as ContentBlock);
+    }
     
     // Text content
     if (message?.content) {

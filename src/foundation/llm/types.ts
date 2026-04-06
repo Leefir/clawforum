@@ -48,6 +48,9 @@ export interface ProviderConfig {
 
   /** API format, resolved from preset */
   apiFormat: ApiFormat;
+
+  /** Reasoning effort for OpenAI o-series models */
+  reasoningEffort?: 'low' | 'medium' | 'high';
 }
 
 /**

@@ -989,6 +989,37 @@ describe('OpenAIAdapter — Phase 98 fixes', () => {
     const done = chunks.find(c => c.type === 'done');
     expect(done?.stopReason).toBe('end_turn');
   });
+
+  // OpenAI o-series 思考内容支持
+  // 流式：delta.reasoning → thinking_delta
+  it('stream: delta.reasoning → thinking_delta chunk (OpenAI o-series)', async () => {
+    const events = [
+      JSON.stringify({ choices: [{ delta: { reasoning: '思考中...' } }] }),
+      JSON.stringify({ choices: [{ delta: { content: '答案' } }] }),
+      '[DONE]',
+    ];
+    vi.mocked(fetch).mockResolvedValue(createSSEStreamResponse(events));
+    const chunks: StreamChunk[] = [];
+    for await (const c of new OpenAIAdapter(config).stream({ messages: [{ role: 'user', content: 'prove' }] })) {
+      chunks.push(c);
+    }
+    const thinking = chunks.filter(c => c.type === 'thinking_delta');
+    expect(thinking).toHaveLength(1);
+    expect(thinking[0].delta).toBe('思考中...');
+  });
+
+  // 非流式：message.reasoning_content → thinking block
+  it('call: message.reasoning_content → thinking block in response', async () => {
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({
+      choices: [{
+        message: { content: '答案', reasoning_content: '推理过程' },
+        finish_reason: 'stop',
+      }],
+    }));
+    const res = await new OpenAIAdapter(config).call({ messages: [{ role: 'user', content: 'prove' }] });
+    const thinking = res.content.find(b => b.type === 'thinking') as any;
+    expect(thinking?.thinking).toBe('推理过程');
+  });
 });
 
 describe('AnthropicAdapter — dropThinkingBlocks', () => {

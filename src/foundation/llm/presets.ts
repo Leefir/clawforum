@@ -87,7 +87,7 @@ export const PRESETS: Record<string, ProviderPreset> = {
     apiFormat: 'openai',
     authMethod: 'api_key',
     defaultBaseUrl: 'https://api.x.ai/v1',
-    defaultModel: 'grok-3',
+    defaultModel: 'grok-4',
     envVar: 'XAI_API_KEY',
   },
   'openrouter': {
