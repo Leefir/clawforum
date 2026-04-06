@@ -59,6 +59,7 @@ function createMockLLMConfig(): LLMServiceConfig {
       maxTokens: 1024,
       temperature: 0.7,
       timeoutMs: 30000,
+      apiFormat: 'anthropic' as const,
     },
     maxAttempts: 1,
     retryDelayMs: 100,
