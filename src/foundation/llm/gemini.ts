@@ -233,6 +233,7 @@ export class GeminiAdapter implements IProviderAdapter {
     let buffer = '';
     let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
     let fcIndex = 0;
+    let lastUsage: { promptTokenCount: number; candidatesTokenCount: number } | undefined;
 
     try {
       while (true) {
@@ -268,14 +269,26 @@ export class GeminiAdapter implements IProviderAdapter {
             }
           }
 
+          // Track usage metadata across events
           if (event.usageMetadata) {
+            lastUsage = event.usageMetadata;
+          }
+
+          // Yield done chunk when finishReason is available (decoupled from usageMetadata)
+          if (candidate.finishReason) {
+            const stopReason =
+              candidate.finishReason === 'STOP'       ? 'end_turn' :
+              candidate.finishReason === 'MAX_TOKENS' ? 'max_tokens' :
+              candidate.finishReason === 'SAFETY'     ? 'content_filter' :
+              candidate.finishReason.toLowerCase();
+
             yield {
               type: 'done',
-              usage: {
-                inputTokens: event.usageMetadata.promptTokenCount,
-                outputTokens: event.usageMetadata.candidatesTokenCount,
-              },
-              stopReason: candidate.finishReason === 'STOP' ? 'end_turn' : candidate.finishReason?.toLowerCase(),
+              stopReason,
+              usage: lastUsage ? {
+                inputTokens: lastUsage.promptTokenCount,
+                outputTokens: lastUsage.candidatesTokenCount,
+              } : undefined,
             };
           }
         }
