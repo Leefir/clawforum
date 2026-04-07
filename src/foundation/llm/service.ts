@@ -167,6 +167,7 @@ export class LLMService implements ILLMService {
       
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
         try {
+          const callStart = Date.now();
           const response = await this.primary.call(options);
           
           // Circuit breaker: record success
@@ -177,7 +178,7 @@ export class LLMService implements ILLMService {
           this.auditWriter?.write('llm_call', this.primary.model,
             `in=${response.usage?.input_tokens ?? 0}`,
             `out=${response.usage?.output_tokens ?? 0}`,
-            `ms=${Date.now() - startTime}`);
+            `ms=${Date.now() - callStart}`);
           return response;
           
         } catch (error) {
@@ -218,6 +219,7 @@ export class LLMService implements ILLMService {
       
       const fb = this.fallbacks[i];
       try {
+        const callStart = Date.now();
         const response = await fb.call(options);
         
         // Circuit breaker: record success
@@ -227,7 +229,7 @@ export class LLMService implements ILLMService {
         this.auditWriter?.write('llm_call', fb.model,
           `in=${response.usage?.input_tokens ?? 0}`,
           `out=${response.usage?.output_tokens ?? 0}`,
-          `ms=${Date.now() - startTime}`);
+          `ms=${Date.now() - callStart}`);
         return response;
         
       } catch (fallbackError) {
@@ -282,7 +284,9 @@ export class LLMService implements ILLMService {
       let hasYielded = false;
       let lastError: Error | null = null;
       let doneChunk: StreamChunk | undefined;
+      let callStart = Date.now();
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
+        callStart = Date.now();
         try {
           for await (const chunk of adapter.stream(options)) {
             hasYielded = true;
@@ -318,7 +322,7 @@ export class LLMService implements ILLMService {
         this.auditWriter?.write('llm_call', adapter.model,
           `in=${doneChunk?.usage?.inputTokens ?? 0}`,
           `out=${doneChunk?.usage?.outputTokens ?? 0}`,
-          `ms=${Date.now() - startTime}`);
+          `ms=${Date.now() - callStart}`);
         return; // Success, exit generator
       } else {
         // Circuit breaker: record failure
