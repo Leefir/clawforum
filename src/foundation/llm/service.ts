@@ -36,10 +36,9 @@ import { GeminiAdapter } from './gemini.js';
 function createProvider(config: ProviderConfig): IProviderAdapter {
   if (config.apiFormat === 'openai') return new OpenAIAdapter(config);
   if (config.apiFormat === 'gemini') return new GeminiAdapter(config);
-  // anthropic format: native API uses SDK, others use raw fetch
-  const isNative = (config.baseUrl ?? 'https://api.anthropic.com')
-    .startsWith('https://api.anthropic.com');
-  return isNative ? new AnthropicAdapter(config) : new CustomAnthropicAdapter(config);
+  // anthropic format: Claude models use SDK (native API), others use raw fetch
+  const isClaude = config.model.toLowerCase().includes('claude');
+  return isClaude ? new AnthropicAdapter(config) : new CustomAnthropicAdapter(config);
 }
 
 /**
