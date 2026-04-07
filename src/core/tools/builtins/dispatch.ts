@@ -60,7 +60,7 @@ export class DispatchTool implements ITool {
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     // 防止递归：dispatcher 不能再调 dispatch
     if (isDispatchCaller(ctx.callerType)) {
-      return { success: false, content: 'Dispatcher cannot call dispatch (recursion not allowed).' };
+      return { success: false, content: 'dispatch subagent cannot call dispatch (recursion not allowed).' };
     }
 
     // 扫描 clawspace/dispatch-skills/ 生成简介（结构同普通 skill：子目录 + SKILL.md）
@@ -107,7 +107,7 @@ export class DispatchTool implements ITool {
           ctx.monitor?.log('warn', {
             context: 'dispatch.contractDoneNotFound',
             taskId,
-            hint: 'Dispatcher finished without [CONTRACT_DONE] block — no retrospective will be scheduled',
+            hint: 'Dispatch subagent finished without [CONTRACT_DONE] block — no retrospective will be scheduled',
           });
           return result;
         }
@@ -188,7 +188,7 @@ export class DispatchTool implements ITool {
     //
     // 修复：注入一个合并的 user message，同时包含：
     //   - tool_result：语法上关闭 dispatch tool_use（content 是占位符，dispatcher 无需知道
-    //     Motion 实际收到的 "Dispatcher started..." 信息）
+    //     Motion 实际收到的 "Dispatch subagent started..." 信息）
     //   - text：dispatcher 指令（与原 prompt 字段内容相同）
     // 两者合并为同一个 user message，保证消息结构 [tool_use → user(tool_result+text)] 合法。
     const lastMsg = dispatcherMessages[dispatcherMessages.length - 1];
@@ -204,7 +204,7 @@ export class DispatchTool implements ITool {
         role: 'user',
         content: [
           // 占位 tool_result：关闭 dispatch 调用，content 无需与 Motion 实际收到的相同
-          { type: 'tool_result', tool_use_id: dispatchToolUseId, content: 'Dispatcher activated.' },
+          { type: 'tool_result', tool_use_id: dispatchToolUseId, content: 'Dispatch subagent activated.' },
           // dispatcher 指令紧跟其后，同属一个 user turn
           { type: 'text', text: userMessage },
         ],
@@ -256,7 +256,7 @@ export class DispatchTool implements ITool {
 
     return {
       success: true,
-      content: `Dispatcher started. Task ID: ${taskId}. Result will arrive in inbox when complete.`,
+      content: `Dispatch subagent started (${mode} mode). Task ID: ${taskId}. Result will arrive in inbox when complete.`,
       metadata: { taskId },
     };
   }

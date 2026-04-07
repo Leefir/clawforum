@@ -118,8 +118,8 @@ export const spawnTool: ITool = {
     if (isDispatchCaller(ctx.callerType)) {
       return {
         success: false,
-        content: 'Dispatcher 不能直接 spawn。请在最终回复中说明需要 spawn 的 prompt，由 Motion 来执行。',
-        error: 'Dispatcher spawn prevented',
+        content: 'dispatch 子代理不能直接调用 spawn。请在最终回复中说明需要 spawn 的 prompt，由 Motion 来执行。',
+        error: 'dispatch subagent spawn prevented',
       };
     }
 
