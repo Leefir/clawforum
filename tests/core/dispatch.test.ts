@@ -253,7 +253,8 @@ Content.
       const raw = JSON.parse(await fs.readFile(byContractPath, 'utf-8'));
       expect(raw.contractId).toBe('c-001');
       expect(raw.targetClaw).toBe('my-claw');
-      expect(raw.dispatcherTaskId).toBe('task-handler-test');
+      expect(raw.mode).toBe('mining');
+      expect(raw.miningTaskId).toBe('task-handler-test');
 
       // 摘要不含 CONTRACT_DONE 块
       expect(summary).not.toContain('[CONTRACT_DONE]');
