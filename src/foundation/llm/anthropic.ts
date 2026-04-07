@@ -200,6 +200,47 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
   }
 
   /**
+   * Simplified message formatting for native Anthropic API (api.anthropic.com).
+   *
+   * Unlike the base implementation, we don't need MiniMax string compatibility
+   * or dropThinkingBlocks — Anthropic's API accepts array format for all messages
+   * and handles thinking blocks in history natively.
+   *
+   * Only concern: add cache_control to the last user message for prompt caching.
+   */
+  protected override formatMessages(
+    messages: Array<{ role: string; content: unknown }>,
+  ): Array<{ role: string; content: string | unknown[] }> {
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') { lastUserIdx = i; break; }
+    }
+
+    return messages.map((m, idx) => {
+      const role = m.role === 'assistant' ? 'assistant' : 'user';
+      const addCache = idx === lastUserIdx;
+
+      if (!Array.isArray(m.content)) {
+        if (addCache) {
+          return { role, content: [{ type: 'text', text: m.content as string, cache_control: { type: 'ephemeral' } }] };
+        }
+        return { role, content: m.content as string };
+      }
+
+      const blocks = m.content as unknown[];
+      if (addCache && blocks.length > 0) {
+        const copy = [...blocks];
+        copy[copy.length - 1] = {
+          ...(copy[copy.length - 1] as Record<string, unknown>),
+          cache_control: { type: 'ephemeral' },
+        };
+        return { role, content: copy };
+      }
+      return { role, content: blocks };
+    });
+  }
+
+  /**
    * Parse Anthropic response to our LLMResponse format
    */
   private parseResponse(data: Anthropic.Message): LLMResponse {

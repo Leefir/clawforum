@@ -1085,21 +1085,21 @@ describe('AnthropicAdapter — dropThinkingBlocks', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('dropThinkingBlocks=true 时 thinking block 从 messages 中过滤', async () => {
+  it('dropThinkingBlocks 在 AnthropicAdapter 中不生效（原生 API 支持 thinking）', async () => {
     mockMessagesCreate.mockResolvedValue({
       id: 'msg-test',
       type: 'message',
       role: 'assistant',
       content: [{ type: 'text', text: 'ok' }],
-      model: 'MiniMax-M1',
+      model: 'claude-3-sonnet',
       stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 5 },
     });
 
     const cfg = {
-      name: 'minimax', apiKey: 'k', baseUrl: 'https://api.minimax.io/anthropic',
-      model: 'MiniMax-M1', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
-      apiFormat: 'anthropic' as const, dropThinkingBlocks: true,
+      name: 'anthropic', apiKey: 'k', baseUrl: 'https://api.anthropic.com',
+      model: 'claude-3-sonnet', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'anthropic' as const, dropThinkingBlocks: true, // 这个选项对原生 API 无效
     };
 
     const messages: Message[] = [
@@ -1120,33 +1120,28 @@ describe('AnthropicAdapter — dropThinkingBlocks', () => {
     // 找到 assistant 消息（非最后一条，最后一条是 user）
     const assistantMsg = body.messages.find((m: any, idx: number) => m.role === 'assistant' && idx === 1);
     
-    // 当只有 text block 时，content 会被简化为字符串
-    if (typeof assistantMsg.content === 'string') {
-      // 纯文本情况：thinking 被过滤，只剩 text，被格式化为字符串
-      expect(assistantMsg.content).toBe('答案');
-    } else {
-      // 数组情况：检查没有 thinking，有 text
-      const blocks = assistantMsg.content;
-      expect(blocks.every((b: any) => b.type !== 'thinking')).toBe(true);
-      expect(blocks.some((b: any) => b.type === 'text')).toBe(true);
-    }
+    // AnthropicAdapter 使用简化的 formatMessages，thinking blocks 不会被过滤
+    // 原生 Anthropic API 支持 thinking blocks
+    const blocks = assistantMsg.content;
+    expect(blocks.some((b: any) => b.type === 'thinking')).toBe(true);
+    expect(blocks.some((b: any) => b.type === 'text')).toBe(true);
   });
 
-  it('dropThinkingBlocks=true 时全为 thinking 的 assistant 消息被整体跳过', async () => {
+  it('纯 thinking 的 assistant 消息在 AnthropicAdapter 中保留（原生 API 支持）', async () => {
     mockMessagesCreate.mockResolvedValue({
       id: 'msg-test',
       type: 'message',
       role: 'assistant',
       content: [{ type: 'text', text: 'ok' }],
-      model: 'MiniMax-M1',
+      model: 'claude-3-sonnet',
       stop_reason: 'end_turn',
       usage: { input_tokens: 10, output_tokens: 5 },
     });
 
     const cfg = {
-      name: 'minimax', apiKey: 'k', baseUrl: 'https://api.minimax.io/anthropic',
-      model: 'MiniMax-M1', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
-      apiFormat: 'anthropic' as const, dropThinkingBlocks: true,
+      name: 'anthropic', apiKey: 'k', baseUrl: 'https://api.anthropic.com',
+      model: 'claude-3-sonnet', maxTokens: 4096, temperature: 0.7, timeoutMs: 30000,
+      apiFormat: 'anthropic' as const, dropThinkingBlocks: true, // 这个选项对原生 API 无效
     };
 
     const messages: Message[] = [
@@ -1163,9 +1158,11 @@ describe('AnthropicAdapter — dropThinkingBlocks', () => {
     await new AnthropicAdapter(cfg).call({ messages });
 
     const body = mockMessagesCreate.mock.calls[0][0];
-    // 纯 thinking 的 assistant 消息应被跳过，不出现在 body.messages
+    // AnthropicAdapter 使用简化的 formatMessages，不会跳过 thinking-only 消息
+    // 原生 Anthropic API 支持 thinking blocks
     const assistantMsgs = body.messages.filter((m: any) => m.role === 'assistant');
-    expect(assistantMsgs).toHaveLength(0);
+    expect(assistantMsgs).toHaveLength(1);
+    expect(assistantMsgs[0].content.some((b: any) => b.type === 'thinking')).toBe(true);
   });
 });
 

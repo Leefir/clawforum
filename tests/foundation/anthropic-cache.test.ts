@@ -282,8 +282,8 @@ describe('AnthropicAdapter cache_control', () => {
       expect(requestBody.messages[0].content).toEqual([
         { type: 'text', text: 'Question', cache_control: { type: 'ephemeral' } },
       ]);
-      // Assistant message: text-only array gets converted to string (formatMessages behavior)
-      expect(requestBody.messages[1].content).toBe('Answer');
+      // Assistant message: simplified formatMessages keeps array format for native Anthropic API
+      expect(requestBody.messages[1].content).toEqual([{ type: 'text', text: 'Answer' }]);
     });
 
     it('should only add cache_control to last user message, not middle ones', async () => {
@@ -301,9 +301,9 @@ describe('AnthropicAdapter cache_control', () => {
       });
 
       const requestBody = mockMessagesCreate.mock.calls[0][0];
-      // First user message: no cache_control (not last)
+      // First user message: no cache_control (not last), string preserved
       expect(requestBody.messages[0].content).toBe('First');
-      // Assistant: no cache_control
+      // Assistant: simplified formatMessages keeps array format
       expect(requestBody.messages[1].content).toBe('Reply 1');
       // Last user message: with cache_control
       expect(requestBody.messages[2].content).toEqual([
@@ -333,7 +333,7 @@ describe('AnthropicAdapter cache_control', () => {
       expect(requestBody.messages[2].content).toEqual([
         { type: 'text', text: 'Q2', cache_control: { type: 'ephemeral' } },
       ]);
-      // Assistant messages are text-only strings
+      // Assistant messages: simplified formatMessages keeps array format
       expect(requestBody.messages[1].content).toBe('A1');
       expect(requestBody.messages[3].content).toBe('A2');
     });
