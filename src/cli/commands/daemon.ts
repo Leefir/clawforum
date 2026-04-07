@@ -226,7 +226,7 @@ export async function daemonCommand(name: string): Promise<void> {
     try {
       const stat = fsNative.statSync(auditPath);
       if (stat.size === 0) return;
-      const chunkSize = 512;
+      const chunkSize = 4096;
       const offset = Math.max(0, stat.size - chunkSize);
       const fd = fsNative.openSync(auditPath, 'r');
       const buf = Buffer.alloc(Math.min(chunkSize, stat.size));
