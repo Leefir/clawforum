@@ -338,25 +338,25 @@ export async function daemonCommand(name: string): Promise<void> {
           // 构建复盘 prompt
           const retroPrompt = buildRetroPrompt(targetClaw, contractId, contractYaml, skillsSummary);
 
-          // 如果是 mining 模式，加载完整对话上下文
-          let retroMessages: Message[] | undefined;
+          // 构建复盘对话上下文（mining 模式继承挖掘对话，describing 模式用空上下文）
+          let baseMessages: Message[] = [];
           if (mode === 'mining' && miningTaskId) {
             try {
               const messagesPath = path.join(dir, 'tasks', 'results', miningTaskId, 'messages.json');
               const raw = await fsAsync.readFile(messagesPath, 'utf-8');
               const parsed = JSON.parse(raw);
               if (Array.isArray(parsed)) {
-                // mining 消息末尾追加复盘启动消息，prompt 置空（SubAgent 优先用 messages）
-                retroMessages = [...parsed, { role: 'user', content: retroPrompt }];
+                baseMessages = parsed;
               }
             } catch (e) {
               const code = (e as NodeJS.ErrnoException).code;
               if (code !== 'ENOENT') {
                 console.warn('[daemon] Failed to load mining task messages:', e instanceof Error ? e.message : String(e));
               }
-              // best-effort：加载失败则退化为无上下文的 prompt 模式
+              // best-effort：加载失败退化为空上下文，retro 照常运行
             }
           }
+          const retroMessages: Message[] = [...baseMessages, { role: 'user', content: retroPrompt }];
 
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
@@ -365,7 +365,7 @@ export async function daemonCommand(name: string): Promise<void> {
               taskSystem,
               streamWriter,
               {
-                prompt: retroMessages ? '' : retroPrompt,
+                prompt: '',
                 messages: retroMessages,
                 tools: ['read', 'write', 'skill', 'exec'],
                 timeout: 600,
