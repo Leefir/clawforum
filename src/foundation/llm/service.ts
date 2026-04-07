@@ -26,6 +26,7 @@ import type {
 } from './types.js';
 import type { ILLMService } from './index.js';
 import { AnthropicAdapter } from './anthropic.js';
+import { CustomAnthropicAdapter } from './custom-anthropic.js';
 import { OpenAIAdapter } from './openai.js';
 import { GeminiAdapter } from './gemini.js';
 
@@ -35,7 +36,10 @@ import { GeminiAdapter } from './gemini.js';
 function createProvider(config: ProviderConfig): IProviderAdapter {
   if (config.apiFormat === 'openai') return new OpenAIAdapter(config);
   if (config.apiFormat === 'gemini') return new GeminiAdapter(config);
-  return new AnthropicAdapter(config);
+  // anthropic format: native API uses SDK, others use raw fetch
+  const isNative = (config.baseUrl ?? 'https://api.anthropic.com')
+    .startsWith('https://api.anthropic.com');
+  return isNative ? new AnthropicAdapter(config) : new CustomAnthropicAdapter(config);
 }
 
 /**

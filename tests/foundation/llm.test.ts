@@ -352,7 +352,7 @@ describe('LLM Service', () => {
     const primaryConfig = {
       name: 'primary',
       apiKey: 'primary-key',
-      baseUrl: 'https://primary.example.com',
+      baseUrl: 'https://api.anthropic.com',
       model: 'model-1',
       maxTokens: 4096,
       temperature: 0.7,
@@ -363,7 +363,7 @@ describe('LLM Service', () => {
     const fallbackConfig = {
       name: 'fallback',
       apiKey: 'fallback-key',
-      baseUrl: 'https://fallback.example.com',
+      baseUrl: 'https://api.anthropic.com',
       model: 'model-2',
       maxTokens: 4096,
       temperature: 0.7,

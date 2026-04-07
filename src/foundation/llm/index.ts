@@ -31,6 +31,7 @@ import type { LLMResponse, LLMCallOptions, StreamChunk } from './types.js';
 // Implementation
 export { LLMService } from './service.js';
 export { AnthropicAdapter } from './anthropic.js';
+export { CustomAnthropicAdapter } from './custom-anthropic.js';
 
 /**
  * ILLMService interface
