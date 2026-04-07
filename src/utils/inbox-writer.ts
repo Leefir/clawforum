@@ -8,6 +8,7 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'node:crypto';
+import { parseFrontmatter } from './frontmatter.js';
 
 export interface InboxMessageOptions {
   /** inbox/pending directory path */
@@ -71,4 +72,17 @@ timestamp: ${now.toISOString()}`;
   const tmpPath = path.join(opts.inboxDir, `.${ts}_${tag}_${uuid8}.tmp`);
   fsNative.writeFileSync(tmpPath, yaml);
   fsNative.renameSync(tmpPath, finalPath);
+}
+
+/**
+ * 读取 inbox 文件的 frontmatter 元数据。
+ * 失败（文件不存在、格式错误等）时返回 null。
+ */
+export function readInboxFileMeta(filePath: string): Record<string, string> | null {
+  try {
+    const content = fsNative.readFileSync(filePath, 'utf-8');
+    return parseFrontmatter(content).meta;
+  } catch {
+    return null;
+  }
 }

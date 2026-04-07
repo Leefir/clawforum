@@ -15,6 +15,7 @@ import type { InboxMessage, Priority } from '../types/contract.js';
 import type { OutboxWriteOptions } from './communication/outbox.js';
 import type { SessionData } from './dialog/types.js';
 import { parseFrontmatter } from '../utils/frontmatter.js';
+import { readInboxFileMeta } from '../utils/inbox-writer.js';
 
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { LLMService } from '../foundation/llm/service.js';
@@ -859,12 +860,8 @@ export class ClawRuntime {
       return false;
     }
     for (const file of files) {
-      try {
-        const content = await fs.readFile(path.join(pendingDir, file), 'utf-8');
-        if (/^priority:\s*(high|critical)\s*$/m.test(content)) return true;
-      } catch {
-        continue;
-      }
+      const meta = readInboxFileMeta(path.join(pendingDir, file));
+      if (meta?.priority === 'high' || meta?.priority === 'critical') return true;
     }
     return false;
   }
