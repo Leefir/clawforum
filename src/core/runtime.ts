@@ -543,6 +543,10 @@ export class ClawRuntime {
         maxSteps: this.options.maxSteps,
         onStepComplete: async () => {
           await this.sessionManager.save(messages);
+          // 步间检查：高优先级消息到达时提前结束本轮
+          if (await this._hasHighPriorityInbox()) {
+            this.currentAbortController?.abort();
+          }
         },
         onTextDelta: (d) => { resetIdle?.(); callbacks?.onTextDelta?.(d); },
         onTextEnd: callbacks?.onTextEnd,
@@ -841,6 +845,28 @@ export class ClawRuntime {
    */
   abort(): void {
     this.currentAbortController?.abort();
+  }
+
+  /**
+   * Check if inbox has high/critical priority messages
+   */
+  private async _hasHighPriorityInbox(): Promise<boolean> {
+    const pendingDir = path.join(this.options.clawDir, 'inbox', 'pending');
+    let files: string[];
+    try {
+      files = (await fs.readdir(pendingDir)).filter(f => f.endsWith('.md'));
+    } catch {
+      return false;
+    }
+    for (const file of files) {
+      try {
+        const content = await fs.readFile(path.join(pendingDir, file), 'utf-8');
+        if (/^priority:\s*(high|critical)\s*$/m.test(content)) return true;
+      } catch {
+        continue;
+      }
+    }
+    return false;
   }
 
   /**

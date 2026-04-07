@@ -83,36 +83,11 @@ describe('MotionRuntime', () => {
       expect(prompt).toContain('Efficiency first');
     });
 
-    it('should include REVIEW.md content when present', async () => {
-      // Arrange
-      await fs.mkdir(path.join(tempDir, 'dialog'), { recursive: true });
-      await fs.writeFile(path.join(tempDir, 'AGENTS.md'), '## Agent Role');
-      await fs.writeFile(path.join(tempDir, 'REVIEW.md'), '## Review Guide\nWeekly review');
-      await fs.mkdir(path.join(tempDir, 'skills'), { recursive: true });
-      await fs.mkdir(path.join(tempDir, 'memory'), { recursive: true });
-      await fs.mkdir(path.join(tempDir, 'clawspace'), { recursive: true });
-
-      runtime = new MotionRuntime({
-        clawId: 'motion-test',
-        clawDir: tempDir,
-        llmConfig: mockLLMConfig,
-      });
-
-      // Act
-      await runtime.initialize();
-      const prompt = await (runtime as any).buildSystemPrompt();
-
-      // Assert
-      expect(prompt).toContain('## Review Guide');
-      expect(prompt).toContain('Weekly review');
-    });
-
-    it('should have correct injection order: AGENTS → SOUL → REVIEW → MEMORY', async () => {
+    it('should have correct injection order: AGENTS → SOUL → MEMORY', async () => {
       // Arrange
       await fs.mkdir(path.join(tempDir, 'dialog'), { recursive: true });
       await fs.writeFile(path.join(tempDir, 'AGENTS.md'), 'AGENTS_CONTENT');
       await fs.writeFile(path.join(tempDir, 'SOUL.md'), 'SOUL_CONTENT');
-      await fs.writeFile(path.join(tempDir, 'REVIEW.md'), 'REVIEW_CONTENT');
       await fs.writeFile(path.join(tempDir, 'MEMORY.md'), 'MEMORY_CONTENT');
       await fs.mkdir(path.join(tempDir, 'skills'), { recursive: true });
       await fs.mkdir(path.join(tempDir, 'memory'), { recursive: true });
@@ -131,13 +106,11 @@ describe('MotionRuntime', () => {
       // Assert: 验证顺序
       const agentsIndex = prompt.indexOf('AGENTS_CONTENT');
       const soulIndex = prompt.indexOf('SOUL_CONTENT');
-      const reviewIndex = prompt.indexOf('REVIEW_CONTENT');
       const memoryIndex = prompt.indexOf('MEMORY_CONTENT');
 
       expect(agentsIndex).toBeGreaterThanOrEqual(0);
       expect(soulIndex).toBeGreaterThan(agentsIndex);
-      expect(reviewIndex).toBeGreaterThan(soulIndex);
-      expect(memoryIndex).toBeGreaterThan(reviewIndex);
+      expect(memoryIndex).toBeGreaterThan(soulIndex);
     });
 
     it('should gracefully degrade when SOUL.md is missing', async () => {

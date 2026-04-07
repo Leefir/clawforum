@@ -11,7 +11,7 @@ export function buildAgentsMdTemplate(name: string): string {
 
 When you receive a contract task, the system will inject contract details (title, objectives, subtask list) into the prompt.
 
-**At turn start** (new contract inbox or daemon restart): call \`status\` first to confirm the current subtask list and identify the first \`todo\` item, then begin execution.
+When a contract is assigned to you, or daemon restarts: call \`status\` first to confirm the current subtask list and identify the first \`todo\` item, then begin execution.
 
 ### Completing Subtasks
 
