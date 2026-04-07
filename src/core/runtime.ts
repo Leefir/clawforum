@@ -681,6 +681,7 @@ export class ClawRuntime {
     const session = await this.sessionManager.load();
     const messages = [...session.messages, msg];
     await this.sessionManager.save(messages);
+    callbacks?.onTurnStart?.([]);
     this.auditWriter.write('turn_start');
 
     const abortController = new AbortController();
