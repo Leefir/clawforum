@@ -5,6 +5,7 @@
  * Reference: https://docs.anthropic.com/claude/reference/messages_post
  */
 
+import Anthropic from '@anthropic-ai/sdk';
 import type {
   LLMResponse,
   ContentBlock,
@@ -39,24 +40,10 @@ interface AnthropicRequest {
     input_schema: unknown;
   }>;
   stream?: boolean;
-  thinking?: { type: 'enabled'; budget_tokens: number };
+  thinking?: { type: 'enabled'; budget_tokens: number } | { type: 'adaptive'; effort: 'low' | 'medium' | 'high' };
 }
 
-/**
- * Anthropic API response
- */
-interface AnthropicResponse {
-  id: string;
-  type: string;
-  role: string;
-  content: Array<{ type: string; [key: string]: unknown }>;
-  model: string;
-  stop_reason: string | null;
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-  };
-}
+
 
 /**
  * Anthropic adapter implementation
@@ -67,12 +54,19 @@ export class AnthropicAdapter implements IProviderAdapter {
   
   private readonly config: ProviderConfig;
   private readonly baseUrl: string;
+  private readonly client: Anthropic;
   
   constructor(config: ProviderConfig) {
     this.config = config;
     this.name = config.name;
     this.model = config.model;
     this.baseUrl = config.baseUrl ?? 'https://api.anthropic.com';
+    this.client = new Anthropic({
+      apiKey: config.apiKey,
+      baseURL: this.baseUrl,
+      defaultHeaders: config.extraHeaders,
+      maxRetries: 0,
+    });
   }
   
   /**
@@ -108,8 +102,14 @@ export class AnthropicAdapter implements IProviderAdapter {
 
     // Extended thinking (requires no temperature)
     if (this.config.thinking) {
-      const budget = this.config.thinkingBudgetTokens ?? Math.max(1, body.max_tokens - THINKING_TOKEN_RESERVE);
-      body.thinking = { type: 'enabled', budget_tokens: budget };
+      const mode = this.config.thinkingMode ?? 'adaptive';
+      if (mode === 'adaptive') {
+        body.thinking = { type: 'adaptive', effort: this.config.thinkingEffort ?? 'high' };
+      } else {
+        const budget = this.config.thinkingBudgetTokens
+          ?? Math.max(1, body.max_tokens - THINKING_TOKEN_RESERVE);
+        body.thinking = { type: 'enabled', budget_tokens: budget };
+      }
       delete body.temperature;
     }
 
@@ -117,68 +117,65 @@ export class AnthropicAdapter implements IProviderAdapter {
   }
 
   /**
+   * Build request options with beta headers for enabled thinking mode
+   */
+  private buildRequestOptions(): Anthropic.RequestOptions {
+    if (this.config.thinking && (this.config.thinkingMode ?? 'adaptive') === 'enabled') {
+      return { headers: { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } };
+    }
+    return {};
+  }
+
+  /**
+   * Map SDK errors to our error types
+   */
+  private mapSDKError(error: unknown, timeoutMs: number, signal?: AbortSignal): Error {
+    // Use name check for mock compatibility in tests
+    const errName = (error as Error)?.constructor?.name;
+    if (errName === 'APIUserAbortError') {
+      const err = new Error('Execution aborted');
+      err.name = 'AbortError';
+      return err;
+    }
+    if (errName === 'RateLimitError') {
+      const retryAfter = (error as { headers?: Headers })?.headers?.get?.('retry-after');
+      return new LLMRateLimitError(this.name, retryAfter ? parseInt(retryAfter, 10) : undefined);
+    }
+    if (errName === 'APIConnectionTimeoutError') {
+      return new LLMTimeoutError(this.name, timeoutMs);
+    }
+    if (errName === 'APIError') {
+      const apiErr = error as { status?: number; message: string };
+      return new LLMError(
+        `Provider ${this.name} error (${apiErr.status ?? 'unknown'}): ${apiErr.message}`,
+        { provider: this.name, status: apiErr.status },
+      );
+    }
+    if (error instanceof LLMError) return error;
+    return new LLMError(
+      `LLM call failed: ${(error as Error).message}`,
+      { provider: this.name },
+    );
+  }
+
+  /**
    * Make a single LLM call
    */
   async call(options: LLMCallOptions): Promise<LLMResponse> {
-    const { timeoutMs, signal } = options;
     const body = this.buildRequestBody(options);
-    
-    // Setup timeout
-    const timeout = timeoutMs ?? this.config.timeoutMs;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
-    // Combine with external signal if provided
-    const onAbort = signal ? () => controller.abort() : undefined;
-    if (signal && onAbort) {
-      signal.addEventListener('abort', onAbort);
-    }
-    
+    const requestOptions: Anthropic.RequestOptions = {
+      ...this.buildRequestOptions(),
+      timeout: options.timeoutMs ?? this.config.timeoutMs,
+      signal: options.signal,
+    };
     try {
-      const response = await fetch(`${this.baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.config.apiKey}`,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      
-      if (!response.ok) {
-        await this.handleErrorResponse(response);
-      }
-      
-      const data = await response.json() as AnthropicResponse;
-      return this.parseResponse(data);
-      
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        // 区分用户主动中断（Ctrl+C）和内部超时
-        if (signal?.aborted) {
-          // 用户主动中断
-          const err = new Error('Execution aborted');
-          err.name = 'AbortError';
-          throw err;
-        }
-        // 内部超时
-        throw new LLMTimeoutError(this.name, timeout);
-      }
-      
-      if (error instanceof LLMError) {
-        throw error;
-      }
-      
-      throw new LLMError(
-        `LLM call failed: ${(error as Error).message}`,
-        { provider: this.name }
+      const response = await this.client.messages.create(
+        body as Anthropic.MessageCreateParamsNonStreaming,
+        requestOptions,
       );
-    } finally {
-      clearTimeout(timeoutId);
-      if (signal && onAbort) {
-        signal.removeEventListener('abort', onAbort);
-      }
+      return this.parseResponse(response);
+    } catch (error) {
+      throw this.mapSDKError(error, options.timeoutMs ?? this.config.timeoutMs, options.signal);
     }
   }
   
@@ -426,7 +423,7 @@ export class AnthropicAdapter implements IProviderAdapter {
   /**
    * Parse Anthropic response to our LLMResponse format
    */
-  private parseResponse(data: AnthropicResponse): LLMResponse {
+  private parseResponse(data: Anthropic.Message): LLMResponse {
     // Store raw content blocks including unknown types (think, reasoning, etc.)
     // This aligns with MVP behavior - don't filter, let LLM handle its own blocks
     const content = data.content as ContentBlock[];
