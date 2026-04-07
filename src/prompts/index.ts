@@ -8,3 +8,4 @@ export * from './dispatcher.js';
 export * from './subagent.js';
 export * from './claw-template.js';
 export * from './retrospective.js';
+export * from './mining.js';

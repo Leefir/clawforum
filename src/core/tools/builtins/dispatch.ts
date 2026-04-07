@@ -4,7 +4,8 @@ import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
-import { buildDispatcherUserMessage } from '../../../prompts/index.js';
+import { buildDispatcherUserMessage, buildMiningUserMessage } from '../../../prompts/index.js';
+import { AskMotionTool } from './ask-motion.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -48,13 +49,18 @@ dispatcher 不能：
         type: 'string',
         description: '目标 claw id（kebab-case）。仅当用户明确指定了目标 claw 时填写，否则省略——claw 选择由 dispatcher 决定。若用户要求新建特定名称的 claw，请先创建 claw 再调用 dispatch。',
       },
+      mode: {
+        type: 'string',
+        enum: ['describing', 'mining'],
+        description: "调度模式。'mining'（默认）：先挖掘用户意图再创建契约；'describing'：直接进入契约创建流程。",
+      },
     },
     required: ['goal'],
   };
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     // 防止递归：dispatcher 不能再调 dispatch
-    if (ctx.callerType === 'dispatcher') {
+    if (ctx.callerType === 'dispatcher' || ctx.callerType === 'describer' || ctx.callerType === 'miner') {
       return { success: false, content: 'Dispatcher cannot call dispatch (recursion not allowed).' };
     }
 
@@ -74,11 +80,15 @@ dispatcher 不能：
       }
     }
 
-    const userMessage = buildDispatcherUserMessage(
-      args.goal as string,
-      skillsSummary,
-      args.targetClaw as string | undefined,
-    );
+    // 确定调度模式：mining（默认，意图挖掘）或 describing（直接进入契约创建）
+    const mode = (args.mode as 'mining' | 'describing') ?? 'mining';
+    const isMining = mode === 'mining';
+    const callerType: 'describer' | 'miner' = isMining ? 'miner' : 'describer';
+
+    // 根据模式构建用户消息
+    const userMessage = isMining
+      ? buildMiningUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined)
+      : buildDispatcherUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined);
     const taskSystem = ctx.taskSystem;
     if (!taskSystem) {
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
@@ -88,8 +98,8 @@ dispatcher 不能：
     let dispatcherTaskId: string | null = null;
     let removeHandler: (() => void) | null = null;
 
-    removeHandler = taskSystem.addTaskResultHandler(async (taskId, callerType, result, isError) => {
-      if (callerType === 'dispatcher' && taskId === dispatcherTaskId) {
+    removeHandler = taskSystem.addTaskResultHandler(async (taskId, resultCallerType, result, isError) => {
+      if ((resultCallerType === 'dispatcher' || resultCallerType === 'describer' || resultCallerType === 'miner') && taskId === dispatcherTaskId) {
         removeHandler?.();
         if (isError) return result;
 
@@ -208,10 +218,20 @@ dispatcher 不能：
         maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,
         parentClawId: ctx.clawId,
         systemPrompt,
-        callerType: 'dispatcher',
         idleTimeoutMs,
         originClawId: ctx.originClawId ?? ctx.clawId,
         toolsForLLM,                   // 使用 Motion 完整工具列表，确保 KV cache 命中
+        callerType,                    // 'describer' 或 'miner'
+        extraTools: isMining
+          ? [
+              new AskMotionTool(
+                ctx.llm!,
+                this.getSystemPrompt.bind(this),
+                this.getToolsForLLM.bind(this),
+                [...dispatcherMessages],  // Motion 上下文快照
+              ),
+            ]
+          : undefined,
       });
     } catch (e) {
       removeHandler?.();
@@ -224,7 +244,7 @@ dispatcher 不能：
       ts: Date.now(),
       type: 'task_started',
       taskId,
-      callerType: 'dispatcher',
+      callerType,
     });
 
     return {

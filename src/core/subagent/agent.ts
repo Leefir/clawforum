@@ -38,7 +38,7 @@ export interface SubAgentOptions {
   idleTimeoutMs?: number;
   onIdleTimeout?: () => void;
   systemPrompt?: string;                    // 替换 run() 里硬编码的默认 system prompt
-  callerType?: 'subagent' | 'dispatcher';  // 默认 'subagent'
+  callerType?: 'subagent' | 'dispatcher' | 'describer' | 'miner';  // 默认 'subagent'
   taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
@@ -66,7 +66,7 @@ export class SubAgent {
   private idleTimeoutMs?: number;
   private onIdleTimeout?: () => void;
   private systemPrompt?: string;
-  private callerType?: 'subagent' | 'dispatcher';
+  private callerType?: 'subagent' | 'dispatcher' | 'describer' | 'miner';
   private taskSystem?: TaskSystem;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;

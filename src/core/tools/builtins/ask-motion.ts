@@ -33,7 +33,11 @@ export class AskMotionTool implements ITool {
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
     const question = args.question as string;
-    this.cloneHistory.push({ role: 'user', content: question });
+    const isFirstCall = this.cloneHistory.length === 0;
+    const userContent = isFirstCall
+      ? `你是 Motion 的分身，由 dispatch 在意图挖掘阶段创建。你只负责回答问题，不能调用任何工具。请基于 Motion 的系统提示与对话上下文作答，协助完成契约创建。\n\n---\n\n${question}`
+      : question;
+    this.cloneHistory.push({ role: 'user', content: userContent });
 
     let answer: string;
     try {
@@ -49,7 +53,8 @@ export class AskMotionTool implements ITool {
       });
 
       const textBlocks = response.content.filter(b => b.type === 'text');
-      if (textBlocks.length === 0) {
+      const hasToolUse = response.content.some(b => b.type === 'tool_use');
+      if (textBlocks.length === 0 || hasToolUse) {
         this.cloneHistory.pop();
         return { success: false, content: 'Motion 分身未返回文本回答，请重新提问。' };
       }

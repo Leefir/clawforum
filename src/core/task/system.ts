@@ -33,7 +33,7 @@ export interface SubAgentTask {
   parentClawId: string;
   createdAt: string;
   systemPrompt?: string;                    // dispatcher 用 Motion 的 system prompt
-  callerType?: 'subagent' | 'dispatcher';  // 传给 SubAgent，决定 executorProfile
+  callerType?: 'subagent' | 'dispatcher' | 'describer' | 'miner';  // 传给 SubAgent，决定 executorProfile
   idleTimeoutMs?: number;                  // LLM 静默超时阈值（用户可配置）
   messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
@@ -50,7 +50,7 @@ export interface ToolTask {
   isIdempotent: boolean;  // Determines if retry is allowed
   maxRetries: number;     // Max retry attempts (default 2)
   retryCount: number;     // Current retry count (initial 0)
-  callerType?: 'subagent' | 'dispatcher';  // 决定 inbox 消息 from 字段
+  callerType?: 'subagent' | 'dispatcher' | 'describer' | 'miner';  // 决定 inbox 消息 from 字段
   toolUseId?: string;   // 对应 LLM tool_use block id，用于 tool_async_result
 }
 
@@ -72,7 +72,7 @@ export class TaskSystem {
 
   // Task result handlers (array for concurrent dispatch support)
   private _taskResultHandlers: Array<
-    (taskId: string, callerType: 'subagent' | 'dispatcher' | undefined, result: string, isError: boolean) => Promise<string>
+    (taskId: string, callerType: 'subagent' | 'dispatcher' | 'describer' | 'miner' | undefined, result: string, isError: boolean) => Promise<string>
   > = [];
 
   /**
@@ -81,7 +81,7 @@ export class TaskSystem {
    * returned by the previous handler (pipeline pattern).
    */
   addTaskResultHandler(
-    handler: (taskId: string, callerType: 'subagent' | 'dispatcher' | undefined, result: string, isError: boolean) => Promise<string>,
+    handler: (taskId: string, callerType: 'subagent' | 'dispatcher' | 'describer' | 'miner' | undefined, result: string, isError: boolean) => Promise<string>,
   ): () => void {
     this._taskResultHandlers.push(handler);
     return () => {
