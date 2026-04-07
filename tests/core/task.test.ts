@@ -83,15 +83,20 @@ function createMockLLM(responses: LLMResponse[]): ILLMService {
  * Create a mock LLM that never resolves - useful for keeping tasks in running state
  */
 function createHangingMockLLM(): ILLMService {
-  // Create an async generator that never yields
-  async function* hangingStream(): AsyncIterableIterator<StreamChunk> {
-    await new Promise(() => {}); // Never resolves
+  async function* hangingStream(signal?: AbortSignal): AsyncIterableIterator<StreamChunk> {
+    await new Promise<void>((_, reject) => {
+      if (signal?.aborted) return reject(new Error('Aborted'));
+      signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+    });
     yield { type: 'done' };
   }
-  
+
   return {
-    call: vi.fn(() => new Promise(() => {})), // Never resolves
-    stream: vi.fn().mockReturnValue(hangingStream()),
+    call: vi.fn(({ signal } = {}) => new Promise((_, reject) => {
+      if (signal?.aborted) return reject(new Error('Aborted'));
+      signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+    })),
+    stream: vi.fn((opts: { signal?: AbortSignal } = {}) => hangingStream(opts?.signal)),
     close: vi.fn(),
     healthCheck: vi.fn().mockResolvedValue(true),
     getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),

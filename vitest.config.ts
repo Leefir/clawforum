@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    poolOptions: {
+      threads: { maxThreads: 4 },
+    },
     testTimeout: 15000,     // 覆盖最长等待（2500ms 重试 + IO margin）
     hookTimeout: 10000,     // beforeEach/afterEach 文件系统操作留足时间
     coverage: {

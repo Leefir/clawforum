@@ -23,6 +23,7 @@ import { SkillRegistry } from '../../core/skill/registry.js';
 import { ContractManager } from '../../core/contract/manager.js';
 import { DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
 import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
+import type { Message } from '../../types/message.js';
 import { buildRetroPrompt } from '../../prompts/index.js';
 import { CronRunner, parseSchedule } from '../../core/cron/runner.js';
 import { runDiskMonitor } from '../../core/cron/jobs/disk-monitor.js';
@@ -294,6 +295,17 @@ export async function daemonCommand(name: string): Promise<void> {
             continue;
           }
 
+          // 读取 mode 和 miningTaskId（复用 raw 对象，需要重新解析）
+          let mode: string | undefined;
+          let miningTaskId: string | undefined;
+          try {
+            const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
+            mode = typeof raw.mode === 'string' ? raw.mode : undefined;
+            miningTaskId = typeof raw.miningTaskId === 'string' ? raw.miningTaskId : undefined;
+          } catch {
+            // best-effort：解析失败则使用 undefined
+          }
+
           // 加载契约 YAML 原始字符串
           if (!targetClaw) continue;  // 防御性检查，前面已验证
           const clawsBaseDir = path.resolve(dir, '..', 'claws');
@@ -326,6 +338,26 @@ export async function daemonCommand(name: string): Promise<void> {
           // 构建复盘 prompt
           const retroPrompt = buildRetroPrompt(targetClaw, contractId, contractYaml, skillsSummary);
 
+          // 如果是 mining 模式，加载完整对话上下文
+          let retroMessages: Message[] | undefined;
+          if (mode === 'mining' && miningTaskId) {
+            try {
+              const messagesPath = path.join(dir, 'tasks', 'results', miningTaskId, 'messages.json');
+              const raw = await fsAsync.readFile(messagesPath, 'utf-8');
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                // mining 消息末尾追加复盘启动消息，prompt 置空（SubAgent 优先用 messages）
+                retroMessages = [...parsed, { role: 'user', content: retroPrompt }];
+              }
+            } catch (e) {
+              const code = (e as NodeJS.ErrnoException).code;
+              if (code !== 'ENOENT') {
+                console.warn('[daemon] Failed to load mining task messages:', e instanceof Error ? e.message : String(e));
+              }
+              // best-effort：加载失败则退化为无上下文的 prompt 模式
+            }
+          }
+
           // 调度复盘子代理
           const taskSystem = runtime.getTaskSystem();
           try {
@@ -333,7 +365,8 @@ export async function daemonCommand(name: string): Promise<void> {
               taskSystem,
               streamWriter,
               {
-                prompt: retroPrompt,
+                prompt: retroMessages ? '' : retroPrompt,
+                messages: retroMessages,
                 tools: ['read', 'write', 'skill', 'exec'],
                 timeout: 600,
                 maxSteps: DEFAULT_MAX_STEPS,
