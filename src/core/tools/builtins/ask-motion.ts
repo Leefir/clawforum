@@ -1,6 +1,6 @@
 import type { ITool, ToolResult, ToolPermissions } from '../executor.js';
 import type { ILLMService } from '../../../foundation/llm/index.js';
-import type { Message } from '../../../types/message.js';
+import type { Message, ToolDefinition } from '../../../types/message.js';
 
 export class AskMotionTool implements ITool {
   readonly name = 'ask_motion';
@@ -26,27 +26,35 @@ export class AskMotionTool implements ITool {
 
   constructor(
     private readonly llm: ILLMService,
-    private readonly systemPrompt: string,
-    private readonly motionContext: Message[],  // motion 当前对话快照（只读）
+    private readonly getSystemPrompt: () => Promise<string>,
+    private readonly getToolsForLLM: () => ToolDefinition[],
+    private readonly motionContext: Message[],  // dispatch 时快照，保持不变
   ) {}
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
     const question = args.question as string;
-
     this.cloneHistory.push({ role: 'user', content: question });
 
     let answer: string;
     try {
+      const [systemPrompt, tools] = await Promise.all([
+        this.getSystemPrompt(),
+        Promise.resolve(this.getToolsForLLM()),
+      ]);
+
       const response = await this.llm.call({
-        system: this.systemPrompt,
+        system: systemPrompt,
         messages: [...this.motionContext, ...this.cloneHistory],
+        tools,
       });
-      answer = response.content
-        .filter(b => b.type === 'text')
-        .map(b => (b as { type: 'text'; text: string }).text)
-        .join('');
+
+      const textBlocks = response.content.filter(b => b.type === 'text');
+      if (textBlocks.length === 0) {
+        this.cloneHistory.pop();
+        return { success: false, content: 'Motion 分身未返回文本回答，请重新提问。' };
+      }
+      answer = textBlocks.map(b => (b as { type: 'text'; text: string }).text).join('');
     } catch (err) {
-      // 出错时从 history 移除刚追加的问题，避免 history 损坏
       this.cloneHistory.pop();
       return {
         success: false,
