@@ -121,14 +121,14 @@ export async function daemonCommand(name: string): Promise<void> {
         auditMaxSizeMb,
       } as ClawRuntimeOptions);
 
-  await runtime.initialize();
-  await runtime.resumeContractIfPaused();
-
   // git init（claw 首次启动时无 .git，motion init 已处理 motion 的情况）
   await initAgentGit(dir);
 
-  // recovery-snapshot：将上次中断遗留的 working tree 变更固化
+  // recovery-snapshot：将上次中断遗留的 working tree 变更固化（在 session repair 之前）
   await commitAgentDir(dir, 'recovery-snapshot');
+
+  await runtime.initialize();
+  await runtime.resumeContractIfPaused();
 
   // motion 专属：heartbeat（0 表示禁用）
   let heartbeat: Heartbeat | null = null;
