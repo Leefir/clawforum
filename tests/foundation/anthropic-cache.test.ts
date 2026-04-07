@@ -11,6 +11,46 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ToolDefinition } from '../../src/types/message.js';
 import { AnthropicAdapter } from '../../src/foundation/llm/anthropic.js';
 
+// Mock Anthropic SDK
+const mockMessagesCreate = vi.fn();
+const mockMessagesStream = vi.fn();
+
+// Helper to create async iterable from events
+function createMockSDKStream(events: unknown[]): AsyncIterable<unknown> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<unknown> {
+      let index = 0;
+      return {
+        next(): Promise<IteratorResult<unknown>> {
+          if (index < events.length) {
+            return Promise.resolve({ value: events[index++], done: false });
+          }
+          return Promise.resolve({ value: undefined, done: true });
+        },
+      };
+    },
+  };
+}
+
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class MockAnthropic {
+    messages = { 
+      create: mockMessagesCreate,
+      stream: mockMessagesStream,
+    };
+  },
+  APIError: class APIError extends Error {
+    status?: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+  RateLimitError: class RateLimitError extends Error {},
+  APIConnectionTimeoutError: class APIConnectionTimeoutError extends Error {},
+  APIUserAbortError: class APIUserAbortError extends Error {},
+}));
+
 // Helper to create a mock Response
 function createMockResponse(body: object, status = 200): Response {
   return {
@@ -54,6 +94,8 @@ describe('AnthropicAdapter cache_control', () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
+    mockMessagesCreate.mockClear();
+    mockMessagesStream.mockClear();
   });
 
   afterEach(() => {
@@ -62,9 +104,15 @@ describe('AnthropicAdapter cache_control', () => {
 
   describe('system prompt format', () => {
     it('should convert system to array with cache_control when provided', async () => {
-      fetchMock.mockResolvedValueOnce(
-        createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Hi' }]))
-      );
+      mockMessagesCreate.mockResolvedValue({
+        id: 'msg-test',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hi' }],
+        model: 'claude-3-sonnet',
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 100, output_tokens: 50 },
+      });
 
       const adapter = new AnthropicAdapter(config);
       await adapter.call({
@@ -72,23 +120,29 @@ describe('AnthropicAdapter cache_control', () => {
         system: 'You are a helpful assistant.',
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.system).toEqual([
         { type: 'text', text: 'You are a helpful assistant.', cache_control: { type: 'ephemeral' } },
       ]);
     });
 
     it('should not set system when not provided', async () => {
-      fetchMock.mockResolvedValueOnce(
-        createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Hi' }]))
-      );
+      mockMessagesCreate.mockResolvedValue({
+        id: 'msg-test',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hi' }],
+        model: 'claude-3-sonnet',
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 100, output_tokens: 50 },
+      });
 
       const adapter = new AnthropicAdapter(config);
       await adapter.call({
         messages: [{ role: 'user', content: 'Hello' }],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.system).toBeUndefined();
     });
   });
@@ -101,7 +155,7 @@ describe('AnthropicAdapter cache_control', () => {
     ];
 
     it('should add cache_control to last tool only', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'OK' }]))
       );
 
@@ -111,7 +165,7 @@ describe('AnthropicAdapter cache_control', () => {
         tools,
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.tools).toHaveLength(3);
       expect(requestBody.tools[0].cache_control).toBeUndefined();
       expect(requestBody.tools[1].cache_control).toBeUndefined();
@@ -119,7 +173,7 @@ describe('AnthropicAdapter cache_control', () => {
     });
 
     it('should add cache_control to single tool', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'OK' }]))
       );
 
@@ -129,13 +183,13 @@ describe('AnthropicAdapter cache_control', () => {
         tools: [tools[0]],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.tools).toHaveLength(1);
       expect(requestBody.tools[0].cache_control).toEqual({ type: 'ephemeral' });
     });
 
     it('should not set tools when empty', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'OK' }]))
       );
 
@@ -145,14 +199,14 @@ describe('AnthropicAdapter cache_control', () => {
         tools: [],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.tools).toBeUndefined();
     });
   });
 
   describe('formatMessages cache_control', () => {
     it('should add cache_control to last user message (string content)', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Hi' }]))
       );
 
@@ -161,7 +215,7 @@ describe('AnthropicAdapter cache_control', () => {
         messages: [{ role: 'user', content: 'Hello' }],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.messages[0].role).toBe('user');
       expect(requestBody.messages[0].content).toEqual([
         { type: 'text', text: 'Hello', cache_control: { type: 'ephemeral' } },
@@ -169,7 +223,7 @@ describe('AnthropicAdapter cache_control', () => {
     });
 
     it('should add cache_control to last user message (text-only array)', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Hi' }]))
       );
 
@@ -178,14 +232,14 @@ describe('AnthropicAdapter cache_control', () => {
         messages: [{ role: 'user', content: [{ type: 'text', text: 'hello world' }] }],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       expect(requestBody.messages[0].content).toEqual([
         { type: 'text', text: 'hello world', cache_control: { type: 'ephemeral' } },
       ]);
     });
 
     it('should add cache_control to last block of structured user message (tool_result)', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'OK' }]))
       );
 
@@ -198,7 +252,7 @@ describe('AnthropicAdapter cache_control', () => {
         ],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       // messages[0] is first user message, not the last
       expect(requestBody.messages[0].content).toBe('Query');
       // messages[2] is last user message with tool_result
@@ -211,7 +265,7 @@ describe('AnthropicAdapter cache_control', () => {
     });
 
     it('should add cache_control to first user when only user+assistant pair', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Reply' }]))
       );
 
@@ -223,7 +277,7 @@ describe('AnthropicAdapter cache_control', () => {
         ],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       // First user message gets cache_control (last user in list)
       expect(requestBody.messages[0].content).toEqual([
         { type: 'text', text: 'Question', cache_control: { type: 'ephemeral' } },
@@ -233,7 +287,7 @@ describe('AnthropicAdapter cache_control', () => {
     });
 
     it('should only add cache_control to last user message, not middle ones', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Reply' }]))
       );
 
@@ -246,7 +300,7 @@ describe('AnthropicAdapter cache_control', () => {
         ],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       // First user message: no cache_control (not last)
       expect(requestBody.messages[0].content).toBe('First');
       // Assistant: no cache_control
@@ -258,7 +312,7 @@ describe('AnthropicAdapter cache_control', () => {
     });
 
     it('should handle multiple messages with assistant at end', async () => {
-      fetchMock.mockResolvedValueOnce(
+      mockMessagesCreate.mockResolvedValue(
         createMockResponse(createAnthropicResponse([{ type: 'text', text: 'Final' }]))
       );
 
@@ -272,7 +326,7 @@ describe('AnthropicAdapter cache_control', () => {
         ],
       });
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesCreate.mock.calls[0][0];
       // First user is not last
       expect(requestBody.messages[0].content).toBe('Q1');
       // Last user is messages[2], gets cache_control
@@ -287,28 +341,12 @@ describe('AnthropicAdapter cache_control', () => {
 
   describe('stream() cache_control', () => {
     it('should apply same cache_control in stream mode', async () => {
-      const sseEvents = [
-        '{"type":"message_start","message":{"id":"msg-1","type":"message","role":"assistant","content":[],"model":"claude","stop_reason":null}}',
-        '{"type":"content_block_start","content_block":{"type":"text","text":"Hi"}}',
-        '{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}',
-        '{"type":"message_delta","usage":{"input_tokens":10,"output_tokens":2}}',
+      const streamEvents = [
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Hi' } },
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hi' } },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { input_tokens: 10, output_tokens: 2 } },
       ];
-      const sseText = sseEvents.map(e => `data: ${e}\n\n`).join('') + 'data: [DONE]\n\n';
-
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(sseText));
-          controller.close();
-        },
-      });
-
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: { get: () => null } as unknown as Headers,
-        body: stream,
-      } as Response);
+      mockMessagesStream.mockReturnValue(createMockSDKStream(streamEvents));
 
       const adapter = new AnthropicAdapter(config);
       const streamIterator = adapter.stream({
@@ -322,7 +360,7 @@ describe('AnthropicAdapter cache_control', () => {
         // Empty
       }
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const requestBody = mockMessagesStream.mock.calls[0][0];
       // System has cache_control
       expect(requestBody.system).toEqual([
         { type: 'text', text: 'System prompt', cache_control: { type: 'ephemeral' } },

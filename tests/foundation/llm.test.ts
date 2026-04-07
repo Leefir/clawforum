@@ -27,9 +27,31 @@ import {
 
 // Mock Anthropic SDK
 const mockMessagesCreate = vi.fn();
+const mockMessagesStream = vi.fn();
+
+// Helper to create async iterable from events
+function createMockSDKStream(events: unknown[]): AsyncIterable<unknown> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<unknown> {
+      let index = 0;
+      return {
+        next(): Promise<IteratorResult<unknown>> {
+          if (index < events.length) {
+            return Promise.resolve({ value: events[index++], done: false });
+          }
+          return Promise.resolve({ value: undefined, done: true });
+        },
+      };
+    },
+  };
+}
+
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class MockAnthropic {
-    messages = { create: mockMessagesCreate };
+    messages = { 
+      create: mockMessagesCreate,
+      stream: mockMessagesStream,
+    };
   },
   APIError: class APIError extends Error {
     status?: number;
@@ -607,22 +629,17 @@ describe('AnthropicAdapter.stream', () => {
   };
 
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn());
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    mockMessagesStream.mockClear();
   });
 
   it('should carry currentToolId/Name in tool_use_delta (C1 fix)', async () => {
-    const events = [
-      JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'tool-abc123', name: 'read' } }),
-      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"path":' } }),
-      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '"test.txt"}' } }),
-      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5 } }),
+    const streamEvents = [
+      { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'tool-abc123', name: 'read' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"path":' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '"test.txt"}' } },
+      { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5 } },
     ];
-
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+    mockMessagesStream.mockReturnValue(createMockSDKStream(streamEvents));
 
     const adapter = new AnthropicAdapter(config);
     const chunks: StreamChunk[] = [];
@@ -645,13 +662,12 @@ describe('AnthropicAdapter.stream', () => {
   });
 
   it('should emit text_delta chunks from text_delta events', async () => {
-    const events = [
-      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hello ' } }),
-      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'world' } }),
-      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} }),
+    const streamEvents = [
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hello ' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'world' } },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} },
     ];
-
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+    mockMessagesStream.mockReturnValue(createMockSDKStream(streamEvents));
 
     const adapter = new AnthropicAdapter(config);
     const chunks: StreamChunk[] = [];
@@ -666,12 +682,11 @@ describe('AnthropicAdapter.stream', () => {
   });
 
   it('should emit thinking_delta chunks from thinking_delta events', async () => {
-    const events = [
-      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'I should think...' } }),
-      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} }),
+    const streamEvents = [
+      { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'I should think...' } },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} },
     ];
-
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+    mockMessagesStream.mockReturnValue(createMockSDKStream(streamEvents));
 
     const adapter = new AnthropicAdapter(config);
     const chunks: StreamChunk[] = [];
@@ -684,33 +699,11 @@ describe('AnthropicAdapter.stream', () => {
     expect(thinkingDeltas[0].delta).toBe('I should think...');
   });
 
-  it('should skip malformed SSE JSON without throwing', async () => {
-    const events = [
-      'NOT_VALID_JSON{{{',
-      JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'OK' } }),
-      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} }),
-    ];
-
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
-
-    const adapter = new AnthropicAdapter(config);
-    const chunks: StreamChunk[] = [];
-    // Should not throw despite malformed JSON
-    for await (const chunk of adapter.stream({ messages: [{ role: 'user', content: 'hi' }] })) {
-      chunks.push(chunk);
-    }
-
-    const textDeltas = chunks.filter(c => c.type === 'text_delta');
-    expect(textDeltas).toHaveLength(1); // malformed event skipped, valid event processed
-    expect(textDeltas[0].delta).toBe('OK');
-  });
-
   it('should emit done chunk with usage from message_delta', async () => {
-    const events = [
-      JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 42 } }),
+    const streamEvents = [
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 42 } },
     ];
-
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createSSEStreamResponse(events)));
+    mockMessagesStream.mockReturnValue(createMockSDKStream(streamEvents));
 
     const adapter = new AnthropicAdapter(config);
     const chunks: StreamChunk[] = [];
