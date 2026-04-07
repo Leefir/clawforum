@@ -23,7 +23,7 @@ export class AuditWriter {
   private rotateIfNeeded(): void {
     try {
       if (statSync(this.path).size >= this.maxBytes!) {
-        renameSync(this.path, this.path.replace('.tsv', `.${Date.now()}.tsv`));
+        renameSync(this.path, `${this.path}.${Date.now()}.bak`);
       }
     } catch { /* ignore：文件不存在（首次写入）或 stat 失败，均跳过 rotation */ }
   }
