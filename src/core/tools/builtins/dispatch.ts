@@ -6,6 +6,7 @@ import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import { buildDispatcherUserMessage, buildMiningUserMessage } from '../../../prompts/index.js';
 import { AskMotionTool } from './ask-motion.js';
+import { isDispatchCaller } from '../caller-type.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
@@ -60,7 +61,7 @@ dispatcher 不能：
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     // 防止递归：dispatcher 不能再调 dispatch
-    if (ctx.callerType === 'dispatcher' || ctx.callerType === 'describer' || ctx.callerType === 'miner') {
+    if (isDispatchCaller(ctx.callerType)) {
       return { success: false, content: 'Dispatcher cannot call dispatch (recursion not allowed).' };
     }
 
@@ -99,7 +100,7 @@ dispatcher 不能：
     let removeHandler: (() => void) | null = null;
 
     removeHandler = taskSystem.addTaskResultHandler(async (taskId, resultCallerType, result, isError) => {
-      if ((resultCallerType === 'dispatcher' || resultCallerType === 'describer' || resultCallerType === 'miner') && taskId === dispatcherTaskId) {
+      if (isDispatchCaller(resultCallerType) && taskId === dispatcherTaskId) {
         removeHandler?.();
         if (isError) return result;
 

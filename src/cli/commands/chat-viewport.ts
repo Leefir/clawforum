@@ -12,6 +12,7 @@ import { getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
 import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
 import { OUTPUT_LINES_CAP } from '../../constants.js';
+import type { CallerType } from '../../core/tools/caller-type.js';
 
 export interface ChatViewportOptions {
   agentDir: string;   // motion dir 或 claw dir
@@ -479,7 +480,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // Task stream watching (for dispatch/spawn subagent progress)
   interface TaskWatch {
-    callerType: 'dispatcher' | 'subagent';
+    callerType: CallerType;
     silent: boolean;
     fileSize: number;
     leftover: string;

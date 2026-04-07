@@ -16,6 +16,7 @@ import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { Message } from '../../types/message.js';
 import type { ContractManager } from '../contract/manager.js';
+import type { CallerType } from './caller-type.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import type { StreamSink } from '../../foundation/recording/context.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
@@ -125,7 +126,7 @@ export interface ExecContext {
   clawDir: string;
   contractId?: string;
   /** Caller type for spawn recursion prevention */
-  callerType: 'claw' | 'subagent' | 'dispatcher' | 'describer' | 'miner';
+  callerType: CallerType;
   fs: IFileSystem;
   llm?: ILLMService;
   monitor?: Logger;
@@ -452,7 +453,7 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: string; maxSteps?: number; signal?: AbortSignal; callerType?: 'claw' | 'subagent' | 'dispatcher' | 'describer' | 'miner'; originClawId?: string }
+    options: { clawId: string; maxSteps?: number; signal?: AbortSignal; callerType?: CallerType; originClawId?: string }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,

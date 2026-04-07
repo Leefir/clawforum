@@ -22,6 +22,7 @@ import type { OutboxWriter } from '../communication/outbox.js';
 import type { Message } from '../../types/message.js';
 import type { StreamSink } from '../../foundation/recording/context.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
+import type { CallerType } from './caller-type.js';
 
 /**
  * Options for creating execution context
@@ -37,7 +38,7 @@ export interface ExecContextImplOptions {
   profile: ToolProfile;
   
   /** Caller type for spawn recursion prevention */
-  callerType?: 'claw' | 'subagent' | 'dispatcher' | 'describer' | 'miner';
+  callerType?: CallerType;
   
   /** File system instance */
   fs: IFileSystem;
@@ -87,7 +88,7 @@ export class ExecContextImpl implements ExecContext {
   clawId: string;
   clawDir: string;
   profile: ToolProfile;
-  callerType: 'claw' | 'subagent' | 'dispatcher' | 'describer' | 'miner';
+  callerType: CallerType;
   permissions: ToolPermissions;
   fs: IFileSystem;
   monitor?: Logger;

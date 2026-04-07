@@ -6,6 +6,7 @@
  */
 
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import { isDispatchCaller } from '../caller-type.js';
 import type { TaskSystem } from '../../task/system.js';
 import type { StreamSink } from '../../../foundation/recording/context.js';
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
@@ -114,7 +115,7 @@ export const spawnTool: ITool = {
         error: 'Spawn recursion prevented',
       };
     }
-    if (ctx.callerType === 'dispatcher') {
+    if (isDispatchCaller(ctx.callerType)) {
       return {
         success: false,
         content: 'Dispatcher 不能直接 spawn。请在最终回复中说明需要 spawn 的 prompt，由 Motion 来执行。',

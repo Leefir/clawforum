@@ -22,6 +22,8 @@ import type { SkillRegistry } from '../skill/registry.js';
 import type { Message } from '../../types/message.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
 import type { StreamSink } from '../../foundation/recording/context.js';
+import type { CallerType } from '../tools/caller-type.js';
+import { isDispatchCaller } from '../tools/caller-type.js';
 
 export interface SubAgentOptions {
   agentId: string;
@@ -38,7 +40,7 @@ export interface SubAgentOptions {
   idleTimeoutMs?: number;
   onIdleTimeout?: () => void;
   systemPrompt?: string;                    // 替换 run() 里硬编码的默认 system prompt
-  callerType?: 'subagent' | 'dispatcher' | 'describer' | 'miner';  // 默认 'subagent'
+  callerType?: CallerType;  // 默认 'subagent'
   taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
@@ -66,7 +68,7 @@ export class SubAgent {
   private idleTimeoutMs?: number;
   private onIdleTimeout?: () => void;
   private systemPrompt?: string;
-  private callerType?: 'subagent' | 'dispatcher' | 'describer' | 'miner';
+  private callerType?: CallerType;
   private taskSystem?: TaskSystem;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
@@ -151,7 +153,7 @@ export class SubAgent {
     try {
       // Initialize executor with appropriate profile (spawn disabled for subagent, enabled for dispatcher)
       const callerType = this.callerType ?? 'subagent';
-      const executorProfile = callerType === 'dispatcher' ? 'full' : 'subagent';
+      const executorProfile = isDispatchCaller(callerType) ? 'full' : 'subagent';
       const executor = new ToolExecutor({
         registry: this.registry,
         clawDir: this.clawDir,
