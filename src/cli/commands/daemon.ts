@@ -353,7 +353,10 @@ export async function daemonCommand(name: string): Promise<void> {
               }
             } catch (e) {
               const code = (e as NodeJS.ErrnoException).code;
-              if (code !== 'ENOENT') {
+              if (code === 'ENOENT') {
+                // mining 模式下 messages.json 应由 miner 写入，ENOENT 说明 miner 未正常完成持久化
+                console.warn('[daemon] Mining task messages not found, retro will run without mining context:', miningTaskId);
+              } else {
                 console.warn('[daemon] Failed to load mining task messages:', e instanceof Error ? e.message : String(e));
               }
               // best-effort：加载失败退化为空上下文，retro 照常运行
