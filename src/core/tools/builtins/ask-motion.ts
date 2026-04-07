@@ -59,7 +59,12 @@ export class AskMotionTool implements ITool {
         this.cloneHistory.pop();
         return { success: false, content: 'Motion 分身未返回文本回答，请重新提问。' };
       }
-      answer = textBlocks.map(b => (b as { type: 'text'; text: string }).text).join('');
+      const texts = textBlocks.map(b => (b as { type: 'text'; text?: string }).text ?? '');
+      if (texts.every(t => t === '')) {
+        this.cloneHistory.pop();
+        return { success: false, content: 'Motion 分身未返回文本内容，请重新提问。' };
+      }
+      answer = texts.join('');
     } catch (err) {
       this.cloneHistory.pop();
       return {
