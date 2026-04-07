@@ -65,7 +65,8 @@ export async function daemonCommand(name: string): Promise<void> {
         const lockPid = parseInt(fsNative.readFileSync(lockFile, 'utf-8').trim(), 10);
         process.kill(lockPid, 0); // 存活
         throw new CliError(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
-      } catch {
+      } catch (killErr: any) {
+        if (killErr instanceof CliError) throw killErr;
         // 持有者已死，删除 stale lock 并重试（ENOENT = 已被别人删，同样继续）
         try { fsNative.unlinkSync(lockFile); } catch (e: any) {
           if (e.code !== 'ENOENT') throw e;
