@@ -273,6 +273,7 @@ export class LLMService implements ILLMService {
       // Check circuit breaker
       const breaker = this.breakers[breakerIndex];
       if (breaker?.isOpen()) {
+        failures.push({ provider: adapter.name, error: new Error('Circuit breaker open') });
         continue; // Skip if breaker open
       }
 
