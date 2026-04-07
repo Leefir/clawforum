@@ -16,7 +16,7 @@ import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_CONCURRENT_TASKS } from '../..
 import { ToolRegistry } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
-import type { ToolResult } from '../tools/executor.js';
+import type { ToolResult, ITool } from '../tools/executor.js';
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../communication/outbox.js';
 import type { ContractManager } from '../contract/manager.js';
@@ -38,6 +38,7 @@ export interface SubAgentTask {
   messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
   toolsForLLM?: ToolDefinition[];          // 若提供，直接用；否则从 registry 计算
+  extraTools?: ITool[];                    // per-task 额外工具，不污染全局 registry
 }
 
 export interface ToolTask {
@@ -541,12 +542,22 @@ export class TaskSystem {
         ? task.toolsForLLM
         : this.registry.formatForLLM(allowedTools);
 
+      // Merge registry with extraTools if provided
+      const effectiveRegistry = task.extraTools?.length
+        ? (() => {
+            const r = new ToolRegistry();
+            for (const t of this.registry.getAll()) r.register(t);
+            for (const t of task.extraTools!) r.register(t);
+            return r;
+          })()
+        : this.registry;
+
       const subAgent = new SubAgent({
         agentId: task.id,
         prompt: task.prompt,
         clawDir: this.clawDir,
         llm: this.llm,
-        registry: this.registry,
+        registry: effectiveRegistry,
         fs: this.fs,
         monitor: this.monitor,
         maxSteps: task.maxSteps,
