@@ -353,7 +353,7 @@ describe('LLM Service', () => {
       name: 'primary',
       apiKey: 'primary-key',
       baseUrl: 'https://api.anthropic.com',
-      model: 'model-1',
+      model: 'claude-3-test',
       maxTokens: 4096,
       temperature: 0.7,
       timeoutMs: 30000,
@@ -364,7 +364,7 @@ describe('LLM Service', () => {
       name: 'fallback',
       apiKey: 'fallback-key',
       baseUrl: 'https://api.anthropic.com',
-      model: 'model-2',
+      model: 'claude-3-fallback',
       maxTokens: 4096,
       temperature: 0.7,
       timeoutMs: 30000,
@@ -386,7 +386,7 @@ describe('LLM Service', () => {
         type: 'message',
         role: 'assistant',
         content: [{ type: 'text', text: 'Primary response' }],
-        model: 'model-1',
+        model: 'claude-3-test',
         stop_reason: 'end_turn',
         usage: { input_tokens: 10, output_tokens: 5 },
       });
@@ -414,7 +414,7 @@ describe('LLM Service', () => {
           type: 'message',
           role: 'assistant',
           content: [{ type: 'text', text: 'Fallback response' }],
-          model: 'model-2',
+          model: 'claude-3-fallback',
           stop_reason: 'end_turn',
           usage: { input_tokens: 10, output_tokens: 5 },
         });
@@ -459,7 +459,7 @@ describe('LLM Service', () => {
           type: 'message',
           role: 'assistant',
           content: [{ type: 'text', text: 'Success' }],
-          model: 'model-1',
+          model: 'claude-3-test',
           stop_reason: 'end_turn',
           usage: { input_tokens: 10, output_tokens: 5 },
         });
@@ -488,7 +488,7 @@ describe('LLM Service', () => {
           type: 'message',
           role: 'assistant',
           content: [{ type: 'text', text: 'Fallback' }],
-          model: 'model-2',
+          model: 'claude-3-fallback',
           stop_reason: 'end_turn',
           usage: { input_tokens: 10, output_tokens: 5 },
         })
@@ -498,7 +498,7 @@ describe('LLM Service', () => {
           type: 'message',
           role: 'assistant',
           content: [{ type: 'text', text: 'Primary OK' }],
-          model: 'model-1',
+          model: 'claude-3-test',
           stop_reason: 'end_turn',
           usage: { input_tokens: 10, output_tokens: 5 },
         });
@@ -536,7 +536,7 @@ describe('LLM Service', () => {
           type: 'message',
           role: 'assistant',
           content: [{ type: 'text', text: 'Success' }],
-          model: 'model-1',
+          model: 'claude-3-test',
           stop_reason: 'end_turn',
           usage: { input_tokens: 10, output_tokens: 5 },
         });
@@ -578,7 +578,7 @@ describe('LLM Service', () => {
 
       const info = service.getProviderInfo();
       expect(info.name).toBe('primary');
-      expect(info.model).toBe('model-1');
+      expect(info.model).toBe('claude-3-test');
       expect(info.isFallback).toBe(false);
     });
 
@@ -588,7 +588,7 @@ describe('LLM Service', () => {
         type: 'message',
         role: 'assistant',
         content: [{ type: 'text', text: 'OK' }],
-        model: 'model-1',
+        model: 'claude-3-test',
         stop_reason: 'end_turn',
         usage: { input_tokens: 10, output_tokens: 5 },
       });

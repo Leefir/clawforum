@@ -99,6 +99,15 @@ export const PRESETS: Record<string, ProviderPreset> = {
     defaultModel: 'openai/gpt-4o',
     envVar: 'OPENROUTER_API_KEY',
   },
+  'openrouter-anthropic': {
+    id: 'openrouter-anthropic',
+    displayName: 'OpenRouter (Anthropic format)',
+    apiFormat: 'anthropic',
+    authMethod: 'api_key',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'anthropic/claude-sonnet-4-5',
+    envVar: 'OPENROUTER_API_KEY',
+  },
   'qwen-coder': {
     id: 'qwen-coder',
     displayName: 'Qwen Coder (Alibaba)',
