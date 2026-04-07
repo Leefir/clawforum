@@ -277,33 +277,36 @@ export async function daemonCommand(name: string): Promise<void> {
             dir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`,
           );
           let targetClaw: string | null = null;
+          let mode: string | undefined;
+          let miningTaskId: string | undefined;
           try {
-            const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
-            const rawTarget = typeof raw === 'object' && raw !== null && typeof raw.targetClaw === 'string'
-              ? raw.targetClaw
-              : null;
+            const fileContent = await fsAsync.readFile(byContractPath, 'utf-8');
+            let raw: unknown;
+            try {
+              raw = JSON.parse(fileContent);
+            } catch {
+              console.warn('[daemon] by-contract index is not valid JSON, skipping retrospective:', contractId);
+              continue;
+            }
+            if (typeof raw !== 'object' || raw === null) {
+              console.warn('[daemon] by-contract index has unexpected format, skipping retrospective:', contractId);
+              continue;
+            }
+            const r = raw as Record<string, unknown>;
+            const rawTarget = typeof r.targetClaw === 'string' ? r.targetClaw : null;
             if (!rawTarget || !/^[a-z0-9-]+$/.test(rawTarget)) {
               console.warn('[daemon] by-contract index has invalid targetClaw, skipping retrospective:', contractId, rawTarget);
               continue;
             }
             targetClaw = rawTarget;
+            mode = typeof r.mode === 'string' ? r.mode : undefined;
+            miningTaskId = typeof r.miningTaskId === 'string' ? r.miningTaskId : undefined;
           } catch (e) {
             const code = (e as NodeJS.ErrnoException).code;
             if (code !== 'ENOENT') {
               console.warn('[daemon] Failed to read by-contract index, skipping retrospective:', contractId, e instanceof Error ? e.message : String(e));
             }
             continue;
-          }
-
-          // 读取 mode 和 miningTaskId（复用 raw 对象，需要重新解析）
-          let mode: string | undefined;
-          let miningTaskId: string | undefined;
-          try {
-            const raw = JSON.parse(await fsAsync.readFile(byContractPath, 'utf-8'));
-            mode = typeof raw.mode === 'string' ? raw.mode : undefined;
-            miningTaskId = typeof raw.miningTaskId === 'string' ? raw.miningTaskId : undefined;
-          } catch {
-            // best-effort：解析失败则使用 undefined
           }
 
           // 加载契约 YAML 原始字符串
