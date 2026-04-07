@@ -1,6 +1,7 @@
 import type { ITool, ToolResult, ToolPermissions } from '../executor.js';
 import type { ILLMService } from '../../../foundation/llm/index.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
+import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
 
 export class AskMotionTool implements ITool {
   readonly name = 'ask_motion';
@@ -35,7 +36,7 @@ export class AskMotionTool implements ITool {
     const question = args.question as string;
     const isFirstCall = this.cloneHistory.length === 0;
     const userContent = isFirstCall
-      ? `你是 Motion 的分身，由 dispatch 在意图挖掘阶段创建。你只负责回答问题，不能调用任何工具。请基于 Motion 的系统提示与对话上下文作答，协助完成契约创建。\n\n---\n\n${question}`
+      ? buildAskMotionCloneFirstMessage(question)
       : question;
     this.cloneHistory.push({ role: 'user', content: userContent });
 

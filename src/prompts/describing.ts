@@ -1,16 +1,16 @@
 /**
- * Dispatcher User Message Builder
+ * Describing User Message Builder
  * 
- * Builds the user message for dispatcher subagent.
+ * Builds the user message for describing subagent (direct contract creation mode).
  */
 
-export function buildDispatcherUserMessage(
+export function buildDescribingUserMessage(
   goal: string,
   skillsSummary?: string,
   targetClaw?: string,
 ): string {
   let userMessage = `---
-你是由 Motion 通过 \`dispatch\` 启动的 Dispatcher，以上为 Motion 的对话历史。对话历史仅供参考背景，本次任务为独立任务，你不在这个会话中。
+你是由 Motion 通过 \`dispatch\` 启动的 Describing 子代理（直接进入契约创建模式），以上为 Motion 的对话历史。对话历史仅供参考背景，本次任务为独立任务，你不在这个会话中。
 - 你的任务：完成契约创建（写文件 + 提交），任务完成后在最终回复末尾输出结果标记
 - 不能再调用 \`dispatch\`（递归防护）
 - 不能调用 \`spawn\`（会报错）

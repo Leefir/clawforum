@@ -4,27 +4,25 @@ import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
-import { buildDispatcherUserMessage, buildMiningUserMessage } from '../../../prompts/index.js';
+import { buildDescribingUserMessage, buildMiningUserMessage } from '../../../prompts/index.js';
 import { AskMotionTool } from './ask-motion.js';
 import { isDispatchCaller } from '../caller-type.js';
 
 export class DispatchTool implements ITool {
   readonly name = 'dispatch';
-  readonly description = `创建一个 Dispatcher 作为 Motion 的分身，继承 Motion 的上下文（system prompt + tool registration + messages)，根据上下文用户意图决定将任务派发给哪个claw，并匹配dispatch-skills。
+  readonly description = `派发任务，创建契约。支持两种模式：
 
-dispatcher 可以：
-- 决定目标 claw（新建或复用），并通过 exec 调用 CLI 安装所需技能
-- 在最终回复输出 [CONTRACT_DONE] 块，供系统解析契约创建结果
-- 通过 exec 调用 CLI 执行其他系统操作
-- 直接使用工具完成独立任务
+**mining（默认）**：创建意图挖掘子代理，通过与 Motion 分身多轮问答澄清用户意图，再由子代理完成契约创建。适合意图模糊或需确认优先级、目标 claw 的场景。
 
-dispatcher 不能：
-- 直接调用 spawn 工具（会报错）
-- 直接调用 dispatch 工具（递归防护）
+**describing**：直接创建子代理完成契约创建，子代理继承 Motion 的完整上下文。适合意图明确、无需额外澄清的场景。
+
+两种模式均不能：
+- 调用 spawn 工具（会报错）
+- 递归调用 dispatch 工具
 
 优先用 dispatch 的场景：
 - 任务需要给 claw 创建契约
-- 任务可能匹配已有 dispatch-skills 
+- 任务可能匹配已有 dispatch-skills
 
 已知确切 prompt 的一次性任务，Motion 直接用 spawn 即可。`;
 
@@ -41,14 +39,14 @@ dispatcher 不能：
     type: 'object',
     properties: {
       goal:     { type: 'string', description: '本次目标：用户这次想完成什么（Motion 对用户意图的目标描述，不含 claw 名称）' },
-      maxSteps: { type: 'number', description: 'dispatcher 最大步数（默认继承主循环 max_steps）' },
+      maxSteps: { type: 'number', description: '子代理最大步数（默认继承主循环 max_steps）' },
       idleTimeoutMs: {
         type: 'number',
-        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止 dispatcher。默认 60000ms（可通过 .clawforum/config.yaml 的 motion.llm_idle_timeout_ms 配置）。',
+        description: 'LLM 静默超时阈值（ms）。超过此时间无 LLM 输出则终止子代理。默认 60000ms。',
       },
       targetClaw: {
         type: 'string',
-        description: '目标 claw id（kebab-case）。仅当用户明确指定了目标 claw 时填写，否则省略——claw 选择由 dispatcher 决定。若用户要求新建特定名称的 claw，请先创建 claw 再调用 dispatch。',
+        description: '目标 claw id（kebab-case）。仅当用户明确指定了目标 claw 时填写，否则省略——claw 选择由子代理决定。若用户要求新建特定名称的 claw，请先创建再调用 dispatch。',
       },
       mode: {
         type: 'string',
@@ -89,7 +87,7 @@ dispatcher 不能：
     // 根据模式构建用户消息
     const userMessage = isMining
       ? buildMiningUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined)
-      : buildDispatcherUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined);
+      : buildDescribingUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined);
     const taskSystem = ctx.taskSystem;
     if (!taskSystem) {
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
