@@ -23,12 +23,8 @@ import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS } from '../../constants.
 import { BaseAnthropicAdapter, type AnthropicRequestBody } from './base-anthropic.js';
 
 /**
- * Anthropic API request body
- */
-interface AnthropicRequest extends AnthropicRequestBody {}
-
-/**
  * Anthropic adapter implementation using official SDK
+ * Works for native api.anthropic.com and proxies (e.g., OpenRouter).
  */
 export class AnthropicAdapter extends BaseAnthropicAdapter {
   readonly name: string;
@@ -55,7 +51,7 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
    * Build request body for Anthropic API
    * Extends base body with thinking support
    */
-  private buildRequestBody(options: LLMCallOptions): AnthropicRequest {
+  private buildRequestBody(options: LLMCallOptions): AnthropicRequestBody {
     const body = this.buildBaseRequestBody(options);
 
     // Extended thinking (requires no temperature)
