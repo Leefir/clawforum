@@ -92,7 +92,7 @@ export async function createCommand(name: string): Promise<void> {
   const agentsTemplate = buildAgentsMdTemplate(name);
   fs.writeFileSync(agentsMdPath, agentsTemplate);
   
-  console.log(`✓ Created Claw "${name}"`);
+  console.log(`Created Claw "${name}"`);
   console.log(`  Location: ${clawDir}`);
   console.log(`\nNext step: clawforum claw chat ${name}`);
 }

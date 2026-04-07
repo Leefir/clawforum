@@ -12,6 +12,22 @@
 
 ---
 
+## Table of Contents
+
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Highlights](#highlights)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [LLM Providers](#llm-providers)
+- [Commands](#commands)
+- [Configuration](#configuration)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
+
+---
+
 ## Features
 
 - **Contracts with automatic acceptance** — every subtask has explicit pass/fail criteria (script or LLM). Claws redo failing work before it counts as done.
@@ -75,7 +91,7 @@ pnpm install && pnpm build
 npm link
 ```
 
-**Requires**: Node.js ≥ 22
+**Requires**: Node.js ≥ 22, [pnpm](docs/install-pnpm.md)
 
 ---
 

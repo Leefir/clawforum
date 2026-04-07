@@ -88,7 +88,7 @@ export class ClawRuntime {
 
   // Foundation
   /**
-   * @protected allows subclasses such as MotionRuntime to read system files (SOUL.md, REVIEW.md, etc.)
+   * @protected allows subclasses such as MotionRuntime to read system files (SOUL.md, etc.)
    * Note: subclasses should not write directly; preserve runtime encapsulation
    */
   protected systemFs!: NodeFileSystem;  // used by system components (no permission check)

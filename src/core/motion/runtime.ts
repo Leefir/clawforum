@@ -3,7 +3,7 @@
  *
  * Motion is the manager of Clawforum. It manages other Claws via CLI calls through exec.
  * The system prompt injection order differs from regular Claws:
- * AGENTS.md → USER.md → IDENTITY.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
+ * AGENTS.md → USER.md → IDENTITY.md → SOUL.md → MEMORY.md → skills → contract
  *
  * Note: HEARTBEAT.md is not included in the system prompt; it is injected only via inbox message when a heartbeat fires.
  */
@@ -19,7 +19,7 @@ export interface MotionRuntimeOptions extends ClawRuntimeOptions {}
  * MotionRuntime - manager runtime
  *
  * Characteristics:
- * - System prompt injection order includes SOUL.md and REVIEW.md
+ * - System prompt injection order includes SOUL.md
  * - Uses the same toolset as other Claws (exec is the core tool)
  * - No dedicated tools; manages other Claws via CLI through exec
  */
@@ -30,7 +30,7 @@ export class MotionRuntime extends ClawRuntime {
 
   /**
    * 构建系统提示词
-   * 注入顺序：AGENTS.md → USER.md → IDENTITY.md → SOUL.md → REVIEW.md → MEMORY.md → skills → contract
+   * 注入顺序：AGENTS.md → USER.md → IDENTITY.md → SOUL.md → MEMORY.md → skills → contract
    *
    * 注：HEARTBEAT.md 只在心跳触发时通过 inbox 消息注入，不在 system prompt 中
    */
@@ -73,17 +73,7 @@ export class MotionRuntime extends ClawRuntime {
       // SOUL.md 不存在，跳过
     }
 
-    // 3. REVIEW.md（复盘指引）
-    try {
-      const review = (await this.systemFs.read('REVIEW.md')).trim();
-      if (review) {
-        sections.push(review);
-      }
-    } catch {
-      // REVIEW.md 不存在，跳过
-    }
-
-    // 7. MEMORY.md（持久记忆）
+    // 5. MEMORY.md（持久记忆）
     if (parts.memory) {
       sections.push(parts.memory);
     }

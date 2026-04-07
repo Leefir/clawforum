@@ -37,7 +37,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Template file names (supports both build artifacts and source directory)
-const TEMPLATE_FILES = ['AGENTS.md', 'SOUL.md', 'AUTH_POLICY.md', 'HEARTBEAT.md', 'REVIEW.md'];
+const TEMPLATE_FILES = ['AGENTS.md', 'SOUL.md', 'AUTH_POLICY.md', 'HEARTBEAT.md'];
 
 /**
  * Read template file content (falls back from build artifacts to source directory)
