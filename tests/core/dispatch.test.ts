@@ -104,7 +104,7 @@ Content.
   });
 
   describe('dialogMessages', () => {
-    it('should include dialogMessages in dispatcherMessages when ctx.dialogMessages is set', async () => {
+    it('should include dialogMessages in dispatcherMessages when ctx.dialogMessages is set (describing mode)', async () => {
       const dialogMessages: Message[] = [
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi there' },
@@ -112,20 +112,19 @@ Content.
       const mockSchedule = vi.fn().mockResolvedValue('task-dialog');
       const ctx = makeCtx('claw', mockSchedule, { dialogMessages });
 
-      await tool.execute({ goal: 'follow up' }, ctx);
+      await tool.execute({ goal: 'follow up', mode: 'describing' }, ctx);
 
       expect(mockSchedule).toHaveBeenCalled();
       const call = mockSchedule.mock.calls[0][0];
-      // messages contains only dialog history; userMessage is passed separately via prompt
+      // describing 模式继承 dialog history
       expect(call.messages).toBeDefined();
       expect(call.messages.length).toBe(2);
       expect(call.messages[0]).toEqual({ role: 'user', content: 'Hello' });
       expect(call.messages[1]).toEqual({ role: 'assistant', content: 'Hi there' });
-      // userMessage is in prompt field, SubAgent appends it to messages before LLM call
       expect(call.prompt).toContain('follow up');
     });
 
-    it('should send only task prompt when ctx.dialogMessages is undefined', async () => {
+    it('should send single user message when ctx.dialogMessages is undefined (mining mode)', async () => {
       const mockSchedule = vi.fn().mockResolvedValue('task-single');
       const ctx = makeCtx('claw', mockSchedule);
 
