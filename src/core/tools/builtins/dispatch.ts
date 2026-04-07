@@ -92,6 +92,9 @@ export class DispatchTool implements ITool {
     if (!taskSystem) {
       return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
     }
+    if (isMining && !ctx.llm) {
+      return { success: false, content: 'Mining mode requires LLM service, but none is available.' };
+    }
 
     // 注册钩子（在 scheduleSubAgent 之前，但用 taskId 定向确保正确性）
     let dispatcherTaskId: string | null = null;
@@ -99,7 +102,7 @@ export class DispatchTool implements ITool {
 
     removeHandler = taskSystem.addTaskResultHandler(async (taskId, resultCallerType, result, isError) => {
       if (isDispatchCaller(resultCallerType) && taskId === dispatcherTaskId) {
-        removeHandler?.();
+        removeHandler?.();  // 任务完成一次后即注销，防止重复处理
         if (isError) return result;
 
         const blockMatch = result.match(/\[CONTRACT_DONE\]\s*(\{[\s\S]*?\})\s*\[\/CONTRACT_DONE\]/);
@@ -241,7 +244,7 @@ export class DispatchTool implements ITool {
           : undefined,
       });
     } catch (e) {
-      removeHandler?.();
+      removeHandler?.();  // scheduleSubAgent 失败，任务未创建，注销未使用的 handler
       throw e;
     }
 

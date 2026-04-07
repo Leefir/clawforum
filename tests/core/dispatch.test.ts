@@ -48,6 +48,7 @@ describe('DispatchTool', () => {
       profile: 'full',
       callerType,
       fs: mockFs,
+      llm: {} as any,  // mining 模式需要 llm
       taskSystem: taskSystem as any,
       originClawId: options?.originClawId,
       dialogMessages: options?.dialogMessages,
@@ -195,6 +196,7 @@ Content.
         profile: 'full',
         callerType: 'claw',
         fs: mockFs,
+        llm: {} as any,  // mining 模式需要 llm
         taskSystem: taskSystem as any,
         monitor: { log: monitorLog } as any,
       });
