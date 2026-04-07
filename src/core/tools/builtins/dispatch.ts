@@ -4,7 +4,7 @@ import type { Message, ToolDefinition } from '../../../types/message.js';
 import { SkillRegistry } from '../../skill/registry.js';
 import { ToolRegistry } from '../registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
-import { buildDescribingUserMessage, buildMiningUserMessage } from '../../../prompts/index.js';
+import { buildDescribingUserMessage, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { AskMotionTool } from './ask-motion.js';
 import { isDispatchCaller } from '../caller-type.js';
 
@@ -163,8 +163,10 @@ export class DispatchTool implements ITool {
     });
 
     // 异步调度 dispatcher（后台运行，结果通过 inbox 送回）
-    // system prompt 保持与 Motion 完全一致，确保 KV cache 命中
-    const systemPrompt = await this.getSystemPrompt();
+    // miner 使用独立系统提示；describer 复用 Motion 系统提示确保 KV cache 命中
+    const systemPrompt = isMining
+      ? buildMinerSystemPrompt()
+      : await this.getSystemPrompt();
     const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
       ? args.idleTimeoutMs
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
@@ -221,8 +223,10 @@ export class DispatchTool implements ITool {
     try {
       dispatcherTaskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
-        messages: dispatcherMessages,           // 完整对话上下文（含注入的合并 user message）
-        prompt: dispatchToolUseId ? '' : userMessage,  // 已注入则留空，否则 fallback
+        messages: isMining
+          ? [{ role: 'user' as const, content: userMessage }]  // miner 从空白开始，历史通过 AskMotionTool 查询
+          : dispatcherMessages,                                 // describer 含完整对话上下文
+        prompt: (!isMining && !dispatchToolUseId) ? userMessage : '',  // describing 模式未注入时 fallback
         tools: [],                     // 空 = 使用 registry 全部工具
         timeout: 3600,                 // 总超时 1 小时
         maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,

@@ -43,6 +43,7 @@
     "js-yaml": "^4.1.0",
     "react": "^18.3.1",
     "string-width": "^8.2.0",
+    "undici": "^8.0.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {

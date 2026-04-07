@@ -132,10 +132,12 @@ Content.
 
       expect(mockSchedule).toHaveBeenCalled();
       const call = mockSchedule.mock.calls[0][0];
-      // no dialog history, messages is empty; userMessage is in prompt
+      // mining mode: single user message with goal, no conversation history
       expect(call.messages).toBeDefined();
-      expect(call.messages.length).toBe(0);
-      expect(call.prompt).toContain('standalone task');
+      expect(call.messages.length).toBe(1);
+      expect(call.messages[0].role).toBe('user');
+      expect(call.messages[0].content).toContain('standalone task');
+      expect(call.prompt).toBe('');
     });
   });
 
