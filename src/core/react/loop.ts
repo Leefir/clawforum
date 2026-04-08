@@ -27,12 +27,23 @@ export class SystemAbortError extends Error {
   }
 }
 
+/**
+ * Error thrown when step yields due to high priority inbox
+ */
+export class StepYieldError extends Error {
+  constructor() {
+    super('Execution aborted');
+    this.name = 'StepYieldError';
+  }
+}
+
 function throwAbortError(signal: AbortSignal): never {
   const r = signal.reason as { type?: string; ms?: number } | undefined;
-  if (r?.type === 'idle_timeout') {
-    throw new SystemAbortError(r.ms ?? 0);
-  }
-  throw new Error('Execution aborted');
+  if (r?.type === 'idle_timeout') throw new SystemAbortError(r.ms ?? 0);
+  if (r?.type === 'step_yield')   throw new StepYieldError();
+  if (r?.type === 'user')         throw new Error('Execution aborted');
+  // no type or unknown type — should not happen; flag it
+  throw new Error(`Execution aborted (unexpected reason: ${JSON.stringify(r)})`);
 }
 
 /**

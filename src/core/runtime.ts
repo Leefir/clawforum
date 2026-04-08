@@ -33,7 +33,7 @@ import { readTool } from './tools/builtins/read.js';
 import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
-import { runReact, SystemAbortError } from './react/loop.js';
+import { runReact, SystemAbortError, StepYieldError } from './react/loop.js';
 import type { ToolResult } from './tools/executor.js';
 import type { StreamCallbacks, StreamSink } from '../foundation/recording/context.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
@@ -546,7 +546,7 @@ export class ClawRuntime {
           await this.sessionManager.save(messages);
           // 步间检查：高优先级消息到达时提前结束本轮
           if (await this._hasHighPriorityInbox()) {
-            this.currentAbortController?.abort();
+            this.currentAbortController?.abort({ type: 'step_yield' });
           }
         },
         onTextDelta: (d) => { resetIdle?.(); callbacks?.onTextDelta?.(d); },
@@ -845,7 +845,7 @@ export class ClawRuntime {
    * Abort the currently running chat() call
    */
   abort(): void {
-    this.currentAbortController?.abort();
+    this.currentAbortController?.abort({ type: 'user' });
   }
 
   /**
