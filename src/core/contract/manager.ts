@@ -713,7 +713,7 @@ export class ContractManager {
         await this.saveProgress(contractId, progress);
         
         // Write inbox notification to claw
-        await this._writeAcceptanceInbox(contractId, subtaskId, 'passed', allCompleted);
+        this._writeAcceptanceInbox(contractId, subtaskId, 'passed', allCompleted);
         
         // Notify Motion if all completed
         if (allCompleted) {
@@ -773,7 +773,7 @@ export class ContractManager {
           : result.feedback;
         
         // Write inbox rejection notification
-        await this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, formattedFeedback, subtask.retry_count);
+        this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, formattedFeedback, subtask.retry_count);
         
         // Escalate if too many retries
         if (subtask.retry_count >= maxRetries) {
@@ -786,52 +786,41 @@ export class ContractManager {
   /**
    * Write acceptance result to claw inbox
    */
-  private async _writeAcceptanceInbox(
+  private _writeAcceptanceInbox(
     contractId: string,
     subtaskId: string,
     verdict: 'passed' | 'rejected',
     allCompleted: boolean,
     feedback?: string,
     retryCount?: number,
-  ): Promise<void> {
-    const msgId = randomUUID();
-    const now = new Date();
-    const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-    const uuid8 = msgId.slice(0, 8);
-    const filename = `${ts}_${verdict === 'rejected' ? 'high' : 'normal'}_${uuid8}.md`;
-    
+  ): void {
     const extraFields: Record<string, string> = {
       contract_id: contractId,
       subtask_id: subtaskId,
       verdict,
     };
     if (retryCount !== undefined) extraFields.retry_count = String(retryCount);
-    
+
     let body: string;
     if (verdict === 'passed') {
-      body = allCompleted 
+      body = allCompleted
         ? `Subtask ${subtaskId} accepted. All subtasks complete!`
         : `Subtask ${subtaskId} accepted.`;
     } else {
       body = feedback || 'No feedback provided';
     }
 
-    const content = [
-      '---',
-      `id: ${ts}-${uuid8}`,
-      `type: ${verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection'}`,
-      `from: contract_system`,
-      `to: ${this.clawId}`,
-      `priority: ${verdict === 'rejected' ? 'high' : 'normal'}`,
-      `timestamp: ${now.toISOString()}`,
-      ...Object.entries(extraFields).map(([k, v]) => `${k}: ${v}`),
-      '---',
-      '',
+    writeInboxMessage({
+      inboxDir: path.join(this.clawDir, 'inbox', 'pending'),
+      type: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
+      source: 'contract_system',
+      to: this.clawId,
+      priority: verdict === 'rejected' ? 'high' : 'normal',
       body,
-    ].join('\n');
-    
-    await this.fs.ensureDir('inbox/pending');
-    await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
+      idPrefix: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
+      filenameTag: verdict === 'rejected' ? 'high' : 'normal',
+      extraFields,
+    });
   }
 
   /**
@@ -839,31 +828,22 @@ export class ContractManager {
    */
   private async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    
+
     try {
-      const msgId = randomUUID();
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-      const uuid8 = msgId.slice(0, 8);
-      const filename = `${ts}_high_${uuid8}.md`;
-      
-      const content = [
-        '---',
-        `id: ${ts}-${uuid8}`,
-        `type: acceptance_error`,
-        `from: contract_system`,
-        `to: ${this.clawId}`,
-        `priority: high`,
-        `timestamp: ${now.toISOString()}`,
-        `contract_id: ${contractId}`,
-        `subtask_id: ${subtaskId}`,
-        '---',
-        '',
-        `Acceptance verification failed with error: ${errorMsg}`,
-      ].join('\n');
-      
-      await this.fs.ensureDir('inbox/pending');
-      await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
+      writeInboxMessage({
+        inboxDir: path.join(this.clawDir, 'inbox', 'pending'),
+        type: 'acceptance_error',
+        source: 'contract_system',
+        to: this.clawId,
+        priority: 'high',
+        body: `Acceptance verification failed with error: ${errorMsg}`,
+        idPrefix: 'acceptance_error',
+        filenameTag: 'high',
+        extraFields: {
+          contract_id: contractId,
+          subtask_id: subtaskId,
+        },
+      });
     } catch (e) {
       // Best-effort: log but don't throw
       console.error('[contract] Failed to write acceptance error to inbox:', e);

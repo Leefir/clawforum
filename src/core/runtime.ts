@@ -448,7 +448,7 @@ export class ClawRuntime {
           'inbox_skip',
           info.name,
           `type=${info.meta.type ?? 'message'}`,
-          `from=${info.meta.from ?? info.meta.source ?? 'unknown'}`,
+          `from=${info.meta.source ?? 'unknown'}`,
           `to=${info.meta.to ?? ''}`,
           'reason=not_addressed',
         );
@@ -458,7 +458,7 @@ export class ClawRuntime {
           'inbox_inject',
           doneFile,
           `type=${info.meta.type ?? 'message'}`,
-          `from=${info.meta.from ?? info.meta.source ?? 'unknown'}`,
+          `from=${info.meta.source ?? 'unknown'}`,
           `to=${info.meta.to ?? this.options.clawId}`,
           `pri=${info.meta.priority ?? 'normal'}`,
         );
@@ -469,7 +469,7 @@ export class ClawRuntime {
     const userChatParts: string[] = [];
     const sources: Array<{ text: string; type: string }> = [];
     for (const info of injectedInfos) {
-      const from = info.meta.from ?? info.meta.source ?? 'unknown';
+      const from = info.meta.source ?? 'unknown';
       const type = info.meta.type ?? 'message';
       const formatted = await this.formatInboxMessage(type, from, info.body);
       if (type === 'user_chat') {

@@ -21,6 +21,8 @@ export interface InboxMessageOptions {
   priority: 'critical' | 'high' | 'normal' | 'low';
   /** Message body content */
   body: string;
+  /** Target agent id; omit for broadcast */
+  to?: string;
   /** ID prefix (default: type) */
   idPrefix?: string;
   /** Filename tag (default: type) */
@@ -54,8 +56,13 @@ export function writeInboxMessage(opts: InboxMessageOptions): void {
   let yaml = `---
 id: ${idPrefix}-${now.getTime()}
 type: ${opts.type}
-source: ${opts.source}
-priority: ${opts.priority}
+source: ${opts.source}`;
+
+  if (opts.to) {
+    yaml += `\nto: ${opts.to}`;
+  }
+
+  yaml += `\npriority: ${opts.priority}
 timestamp: ${now.toISOString()}`;
 
   if (opts.extraFields) {
