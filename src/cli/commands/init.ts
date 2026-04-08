@@ -194,9 +194,9 @@ export async function initCommand(silent = false): Promise<void> {
             step = 'model';
 
           } else if (step === 'model') {
-            const raw = await question('Model (b = back)');
+            const raw = await question('Model (b = back, "auto" = preset default)');
             if (raw === 'b') { step = 'apiKey'; continue; }
-            if (!raw) { console.log('Model is required.'); continue; }
+            if (!raw) { console.log('Model is required. Type "auto" to use preset default.'); continue; }
             manualModel = raw;
             step = 'done';
           }
@@ -262,10 +262,9 @@ export async function initCommand(silent = false): Promise<void> {
 
           } else if (step === 'model') {
             const preset = PRESETS[pickedPresetId];
-            const raw = await question('Model (b = back)', preset.defaultModel);
+            const raw = await question(`Model (b = back, auto = ${preset.defaultModel ?? 'preset default'})`, 'auto');
             if (raw === 'b') { step = 'apiKey'; continue; }
-            if (!raw) { console.log('Model is required.'); continue; }
-            pickedModel = raw;
+            pickedModel = raw || 'auto';
             step = 'done';
           }
         }

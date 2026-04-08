@@ -634,10 +634,11 @@ export class ClawRuntime {
       if (err instanceof MaxStepsExceededError) {
         const errorMsg = err.message;
         for (const info of infos) {
-          if (info.meta.from) {
+          const sender = info.meta.from ?? info.meta.source;
+          if (sender) {
             await this.outboxWriter.write({
               type: 'response',
-              to: info.meta.from,
+              to: sender,
               content: `Error: ${errorMsg}`,
               contract_id: info.meta.contract_id,
             }).catch(e => console.error('[runtime] Failed to write error response:', e));
@@ -647,10 +648,11 @@ export class ClawRuntime {
         // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
         const errorMsg = err instanceof Error ? err.message : String(err);
         for (const info of infos) {
-          if (info.meta.from) {
+          const sender = info.meta.from ?? info.meta.source;
+          if (sender) {
             await this.outboxWriter.write({
               type: 'response',
-              to: info.meta.from,
+              to: sender,
               content: `Error: ${errorMsg}`,
               contract_id: info.meta.contract_id,
             }).catch(e => console.error('[runtime] Failed to write error response:', e));

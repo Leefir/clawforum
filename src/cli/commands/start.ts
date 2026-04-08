@@ -70,16 +70,11 @@ export async function pickLanguage(): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
     console.log('\nSelect language / 选择语言:');
-    console.log('  1. English');
-    console.log('  2. 中文');
-    console.log('  or type any word for auto-detect (e.g. hello, 你好)\n');
+    console.log('type any word for auto-detect (e.g. hello, 你好)\n');
     rl.question('> ', (answer) => {
       rl.close();
       const t = answer.trim();
-      if (t === '1') resolve('English');
-      else if (t === '2') resolve('中文');
-      else if (t === '') resolve('auto');
-      else resolve(t);
+      resolve(t || 'auto');
     });
   });
 }
@@ -229,9 +224,9 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
       patchGlobalConfigPrimary({ api_key: raw });
 
     } else if (choice === '2') {
-      const raw = await question('New model (b = back)');
+      const raw = await question('New model (b = back, "auto" = preset default)');
       if (raw === 'b') continue;
-      if (!raw) { console.log('  Model is required.'); continue; }
+      if (!raw) { console.log('  Model is required. Type "auto" to use preset default.'); continue; }
       patchGlobalConfigPrimary({ model: raw });
 
     } else if (choice === '3') {

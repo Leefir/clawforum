@@ -817,7 +817,6 @@ export class ContractManager {
       to: this.clawId,
       priority: verdict === 'rejected' ? 'high' : 'normal',
       body,
-      idPrefix: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
       filenameTag: verdict === 'rejected' ? 'high' : 'normal',
       extraFields,
     });

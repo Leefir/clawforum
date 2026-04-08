@@ -254,7 +254,8 @@ export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): Provider
     name: p.label ?? presetId,
     apiKey: p.api_key,
     baseUrl: p.base_url ?? preset.defaultBaseUrl,
-    model: p.model ?? preset.defaultModel ?? 'unknown',
+    // 'auto' (or omitted) → use preset's current defaultModel
+    model: (!p.model || p.model === 'auto') ? (preset.defaultModel ?? 'unknown') : p.model,
     maxTokens: p.max_tokens,
     temperature: p.temperature,
     timeoutMs: p.timeout_ms,

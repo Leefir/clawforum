@@ -59,7 +59,7 @@ type: ${opts.type}
 source: ${opts.source}`;
 
   if (opts.to) {
-    yaml += `\nto: ${opts.to}`;
+    yaml += `\nto: ${yamlQuote(opts.to)}`;
   }
 
   yaml += `\npriority: ${opts.priority}
