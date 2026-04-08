@@ -615,21 +615,7 @@ export class ClawRuntime {
       return count;
     } catch (err) {
       // Turn-level error/interrupt event
-      if (err instanceof IdleTimeoutSignal) {
-        const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
-        callbacks?.onTurnInterrupted?.('idle_timeout', msg);
-        this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);
-      } else if (err instanceof PriorityInboxInterrupt) {
-        callbacks?.onTurnInterrupted?.('priority_inbox', 'Interrupted (priority inbox)');
-        this.auditWriter.write('turn_interrupted', 'cause=priority_inbox');
-      } else if (err instanceof UserInterrupt) {
-        callbacks?.onTurnInterrupted?.('user_interrupt', 'Interrupted');
-        this.auditWriter.write('turn_interrupted', 'cause=user_interrupt');
-      } else {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        callbacks?.onTurnError?.(errorMsg);
-        this.auditWriter.write('turn_error', `err=${errorMsg}`);
-      }
+      this._handleTurnInterrupt(err, callbacks);
       // Note: do NOT save messages here - _runReact modifies messages in-place
       // and may leave them in an invalid state (e.g., tool_use without tool_result).
       // Valid states are already covered by:
@@ -702,21 +688,7 @@ export class ClawRuntime {
       this.auditWriter.write('turn_end');
     } catch (err) {
       // Note: do NOT save messages here - see processBatch catch block for explanation
-      if (err instanceof IdleTimeoutSignal) {
-        const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
-        callbacks?.onTurnInterrupted?.('idle_timeout', msg);
-        this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);
-      } else if (err instanceof PriorityInboxInterrupt) {
-        callbacks?.onTurnInterrupted?.('priority_inbox', 'Interrupted (priority inbox)');
-        this.auditWriter.write('turn_interrupted', 'cause=priority_inbox');
-      } else if (err instanceof UserInterrupt) {
-        callbacks?.onTurnInterrupted?.('user_interrupt', 'Interrupted');
-        this.auditWriter.write('turn_interrupted', 'cause=user_interrupt');
-      } else {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        callbacks?.onTurnError?.(errorMsg);
-        this.auditWriter.write('turn_error', `err=${errorMsg}`);
-      }
+      this._handleTurnInterrupt(err, callbacks);
       throw err;
     } finally {
       this.currentAbortController = null;
@@ -764,21 +736,7 @@ export class ClawRuntime {
       callbacks?.onTurnEnd?.();
       this.auditWriter.write('turn_end');
     } catch (err) {
-      if (err instanceof IdleTimeoutSignal) {
-        const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
-        callbacks?.onTurnInterrupted?.('idle_timeout', msg);
-        this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);
-      } else if (err instanceof PriorityInboxInterrupt) {
-        callbacks?.onTurnInterrupted?.('priority_inbox', 'Interrupted (priority inbox)');
-        this.auditWriter.write('turn_interrupted', 'cause=priority_inbox');
-      } else if (err instanceof UserInterrupt) {
-        callbacks?.onTurnInterrupted?.('user_interrupt', 'Interrupted');
-        this.auditWriter.write('turn_interrupted', 'cause=user_interrupt');
-      } else {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        callbacks?.onTurnError?.(errorMsg);
-        this.auditWriter.write('turn_error', `err=${errorMsg}`);
-      }
+      this._handleTurnInterrupt(err, callbacks);
       throw err;
     } finally {
       this.currentAbortController = null;
@@ -859,6 +817,27 @@ export class ClawRuntime {
    */
   abort(): void {
     this.currentAbortController?.abort({ type: 'user' });
+  }
+
+  /**
+   * Handle turn interrupt/error and audit
+   */
+  private _handleTurnInterrupt(err: unknown, callbacks?: StreamCallbacks): void {
+    if (err instanceof IdleTimeoutSignal) {
+      const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
+      callbacks?.onTurnInterrupted?.('idle_timeout', msg);
+      this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);
+    } else if (err instanceof PriorityInboxInterrupt) {
+      callbacks?.onTurnInterrupted?.('priority_inbox', 'Interrupted (priority inbox)');
+      this.auditWriter.write('turn_interrupted', 'cause=priority_inbox');
+    } else if (err instanceof UserInterrupt) {
+      callbacks?.onTurnInterrupted?.('user_interrupt', 'Interrupted');
+      this.auditWriter.write('turn_interrupted', 'cause=user_interrupt');
+    } else {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      callbacks?.onTurnError?.(errorMsg);
+      this.auditWriter.write('turn_error', `err=${errorMsg}`);
+    }
   }
 
   /**

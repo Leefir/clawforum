@@ -4,11 +4,9 @@
  */
 
 /** System idle timeout aborted the react loop. */
-export class IdleTimeoutSignal extends Error {
-  constructor(public readonly timeoutMs: number) {
-    super('Idle timeout');
-    this.name = 'IdleTimeoutSignal';
-  }
+export class IdleTimeoutSignal {
+  readonly name = 'IdleTimeoutSignal';
+  constructor(public readonly timeoutMs: number) {}
 }
 
 /** Step loop yielded to process a high-priority inbox message. */

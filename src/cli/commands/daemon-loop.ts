@@ -20,7 +20,7 @@ import {
   LLM_RETRY_MAX_DELAY_MS,
 } from '../../constants.js';
 import { notifyInbox, notifyStream } from '../../utils/notify.js';
-import { IdleTimeoutSignal } from '../../types/signals.js';
+import { IdleTimeoutSignal, UserInterrupt } from '../../types/signals.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -281,7 +281,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         if (err instanceof IdleTimeoutSignal) {
           // System idle timeout — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
-        } else if (err instanceof Error && err.message === 'Execution aborted') {
+        } else if (err instanceof UserInterrupt) {
           // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));

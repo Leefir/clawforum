@@ -1036,6 +1036,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         escTimeoutId = null;
         if (inTurn) {
           inTurn = false;
+          pendingInterruptSource = null;
           stopSpinner();
           flushStreaming();
           flushThinking();
