@@ -41,8 +41,8 @@ describe('chat-viewport Phase 72', () => {
         sourceCode.indexOf("} else if (ev.type === 'tool_result')")
       );
       
-      // 确认有 if 检查
-      expect(textDeltaSection).toContain("if (track.bufferType !== 'text')");
+      // 确认有 if 检查（条件可能含额外子句如 || track.clearOnNextDelta）
+      expect(textDeltaSection).toMatch(/if\s*\(track\.bufferType !== 'text'/);
       // 确认 bufferType 赋值在里面
       expect(textDeltaSection).toContain("track.bufferType = 'text'");
     });
