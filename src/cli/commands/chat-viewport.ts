@@ -611,6 +611,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted') { track.active = false; track.lastError = null; }
 
             // rich 字段（详细行用）- 对每条 track 都执行
+            //
+            // textBuffer 积累"最后一段连续文本"，供 turn_end 时写入 lastOutput（clawbar 摘要）。
+            // clearOnNextDelta 由 tool_call 触发置 true，下一个 delta 到来时清空 buffer，
+            // 确保 lastOutput 只反映最后一段 LLM 输出，而非跨工具调用的拼接。
             if (LLM_OUTPUT_EVENTS.has(ev.type)) {
               if (track.active === false) track.lastOutput = '';
               track.active = true;
@@ -627,10 +631,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                 track.toolSuccess = null;
                 track.clearOnNextDelta = true;
               } else if (ev.type === 'text_delta') {
-                if (track.bufferType !== 'text') {
+                if (track.bufferType !== 'text' || track.clearOnNextDelta) {
                   track.textBuffer = '';
-                  track.clearOnNextDelta = false;
                   track.bufferType = 'text';
+                  track.clearOnNextDelta = false;
                 }
                 track.textBuffer += (ev.delta as string) ?? '';
               }
