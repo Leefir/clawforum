@@ -10,8 +10,6 @@ import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
-
-
 // Known providers shown in "Select provider" list (excludes generic custom-* entries)
 const PROVIDER_LIST = [
   'anthropic',

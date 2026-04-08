@@ -203,6 +203,10 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
       muted = true;
     });
 
+  // 已知 provider 列表：在函数体内计算一次，option 3 子流程复用
+  const presetList = Object.values(PRESETS).filter(p => p.defaultBaseUrl);
+  const customIdx = presetList.length + 1;
+
   console.log(`\n  Error: ${LLM_ERROR_LABELS[errorType]}`);
 
   while (true) {
@@ -232,9 +236,6 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
       let step: FmtStep = 'pick';
       let chosenPreset = '';
       let chosenBaseUrl = '';
-
-      const presetList = Object.values(PRESETS).filter(p => p.defaultBaseUrl);
-      const customIdx = presetList.length + 1;
 
       while (step !== 'done') {
         if (step === 'pick') {
