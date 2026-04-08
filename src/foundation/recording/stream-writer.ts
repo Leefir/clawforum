@@ -148,11 +148,8 @@ export class StreamWriter {
       onTurnError: (error: string) => {
         this.write({ ts: Date.now(), type: 'turn_error', error });
       },
-      onTurnInterrupted: (reason: 'user' | 'system', timeoutMs?: number) => {
-        const message = reason === 'system' && timeoutMs != null
-          ? `Idle timeout: no LLM activity for ${Math.round(timeoutMs / 1000)}s`
-          : undefined;
-        this.write({ ts: Date.now(), type: 'turn_interrupted', reason, ...(message ? { message } : {}) });
+      onTurnInterrupted: (cause: string, message?: string) => {
+        this.write({ ts: Date.now(), type: 'turn_interrupted', cause, ...(message ? { message } : {}) });
       },
     };
   }

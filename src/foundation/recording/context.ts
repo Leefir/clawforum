@@ -22,7 +22,7 @@ export interface StreamCallbacks {
   onTurnStart?: (sources: Array<{ text: string; type: string }>) => void;
   onTurnEnd?: () => void;
   onTurnError?: (error: string) => void;
-  onTurnInterrupted?: (reason: 'user' | 'system', timeoutMs?: number) => void;
+  onTurnInterrupted?: (cause: string, message?: string) => void;
 }
 
 /**
