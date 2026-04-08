@@ -110,9 +110,9 @@ export async function initCommand(silent = false): Promise<void> {
             throw new CliError('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
           }
 
-          apiKey = process.env[varName] ?? '';
-          if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
-          console.log(`✓ API Key read from environment (${varName})`);
+          if (!process.env[varName]) { throw new CliError(`Environment variable ${varName} is not set`); }
+          apiKey = '${' + varName + '}';
+          console.log(`✓ Will read from ${varName} at runtime`);
 
           const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
           if (matchedEntry) {
@@ -136,9 +136,9 @@ export async function initCommand(silent = false): Promise<void> {
           const varName = await question('Enter environment variable name (e.g. MY_API_KEY)');
           if (!varName) { throw new CliError('Variable name is required'); }
 
-          apiKey = process.env[varName] ?? '';
-          if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
-          console.log(`✓ API Key read from environment (${varName})`);
+          if (!process.env[varName]) { throw new CliError(`Environment variable ${varName} is not set`); }
+          apiKey = '${' + varName + '}';
+          console.log(`✓ Will read from ${varName} at runtime`);
 
           console.log('\nSelect API format:');
           console.log('  1. Anthropic');
@@ -250,8 +250,8 @@ export async function initCommand(silent = false): Promise<void> {
             const raw = await passwordQuestion(`API Key${envHint} (b = back)`);
             if (raw === 'b') { step = 'pick'; continue; }
             if (!raw && preset.envVar && process.env[preset.envVar]) {
-              pickedApiKey = process.env[preset.envVar]!;
-              console.log(`✓ Using ${preset.envVar} from environment`);
+              pickedApiKey = '${' + preset.envVar + '}';
+              console.log(`✓ Will read from ${preset.envVar} at runtime`);
             } else if (!raw) {
               console.log('API Key is required.');
               continue;
