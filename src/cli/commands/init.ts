@@ -194,9 +194,9 @@ export async function initCommand(silent = false): Promise<void> {
             step = 'model';
 
           } else if (step === 'model') {
-            const raw = await question('Model (b = back, "auto" = preset default)');
+            const raw = await question('Model (b = back)');
             if (raw === 'b') { step = 'apiKey'; continue; }
-            if (!raw) { console.log('Model is required. Type "auto" to use preset default.'); continue; }
+            if (!raw) { console.log('Model is required.'); continue; }
             manualModel = raw;
             step = 'done';
           }
