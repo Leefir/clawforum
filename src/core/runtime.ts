@@ -831,7 +831,7 @@ export class ClawRuntime {
       callbacks?.onTurnInterrupted?.('priority_inbox', 'Interrupted (priority inbox)');
       this.auditWriter.write('turn_interrupted', 'cause=priority_inbox');
     } else if (err instanceof UserInterrupt) {
-      callbacks?.onTurnInterrupted?.('user_interrupt', 'Interrupted');
+      callbacks?.onTurnInterrupted?.('user_interrupt');  // 不传 message，让 viewport 自行决定显示
       this.auditWriter.write('turn_interrupted', 'cause=user_interrupt');
     } else {
       const errorMsg = err instanceof Error ? err.message : String(err);

@@ -905,7 +905,7 @@ Test message`;
       const onTurnInterrupted = vi.fn();
       const onTurnError = vi.fn();
       (runtime as any)._handleTurnInterrupt(new UserInterrupt(), { onTurnInterrupted, onTurnError });
-      expect(onTurnInterrupted).toHaveBeenCalledWith('user_interrupt', expect.any(String));
+      expect(onTurnInterrupted).toHaveBeenCalledWith('user_interrupt');  // 无 message，让 viewport 自行决定显示
       expect(onTurnError).not.toHaveBeenCalled();
     });
 

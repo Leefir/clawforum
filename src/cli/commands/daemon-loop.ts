@@ -20,7 +20,7 @@ import {
   LLM_RETRY_MAX_DELAY_MS,
 } from '../../constants.js';
 import { notifyInbox, notifyStream } from '../../utils/notify.js';
-import { IdleTimeoutSignal, UserInterrupt } from '../../types/signals.js';
+import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
@@ -285,6 +285,8 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
+        } else if (err instanceof PriorityInboxInterrupt) {
+          // 步间中断 — 直接继续，下一轮立即处理优先消息，无需 recovery delay
         } else if (
           err instanceof Error &&
           LLM_ERROR_PATTERN.test(err.message) &&
