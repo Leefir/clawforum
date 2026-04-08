@@ -33,7 +33,8 @@ import { readTool } from './tools/builtins/read.js';
 import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
-import { runReact, SystemAbortError, PriorityInboxInterrupt, UserInterrupt } from './react/loop.js';
+import { runReact } from './react/loop.js';
+import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../types/signals.js';
 import type { ToolResult } from './tools/executor.js';
 import type { StreamCallbacks, StreamSink } from '../foundation/recording/context.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
@@ -614,7 +615,7 @@ export class ClawRuntime {
       return count;
     } catch (err) {
       // Turn-level error/interrupt event
-      if (err instanceof SystemAbortError) {
+      if (err instanceof IdleTimeoutSignal) {
         const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
         callbacks?.onTurnInterrupted?.('idle_timeout', msg);
         this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);
@@ -701,7 +702,7 @@ export class ClawRuntime {
       this.auditWriter.write('turn_end');
     } catch (err) {
       // Note: do NOT save messages here - see processBatch catch block for explanation
-      if (err instanceof SystemAbortError) {
+      if (err instanceof IdleTimeoutSignal) {
         const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
         callbacks?.onTurnInterrupted?.('idle_timeout', msg);
         this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);
@@ -763,7 +764,7 @@ export class ClawRuntime {
       callbacks?.onTurnEnd?.();
       this.auditWriter.write('turn_end');
     } catch (err) {
-      if (err instanceof SystemAbortError) {
+      if (err instanceof IdleTimeoutSignal) {
         const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
         callbacks?.onTurnInterrupted?.('idle_timeout', msg);
         this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${err.timeoutMs}`);

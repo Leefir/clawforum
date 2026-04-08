@@ -55,3 +55,10 @@ export {
   FileNotFoundError,
   MaxStepsExceededError,
 } from './errors.js';
+
+// Signal types (control-flow throws, not errors)
+export {
+  IdleTimeoutSignal,
+  PriorityInboxInterrupt,
+  UserInterrupt,
+} from './signals.js';

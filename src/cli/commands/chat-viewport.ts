@@ -357,18 +357,20 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         // Cursor disappearance signals completion; no extra separator needed
         break;
 
-      case 'turn_interrupted':
+      case 'turn_interrupted': {
         inTurn = false;
         stopSpinner();
         flushThinking();
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
-        {
-          const msg = (event as Record<string, unknown>).message;
-          appendOutput('\x1b[33m', typeof msg === 'string' ? msg : 'Interrupted (Esc)');
-        }
+        const msg = (event as Record<string, unknown>).message;
+        const display = typeof msg === 'string' ? msg
+          : pendingInterruptSource === 'esc' ? 'Interrupted (Esc)' : 'Interrupted';
+        pendingInterruptSource = null;
+        appendOutput('\x1b[33m', display);
         break;
+      }
 
       case 'turn_error':
         inTurn = false;
@@ -487,6 +489,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     watcher: ReturnType<typeof fsNative.watch> | null;
   }
   const taskWatchMap = new Map<string, TaskWatch>();
+
+  // Interrupt source tracking (for turn_interrupted display)
+  let pendingInterruptSource: 'esc' | null = null;
 
   const stopTaskWatch = (taskId: string) => {
     const tw = taskWatchMap.get(taskId);
@@ -1020,6 +1025,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         return { consume: true };
       }
       const interruptFile = path.join(options.agentDir, 'interrupt');
+      pendingInterruptSource = 'esc';
       try {
         fsNative.writeFileSync(interruptFile, '');
       } catch { /* best-effort */ }

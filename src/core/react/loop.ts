@@ -16,34 +16,11 @@ import type { StreamChunk } from '../../foundation/llm/types.js';
 import type { IToolExecutor, ExecContext, ToolResult, IToolRegistry } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
 import { REACT_DEFAULT_MAX_TOKENS, MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from '../../constants.js';
-
-/**
- * Error thrown when system idle timeout aborts execution
- */
-export class SystemAbortError extends Error {
-  constructor(public readonly timeoutMs: number) {
-    super('Execution aborted');
-    this.name = 'SystemAbortError';
-  }
-}
-
-/**
- * Interrupt thrown when high/critical priority inbox message arrives
- */
-export class PriorityInboxInterrupt {
-  readonly name = 'PriorityInboxInterrupt';
-}
-
-/**
- * Interrupt thrown when user manually aborts (Esc)
- */
-export class UserInterrupt {
-  readonly name = 'UserInterrupt';
-}
+import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 
 function throwAbortError(signal: AbortSignal): never {
   const r = signal.reason as { type?: string; ms?: number } | undefined;
-  if (r?.type === 'idle_timeout') throw new SystemAbortError(r.ms ?? 0);
+  if (r?.type === 'idle_timeout') throw new IdleTimeoutSignal(r.ms ?? 0);
   if (r?.type === 'step_yield')   throw new PriorityInboxInterrupt();
   if (r?.type === 'user')         throw new UserInterrupt();
   throw new Error(`Execution aborted (unexpected reason: ${JSON.stringify(r)})`);
