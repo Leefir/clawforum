@@ -165,7 +165,7 @@ export class InboxWatcher {
       const message: InboxMessage = {
         id: meta.id ?? randomUUID(),
         type: validateType(meta.type),
-        from: meta.from ?? meta.source ?? 'unknown',
+        from: meta.source ?? 'unknown',
         to: meta.to ?? '',
         content: body,
         priority: validatePriority(meta.priority),

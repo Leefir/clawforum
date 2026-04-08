@@ -780,11 +780,11 @@ describe('ContractManager Acceptance Flow', () => {
       // 核心字段
       expect(content).toContain('type: acceptance_result');
       expect(content).toContain('priority: normal');
-      expect(content).toContain('from: contract_system');
+      expect(content).toContain('source: contract_system');
       expect(content).toContain('to: test-claw');
-      expect(content).toContain(`contract_id: ${contractId}`);
-      expect(content).toContain('subtask_id: task-1');
-      expect(content).toContain('verdict: passed');
+      expect(content).toContain(`contract_id: "${contractId}"`);
+      expect(content).toContain('subtask_id: "task-1"');
+      expect(content).toContain('verdict: "passed"');
 
       // passed 时不应含 retry_count
       expect(content).not.toContain('retry_count');
@@ -821,11 +821,11 @@ describe('ContractManager Acceptance Flow', () => {
       // 核心字段
       expect(content).toContain('type: acceptance_rejection');
       expect(content).toContain('priority: high');
-      expect(content).toContain('from: contract_system');
+      expect(content).toContain('source: contract_system');
       expect(content).toContain('to: test-claw');
-      expect(content).toContain(`contract_id: ${contractId}`);
-      expect(content).toContain('subtask_id: task-1');
-      expect(content).toContain('verdict: rejected');
+      expect(content).toContain(`contract_id: "${contractId}"`);
+      expect(content).toContain('subtask_id: "task-1"');
+      expect(content).toContain('verdict: "rejected"');
       expect(content).toContain('retry_count: 1');
     });
   });

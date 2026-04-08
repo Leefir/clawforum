@@ -818,6 +818,7 @@ export class ContractManager {
       priority: verdict === 'rejected' ? 'high' : 'normal',
       body,
       idPrefix: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
+      filenameTag: verdict === 'rejected' ? 'high' : 'normal',
       extraFields,
     });
   }
@@ -837,6 +838,7 @@ export class ContractManager {
         priority: 'high',
         body: `Acceptance verification failed with error: ${errorMsg}`,
         idPrefix: 'acceptance_error',
+        filenameTag: 'high',
         extraFields: {
           contract_id: contractId,
           subtask_id: subtaskId,
