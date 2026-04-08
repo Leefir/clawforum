@@ -216,6 +216,17 @@ export function loadClawConfig(name: string): ClawConfig {
   }
 }
 
+// Patch the primary LLM config in-place (raw YAML read/write, no Zod round-trip)
+export function patchGlobalConfigPrimary(patch: Record<string, unknown>): void {
+  const configPath = getGlobalConfigPath();
+  const raw = yaml.load(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+  const llm = (raw.llm ?? {}) as Record<string, unknown>;
+  const primary = (llm.primary ?? {}) as Record<string, unknown>;
+  llm.primary = { ...primary, ...patch };
+  raw.llm = llm;
+  fs.writeFileSync(configPath, yaml.dump(raw));
+}
+
 // Save claw config
 export function saveClawConfig(name: string, config: ClawConfig): void {
   const clawDir = getClawDir(name);

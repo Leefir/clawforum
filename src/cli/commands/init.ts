@@ -10,11 +10,26 @@ import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
+// API format code → preset id (for manual entry)
 const FORMAT_MAP: Record<string, string> = {
   '1': 'custom-anthropic',
   '2': 'custom-openai',
   '3': 'custom-gemini',
 };
+
+// Known providers shown in "Select provider" list (excludes generic custom-* entries)
+const PROVIDER_LIST = [
+  'anthropic',
+  'openai',
+  'deepseek',
+  'moonshot',
+  'minimax',
+  'gemini',
+  'ollama',
+  'grok',
+  'openrouter',
+  'qwen-coder',
+];
 
 export async function initCommand(silent = false): Promise<void> {
   // Check if already initialized
@@ -41,10 +56,10 @@ export async function initCommand(silent = false): Promise<void> {
     });
   };
 
-  // Read a password with echo suppressed
+  // Read a password with echo suppressed; returns '' if cancelled ('b')
   const passwordQuestion = (prompt: string): Promise<string> => {
     return new Promise((resolve) => {
-      const fullPrompt = `${prompt}: `;
+      const fullPrompt = `${prompt} (b = back): `;
       let muted = false;
       const original = (rl as any)._writeToOutput?.bind(rl);
       (rl as any)._writeToOutput = (str: string) => {
@@ -61,50 +76,71 @@ export async function initCommand(silent = false): Promise<void> {
   };
 
   try {
-    // Configure LLM API
-    console.log('Configure LLM API:');
-    console.log('  1. Scan environment variables');
-    console.log('  2. Enter API key manually');
-    console.log('  3. Select provider');
-    const configMethod = await question('\n> ', '1');
-
     let presetId = '';
     let apiKey = '';
     let model = '';
     let baseUrl: string | undefined;
 
-    if (configMethod === '1') {
-      // ── Branch 1: scan env vars ──
-      const detected = Object.values(PRESETS)
-        .map(p => p.envVar)
-        .filter((v): v is string => !!v && !!process.env[v])
-        .filter((v, i, arr) => arr.indexOf(v) === i);
+    // Outer menu loop — lets option 2 / 3 return here via 'back'
+    outer: while (true) {
+      console.log('Configure LLM API:');
+      console.log('  1. Scan environment variables');
+      console.log('  2. Enter API key manually');
+      console.log('  3. Select provider');
+      const configMethod = await question('\n> ', '1');
 
-      if (detected.length > 0) {
-        // Has detected vars: let user pick from list or enter a name
-        console.log('\nDetected:');
-        detected.forEach((v, i) => console.log(`  ${i + 1}. ${v}`));
-        const pick = await question('\n> (number or variable name)');
-        const idx = parseInt(pick, 10) - 1;
-        let varName: string;
-        if (pick.trim() && idx >= 0 && idx < detected.length) {
-          varName = detected[idx];
-        } else if (/^[A-Z][A-Z0-9_]*$/.test(pick.trim())) {
-          varName = pick.trim();
+      if (configMethod === '1') {
+        // ── Branch 1: scan env vars ──
+        const detected = Object.values(PRESETS)
+          .map(p => p.envVar)
+          .filter((v): v is string => !!v && !!process.env[v])
+          .filter((v, i, arr) => arr.indexOf(v) === i);
+
+        if (detected.length > 0) {
+          console.log('\nDetected:');
+          detected.forEach((v, i) => console.log(`  ${i + 1}. ${v}`));
+          const pick = await question('\n> (number or variable name)');
+          const idx = parseInt(pick, 10) - 1;
+          let varName: string;
+          if (pick.trim() && idx >= 0 && idx < detected.length) {
+            varName = detected[idx];
+          } else if (/^[A-Z][A-Z0-9_]*$/.test(pick.trim())) {
+            varName = pick.trim();
+          } else {
+            throw new CliError('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
+          }
+
+          apiKey = process.env[varName] ?? '';
+          if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
+          console.log(`✓ API Key read from environment (${varName})`);
+
+          const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
+          if (matchedEntry) {
+            [presetId] = matchedEntry;
+            model = await question('Model', matchedEntry[1].defaultModel ?? 'unknown');
+          } else {
+            console.log('\nCould not determine provider. Select API format:');
+            console.log('  1. Anthropic');
+            console.log('  2. OpenAI');
+            console.log('  3. Gemini');
+            const fmt = await question('\n> ', '2');
+            presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
+            baseUrl = await question('Base URL');
+            if (!baseUrl) { throw new CliError('Base URL is required'); }
+            model = await question('Model');
+            if (!model) { throw new CliError('Model is required'); }
+          }
+
         } else {
-          throw new CliError('Invalid input. Enter a number or a variable name (e.g. MY_API_KEY).');
-        }
+          console.log('\n  No API key environment variables detected.');
+          const varName = await question('Enter environment variable name (e.g. MY_API_KEY)');
+          if (!varName) { throw new CliError('Variable name is required'); }
 
-        apiKey = process.env[varName] ?? '';
-        if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
-        console.log(`✓ API Key read from environment (${varName})`);
+          apiKey = process.env[varName] ?? '';
+          if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
+          console.log(`✓ API Key read from environment (${varName})`);
 
-        const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
-        if (matchedEntry) {
-          [presetId] = matchedEntry;
-          model = await question('Model', matchedEntry[1].defaultModel ?? 'unknown');
-        } else {
-          console.log('\nCould not determine provider. Select API format:');
+          console.log('\nSelect API format:');
           console.log('  1. Anthropic');
           console.log('  2. OpenAI');
           console.log('  3. Gemini');
@@ -116,49 +152,134 @@ export async function initCommand(silent = false): Promise<void> {
           if (!model) { throw new CliError('Model is required'); }
         }
 
+        break outer;
+
+      } else if (configMethod === '2') {
+        // ── Branch 2: manual (step machine with back navigation) ──
+        // Steps: format → baseUrl → apiKey → model
+        // 'b' goes back one step; 'b' at format returns to outer menu
+
+        type ManualStep = 'format' | 'baseUrl' | 'apiKey' | 'model' | 'done';
+        let step: ManualStep = 'format';
+
+        let manualFormat = '';
+        let manualBaseUrl = '';
+        let manualApiKey = '';
+        let manualModel = '';
+
+        while (step !== 'done') {
+          if (step === 'format') {
+            console.log('\nAPI Format (b = back to menu):');
+            console.log('  1. Anthropic');
+            console.log('  2. OpenAI');
+            console.log('  3. Gemini');
+            const fmt = await question('\n> ');
+            if (fmt === 'b') { console.log(); continue outer; }
+            manualFormat = FORMAT_MAP[fmt] ?? '';
+            if (!manualFormat) { console.log('Invalid choice.'); continue; }
+            step = 'baseUrl';
+
+          } else if (step === 'baseUrl') {
+            const raw = await question('Base URL (b = back)');
+            if (raw === 'b') { step = 'format'; continue; }
+            if (!raw) { console.log('Base URL is required.'); continue; }
+            manualBaseUrl = raw;
+            step = 'apiKey';
+
+          } else if (step === 'apiKey') {
+            const raw = await passwordQuestion('API Key');
+            if (raw === 'b') { step = 'baseUrl'; continue; }
+            if (!raw) { console.log('API Key is required.'); continue; }
+            manualApiKey = raw;
+            step = 'model';
+
+          } else if (step === 'model') {
+            const raw = await question('Model (b = back)');
+            if (raw === 'b') { step = 'apiKey'; continue; }
+            if (!raw) { console.log('Model is required.'); continue; }
+            manualModel = raw;
+            step = 'done';
+          }
+        }
+
+        presetId = manualFormat;
+        baseUrl = manualBaseUrl;
+        apiKey = manualApiKey;
+        model = manualModel;
+        break outer;
+
+      } else if (configMethod === '3') {
+        // ── Branch 3: select provider from preset list ──
+        // Steps: provider → apiKey → model
+        // 'b' goes back one step; 'b' at provider list returns to outer menu
+
+        const providers = PROVIDER_LIST
+          .map(id => PRESETS[id])
+          .filter(Boolean);
+
+        type ProviderStep = 'pick' | 'apiKey' | 'model' | 'done';
+        let step: ProviderStep = 'pick';
+
+        let pickedPresetId = '';
+        let pickedApiKey = '';
+        let pickedModel = '';
+
+        while (step !== 'done') {
+          if (step === 'pick') {
+            console.log('\nSelect provider (b = back to menu):');
+            providers.forEach((p, i) =>
+              console.log(`  ${i + 1}. ${p.displayName}  (${p.defaultModel ?? 'custom model'})`)
+            );
+            const raw = await question('\n> ');
+            if (raw === 'b') { console.log(); continue outer; }
+            const idx = parseInt(raw, 10) - 1;
+            if (isNaN(idx) || idx < 0 || idx >= providers.length) {
+              console.log('Invalid choice.');
+              continue;
+            }
+            const preset = providers[idx];
+            pickedPresetId = preset.id;
+            step = 'apiKey';
+
+          } else if (step === 'apiKey') {
+            const preset = PRESETS[pickedPresetId];
+            // Suggest env var if available and set
+            const envHint = preset.envVar && process.env[preset.envVar]
+              ? ` (or press Enter to use ${preset.envVar})`
+              : '';
+            const raw = await passwordQuestion(`API Key${envHint} (b = back)`);
+            if (raw === 'b') { step = 'pick'; continue; }
+            if (!raw && preset.envVar && process.env[preset.envVar]) {
+              pickedApiKey = process.env[preset.envVar]!;
+              console.log(`✓ Using ${preset.envVar} from environment`);
+            } else if (!raw) {
+              console.log('API Key is required.');
+              continue;
+            } else {
+              pickedApiKey = raw;
+            }
+            step = 'model';
+
+          } else if (step === 'model') {
+            const preset = PRESETS[pickedPresetId];
+            const raw = await question('Model (b = back)', preset.defaultModel);
+            if (raw === 'b') { step = 'apiKey'; continue; }
+            if (!raw) { console.log('Model is required.'); continue; }
+            pickedModel = raw;
+            step = 'done';
+          }
+        }
+
+        presetId = pickedPresetId;
+        apiKey = pickedApiKey;
+        model = pickedModel;
+        // baseUrl comes from preset; no manual entry needed (already in preset.defaultBaseUrl)
+        break outer;
+
       } else {
-        // No detected vars: ask for var name, then format/baseUrl/model
-        console.log('\n  No API key environment variables detected.');
-        const varName = await question('Enter environment variable name (e.g. MY_API_KEY)');
-        if (!varName) { throw new CliError('Variable name is required'); }
-
-        apiKey = process.env[varName] ?? '';
-        if (!apiKey) { throw new CliError(`Environment variable ${varName} is not set`); }
-        console.log(`✓ API Key read from environment (${varName})`);
-
-        console.log('\nSelect API format:');
-        console.log('  1. Anthropic');
-        console.log('  2. OpenAI');
-        console.log('  3. Gemini');
-        const fmt = await question('\n> ', '2');
-        presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
-        baseUrl = await question('Base URL');
-        if (!baseUrl) { throw new CliError('Base URL is required'); }
-        model = await question('Model');
-        if (!model) { throw new CliError('Model is required'); }
+        console.log('Invalid selection.\n');
+        // loop back to menu
       }
-
-    } else if (configMethod === '2') {
-      // ── Branch 2: manual ──
-      console.log('\nAPI Format:');
-      console.log('  1. Anthropic');
-      console.log('  2. OpenAI');
-      console.log('  3. Gemini');
-      const fmt = await question('\n> ', '2');
-      presetId = FORMAT_MAP[fmt] ?? 'custom-openai';
-      baseUrl = await question('Base URL');
-      if (!baseUrl) { throw new CliError('Base URL is required'); }
-      apiKey = await passwordQuestion('API Key');
-      if (!apiKey) { throw new CliError('API Key is required'); }
-      model = await question('Model');
-      if (!model) { throw new CliError('Model is required'); }
-
-    } else if (configMethod === '3') {
-      // ── Branch 3: not yet implemented ──
-      throw new CliError('Provider selection is not yet implemented. Please use option 1 or 2.');
-
-    } else {
-      throw new CliError('Invalid selection');
     }
 
     // Build config

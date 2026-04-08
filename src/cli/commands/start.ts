@@ -10,7 +10,9 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { isInitialized, loadGlobalConfig, getMotionDir } from '../config.js';
+import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary } from '../config.js';
+import { LLMService } from '../../foundation/llm/service.js';
+import { PRESETS } from '../../foundation/llm/presets.js';
 import { initCommand } from './init.js';
 import {
   initCommand as motionInitCommand,
@@ -138,6 +140,166 @@ export function getOnboardingStatus(motionDir: string): OnboardingStatus {
   return { state: 'not_found' };
 }
 
+type LLMErrorType = 'auth' | 'model' | 'network' | 'rate_limit' | 'unknown';
+
+function classifyLLMError(err: unknown): LLMErrorType {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid api key') || msg.includes('authentication')) return 'auth';
+  if (msg.includes('404') || msg.includes('model') || msg.includes('not found')) return 'model';
+  if (msg.includes('429') || msg.includes('rate limit') || msg.includes('quota')) return 'rate_limit';
+  if (msg.includes('econnrefused') || msg.includes('enotfound') || msg.includes('network') || msg.includes('timeout') || msg.includes('fetch')) return 'network';
+  return 'unknown';
+}
+
+const LLM_ERROR_LABELS: Record<LLMErrorType, string> = {
+  auth: 'API key invalid or unauthorized',
+  model: 'Model not found or unavailable',
+  network: 'Network error — could not reach provider',
+  rate_limit: 'Rate limit or quota exceeded',
+  unknown: 'Unknown error',
+};
+
+/**
+ * Test LLM connectivity with a minimal call. Returns null on success, error type on failure.
+ */
+async function checkLLMConnection(): Promise<{ errorType: LLMErrorType; message: string } | null> {
+  const globalConfig = loadGlobalConfig();
+  const llmConfig = buildLLMConfig(globalConfig);
+  const svc = new LLMService({ primary: llmConfig.primary, fallbacks: [], maxAttempts: 1, retryDelayMs: 0 });
+  try {
+    await svc.call({
+      messages: [{ role: 'user', content: 'Hi' }],
+      maxTokens: 1,
+    });
+    return null;
+  } catch (err) {
+    return { errorType: classifyLLMError(err), message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// API format code → preset id (mirrors init.ts)
+const FORMAT_MAP: Record<string, string> = {
+  '1': 'custom-anthropic',
+  '2': 'custom-openai',
+  '3': 'custom-gemini',
+};
+
+/**
+ * Interactive reconfigure prompt shown when LLM connection fails.
+ * Returns true if user successfully reconfigured (or chose to skip), false if they exit.
+ *
+ * Menu: 1=API key, 2=model, 3=format+baseURL, n=exit
+ * Back navigation works within each sub-flow.
+ * After any change, re-tests the connection automatically.
+ */
+async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType): Promise<boolean> {
+  const question = (prompt: string): Promise<string> =>
+    new Promise(resolve => rl.question(`${prompt}: `, ans => resolve(ans.trim())));
+
+  const passwordQuestion = (prompt: string): Promise<string> =>
+    new Promise(resolve => {
+      let muted = false;
+      const original = (rl as any)._writeToOutput?.bind(rl);
+      (rl as any)._writeToOutput = (str: string) => { if (!muted) original?.(str); };
+      rl.question(`${prompt}: `, ans => {
+        muted = false;
+        (rl as any)._writeToOutput = original;
+        process.stdout.write('\n');
+        resolve(ans.trim());
+      });
+      muted = true;
+    });
+
+  console.log(`\n  Error: ${LLM_ERROR_LABELS[errorType]}`);
+
+  while (true) {
+    console.log('\nReconfigure LLM:');
+    console.log('  1. Update API key');
+    console.log('  2. Change model');
+    console.log('  3. Change format & base URL');
+    console.log('  n. Exit');
+    const choice = await question('\n> ');
+
+    if (choice === 'n' || choice === 'N') return false;
+
+    if (choice === '1') {
+      const raw = await passwordQuestion('New API key (b = back)');
+      if (raw === 'b') continue;
+      if (!raw) { console.log('  API key is required.'); continue; }
+      patchGlobalConfigPrimary({ api_key: raw });
+
+    } else if (choice === '2') {
+      const raw = await question('New model (b = back)');
+      if (raw === 'b') continue;
+      if (!raw) { console.log('  Model is required.'); continue; }
+      patchGlobalConfigPrimary({ model: raw });
+
+    } else if (choice === '3') {
+      // Sub-flow: format → baseUrl, 'b' returns to main menu
+      type FmtStep = 'format' | 'baseUrl' | 'done';
+      let step: FmtStep = 'format';
+      let chosenPreset = '';
+      let chosenBaseUrl = '';
+
+      while (step !== 'done') {
+        if (step === 'format') {
+          console.log('\nAPI format (b = back to menu):');
+          console.log('  1. Anthropic');
+          console.log('  2. OpenAI');
+          console.log('  3. Gemini');
+
+          // Also offer known presets for convenience
+          const presetList = Object.values(PRESETS).filter(p => p.defaultBaseUrl);
+          console.log('\n  Or pick a known provider:');
+          presetList.forEach((p, i) => console.log(`  ${i + 4}. ${p.displayName}  (${p.defaultBaseUrl})`));
+
+          const raw = await question('\n> ');
+          if (raw === 'b') break; // back to outer menu
+          const idx = parseInt(raw, 10);
+          if (raw === '1' || raw === '2' || raw === '3') {
+            chosenPreset = FORMAT_MAP[raw];
+            chosenBaseUrl = '';
+            step = 'baseUrl';
+          } else if (idx >= 4 && idx <= 3 + presetList.length) {
+            const p = presetList[idx - 4];
+            chosenPreset = p.id;
+            chosenBaseUrl = p.defaultBaseUrl ?? '';
+            // For named presets, skip baseUrl step (already known)
+            patchGlobalConfigPrimary({ preset: chosenPreset, base_url: chosenBaseUrl || undefined });
+            console.log(`  ✓ Set provider to ${p.displayName}`);
+            step = 'done';
+          } else {
+            console.log('  Invalid choice.');
+          }
+        } else if (step === 'baseUrl') {
+          const raw = await question('Base URL (b = back)');
+          if (raw === 'b') { step = 'format'; continue; }
+          if (!raw) { console.log('  Base URL is required.'); continue; }
+          chosenBaseUrl = raw;
+          patchGlobalConfigPrimary({ preset: chosenPreset, base_url: chosenBaseUrl });
+          step = 'done';
+        }
+      }
+
+      if (step !== 'done') continue; // user hit 'b' at format step
+
+    } else {
+      console.log('  Invalid choice.');
+      continue;
+    }
+
+    // Re-test after any change
+    console.log('  Testing connection...');
+    const result = await checkLLMConnection();
+    if (!result) {
+      console.log('  ✓ Connection successful!');
+      return true;
+    }
+    console.log(`  ✗ ${LLM_ERROR_LABELS[result.errorType]}`);
+    // loop back to menu to try again
+  }
+}
+
 export async function startCommand(): Promise<void> {
   try {
     await _start();
@@ -153,6 +315,32 @@ async function _start(): Promise<void> {
     await initCommand(true);
   }
   loadGlobalConfig();
+
+  // Step 1b: test LLM connection; offer inline reconfigure for actionable errors
+  {
+    console.log('Testing LLM connection...');
+    const connResult = await checkLLMConnection();
+    if (connResult) {
+      if (connResult.errorType === 'auth' || connResult.errorType === 'model') {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        try {
+          const fixed = await promptReconfigure(rl, connResult.errorType);
+          if (!fixed) {
+            throw new Error('LLM not configured. Run "clawforum init" or fix your config.');
+          }
+        } finally {
+          rl.close();
+        }
+      } else {
+        // network / rate_limit / unknown — warn but continue (transient)
+        console.warn(`  ⚠ ${LLM_ERROR_LABELS[connResult.errorType]} — continuing anyway`);
+      }
+    } else {
+      const info = loadGlobalConfig();
+      const model = info.llm.primary.model ?? '(unknown)';
+      console.log(`  ✓ ${model}`);
+    }
+  }
 
   // Step 2: motion init
   const motionDir = getMotionDir();

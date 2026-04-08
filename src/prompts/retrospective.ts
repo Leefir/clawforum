@@ -64,13 +64,16 @@ clawforum claw trace --claw ${clawId} --contract ${contractId} --step <n>
 
 ### 第四步：提炼 dispatch-skill（如有）
 ${skillsSummary ? `
-**现有 dispatch-skills（避免重复）：**
+**现有 dispatch-skills：**
 
 ${skillsSummary}
 ` : ''}
-如果本次执行中发现了值得复用的工作模式，直接用 write 工具写入 dispatch-skill。
+如果本次执行中发现了值得复用的工作模式，用 write 工具写入 dispatch-skill。
 
 **输出目录**：\`clawspace/dispatch-skills/<skill-name>/\`
+
+如果现有 dispatch-skills 中已有类似的，可以直接更新那个 skill；如果没有，则新建一个。
+如果总结出多点内容，可以写进多个 skill，或者写在同一个 skill 的不同部分。
 
 #### Skill 结构
 
