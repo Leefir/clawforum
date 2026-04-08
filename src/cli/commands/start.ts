@@ -218,7 +218,7 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
     if (choice === 'n' || choice === 'N') return false;
 
     if (choice === '1') {
-      const raw = await passwordQuestion('New API key (b = back)');
+      const raw = await passwordQuestion('New API key');
       if (raw === 'b') continue;
       if (!raw) { console.log('  API key is required.'); continue; }
       patchGlobalConfigPrimary({ api_key: raw });
@@ -332,8 +332,8 @@ async function _start(): Promise<void> {
       }
     } else {
       const info = loadGlobalConfig();
-      const model = info.llm.primary.model ?? '(unknown)';
-      console.log(`  ✓ ${model}`);
+      const resolved = buildLLMConfig(info).primary.model;
+      console.log(`  ✓ ${resolved}`);
     }
   }
 

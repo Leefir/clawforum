@@ -117,7 +117,7 @@ export async function initCommand(silent = false): Promise<void> {
           const matchedEntry = Object.entries(PRESETS).find(([, p]) => p.envVar === varName);
           if (matchedEntry) {
             [presetId] = matchedEntry;
-            model = await question('Model', matchedEntry[1].defaultModel ?? 'unknown');
+            model = await question(`Model (auto = ${matchedEntry[1].defaultModel ?? 'preset default'})`, 'auto');
           } else {
             console.log('\nCould not determine provider. Select API format:');
             console.log('  1. Anthropic');
@@ -247,7 +247,7 @@ export async function initCommand(silent = false): Promise<void> {
             const envHint = preset.envVar && process.env[preset.envVar]
               ? ` (or press Enter to use ${preset.envVar})`
               : '';
-            const raw = await passwordQuestion(`API Key${envHint} (b = back)`);
+            const raw = await passwordQuestion(`API Key${envHint}`);
             if (raw === 'b') { step = 'pick'; continue; }
             if (!raw && preset.envVar && process.env[preset.envVar]) {
               pickedApiKey = '${' + preset.envVar + '}';

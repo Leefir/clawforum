@@ -89,14 +89,14 @@ describe('buildOnboardingSubtasks', () => {
 // ── pickLanguage ───────────────────────────────────────────────────────────────
 
 describe('pickLanguage', () => {
-  it('"1" → "English"', async () => {
+  it('"1" → "1"（不再做数字映射，原样返回）', async () => {
     rlAnswer.value = '1';
-    expect(await pickLanguage()).toBe('English');
+    expect(await pickLanguage()).toBe('1');
   });
 
-  it('"2" → "中文"', async () => {
+  it('"2" → "2"（不再做数字映射，原样返回）', async () => {
     rlAnswer.value = '2';
-    expect(await pickLanguage()).toBe('中文');
+    expect(await pickLanguage()).toBe('2');
   });
 
   it('空字符串 → "auto"', async () => {
