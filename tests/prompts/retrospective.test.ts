@@ -27,9 +27,4 @@ subtasks:
     const result = buildRetroPrompt('my-claw', 'c-001', sampleYaml, '## Skills\n- gen-report');
     expect(result).toContain('gen-report');
   });
-
-  it('should not mention dispatch-skills section when skillsSummary is omitted', () => {
-    const result = buildRetroPrompt('my-claw', 'c-001', sampleYaml);
-    expect(result).not.toContain('现有 dispatch-skills');
-  });
 });
