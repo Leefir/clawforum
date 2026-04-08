@@ -827,31 +827,21 @@ export class ContractManager {
    */
   private async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    
+
     try {
-      const msgId = randomUUID();
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
-      const uuid8 = msgId.slice(0, 8);
-      const filename = `${ts}_high_${uuid8}.md`;
-      
-      const content = [
-        '---',
-        `id: ${ts}-${uuid8}`,
-        `type: acceptance_error`,
-        `from: contract_system`,
-        `to: ${this.clawId}`,
-        `priority: high`,
-        `timestamp: ${now.toISOString()}`,
-        `contract_id: ${contractId}`,
-        `subtask_id: ${subtaskId}`,
-        '---',
-        '',
-        `Acceptance verification failed with error: ${errorMsg}`,
-      ].join('\n');
-      
-      await this.fs.ensureDir('inbox/pending');
-      await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
+      writeInboxMessage({
+        inboxDir: path.join(this.clawDir, 'inbox', 'pending'),
+        type: 'acceptance_error',
+        source: 'contract_system',
+        to: this.clawId,
+        priority: 'high',
+        body: `Acceptance verification failed with error: ${errorMsg}`,
+        idPrefix: 'acceptance_error',
+        extraFields: {
+          contract_id: contractId,
+          subtask_id: subtaskId,
+        },
+      });
     } catch (e) {
       // Best-effort: log but don't throw
       console.error('[contract] Failed to write acceptance error to inbox:', e);
