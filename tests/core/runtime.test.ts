@@ -13,6 +13,7 @@ import type { LLMResponse } from '../../src/types/message.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { MaxStepsExceededError } from '../../src/types/errors.js';
 import type { Message } from '../../src/types/message.js';
+import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../src/types/signals.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -625,41 +626,31 @@ Test message`;
       expect(responseContent).toContain('Error: LLM API crashed');
     });
 
-    // H3 fix: Execution aborted should NOT notify sender (daemon will retry)
-    it('should NOT notify sender on Execution aborted (H3)', async () => {
-      const runtime = new ClawRuntime({
+    // UserInterrupt should NOT notify sender (user aborted, not a real error)
+    it('should NOT notify sender on UserInterrupt', async () => {
+      // Use a subclass to inject UserInterrupt without going through real LLM+loop
+      class UserInterruptRuntime extends ClawRuntime {
+        protected override async _drainOwnInbox() {
+          return {
+            injected: [{ role: 'user' as const, content: [{ type: 'text' as const, text: 'hi' }] }],
+            sources: [],
+            count: 1,
+            infos: [{ meta: { from: 'motion', contract_id: 'test-contract' }, body: 'hi' }],
+          };
+        }
+        protected override async _runReact(_messages: Message[]) {
+          throw new UserInterrupt();
+        }
+      }
+
+      const runtime = new UserInterruptRuntime({
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
       });
       await runtime.initialize();
 
-      // Create a message with 'from' field
-      const pendingDir = path.join(clawDir, 'inbox', 'pending');
-      const content = `---
-id: test-msg
-type: message
-from: motion
-contract_id: test-contract
-priority: normal
-timestamp: ${new Date().toISOString()}
----
-
-Test message`;
-      await fs.writeFile(path.join(pendingDir, 'msg.md'), content);
-
-      // Mock LLM that throws 'Execution aborted'
-      const abortingLLM = {
-        call: vi.fn().mockRejectedValue(new Error('Execution aborted')),
-        stream: vi.fn().mockImplementation(async function* () {
-          throw new Error('Execution aborted');
-        }),
-        close: vi.fn(),
-      };
-      (runtime as unknown as { llm: typeof abortingLLM }).llm = abortingLLM;
-
-      // Should throw the error
-      await expect(runtime.processBatch()).rejects.toThrow('Execution aborted');
+      await expect(runtime.processBatch()).rejects.toBeInstanceOf(UserInterrupt);
 
       // Verify NO error response was written to outbox
       const outboxDir = path.join(clawDir, 'outbox', 'pending');
@@ -868,6 +859,153 @@ Test message`;
       const err = await runtime.processBatch().catch(e => e);
       expect(err).toBe(originalError);
       expect(err.message).toBe('LLM exploded');
+    });
+  });
+
+  // ─── _handleTurnInterrupt dispatch ───────────────────────────────────────────
+
+  describe('_handleTurnInterrupt()', () => {
+    let runtime: ClawRuntime;
+    let interruptTempDir: string;
+    let interruptClawDir: string;
+
+    beforeEach(async () => {
+      interruptTempDir = path.join(tmpdir(), `clawforum-interrupt-test-${randomUUID()}`);
+      interruptClawDir = path.join(interruptTempDir, 'claws', 'int-claw');
+      await fs.mkdir(interruptClawDir, { recursive: true });
+      runtime = new ClawRuntime({
+        clawId: 'int-claw',
+        clawDir: interruptClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      await runtime.initialize();
+    });
+
+    afterEach(async () => {
+      await fs.rm(interruptTempDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    it('IdleTimeoutSignal → onTurnInterrupted("idle_timeout", message with seconds)', () => {
+      const onTurnInterrupted = vi.fn();
+      const onTurnError = vi.fn();
+      (runtime as any)._handleTurnInterrupt(new IdleTimeoutSignal(30000), { onTurnInterrupted, onTurnError });
+      expect(onTurnInterrupted).toHaveBeenCalledWith('idle_timeout', expect.stringContaining('30s'));
+      expect(onTurnError).not.toHaveBeenCalled();
+    });
+
+    it('PriorityInboxInterrupt → onTurnInterrupted("priority_inbox")', () => {
+      const onTurnInterrupted = vi.fn();
+      const onTurnError = vi.fn();
+      (runtime as any)._handleTurnInterrupt(new PriorityInboxInterrupt(), { onTurnInterrupted, onTurnError });
+      expect(onTurnInterrupted).toHaveBeenCalledWith('priority_inbox', expect.any(String));
+      expect(onTurnError).not.toHaveBeenCalled();
+    });
+
+    it('UserInterrupt → onTurnInterrupted("user_interrupt")', () => {
+      const onTurnInterrupted = vi.fn();
+      const onTurnError = vi.fn();
+      (runtime as any)._handleTurnInterrupt(new UserInterrupt(), { onTurnInterrupted, onTurnError });
+      expect(onTurnInterrupted).toHaveBeenCalledWith('user_interrupt', expect.any(String));
+      expect(onTurnError).not.toHaveBeenCalled();
+    });
+
+    it('Error → onTurnError with message', () => {
+      const onTurnInterrupted = vi.fn();
+      const onTurnError = vi.fn();
+      (runtime as any)._handleTurnInterrupt(new Error('LLM failure'), { onTurnInterrupted, onTurnError });
+      expect(onTurnError).toHaveBeenCalledWith('LLM failure');
+      expect(onTurnInterrupted).not.toHaveBeenCalled();
+    });
+
+    it('non-Error value → onTurnError with string', () => {
+      const onTurnError = vi.fn();
+      (runtime as any)._handleTurnInterrupt('raw string error', { onTurnError });
+      expect(onTurnError).toHaveBeenCalledWith('raw string error');
+    });
+  });
+
+  // ─── processBatch outbox exclusion for signal interrupts ─────────────────────
+
+  describe('processBatch() — signal interrupts do not send outbox notifications', () => {
+    class SignalTestRuntime extends ClawRuntime {
+      public drainResult: {
+        injected: Message[];
+        sources: Array<{ text: string; type: string }>;
+        count: number;
+        infos: Array<{ meta: Record<string, string>; body?: string }>;
+      } = { injected: [], sources: [], count: 0, infos: [] };
+      public reactThrow: unknown = null;
+
+      protected override async _drainOwnInbox() {
+        return this.drainResult as any;
+      }
+
+      protected override async _runReact(_messages: Message[]) {
+        if (this.reactThrow) throw this.reactThrow;
+      }
+    }
+
+    let tempDir2: string;
+    let clawDir2: string;
+
+    beforeEach(async () => {
+      tempDir2 = path.join(tmpdir(), `clawforum-signal-test-${randomUUID()}`);
+      clawDir2 = path.join(tempDir2, 'claws', 'sig-claw');
+      await fs.mkdir(clawDir2, { recursive: true });
+    });
+
+    afterEach(async () => {
+      await fs.rm(tempDir2, { recursive: true, force: true }).catch(() => {});
+    });
+
+    async function makeSignalRuntime() {
+      const r = new SignalTestRuntime({
+        clawId: 'sig-claw',
+        clawDir: clawDir2,
+        llmConfig: createMockLLMConfig(),
+      });
+      await r.initialize();
+      r.drainResult = {
+        injected: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+        sources: [],
+        count: 1,
+        infos: [{ meta: { from: 'sender-claw' } }],
+      };
+      return r;
+    }
+
+    async function outboxFiles() {
+      const dir = path.join(clawDir2, 'outbox', 'pending');
+      return (await fs.readdir(dir)).filter(f => f.endsWith('.md'));
+    }
+
+    it('IdleTimeoutSignal — no outbox notification sent', async () => {
+      const r = await makeSignalRuntime();
+      r.reactThrow = new IdleTimeoutSignal(30000);
+      await expect(r.processBatch()).rejects.toBeInstanceOf(IdleTimeoutSignal);
+      expect(await outboxFiles()).toHaveLength(0);
+    });
+
+    it('PriorityInboxInterrupt — no outbox notification sent', async () => {
+      const r = await makeSignalRuntime();
+      r.reactThrow = new PriorityInboxInterrupt();
+      await expect(r.processBatch()).rejects.toBeInstanceOf(PriorityInboxInterrupt);
+      expect(await outboxFiles()).toHaveLength(0);
+    });
+
+    it('UserInterrupt — no outbox notification sent', async () => {
+      const r = await makeSignalRuntime();
+      r.reactThrow = new UserInterrupt();
+      await expect(r.processBatch()).rejects.toBeInstanceOf(UserInterrupt);
+      expect(await outboxFiles()).toHaveLength(0);
+    });
+
+    it('generic Error — outbox notification IS sent to sender', async () => {
+      const r = await makeSignalRuntime();
+      r.reactThrow = new Error('unexpected crash');
+      await expect(r.processBatch()).rejects.toThrow('unexpected crash');
+      const files = await outboxFiles();
+      expect(files.length).toBeGreaterThan(0);
     });
   });
 });
