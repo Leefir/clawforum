@@ -5,17 +5,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { saveGlobalConfig, isInitialized } from '../config.js';
+import { saveGlobalConfig, isInitialized, FORMAT_MAP } from '../config.js';
 import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 
-// API format code → preset id (for manual entry)
-const FORMAT_MAP: Record<string, string> = {
-  '1': 'custom-anthropic',
-  '2': 'custom-openai',
-  '3': 'custom-gemini',
-};
+
 
 // Known providers shown in "Select provider" list (excludes generic custom-* entries)
 const PROVIDER_LIST = [
@@ -264,7 +259,7 @@ export async function initCommand(silent = false): Promise<void> {
             const preset = PRESETS[pickedPresetId];
             const raw = await question(`Model (b = back, auto = ${preset.defaultModel ?? 'preset default'})`, 'auto');
             if (raw === 'b') { step = 'apiKey'; continue; }
-            pickedModel = raw || 'auto';
+            pickedModel = raw;
             step = 'done';
           }
         }

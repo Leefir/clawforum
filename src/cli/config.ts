@@ -12,6 +12,13 @@ import { resolvePreset } from '../foundation/llm/presets.js';
 // Re-export shared constants
 export { CLAW_SUBDIRS } from '../types/paths.js';
 
+// API format code → preset id (for manual entry)
+export const FORMAT_MAP: Record<string, string> = {
+  '1': 'custom-anthropic',
+  '2': 'custom-openai',
+  '3': 'custom-gemini',
+};
+
 // Zod Schemas (snake_case for YAML compatibility)
 export const LLMProviderSchema = z.object({
   preset: z.string().optional(),         // 新：对应 PRESETS 中的 key

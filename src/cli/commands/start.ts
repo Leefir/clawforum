@@ -10,7 +10,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary } from '../config.js';
+import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../config.js';
 import { LLMService } from '../../foundation/llm/service.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { initCommand } from './init.js';
@@ -155,9 +155,12 @@ const LLM_ERROR_LABELS: Record<LLMErrorType, string> = {
 };
 
 /**
- * Test LLM connectivity with a minimal call. Returns null on success, error type on failure.
+ * Test LLM connectivity with a minimal call.
+ * Returns { ok: true, model } on success, { ok: false, errorType, message } on failure.
  */
-async function checkLLMConnection(): Promise<{ errorType: LLMErrorType; message: string } | null> {
+async function checkLLMConnection(): Promise<
+  { ok: true; model: string } | { ok: false; errorType: LLMErrorType; message: string }
+> {
   const globalConfig = loadGlobalConfig();
   const llmConfig = buildLLMConfig(globalConfig);
   const svc = new LLMService({ primary: llmConfig.primary, fallbacks: [], maxAttempts: 1, retryDelayMs: 0 });
@@ -166,18 +169,13 @@ async function checkLLMConnection(): Promise<{ errorType: LLMErrorType; message:
       messages: [{ role: 'user', content: 'Hi' }],
       maxTokens: 1,
     });
-    return null;
+    return { ok: true, model: llmConfig.primary.model };
   } catch (err) {
-    return { errorType: classifyLLMError(err), message: err instanceof Error ? err.message : String(err) };
+    return { ok: false, errorType: classifyLLMError(err), message: err instanceof Error ? err.message : String(err) };
   }
 }
 
-// API format code → preset id (mirrors init.ts)
-const FORMAT_MAP: Record<string, string> = {
-  '1': 'custom-anthropic',
-  '2': 'custom-openai',
-  '3': 'custom-gemini',
-};
+
 
 /**
  * Interactive reconfigure prompt shown when LLM connection fails.
@@ -294,7 +292,7 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
     // Re-test after any change
     console.log('  Testing connection...');
     const result = await checkLLMConnection();
-    if (!result) {
+    if (result.ok) {
       console.log('  ✓ Connection successful!');
       return true;
     }
@@ -317,13 +315,11 @@ async function _start(): Promise<void> {
   if (wasFirstRun) {
     await initCommand(true);
   }
-  loadGlobalConfig();
-
   // Step 1b: test LLM connection; offer inline reconfigure for actionable errors
   {
     console.log('Testing LLM connection...');
     const connResult = await checkLLMConnection();
-    if (connResult) {
+    if (!connResult.ok) {
       if (connResult.errorType === 'auth' || connResult.errorType === 'model') {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         try {
@@ -339,9 +335,7 @@ async function _start(): Promise<void> {
         console.warn(`  ⚠ ${LLM_ERROR_LABELS[connResult.errorType]} — continuing anyway`);
       }
     } else {
-      const info = loadGlobalConfig();
-      const resolved = buildLLMConfig(info).primary.model;
-      console.log(`  ✓ ${resolved}`);
+      console.log(`  ✓ ${connResult.model}`);
     }
   }
 
