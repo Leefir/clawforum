@@ -634,7 +634,7 @@ export class ClawRuntime {
             }).catch(e => console.error('[runtime] Failed to write error response:', e));
           }
         }
-      } else if (!(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt)) {
+      } else if (!(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt || err instanceof IdleTimeoutSignal)) {
         // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
         const errorMsg = err instanceof Error ? err.message : String(err);
         for (const info of infos) {
@@ -650,7 +650,7 @@ export class ClawRuntime {
       }
       // Log unexpected errors to audit (aborts and MaxSteps are expected control flow)
       if (
-        !(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt) &&
+        !(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt || err instanceof IdleTimeoutSignal) &&
         !(err instanceof MaxStepsExceededError)
       ) {
         this.monitor?.log('error', {

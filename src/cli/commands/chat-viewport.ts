@@ -354,6 +354,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
+        pendingInterruptSource = null;
         // Cursor disappearance signals completion; no extra separator needed
         break;
 
@@ -379,6 +380,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         flushStreaming();
         streamingSuffix = '';
         updateDisplay();
+        pendingInterruptSource = null;
         appendOutput('\x1b[31m', `✗ Error: ${event.error as string}`);
         break;
 
