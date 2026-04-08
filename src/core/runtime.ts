@@ -519,6 +519,15 @@ export class ClawRuntime {
     } : undefined;
     resetIdle?.();
 
+    // 首个 LLM 输出 delta 时上报当前生效的 provider（确认 API 可用后才显示）
+    let providerInfoEmitted = false;
+    const emitProviderInfoOnce = () => {
+      if (!providerInfoEmitted) {
+        providerInfoEmitted = true;
+        callbacks?.onProviderInfo?.(this.llm.getProviderInfo());
+      }
+    };
+
     // Wrap onToolResult to write audit event
     const origOnToolResult = callbacks?.onToolResult;
     const auditOnToolResult = (
@@ -550,9 +559,9 @@ export class ClawRuntime {
             this.currentAbortController?.abort({ type: 'step_yield' });
           }
         },
-        onTextDelta: (d) => { resetIdle?.(); callbacks?.onTextDelta?.(d); },
+        onTextDelta: (d) => { resetIdle?.(); emitProviderInfoOnce(); callbacks?.onTextDelta?.(d); },
         onTextEnd: callbacks?.onTextEnd,
-        onThinkingDelta: (d) => { resetIdle?.(); callbacks?.onThinkingDelta?.(d); },
+        onThinkingDelta: (d) => { resetIdle?.(); emitProviderInfoOnce(); callbacks?.onThinkingDelta?.(d); },
         onToolCall: (n, id) => { resetIdle?.(); callbacks?.onToolCall?.(n, id); },
         onToolResult: auditOnToolResult,
         onBeforeLLMCall: callbacks?.onBeforeLLMCall,
@@ -755,6 +764,7 @@ export class ClawRuntime {
       onToolResult?: (toolName: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
       onTextDelta?: (delta: string) => void;  // streaming text delta
       onThinkingDelta?: (delta: string) => void;  // streaming thinking delta
+      onProviderInfo?: (info: { name: string; model: string; isFallback: boolean }) => void;
     }
   ): Promise<string> {
     if (!this.initialized) {
@@ -780,6 +790,15 @@ export class ClawRuntime {
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
+
+    let chatProviderInfoEmitted = false;
+    const emitChatProviderInfoOnce = () => {
+      if (!chatProviderInfoEmitted) {
+        chatProviderInfoEmitted = true;
+        options?.onProviderInfo?.(this.llm.getProviderInfo());
+      }
+    };
+
     try {
       const result = await runReact({
         messages,
@@ -793,8 +812,8 @@ export class ClawRuntime {
         onToolCall: options?.onToolCall,
         onBeforeLLMCall: options?.onBeforeLLMCall,
         onToolResult: options?.onToolResult,
-        onTextDelta: options?.onTextDelta,  // pass through streaming text delta
-        onThinkingDelta: options?.onThinkingDelta,  // pass through streaming thinking delta
+        onTextDelta: (d) => { emitChatProviderInfoOnce(); options?.onTextDelta?.(d); },
+        onThinkingDelta: (d) => { emitChatProviderInfoOnce(); options?.onThinkingDelta?.(d); },
         onStepComplete: async () => {
           // Incremental session save
           await this.sessionManager.save(messages);

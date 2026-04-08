@@ -23,6 +23,7 @@ export interface StreamCallbacks {
   onTurnEnd?: () => void;
   onTurnError?: (error: string) => void;
   onTurnInterrupted?: (cause: string, message?: string) => void;
+  onProviderInfo?: (info: { name: string; model: string; isFallback: boolean }) => void;
 }
 
 /**

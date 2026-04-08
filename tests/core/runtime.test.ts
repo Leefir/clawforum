@@ -1008,4 +1008,116 @@ Test message`;
       expect(files.length).toBeGreaterThan(0);
     });
   });
+
+  // ─── onProviderInfo ───────────────────────────────────────────────────────────
+
+  describe('onProviderInfo', () => {
+    let piTempDir: string;
+    let piClawDir: string;
+
+    beforeEach(async () => {
+      piTempDir = path.join(tmpdir(), `clawforum-pi-test-${randomUUID()}`);
+      piClawDir = path.join(piTempDir, 'claws', 'pi-claw');
+      await fs.mkdir(piClawDir, { recursive: true });
+    });
+
+    afterEach(async () => {
+      await fs.rm(piTempDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    it('首个 text_delta 触发 onProviderInfo，携带 getProviderInfo() 返回值', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'pi-claw',
+        clawDir: piClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'Hello' }],
+        stop_reason: 'end_turn',
+      }]);
+      mockLLM.getProviderInfo.mockReturnValue({ name: 'anthropic', model: 'claude-opus-4-6', isFallback: false });
+
+      await runtime.initialize();
+      (runtime as any).llm = mockLLM;
+
+      const onProviderInfo = vi.fn();
+      await runtime.chat('Hi', { onProviderInfo });
+
+      expect(onProviderInfo).toHaveBeenCalledTimes(1);
+      expect(onProviderInfo).toHaveBeenCalledWith({ name: 'anthropic', model: 'claude-opus-4-6', isFallback: false });
+    });
+
+    it('同一 turn 多个 delta 只触发一次', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'pi-claw',
+        clawDir: piClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+
+      // 用自定义 stream mock 产生多个 text_delta
+      const multiDeltaLLM = {
+        call: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'abc' }], stop_reason: 'end_turn' }),
+        stream: vi.fn(async function* () {
+          yield { type: 'text_delta', delta: 'a' };
+          yield { type: 'text_delta', delta: 'b' };
+          yield { type: 'text_delta', delta: 'c' };
+          yield { type: 'done' };
+        }),
+        close: vi.fn(),
+        healthCheck: vi.fn().mockResolvedValue(true),
+        getProviderInfo: vi.fn().mockReturnValue({ name: 'anthropic', model: 'claude-opus-4-6', isFallback: false }),
+      };
+
+      await runtime.initialize();
+      (runtime as any).llm = multiDeltaLLM;
+
+      const onProviderInfo = vi.fn();
+      await runtime.chat('Hi', { onProviderInfo });
+
+      expect(onProviderInfo).toHaveBeenCalledTimes(1);
+    });
+
+    it('fallback provider 时 isFallback=true 被传递', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'pi-claw',
+        clawDir: piClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'Hi' }],
+        stop_reason: 'end_turn',
+      }]);
+      mockLLM.getProviderInfo.mockReturnValue({ name: 'openai', model: 'gpt-4o', isFallback: true });
+
+      await runtime.initialize();
+      (runtime as any).llm = mockLLM;
+
+      const onProviderInfo = vi.fn();
+      await runtime.chat('Hi', { onProviderInfo });
+
+      expect(onProviderInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ isFallback: true, name: 'openai' })
+      );
+    });
+
+    it('连续两个 turn 各触发一次（每 turn 独立计数）', async () => {
+      const runtime = new ClawRuntime({
+        clawId: 'pi-claw',
+        clawDir: piClawDir,
+        llmConfig: createMockLLMConfig(),
+      });
+      const mockLLM = createMockLLM([
+        { content: [{ type: 'text', text: 'First' }], stop_reason: 'end_turn' },
+        { content: [{ type: 'text', text: 'Second' }], stop_reason: 'end_turn' },
+      ]);
+      await runtime.initialize();
+      (runtime as any).llm = mockLLM;
+
+      const onProviderInfo = vi.fn();
+      await runtime.chat('Turn 1', { onProviderInfo });
+      await runtime.chat('Turn 2', { onProviderInfo });
+
+      expect(onProviderInfo).toHaveBeenCalledTimes(2);
+    });
+  });
 });

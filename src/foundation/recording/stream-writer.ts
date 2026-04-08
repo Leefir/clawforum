@@ -151,6 +151,9 @@ export class StreamWriter {
       onTurnInterrupted: (cause: string, message?: string) => {
         this.write({ ts: Date.now(), type: 'turn_interrupted', cause, ...(message ? { message } : {}) });
       },
+      onProviderInfo: (info: { name: string; model: string; isFallback: boolean }) => {
+        this.write({ ts: Date.now(), type: 'provider_info', ...info });
+      },
     };
   }
 }

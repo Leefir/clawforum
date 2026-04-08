@@ -384,6 +384,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         appendOutput('\x1b[31m', `✗ Error: ${event.error as string}`);
         break;
 
+      case 'provider_info': {
+        const providerName = event.name as string;
+        const providerModel = event.model as string;
+        const isFallback = event.isFallback as boolean;
+        const fallbackNote = isFallback ? ' \x1b[38;5;214m(fallback)\x1b[0m' : '';
+        appendOutput('\x1b[2m', `Model: ${providerModel} · ${providerName}${fallbackNote}`);
+        break;
+      }
+
       case 'user_notify': {
         stopSpinner();   // 防止 spinner 在通知输出时继续转
         streamingSuffix = '';   // 清除游标/spinner 残留
