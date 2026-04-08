@@ -230,45 +230,53 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
       patchGlobalConfigPrimary({ model: raw });
 
     } else if (choice === '3') {
-      // Sub-flow: format → baseUrl, 'b' returns to main menu
-      type FmtStep = 'format' | 'baseUrl' | 'done';
-      let step: FmtStep = 'format';
+      type FmtStep = 'pick' | 'customFormat' | 'baseUrl' | 'done';
+      let step: FmtStep = 'pick';
       let chosenPreset = '';
       let chosenBaseUrl = '';
 
-      while (step !== 'done') {
-        if (step === 'format') {
-          console.log('\nAPI format (b = back to menu):');
-          console.log('  1. Anthropic');
-          console.log('  2. OpenAI');
-          console.log('  3. Gemini');
+      const presetList = Object.values(PRESETS).filter(p => p.defaultBaseUrl);
+      const customIdx = presetList.length + 1;
 
-          // Also offer known presets for convenience
-          const presetList = Object.values(PRESETS).filter(p => p.defaultBaseUrl);
-          console.log('\n  Or pick a known provider:');
-          presetList.forEach((p, i) => console.log(`  ${i + 4}. ${p.displayName}  (${p.defaultBaseUrl})`));
+      while (step !== 'done') {
+        if (step === 'pick') {
+          console.log('\nChange provider (b = back to menu):');
+          presetList.forEach((p, i) =>
+            console.log(`  ${i + 1}. ${p.displayName}  (${p.defaultBaseUrl})`)
+          );
+          console.log(`  ${customIdx}. Custom (enter format & base URL manually)`);
 
           const raw = await question('\n> ');
-          if (raw === 'b') break; // back to outer menu
+          if (raw === 'b') break;
           const idx = parseInt(raw, 10);
-          if (raw === '1' || raw === '2' || raw === '3') {
-            chosenPreset = FORMAT_MAP[raw];
-            chosenBaseUrl = '';
-            step = 'baseUrl';
-          } else if (idx >= 4 && idx <= 3 + presetList.length) {
-            const p = presetList[idx - 4];
+
+          if (idx >= 1 && idx <= presetList.length) {
+            const p = presetList[idx - 1];
             chosenPreset = p.id;
             chosenBaseUrl = p.defaultBaseUrl ?? '';
-            // For named presets, skip baseUrl step (already known)
             patchGlobalConfigPrimary({ preset: chosenPreset, base_url: chosenBaseUrl || undefined });
             console.log(`  ✓ Set provider to ${p.displayName}`);
             step = 'done';
+          } else if (idx === customIdx) {
+            step = 'customFormat';
           } else {
             console.log('  Invalid choice.');
           }
+
+        } else if (step === 'customFormat') {
+          console.log('\nAPI format (b = back):');
+          console.log('  1. Anthropic');
+          console.log('  2. OpenAI');
+          console.log('  3. Gemini');
+          const raw = await question('\n> ');
+          if (raw === 'b') { step = 'pick'; continue; }
+          chosenPreset = FORMAT_MAP[raw] ?? '';
+          if (!chosenPreset) { console.log('  Invalid choice.'); continue; }
+          step = 'baseUrl';
+
         } else if (step === 'baseUrl') {
           const raw = await question('Base URL (b = back)');
-          if (raw === 'b') { step = 'format'; continue; }
+          if (raw === 'b') { step = 'customFormat'; continue; }
           if (!raw) { console.log('  Base URL is required.'); continue; }
           chosenBaseUrl = raw;
           patchGlobalConfigPrimary({ preset: chosenPreset, base_url: chosenBaseUrl });
@@ -276,7 +284,7 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
         }
       }
 
-      if (step !== 'done') continue; // user hit 'b' at format step
+      if (step !== 'done') continue; // 'b' at pick step
 
     } else {
       console.log('  Invalid choice.');
