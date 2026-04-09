@@ -667,6 +667,86 @@ Test message`;
       const responseFiles = outboxFiles.filter(f => f.endsWith('.md'));
       expect(responseFiles.length).toBe(0);
     });
+
+    it('injected message includes time-ago suffix when timestamp is set', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // 15 分钟前的消息
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      await writePendingMsg(
+        pendingDir,
+        'old.md',
+        `---\nid: m1\ntype: message\nfrom: motion\npriority: normal\ntimestamp: ${fifteenMinAgo}\n---\n\nHello`,
+      );
+
+      const mockLLM = createMockLLM([{ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }]);
+      (runtime as any).llm = mockLLM;
+      await runtime.processBatch();
+
+      const userMsg = mockLLM.call.mock.calls[0][0].messages.find((m: any) => m.role === 'user');
+      expect(userMsg?.content).toContain('15m ago');
+    });
+
+    it('injected message shows seconds for very recent timestamp', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // 5 秒前
+      const fiveSecsAgo = new Date(Date.now() - 5_000).toISOString();
+      await writePendingMsg(
+        pendingDir,
+        'fresh.md',
+        `---\nid: m2\ntype: message\nfrom: motion\npriority: normal\ntimestamp: ${fiveSecsAgo}\n---\n\nFresh`,
+      );
+
+      const mockLLM = createMockLLM([{ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }]);
+      (runtime as any).llm = mockLLM;
+      await runtime.processBatch();
+
+      const userMsg = mockLLM.call.mock.calls[0][0].messages.find((m: any) => m.role === 'user');
+      expect(userMsg?.content).toMatch(/\ds ago/);
+    });
+
+    it('injected message shows hours for timestamps over 60 minutes old', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      await writePendingMsg(
+        pendingDir,
+        'old2.md',
+        `---\nid: m3\ntype: message\nfrom: motion\npriority: normal\ntimestamp: ${twoHoursAgo}\n---\n\nBody`,
+      );
+
+      const mockLLM = createMockLLM([{ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }]);
+      (runtime as any).llm = mockLLM;
+      await runtime.processBatch();
+
+      const userMsg = mockLLM.call.mock.calls[0][0].messages.find((m: any) => m.role === 'user');
+      expect(userMsg?.content).toContain('2h ago');
+    });
+
+    it('injected message has no time suffix when timestamp is missing', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      // 故意省略 timestamp 字段
+      await writePendingMsg(
+        pendingDir,
+        'no-ts.md',
+        `---\nid: m4\ntype: message\nfrom: motion\npriority: normal\n---\n\nNoTimestamp`,
+      );
+
+      const mockLLM = createMockLLM([{ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }]);
+      (runtime as any).llm = mockLLM;
+      await runtime.processBatch();
+
+      const userMsg = mockLLM.call.mock.calls[0][0].messages.find((m: any) => m.role === 'user');
+      // 内容正常注入，但括号时间标注不存在
+      expect(userMsg?.content).toContain('NoTimestamp');
+      expect(userMsg?.content).not.toContain('ago');
+    });
   });
 
   // ─── retryLastTurn() ──────────────────────────────────────────────────────
