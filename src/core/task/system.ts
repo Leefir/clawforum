@@ -35,7 +35,7 @@ export interface SubAgentTask {
   parentClawId: string;
   createdAt: string;
   systemPrompt?: string;                    // dispatcher 用 Motion 的 system prompt
-  callerType?: CallerType;  // 传给 SubAgent，决定 executorProfile
+  callerType?: CallerType;
   idleTimeoutMs?: number;                  // LLM 静默超时阈值（用户可配置）
   messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent

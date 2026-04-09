@@ -21,8 +21,6 @@ vi.mock('../../src/core/tools/executor.js', () => ({
       clawId: 'test-agent',
       clawDir: '/tmp/test',
       profile: 'subagent',
-      permissions: {},
-      hasPermission: () => true,
       fs: {},
       stepNumber: 0,
       maxSteps: 20,

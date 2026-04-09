@@ -72,8 +72,6 @@ describe('ReAct Loop', () => {
       clawId: 'test-claw',
       clawDir: '/test',
       profile: 'full',
-      permissions: { read: true, write: true, execute: true, spawn: true, send: true, network: false, system: false },
-      hasPermission: () => true,
       fs: {} as any,
       stepNumber: 0,
       maxSteps: 100,

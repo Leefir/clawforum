@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LLMService } from '../../src/foundation/llm/service.js';
 import type { IProviderAdapter, StreamChunk } from '../../src/foundation/llm/types.js';
-import { LLMError, LLMAllProvidersFailedError } from '../../src/types/errors.js';
+import { LLMError, LLMAllProvidersFailedError, LLMTimeoutError } from '../../src/types/errors.js';
 
 // Mock provider factory
 function createMockProvider(name: string, streamImpl?: () => AsyncGenerator<StreamChunk>): IProviderAdapter {
@@ -278,6 +278,74 @@ describe('LLMService - stream failover', () => {
 
     expect(caughtError).toBeInstanceOf(LLMError);
     expect(caughtError!.message).toContain('All LLM providers failed');
+  });
+
+  it('should yield reset chunk and failover to fallback on mid-stream LLMTimeoutError', async () => {
+    const primary = createMockProvider('primary', async function* () {
+      yield { type: 'text_delta', delta: 'partial text' } as StreamChunk;
+      throw new LLMTimeoutError('primary', 60000);
+    });
+
+    const fallback = createMockProvider('fallback', async function* () {
+      yield { type: 'text_delta', delta: 'fallback response' } as StreamChunk;
+      yield { type: 'done' } as StreamChunk;
+    });
+
+    const service = new LLMService({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = primary;
+    (service as any).fallbacks = [fallback];
+
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of service.stream({ messages: [] })) {
+      chunks.push(chunk);
+    }
+
+    // Should have: partial text, reset chunk, fallback response, done
+    expect(chunks.some(c => c.type === 'reset')).toBe(true);
+    const resetChunk = chunks.find(c => c.type === 'reset')!;
+    expect(resetChunk.provider).toBe('primary');
+    expect(resetChunk.timeoutMs).toBe(60000);
+    expect(chunks.some(c => 'delta' in c && c.delta === 'fallback response')).toBe(true);
+  });
+
+  it('should throw LLMAllProvidersFailedError when all providers time out mid-stream', async () => {
+    const primary = createMockProvider('primary', async function* () {
+      yield { type: 'text_delta', delta: 'partial' } as StreamChunk;
+      throw new LLMTimeoutError('primary', 60000);
+    });
+
+    const fallback = createMockProvider('fallback', async function* () {
+      yield { type: 'text_delta', delta: 'fallback partial' } as StreamChunk;
+      throw new LLMTimeoutError('fallback', 60000);
+    });
+
+    const service = new LLMService({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+    (service as any).primary = primary;
+    (service as any).fallbacks = [fallback];
+
+    let caughtError: Error | undefined;
+    const chunks: StreamChunk[] = [];
+    try {
+      for await (const chunk of service.stream({ messages: [] })) {
+        chunks.push(chunk);
+      }
+    } catch (err) {
+      caughtError = err as Error;
+    }
+
+    expect(caughtError).toBeInstanceOf(LLMAllProvidersFailedError);
+    // Both reset chunks should have been yielded before final error
+    expect(chunks.filter(c => c.type === 'reset')).toHaveLength(2);
   });
 
   it('should try primary again on next call even if previous streaming used fallback', async () => {
