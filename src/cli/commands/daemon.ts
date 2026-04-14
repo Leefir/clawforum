@@ -31,7 +31,7 @@ import { runLlmStats } from '../../core/cron/jobs/llm-stats.js';
 import { runDeepDream } from '../../core/cron/jobs/deep-dream.js';
 import { runRandomDream } from '../../core/cron/jobs/random-dream.js';
 import { CliError } from '../errors.js';
-import { initAgentGit, commitAgentDir } from '../../foundation/git/agent-git.js';
+import { init as initSnapshot, commit as commitSnapshot } from '../../foundation/snapshot/index.js';
 
 
 
@@ -124,10 +124,10 @@ export async function daemonCommand(name: string): Promise<void> {
 
   // git init（claw 首次启动时无 .git，motion init 已处理 motion 的情况）
   const agentFs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
-  await initAgentGit(dir, agentFs);
+  await initSnapshot(dir, agentFs);
 
   // recovery-snapshot：将上次中断遗留的 working tree 变更固化（在 session repair 之前）
-  await commitAgentDir(dir, 'recovery-snapshot', agentFs);
+  await commitSnapshot(dir, 'recovery-snapshot', agentFs);
 
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
@@ -259,7 +259,7 @@ export async function daemonCommand(name: string): Promise<void> {
   auditWriter.write('daemon_start', `sha256:${promptHash}`);
 
   // daemon-start commit（fire-and-forget，不阻塞启动）
-  commitAgentDir(dir, `daemon-start ${new Date().toISOString()}`, agentFs).catch(() => {});
+  commitSnapshot(dir, `daemon-start ${new Date().toISOString()}`, agentFs).catch(() => {});
 
   runtime.setContractNotifyCallback((type, data) => {
     streamWriter.write({ ts: Date.now(), type: 'user_notify', subtype: type, ...data });

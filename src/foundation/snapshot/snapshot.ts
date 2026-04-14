@@ -1,10 +1,10 @@
 /**
- * Agent Git - Git version control for agent directories
- * 
+ * Snapshot - Git-based version control for agent directories
+ *
  * Each agent directory has its own git repo:
- * - initAgentGit: Idempotent git init with .gitignore
- * - commitAgentDir: Auto-commit working tree changes
- * 
+ * - init: Idempotent git init with .gitignore
+ * - commit: Auto-commit working tree changes
+ *
  * All git operations are best-effort; failures are logged but don't block business logic.
  */
 
@@ -29,7 +29,7 @@ async function git(dir: string, args: string[]): Promise<string> {
  * Idempotent: skip if .git already exists.
  * Write .gitignore → git init → set local user config → empty commit to ensure HEAD exists.
  */
-export async function initAgentGit(dir: string, fs: IFileSystem): Promise<void> {
+export async function init(dir: string, fs: IFileSystem): Promise<void> {
   if (await fs.exists('.git')) return;
   try {
     await fs.writeAtomic('.gitignore', GITIGNORE_CONTENT);
@@ -39,20 +39,20 @@ export async function initAgentGit(dir: string, fs: IFileSystem): Promise<void> 
     await git(dir, ['add', '.']);
     await git(dir, ['commit', '--allow-empty', '-m', 'init']);
   } catch (err) {
-    console.warn('[git] initAgentGit failed:', err instanceof Error ? err.message : String(err));
+    console.warn('[snapshot] init failed:', err instanceof Error ? err.message : String(err));
   }
 }
 
 /**
  * If there are uncommitted changes, execute git add . && git commit. No-op when no changes.
  */
-export async function commitAgentDir(dir: string, message: string, fs: IFileSystem): Promise<void> {
+export async function commit(dir: string, message: string, fs: IFileSystem): Promise<void> {
   try {
     const status = await git(dir, ['status', '--porcelain']);
     if (!status) return;
     await git(dir, ['add', '.']);
     await git(dir, ['commit', '-m', message]);
   } catch (err) {
-    console.warn('[git] commitAgentDir failed:', err instanceof Error ? err.message : String(err));
+    console.warn('[snapshot] commit failed:', err instanceof Error ? err.message : String(err));
   }
 }

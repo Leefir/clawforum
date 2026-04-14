@@ -45,7 +45,7 @@ import { SkillRegistry } from './skill/registry.js';
 import { ContractManager } from './contract/manager.js';
 import { CLAW_SUBDIRS } from '../types/paths.js';
 import { oneLine } from '../foundation/utils/string.js';
-import { commitAgentDir } from '../foundation/git/agent-git.js';
+import { commit } from '../foundation/snapshot/index.js';
 import { MaxStepsExceededError } from '../types/errors.js';
 import { MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../constants.js';
 
@@ -203,7 +203,7 @@ export class ClawRuntime {
         if (toolCount > 0) {
           await this.sessionManager.save(repaired);
           this.auditWriter.write('session_repaired', `tools=${toolCount}`);
-          commitAgentDir(this.options.clawDir, `session-repair tools=${toolCount}`, this.systemFs).catch(() => {});
+          commit(this.options.clawDir, `session-repair tools=${toolCount}`, this.systemFs).catch(() => {});
         }
       }
     }
@@ -624,7 +624,7 @@ export class ClawRuntime {
 
     // turn auto-commit（fire-and-forget）
     this.turnCount++;
-    commitAgentDir(this.options.clawDir, `turn-${this.turnCount} ${new Date().toISOString()}`, this.systemFs)
+    commit(this.options.clawDir, `turn-${this.turnCount} ${new Date().toISOString()}`, this.systemFs)
       .catch(() => {});
   }
 
