@@ -59,15 +59,6 @@ export const EXEC_MAX_STDOUT = 8000;
 /** Maximum stderr capture for exec tool */
 export const EXEC_MAX_STDERR = 500;
 
-/** Minimum timeout for exec command (ms) */
-export const EXEC_TIMEOUT_MIN_MS = 1000;
-
-/** Maximum timeout for exec command (ms) */
-export const EXEC_TIMEOUT_MAX_MS = 120000;
-
-/** Default timeout for exec command (ms) */
-export const EXEC_DEFAULT_TIMEOUT_MS = 30000;
-
 // ----------------------------------------------------------------------------
 // Subagent System
 // ----------------------------------------------------------------------------

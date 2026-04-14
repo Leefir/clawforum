@@ -1,20 +1,24 @@
 /**
- * exec tool - Execute shell commands in sandbox
+ * exec tool - Execute shell commands
+ *
+ * Thin wrapper over ProcessExec.
+ * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import * as path from 'path';
 import type { ITool, ToolResult, ExecContext } from '../executor.js';
-import { 
-  EXEC_TIMEOUT_MIN_MS, 
-  EXEC_TIMEOUT_MAX_MS,
+import {
   EXEC_MAX_STDOUT,
   EXEC_MAX_STDERR,
-  EXEC_DEFAULT_TIMEOUT_MS,
 } from '../../../constants.js';
+import { exec } from '../../../foundation/process-exec/index.js';
+import { ProcessExecError } from '../../../foundation/process-exec/index.js';
+import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../../../foundation/process-exec/index.js';
 
-const execFileAsync = promisify(execFile);
+function truncate(str: string, maxLen: number): string {
+  if (!str || str.length <= maxLen) return str || '';
+  return str.slice(0, maxLen) + '\n[truncated]';
+}
 
 export const execTool: ITool = {
   name: 'exec',
@@ -28,7 +32,7 @@ export const execTool: ITool = {
       },
       timeout: {
         type: 'number',
-        description: `Timeout in milliseconds (default ${EXEC_DEFAULT_TIMEOUT_MS})`,
+        description: `Timeout in milliseconds (default ${PROCESS_EXEC_DEFAULT_TIMEOUT_MS})`,
       },
       async: {
         type: 'boolean',
@@ -43,65 +47,40 @@ export const execTool: ITool = {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const command = args.command as string;
-    // Clamp timeout between EXEC_TIMEOUT_MIN_MS and EXEC_TIMEOUT_MAX_MS
-    const requestedTimeout = (args.timeout as number) ?? EXEC_DEFAULT_TIMEOUT_MS;
-    const timeout = Math.min(
-      Math.max(requestedTimeout, EXEC_TIMEOUT_MIN_MS),
-      EXEC_TIMEOUT_MAX_MS
-    );
-
-    // Working directory: clawDir root (all tools use clawDir as base)
-    const workDir = ctx.clawDir;
+    const timeout = (args.timeout as number) ?? undefined;
 
     try {
-      // Ensure PATH includes Node bin directory (for clawforum command)
-      const nodeBinDir = path.dirname(process.execPath);
-      const pathEnv = process.env.PATH ?? '';
-      const augmentedPath = pathEnv.includes(nodeBinDir)
-        ? pathEnv
-        : `${nodeBinDir}:${pathEnv}`;
-
-      // Use shell mode to properly handle quoted arguments (MVP aligned)
-      // e.g., `echo "hello world"` works correctly instead of being split
-      const { stdout, stderr } = await execFileAsync('sh', ['-c', command], {
-        cwd: workDir,
+      const result = await exec(command, {
+        cwd: ctx.clawDir,
         timeout,
-        encoding: 'utf-8',
-        maxBuffer: 1024 * 1024, // 1MB - 让 JS 层截断逻辑处理
-        signal: ctx.signal, // 支持 Ctrl+C 中断
-        env: {
-          ...process.env,
-          PATH: augmentedPath,
-          ...(ctx.originClawId && ctx.originClawId !== ctx.clawId
-            ? { CLAW_ORIGIN_ID: ctx.originClawId }
-            : {}),
-        },
+        signal: ctx.signal,
+        env: ctx.originClawId && ctx.originClawId !== ctx.clawId
+          ? { CLAW_ORIGIN_ID: ctx.originClawId }
+          : undefined,
       });
 
-      // Design doc: separate truncation for stdout/stderr
-      let output = stdout || '';
-      if (output.length > EXEC_MAX_STDOUT) {
-        output = output.slice(0, EXEC_MAX_STDOUT) + '\n[stdout truncated]';
-      }
-      
-      let errOutput = stderr || '';
-      if (errOutput.length > EXEC_MAX_STDERR) {
-        errOutput = errOutput.slice(0, EXEC_MAX_STDERR) + '\n[stderr truncated]';
-      }
-      
-      const fullOutput = output + (errOutput ? '\n[stderr]: ' + errOutput : '') || '(no output)';
+      // Truncate output for LLM context window
+      const stdout = truncate(result.stdout, EXEC_MAX_STDOUT);
+      const stderr = truncate(result.stderr, EXEC_MAX_STDERR);
+
+      const fullOutput = stdout + (stderr ? '\n[stderr]: ' + stderr : '') || '(no output)';
 
       return {
         success: true,
         content: fullOutput,
       };
     } catch (error) {
-      const err = error as any;
+      if (!(error instanceof ProcessExecError)) {
+        return {
+          success: false,
+          content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
 
-      // maxBuffer exceeded: give actionable guidance instead of raw Node error
-      if (err?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
-        const partial = err.stdout
-          ? `\n[partial stdout]: ${(err.stdout as string).slice(0, EXEC_MAX_STDOUT)}`
+      // maxBuffer exceeded
+      if (error.maxBufferExceeded) {
+        const partial = error.stdout
+          ? `\n[partial stdout]: ${truncate(error.stdout, EXEC_MAX_STDOUT)}`
           : '';
         return {
           success: false,
@@ -109,12 +88,13 @@ export const execTool: ITool = {
         };
       }
 
-      const msg = err.message || String(error);
-      const stderr = err.stderr ? `\n[stderr]: ${(err.stderr as string).slice(0, EXEC_MAX_STDERR)}` : '';
-      const stdout = err.stdout ? `\n[stdout]: ${(err.stdout as string).slice(0, EXEC_MAX_STDOUT)}` : '';
+      // General error (non-zero exit code, timeout, etc.)
+      const stderr = error.stderr ? `\n[stderr]: ${truncate(error.stderr, EXEC_MAX_STDERR)}` : '';
+      const stdout = error.stdout ? `\n[stdout]: ${truncate(error.stdout, EXEC_MAX_STDOUT)}` : '';
+
       return {
         success: false,
-        content: `Error: ${msg}${stderr}${stdout}`,
+        content: `Error: ${error.message}${stderr}${stdout}`,
       };
     }
   },
