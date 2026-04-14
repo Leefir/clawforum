@@ -5,7 +5,7 @@
  */
 
 import * as path from 'path';
-import { promises as fs, realpathSync } from 'fs';
+import { promises as fsPromises, appendFileSync, statSync as fsStatSync, renameSync, mkdirSync, realpathSync } from 'fs';
 import type {
   IFileSystem,
   FileSystemOptions,
@@ -202,7 +202,7 @@ export class NodeFileSystem implements IFileSystem {
     
     async function scan(dir: string, listedDir: string): Promise<void> {
       // Use simple readdir for listing
-      const dirents = await fs.readdir(dir, { withFileTypes: true });
+      const dirents = await fsPromises.readdir(dir, { withFileTypes: true });
       const items = dirents.filter(item => {
         if (!options?.pattern) return true;
         // Simple glob matching - can be enhanced
@@ -308,5 +308,49 @@ export class NodeFileSystem implements IFileSystem {
     const targetDir = dirPath ?? '.';
     const absolute = this.resolveAndCheck(targetDir, 'write');
     return cleanupOrphanedTemp(absolute);
+  }
+
+  // ========================================================================
+  // Synchronous Operations
+  // ========================================================================
+
+  appendSync(relativePath: string, content: string): void {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    // Ensure parent directory exists (mkdirSync for sync path)
+    const dir = path.dirname(absolute);
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(absolute, content, 'utf-8');
+  }
+
+  statSync(relativePath: string): {
+    size: number;
+    mtime: Date;
+    ctime: Date;
+    isFile: boolean;
+    isDirectory: boolean;
+  } {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    try {
+      const stats = fsStatSync(absolute);
+      return {
+        size: stats.size,
+        mtime: stats.mtime,
+        ctime: stats.ctime,
+        isFile: stats.isFile(),
+        isDirectory: stats.isDirectory(),
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new FileNotFoundError(relativePath);
+      }
+      throw error;
+    }
+  }
+
+  moveSync(fromPath: string, toPath: string): void {
+    const fromAbsolute = this.resolveAndCheck(fromPath, 'write');
+    const toAbsolute = this.resolveAndCheck(toPath, 'write');
+    mkdirSync(path.dirname(toAbsolute), { recursive: true });
+    renameSync(fromAbsolute, toAbsolute);
   }
 }
