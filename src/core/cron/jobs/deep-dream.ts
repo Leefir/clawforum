@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import type { IFileSystem } from '../../../foundation/fs/types.js';
 import { LLMService } from '../../../foundation/llm/service.js';
 import type { LLMServiceConfig } from '../../../foundation/llm/types.js';
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../../types/message.js';
@@ -22,6 +23,7 @@ export interface DeepDreamOptions {
   clawforumDir: string;                  // .clawforum/ 根目录
   llmConfig: LLMServiceConfig;
   maxCompressionTokens?: number;         // 压缩上限（token 估算），默认 4000
+  fs: IFileSystem;
 }
 
 // ─── 工具函数 ────────────────────────────────────────────────
@@ -141,6 +143,7 @@ async function runDeepDreamForClaw(
   clawDir: string,
   llm: LLMService,
   maxCompressionTokens: number,
+  fileSystem: IFileSystem,
 ): Promise<void> {
   const today = new Date().toLocaleDateString('sv');   // ← 统一在此计算
   const state = loadDreamState(clawDir);
@@ -231,7 +234,7 @@ async function runDeepDreamForClaw(
   if (dreamOutputs.length === 0) return;
 
   // 投递到 claw inbox
-  writeInboxMessage({
+  writeInboxMessage(fileSystem, {
     inboxDir: path.join(clawDir, 'inbox', 'pending'),
     type: 'deep_dream',
     source: 'cron:dream',
@@ -265,7 +268,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
     for (const clawId of clawIds) {
       const clawDir = path.join(clawsDir, clawId);
       try {
-        await runDeepDreamForClaw(clawId, clawDir, llm, maxCompressionTokens);
+        await runDeepDreamForClaw(clawId, clawDir, llm, maxCompressionTokens, opts.fs);
       } catch (err) {
         console.error(`[cron:deep-dream] ${clawId}: unexpected error:`, err);
         // 单 claw 失败不阻断其他 claw

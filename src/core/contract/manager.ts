@@ -809,7 +809,7 @@ export class ContractManager {
       body = feedback || 'No feedback provided';
     }
 
-    writeInboxMessage({
+    writeInboxMessage(this.fs, {
       inboxDir: path.join(this.clawDir, 'inbox', 'pending'),
       type: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
       source: 'contract_system',
@@ -828,7 +828,7 @@ export class ContractManager {
     const errorMsg = error instanceof Error ? error.message : String(error);
 
     try {
-      writeInboxMessage({
+      writeInboxMessage(this.fs, {
         inboxDir: path.join(this.clawDir, 'inbox', 'pending'),
         type: 'acceptance_error',
         source: 'contract_system',
@@ -922,7 +922,7 @@ export class ContractManager {
     try {
       const motionInbox = this.motionInboxDir;
 
-      writeInboxMessage({
+      writeInboxMessage(this.fs, {
         inboxDir: motionInbox,
         type: 'contract_escalation',
         source: this.clawId,
@@ -951,7 +951,7 @@ export class ContractManager {
     try {
       const motionInbox = this.motionInboxDir;
 
-      writeInboxMessage({
+      writeInboxMessage(this.fs, {
         inboxDir: motionInbox,
         type: 'acceptance_timeout',
         source: this.clawId,
@@ -1261,12 +1261,12 @@ export class ContractManager {
     };
 
     try {
-      writeInboxMessage(opts);
+      writeInboxMessage(this.fs, opts);
     } catch (e) {
       // 瞬时失败：500ms 后重试一次
       setTimeout(() => {
         try {
-          writeInboxMessage(opts);
+          writeInboxMessage(this.fs, opts);
           this.monitor?.log('system', {
             context: 'ContractManager.notifyMotionCompletion',
             contractId,

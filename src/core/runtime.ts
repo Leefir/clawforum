@@ -15,7 +15,7 @@ import type { InboxMessage, Priority } from '../types/contract.js';
 import type { OutboxWriteOptions } from './communication/index.js';
 import type { SessionData } from '../foundation/session-store/index.js';
 import { parseFrontmatter } from '../foundation/message-codec/index.js';
-import { readInboxFileMeta } from '../utils/inbox-writer.js';
+import { readInboxFileMeta } from '../foundation/messaging/index.js';
 
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { LLMService } from '../foundation/llm/service.js';
@@ -951,7 +951,7 @@ export class ClawRuntime {
       return false;
     }
     for (const file of files) {
-      const meta = readInboxFileMeta(path.join(pendingDir, file));
+      const meta = readInboxFileMeta(this.systemFs, path.join(pendingDir, file));
       if (meta?.priority === 'high' || meta?.priority === 'critical') return true;
     }
     return false;

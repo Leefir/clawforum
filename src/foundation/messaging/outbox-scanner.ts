@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs/promises';
+import type { IFileSystem } from '../fs/types.js';
 
 export interface ClawOutboxInfo {
   clawId: string;
@@ -15,23 +15,21 @@ export interface ClawOutboxInfo {
  * Scan all claw outbox/pending, return structured list if any pending, null otherwise.
  * Caller decides when to write inbox notifications.
  */
-export async function scanClawOutboxes(baseDir: string): Promise<ClawOutboxInfo[] | null> {
+export async function scanClawOutboxes(fs: IFileSystem, baseDir: string): Promise<ClawOutboxInfo[] | null> {
   try {
     const clawsDir = path.join(baseDir, 'claws');
-    try {
-      await fs.access(clawsDir);
-    } catch {
+    if (!fs.existsSync(clawsDir)) {
       return null;
     }
 
-    const entries = await fs.readdir(clawsDir, { withFileTypes: true });
-    const clawIds = entries.filter(d => d.isDirectory()).map(d => d.name);
+    const entries = await fs.list(clawsDir, { includeDirs: true });
+    const clawIds = entries.filter(e => e.isDirectory).map(e => e.name);
 
     const counts: Record<string, number> = {};
     for (const id of clawIds) {
       const outboxPending = path.join(clawsDir, id, 'outbox', 'pending');
       try {
-        const files = (await fs.readdir(outboxPending)).filter(f => f.endsWith('.md'));
+        const files = (await fs.list(outboxPending, { includeDirs: false })).filter(f => f.name.endsWith('.md'));
         if (files.length > 0) {
           counts[id] = files.length;
         }

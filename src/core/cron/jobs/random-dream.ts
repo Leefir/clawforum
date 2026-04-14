@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import type { IFileSystem } from '../../../foundation/fs/types.js';
 import type { TaskSystem } from '../../task/system.js';
 import { scheduleSubAgentWithTracking } from '../../tools/builtins/spawn.js';
 import { TOOL_PROFILES } from '../../tools/profiles.js';
@@ -14,6 +15,7 @@ export interface RandomDreamOptions {
   clawforumDir: string;
   motionDir: string;
   taskSystem: TaskSystem;
+  fs: IFileSystem;
 }
 
 interface WeightedContract {
@@ -267,7 +269,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   saveRandomDreamState(opts.clawforumDir, updatedState);
 
   // 投递到 motion inbox
-  writeInboxMessage({
+  writeInboxMessage(opts.fs, {
     inboxDir: path.join(opts.motionDir, 'inbox', 'pending'),
     type: 'random_dream',
     source: 'cron:dream',

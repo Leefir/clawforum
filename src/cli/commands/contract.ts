@@ -29,6 +29,7 @@ function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
 }
 
 function notifyContractCreated(clawDir: string, clawId: string, contractId: string, contract: ContractYaml): void {
+  const fs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
   // best-effort：通知 viewport via stream.jsonl
   const streamLine = JSON.stringify({
     ts: Date.now(), type: 'user_notify', subtype: 'contract_created',
@@ -54,6 +55,7 @@ function notifyContractCreated(clawDir: string, clawId: string, contractId: stri
   lines.push(`done: { "subtask": "<subtask-id>", "evidence": "<产出物路径或完成摘要>" }`);
   const body = lines.join('\n');
   notifySystem(
+    fs,
     path.join(clawDir, 'inbox', 'pending'),
     body,
     { type: 'message', priority: 'high', idPrefix: 'contract-new' },

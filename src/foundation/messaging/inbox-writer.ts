@@ -7,8 +7,6 @@
 
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import * as fsNative from 'fs';
-import { NodeFileSystem } from '../fs/node-fs.js';
 import type { IFileSystem } from '../fs/types.js';
 import type { InboxMessage } from '../../types/contract.js';
 import { encodeInbox, parseFrontmatter } from '../message-codec/index.js';
@@ -64,7 +62,7 @@ export interface InboxMessageOptions {
  * Write an inbox message with standardized YAML frontmatter format.
  * Creates the inbox directory if it doesn't exist.
  */
-export function writeInboxMessage(opts: InboxMessageOptions): void {
+export function writeInboxMessage(fs: IFileSystem, opts: InboxMessageOptions): void {
   const now = new Date();
   const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
   const uuid8 = randomUUID().slice(0, 8);
@@ -84,20 +82,18 @@ export function writeInboxMessage(opts: InboxMessageOptions): void {
 
   const content = encodeInbox(message, opts.extraFields);
 
-  // Use IFileSystem sync API — creates a temporary instance with absolute paths
-  const tmpFs = new NodeFileSystem({ baseDir: '/', enforcePermissions: false });
-  tmpFs.ensureDirSync(opts.inboxDir);
+  fs.ensureDirSync(opts.inboxDir);
   const filename = `${ts}_${tag}_${uuid8}.md`;
-  tmpFs.writeAtomicSync(path.join(opts.inboxDir, filename), content);
+  fs.writeAtomicSync(path.join(opts.inboxDir, filename), content);
 }
 
 /**
  * Read frontmatter metadata from an inbox file.
  * Returns null on failure (missing file, parse error, etc.).
  */
-export function readInboxFileMeta(filePath: string): Record<string, string> | null {
+export function readInboxFileMeta(fs: IFileSystem, filePath: string): Record<string, string> | null {
   try {
-    const content = fsNative.readFileSync(filePath, 'utf-8');
+    const content = fs.readSync(filePath);
     return parseFrontmatter(content).meta;
   } catch {
     return null;

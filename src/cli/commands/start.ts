@@ -343,6 +343,7 @@ async function _start(): Promise<void> {
 
   // Step 2: motion init
   const motionDir = getMotionDir();
+  const notifyFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
   const daemonEntryPath = path.resolve(thisDir, '..', '..', 'daemon-entry.js');
   const motionSpawnOptions = {
@@ -396,7 +397,7 @@ async function _start(): Promise<void> {
       acceptance: [],
     });
 
-    writeInboxMessage({
+    writeInboxMessage(notifyFs, {
       inboxDir,
       type: 'message',
       source: 'system',
@@ -424,7 +425,7 @@ async function _start(): Promise<void> {
         subtasks: buildOnboardingSubtasks('auto'),
         acceptance: [],
       });
-      writeInboxMessage({
+      writeInboxMessage(notifyFs, {
         inboxDir,
         type: 'message', source: 'system', priority: 'high',
         body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
@@ -432,7 +433,7 @@ async function _start(): Promise<void> {
       });
     } else {
       const pendingList = onboarding.pending.join(', ');
-      writeInboxMessage({
+      writeInboxMessage(notifyFs, {
         inboxDir,
         type: 'message', source: 'system', priority: 'high',
         body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,

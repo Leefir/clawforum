@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
 import { scanClawOutboxes } from '../../src/foundation/messaging/index.js';
+import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 function createTempDir(): string {
   const tempDir = fs.mkdtempSync('/tmp/clawforum-outbox-test-');
@@ -22,9 +23,11 @@ function cleanupTempDir(tempDir: string): void {
 
 describe('OutboxScanner', () => {
   let tempDir: string;
+  let mockFs: NodeFileSystem;
 
   beforeEach(() => {
     tempDir = createTempDir();
+    mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
   });
 
   afterEach(() => {
@@ -32,7 +35,7 @@ describe('OutboxScanner', () => {
   });
 
   it('should return null when claws directory does not exist', async () => {
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).toBeNull();
   });
 
@@ -42,7 +45,7 @@ describe('OutboxScanner', () => {
     fs.mkdirSync(path.join(claw1Dir, 'outbox', 'pending'), { recursive: true });
     fs.mkdirSync(path.join(claw2Dir, 'outbox', 'pending'), { recursive: true });
 
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).toBeNull();
   });
 
@@ -52,7 +55,7 @@ describe('OutboxScanner', () => {
     fs.mkdirSync(outboxDir, { recursive: true });
     fs.writeFileSync(path.join(outboxDir, 'msg1.md'), 'test message');
 
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).toEqual([{ clawId: 'claw1', count: 1 }]);
   });
 
@@ -74,7 +77,7 @@ describe('OutboxScanner', () => {
 
     // claw3: empty
 
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).not.toBeNull();
     expect(result!.find(i => i.clawId === 'claw1')?.count).toBe(2);
     expect(result!.find(i => i.clawId === 'claw2')?.count).toBe(1);
@@ -91,7 +94,7 @@ describe('OutboxScanner', () => {
     fs.writeFileSync(path.join(outboxDir, 'temp.json'), 'test');
     fs.writeFileSync(path.join(outboxDir, 'readme.txt'), 'test');
 
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).toEqual([{ clawId: 'claw1', count: 2 }]); // Only .md files counted
   });
 
@@ -108,7 +111,7 @@ describe('OutboxScanner', () => {
     fs.writeFileSync(path.join(claw2Dir, 'outbox', 'pending', 'msg.md'), 'test');
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).toBeNull(); // ENOTDIR is rethrown, outer catch returns null
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -120,7 +123,7 @@ describe('OutboxScanner', () => {
     fs.writeFileSync(clawsPath, 'i am a file not a dir');
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const result = await scanClawOutboxes(tempDir);
+    const result = await scanClawOutboxes(mockFs, tempDir);
     expect(result).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[OutboxScanner]'), expect.any(String));
     warnSpy.mockRestore();

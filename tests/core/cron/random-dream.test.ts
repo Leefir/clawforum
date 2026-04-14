@@ -16,6 +16,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { runRandomDream, type RandomDreamOptions } from '../../../src/core/cron/jobs/random-dream.js';
+import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import type { TaskSystem } from '../../../src/core/task/system.js';
 
 // ─── scheduleSubAgentWithTracking mock ───────────────────────
@@ -45,6 +46,7 @@ function makeOpts(clawforumDir: string, motionDir: string): RandomDreamOptions {
     clawforumDir,
     motionDir,
     taskSystem: {} as TaskSystem,
+    fs: new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false }),
   };
 }
 

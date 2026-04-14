@@ -110,9 +110,11 @@ function log(message: string): void {
 
 // Write an inbox message (YAML frontmatter .md format)
 function writeWatchdogInboxMessage(type: string, content: Record<string, unknown>): void {
-  const inboxDir = path.join(getMotionDir(), 'inbox', 'pending');
+  const motionDir = getMotionDir();
+  const inboxDir = path.join(motionDir, 'inbox', 'pending');
+  const fs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
   const body = (content.message as string) ?? JSON.stringify(content);
-  writeInboxMessage({
+  writeInboxMessage(fs, {
     inboxDir,
     type: `watchdog_${type}`,
     source: 'watchdog',
@@ -292,7 +294,8 @@ function maybeCronClawCrash(pm: ProcessManager): void {
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
       const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}`;
 
-      writeInboxMessage({
+      const motionFs = new NodeFileSystem({ baseDir: getMotionDir(), enforcePermissions: false });
+      writeInboxMessage(motionFs, {
         inboxDir: path.join(getMotionDir(), 'inbox', 'pending'),
         type: 'crash_notification',
         source: clawId,

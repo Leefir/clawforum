@@ -5,6 +5,7 @@
 
 import * as fsNative from 'fs';
 import * as path from 'path';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import type { ClawRuntime, InboxMessageInfo, StreamCallbacks } from '../../core/runtime.js';
 import type { StreamWriter, StreamSink } from '../../foundation/stream/index.js';
 import { oneLine } from '../../foundation/utils/string.js';
@@ -136,6 +137,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 } {
   const { runtime, agentDir, clawId, inboxPendingDir, label, onBatchComplete, streamWriter, notifyMotionDir } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
+  const loopFs = new NodeFileSystem({ baseDir: path.join(agentDir, '..'), enforcePermissions: false });
   let stopped = false;
   let startupFired = false;
   let lastOutboxNotifyTs = 0;
@@ -218,7 +220,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           if (!alreadyPending && startupCheckCooledDown) {
             fsNative.mkdirSync(path.join(agentDir, 'status'), { recursive: true });
             fsNative.writeFileSync(startupCheckTsFile, String(Date.now()));
-            notifyInbox({
+            notifyInbox(loopFs, {
               inboxDir: inboxPendingDir,
               type: 'startup_check',
               source: 'daemon',
@@ -238,7 +240,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
       // motion: scan claw outboxes for unread messages
       if (options.isMotion) {
-        const outboxInfos = await scanClawOutboxes(path.join(agentDir, '..'));
+        const outboxInfos = await scanClawOutboxes(loopFs, path.join(agentDir, '..'));
         if (outboxInfos !== null) {
           if (Date.now() - lastOutboxNotifyTs >= OUTBOX_NOTIFY_COOLDOWN_MS) {
             lastOutboxNotifyTs = Date.now();
@@ -247,7 +249,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
                 `- "${id}" 有 ${count} 条未读消息，可执行 \`clawforum claw outbox ${id}\` 查看`
             );
             const body = `有 ${outboxInfos.length} 个 claw 有未读消息：\n${lines.join('\n')}`;
-            notifyInbox({
+            notifyInbox(loopFs, {
               inboxDir: inboxPendingDir,
               type: 'claw_outbox',
               source: 'system',
@@ -372,7 +374,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
              const errMsg = err instanceof Error ? err.message : String(err);
              const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype: 'llm_error', clawId, error: errMsg }) + '\n';
              notifyStream(path.join(notifyMotionDir, 'stream.jsonl'), line, label);
-             notifyInbox({
+             notifyInbox(loopFs, {
                inboxDir: path.join(notifyMotionDir, 'inbox', 'pending'),
                type: 'watchdog_claw_llm_error',
                source: clawId,

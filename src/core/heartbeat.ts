@@ -5,7 +5,8 @@
  */
 
 import * as path from 'path';
-import * as fsNative from 'fs';
+import type { IFileSystem } from '../foundation/fs/types.js';
+import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { writeInboxMessage } from '../utils/inbox-writer.js';
 import type { Logger } from '../foundation/monitor/types.js';
 
@@ -13,6 +14,7 @@ interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
   interval?: number;
   monitor?: Logger;
+  fs?: IFileSystem;
 }
 
 /**
@@ -23,12 +25,14 @@ export class Heartbeat {
   private interval: number;
   private lastRun: number;
   private monitor?: Logger;
+  private fs?: IFileSystem;
 
   constructor(baseDir: string, options: HeartbeatOptions = {}) {
     this.baseDir = baseDir;
     this.interval = (options.interval ?? 300) * 1000;
     this.lastRun = Date.now();  // 启动后等满一个 interval 再首次触发
     this.monitor = options.monitor;
+    this.fs = options.fs;
   }
 
   /**
@@ -44,17 +48,18 @@ export class Heartbeat {
    */
   fire(): void {
     try {
+      const fs = this.fs ?? new NodeFileSystem({ baseDir: this.baseDir, enforcePermissions: false });
       const inboxDir = path.join(this.baseDir, 'motion', 'inbox', 'pending');
-      fsNative.mkdirSync(inboxDir, { recursive: true });
+      fs.ensureDirSync(inboxDir);
 
       // 去重：已有未处理心跳则跳过
-      const existing = fsNative.readdirSync(inboxDir);
-      if (existing.some(f => f.includes('_heartbeat_'))) {
+      const existing = fs.listSync(inboxDir);
+      if (existing.some(f => f.name.includes('_heartbeat_'))) {
         this.lastRun = Date.now();  // 去重也重置计时器，避免重复检查
         return;
       }
 
-      writeInboxMessage({
+      writeInboxMessage(fs, {
         inboxDir,
         type: 'heartbeat',
         source: 'system',

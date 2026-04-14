@@ -137,8 +137,10 @@ export async function daemonCommand(name: string): Promise<void> {
   if (isMotion) {
     const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 0;
     if (heartbeatIntervalMs > 0) {
+      const heartbeatFs = new NodeFileSystem({ baseDir: path.join(dir, '..'), enforcePermissions: false });
       heartbeat = new Heartbeat(path.join(dir, '..'), {
-        interval: heartbeatIntervalMs / 1000  // 转换为秒
+        interval: heartbeatIntervalMs / 1000,  // 转换为秒
+        fs: heartbeatFs,
       });
     }
   }
@@ -169,6 +171,7 @@ export async function daemonCommand(name: string): Promise<void> {
           clawforumDir,
           motionInboxDir: path.join(dir, 'inbox', 'pending'),
           limitMB: diskLimitMB,
+          fs: new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false }),
         }),
       },
       {
@@ -186,16 +189,19 @@ export async function daemonCommand(name: string): Promise<void> {
         schedule: parseSchedule(globalConfig.cron?.jobs?.dream_trigger?.schedule ?? 'daily:04:00'),
         handler: async () => {
           // 深度梦境：串行处理每个 claw
+          const cronFs = new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false });
           await runDeepDream({
             clawforumDir,
             llmConfig,
             maxCompressionTokens: globalConfig.cron?.jobs?.dream_trigger?.max_compression_tokens,
+            fs: cronFs,
           });
           // 随机梦境：sub-agent 跨 claw 漫游
           await runRandomDream({
             clawforumDir,
             motionDir: dir,
             taskSystem: runtime.getTaskSystem(),
+            fs: cronFs,
           });
         },
       },

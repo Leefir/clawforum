@@ -12,12 +12,15 @@ import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 import { writeInboxMessage } from '../../src/utils/inbox-writer.js';
+import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 let tmpDir: string;
+let mockFs: NodeFileSystem;
 
 beforeEach(() => {
   tmpDir = path.join(os.tmpdir(), `inbox-writer-test-${randomUUID()}`);
   fs.mkdirSync(tmpDir, { recursive: true });
+  mockFs = new NodeFileSystem({ baseDir: '/', enforcePermissions: false });
 });
 
 afterEach(() => {
@@ -34,7 +37,7 @@ function readWrittenFile(): string {
 
 describe('yamlQuote — numeric extraFields', () => {
   it('integer values are written unquoted', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -48,7 +51,7 @@ describe('yamlQuote — numeric extraFields', () => {
   });
 
   it('float values are written unquoted', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -66,7 +69,7 @@ describe('yamlQuote — numeric extraFields', () => {
 
 describe('yamlQuote — boolean extraFields', () => {
   it('true/false are written unquoted', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -84,7 +87,7 @@ describe('yamlQuote — boolean extraFields', () => {
 
 describe('yamlQuote — string escaping', () => {
   it('backslash is escaped to \\\\', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -98,7 +101,7 @@ describe('yamlQuote — string escaping', () => {
   });
 
   it('double-quote is escaped to \\"', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -111,7 +114,7 @@ describe('yamlQuote — string escaping', () => {
   });
 
   it('newline in value is escaped to \\n', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -124,7 +127,7 @@ describe('yamlQuote — string escaping', () => {
   });
 
   it('carriage return in value is escaped to \\r', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -141,7 +144,7 @@ describe('yamlQuote — string escaping', () => {
 
 describe('writeInboxMessage atomic write', () => {
   it('leaves no .tmp file after write', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'test',
       source: 'test',
@@ -153,7 +156,7 @@ describe('writeInboxMessage atomic write', () => {
   });
 
   it('final file has complete YAML frontmatter and body', () => {
-    writeInboxMessage({
+    writeInboxMessage(mockFs, {
       inboxDir: tmpDir,
       type: 'ping',
       source: 'motion',

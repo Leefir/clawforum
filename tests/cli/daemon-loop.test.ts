@@ -231,6 +231,7 @@ describe('startDaemonLoop - LLM retry', () => {
     expect(typeof event.error).toBe('string');
     expect(typeof event.ts).toBe('number');
     expect(vi.mocked(writeInboxMessage)).toHaveBeenCalledWith(
+      expect.any(Object),
       expect.objectContaining({ type: 'watchdog_claw_llm_error' }),
     );
 
@@ -316,6 +317,7 @@ describe('startDaemonLoop - Motion outbox scanning', () => {
     await flushMicrotasks(10);
 
     expect(vi.mocked(writeInboxMessage)).toHaveBeenCalledWith(
+      expect.any(Object),
       expect.objectContaining({ type: 'claw_outbox' }),
     );
 
@@ -373,7 +375,7 @@ describe('startDaemonLoop - Motion outbox scanning', () => {
     await flushMicrotasks(10);
 
     const claw_outbox_calls = vi.mocked(writeInboxMessage).mock.calls.filter(
-      ([opts]) => opts.type === 'claw_outbox'
+      ([, opts]) => (opts as any).type === 'claw_outbox'
     );
     expect(claw_outbox_calls).toHaveLength(0);
 
