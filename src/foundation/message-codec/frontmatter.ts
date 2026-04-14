@@ -1,12 +1,17 @@
 /**
  * YAML frontmatter parser utility
- * 
+ *
  * Unified implementation to replace 5 duplicated copies across the codebase.
- * 
+ *
  * Features:
  * - Supports `: ` (preferred) and `:` (compatibility)
  * - Strips quotes from values ("value" or 'value' → value)
  * - Returns { meta, body } format
+ *
+ * Safety: body content containing `\n---\n` cannot confuse this parser because:
+ * 1. All frontmatter values are single-line (encodeInbox uses yamlQuote for strings)
+ * 2. indexOf('\n---\n') finds the FIRST match, which is always the closing delimiter
+ * 3. Body content appears after the first match and is never scanned for delimiters
  */
 
 export function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
@@ -21,26 +26,14 @@ export function parseFrontmatter(raw: string): { meta: Record<string, string>; b
   }
 
   const meta: Record<string, string> = {};
-  const frontmatterSection = afterOpen.slice(0, closeIdx);
-  let bodyLength: number | undefined;
-
-  for (const line of frontmatterSection.split('\n')) {
+  for (const line of afterOpen.slice(0, closeIdx).split('\n')) {
     const ci = line.indexOf(':');
     if (ci <= 0) continue;
     const key = line.slice(0, ci).trim();
     const value = line.slice(ci + 1).trim().replace(/^["']|["']$/g, '');
-    if (key === '_body_length') {
-      bodyLength = parseInt(value, 10);
-    } else {
-      meta[key] = value;
-    }
+    meta[key] = value;
   }
 
-  // 如果有 _body_length，用精确长度切分 body（不受 body 中 \n---\n 干扰）
-  const bodyStart = afterOpen.slice(closeIdx + 5);
-  if (bodyLength !== undefined && !isNaN(bodyLength)) {
-    return { meta, body: bodyStart.slice(0, bodyLength).trim() };
-  }
-
-  return { meta, body: bodyStart.trim() };
+  // Everything after the closing --- is the body
+  return { meta, body: afterOpen.slice(closeIdx + 5).trim() };
 }

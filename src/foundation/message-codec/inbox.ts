@@ -14,6 +14,10 @@ function yamlQuote(v: string): string {
 /**
  * Encode InboxMessage to YAML frontmatter + body string.
  * Pure function: no I/O, no side effects.
+ *
+ * Body content is written verbatim — no escaping needed because parseFrontmatter
+ * uses the FIRST `\n---\n` as the closing delimiter, and all frontmatter values
+ * are single-line (yamlQuote ensures this).
  */
 export function encodeInbox(
   msg: InboxMessage,
@@ -25,9 +29,8 @@ export function encodeInbox(
     `type: ${msg.type}`,
     `from: ${yamlQuote(msg.from)}`,
     `to: ${yamlQuote(msg.to)}`,
-    `priority: ${msg.priority}`,
+    `priority: ${validatePriority(msg.priority)}`,
     `timestamp: ${msg.timestamp}`,
-    `_body_length: ${msg.content.length}`,
   ];
 
   if (msg.contract_id) {
@@ -36,8 +39,7 @@ export function encodeInbox(
 
   // Append extra fields, guard against overriding standard keys
   if (extraFields) {
-    // contract_id is NOT reserved: InboxMessageOptions lacks it, callers pass it via extraFields
-    const reserved = new Set(['id', 'type', 'from', 'to', 'priority', 'timestamp', '_body_length']);
+    const reserved = new Set(['id', 'type', 'from', 'to', 'priority', 'timestamp']);
     for (const [k, v] of Object.entries(extraFields)) {
       if (reserved.has(k)) {
         console.warn(`[MessageCodec] extraFields key "${k}" conflicts with standard field, skipping`);

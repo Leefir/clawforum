@@ -46,11 +46,13 @@ export interface ITransport {
 
   /**
    * Send a message to a specific connected client.
+   * Throws if connectionId is not found (caller error, should be caught).
    */
   send(connectionId: string, data: string): void;
 
   /**
    * Send a message to all connected clients.
+   * Best-effort delivery: silently skips disconnected clients.
    */
   broadcast(data: string): void;
 
