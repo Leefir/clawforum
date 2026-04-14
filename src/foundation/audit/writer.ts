@@ -1,3 +1,4 @@
+import { FileNotFoundError } from '../../types/errors.js';
 import type { IFileSystem } from '../fs/types.js';
 
 export class AuditWriter {
@@ -30,9 +31,8 @@ export class AuditWriter {
         this.fs.moveSync(this.filePath, `${this.filePath}.${Date.now()}.bak`);
       }
     } catch (err) {
-      // ENOENT（首次写入文件不存在）静默跳过；其他错误 warn
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT'
-        && !(err instanceof Error && err.message.includes('not found'))) {
+      // FileNotFoundError（首次写入文件不存在）静默跳过；其他错误 warn
+      if (!(err instanceof FileNotFoundError)) {
         console.warn('[audit] rotation check failed:', err instanceof Error ? err.message : String(err));
       }
     }

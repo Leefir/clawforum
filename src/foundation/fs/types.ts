@@ -18,7 +18,7 @@ export interface FileEntry {
  * FileSystem interface - Abstract file operations
  * 
  * Implementation notes:
- * - All methods are async (Promise-based)
+ * - Most methods are async (Promise-based); synchronous variants available for hot paths
  * - Paths are validated to be within claw space (implementation responsibility)
  * - Atomic writes ensure no partial files on crash
  */

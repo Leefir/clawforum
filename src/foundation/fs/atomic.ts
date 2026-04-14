@@ -5,7 +5,7 @@
  * - All operations use fs/promises for async I/O
  */
 
-import { promises as fs, appendFileSync as fsAppendFileSync, statSync as fsStatSync, renameSync as fsRenameSync } from 'fs';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
@@ -139,40 +139,6 @@ export async function isDirectory(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/**
- * Append content to file synchronously (creates if not exists)
- */
-export function appendFileSync(filePath: string, content: string): void {
-  fsAppendFileSync(filePath, content, 'utf-8');
-}
-
-/**
- * Get file stats synchronously
- */
-export function statSync(filePath: string): {
-  size: number;
-  mtime: Date;
-  ctime: Date;
-  isFile: boolean;
-  isDirectory: boolean;
-} {
-  const stats = fsStatSync(filePath);
-  return {
-    size: stats.size,
-    mtime: stats.mtime,
-    ctime: stats.ctime,
-    isFile: stats.isFile(),
-    isDirectory: stats.isDirectory(),
-  };
-}
-
-/**
- * Move/rename a file synchronously (atomic on same filesystem)
- */
-export function moveFileSync(src: string, dst: string): void {
-  fsRenameSync(src, dst);
 }
 
 /**
