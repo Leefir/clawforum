@@ -125,6 +125,13 @@ export interface IFileSystem {
   // ========================================================================
 
   /**
+   * Read file content synchronously.
+   * @param path - Relative path within claw space
+   * @throws FileNotFoundError if file doesn't exist
+   */
+  readSync(path: string): string;
+
+  /**
    * Append content to file synchronously.
    * For high-frequency writes where async overhead matters (audit log, stream).
    * @param path - Relative path within claw space

@@ -9,7 +9,7 @@
 import { spawn, execSync, spawnSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { readFileSync, unlinkSync, openSync, mkdirSync, closeSync, existsSync } from 'fs';
+import { openSync, mkdirSync, closeSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 import type { IFileSystem } from '../fs/types.js';
@@ -105,7 +105,7 @@ export class ProcessManager {
   getAliveStatus(clawId: string): { alive: boolean; reason: string; pid?: number } {
     try {
       const pidFile = this.getPidFile(clawId);
-      const content = readFileSync(pidFile, 'utf-8');
+      const content = this.fs.readSync(pidFile);
       const trimmed = content.trim();
       if (trimmed === '') {
         return { alive: false, reason: 'empty PID file' };
@@ -120,7 +120,7 @@ export class ProcessManager {
         return { alive: true, reason: `PID ${pid}`, pid };
       } catch (err: any) {
         if (err.code === 'ESRCH') {
-          try { unlinkSync(pidFile); } catch { /* ignore */ }
+          try { this.fs.deleteSync(pidFile); } catch { /* ignore */ }
           return { alive: false, reason: `PID ${pid} not found (ESRCH)` };
         }
         if (err.code === 'EPERM') {
@@ -129,7 +129,7 @@ export class ProcessManager {
         return { alive: false, reason: `kill(0) error: ${err.code}` };
       }
     } catch (err: any) {
-      if (err.code === 'ENOENT') {
+      if (err.code === 'ENOENT' || err.code === 'FS_NOT_FOUND') {
         return { alive: false, reason: 'no PID file' };
       }
       return { alive: false, reason: `read error: ${err.code || err.message}` };
@@ -192,7 +192,7 @@ export class ProcessManager {
     // Check and clean up the old daemon's lockfile
     const lockFile = path.join(this.getStatusDir(clawId), 'daemon.lock');
     try {
-      const lockContent = readFileSync(lockFile, 'utf-8');
+      const lockContent = this.fs.readSync(lockFile);
       const lockPid = parseInt(lockContent.trim(), 10);
       if (!isNaN(lockPid)) {
         // Pre-check: only SIGTERM if the lock holder is still alive
@@ -239,7 +239,7 @@ export class ProcessManager {
         }
         // 区分：空文件 = spawn 进行中；有 PID 内容 = 陈旧文件
         let existingContent = '';
-        try { existingContent = readFileSync(pidFile, 'utf-8').trim(); } catch {}
+        try { existingContent = this.fs.readSync(pidFile).trim(); } catch {}
         if (existingContent === '') {
           // 空文件：可能有并发 spawn，记录警告后继续（接受极小概率重复启动）
           console.warn(`[ProcessManager] Empty PID file for "${clawId}", possible concurrent spawn`);
