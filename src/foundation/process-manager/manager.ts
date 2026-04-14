@@ -207,7 +207,11 @@ export class ProcessManager {
           console.warn(`[process] Failed to delete lockfile ${lockFile}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
-    } catch { /* lockfile does not exist, this is normal */ }
+    } catch (err: any) {
+      if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
+        console.warn(`[ProcessManager] lockfile read failed for "${clawId}": ${err?.code || err?.message || err}`);
+      }
+    }
     
     // Exclusively create the PID file (avoid race conditions)
     const pidFile = this.getPidFile(clawId);
@@ -325,6 +329,7 @@ export class ProcessManager {
         await this.removePid(clawId);
         return true;
       }
+      console.warn(`[ProcessManager] stop("${clawId}") failed: ${err.code || err.message}`);
       return false;
     }
   }
