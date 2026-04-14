@@ -55,10 +55,11 @@ function getLastActiveMs(clawDir: string): number | undefined {
   } catch { return undefined; }
 }
 
-import { ProcessManager } from '../../foundation/process/manager.js';
+import { ProcessManager } from '../../foundation/process-manager/index.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInbox } from '../../foundation/messaging/index.js';
 import { randomUUID } from 'crypto';
+import { fileURLToPath } from 'url';
 import { PROCESS_SPAWN_CONFIRM_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 
 export async function createCommand(name: string): Promise<void> {
@@ -117,7 +118,14 @@ export async function chatCommand(name: string): Promise<void> {
       const pm = new ProcessManager(nodeFs, baseDir);
       if (!pm.isAlive(name)) {
         console.log(`Starting Claw "${name}" daemon...`);
-        const pid = await pm.spawn(name, clawDir);
+        const thisDir = path.dirname(fileURLToPath(import.meta.url));
+        const daemonEntryPath = path.resolve(thisDir, '..', '..', 'daemon-entry.js');
+        const pid = await pm.spawn(name, {
+          command: 'node',
+          args: [daemonEntryPath, name],
+          logFile: path.join(clawDir, 'logs', 'daemon.log'),
+          env: { ...process.env, CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT ?? process.cwd() } as Record<string, string | undefined>,
+        });
         console.log(`Started (PID: ${pid})`);
         // Wait for daemon to initialize
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));

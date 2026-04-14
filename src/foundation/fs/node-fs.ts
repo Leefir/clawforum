@@ -323,6 +323,18 @@ export class NodeFileSystem implements IFileSystem {
     }
   }
 
+  readSync(relativePath: string): string {
+    const absolute = this.resolveAndCheck(relativePath, 'read');
+    try {
+      return fsSync.readFileSync(absolute, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new FileNotFoundError(relativePath);
+      }
+      throw error;
+    }
+  }
+
   appendSync(relativePath: string, content: string): void {
     const absolute = this.resolveAndCheck(relativePath, 'write');
     const dir = path.dirname(absolute);

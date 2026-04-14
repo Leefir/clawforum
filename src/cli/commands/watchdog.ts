@@ -8,9 +8,10 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import type { SpawnOptions } from '../../foundation/process-manager/index.js';
 import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../config.js';
-import { ProcessManager } from '../../foundation/process/manager.js';
+import { ProcessManager } from '../../foundation/process-manager/index.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
@@ -41,13 +42,13 @@ function getWatchdogPidFile(): string {
 /**
  * Create a ProcessManager dedicated to Motion
  */
-function createMotionPM(auditWriter?: AuditWriter): ProcessManager {
+function createMotionPM(): ProcessManager {
   const baseDir = path.dirname(getMotionDir());
   const nfs = new NodeFileSystem({ baseDir, enforcePermissions: false });
   return new ProcessManager(nfs, baseDir, (id) => {
     if (id === 'motion') return path.join(baseDir, 'motion');
     return path.join(baseDir, 'claws', id);
-  }, auditWriter);
+  });
 }
 
 // Watchdog PID management
@@ -325,7 +326,7 @@ export async function daemonCommand(): Promise<void> {
   let stopped = false;
   
   // Create Motion ProcessManager (reused across loop iterations)
-  const pm = createMotionPM(auditWriter);
+  const pm = createMotionPM();
   
   process.on('SIGTERM', () => {
     log('[watchdog] Received SIGTERM, shutting down...');
@@ -376,9 +377,17 @@ export async function daemonCommand(): Promise<void> {
         await pm.stop('motion').catch((e) => {
           log(`[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`);
         });
-        const motionDir = getMotionDir();
-        const pid = await pm.spawn('motion', motionDir);  // use default daemon-entry.js
+        const thisDir = path.dirname(fileURLToPath(import.meta.url));
+        const daemonEntryPath = path.resolve(thisDir, '..', '..', 'daemon-entry.js');
+        const clawforumDir = getClawforumDir();
+        const pid = await pm.spawn('motion', {
+          command: 'node',
+          args: [daemonEntryPath, 'motion'],
+          logFile: path.join(getMotionDir(), 'logs', 'daemon.log'),
+          env: { ...process.env, CLAWFORUM_ROOT: path.dirname(clawforumDir) } as Record<string, string | undefined>,
+        });
         log(`[watchdog] motion restarted (PID=${pid})`);
+        auditWriter.write('process_spawn', 'motion', `pid=${pid}`);
         motionRestartFailures = 0;  // Success, reset counter
       } catch (err) {
         if (err instanceof Error && err.message.includes('already running')) {
@@ -387,6 +396,7 @@ export async function daemonCommand(): Promise<void> {
           motionRestartFailures = 0;
         } else {
           motionRestartFailures++;
+          auditWriter.write('process_spawn_failed', 'motion', `err=${err instanceof Error ? err.message : String(err)}`);
           log(`[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
         }
       }

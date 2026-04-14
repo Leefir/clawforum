@@ -6,36 +6,40 @@
 
 // TODO(phase3): zombie process detection - MVP uses `ps` command to detect zombies, TS only uses kill(0), macOS/Linux behavior differs
 
-import { spawn, execSync, spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { readFileSync, unlinkSync, openSync, mkdirSync, closeSync, existsSync } from 'fs';
-import { fileURLToPath } from 'url';
+import { openSync, mkdirSync, closeSync } from 'fs';
 
 import type { IFileSystem } from '../fs/types.js';
-import { AuditWriter } from '../audit/writer.js';
-import { 
+import {
   PROCESS_SPAWN_CONFIRM_MS,
   SIGTERM_GRACE_MS,
   RESTART_DELAY_MS,
 } from '../../constants.js';
 
-export interface ProcessStatus {
-  pid: number;
-  startedAt: string;
+export interface SpawnOptions {
+  /** 可执行文件路径（如 'node'） */
+  command: string;
+  /** 命令参数（如 ['/path/to/daemon-entry.js', 'motion']） */
+  args: string[];
+  /** 子进程工作目录（可选，默认继承父进程） */
+  cwd?: string;
+  /** stdout/stderr 重定向的日志文件绝对路径 */
+  logFile: string;
+  /** 环境变量（可选，默认继承父进程） */
+  env?: Record<string, string | undefined>;
 }
 
 export class ProcessManager {
   private fs: IFileSystem;
   private baseDir: string;
   private resolveDir: (id: string) => string;
-  private auditWriter?: AuditWriter;
 
-  constructor(fs: IFileSystem, baseDir: string, dirResolver?: (id: string) => string, auditWriter?: AuditWriter) {
+  constructor(fs: IFileSystem, baseDir: string, dirResolver?: (id: string) => string) {
     this.fs = fs;
     this.baseDir = baseDir;
     this.resolveDir = dirResolver ?? ((id: string) => path.join(baseDir, 'claws', id));
-    this.auditWriter = auditWriter;
   }
 
   /**
@@ -79,15 +83,6 @@ export class ProcessManager {
   }
 
   /**
-   * Write the pid file
-   */
-  private async writePid(clawId: string, pid: number): Promise<void> {
-    await this.ensureStatusDir(clawId);
-    const pidFile = this.getPidFile(clawId);
-    await this.fs.writeAtomic(pidFile, String(pid));
-  }
-
-  /**
    * Delete the pid file
    */
   private async removePid(clawId: string): Promise<void> {
@@ -108,7 +103,7 @@ export class ProcessManager {
   getAliveStatus(clawId: string): { alive: boolean; reason: string; pid?: number } {
     try {
       const pidFile = this.getPidFile(clawId);
-      const content = readFileSync(pidFile, 'utf-8');
+      const content = this.fs.readSync(pidFile);
       const trimmed = content.trim();
       if (trimmed === '') {
         return { alive: false, reason: 'empty PID file' };
@@ -123,7 +118,7 @@ export class ProcessManager {
         return { alive: true, reason: `PID ${pid}`, pid };
       } catch (err: any) {
         if (err.code === 'ESRCH') {
-          try { unlinkSync(pidFile); } catch { /* ignore */ }
+          try { this.fs.deleteSync(pidFile); } catch { /* ignore */ }
           return { alive: false, reason: `PID ${pid} not found (ESRCH)` };
         }
         if (err.code === 'EPERM') {
@@ -132,7 +127,7 @@ export class ProcessManager {
         return { alive: false, reason: `kill(0) error: ${err.code}` };
       }
     } catch (err: any) {
-      if (err.code === 'ENOENT') {
+      if (err.code === 'ENOENT' || err.code === 'FS_NOT_FOUND') {
         return { alive: false, reason: 'no PID file' };
       }
       return { alive: false, reason: `read error: ${err.code || err.message}` };
@@ -148,39 +143,26 @@ export class ProcessManager {
   }
 
   /**
-   * Spawn the daemon process
-   * @param clawId process ID
-   * @param clawDir working directory
-   * @param args optional spawn arguments (defaults to starting the claw daemon)
+   * Spawn a detached process
+   * @param clawId - process identifier (used for PID file management)
+   * @param options - spawn configuration (command, args, logFile, env, cwd)
    * @returns process PID
    */
-  async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+  async spawn(clawId: string, options: SpawnOptions): Promise<number> {
     // Fast-path: if already running, fail immediately to avoid waiting on pgrep
     if (this.isAlive(clawId)) {
       throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
     }
 
-    // Calculate daemon entry path first (needed for pgrep pattern and spawn)
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const bundleEntry = path.join(thisDir, 'daemon-entry.js');
-    const daemonEntryPath = existsSync(bundleEntry)
-      ? bundleEntry
-      : path.resolve(thisDir, '..', '..', '..', 'dist', 'daemon-entry.js');
-
     // Kill all orphaned daemon processes with the same name (pgrep scan)
-    // Use full path as pattern to only match current installation
-    const pattern = `${daemonEntryPath} ${clawId}`;
+    // Use args as pattern to only match current installation
+    const pattern = options.args.join(' ');
     try {
-      // Use spawnSync with array args to avoid shell injection via clawId
-      const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
-      // pgrep exit 0 = matches found, exit 1 = no match; other = error (treat as empty)
-      const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
-      const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
+      const pids = this.findProcesses(pattern);
       let sentAny = false;
       for (const pid of pids) {
         try {
           process.kill(pid, 'SIGTERM');
-          this.auditWriter?.write('orphan_killed', clawId, `pid=${pid}`);
           sentAny = true;
         } catch (err: any) {
           if (err?.code !== 'ESRCH') {
@@ -196,7 +178,7 @@ export class ProcessManager {
     // Check and clean up the old daemon's lockfile
     const lockFile = path.join(this.getStatusDir(clawId), 'daemon.lock');
     try {
-      const lockContent = readFileSync(lockFile, 'utf-8');
+      const lockContent = this.fs.readSync(lockFile);
       const lockPid = parseInt(lockContent.trim(), 10);
       if (!isNaN(lockPid)) {
         // Pre-check: only SIGTERM if the lock holder is still alive
@@ -243,7 +225,7 @@ export class ProcessManager {
         }
         // 区分：空文件 = spawn 进行中；有 PID 内容 = 陈旧文件
         let existingContent = '';
-        try { existingContent = readFileSync(pidFile, 'utf-8').trim(); } catch {}
+        try { existingContent = this.fs.readSync(pidFile).trim(); } catch {}
         if (existingContent === '') {
           // 空文件：可能有并发 spawn，记录警告后继续（接受极小概率重复启动）
           console.warn(`[ProcessManager] Empty PID file for "${clawId}", possible concurrent spawn`);
@@ -257,22 +239,16 @@ export class ProcessManager {
       }
     }
 
-    // Spawn the daemon process (using a dedicated entry file)
-    const finalArgs = args ?? [daemonEntryPath, clawId];
-
-    // Create the logs directory and log file
-    const logsDir = path.join(clawDir, 'logs');
-    mkdirSync(logsDir, { recursive: true });
-    const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
+    // Ensure log directory exists and open log file
+    mkdirSync(path.dirname(options.logFile), { recursive: true });
+    const logFd = openSync(options.logFile, 'a');
 
     try {
-      // Set CLAWFORUM_ROOT so the daemon always finds the config regardless of CWD.
-      // baseDir is the .clawforum directory; its parent is the workspace root.
-      const workspaceRoot = path.dirname(this.baseDir);
-      const proc = spawn('node', finalArgs, {
+      const proc = spawn(options.command, options.args, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
-        env: { ...process.env, CLAWFORUM_ROOT: workspaceRoot },
+        env: options.env ?? process.env as Record<string, string | undefined>,
+        ...(options.cwd ? { cwd: options.cwd } : {}),
       });
       
       // Let the child process run independently, without blocking the parent from exiting
@@ -284,7 +260,7 @@ export class ProcessManager {
       }
 
       // Write the pid file
-      await fs.writeFile(pidFile, String(pid), 'utf-8');
+      await this.fs.writeAtomic(pidFile, String(pid));
 
       // Poll until alive or timeout (handles slow ESM startup on constrained servers).
       // Always checks at least once; retries every 50ms up to PROCESS_SPAWN_CONFIRM_MS total.
@@ -295,15 +271,13 @@ export class ProcessManager {
         alive = this.isAlive(clawId);
       }
       if (!alive) {
-        throw new Error(`Daemon process failed to start. Check logs at: ${path.join(clawDir, 'logs', 'daemon.log')}`);
+        throw new Error(`Process "${clawId}" failed to start. Check logs at: ${options.logFile}`);
       }
 
-      this.auditWriter?.write('process_spawn', clawId, `pid=${pid}`);
       return pid;
     } catch (err) {
       // Startup failed — clean up the PID file
       await this.removePid(clawId).catch(() => {});
-      this.auditWriter?.write('process_spawn_failed', clawId, `err=${err instanceof Error ? err.message : String(err)}`);
       throw err;
     } finally {
       // Design doc: ensure logFd is closed in all paths
@@ -344,13 +318,11 @@ export class ProcessManager {
       }
 
       await this.removePid(clawId);
-      this.auditWriter?.write('process_stop', clawId, `pid=${pid}`, `via=${via}`);
       return true;
     } catch (err: any) {
       // Process no longer exists
       if (err.code === 'ESRCH') {
         await this.removePid(clawId);
-        this.auditWriter?.write('process_stop', clawId, `pid=${pid}`, 'via=esrch');
         return true;
       }
       return false;
@@ -358,19 +330,33 @@ export class ProcessManager {
   }
 
   /**
-   * Restart the daemon process
-   * @param clawId process ID
-   * @param clawDir working directory
-   * @param args optional spawn arguments
+   * Restart a process (stop + spawn)
+   * @param clawId - process identifier
+   * @param options - spawn configuration
    * @returns new process PID
    */
-  async restart(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+  async restart(clawId: string, options: SpawnOptions): Promise<number> {
     await this.stop(clawId);
     // Brief wait to ensure resources such as ports are released
     await new Promise(resolve => setTimeout(resolve, RESTART_DELAY_MS));
-    const pid = await this.spawn(clawId, clawDir, args);
-    this.auditWriter?.write('process_restart', clawId, `pid=${pid}`);
+    const pid = await this.spawn(clawId, options);
     return pid;
+  }
+
+  /**
+   * Find processes matching a pattern (pgrep -f pattern)
+   * Encapsulates platform-specific process finding
+   */
+  findProcesses(pattern: string): number[] {
+    try {
+      const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
+      const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
+      return output.trim().split('\n')
+        .map(s => parseInt(s, 10))
+        .filter(p => !isNaN(p) && p !== process.pid);
+    } catch {
+      return [];
+    }
   }
 
   /**

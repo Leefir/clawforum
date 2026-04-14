@@ -31,7 +31,7 @@ vi.mock('child_process', async (importOriginal) => {
   };
 });
 
-import { ProcessManager } from '../../src/foundation/process/manager.js';
+import { ProcessManager } from '../../src/foundation/process-manager/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 let tempDir: string;
@@ -53,18 +53,24 @@ afterEach(async () => {
 });
 
 describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
-  it('should call spawnSync pgrep with daemon-entry.js ${clawId} pattern', async () => {
+  it('should call spawnSync pgrep with options.args pattern', async () => {
     const { spawnSync } = await import('child_process');
     const pm = new ProcessManager(nodeFs, tempDir);
     const clawId = 'p19-claw';
     const clawDir = path.join(tempDir, 'claws', clawId);
+    const logFile = path.join(clawDir, 'logs', 'daemon.log');
     await fs.mkdir(clawDir, { recursive: true });
 
-    await pm.spawn(clawId, clawDir);
+    await pm.spawn(clawId, {
+      command: 'node',
+      args: ['/fake/daemon-entry.js', clawId],
+      logFile,
+      env: { ...process.env },
+    });
 
     expect(vi.mocked(spawnSync)).toHaveBeenCalledWith(
       'pgrep',
-      expect.arrayContaining(['-f', expect.stringContaining(`daemon-entry.js ${clawId}`)]),
+      expect.arrayContaining(['-f', `/fake/daemon-entry.js ${clawId}`]),
       expect.any(Object),
     );
   });
@@ -82,9 +88,15 @@ describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
     const pm = new ProcessManager(nodeFs, tempDir);
     const clawId = 'orphan-claw';
     const clawDir = path.join(tempDir, 'claws', clawId);
+    const logFile = path.join(clawDir, 'logs', 'daemon.log');
     await fs.mkdir(clawDir, { recursive: true });
 
-    await pm.spawn(clawId, clawDir);
+    await pm.spawn(clawId, {
+      command: 'node',
+      args: ['/fake/daemon-entry.js', clawId],
+      logFile,
+      env: { ...process.env },
+    });
 
     expect(killSpy).toHaveBeenCalledWith(orphanPid, 'SIGTERM');
     killSpy.mockRestore();
@@ -105,8 +117,14 @@ describe('ProcessManager.spawn() - Phase 19 daemon-entry.js', () => {
 
     const pm = new ProcessManager(nodeFs, tempDir);
     const clawDir = path.join(tempDir, 'claws', clawId);
+    const logFile = path.join(clawDir, 'logs', 'daemon.log');
 
-    await expect(pm.spawn(clawId, clawDir)).resolves.toBeDefined();
+    await expect(pm.spawn(clawId, {
+      command: 'node',
+      args: ['/fake/daemon-entry.js', clawId],
+      logFile,
+      env: { ...process.env },
+    })).resolves.toBeDefined();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Empty PID file'));
 
     warnSpy.mockRestore();

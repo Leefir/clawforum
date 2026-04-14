@@ -9,7 +9,7 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { ProcessManager } from '../../src/foundation/process/manager.js';
+import { ProcessManager } from '../../src/foundation/process-manager/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 async function createTempDir(): Promise<string> {
@@ -140,26 +140,38 @@ describe('ProcessManager', () => {
       const pm = new ProcessManager(nodeFs, tempDir);
       const clawDir = path.join(tempDir, 'claws', 'existing-claw');
       const pidFile = path.join(clawDir, 'status', 'pid');
+      const logFile = path.join(clawDir, 'logs', 'daemon.log');
 
       // 预先创建 PID 文件，使用真实运行的进程 PID
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
       await fs.writeFile(pidFile, String(process.pid), 'utf-8');
 
       // spawn 应抛出 already running 错误
-      await expect(pm.spawn('existing-claw', clawDir)).rejects.toThrow(/already running/);
+      await expect(pm.spawn('existing-claw', {
+        command: 'node',
+        args: ['/fake/daemon-entry.js', 'existing-claw'],
+        logFile,
+        env: { ...process.env },
+      })).rejects.toThrow(/already running/);
     });
 
     it('should throw error with claw name in message', async () => {
       const pm = new ProcessManager(nodeFs, tempDir);
       const clawDir = path.join(tempDir, 'claws', 'busy-claw');
       const pidFile = path.join(clawDir, 'status', 'pid');
+      const logFile = path.join(clawDir, 'logs', 'daemon.log');
 
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
       // 使用真实运行的进程 PID
       await fs.writeFile(pidFile, String(process.pid), 'utf-8');
 
       try {
-        await pm.spawn('busy-claw', clawDir);
+        await pm.spawn('busy-claw', {
+          command: 'node',
+          args: ['/fake/daemon-entry.js', 'busy-claw'],
+          logFile,
+          env: { ...process.env },
+        });
         expect.fail('should have thrown');
       } catch (err: any) {
         expect(err.message).toContain('busy-claw');
@@ -171,6 +183,7 @@ describe('ProcessManager', () => {
       const pm = new ProcessManager(nodeFs, tempDir);
       const clawDir = path.join(tempDir, 'claws', 'empty-pid-claw');
       const pidFile = path.join(clawDir, 'status', 'pid');
+      const logFile = path.join(clawDir, 'logs', 'daemon.log');
 
       // Pre-create an EMPTY PID file (simulates in-progress spawn by another process)
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
@@ -180,7 +193,12 @@ describe('ProcessManager', () => {
 
       // Use 'node --version' as a harmless stand-in; the important thing is the warn happens
       // before the actual spawn, so even if spawn fails afterward that's fine.
-      await pm.spawn('empty-pid-claw', clawDir, ['--version']).catch(() => {});
+      await pm.spawn('empty-pid-claw', {
+        command: 'node',
+        args: ['--version'],
+        logFile,
+        env: { ...process.env },
+      }).catch(() => {});
 
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Empty PID file'),
