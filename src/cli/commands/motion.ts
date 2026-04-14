@@ -204,7 +204,14 @@ export async function chatCommand(): Promise<void> {
       const pm = createMotionPM();
       if (!pm.isAlive('motion')) {
         console.log('Starting Motion daemon...');
-        const pid = await pm.spawn('motion', motionDir);
+        const thisDir = path.dirname(fileURLToPath(import.meta.url));
+        const daemonEntryPath = path.resolve(thisDir, '..', '..', 'daemon-entry.js');
+        const pid = await pm.spawn('motion', {
+          command: 'node',
+          args: [daemonEntryPath, 'motion'],
+          logFile: path.join(motionDir, 'logs', 'daemon.log'),
+          env: { ...process.env, CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT ?? process.cwd() } as Record<string, string | undefined>,
+        });
         console.log(`Started (PID: ${pid})`);
         await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }

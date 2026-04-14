@@ -9,8 +9,7 @@
 import { spawn, execSync, spawnSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { openSync, mkdirSync, closeSync, existsSync } from 'fs';
-import { fileURLToPath } from 'url';
+import { openSync, mkdirSync, closeSync } from 'fs';
 
 import type { IFileSystem } from '../fs/types.js';
 import {
@@ -22,6 +21,19 @@ import {
 export interface ProcessStatus {
   pid: number;
   startedAt: string;
+}
+
+export interface SpawnOptions {
+  /** 可执行文件路径（如 'node'） */
+  command: string;
+  /** 命令参数（如 ['/path/to/daemon-entry.js', 'motion']） */
+  args: string[];
+  /** 子进程工作目录（可选，默认继承父进程） */
+  cwd?: string;
+  /** stdout/stderr 重定向的日志文件绝对路径 */
+  logFile: string;
+  /** 环境变量（可选，默认继承父进程） */
+  env?: Record<string, string | undefined>;
 }
 
 export class ProcessManager {
@@ -151,28 +163,17 @@ export class ProcessManager {
    * @param args optional spawn arguments (defaults to starting the claw daemon)
    * @returns process PID
    */
-  async spawn(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+  async spawn(clawId: string, options: SpawnOptions): Promise<number> {
     // Fast-path: if already running, fail immediately to avoid waiting on pgrep
     if (this.isAlive(clawId)) {
       throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
     }
 
-    // Calculate daemon entry path first (needed for pgrep pattern and spawn)
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const bundleEntry = path.join(thisDir, 'daemon-entry.js');
-    const daemonEntryPath = existsSync(bundleEntry)
-      ? bundleEntry
-      : path.resolve(thisDir, '..', '..', '..', 'dist', 'daemon-entry.js');
-
     // Kill all orphaned daemon processes with the same name (pgrep scan)
-    // Use full path as pattern to only match current installation
-    const pattern = `${daemonEntryPath} ${clawId}`;
+    // Use args as pattern to only match current installation
+    const pattern = options.args.join(' ');
     try {
-      // Use spawnSync with array args to avoid shell injection via clawId
-      const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
-      // pgrep exit 0 = matches found, exit 1 = no match; other = error (treat as empty)
-      const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
-      const pids = output.trim().split('\n').map(s => parseInt(s, 10)).filter(p => !isNaN(p) && p !== process.pid);
+      const pids = this.findProcesses(pattern);
       let sentAny = false;
       for (const pid of pids) {
         try {
@@ -253,22 +254,16 @@ export class ProcessManager {
       }
     }
 
-    // Spawn the daemon process (using a dedicated entry file)
-    const finalArgs = args ?? [daemonEntryPath, clawId];
-
-    // Create the logs directory and log file
-    const logsDir = path.join(clawDir, 'logs');
-    mkdirSync(logsDir, { recursive: true });
-    const logFd = openSync(path.join(logsDir, 'daemon.log'), 'a');
+    // Ensure log directory exists and open log file
+    mkdirSync(path.dirname(options.logFile), { recursive: true });
+    const logFd = openSync(options.logFile, 'a');
 
     try {
-      // Set CLAWFORUM_ROOT so the daemon always finds the config regardless of CWD.
-      // baseDir is the .clawforum directory; its parent is the workspace root.
-      const workspaceRoot = path.dirname(this.baseDir);
-      const proc = spawn('node', finalArgs, {
+      const proc = spawn(options.command, options.args, {
         detached: true,
         stdio: ['ignore', logFd, logFd],  // stdout + stderr → daemon.log
-        env: { ...process.env, CLAWFORUM_ROOT: workspaceRoot },
+        env: options.env ?? process.env as Record<string, string | undefined>,
+        ...(options.cwd ? { cwd: options.cwd } : {}),
       });
       
       // Let the child process run independently, without blocking the parent from exiting
@@ -291,7 +286,7 @@ export class ProcessManager {
         alive = this.isAlive(clawId);
       }
       if (!alive) {
-        throw new Error(`Daemon process failed to start. Check logs at: ${path.join(clawDir, 'logs', 'daemon.log')}`);
+        throw new Error(`Process "${clawId}" failed to start. Check logs at: ${options.logFile}`);
       }
 
       return pid;
@@ -356,12 +351,28 @@ export class ProcessManager {
    * @param args optional spawn arguments
    * @returns new process PID
    */
-  async restart(clawId: string, clawDir: string, args?: string[]): Promise<number> {
+  async restart(clawId: string, options: SpawnOptions): Promise<number> {
     await this.stop(clawId);
     // Brief wait to ensure resources such as ports are released
     await new Promise(resolve => setTimeout(resolve, RESTART_DELAY_MS));
-    const pid = await this.spawn(clawId, clawDir, args);
+    const pid = await this.spawn(clawId, options);
     return pid;
+  }
+
+  /**
+   * Find processes matching a pattern (pgrep -f pattern)
+   * Encapsulates platform-specific process finding
+   */
+  findProcesses(pattern: string): number[] {
+    try {
+      const result = spawnSync('pgrep', ['-f', pattern], { encoding: 'utf-8' });
+      const output = (result.status === 0 || result.status === 1) ? (result.stdout ?? '') : '';
+      return output.trim().split('\n')
+        .map(s => parseInt(s, 10))
+        .filter(p => !isNaN(p) && p !== process.pid);
+    } catch {
+      return [];
+    }
   }
 
   /**

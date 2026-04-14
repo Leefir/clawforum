@@ -12,6 +12,7 @@ import { handleCliError, CliError } from './errors.js';
 import { initCommand } from './commands/init.js';
 import { startCommand } from './commands/start.js';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { 
   createCommand, 
   chatCommand, 
@@ -228,7 +229,14 @@ clawCmd
         console.log(`Claw "${name}" is already running`);
         return;
       }
-      const pid = await pm.spawn(name, clawDir);
+      const thisDir = path.dirname(fileURLToPath(import.meta.url));
+      const daemonEntryPath = path.resolve(thisDir, '..', 'daemon-entry.js');
+      const pid = await pm.spawn(name, {
+        command: 'node',
+        args: [daemonEntryPath, name],
+        logFile: path.join(clawDir, 'logs', 'daemon.log'),
+        env: { ...process.env, CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT ?? process.cwd() } as Record<string, string | undefined>,
+      });
       console.log(`Started Claw "${name}" (PID: ${pid})`);
     } catch (error) {
       process.exitCode = handleCliError(error);
@@ -307,7 +315,14 @@ motionCmd
         console.log('Motion is already running');
         return;
       }
-      const pid = await pm.spawn('motion', motionDir);
+      const thisDir = path.dirname(fileURLToPath(import.meta.url));
+      const daemonEntryPath = path.resolve(thisDir, '..', 'daemon-entry.js');
+      const pid = await pm.spawn('motion', {
+        command: 'node',
+        args: [daemonEntryPath, 'motion'],
+        logFile: path.join(motionDir, 'logs', 'daemon.log'),
+        env: { ...process.env, CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT ?? process.cwd() } as Record<string, string | undefined>,
+      });
       console.log(`Started Motion daemon (PID: ${pid})`);
     } catch (error) {
       process.exitCode = handleCliError(error);

@@ -8,6 +8,7 @@
  */
 
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../config.js';
@@ -342,6 +343,14 @@ async function _start(): Promise<void> {
 
   // Step 2: motion init
   const motionDir = getMotionDir();
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const daemonEntryPath = path.resolve(thisDir, '..', '..', 'daemon-entry.js');
+  const motionSpawnOptions = {
+    command: 'node' as const,
+    args: [daemonEntryPath, 'motion'],
+    logFile: path.join(motionDir, 'logs', 'daemon.log'),
+    env: { ...process.env, CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT ?? process.cwd() } as Record<string, string | undefined>,
+  };
   if (!fs.existsSync(path.join(motionDir, 'AGENTS.md'))) {
     await motionInitCommand(true);
   }
@@ -353,7 +362,7 @@ async function _start(): Promise<void> {
   if (onboarding.state === 'complete') {
     const pm = createMotionPM();
     if (!pm.isAlive('motion')) {
-      await pm.spawn('motion', motionDir);
+      await pm.spawn('motion', motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     if (!isWatchdogAlive()) await watchdogStartCommand();
@@ -368,7 +377,7 @@ async function _start(): Promise<void> {
     const pm = createMotionPM();
     const daemonReady = (async () => {
       if (!pm.isAlive('motion')) {
-        await pm.spawn('motion', motionDir);
+        await pm.spawn('motion', motionSpawnOptions);
         await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
       }
     })();
@@ -401,7 +410,7 @@ async function _start(): Promise<void> {
     // 非首次但 not_found（极少），或 in_progress
     const pm = createMotionPM();
     if (!pm.isAlive('motion')) {
-      await pm.spawn('motion', motionDir);
+      await pm.spawn('motion', motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     if (!isWatchdogAlive()) await watchdogStartCommand();
