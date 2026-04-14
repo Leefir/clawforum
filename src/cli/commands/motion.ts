@@ -18,7 +18,7 @@ import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
-import { initAgentGit } from '../../foundation/git/agent-git.js';
+import { init as initSnapshot } from '../../foundation/snapshot/index.js';
 
 /**
  * Create a ProcessManager dedicated to Motion
@@ -172,8 +172,9 @@ export async function initCommand(silent = false): Promise<void> {
   await installBuiltinSkills(motionDir);
 
   // Init git for motion directory
-  await initAgentGit(motionDir).catch(err =>
-    console.warn('[git] motion git init failed:', err instanceof Error ? err.message : String(err))
+  const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+  await initSnapshot(motionDir, motionFs).catch(err =>
+    console.warn('[snapshot] motion init failed:', err instanceof Error ? err.message : String(err))
   );
 
   // Output results
