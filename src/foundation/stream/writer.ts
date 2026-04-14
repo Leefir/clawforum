@@ -39,7 +39,7 @@ export class StreamWriter {
         this.fs.ensureDirSync(ARCHIVE_DIR);
         this.fs.moveSync(STREAM_FILE, `${ARCHIVE_DIR}/stream.${Date.now()}.jsonl`);
       } catch (err) {
-        console.error('[StreamWriter] Failed to archive stream.jsonl, will overwrite:',
+        console.error('[StreamWriter] Failed to archive stream.jsonl, events will append to existing file:',
           err instanceof Error ? err.message : String(err));
       }
     }

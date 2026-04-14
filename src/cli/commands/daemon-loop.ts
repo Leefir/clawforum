@@ -6,8 +6,7 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import type { ClawRuntime, InboxMessageInfo, StreamCallbacks } from '../../core/runtime.js';
-import type { StreamWriter } from '../../foundation/stream/index.js';
-import type { StreamSink } from '../../foundation/stream/types.js';
+import type { StreamWriter, StreamSink } from '../../foundation/stream/index.js';
 import { oneLine } from '../../foundation/utils/string.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';

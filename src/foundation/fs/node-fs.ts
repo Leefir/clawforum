@@ -206,9 +206,7 @@ export class NodeFileSystem implements IFileSystem {
       const dirents = await fs.readdir(dir, { withFileTypes: true });
       const items = dirents.filter(item => {
         if (!options?.pattern) return true;
-        // Simple glob matching - can be enhanced
-        if (options.pattern === '*') return true;
-        return item.name.match(options.pattern.replace(/\*/g, '.*'));
+        return new RegExp(options.pattern).test(item.name);
       });
       
       for (const item of items) {
@@ -336,7 +334,10 @@ export class NodeFileSystem implements IFileSystem {
     pattern?: string;
   }): FileEntry[] {
     const absolute = this.resolveAndCheck(relativePath, 'read');
-    if (!fsSync.existsSync(absolute)) return [];
+    const stat = fsSync.statSync(absolute);
+    if (!stat.isDirectory()) {
+      throw new FileNotFoundError(relativePath);
+    }
     const entries = fsSync.readdirSync(absolute, { withFileTypes: true });
     const results = entries
       .filter(e => options?.includeDirs ? true : e.isFile())
