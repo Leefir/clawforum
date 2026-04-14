@@ -7,3 +7,5 @@
 
 export { OutboxWriter } from './outbox-writer.js';
 export type { OutboxWriteOptions } from './outbox-writer.js';
+
+export { writeInbox } from './inbox-writer.js';
