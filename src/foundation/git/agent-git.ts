@@ -8,13 +8,10 @@
  * All git operations are best-effort; failures are logged but don't block business logic.
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import * as path from 'path';
+import { exec } from '../process-exec/index.js';
 import { writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
-
-const execFileAsync = promisify(execFile);
 
 const GITIGNORE_CONTENT = `stream.jsonl
 audit.tsv
@@ -24,8 +21,10 @@ tasks/results/
 `;
 
 async function git(dir: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, { cwd: dir });
-  return stdout.trim();
+  // 所有参数用单引号包裹，防止 shell 注入
+  const cmd = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
+  const result = await exec(`git ${cmd}`, { cwd: dir });
+  return result.stdout.trim();
 }
 
 /**
