@@ -119,11 +119,12 @@ Test message content`;
     await fs.mkdir(pendingDir, { recursive: true });
     
     const msgFile = path.join(pendingDir, '1000_high_test.md');
+    const relPath = path.relative(clawDir, msgFile);
     await fs.writeFile(msgFile, '---\ntype: normal\npriority: high\nid: msg-1\n---\nBody', 'utf-8');
 
     // 手动触发两次（模拟 watcher 重复事件）
-    await (inbox as any).handleNewFile(msgFile);
-    await (inbox as any).handleNewFile(msgFile); // 重复
+    await (inbox as any).handleNewFile(relPath);
+    await (inbox as any).handleNewFile(relPath); // 重复
 
     // 等待处理
     await new Promise(r => setTimeout(r, 100));
@@ -185,12 +186,13 @@ Test message content`;
     await fs.mkdir(doneDir, { recursive: true });
 
     const msgFile = path.join(pendingDir, 'test.md');
+    const relPath = path.relative(clawDir, msgFile);
     await fs.writeFile(msgFile, '---\ntype: normal\n---\nTest', 'utf-8');
 
     const inbox = makeInbox(clawDir);
 
     // 触发 moveToDone
-    await (inbox as any).moveToDone(msgFile);
+    await (inbox as any).moveToDone(relPath);
 
     // 验证 done 目录中的文件名包含 UUID（格式：{timestamp}_{uuid8}_{filename}）
     const doneFiles = await fs.readdir(doneDir);
@@ -221,20 +223,21 @@ Test message content`;
     const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, 'test.md');
+    const relPath = path.relative(clawDir, msgFile);
     await fs.writeFile(msgFile, '---\ntype: normal\nid: test-1\n---\nBody', 'utf-8');
 
     const processedFiles = (inbox as any).processedFiles;
 
     // 处理文件前，Set 为空
-    expect(processedFiles.has(msgFile)).toBe(false);
+    expect(processedFiles.has(relPath)).toBe(false);
 
     // 处理文件
     await inbox.start(async () => {});
-    await (inbox as any).handleNewFile(msgFile);
+    await (inbox as any).handleNewFile(relPath);
     await new Promise(r => setTimeout(r, 50));
 
     // 处理完成后，Set 应被清理（防止内存泄漏）
-    expect(processedFiles.has(msgFile)).toBe(false);
+    expect(processedFiles.has(relPath)).toBe(false);
   });
 
   it('should load existing messages on cold start', async () => {
@@ -292,10 +295,11 @@ Test message content`;
 
     // Add a high-priority message to trigger the drop path
     const highFile = path.join(pendingDir, 'high.md');
+    const relPath = path.relative(clawDir, highFile);
     await fs.writeFile(highFile, '---\ntype: normal\npriority: high\nid: high-msg\n---\nHigh', 'utf-8');
 
     await inbox.start(async () => {});
-    await (inbox as any).handleNewFile(highFile);
+    await (inbox as any).handleNewFile(relPath);
     await new Promise(r => setTimeout(r, 50));
 
     // Queue should not exceed max (one was dropped, one was added)
@@ -358,11 +362,12 @@ Test message content`;
     const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, '1000_normal_p.md');
+    const relPath = path.relative(clawDir, msgFile);
     await fs.writeFile(msgFile, '---\ntype: message\npriority: urgent\nid: p-fallback\n---\nBody', 'utf-8');
 
     const received: InboxMessage[] = [];
     await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
-    await (inbox as any).handleNewFile(msgFile);
+    await (inbox as any).handleNewFile(relPath);
     await new Promise(r => setTimeout(r, 100));
 
     expect(received).toHaveLength(1);
@@ -377,11 +382,12 @@ Test message content`;
     const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, '1000_normal_t.md');
+    const relPath = path.relative(clawDir, msgFile);
     await fs.writeFile(msgFile, '---\ntype: unknown_event\npriority: normal\nid: t-fallback\n---\nBody', 'utf-8');
 
     const received: InboxMessage[] = [];
     await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
-    await (inbox as any).handleNewFile(msgFile);
+    await (inbox as any).handleNewFile(relPath);
     await new Promise(r => setTimeout(r, 100));
 
     expect(received).toHaveLength(1);
@@ -396,11 +402,12 @@ Test message content`;
     const inbox = makeInbox(clawDir);
 
     const msgFile = path.join(pendingDir, '1000_normal_wd.md');
+    const relPath = path.relative(clawDir, msgFile);
     await fs.writeFile(msgFile, '---\ntype: watchdog_ping\npriority: normal\nid: wd-passthrough\n---\nBody', 'utf-8');
 
     const received: InboxMessage[] = [];
     await inbox.start(async (msg: InboxMessage) => { received.push(msg); });
-    await (inbox as any).handleNewFile(msgFile);
+    await (inbox as any).handleNewFile(relPath);
     await new Promise(r => setTimeout(r, 100));
 
     expect(received).toHaveLength(1);
@@ -415,9 +422,10 @@ Test message content`;
 
     // Malformed: has opening --- but no closing ---
     const malformedFile = path.join(pendingDir, '1000_normal_malformed.md');
+    const relPath = path.relative(clawDir, malformedFile);
     await fs.writeFile(malformedFile, '---\ntype: normal\nid: bad-msg\n(no closing fence)', 'utf-8');
 
-    await (inbox as any).handleNewFile(malformedFile);
+    await (inbox as any).handleNewFile(relPath);
 
     // pending file should be gone
     const pendingFiles = await fs.readdir(pendingDir);
