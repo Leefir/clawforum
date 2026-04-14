@@ -2,7 +2,7 @@
  * Dialog module tests
  * 
  * Tests:
- * - SessionManager: load, save, archive, token estimation, crash recovery
+ * - SessionManager: load, save, archive, crash recovery
  * - ContextInjector: system prompt building
  */
 
@@ -154,7 +154,7 @@ describe('Dialog', () => {
       it('should recover from archive when current.json has invalid JSON', async () => {
         // Create invalid current.json
         await nodeFs.writeAtomic('dialog/current.json', 'invalid json {');
-        
+
         // Create archive
         await nodeFs.ensureDir('dialog/archive');
         const archivedSession: SessionData = {
@@ -173,6 +173,10 @@ describe('Dialog', () => {
 
         expect(loaded.messages).toHaveLength(1);
         expect(loaded.messages[0].content).toBe('Recovered from archive');
+
+        // SF-02: corrupted current.json should be renamed
+        expect(await nodeFs.exists('dialog/current.json')).toBe(false);
+        expect(await nodeFs.exists('dialog/current.json.corrupted')).toBe(true);
       });
 
       it('should return empty session when nothing exists', async () => {
@@ -192,6 +196,37 @@ describe('Dialog', () => {
         const loaded = await sessionManager.load();
 
         expect(loaded.messages).toHaveLength(0);
+      });
+
+      // SF-01: latest archive corrupted → fall back to older valid archive
+      it('should fall back to older archive when latest is corrupted', async () => {
+        await nodeFs.ensureDir('dialog/archive');
+
+        // Old valid archive
+        const oldSession: SessionData = {
+          version: 1,
+          clawId: 'test-claw',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+          messages: [{ role: 'user', content: 'Old but valid' }],
+        };
+        await nodeFs.writeAtomic(
+          'dialog/archive/1000_old.json',
+          JSON.stringify(oldSession)
+        );
+
+        // New corrupted archive
+        await nodeFs.writeAtomic(
+          'dialog/archive/2000_corrupted.json',
+          '{ invalid json'
+        );
+
+        // No current.json
+        const loaded = await sessionManager.load();
+
+        // Should recover from the older valid archive, not return empty
+        expect(loaded.messages).toHaveLength(1);
+        expect(loaded.messages[0].content).toBe('Old but valid');
       });
     });
 

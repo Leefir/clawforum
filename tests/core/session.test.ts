@@ -326,3 +326,68 @@ describe('SessionManager unit tests', () => {
     expect((session.messages[0].content as string)).toBe('remembered');
   });
 });
+
+describe('SessionManager.repair', () => {
+  it('returns no repair for empty messages', () => {
+    const { repaired, toolCount } = SessionManager.repair([]);
+    expect(repaired).toEqual([]);
+    expect(toolCount).toBe(0);
+  });
+
+  it('returns no repair when last message is user', () => {
+    const msgs: Message[] = [{ role: 'user', content: 'hello' }];
+    const { repaired, toolCount } = SessionManager.repair(msgs);
+    expect(repaired).toHaveLength(1);
+    expect(toolCount).toBe(0);
+  });
+
+  // SF-03: string content → no repair (no tool_use blocks possible)
+  it('returns no repair when assistant content is a string', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'I will help you with that.' },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs);
+    expect(repaired).toHaveLength(2);
+    expect(toolCount).toBe(0);
+  });
+
+  it('repairs unanswered tool_use blocks', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Running...' },
+          { type: 'tool_use', id: 'tu_1', name: 'exec', input: { cmd: 'ls' } },
+        ],
+      },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs);
+    expect(toolCount).toBe(1);
+    expect(repaired).toHaveLength(3);
+    expect(repaired[2].role).toBe('user');
+    const blocks = repaired[2].content as any[];
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('tool_result');
+    expect(blocks[0].tool_use_id).toBe('tu_1');
+    expect(blocks[0].is_error).toBe(true);
+  });
+
+  it('returns no repair when tool_use already has results', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: [{ type: 'tool_use', id: 'tu_1', name: 'exec', input: { cmd: 'ls' } }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: 'ok' }],
+      },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs);
+    expect(toolCount).toBe(0);
+    expect(repaired).toHaveLength(3);
+  });
+});
