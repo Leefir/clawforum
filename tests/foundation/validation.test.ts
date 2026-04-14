@@ -79,12 +79,13 @@ describe('validateType', () => {
     expect(warn).toHaveBeenCalledTimes(2);
   });
 
-  it('非字符串输入降级为 message，不触发 warn', () => {
+  it('非字符串输入降级为 message，触发 warn', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(validateType(undefined)).toBe('message');
     expect(validateType(null)).toBe('message');
     expect(validateType(42)).toBe('message');
     expect(validateType({})).toBe('message');
-    expect(warn).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(4);
+    expect(warn).toHaveBeenNthCalledWith(1, '[inbox] Missing or invalid type: undefined, using \'message\'');
   });
 });

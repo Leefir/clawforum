@@ -10,8 +10,11 @@
  */
 
 export function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
-  if (!raw.startsWith('---\n')) return { meta: {}, body: raw };
-  const afterOpen = raw.slice(4);
+  // Normalize CRLF to LF for consistent parsing
+  const normalized = raw.replace(/\r\n/g, '\n');
+
+  if (!normalized.startsWith('---\n')) return { meta: {}, body: raw };
+  const afterOpen = normalized.slice(4);
   const closeIdx = afterOpen.indexOf('\n---\n');
   if (closeIdx < 0) {
     throw new Error('Malformed frontmatter: missing closing ---');

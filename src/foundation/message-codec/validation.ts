@@ -21,7 +21,10 @@ export function validatePriority(value: unknown): Priority {
 }
 
 export function validateType(value: unknown): InboxMessage['type'] {
-  if (typeof value !== 'string') return 'message';
+  if (typeof value !== 'string') {
+    console.warn(`[inbox] Missing or invalid type: ${value}, using 'message'`);
+    return 'message';
+  }
   if (VALID_TYPES.includes(value)) return value as InboxMessage['type'];
   if (value.startsWith('watchdog_')) return value;
   console.warn(`[inbox] Unknown type: ${value}, using 'message'`);

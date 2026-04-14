@@ -33,9 +33,15 @@ export function encodeInbox(
     lines.push(`contract_id: ${yamlQuote(msg.contract_id)}`);
   }
 
-  // Append extra fields
+  // Append extra fields, guard against overriding standard keys
   if (extraFields) {
+    // contract_id is NOT reserved: InboxMessageOptions lacks it, callers pass it via extraFields
+    const reserved = new Set(['id', 'type', 'from', 'to', 'priority', 'timestamp']);
     for (const [k, v] of Object.entries(extraFields)) {
+      if (reserved.has(k)) {
+        console.warn(`[MessageCodec] extraFields key "${k}" conflicts with standard field, skipping`);
+        continue;
+      }
       lines.push(`${k}: ${yamlQuote(v)}`);
     }
   }
@@ -50,6 +56,10 @@ export function encodeInbox(
  * Fills missing fields with defaults.
  */
 export function decodeInbox(raw: string): InboxMessage {
+  if (!raw.startsWith('---\n') && !raw.startsWith('---\r\n')) {
+    throw new Error('Invalid inbox message: missing YAML frontmatter');
+  }
+
   const { meta, body } = parseFrontmatter(raw);
 
   return {
