@@ -150,9 +150,14 @@ export class InboxWatcher {
   private async handleNewFile(filePath: string): Promise<void> {
     // Normalize absolute paths to relative (defensive for test direct calls)
     if (path.isAbsolute(filePath)) {
-      const realClawDir = realpathSync(this.clawDir);
-      const realFilePath = realpathSync(filePath);
-      filePath = path.relative(realClawDir, realFilePath);
+      try {
+        const realClawDir = realpathSync(this.clawDir);
+        const realFilePath = realpathSync(filePath);
+        filePath = path.relative(realClawDir, realFilePath);
+      } catch {
+        // File deleted between watcher event and processing — normal race
+        return;
+      }
     }
 
     // Deduplication: skip if already processed

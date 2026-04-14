@@ -13,7 +13,7 @@ export interface ClawOutboxInfo {
 
 /**
  * Scan all claw outbox/pending, return structured list if any pending, null otherwise.
- * 调用方负责决定何时写 inbox 通知。
+ * Caller decides when to write inbox notifications.
  */
 export async function scanClawOutboxes(baseDir: string): Promise<ClawOutboxInfo[] | null> {
   try {
