@@ -127,7 +127,7 @@ export async function daemonCommand(name: string): Promise<void> {
   await initSnapshot(dir, agentFs);
 
   // recovery-snapshot：将上次中断遗留的 working tree 变更固化（在 session repair 之前）
-  await commitSnapshot(dir, 'recovery-snapshot', agentFs);
+  await commitSnapshot(dir, 'recovery-snapshot');
 
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
@@ -259,7 +259,7 @@ export async function daemonCommand(name: string): Promise<void> {
   auditWriter.write('daemon_start', `sha256:${promptHash}`);
 
   // daemon-start commit（fire-and-forget，不阻塞启动）
-  commitSnapshot(dir, `daemon-start ${new Date().toISOString()}`, agentFs).catch(() => {});
+  commitSnapshot(dir, `daemon-start ${new Date().toISOString()}`).catch(() => {});
 
   runtime.setContractNotifyCallback((type, data) => {
     streamWriter.write({ ts: Date.now(), type: 'user_notify', subtype: type, ...data });

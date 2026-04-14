@@ -46,7 +46,7 @@ export async function init(dir: string, fs: IFileSystem): Promise<void> {
 /**
  * If there are uncommitted changes, execute git add . && git commit. No-op when no changes.
  */
-export async function commit(dir: string, message: string, fs: IFileSystem): Promise<void> {
+export async function commit(dir: string, message: string): Promise<void> {
   try {
     const status = await git(dir, ['status', '--porcelain']);
     if (!status) return;
