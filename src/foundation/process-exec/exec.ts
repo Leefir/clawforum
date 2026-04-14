@@ -1,18 +1,18 @@
 /**
  * ProcessExec - External process execution (L1)
  *
- * The single entry point for all external process invocation.
- * Wraps spawn with timeout control, maxBuffer protection, and PATH augmentation.
+ * Two entry points:
+ * - exec(command, options): shell command via `sh -c`
+ * - execFile(command, args, options): direct invocation, no shell
  *
- * Does NOT truncate output — that is a consumer concern (e.g. exec tool controls
- * how much output to send to the LLM context window).
+ * Shared: timeout clamping, PATH augmentation, maxBuffer protection, ProcessExecError.
  */
 
-import { execFile } from 'child_process';
+import { execFile as childProcessExecFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = promisify(childProcessExecFile);
 
 import {
   PROCESS_EXEC_TIMEOUT_MIN_MS,
@@ -24,13 +24,13 @@ import type { ExecOptions, ExecResult } from './types.js';
 import { ProcessExecError } from './types.js';
 
 /**
- * Execute a shell command via `sh -c`.
- *
- * - Timeout is clamped to [MIN, MAX]
- * - PATH is augmented with Node bin directory
- * - Throws ProcessExecError on non-zero exit code, timeout, or maxBuffer
+ * Internal: run a process with shared cross-cutting concerns.
  */
-export async function exec(command: string, options: ExecOptions): Promise<ExecResult> {
+async function runProcess(
+  file: string,
+  args: string[],
+  options: ExecOptions,
+): Promise<ExecResult> {
   // Clamp timeout
   const requestedTimeout = options.timeout ?? PROCESS_EXEC_DEFAULT_TIMEOUT_MS;
   const timeout = Math.min(
@@ -46,7 +46,7 @@ export async function exec(command: string, options: ExecOptions): Promise<ExecR
     : `${nodeBinDir}:${pathEnv}`;
 
   try {
-    const { stdout, stderr } = await execFileAsync('sh', ['-c', command], {
+    const { stdout, stderr } = await execFileAsync(file, args, {
       cwd: options.cwd,
       timeout,
       encoding: 'utf-8',
@@ -89,4 +89,23 @@ export async function exec(command: string, options: ExecOptions): Promise<ExecR
       killed: isTimeout,
     });
   }
+}
+
+/**
+ * Execute a shell command via `sh -c`.
+ */
+export async function exec(command: string, options: ExecOptions): Promise<ExecResult> {
+  return runProcess('sh', ['-c', command], options);
+}
+
+/**
+ * Execute a command directly, without shell.
+ * Args are passed verbatim — no escaping needed.
+ */
+export async function execFile(
+  command: string,
+  args: string[],
+  options: ExecOptions,
+): Promise<ExecResult> {
+  return runProcess(command, args, options);
 }

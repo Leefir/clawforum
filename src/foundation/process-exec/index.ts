@@ -8,6 +8,7 @@
  */
 
 export { exec } from './exec.js';
+export { execFile } from './exec.js';
 export type { ExecOptions, ExecResult } from './types.js';
 export { ProcessExecError } from './types.js';
 export {
