@@ -3,7 +3,7 @@
  */
 import * as fsNative from 'fs';
 import * as path from 'path';
-import type { StreamCallbacks } from './context.js';
+import type { StreamCallbacks } from './types.js';
 import { oneLine } from '../utils/string.js';
 
 interface StreamEvent {

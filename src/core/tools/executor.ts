@@ -18,7 +18,7 @@ import type { Message } from '../../types/message.js';
 import type { ContractManager } from '../contract/manager.js';
 import type { CallerType } from './caller-type.js';
 import type { SkillRegistry } from '../skill/registry.js';
-import type { StreamSink } from '../../foundation/recording/context.js';
+import type { StreamSink } from '../../foundation/stream/types.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';

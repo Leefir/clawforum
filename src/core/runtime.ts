@@ -36,7 +36,7 @@ import { execTool } from './tools/builtins/exec.js';
 import { runReact } from './react/loop.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../types/signals.js';
 import type { ToolResult } from './tools/executor.js';
-import type { StreamCallbacks, StreamSink } from '../foundation/recording/context.js';
+import type { StreamCallbacks, StreamSink } from '../foundation/stream/types.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
 import { InboxWatcher } from './communication/inbox.js';
 import { OutboxWriter } from './communication/outbox.js';
