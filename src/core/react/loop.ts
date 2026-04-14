@@ -14,7 +14,7 @@ import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse,
 import type { ILLMService, LLMCallOptions } from '../../foundation/llm/index.js';
 import type { StreamChunk } from '../../foundation/llm/types.js';
 import type { IToolExecutor, ExecContext, ToolResult, IToolRegistry } from '../tools/executor.js';
-import { MaxStepsExceededError, LLMAllProvidersFailedError } from '../../types/errors.js';
+import { MaxStepsExceededError } from '../../types/errors.js';
 import { REACT_DEFAULT_MAX_TOKENS, MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from '../../constants.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 
@@ -166,19 +166,17 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
         signal: ctx.signal,
       }, options.onTextDelta, options.onThinkingDelta, options.onTextEnd, options.onReset);
     } catch (err) {
-      if (err instanceof LLMAllProvidersFailedError) {
-        options.onLLMResult?.({
-          model: llm.getProviderInfo().model,
-          inputTokens: 0,
-          outputTokens: 0,
-          latencyMs: Date.now() - llmStartTime,
-          error: err.message,
-        });
-      }
+      options.onLLMResult?.({
+        model: llm.getProviderInfo?.().model ?? 'unknown',
+        inputTokens: 0,
+        outputTokens: 0,
+        latencyMs: Date.now() - llmStartTime,
+        error: err instanceof Error ? err.message : String(err),
+      });
       throw err;
     }
     options.onLLMResult?.({
-      model: llm.getProviderInfo().model,
+      model: llm.getProviderInfo?.().model ?? 'unknown',
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
       latencyMs: Date.now() - llmStartTime,
