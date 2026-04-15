@@ -95,7 +95,10 @@ export function writeInboxMessage(fs: IFileSystem, opts: InboxMessageOptions): v
           try { fs.deleteSync(path.join(opts.inboxDir, f.name)); } catch { /* not-found: ignore */ }
         }
       }
-    } catch { /* list failed: directory may not exist yet, proceed to write */ }
+    } catch (err) {
+      // listSync should not fail after ensureDirSync; warn for diagnostics
+      console.warn('[inbox-writer] dedup listSync failed:', err instanceof Error ? err.message : String(err));
+    }
   }
 
   const filename = `${ts}_${tag}_${uuid8}.md`;

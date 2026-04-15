@@ -98,9 +98,9 @@ describe('OutboxScanner', () => {
     expect(result).toEqual([{ clawId: 'claw1', count: 2 }]); // Only .md files counted
   });
 
-  it('should skip claw when outbox/pending is a file (FS_NOT_FOUND)', async () => {
-    // claw1: outbox/pending is a FILE → NodeFileSystem.list throws FS_NOT_FOUND
-    // FS_NOT_FOUND is treated as "dir not created, skip silently"
+  it('should skip claw when outbox/pending is a file (list fails)', async () => {
+    // claw1: outbox/pending is a FILE → NodeFileSystem.list wraps ENOTDIR as FS_NOT_FOUND
+    // FS_NOT_FOUND is caught and silently skipped
     const claw1Dir = path.join(tempDir, 'claws', 'claw1');
     fs.mkdirSync(path.join(claw1Dir, 'outbox'), { recursive: true });
     fs.writeFileSync(path.join(claw1Dir, 'outbox', 'pending'), 'i am a file not a dir');
