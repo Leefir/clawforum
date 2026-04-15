@@ -152,6 +152,12 @@ export async function daemonCommand(name: string): Promise<void> {
     maxDays: globalConfig.stream?.retention?.max_days ?? null,
   });
   streamWriter.open();
+  streamWriter.write({
+    ts: Date.now(),
+    type: 'daemon_started',
+    clawId: name,
+    pid: process.pid,
+  });
   runtime.setParentStreamSink(streamWriter);
 
   // motion 专属：cron 调度器
