@@ -523,6 +523,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // ENOENT: 文件不存在，从 0 开始
   }
 
+  let lastEnoentWarnTs = 0;
+
   const pollStream = () => {
     try {
       const stat = fsNative.statSync(streamPath);
@@ -561,7 +563,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        if (Date.now() - lastEnoentWarnTs >= 60000) {
+          console.warn('[chat] pollStream ENOENT (daemon may not be running):', err.message);
+          lastEnoentWarnTs = Date.now();
+        }
+        return;
+      }
       // 文件可能被截断（daemon 重启），重置
       console.warn('[chat] pollStream error, resetting position:', err instanceof Error ? err.message : String(err));
       fileSize = 0;
