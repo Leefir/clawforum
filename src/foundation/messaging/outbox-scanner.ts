@@ -33,9 +33,10 @@ export async function scanClawOutboxes(fs: IFileSystem, baseDir: string): Promis
         if (files.length > 0) {
           counts[id] = files.length;
         }
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-        // ENOENT: outbox/pending dir not created, skip silently
+      } catch (err: any) {
+        const code = err?.code;
+        if (code !== 'FS_NOT_FOUND' && code !== 'ENOENT') throw err;
+        // 目录未创建，静默跳过
       }
     }
 
