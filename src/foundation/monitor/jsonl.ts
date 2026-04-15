@@ -104,7 +104,7 @@ export async function* streamJsonl<T = Record<string, unknown>>(
         try {
           yield JSON.parse(trimmed) as T;
         } catch {
-          // Skip invalid lines
+          console.warn(`[monitor] Skipping invalid JSONL line: ${trimmed.slice(0, 80)}`);
         }
       }
     }
@@ -115,7 +115,7 @@ export async function* streamJsonl<T = Record<string, unknown>>(
       try {
         yield JSON.parse(trimmed) as T;
       } catch {
-        // Skip invalid final line
+        console.warn(`[monitor] Skipping invalid JSONL line: ${trimmed.slice(0, 80)}`);
       }
     }
   } finally {
