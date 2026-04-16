@@ -6,7 +6,8 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import type { ClawRuntime, InboxMessageInfo, StreamCallbacks } from '../../core/runtime.js';
+import type { ClawRuntime, StreamCallbacks } from '../../core/runtime.js';
+import type { InboxMessage } from '../../types/contract.js';
 import type { StreamWriter, StreamSink } from '../../foundation/stream/index.js';
 import { oneLine } from '../../foundation/utils/string.js';
 
@@ -125,7 +126,7 @@ export interface DaemonLoopOptions {
   isMotion?: boolean;                    // true = motion daemon（扫描 claw outbox、检查 clean-stop）
   heartbeat?: Heartbeat;                 // heartbeat instance (motion only)
   notifyMotionDir?: string;             // if set (claw only), notify motion on LLM max-retry failure
-  onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;  // for review_request handling (motion only)
+  onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;  // for review_request handling (motion only)
 }
 
 /**

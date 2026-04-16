@@ -14,6 +14,7 @@ import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { MaxStepsExceededError } from '../../src/types/errors.js';
 import type { Message } from '../../src/types/message.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../src/types/signals.js';
+import type { InboxMessage } from '../../src/types/contract.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -428,7 +429,7 @@ Test message
       return `---\nid: ${id}\ntype: message\nfrom: motion\npriority: ${priority}\ntimestamp: ${new Date().toISOString()}\n---\n\n${body}\n`;
     }
 
-    it('non-.md files in inbox/pending trigger console.warn and are skipped', async () => {
+    it('non-.md files in inbox/pending are ignored', async () => {
       const runtime = await makeRuntime();
       const pendingDir = path.join(clawDir, 'inbox', 'pending');
 
@@ -436,7 +437,6 @@ Test message
       await writePendingMsg(pendingDir, 'valid.md', validMsgContent('v1', 'hello'));
       await writePendingMsg(pendingDir, 'stray.tmp', 'not a markdown file');
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const mockLLM = createMockLLM([{
         content: [{ type: 'text', text: 'ok' }],
         stop_reason: 'end_turn',
@@ -447,17 +447,16 @@ Test message
 
       // The .tmp file is skipped but the .md is processed
       expect(count).toBe(1);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('stray.tmp'));
-      warnSpy.mockRestore();
     });
 
-    it('malformed frontmatter .md files are silently skipped', async () => {
+    it('malformed frontmatter .md files are moved to failed/', async () => {
       const runtime = await makeRuntime();
       const pendingDir = path.join(clawDir, 'inbox', 'pending');
+      const failedDir = path.join(clawDir, 'inbox', 'failed');
 
       // Good message alongside broken one
       await writePendingMsg(pendingDir, 'good.md', validMsgContent('g1', 'good'));
-      // File starts with --- but has no closing ---, so parseFrontmatter throws
+      // File starts with --- but has no closing ---, so decodeInbox throws
       await writePendingMsg(pendingDir, 'broken.md', '---\ntype: message\nno-closing-dashes-ever');
 
       const mockLLM = createMockLLM([{
@@ -468,6 +467,10 @@ Test message
 
       // Should not throw; only the good message is processed
       await expect(runtime.processBatch()).resolves.toBe(1);
+
+      // Broken file should end up in failed/
+      const failedFiles = await fs.readdir(failedDir);
+      expect(failedFiles.some(f => f.endsWith('broken.md'))).toBe(true);
     });
 
     it('heartbeat type without HEARTBEAT.md returns base text', async () => {
@@ -518,6 +521,7 @@ Test message
     it('messages with to: a different agent are skipped from injection', async () => {
       const runtime = await makeRuntime();
       const pendingDir = path.join(clawDir, 'inbox', 'pending');
+      const doneDir = path.join(clawDir, 'inbox', 'done');
 
       // Write two messages: one to this agent, one to a subagent
       await writePendingMsg(
@@ -546,13 +550,17 @@ Test message
       expect(userMsg?.content).toContain('Message for me');
       expect(userMsg?.content).not.toContain('Message for subagent');
 
-      // Audit log should show inbox_skip for the subagent message
+      // Both files should be moved to done/
+      const doneFiles = await fs.readdir(doneDir);
+      expect(doneFiles.some(f => f.endsWith('for-me.md'))).toBe(true);
+      expect(doneFiles.some(f => f.endsWith('for-subagent.md'))).toBe(true);
+
+      // Audit log should show inbox_unaddressed for the subagent message
       const auditLog = await fs.readFile(path.join(clawDir, 'audit.tsv'), 'utf-8');
       const entries = auditLog.trim().split('\n').map(line => line.split('\t'));
-      const skipEntry = entries.find((e: string[]) => e[1] === 'inbox_skip');
-      expect(skipEntry).toBeDefined();
-      // TSV columns: ts, type, file, type=..., from=..., to=..., reason=...
-      expect(skipEntry[5]).toContain('to=some-subagent-uuid');
+      const unaddressedEntry = entries.find((e: string[]) => e[1] === 'inbox_unaddressed');
+      expect(unaddressedEntry).toBeDefined();
+      expect(unaddressedEntry[5]).toContain('to=some-subagent-uuid');
     });
 
     it('should return 0 and not call LLM when all inbox messages are addressed to other agents', async () => {
@@ -580,6 +588,71 @@ Test message
       expect(count).toBe(0);
       // No LLM turn should be triggered
       expect(mockLLM.call).not.toHaveBeenCalled();
+    });
+
+    it('inbox_unaddressed audit event written for messages to other agents', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      await writePendingMsg(
+        pendingDir,
+        'unaddressed.md',
+        `---\nid: msg1\ntype: message\nfrom: motion\nto: other-claw\npriority: normal\ntimestamp: ${new Date().toISOString()}\n---\n\nNot for me`,
+      );
+
+      const mockLLM = createMockLLM([]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      await runtime.processBatch();
+
+      const auditLog = await fs.readFile(path.join(clawDir, 'audit.tsv'), 'utf-8');
+      const entries = auditLog.trim().split('\n').map(line => line.split('\t'));
+      const entry = entries.find((e: string[]) => e[1] === 'inbox_unaddressed');
+      expect(entry).toBeDefined();
+      expect(entry!.some((col: string) => col.includes('to=other-claw'))).toBe(true);
+    });
+
+    it('inbox_done audit event written for every processed file', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      await writePendingMsg(pendingDir, 'a.md', validMsgContent('a1', 'hello a'));
+      await writePendingMsg(pendingDir, 'b.md', validMsgContent('b1', 'hello b'));
+
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      await runtime.processBatch();
+
+      const auditLog = await fs.readFile(path.join(clawDir, 'audit.tsv'), 'utf-8');
+      const entries = auditLog.trim().split('\n').map(line => line.split('\t'));
+      const doneEntries = entries.filter((e: string[]) => e[1] === 'inbox_done');
+      expect(doneEntries.length).toBe(2);
+    });
+
+    it('inbox_failed audit event written for malformed message', async () => {
+      const runtime = await makeRuntime();
+      const pendingDir = path.join(clawDir, 'inbox', 'pending');
+
+      await writePendingMsg(pendingDir, 'good.md', validMsgContent('g1', 'good'));
+      await writePendingMsg(pendingDir, 'broken.md', '---\ntype: message\nno-closing-dashes-ever');
+
+      const mockLLM = createMockLLM([{
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+      }]);
+      (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
+
+      await runtime.processBatch();
+
+      const auditLog = await fs.readFile(path.join(clawDir, 'audit.tsv'), 'utf-8');
+      const entries = auditLog.trim().split('\n').map(line => line.split('\t'));
+      const failedEntry = entries.find((e: string[]) => e[1] === 'inbox_failed');
+      expect(failedEntry).toBeDefined();
+      expect(failedEntry!.some((col: string) => col.includes('reason=parse_error'))).toBe(true);
     });
 
     // H3 fix: non-MaxSteps errors should notify sender via outbox
@@ -644,7 +717,16 @@ Test message`;
             injected: [{ role: 'user' as const, content: [{ type: 'text' as const, text: 'hi' }] }],
             sources: [],
             count: 1,
-            infos: [{ meta: { source: 'motion', contract_id: 'test-contract' }, body: 'hi' }],
+            infos: [{
+              id: 'msg1',
+              type: 'message',
+              from: 'motion',
+              to: 'test-claw',
+              content: 'hi',
+              priority: 'normal',
+              timestamp: new Date().toISOString(),
+              contract_id: 'test-contract',
+            } as InboxMessage],
           };
         }
         protected override async _runReact(_messages: Message[]) {
@@ -727,26 +809,8 @@ Test message`;
       expect(userMsg?.content).toContain('2h ago');
     });
 
-    it('injected message has no time suffix when timestamp is missing', async () => {
-      const runtime = await makeRuntime();
-      const pendingDir = path.join(clawDir, 'inbox', 'pending');
-
-      // 故意省略 timestamp 字段
-      await writePendingMsg(
-        pendingDir,
-        'no-ts.md',
-        `---\nid: m4\ntype: message\nfrom: motion\npriority: normal\n---\n\nNoTimestamp`,
-      );
-
-      const mockLLM = createMockLLM([{ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }]);
-      (runtime as any).llm = mockLLM;
-      await runtime.processBatch();
-
-      const userMsg = mockLLM.call.mock.calls[0][0].messages.find((m: any) => m.role === 'user');
-      // 内容正常注入，但括号时间标注不存在
-      expect(userMsg?.content).toContain('NoTimestamp');
-      expect(userMsg?.content).not.toContain('ago');
-    });
+    // Note: "timestamp missing" test removed because decodeInbox always fills a default
+    // timestamp, so this edge case no longer exists on the InboxReader path.
   });
 
   // ─── retryLastTurn() ──────────────────────────────────────────────────────
@@ -867,7 +931,7 @@ Test message`;
         injected: Message[];
         sources: Array<{ text: string; type: string }>;
         count: number;
-        infos: Array<{ meta: Record<string, string>; body: string }>;
+        infos: InboxMessage[];
       } = { injected: [], sources: [], count: 0, infos: [] };
       public reactError: Error | null = null;
 
@@ -910,7 +974,16 @@ Test message`;
         injected: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
         sources: [],
         count: 1,
-        infos: [{ meta: { source: 'sender-claw', contract_id: 'c-1' }, body: 'hello' }],
+        infos: [{
+          id: 'msg1',
+          type: 'message',
+          from: 'sender-claw',
+          to: 'edge-claw',
+          content: 'hello',
+          priority: 'normal',
+          timestamp: new Date().toISOString(),
+          contract_id: 'c-1',
+        } as InboxMessage],
       };
       runtime.reactError = new MaxStepsExceededError(10);
 
@@ -940,7 +1013,15 @@ Test message`;
         injected: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
         sources: [],
         count: 1,
-        infos: [{ meta: { source: 'sender-claw' }, body: 'hello' }],
+        infos: [{
+          id: 'msg1',
+          type: 'message',
+          from: 'sender-claw',
+          to: 'edge-claw',
+          content: 'hello',
+          priority: 'normal',
+          timestamp: new Date().toISOString(),
+        } as InboxMessage],
       };
       const originalError = new Error('LLM exploded');
       runtime.reactError = originalError;
@@ -1070,7 +1151,15 @@ Test message`;
         injected: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
         sources: [],
         count: 1,
-        infos: [{ meta: { source: 'sender-claw' } }],
+        infos: [{
+          id: 'msg1',
+          type: 'message',
+          from: 'sender-claw',
+          to: 'sig-claw',
+          content: 'hi',
+          priority: 'normal',
+          timestamp: new Date().toISOString(),
+        } as InboxMessage],
       };
       return r;
     }

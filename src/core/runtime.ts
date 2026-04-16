@@ -68,12 +68,6 @@ export interface ClawRuntimeOptions {
   auditMaxSizeMb?: number | null;   // 审计日志大小限制（MB），null = 不限
 }
 
-/** Inbox message info for onInboxMessages callback */
-export interface InboxMessageInfo {
-  meta: Record<string, string>;
-  body: string;
-}
-
 /**
  * ReAct 循环的流式事件回调
  * daemon 专用的 onInboxMessages 在下方 DaemonStreamCallbacks 扩展定义
@@ -98,7 +92,7 @@ export interface StreamCallbacks {
 
 /** daemon 专用回调，在 StreamCallbacks 基础上增加 inbox 通知 */
 export interface DaemonStreamCallbacks extends StreamCallbacks {
-  onInboxMessages?: (infos: InboxMessageInfo[]) => Promise<void>;
+  onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;
 }
 
 /**
@@ -295,7 +289,8 @@ export class ClawRuntime {
     this.toolExecutor = new ToolExecutorImpl(this.toolRegistry, this.options.toolTimeoutMs);
 
     // 15. Create InboxReader
-    this.inboxReader = new InboxReader('inbox/pending', 'inbox/done', 'inbox/failed', this.systemFs);
+    this.inboxReader = new InboxReader('inbox/pending', 'inbox/done', 'inbox/failed', this.systemFs, this.auditWriter);
+    await this.inboxReader.init();
 
     this.initialized = true;
   }
@@ -423,149 +418,80 @@ export class ClawRuntime {
     injected: Message[];
     sources: Array<{ text: string; type: string }>;
     count: number;
-    infos: Array<{ meta: Record<string, string>; body: string }>;
+    infos: InboxMessage[];
   }> {
-    const inboxDir = path.join(this.options.clawDir, 'inbox');
-    const pendingDir = path.join(inboxDir, 'pending');
-    const doneDir = path.join(inboxDir, 'done');
-
-    // Read all pending messages
-    let files: string[] = [];
-    try {
-      const allFiles = await fs.readdir(pendingDir);
-      // Log non-.md files for operational troubleshooting
-      const skipped = allFiles.filter(f => !f.endsWith('.md') && !f.startsWith('.'));
-      if (skipped.length > 0) {
-        console.warn(`[inbox] Skipping non-.md files: ${skipped.join(', ')}`);
-      }
-      files = allFiles.filter(f => f.endsWith('.md'));
-    } catch (err: any) {
-      if (err?.code !== 'ENOENT') {
-        console.warn(`[inbox] Failed to read pending dir: ${err?.message}`);
-      }
+    const entries = await this.inboxReader.drainInbox();
+    if (entries.length === 0) {
       return { injected: [], sources: [], count: 0, infos: [] };
     }
 
-    if (files.length === 0) return { injected: [], sources: [], count: 0, infos: [] };
-
-    // Sort by priority then filename
-    const PRIORITY_ORDER: Record<string, number> = {
-      critical: 0,
-      high: 1,
-      normal: 2,
-      low: 3,
-    };
-
-    const fileInfos: Array<{ name: string; priority: number; content: string; meta: Record<string, string>; body: string }> = [];
-    for (const name of files) {
-      try {
-        const content = await fs.readFile(path.join(pendingDir, name), 'utf-8');
-        const { meta, body } = parseFrontmatter(content);
-        const priority = PRIORITY_ORDER[meta.priority] ?? 3;
-        fileInfos.push({ name, priority, content, meta, body });
-      } catch {
-        console.warn(`[inbox] Skip unparseable message: ${name}`);
-        this.auditWriter.write('inbox_skip', name, 'reason=parse_error');
-      }
-    }
-
-    // Sort: priority ascending, then filename ascending
-    fileInfos.sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      return a.name.localeCompare(b.name);
-    });
-
-    // Move to done immediately after reading (messages are in memory; original files no longer needed)
-    await fs.mkdir(doneDir, { recursive: true });
-    const doneFileNames = new Map<string, string>();
-    const failedRenames = new Set<string>();
-    for (const info of fileInfos) {
-      const doneFileName = `${Date.now()}_${info.name}`;   // pre-generate
-      doneFileNames.set(info.name, doneFileName);
-      try {
-        await fs.rename(
-          path.join(pendingDir, info.name),
-          path.join(doneDir, doneFileName)
-        );
-      } catch (err: any) {
-        if (err?.code === 'ENOENT') {
-          // 文件可能已被其他进程移走，不需要处理
-        } else {
-          console.warn(`[inbox] Failed to move ${info.name} to done:`, err?.message);
-          this.auditWriter.write('inbox_error', info.name, `reason=rename_failed,err=${err?.message}`);
-          failedRenames.add(info.name);
-        }
-      }
-    }
-
-    // Build message injections (choose template by type)
-    // All inbox messages are merged into a single user turn to prevent consecutive
-    // same-role messages, which are invalid in the Anthropic API.
-    // user_chat messages are placed last so they aren't buried under system messages.
-
-    // Filter: only inject messages addressed to this agent
-    const injectedInfos = fileInfos.filter(info => {
-      const to = info.meta.to;
-      return !to || to === this.options.clawId;
-    });
-
-    // 排除 rename 失败的消息（仍在 pending 中，下次重试；不注入防止重复处理）
-    const injectableInfos = injectedInfos.filter(info => !failedRenames.has(info.name));
-
-    // Audit log: record all messages (including skipped ones)
-    for (const info of fileInfos) {
-      const skipped = injectedInfos.indexOf(info) === -1;
-      if (skipped) {
-        this.auditWriter.write(
-          'inbox_skip',
-          info.name,
-          `type=${info.meta.type ?? 'message'}`,
-          `from=${info.meta.source ?? 'unknown'}`,
-          `to=${info.meta.to ?? ''}`,
-          'reason=not_addressed',
-        );
+    const addressed: typeof entries = [];
+    const unaddressed: typeof entries = [];
+    for (const entry of entries) {
+      const to = entry.message.to;
+      if (!to || to === this.options.clawId) {
+        addressed.push(entry);
       } else {
-        const doneFile = doneFileNames.get(info.name) ?? info.name;
-        this.auditWriter.write(
-          'inbox_inject',
-          doneFile,
-          `type=${info.meta.type ?? 'message'}`,
-          `from=${info.meta.source ?? 'unknown'}`,
-          `to=${info.meta.to ?? this.options.clawId}`,
-          `pri=${info.meta.priority ?? 'normal'}`,
-        );
+        unaddressed.push(entry);
       }
+    }
+
+    for (const { message, filePath } of addressed) {
+      this.auditWriter.write(
+        'inbox_inject',
+        `file=${path.basename(filePath)}`,
+        `type=${message.type}`,
+        `from=${message.from}`,
+        `to=${message.to || this.options.clawId}`,
+        `pri=${message.priority}`,
+      );
+    }
+    for (const { message, filePath } of unaddressed) {
+      this.auditWriter.write(
+        'inbox_unaddressed',
+        `file=${path.basename(filePath)}`,
+        `type=${message.type}`,
+        `from=${message.from}`,
+        `to=${message.to}`,
+      );
+    }
+
+    for (const { filePath } of [...addressed, ...unaddressed]) {
+      await this.inboxReader.markDone(filePath);
     }
 
     const systemParts: string[] = [];
     const userChatParts: string[] = [];
     const sources: Array<{ text: string; type: string }> = [];
-    for (const info of injectableInfos) {
-      const from = info.meta.source ?? 'unknown';
-      const type = info.meta.type ?? 'message';
-      const formatted = await this.formatInboxMessage(type, from, info.body, info.meta.timestamp);
-      if (type === 'user_chat') {
+    for (const { message } of addressed) {
+      const formatted = await this.formatInboxMessage(
+        message.type,
+        message.from,
+        message.content,
+        message.timestamp,
+      );
+      if (message.type === 'user_chat') {
         userChatParts.push(formatted);
       } else {
         systemParts.push(formatted);
       }
       sources.push({
         text: formatted.replace(/\r?\n/g, ' '),
-        type,
+        type: message.type,
       });
     }
+
     const allParts = [...systemParts, ...userChatParts];
     const injected: Message[] = allParts.length > 0
       ? [{ role: 'user', content: allParts.join('\n\n') }]
       : [];
 
-    // Extract metadata for error notification and review_request handling
-    const infos = injectableInfos.map(info => ({
-      meta: info.meta,
-      body: info.body,
-    }));
-
-    return { injected, sources, count: injectableInfos.length, infos };
+    return {
+      injected,
+      sources,
+      count: addressed.length,
+      infos: addressed.map(e => e.message),
+    };
   }
 
   /**
@@ -679,9 +605,7 @@ export class ClawRuntime {
     // Notify daemon-loop of inbox messages for review_request handling
     if (callbacks?.onInboxMessages && infos.length > 0) {
       try {
-        await callbacks.onInboxMessages(
-          infos.map(i => ({ meta: i.meta as Record<string, string>, body: i.body ?? '' })),
-        );
+        await callbacks.onInboxMessages(infos);
       } catch (e) {
         console.warn('[runtime] onInboxMessages handler failed:', e instanceof Error ? e.message : String(e));
       }
@@ -721,13 +645,13 @@ export class ClawRuntime {
       if (err instanceof MaxStepsExceededError) {
         const errorMsg = err.message;
         for (const info of infos) {
-          const sender = info.meta.source;
+          const sender = info.from;
           if (sender) {
             await this.outboxWriter.write({
               type: 'response',
               to: sender,
               content: `Error: ${errorMsg}`,
-              contract_id: info.meta.contract_id,
+              contract_id: info.contract_id,
             }).catch(e => console.error('[runtime] Failed to write error response:', e));
           }
         }
@@ -735,13 +659,13 @@ export class ClawRuntime {
         // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
         const errorMsg = err instanceof Error ? err.message : String(err);
         for (const info of infos) {
-          const sender = info.meta.source;
+          const sender = info.from;
           if (sender) {
             await this.outboxWriter.write({
               type: 'response',
               to: sender,
               content: `Error: ${errorMsg}`,
-              contract_id: info.meta.contract_id,
+              contract_id: info.contract_id,
             }).catch(e => console.error('[runtime] Failed to write error response:', e));
           }
         }

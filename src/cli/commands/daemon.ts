@@ -14,7 +14,7 @@ import { ClawRuntime } from '../../core/runtime.js';
 import { MotionRuntime } from '../../core/motion/runtime.js';
 import { buildLLMConfig, loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../config.js';
 import type { ClawRuntimeOptions } from '../../core/runtime.js';
-import type { InboxMessageInfo } from '../../core/runtime.js';
+import type { InboxMessage } from '../../types/contract.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { StreamWriter } from '../../foundation/stream/writer.js';
 import { Heartbeat } from '../../core/heartbeat.js';
@@ -279,10 +279,10 @@ export async function daemonCommand(name: string): Promise<void> {
 
   // 注册 review_request 处理器（仅 motion）
   const onInboxMessages = isMotion
-    ? async (infos: InboxMessageInfo[]) => {
-        for (const { meta } of infos) {
-          if (meta.type !== 'review_request') continue;
-          const contractId = meta.contract_id;
+    ? async (messages: InboxMessage[]) => {
+        for (const message of messages) {
+          if (message.type !== 'review_request') continue;
+          const contractId = message.contract_id;
           if (!contractId) continue;
 
           // 查 by-contract 反向索引（Step 5 写入的新格式）
