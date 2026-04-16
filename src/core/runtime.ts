@@ -38,8 +38,6 @@ import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../typ
 import type { ToolResult } from './tools/executor.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
 import { InboxReader } from '../foundation/messaging/index.js';
-import { createWatcher } from '../foundation/file-watcher/watcher.js';
-import type { Watcher } from '../foundation/file-watcher/types.js';
 import { OutboxWriter } from './communication/index.js';
 import { TaskSystem } from './task/system.js';
 import { SkillRegistry } from './skill/registry.js';
@@ -100,7 +98,6 @@ export interface DaemonStreamCallbacks extends StreamCallbacks {
 export class ClawRuntime {
   protected options: ClawRuntimeOptions;
   protected initialized = false;
-  private running = false;
   private currentAbortController: AbortController | null = null;
   private turnCount = 0;
   protected auditWriter!: AuditWriter;
@@ -130,8 +127,6 @@ export class ClawRuntime {
   protected execContext!: ExecContextImpl;
   protected toolExecutor!: ToolExecutorImpl;
   private inboxReader!: InboxReader;
-  private watcher: Watcher | null = null;
-  private inboxProcessing = false;
   private outboxWriter!: OutboxWriter;
   private snapshot!: Snapshot;
 
@@ -211,7 +206,7 @@ export class ClawRuntime {
         if (toolCount > 0) {
           await this.sessionManager.save(repaired);
           this.auditWriter.write('session_repaired', `tools=${toolCount}`);
-          this.snapshot.commit(`session-repair tools=${toolCount}`).catch(() => {});
+          void this.snapshot.commit(`session-repair tools=${toolCount}`);
         }
       }
     }
@@ -295,60 +290,11 @@ export class ClawRuntime {
   }
 
   /**
-   * Start the background event loop
-   */
-  async start(): Promise<void> {
-    if (this.running) return;
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
-    // Init InboxReader and process cold-start messages
-    await this.inboxReader.init();
-    await this.processInboxMessages();
-
-    // Start watching for new inbox messages
-    this.watcher = createWatcher(
-      this.systemFs,
-      'inbox/pending',
-      (event) => {
-        if (event.type === 'add' && event.path.endsWith('.md')) {
-          this.processInboxMessages().catch(err => {
-            console.error('[runtime] Failed to process inbox:', err);
-          });
-        }
-      },
-      { recursive: false },
-    );
-
-    // Resume execution if there is a paused contract
-    const paused = await this.contractManager.loadPaused();
-    if (paused) {
-      await this.contractManager.resume(paused.id);
-    }
-
-    this.running = true;
-  }
-
-  /**
    * Graceful shutdown
    */
   async stop(): Promise<void> {
-    if (!this.running) return;
-
-    // Stop watcher
-    if (this.watcher) {
-      await this.watcher.close();
-      this.watcher = null;
-    }
-
-    // Shut down TaskSystem
     await this.taskSystem.shutdown(30_000);
-
-    // Close LLMService
     await this.llm.close();
-
-    this.running = false;
   }
 
   /**
@@ -585,8 +531,7 @@ export class ClawRuntime {
 
     // turn auto-commit（fire-and-forget）
     this.turnCount++;
-    this.snapshot.commit(`turn-${this.turnCount} ${new Date().toISOString()}`)
-      .catch(() => {});
+    void this.snapshot.commit(`turn-${this.turnCount} ${new Date().toISOString()}`);
   }
 
   /**
@@ -897,78 +842,14 @@ export class ClawRuntime {
   }
 
   /**
-   * Process all pending inbox messages.
-   * Called on startup and whenever the file watcher detects a new file.
-   */
-  private async processInboxMessages(): Promise<void> {
-    if (this.inboxProcessing) return;
-    this.inboxProcessing = true;
-    try {
-      const entries = await this.inboxReader.drainInbox();
-      for (const entry of entries) {
-        try {
-          await this.handleMessage(entry.message);
-          await this.inboxReader.markDone(entry.filePath);
-        } catch (err) {
-          console.error(`[inbox] Process failed for ${entry.filePath}:`, err);
-          await this.inboxReader.markFailed(entry.filePath);
-        }
-      }
-    } finally {
-      this.inboxProcessing = false;
-    }
-  }
-
-  /**
-   * Handle an inbox message (internal method)
-   */
-  private async handleMessage(msg: InboxMessage): Promise<void> {
-    // Convert message to conversation input
-    const userMessage = `[${msg.from}] ${msg.content}`;
-
-    try {
-      const response = await this.chat(userMessage);
-
-      // Write to outbox
-      await this.outboxWriter.write({
-        type: 'response',
-        to: msg.from,
-        content: response,
-        contract_id: msg.contract_id,
-      });
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-
-      try {
-        // Write error response
-        await this.outboxWriter.write({
-          type: 'response',
-          to: msg.from,
-          content: `Error processing message: ${errorMsg}`,
-          contract_id: msg.contract_id,
-        });
-      } catch (writeErr) {
-        this.monitor?.log('error', {
-          context: 'Runtime.handleMessage',
-          originalError: errorMsg,
-          writeError: writeErr instanceof Error ? writeErr.message : String(writeErr),
-        });
-        throw writeErr;
-      }
-    }
-  }
-
-  /**
    * Get runtime status (for diagnostics)
    */
   getStatus(): {
     initialized: boolean;
-    running: boolean;
     clawId: string;
   } {
     return {
       initialized: this.initialized,
-      running: this.running,
       clawId: this.options.clawId,
     };
   }

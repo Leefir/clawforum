@@ -236,34 +236,6 @@ describe('ClawRuntime', () => {
     });
   });
 
-  describe('start/stop', () => {
-    it('should start and stop without error', async () => {
-      const runtime = trackRuntime(new ClawRuntime({
-        clawId: 'test-claw',
-        clawDir,
-        llmConfig: createMockLLMConfig(),
-      }));
-
-      await runtime.start();
-      expect(runtime.getStatus().running).toBe(true);
-
-      await runtime.stop();
-      expect(runtime.getStatus().running).toBe(false);
-    });
-
-    it('should auto-initialize on start', async () => {
-      const runtime = trackRuntime(new ClawRuntime({
-        clawId: 'test-claw',
-        clawDir,
-        llmConfig: createMockLLMConfig(),
-      }));
-
-      expect(runtime.getStatus().initialized).toBe(false);
-      await runtime.start();
-      expect(runtime.getStatus().initialized).toBe(true);
-    });
-  });
-
   describe('status', () => {
     it('should return correct clawId', async () => {
       const runtime = trackRuntime(new ClawRuntime({
