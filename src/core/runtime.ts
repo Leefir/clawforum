@@ -34,6 +34,7 @@ import { lsTool } from './tools/builtins/ls.js';
 import { searchTool } from './tools/builtins/search.js';
 import { execTool } from './tools/builtins/exec.js';
 import { runReact } from './react/loop.js';
+import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../types/signals.js';
 import type { ToolResult } from './tools/executor.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
@@ -208,7 +209,12 @@ export class ClawRuntime {
     {
       const session = await this.sessionManager.load().catch(() => null);
       if (session) {
-        const { repaired, toolCount } = SessionManager.repair(session.messages);
+        const auditAbsPath = this.systemFs.resolve('audit.tsv');
+        const interruptionMessage = summarizeLastExit(auditAbsPath);
+        const { repaired, toolCount } = SessionManager.repair(
+          session.messages,
+          interruptionMessage ? { interruptionMessage } : undefined,
+        );
         if (toolCount > 0) {
           await this.sessionManager.save(repaired);
           this.auditWriter.write('session_repaired', `tools=${toolCount}`);

@@ -79,9 +79,23 @@ export class SessionManager {
 
   /**
    * Repair session if last assistant message has unanswered tool_use blocks.
-   * Returns repaired messages + count of injected synthetic results (0 = no repair needed).
+   *
+   * Injects synthetic `tool_result` blocks for each unanswered `tool_use` so the
+   * LLM can continue the conversation.
+   *
+   * @param messages - Current session messages.
+   * @param opts.interruptionMessage - Optional explanation of the interruption
+   *   (e.g. shutdown reason + timeline discovered by the caller). When omitted or
+   *   empty, the synthetic message explicitly states "Cause unknown (no context
+   *   provided to repair)." — a fail-loud default that reminds callers to pass
+   *   context when available. SessionStore does not guess the interruption cause.
+   * @returns Repaired messages and count of injected synthetic results.
+   *   `toolCount` is 0 when the input messages are returned unchanged.
    */
-  static repair(messages: Message[]): { repaired: Message[]; toolCount: number } {
+  static repair(
+    messages: Message[],
+    opts?: { interruptionMessage?: string },
+  ): { repaired: Message[]; toolCount: number } {
     const last = messages[messages.length - 1];
     if (!last || last.role !== 'assistant') return { repaired: messages, toolCount: 0 };
 
@@ -92,10 +106,14 @@ export class SessionManager {
     );
     if (toolUseBlocks.length === 0) return { repaired: messages, toolCount: 0 };
 
+    const detail = opts?.interruptionMessage && opts.interruptionMessage.length > 0
+      ? opts.interruptionMessage
+      : 'Cause unknown (no context provided to repair).';
+
     const syntheticResults: ToolResultBlock[] = toolUseBlocks.map(block => ({
       type: 'tool_result',
       tool_use_id: block.id,
-      content: `Tool call '${block.name}' with input ${JSON.stringify(block.input)} was interrupted: process restarted.`,
+      content: `Tool call '${block.name}' with input ${JSON.stringify(block.input)} was interrupted. ${detail}`,
       is_error: true,
     }));
 

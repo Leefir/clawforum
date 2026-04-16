@@ -372,6 +372,89 @@ describe('SessionManager.repair', () => {
     expect(blocks[0].type).toBe('tool_result');
     expect(blocks[0].tool_use_id).toBe('tu_1');
     expect(blocks[0].is_error).toBe(true);
+    expect(blocks[0].content).toContain('was interrupted.');
+    expect(blocks[0].content).toContain('Cause unknown (no context provided to repair).');
+  });
+
+  it('repair() with opts.interruptionMessage embeds caller-provided text', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'tu_1', name: 'exec', input: { cmd: 'ls' } },
+        ],
+      },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs, { interruptionMessage: 'Process killed by watchdog' });
+    expect(toolCount).toBe(1);
+    const blocks = repaired[2].content as any[];
+    expect(blocks[0].content).toContain('was interrupted.');
+    expect(blocks[0].content).toContain('Process killed by watchdog');
+    expect(blocks[0].content).not.toContain('Cause unknown');
+  });
+
+  it('repair() with empty opts.interruptionMessage falls back to "Cause unknown"', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'tu_1', name: 'exec', input: { cmd: 'ls' } },
+        ],
+      },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs, { interruptionMessage: '' });
+    expect(toolCount).toBe(1);
+    const blocks = repaired[2].content as any[];
+    expect(blocks[0].content).toContain('Cause unknown (no context provided to repair).');
+  });
+
+  it('repair() preserves multi-line / special chars in interruptionMessage verbatim', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'tu_1', name: 'exec', input: { cmd: 'ls' } },
+        ],
+      },
+    ];
+    const message = 'Line 1\nLine 2\tTabbed "quoted"';
+    const { repaired, toolCount } = SessionManager.repair(msgs, { interruptionMessage: message });
+    expect(toolCount).toBe(1);
+    const blocks = repaired[2].content as any[];
+    expect(blocks[0].content).toContain(message);
+  });
+
+  it('repair() with multiple tool_use blocks shares the same interruptionMessage', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'tu_1', name: 'exec', input: { cmd: 'ls' } },
+          { type: 'tool_use', id: 'tu_2', name: 'read', input: { path: '/tmp/a' } },
+        ],
+      },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs, { interruptionMessage: 'SIGTERM received' });
+    expect(toolCount).toBe(2);
+    const blocks = repaired[2].content as any[];
+    expect(blocks[0].content).toContain('SIGTERM received');
+    expect(blocks[1].content).toContain('SIGTERM received');
+    expect(blocks[0].tool_use_id).toBe('tu_1');
+    expect(blocks[1].tool_use_id).toBe('tu_2');
+  });
+
+  it('repair() ignores opts when last message has no tool_use', () => {
+    const msgs: Message[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'Hello there' },
+    ];
+    const { repaired, toolCount } = SessionManager.repair(msgs, { interruptionMessage: 'should be ignored' });
+    expect(toolCount).toBe(0);
+    expect(repaired).toHaveLength(2);
   });
 
   it('returns no repair when tool_use already has results', () => {
