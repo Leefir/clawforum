@@ -187,7 +187,7 @@ Test message content`;
     expect(entries[0].message.id).toBe('p-fallback');
   });
 
-  it('unknown type frontmatter falls back to message', async () => {
+  it('unknown type frontmatter passes through unchanged', async () => {
     await nfs.writeAtomic(
       'inbox/pending/unknown.md',
       '---\ntype: unknown_event\npriority: normal\nid: t-fallback\nfrom: s\nto: c\ntimestamp: 2026-01-01T00:00:00Z\n---\nBody',
@@ -195,7 +195,7 @@ Test message content`;
 
     const entries = await reader.drainInbox();
     expect(entries).toHaveLength(1);
-    expect(entries[0].message.type).toBe('message');
+    expect(entries[0].message.type).toBe('unknown_event');
     expect(entries[0].message.id).toBe('t-fallback');
   });
 

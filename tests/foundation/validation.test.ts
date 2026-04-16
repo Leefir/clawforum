@@ -66,9 +66,9 @@ describe('validateType', () => {
     expect(validateType('watchdog_complex_name')).toBe('watchdog_complex_name');
   });
 
-  it('未知字符串降级为 message', () => {
-    expect(validateType('unknown_event')).toBe('message');
-    expect(validateType('HEARTBEAT')).toBe('message');
+  it('未知字符串原样透传', () => {
+    expect(validateType('unknown_event')).toBe('unknown_event');
+    expect(validateType('HEARTBEAT')).toBe('HEARTBEAT');
   });
 
   it('非字符串输入降级为 message', () => {
