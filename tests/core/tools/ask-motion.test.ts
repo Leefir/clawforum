@@ -3,16 +3,17 @@ import { AskMotionTool } from '../../../src/core/tools/builtins/ask-motion.js';
 import type { LLMService } from '../../../src/foundation/llm/index.js';
 import type { Message } from '../../../src/types/message.js';
 
-function createMockLLM(answerText: string): LLMService {
-  return {
-    call: async () => ({
-      content: [{ type: 'text', text: answerText }],
-      stop_reason: 'end_turn',
-    }),
-  } as LLMService;
-}
-
 describe('AskMotionTool', () => {
+  it('should not be readonly to prevent concurrent cloneHistory mutation', () => {
+    const tool = new AskMotionTool(
+      {} as LLMService,
+      async () => 'system prompt',
+      () => [],
+      [],
+    );
+    expect(tool.readonly).toBe(false);
+  });
+
   it('consecutive executes produce strictly alternating user/assistant sequence', async () => {
     let callCount = 0;
     const llm = {

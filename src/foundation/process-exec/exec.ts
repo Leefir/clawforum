@@ -103,8 +103,8 @@ export async function exec(command: string, options: ExecOptions): Promise<ExecR
 }
 
 /**
- * Execute a command directly, without shell.
- * Args are passed verbatim — no escaping needed.
+ * Execute a command with explicit args — no shell string interpolation.
+ * Callers may pass 'sh' as the command to run scripts via shell.
  */
 export async function execFile(
   command: string,
