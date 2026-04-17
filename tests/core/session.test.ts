@@ -6,7 +6,7 @@
  * - 损坏 JSON 处理
  * - ENOENT vs JSON 解析错误区分
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -294,7 +294,7 @@ describe('SessionManager unit tests', () => {
   it('archive: resets createdAt so next save() gets a fresh timestamp', async () => {
     // First session
     await sm.save([{ role: 'user', content: 'old' }]);
-    const first = await sm.load();
+    const { session: first } = await sm.load();
     const oldCreatedAt = first.createdAt;
 
     await sm.archive();
@@ -304,7 +304,7 @@ describe('SessionManager unit tests', () => {
 
     // New session after archive
     await sm.save([{ role: 'user', content: 'new' }]);
-    const second = await sm.load();
+    const { session: second } = await sm.load();
 
     // createdAt must be later than the archived session's createdAt
     expect(second.createdAt).not.toBe(oldCreatedAt);
@@ -320,10 +320,107 @@ describe('SessionManager unit tests', () => {
 
     // Fresh SessionManager (simulate restart)
     const sm2 = new SessionManager(nodeFs, 'dialog', 'test-claw');
-    const session = await sm2.load();
+    const { session: session } = await sm2.load();
 
     expect(session.messages).toHaveLength(1);
     expect((session.messages[0].content as string)).toBe('remembered');
+  });
+
+  // --- load() source and audit coverage ---
+
+  it('load() returns source current when current.json exists', async () => {
+    const audit = { write: vi.fn() };
+    const smAudit = new SessionManager(nodeFs, 'dialog', 'test-claw', audit);
+    await smAudit.save([{ role: 'user', content: 'hi' }]);
+    const result = await smAudit.load();
+    expect(result.source).toBe('current');
+  });
+
+  it('load() returns source archive when recovering from archive', async () => {
+    const audit = { write: vi.fn() };
+    const smAudit = new SessionManager(nodeFs, 'dialog', 'test-claw', audit);
+    await smAudit.save([{ role: 'user', content: 'hi' }]);
+    await smAudit.archive();
+    const result = await smAudit.load();
+    expect(result.source).toBe('archive');
+  });
+
+  it('load() returns source empty when nothing exists', async () => {
+    const audit = { write: vi.fn() };
+    const smAudit = new SessionManager(nodeFs, 'dialog', 'test-claw', audit);
+    const result = await smAudit.load();
+    expect(result.source).toBe('empty');
+  });
+
+  it('load() writes session_corrupted audit when current.json is corrupted', async () => {
+    const audit = { write: vi.fn() };
+    const smAudit = new SessionManager(nodeFs, 'dialog', 'test-claw', audit);
+    const dialogDir = path.join(tmpDir, 'dialog');
+    await fs.mkdir(dialogDir, { recursive: true });
+    const currentPath = path.join(dialogDir, 'current.json');
+    await fs.writeFile(currentPath, '{ invalid json', 'utf-8');
+    await smAudit.load();
+    expect(audit.write).toHaveBeenCalledWith(
+      'session_corrupted',
+      'file=current.json',
+      expect.stringContaining('reason='),
+    );
+  });
+
+  it('load() writes session_recovered audit when recovering from archive', async () => {
+    const audit = { write: vi.fn() };
+    const smAudit = new SessionManager(nodeFs, 'dialog', 'test-claw', audit);
+    await smAudit.save([{ role: 'user', content: 'hi' }]);
+    await smAudit.archive();
+    audit.write.mockClear();
+    const result = await smAudit.load();
+    expect(result.source).toBe('archive');
+    expect(audit.write).toHaveBeenCalledWith(
+      'session_recovered',
+      expect.stringMatching(/^from=.*\.json$/),
+    );
+  });
+
+  it('load() writes session_corrupted for corrupted archive and falls back', async () => {
+    const audit = { write: vi.fn() };
+    const smAudit = new SessionManager(nodeFs, 'dialog', 'test-claw', audit);
+    const archiveDir = path.join(tmpDir, 'dialog', 'archive');
+    await fs.mkdir(archiveDir, { recursive: true });
+
+    // Latest archive is corrupted
+    await fs.writeFile(path.join(archiveDir, '3000_corrupted.json'), '{ bad', 'utf-8');
+
+    // Older archive is valid
+    const validSession = {
+      version: 1,
+      clawId: 'test-claw',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messages: [{ role: 'user', content: 'ok' }],
+    };
+    await fs.writeFile(path.join(archiveDir, '2000_valid.json'), JSON.stringify(validSession), 'utf-8');
+
+    const result = await smAudit.load();
+    expect(result.source).toBe('archive');
+    expect(audit.write).toHaveBeenCalledWith(
+      'session_corrupted',
+      'file=3000_corrupted.json',
+      expect.stringContaining('reason='),
+    );
+    expect(audit.write).toHaveBeenCalledWith(
+      'session_recovered',
+      'from=2000_valid.json',
+    );
+  });
+
+  it('load() works without audit sink (backward compatible)', async () => {
+    const smNoAudit = new SessionManager(nodeFs, 'dialog', 'test-claw');
+    await smNoAudit.save([{ role: 'user', content: 'hi' }]);
+    const r1 = await smNoAudit.load();
+    expect(r1.source).toBe('current');
+    await smNoAudit.archive();
+    const r2 = await smNoAudit.load();
+    expect(r2.source).toBe('archive');
   });
 });
 
