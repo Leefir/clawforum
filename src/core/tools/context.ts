@@ -10,7 +10,7 @@
 
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { Logger } from '../../foundation/monitor/types.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
+import type { LLMService } from '../../foundation/llm/index.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { ExecContext } from './executor.js';
 import { MOTION_CLAW_ID, DEFAULT_MAX_STEPS } from '../../constants.js';
@@ -45,7 +45,7 @@ export interface ExecContextImplOptions {
   monitor?: Logger;
   
   /** Optional LLM service */
-  llm?: ILLMService;
+  llm?: LLMService;
   
   /** Maximum allowed steps (ReAct loop limit) */
   maxSteps?: number;
@@ -86,7 +86,7 @@ export class ExecContextImpl implements ExecContext {
   callerType: CallerType;
   fs: FileSystem;
   monitor?: Logger;
-  llm?: ILLMService;
+  llm?: LLMService;
   stepNumber: number;
   maxSteps: number;
   signal?: AbortSignal;

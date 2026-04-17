@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../config.js';
-import { LLMService } from '../../foundation/llm/service.js';
+import { LLMServiceImpl } from '../../foundation/llm/service.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { initCommand } from './init.js';
 import {
@@ -164,7 +164,7 @@ async function checkLLMConnection(): Promise<
 > {
   const globalConfig = loadGlobalConfig();
   const llmConfig = buildLLMConfig(globalConfig);
-  const svc = new LLMService({ primary: llmConfig.primary, fallbacks: [], maxAttempts: 1, retryDelayMs: 0 });
+  const svc = new LLMServiceImpl({ primary: llmConfig.primary, fallbacks: [], maxAttempts: 1, retryDelayMs: 0 });
   try {
     await svc.call({
       messages: [{ role: 'user', content: 'Hi' }],

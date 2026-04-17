@@ -2,7 +2,7 @@
  * LLMService stream failover 测试
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LLMService } from '../../src/foundation/llm/service.js';
+import { LLMServiceImpl } from '../../src/foundation/llm/service.js';
 import type { IProviderAdapter, StreamChunk } from '../../src/foundation/llm/types.js';
 import { LLMError, LLMAllProvidersFailedError, LLMTimeoutError } from '../../src/types/errors.js';
 
@@ -45,7 +45,7 @@ vi.mock('../../src/foundation/llm/anthropic.js', () => ({
   },
 }));
 
-describe('LLMService - stream failover', () => {
+describe('LLMServiceImpl - stream failover', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -57,7 +57,7 @@ describe('LLMService - stream failover', () => {
       yield { type: 'done' };
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       maxAttempts: 1,
       retryDelayMs: 0,
@@ -88,7 +88,7 @@ describe('LLMService - stream failover', () => {
       yield { type: 'done' };
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
       maxAttempts: 1,
@@ -121,7 +121,7 @@ describe('LLMService - stream failover', () => {
       throw new Error('Primary connection failed');  // 无 yield，直接抛
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       maxAttempts: 1,
       retryDelayMs: 0,
@@ -163,7 +163,7 @@ describe('LLMService - stream failover', () => {
       yield { type: 'done' } as StreamChunk;
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
       maxAttempts: 2,   // 即使有重试机会也不应重试
@@ -198,7 +198,7 @@ describe('LLMService - stream failover', () => {
       yield { type: 'done' } as StreamChunk;
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       maxAttempts: 2,
       retryDelayMs: 0,
@@ -217,7 +217,7 @@ describe('LLMService - stream failover', () => {
 
   // Phase 20: getProviderInfo()
   it('should getProviderInfo() return isFallback=false when primary succeeds', async () => {
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test-model' },
       maxAttempts: 1,
       retryDelayMs: 0,
@@ -238,7 +238,7 @@ describe('LLMService - stream failover', () => {
 
     const goodFallback = createMockProvider('fb');
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'p', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fb', apiKey: 'test', model: 'test' }],
       maxAttempts: 1,
@@ -264,7 +264,7 @@ describe('LLMService - stream failover', () => {
       // No stream method
     } as any;
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       maxAttempts: 1,
       retryDelayMs: 0,
@@ -296,7 +296,7 @@ describe('LLMService - stream failover', () => {
       yield { type: 'done' } as StreamChunk;
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
       maxAttempts: 1,
@@ -329,7 +329,7 @@ describe('LLMService - stream failover', () => {
       throw new LLMTimeoutError('fallback', 60000);
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
       maxAttempts: 1,
@@ -370,7 +370,7 @@ describe('LLMService - stream failover', () => {
       yield { type: 'done' } as StreamChunk;
     });
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
       maxAttempts: 1,
@@ -393,7 +393,7 @@ describe('LLMService - stream failover', () => {
 });
 
 // Phase 20: Circuit Breaker
-describe('LLMService - circuit breaker', () => {
+describe('LLMServiceImpl - circuit breaker', () => {
   it('should skip primary after threshold failures (circuit opens)', async () => {
     // threshold=2: primary fails twice → breaker opens → 3rd call skips primary entirely
     let primaryCallCount = 0;
@@ -406,7 +406,7 @@ describe('LLMService - circuit breaker', () => {
 
     const goodFallback = createMockProvider('fallback');
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'p', apiKey: 'x', model: 'x' },
       fallbacks: [{ name: 'fb', apiKey: 'x', model: 'x' }],
       maxAttempts: 1,
@@ -444,7 +444,7 @@ describe('LLMService - circuit breaker', () => {
 
     const goodFallback = createMockProvider('fb');
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'p', apiKey: 'x', model: 'x' },
       fallbacks: [{ name: 'fb', apiKey: 'x', model: 'x' }],
       maxAttempts: 1,
@@ -484,7 +484,7 @@ describe('LLMService - circuit breaker', () => {
       async *stream() { throw new Error('p2 down'); },
     };
 
-    const service = new LLMService({
+    const service = new LLMServiceImpl({
       primary: { name: 'p1', apiKey: 'x', model: 'x' },
       fallbacks: [{ name: 'p2', apiKey: 'x', model: 'x' }],
       maxAttempts: 1,

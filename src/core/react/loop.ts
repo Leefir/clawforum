@@ -11,7 +11,7 @@
  */
 
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse, ToolDefinition } from '../../types/message.js';
-import type { ILLMService, LLMCallOptions } from '../../foundation/llm/index.js';
+import type { LLMService, LLMCallOptions } from '../../foundation/llm/index.js';
 import type { StreamChunk } from '../../foundation/llm/types.js';
 import type { IToolExecutor, ExecContext, ToolResult, ToolRegistry } from '../tools/executor.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
@@ -49,7 +49,7 @@ export interface ReactOptions {
   systemPrompt: string;
   
   /** LLM service */
-  llm: ILLMService;
+  llm: LLMService;
   
   /** Tool executor */
   executor: IToolExecutor;
@@ -496,7 +496,7 @@ function toToolResultBlock(toolUseId: string, result: ToolResult): ToolResultBlo
  * Collect stream chunks into a complete response
  */
 async function collectStreamResponse(
-  llm: ILLMService,
+  llm: LLMService,
   callOptions: LLMCallOptions,
   onTextDelta?: (delta: string) => void,
   onThinkingDelta?: (delta: string) => void,

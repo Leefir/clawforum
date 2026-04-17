@@ -2,7 +2,7 @@
  * LLM Service module (F2)
  * Phase 0: Anthropic adapter + failover service
  * 
- * Exports: ILLMService interface, LLMService implementation, AnthropicAdapter
+ * Exports: LLMService interface, LLMServiceImpl implementation, AnthropicAdapter
  */
 
 // Internal types
@@ -19,16 +19,16 @@ import type { LLMResponse } from '../../types/message.js';
 import type { LLMCallOptions, StreamChunk } from './types.js';
 
 // Implementation
-export { LLMService } from './service.js';
+export { LLMServiceImpl } from './service.js';
 export { AnthropicAdapter } from './anthropic.js';
 export { CustomAnthropicAdapter } from './custom-anthropic.js';
 
 /**
- * ILLMService interface
+ * LLMService interface
  * 
- * Implemented by LLMService class.
+ * Implemented by LLMServiceImpl class.
  */
-export interface ILLMService {
+export interface LLMService {
   call(options: LLMCallOptions): Promise<LLMResponse>;
   stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk>;
   healthCheck(): Promise<boolean>;

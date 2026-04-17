@@ -1,7 +1,7 @@
 /**
  * LLM Service - Main implementation with failover and retry
  * 
- * Implements ILLMService interface
+ * Implements LLMService interface
  * - Retry with exponential backoff
  * - Failover to fallback provider
  */
@@ -21,7 +21,7 @@ import type {
   IProviderAdapter,
   StreamChunk,
 } from './types.js';
-import type { ILLMService } from './index.js';
+import type { LLMService } from './index.js';
 import { AnthropicAdapter } from './anthropic.js';
 import { CustomAnthropicAdapter } from './custom-anthropic.js';
 import { OpenAIAdapter } from './openai.js';
@@ -92,7 +92,7 @@ class CircuitBreaker {
 /**
  * LLM Service implementation
  */
-export class LLMService implements ILLMService {
+export class LLMServiceImpl implements LLMService {
   private primary: IProviderAdapter;
   private fallbacks: IProviderAdapter[];
   private config: LLMServiceConfig;

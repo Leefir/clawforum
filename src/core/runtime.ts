@@ -9,6 +9,7 @@
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import type { LLMServiceConfig } from '../foundation/llm/types.js';
+import type { LLMService } from '../foundation/llm/index.js';
 import type { ToolProfile } from '../types/config.js';
 import type { Message } from '../types/message.js';
 import type { InboxMessage, Priority } from '../types/contract.js';
@@ -17,7 +18,7 @@ import type { SessionData } from '../foundation/session-store/index.js';
 import { readInboxFileMeta } from '../foundation/messaging/index.js';
 
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
-import { LLMService } from '../foundation/llm/service.js';
+import { LLMServiceImpl } from '../foundation/llm/service.js';
 import { JsonlLogger } from '../foundation/monitor/monitor.js';
 
 
@@ -174,7 +175,7 @@ export class ClawRuntime {
     this.monitor = new JsonlLogger({ logsDir });
 
     // 4. Create LLMService
-    this.llm = new LLMService(llmConfig);
+    this.llm = new LLMServiceImpl(llmConfig);
 
     // 5. Compute workspaceDir for ContractManager motion inbox path
     const workspaceDir = clawId === MOTION_CLAW_ID

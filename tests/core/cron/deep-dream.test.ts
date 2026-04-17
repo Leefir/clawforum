@@ -26,7 +26,7 @@ const mockLlmCall = vi.fn();
 const mockLlmClose = vi.fn();
 
 vi.mock('../../../src/foundation/llm/service.js', () => ({
-  LLMService: vi.fn(() => ({
+  LLMServiceImpl: vi.fn(() => ({
     call: mockLlmCall,
     close: mockLlmClose,
   })),

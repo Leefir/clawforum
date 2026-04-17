@@ -19,7 +19,7 @@ import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { AnthropicAdapter } from '../../src/foundation/llm/anthropic.js';
 import { CustomAnthropicAdapter } from '../../src/foundation/llm/custom-anthropic.js';
 import { OpenAIAdapter } from '../../src/foundation/llm/openai.js';
-import { LLMService } from '../../src/foundation/llm/service.js';
+import { LLMServiceImpl } from '../../src/foundation/llm/service.js';
 import {
   LLMRateLimitError,
   LLMTimeoutError,
@@ -349,7 +349,7 @@ describe('LLM Service', () => {
     });
   });
 
-  describe('LLMService', () => {
+  describe('LLMServiceImpl', () => {
     const primaryConfig = {
       name: 'primary',
       apiKey: 'primary-key',
@@ -392,7 +392,7 @@ describe('LLM Service', () => {
         usage: { input_tokens: 10, output_tokens: 5 },
       });
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         maxAttempts: 3,
         retryDelayMs: 100,
@@ -420,7 +420,7 @@ describe('LLM Service', () => {
           usage: { input_tokens: 10, output_tokens: 5 },
         });
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         fallbacks: [fallbackConfig],
         maxAttempts: 1,
@@ -438,7 +438,7 @@ describe('LLM Service', () => {
     it('should throw LLMAllProvidersFailedError when both fail', async () => {
       mockMessagesCreate.mockRejectedValue(new Error('Both failed'));
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         fallbacks: [fallbackConfig],
         maxAttempts: 1,
@@ -465,7 +465,7 @@ describe('LLM Service', () => {
           usage: { input_tokens: 10, output_tokens: 5 },
         });
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         fallbacks: [fallbackConfig],
         maxAttempts: 3,
@@ -504,7 +504,7 @@ describe('LLM Service', () => {
           usage: { input_tokens: 10, output_tokens: 5 },
         });
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         fallbacks: [fallbackConfig],
         maxAttempts: 1,
@@ -542,7 +542,7 @@ describe('LLM Service', () => {
           usage: { input_tokens: 10, output_tokens: 5 },
         });
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         maxAttempts: 5,  // Max 5 attempts total
         // Base delay: 50ms
@@ -570,7 +570,7 @@ describe('LLM Service', () => {
       );
       vi.stubGlobal('fetch', mockFetch);
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         fallback: fallbackConfig,
         maxAttempts: 1,
@@ -594,7 +594,7 @@ describe('LLM Service', () => {
         usage: { input_tokens: 10, output_tokens: 5 },
       });
 
-      const service = new LLMService({
+      const service = new LLMServiceImpl({
         primary: primaryConfig,
         maxAttempts: 1,
         retryDelayMs: 100,

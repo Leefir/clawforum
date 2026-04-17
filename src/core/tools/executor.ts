@@ -11,7 +11,7 @@ import type { JSONSchema7 } from '../../types/message.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { Logger } from '../../foundation/monitor/types.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
+import type { LLMService } from '../../foundation/llm/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../communication/index.js';
 import type { Message } from '../../types/message.js';
@@ -62,7 +62,7 @@ export interface ExecContext {
   /** Caller type for spawn recursion prevention */
   callerType: CallerType;
   fs: FileSystem;
-  llm?: ILLMService;
+  llm?: LLMService;
   monitor?: Logger;
   profile: ToolProfile;
   stepNumber: number;
@@ -328,7 +328,7 @@ export interface ToolExecutorOptions {
   clawDir: string;
   fs: FileSystem;
   monitor?: Logger;
-  llm?: ILLMService;
+  llm?: LLMService;
   taskSystem?: TaskSystem;
   profile?: ToolProfile;
   outboxWriter?: OutboxWriter;
@@ -345,7 +345,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private clawDir: string;
   private fs: FileSystem;
   private monitor?: Logger;
-  private llm?: ILLMService;
+  private llm?: LLMService;
   private taskSystem?: TaskSystem;
   private profile: ToolProfile;
   private outboxWriter?: OutboxWriter;

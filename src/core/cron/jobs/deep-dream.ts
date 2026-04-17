@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { FileSystem } from '../../../foundation/fs/types.js';
-import { LLMService } from '../../../foundation/llm/service.js';
+import { LLMServiceImpl } from '../../../foundation/llm/service.js';
 import type { LLMServiceConfig } from '../../../foundation/llm/types.js';
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../../types/message.js';
 import { writeInboxMessage } from '../../../utils/inbox-writer.js';
@@ -121,7 +121,7 @@ function discoverUnprocessed(clawDir: string, state: DreamStateData, today: stri
 async function maybeMergeCompressions(
   compressions: string[],
   maxTokens: number,
-  llm: LLMService,
+  llm: LLMServiceImpl,
 ): Promise<string[]> {
   const total = estimateTokens(compressions.join(''));
   if (total <= maxTokens) return compressions;
@@ -141,7 +141,7 @@ async function maybeMergeCompressions(
 async function runDeepDreamForClaw(
   clawId: string,
   clawDir: string,
-  llm: LLMService,
+  llm: LLMServiceImpl,
   maxCompressionTokens: number,
   fileSystem: FileSystem,
 ): Promise<void> {
@@ -261,7 +261,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
 
   if (clawIds.length === 0) return;
 
-  const llm = new LLMService(opts.llmConfig);
+  const llm = new LLMServiceImpl(opts.llmConfig);
 
   try {
     // 串行处理每个 claw

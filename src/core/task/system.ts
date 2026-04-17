@@ -15,7 +15,7 @@ import { SubAgent } from '../subagent/agent.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
 import { ToolRegistryImpl } from '../tools/registry.js';
 import { registerBuiltinTools } from '../tools/builtins/index.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
+import type { LLMService } from '../../foundation/llm/index.js';
 import type { CallerType } from '../tools/caller-type.js';
 import { callerTypeToProfile } from '../tools/caller-type.js';
 import type { ToolResult, Tool } from '../tools/executor.js';
@@ -67,7 +67,7 @@ export class TaskSystem {
   private maxConcurrent: number;
   private monitor: JsonlLogger;
   private registry: ToolRegistryImpl;
-  private llm?: ILLMService;
+  private llm?: LLMService;
   private skillRegistry?: SkillRegistry;
   private contractManager?: ContractManager;
   private outboxWriter?: OutboxWriter;
@@ -295,7 +295,7 @@ export class TaskSystem {
     }
   }
 
-  setLLMService(llm: ILLMService): void {
+  setLLMService(llm: LLMService): void {
     this.llm = llm;
   }
 

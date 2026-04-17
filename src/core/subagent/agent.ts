@@ -9,7 +9,7 @@ import { ToolExecutor } from '../tools/executor.js';
 import { ToolRegistryImpl } from '../tools/registry.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { Logger } from '../../foundation/monitor/types.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
+import type { LLMService } from '../../foundation/llm/index.js';
 import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { SUBAGENT_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
@@ -29,7 +29,7 @@ export interface SubAgentOptions {
   agentId: string;
   prompt: string;
   clawDir: string;
-  llm: ILLMService;
+  llm: LLMService;
   registry: ToolRegistryImpl;
   fs: FileSystem;
   monitor?: Logger;
@@ -56,7 +56,7 @@ export class SubAgent {
   private agentId: string;
   private prompt: string;
   private clawDir: string;
-  private llm: ILLMService;
+  private llm: LLMService;
   private registry: ToolRegistryImpl;
   private fs: FileSystem;
   private monitor?: Logger;

@@ -17,8 +17,8 @@ export { NodeFileSystem } from './foundation/fs/node-fs.js';
 export type { Logger, LogEvent } from './foundation/monitor/types.js';
 export { JsonlLogger } from './foundation/monitor/index.js';
 
-export type { ILLMService } from './foundation/llm/index.js';
-export { LLMService } from './foundation/llm/service.js';
+export type { LLMService } from './foundation/llm/index.js';
+export { LLMServiceImpl } from './foundation/llm/service.js';
 export type { LLMServiceConfig, ProviderConfig, LLMCallOptions } from './foundation/llm/types.js';
 
 // Re-export commonly used types

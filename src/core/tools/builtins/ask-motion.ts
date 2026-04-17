@@ -1,5 +1,5 @@
 import type { Tool, ToolResult } from '../executor.js';
-import type { ILLMService } from '../../../foundation/llm/index.js';
+import type { LLMService } from '../../../foundation/llm/index.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
 
@@ -25,7 +25,7 @@ export class AskMotionTool implements Tool {
   private readonly cloneHistory: Message[] = [];
 
   constructor(
-    private readonly llm: ILLMService,
+    private readonly llm: LLMService,
     private readonly getSystemPrompt: () => Promise<string>,
     private readonly getToolsForLLM: () => ToolDefinition[],
     private readonly motionContext: Message[],  // dispatch 时快照，保持不变

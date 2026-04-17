@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fsNative from 'fs';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { Logger } from '../../foundation/monitor/types.js';
-import type { ILLMService } from '../../foundation/llm/index.js';
+import type { LLMService } from '../../foundation/llm/index.js';
 import type { Contract, SubTask, ContractStatus, SubtaskStatus } from '../../types/contract.js';
 import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { exec, execFile } from '../../foundation/process-exec/index.js';
@@ -83,7 +83,7 @@ export class ContractManager {
   private clawDir: string;
   private readonly clawId: string;
   private monitor?: Logger;
-  private llm?: ILLMService;
+  private llm?: LLMService;
   private verifierRegistry?: ToolRegistryImpl;
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
@@ -97,7 +97,7 @@ export class ContractManager {
     clawId: string,
     fs: FileSystem,
     monitor?: Logger,
-    llm?: ILLMService,
+    llm?: LLMService,
     verifierRegistry?: ToolRegistryImpl,
     motionInboxDir?: string,
     auditWriter?: AuditWriter,

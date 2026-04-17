@@ -63,7 +63,7 @@ vi.mock('../../src/core/subagent/agent.js', () => ({
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { JsonlLogger } from '../../src/foundation/monitor/index.js';
-import type { ILLMService } from '../../src/foundation/llm/index.js';
+import type { LLMService } from '../../src/foundation/llm/index.js';
 import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
 
 async function createTempDir(): Promise<string> {
@@ -166,7 +166,7 @@ describe('ContractManager Acceptance Flow', () => {
   let clawDir: string;
   let manager: ContractManager;
   let mockMonitor: JsonlLogger;
-  let mockLLM: ILLMService;
+  let mockLLM: LLMService;
   let mockRegistry: ToolRegistryImpl;
 
   beforeEach(async () => {
@@ -195,7 +195,7 @@ describe('ContractManager Acceptance Flow', () => {
     mockLLM = {
       call: vi.fn(),
       stream: vi.fn(),
-    } as unknown as ILLMService;
+    } as unknown as LLMService;
 
     mockRegistry = new ToolRegistryImpl();
     manager = new ContractManager(clawDir, 'test-claw', nodeFs, mockMonitor, mockLLM, mockRegistry);
