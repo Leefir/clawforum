@@ -293,8 +293,8 @@ export class OpenAIAdapter implements ProviderAdapter {
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim();
           if (!data || data === '[DONE]') {
             if (data === '[DONE]') {
               const stopReason =

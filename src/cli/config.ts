@@ -256,7 +256,15 @@ export function toProviderConfig(p: z.infer<typeof LLMProviderSchema>): Provider
   }
   
   const preset = resolvePreset(presetId);
-  
+
+  // Detect bare env var names that should be wrapped in ${...}
+  if (p.api_key && /^[A-Z][A-Z0-9_]{3,}$/.test(p.api_key)) {
+    throw new Error(
+      `Provider "${p.label ?? presetId}": api_key looks like a bare environment variable name ("${p.api_key}"). ` +
+      `Use \${${p.api_key}} to reference it.`
+    );
+  }
+
   return {
     name: p.label ?? presetId,
     apiKey: p.api_key,
