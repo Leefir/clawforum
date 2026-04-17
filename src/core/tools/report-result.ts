@@ -14,7 +14,7 @@
  * Currently used by contract LLM acceptance verifiers.
  */
 
-import type { ITool, ToolResult, ExecContext } from './executor.js';
+import type { Tool, ToolResult, ExecContext } from './executor.js';
 
 export interface ReportResultPayload {
   passed: boolean;
@@ -22,7 +22,7 @@ export interface ReportResultPayload {
   issues?: string[];
 }
 
-export class ReportResultTool implements ITool {
+export class ReportResultTool implements Tool {
   readonly name = 'report_result';
   readonly description =
     'Submit your verification verdict. Call this tool exactly once when you have finished ' +

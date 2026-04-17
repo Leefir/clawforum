@@ -9,7 +9,7 @@
 
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 
 // Allowed paths/prefixes for search tool (MVP aligned)
 const SEARCH_ALLOWLIST = [
@@ -62,7 +62,7 @@ async function walkNative(
   return rem;
 }
 
-export const searchTool: ITool = {
+export const searchTool: Tool = {
   name: 'search',
   description: 'Search for text in LOCAL files only (not web/network). Returns file:line: content matches, case-insensitive, default max 5 results. Allowed paths: clawspace/, skills/, prompts/. Motion can search another claw via `claw: "<id>"`, or all claws via `claw: "*"`.',
   schema: {

@@ -5,7 +5,7 @@
  * Loaded on-demand when this tool is called.
  */
 
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import { SkillRegistry } from '../../skill/registry.js';
 
 /**
@@ -13,7 +13,7 @@ import { SkillRegistry } from '../../skill/registry.js';
  * 
  * Requires skillRegistry to be injected before use.
  */
-export const skillTool: ITool & { skillRegistry?: SkillRegistry } = {
+export const skillTool: Tool & { skillRegistry?: SkillRegistry } = {
   name: 'skill',
   description: 'Load a skill by name. Skills provide domain-specific knowledge and guidelines from SKILL.md files.',
   schema: {

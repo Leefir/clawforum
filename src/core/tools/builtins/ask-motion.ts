@@ -1,9 +1,9 @@
-import type { ITool, ToolResult } from '../executor.js';
+import type { Tool, ToolResult } from '../executor.js';
 import type { ILLMService } from '../../../foundation/llm/index.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
 
-export class AskMotionTool implements ITool {
+export class AskMotionTool implements Tool {
   readonly name = 'ask_motion';
   readonly description = `向 Motion 分身提问，获取 Motion 对用户意图、背景、偏好的判断。
 分身继承 Motion 完整上下文（系统提示 + 当前对话历史），多轮问答自动累积。

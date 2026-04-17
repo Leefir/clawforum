@@ -9,7 +9,7 @@
 
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from '../../../constants.js';
 
 // Blocked paths (MVP aligned) - blacklist only
@@ -24,7 +24,7 @@ function isPathAllowed(filePath: string): boolean {
   );
 }
 
-export const readTool: ITool = {
+export const readTool: Tool = {
   name: 'read',
   description: 'Read the contents of a file. Blocked: logs/. Motion can read other claws via `claw` parameter.',
   schema: {

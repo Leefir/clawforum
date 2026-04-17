@@ -6,10 +6,10 @@
 
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import { LS_MAX_ENTRIES } from '../../../constants.js';
 
-export const lsTool: ITool = {
+export const lsTool: Tool = {
   name: 'ls',
   description: 'List files and directories in the specified path. Motion can list other claws via `claw` parameter.',
   schema: {

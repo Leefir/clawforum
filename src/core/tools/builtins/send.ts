@@ -2,9 +2,9 @@
  * send tool - Send message to outbox
  */
 
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 
-export const sendTool: ITool = {
+export const sendTool: Tool = {
   name: 'send',
   description: 'Send a message to the outbox for the parent or other claws. Priority: critical|high|normal|low (default: normal).',
   schema: {

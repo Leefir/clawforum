@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runReact } from '../../src/core/react/loop.js';
 import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
 import { ToolRegistry } from '../../src/core/tools/registry.js';
-import type { ITool, ToolResult, ExecContext } from '../../src/core/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../src/core/tools/executor.js';
 import type { JSONSchema7 } from '../../src/types/message.js';
 import type { LLMResponse, Message } from '../../src/types/message.js';
 

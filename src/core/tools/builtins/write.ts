@@ -8,7 +8,7 @@
  */
 
 import * as path from 'path';
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import { WRITE_SIZE_LIMITS, WRITE_VERSION_RETENTION } from '../../../constants.js';
 
 function getSizeLimits(filePath: string): [number, number] {
@@ -68,7 +68,7 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<s
   return null;
 }
 
-export const writeTool: ITool = {
+export const writeTool: Tool = {
   name: 'write',
   description: 'Write content to a file. Use append=true to append instead of overwrite. Auto-backups to .versions/ (keep 10). Size limits: MEMORY.md 50/200KB, memory/ 100/500KB, clawspace/ 5MB/20MB. WARNING: single LLM output is limited to ~4096 tokens (~3000 chars). For long files, split into multiple write calls: first call without append, subsequent calls with append=true.',
   schema: {

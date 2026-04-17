@@ -7,7 +7,7 @@
  * - MEMORY.md size, clawspace file count
  */
 
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import type { ContractManager } from '../../contract/manager.js';
 import type { TaskSystem } from '../../task/system.js';
 
@@ -106,7 +106,7 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
   return lines;
 }
 
-export const statusTool: ITool = {
+export const statusTool: Tool = {
   name: 'status',
   description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
   schema: {

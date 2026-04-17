@@ -4,7 +4,7 @@
  * Implements IToolRegistry interface
  */
 
-import type { ITool } from './executor.js';
+import type { Tool } from './executor.js';
 import type { ToolProfile } from '../../types/config.js';
 import { TOOL_PROFILES } from './profiles.js';
 
@@ -12,13 +12,13 @@ import { TOOL_PROFILES } from './profiles.js';
  * Tool registry implementation
  */
 export class ToolRegistry {
-  private tools: Map<string, ITool> = new Map();
+  private tools: Map<string, Tool> = new Map();
 
   /**
    * Register a tool
    * Overwrites existing tool with same name
    */
-  register(tool: ITool): void {
+  register(tool: Tool): void {
     this.tools.set(tool.name, tool);
   }
 
@@ -33,7 +33,7 @@ export class ToolRegistry {
    * Get a tool by name
    * @returns Tool or undefined if not found
    */
-  get(name: string): ITool | undefined {
+  get(name: string): Tool | undefined {
     return this.tools.get(name);
   }
 
@@ -47,14 +47,14 @@ export class ToolRegistry {
   /**
    * Get all registered tools
    */
-  getAll(): ITool[] {
+  getAll(): Tool[] {
     return Array.from(this.tools.values());
   }
 
   /**
    * Get tools available for a specific profile
    */
-  getForProfile(profile: ToolProfile): ITool[] {
+  getForProfile(profile: ToolProfile): Tool[] {
     const allowedNames = TOOL_PROFILES[profile];
     return this.getAll().filter(tool => allowedNames.includes(tool.name));
   }
@@ -63,7 +63,7 @@ export class ToolRegistry {
    * Format tools for LLM API consumption
    * @returns Tool definitions in LLM API format
    */
-  formatForLLM(tools: ITool[]): Array<{
+  formatForLLM(tools: Tool[]): Array<{
     name: string;
     description: string;
     input_schema: import('../../types/message.js').JSONSchema7;

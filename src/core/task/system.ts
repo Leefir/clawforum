@@ -18,7 +18,7 @@ import { registerBuiltinTools } from '../tools/builtins/index.js';
 import type { ILLMService } from '../../foundation/llm/index.js';
 import type { CallerType } from '../tools/caller-type.js';
 import { callerTypeToProfile } from '../tools/caller-type.js';
-import type { ToolResult, ITool } from '../tools/executor.js';
+import type { ToolResult, Tool } from '../tools/executor.js';
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../communication/index.js';
 import type { ContractManager } from '../contract/manager.js';
@@ -41,7 +41,7 @@ export interface SubAgentTask {
   messages?: Message[];                    // 若提供，SubAgent 直接用；否则从 prompt 构建
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
   toolsForLLM?: ToolDefinition[];          // 若提供，直接用；否则从 registry 计算
-  extraTools?: ITool[];                    // per-task 额外工具，不污染全局 registry
+  extraTools?: Tool[];                    // per-task 额外工具，不污染全局 registry
 }
 
 export interface ToolTask {

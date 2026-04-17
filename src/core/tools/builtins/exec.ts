@@ -5,7 +5,7 @@
  * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  */
 
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import {
   EXEC_MAX_STDOUT,
   EXEC_MAX_STDERR,
@@ -19,7 +19,7 @@ function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen) + '\n[truncated]';
 }
 
-export const execTool: ITool = {
+export const execTool: Tool = {
   name: 'exec',
   description: 'Execute a shell command in the claw root directory. Runs via `sh -c`, so shell features (pipes, redirects, quotes) work normally.',
   schema: {

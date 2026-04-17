@@ -22,7 +22,7 @@ export { TOOL_PROFILES } from './profiles.js';
 export type {
   ToolResult,
   ExecContext,
-  ITool,
+  Tool,
   IToolRegistry,
   IToolExecutor,
   ExecuteOptions,

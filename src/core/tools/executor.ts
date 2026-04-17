@@ -89,7 +89,7 @@ export interface ExecContext {
 /**
  * Tool interface - All tools implement this
  */
-export interface ITool {
+export interface Tool {
   name: string;
   description: string;
   schema: JSONSchema7;
@@ -103,13 +103,13 @@ export interface ITool {
  * Tool registry interface
  */
 export interface IToolRegistry {
-  register(tool: ITool): void;
+  register(tool: Tool): void;
   unregister(name: string): void;
-  get(name: string): ITool | undefined;
+  get(name: string): Tool | undefined;
   has(name: string): boolean;
-  getAll(): ITool[];
-  getForProfile(profile: ToolProfile): ITool[];
-  formatForLLM(tools: ITool[]): Array<{
+  getAll(): Tool[];
+  getForProfile(profile: ToolProfile): Tool[];
+  formatForLLM(tools: Tool[]): Array<{
     name: string;
     description: string;
     input_schema: JSONSchema7;

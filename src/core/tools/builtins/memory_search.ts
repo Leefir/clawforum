@@ -2,11 +2,11 @@
  * memory_search tool - Search in memory directory with metadata filtering
  */
 
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import type { FileEntry } from '../../../foundation/fs/types.js';
 import { parseFrontmatter } from '../../../foundation/message-codec/index.js';
 
-export const memorySearchTool: ITool = {
+export const memorySearchTool: Tool = {
   name: 'memory_search',
   description: 'Full-text search across memory/ files. Supports keyword search, filename regex filtering, and frontmatter metadata filtering. At least one of query or filter is required.',
   schema: {

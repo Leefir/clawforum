@@ -5,7 +5,7 @@
  * which triggers the acceptance process defined in the contract.
  */
 
-import type { ITool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../executor.js';
 import type { ContractManager } from '../../contract/manager.js';
 
 /**
@@ -13,7 +13,7 @@ import type { ContractManager } from '../../contract/manager.js';
  * 
  * Requires contractManager to be injected before use.
  */
-export const doneTool: ITool & { contractManager?: ContractManager } = {
+export const doneTool: Tool & { contractManager?: ContractManager } = {
   name: 'done',
   description: 'Mark a subtask as complete and submit it for acceptance verification. ' +
     'Acceptance runs asynchronously — the result (pass or reject) will be ' +

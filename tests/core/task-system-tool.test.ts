@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TaskSystem, SubAgentTask, ToolTask } from '../../src/core/task/system.js';
 import { ToolExecutorImpl, ExecuteOptions } from '../../src/core/tools/executor.js';
 import { ToolRegistry } from '../../src/core/tools/registry.js';
-import { ITool, ToolResult, ExecContext } from '../../src/core/tools/executor.js';
+import { Tool, ToolResult, ExecContext } from '../../src/core/tools/executor.js';
 import type { JSONSchema7 } from '../../src/types/message.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
@@ -24,7 +24,7 @@ import { lsTool } from '../../src/core/tools/builtins/ls.js';
 import { searchTool } from '../../src/core/tools/builtins/search.js';
 
 // Mock tool for testing
-const createMockTool = (supportsAsync: boolean): ITool => ({
+const createMockTool = (supportsAsync: boolean): Tool => ({
   name: 'mockAsyncTool',
   description: 'Mock tool for async testing',
   schema: { type: 'object', properties: {} },
@@ -1140,7 +1140,7 @@ describe('ToolExecutor async routing', () => {
 
   it('should reject async mode for subagent callerType', async () => {
     // Register a tool with supportsAsync: true
-    const asyncTool: ITool = {
+    const asyncTool: Tool = {
       name: 'asyncTool',
       description: 'Tool with async support',
       schema: { type: 'object', properties: {} },
@@ -1170,7 +1170,7 @@ describe('ToolExecutor async routing', () => {
 
   it('should return error when tool does not support async', async () => {
     // Register tool without supportsAsync
-    const nonAsyncTool: ITool = {
+    const nonAsyncTool: Tool = {
       name: 'nonAsyncTool',
       description: 'Tool without async support',
       schema: { type: 'object', properties: {} },
@@ -1198,7 +1198,7 @@ describe('ToolExecutor async routing', () => {
 
   it('should return error when taskSystem is not available', async () => {
     // Register tool with supportsAsync
-    const asyncTool: ITool = {
+    const asyncTool: Tool = {
       name: 'asyncTool',
       description: 'Tool with async support',
       schema: { type: 'object', properties: {} },
@@ -1227,7 +1227,7 @@ describe('ToolExecutor async routing', () => {
   });
 
   it('should schedule async task when tool supports async and taskSystem available', async () => {
-    const asyncTool: ITool = {
+    const asyncTool: Tool = {
       name: 'asyncTool',
       description: 'Tool with async support',
       schema: { type: 'object', properties: {} },
@@ -1282,7 +1282,7 @@ describe('ToolExecutor async routing', () => {
   });
 
   it('should execute synchronously when async is false', async () => {
-    const syncTool: ITool = {
+    const syncTool: Tool = {
       name: 'syncTool',
       description: 'Regular sync tool',
       schema: { type: 'object', properties: {} },
