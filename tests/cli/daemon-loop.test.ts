@@ -180,9 +180,8 @@ describe('startDaemonLoop - LLM retry', () => {
     warnSpy.mockRestore();
   });
 
-  it('LLM max retries exhausted fires appendFileSync and writeInboxMessage to motionDir', async () => {
+  it('LLM max retries exhausted logs error to console', async () => {
     vi.useFakeTimers();
-    const appendSpy = vi.spyOn(fsNative, 'appendFileSync').mockImplementation(() => undefined);
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const errSpy  = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -191,8 +190,6 @@ describe('startDaemonLoop - LLM retry', () => {
     const retryLastTurn = vi.fn().mockRejectedValue(new Error('All providers failed on retry'));
     const mockRuntime = { processBatch, retryLastTurn, abort: vi.fn() } as unknown as ClawRuntime;
 
-    const notifyMotionDir = '/tmp/motion-max-retry-notify';
-
     const { stop } = startDaemonLoop({
       runtime: mockRuntime,
       agentDir: '/tmp/agent-max-retry',
@@ -200,7 +197,6 @@ describe('startDaemonLoop - LLM retry', () => {
       inboxPendingDir: '/tmp/agent-max-retry/inbox/pending',
       label: '[max-retry-test]',
       fallbackTimeoutMs: 100,
-      notifyMotionDir,
     });
 
     // Iteration 1: processBatch throws → wait 30 s
@@ -216,29 +212,14 @@ describe('startDaemonLoop - LLM retry', () => {
     vi.advanceTimersByTime(120_001);
     await flushMicrotasks();
 
-    // Iteration 4: retryLastTurn throws → llmRetryCount=3 >= MAX → else branch → notify
-    // appendFileSync and writeInboxMessage are synchronous and fire in the catch block
-
-    expect(appendSpy).toHaveBeenCalledWith(
-      path.join(notifyMotionDir, 'stream.jsonl'),
-      expect.any(String),
-    );
-    const appendedLine: string = appendSpy.mock.calls[0][1] as string;
-    const event = JSON.parse(appendedLine.trim());
-    expect(event.type).toBe('user_notify');
-    expect(event.subtype).toBe('llm_error');
-    expect(event.clawId).toBe('agent-max-retry');
-    expect(typeof event.error).toBe('string');
-    expect(typeof event.ts).toBe('number');
-    expect(vi.mocked(writeInboxMessage)).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ type: 'watchdog_claw_llm_error' }),
+    // Iteration 4: retryLastTurn throws → llmRetryCount=3 >= MAX → else branch → log error
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining('LLM max retries'),
     );
 
     stop();
     vi.advanceTimersByTime(200);
     await flushMicrotasks();
-    appendSpy.mockRestore();
     warnSpy.mockRestore();
     errSpy.mockRestore();
   });
@@ -279,109 +260,4 @@ describe('startDaemonLoop - LLM retry', () => {
   });
 });
 
-// ==========================================================================
-// startDaemonLoop - Motion outbox scanning
-// ==========================================================================
 
-vi.mock('../../src/foundation/messaging/index.js', () => ({
-  scanClawOutboxes: vi.fn(),
-}));
-
-import { scanClawOutboxes } from '../../src/foundation/messaging/index.js';
-
-describe('startDaemonLoop - Motion outbox scanning', () => {
-  beforeEach(() => {
-    vi.mocked(scanClawOutboxes).mockReset();
-  });
-
-  it('isMotion=true: sends claw_outbox notification when claws have unread messages', async () => {
-    vi.useFakeTimers();
-    vi.mocked(scanClawOutboxes).mockResolvedValue([
-      { clawId: 'claw-a', count: 3 },
-      { clawId: 'claw-b', count: 1 },
-    ]);
-
-    const processBatch = vi.fn().mockResolvedValue(0);
-    const mockRuntime = { processBatch, abort: vi.fn(), retryLastTurn: vi.fn() } as unknown as ClawRuntime;
-
-    const { stop } = startDaemonLoop({
-      runtime: mockRuntime,
-      agentDir: '/tmp/test-motion-outbox',
-      clawId: 'motion',
-      inboxPendingDir: '/tmp/test-motion-outbox/inbox/pending',
-      label: '[motion daemon]',
-      fallbackTimeoutMs: 1_000,
-      isMotion: true,
-    });
-
-    await flushMicrotasks(10);
-
-    expect(vi.mocked(writeInboxMessage)).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ type: 'claw_outbox' }),
-    );
-
-    stop();
-    vi.advanceTimersByTime(1_001);
-    await flushMicrotasks();
-    vi.useRealTimers();
-  });
-
-  it('isMotion=false: does not scan claw outboxes', async () => {
-    vi.useFakeTimers();
-    vi.mocked(scanClawOutboxes).mockResolvedValue([{ clawId: 'claw-a', count: 5 }]);
-
-    const processBatch = vi.fn().mockResolvedValue(0);
-    const mockRuntime = { processBatch, abort: vi.fn(), retryLastTurn: vi.fn() } as unknown as ClawRuntime;
-
-    const { stop } = startDaemonLoop({
-      runtime: mockRuntime,
-      agentDir: '/tmp/test-claw-outbox',
-      clawId: 'some-claw',
-      inboxPendingDir: '/tmp/test-claw-outbox/inbox/pending',
-      label: '[daemon]',
-      fallbackTimeoutMs: 1_000,
-      // isMotion not passed, defaults to undefined
-    });
-
-    await flushMicrotasks(10);
-
-    expect(vi.mocked(scanClawOutboxes)).not.toHaveBeenCalled();
-
-    stop();
-    vi.advanceTimersByTime(1_001);
-    await flushMicrotasks();
-    vi.useRealTimers();
-  });
-
-  it('isMotion=true: no notification when no unread outbox (scanClawOutboxes returns null)', async () => {
-    vi.useFakeTimers();
-    vi.mocked(scanClawOutboxes).mockResolvedValue(null);
-    vi.mocked(writeInboxMessage).mockReset();
-
-    const processBatch = vi.fn().mockResolvedValue(0);
-    const mockRuntime = { processBatch, abort: vi.fn(), retryLastTurn: vi.fn() } as unknown as ClawRuntime;
-
-    const { stop } = startDaemonLoop({
-      runtime: mockRuntime,
-      agentDir: '/tmp/test-motion-no-outbox',
-      clawId: 'motion',
-      inboxPendingDir: '/tmp/test-motion-no-outbox/inbox/pending',
-      label: '[motion daemon]',
-      fallbackTimeoutMs: 1_000,
-      isMotion: true,
-    });
-
-    await flushMicrotasks(10);
-
-    const claw_outbox_calls = vi.mocked(writeInboxMessage).mock.calls.filter(
-      ([, opts]) => (opts as any).type === 'claw_outbox'
-    );
-    expect(claw_outbox_calls).toHaveLength(0);
-
-    stop();
-    vi.advanceTimersByTime(1_001);
-    await flushMicrotasks();
-    vi.useRealTimers();
-  });
-});

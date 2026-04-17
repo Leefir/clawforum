@@ -94,27 +94,19 @@ describe('Phase 86: clean stop 生命周期修复', () => {
   // Step 3 + 4: daemon-loop.ts 仅对 motion 检查 clean-stop
   // ==========================================================================
   describe('Step 3+4: daemon-loop clean-stop 检测', () => {
-    it('应检查 options.isMotion 来区分 motion 和 claw daemon', () => {
-      expect(daemonLoopSource).toContain('options.isMotion');
-      // isMotion 判断应在 clean-stop 检测逻辑中（找 cleanStopFile 变量定义处）
+    it('daemon-loop 应包含 clean-stop 标记检测逻辑', () => {
       const cleanStopFileIdx = daemonLoopSource.indexOf('cleanStopFile');
       expect(cleanStopFileIdx).toBeGreaterThan(-1);
-
-      const surroundingCode = daemonLoopSource.slice(
-        cleanStopFileIdx - 300,
-        cleanStopFileIdx + 200
-      );
-      expect(surroundingCode).toContain('options.isMotion');
     });
 
-    it('claw daemon（isMotion 为 false）应直接返回 false，不消费标记', () => {
+    it('clean-stop 检测应消费标记文件', () => {
       const isCleanStopMatch = daemonLoopSource.match(
         /const isCleanStop = \(\(\) => \{[\s\S]{0,400}?\}\)\(\)/
       );
       expect(isCleanStopMatch).toBeTruthy();
       const block = isCleanStopMatch![0];
-      // 应先检查 isMotion，为 false 就 return false
-      expect(block).toContain('options.isMotion');
+      expect(block).toContain('unlinkSync');
+      expect(block).toContain('return true');
       expect(block).toContain('return false');
     });
 

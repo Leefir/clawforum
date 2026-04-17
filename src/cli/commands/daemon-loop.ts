@@ -12,18 +12,17 @@ import type { StreamWriter, StreamLog } from '../../foundation/stream/index.js';
 import { oneLine } from '../../foundation/utils/string.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
-import { scanClawOutboxes, type ClawOutboxInfo } from '../../foundation/messaging/index.js';
-import { ProcessManager } from '../../foundation/process-manager/index.js';
+
 import {
   DAEMON_FALLBACK_TIMEOUT_MS,
   INTERRUPT_RECOVERY_DELAY_MS,
-  OUTBOX_NOTIFY_COOLDOWN_MS,
+
   STARTUP_CHECK_COOLDOWN_MS,
   LLM_MAX_RETRIES,
   LLM_RETRY_INITIAL_DELAY_MS,
   LLM_RETRY_MAX_DELAY_MS,
 } from '../../constants.js';
-import { notifyInbox, notifyStream } from '../../utils/notify.js';
+import { notifyInbox } from '../../utils/notify.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 
 /**
@@ -88,32 +87,6 @@ function createStreamCallbacks(sink: StreamLog): StreamCallbacks {
   };
 }
 
-/**
- * Compose the outbox notification sent to motion's inbox.
- * Embeds daemon/contract status per claw so motion can decide action
- * (drain vs restart vs escalate) without a separate probe call.
- */
-function formatOutboxNotification(infos: ClawOutboxInfo[]): string {
-  const lines = infos.map((info) => {
-    const { clawId, count, daemon, contract } = info;
-    const drain = `\`clawforum claw outbox ${clawId} --limit ${count}\``;
-    if (daemon === 'running') {
-      // 正常情况：daemon 在，读一批就好
-      return `- "${clawId}" 有 ${count} 条未读（daemon=running, contract=${contract}）。查看：${drain}`;
-    }
-    if (daemon === 'stopped' && contract === 'none') {
-      // daemon 不在、无契约：claw 可能已废弃，drain 即可消除通知；如确认弃用需用户授权清理目录
-      return `- "${clawId}" 有 ${count} 条积压（daemon=stopped, contract=none，claw 可能已废弃）。一次清空：${drain}`;
-    }
-    if (daemon === 'stopped') {
-      // daemon 不在但有契约：claw 崩溃了，先决策重启还是 drain
-      return `- "${clawId}" 有 ${count} 条积压（daemon=stopped, contract=${contract}，claw 异常退出）。重启：\`clawforum claw daemon ${clawId}\`；或 drain：${drain}`;
-    }
-    return `- "${clawId}" 有 ${count} 条未读（daemon=unknown, contract=${contract}）。查看：${drain}`;
-  });
-  return `有 ${infos.length} 个 claw 有未读消息：\n${lines.join('\n')}`;
-}
-
 export interface DaemonLoopOptions {
   runtime: ClawRuntime;
   agentDir: string;                      // agent root directory, used to listen for interrupt signals
@@ -123,9 +96,7 @@ export interface DaemonLoopOptions {
   onBatchComplete?: () => Promise<void>; // callback invoked after a chain reaction finishes
   fallbackTimeoutMs?: number;            // fs.watch fallback timeout (default 30000ms)
   streamWriter?: StreamWriter;           // streaming event writer
-  isMotion?: boolean;                    // true = motion daemon（扫描 claw outbox、检查 clean-stop）
   heartbeat?: Heartbeat;                 // heartbeat instance (motion only)
-  notifyMotionDir?: string;             // if set (claw only), notify motion on LLM max-retry failure
   onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;  // for review_request handling (motion only)
 }
 
@@ -166,12 +137,11 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, agentDir, clawId, inboxPendingDir, label, onBatchComplete, streamWriter, notifyMotionDir } = options;
+  const { runtime, agentDir, clawId, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   const loopFs = new NodeFileSystem({ baseDir: path.join(agentDir, '..'), enforcePermissions: false });
   let stopped = false;
   let startupFired = false;
-  let lastOutboxNotifyTs = 0;
 
   // LLM failure retry state
   const LLM_ERROR_PATTERN = /all providers failed/i;
@@ -196,7 +166,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
 
   // 检查 clean-stop 标记（仅 motion daemon）：intentional stop → 清零退避状态
   const isCleanStop = (() => {
-    if (!options.isMotion) return false;   // claw daemon，不检查
     const cleanStopFile = path.join(path.dirname(agentDir), 'clean-stop');
     try {
       fsNative.accessSync(cleanStopFile);
@@ -267,29 +236,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       // Heartbeat check (moved into daemon loop to avoid setInterval race conditions)
       if (options.heartbeat?.isDue()) {
         options.heartbeat.fire();
-      }
-
-      // motion: scan claw outboxes for unread messages
-      if (options.isMotion) {
-        const baseDir = path.join(agentDir, '..');
-        const outboxInfos = await scanClawOutboxes(loopFs, baseDir, new ProcessManager(loopFs, baseDir));
-        if (outboxInfos !== null) {
-          if (Date.now() - lastOutboxNotifyTs >= OUTBOX_NOTIFY_COOLDOWN_MS) {
-            lastOutboxNotifyTs = Date.now();
-            const body = formatOutboxNotification(outboxInfos);
-            notifyInbox(loopFs, {
-              inboxDir: inboxPendingDir,
-              type: 'claw_outbox',
-              source: 'system',
-              priority: 'normal',
-              body,
-              filenameTag: 'claw_outbox',
-              dedupByType: true,
-            }, label);
-          }
-        } else {
-          lastOutboxNotifyTs = 0;  // outbox 已清空，重置静默期
-        }
       }
 
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
@@ -398,20 +344,9 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
           saveLlmRetryState();
           console.error(`${label} processBatch error:`, err);
-          // Notify motion when LLM max retries exhausted (claw only)
-           if (isLLMMaxRetry && notifyMotionDir) {
-             const errMsg = err instanceof Error ? err.message : String(err);
-             const line = JSON.stringify({ ts: Date.now(), type: 'user_notify', subtype: 'llm_error', clawId, error: errMsg }) + '\n';
-             notifyStream(path.join(notifyMotionDir, 'stream.jsonl'), line, label);
-             notifyInbox(loopFs, {
-               inboxDir: path.join(notifyMotionDir, 'inbox', 'pending'),
-               type: 'watchdog_claw_llm_error',
-               source: clawId,
-               priority: 'high',
-               body: `Claw ${clawId} LLM error after ${LLM_MAX_RETRIES} retries: ${errMsg}`,
-               idPrefix: 'llm-error',
-             }, label);
-           }
+          if (isLLMMaxRetry) {
+            console.error(`${label} LLM max retries (${LLM_MAX_RETRIES}) exhausted: ${err instanceof Error ? err.message : String(err)}`);
+          }
 
           await waitForInbox(inboxPendingDir, fallbackTimeout);
         }
