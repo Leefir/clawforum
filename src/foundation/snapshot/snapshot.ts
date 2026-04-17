@@ -10,6 +10,7 @@
 
 import { exec } from '../process-exec/index.js';
 import { NodeFileSystem } from '../fs/node-fs.js';
+import type { IAuditSink } from '../audit/index.js';
 
 const GITIGNORE_CONTENT = `stream.jsonl
 audit.tsv
@@ -22,10 +23,12 @@ export class Snapshot {
   private dir: string;
   private fs: NodeFileSystem;
   private consecutiveFailures = 0;
+  private audit?: IAuditSink;
 
-  constructor(dir: string) {
+  constructor(dir: string, audit?: IAuditSink) {
     this.dir = dir;
     this.fs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
+    this.audit = audit;
   }
 
   private static async git(dir: string, args: string[]): Promise<string> {
