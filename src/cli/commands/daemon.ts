@@ -35,6 +35,50 @@ import { Snapshot } from '../../foundation/snapshot/index.js';
 
 
 
+export function acquireDaemonLock(statusDir: string, name: string): void {
+  fsNative.mkdirSync(statusDir, { recursive: true });
+  const lockFile = path.join(statusDir, 'daemon.lock');
+
+  try {
+    const fd = fsNative.openSync(lockFile, 'wx');
+    try {
+      fsNative.writeFileSync(fd, String(process.pid));
+    } finally {
+      fsNative.closeSync(fd);
+    }
+  } catch (err: any) {
+    if (err.code === 'EEXIST') {
+      try {
+        const lockPid = parseInt(fsNative.readFileSync(lockFile, 'utf-8').trim(), 10);
+        process.kill(lockPid, 0);
+        throw new CliError(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
+      } catch (killErr: any) {
+        if (killErr instanceof CliError) throw killErr;
+        try {
+          fsNative.unlinkSync(lockFile);
+        } catch (e: any) {
+          if (e.code !== 'ENOENT') throw e;
+        }
+        try {
+          const fd = fsNative.openSync(lockFile, 'wx');
+          try {
+            fsNative.writeFileSync(fd, String(process.pid));
+          } finally {
+            fsNative.closeSync(fd);
+          }
+        } catch (retryErr: any) {
+          if (retryErr.code === 'EEXIST') {
+            throw new CliError(`[daemon] Another ${name} daemon acquired the lock during retry, exiting`);
+          }
+          throw retryErr;
+        }
+      }
+    } else {
+      throw err;
+    }
+  }
+}
+
 /**
  * 守护进程主函数（支持 claw 和 motion）
  */
@@ -47,42 +91,9 @@ export async function daemonCommand(name: string): Promise<void> {
   
   // lockfile 单实例保护
   const statusDir = path.join(dir, 'status');
-  fsNative.mkdirSync(statusDir, { recursive: true });
-  const lockFile = path.join(statusDir, 'daemon.lock');
+  acquireDaemonLock(statusDir, name);
   const pidFile = path.join(statusDir, 'pid');
-  
-  // 尝试获取排他锁
-  try {
-    const fd = fsNative.openSync(lockFile, 'wx');
-    try {
-      fsNative.writeFileSync(fd, String(process.pid));
-    } finally {
-      fsNative.closeSync(fd);
-    }
-  } catch (err: any) {
-    if (err.code === 'EEXIST') {
-      // lockfile 存在 → 检查持有者是否存活
-      try {
-        const lockPid = parseInt(fsNative.readFileSync(lockFile, 'utf-8').trim(), 10);
-        process.kill(lockPid, 0); // 存活
-        throw new CliError(`[daemon] Another ${name} daemon is running (PID: ${lockPid}), exiting`);
-      } catch (killErr: any) {
-        if (killErr instanceof CliError) throw killErr;
-        // 持有者已死，删除 stale lock 并重试（ENOENT = 已被别人删，同样继续）
-        try { fsNative.unlinkSync(lockFile); } catch (e: any) {
-          if (e.code !== 'ENOENT') throw e;
-        }
-        const fd = fsNative.openSync(lockFile, 'wx');
-        try {
-          fsNative.writeFileSync(fd, String(process.pid));
-        } finally {
-          fsNative.closeSync(fd);
-        }
-      }
-    } else {
-      throw err;
-    }
-  }
+  const lockFile = path.join(statusDir, 'daemon.lock');
   
   // 写 PID 文件（兜底：无论启动方式都确保 PID 可查）
   fsNative.writeFileSync(pidFile, String(process.pid));
