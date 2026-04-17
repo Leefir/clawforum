@@ -1135,7 +1135,7 @@ export class ContractManager {
     console.log(`[contract] Running acceptance script: ${scriptFile} (cwd: ${this.clawDir})`);
 
     try {
-      await execFile(resolved, [], {
+      await execFile('sh', [resolved], {
         cwd: this.clawDir,
         timeout: CONTRACT_SCRIPT_TIMEOUT_MS,
       });

@@ -600,6 +600,25 @@ describe('ContractManager', () => {
     });
   });
 
+  describe('runScriptAcceptance', () => {
+    it('runScriptAcceptance passes for script without shebang', async () => {
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'contract-shebang-'));
+      const testClawDir = path.join(tempDir, 'claws', 'test-claw');
+      await fs.mkdir(testClawDir, { recursive: true });
+
+      // 创建无 shebang 的验收脚本
+      const scriptPath = path.join(testClawDir, 'acceptance', 'task-1.sh');
+      await fs.mkdir(path.dirname(scriptPath), { recursive: true });
+      await fs.writeFile(scriptPath, 'echo ok\n', { mode: 0o644 });
+
+      const testManager = new ContractManager(testClawDir, 'test-claw', new NodeFileSystem({ baseDir: testClawDir, enforcePermissions: false }));
+      // @ts-expect-error - runScriptAcceptance is private
+      const result = await testManager.runScriptAcceptance('task-1.sh', path.join(testClawDir, 'acceptance'));
+
+      expect(result.passed).toBe(true);
+    });
+  });
+
   describe('moveToArchive and notify consistency', () => {
     it('should NOT notify Motion when moveToArchive fails', async () => {
       const mockMonitor = { log: vi.fn() };
