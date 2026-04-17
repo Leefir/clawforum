@@ -9,10 +9,8 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { ContractManager, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { getClawDir, getMotionDir } from '../config.js';
-import { MOTION_CLAW_ID } from '../../constants.js';
+import { getClawDir } from '../config.js';
 import { notifySystem, notifyStream } from '../../utils/notify.js';
-import { exec } from '../../foundation/process-exec/index.js';
 
 
 function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
@@ -38,10 +36,6 @@ function notifyContractCreated(clawDir: string, clawId: string, contractId: stri
   }) + '\n';
 
   notifyStream(path.join(clawDir, 'stream.jsonl'), streamLine, 'contract');
-
-  if (clawId !== MOTION_CLAW_ID) {
-    notifyStream(path.join(getMotionDir(), 'stream.jsonl'), streamLine, 'motion');
-  }
 
 
   // 写 inbox 通知，触发 claw daemon 开始执行（best-effort）

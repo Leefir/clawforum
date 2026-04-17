@@ -88,7 +88,7 @@ Motion 会检查该文件并基于记录寻找新方法或调整任务。
 
 ## Communicating with Motion
 
-Use the \`send\` tool to send messages to Motion; messages are written to \`outbox/pending/\` and Motion polls them periodically.
+Use the \`send\` tool to send messages to Motion; messages are written to \`outbox/pending/\` and Motion reads them when needed.
 
 Types: \`report\` (progress update), \`question\` (request for help), \`result\` (task result), \`error\` (error report)
 
