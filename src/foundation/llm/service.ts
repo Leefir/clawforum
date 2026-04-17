@@ -31,6 +31,10 @@ import { GeminiAdapter } from './gemini.js';
  * Provider factory - creates appropriate adapter for config
  */
 function createProvider(config: ProviderConfig): ProviderAdapter {
+  // Allow passing a pre-built adapter directly (used in tests)
+  if ('stream' in config && typeof (config as any).stream === 'function') {
+    return config as unknown as ProviderAdapter;
+  }
   if (config.apiFormat === 'openai') return new OpenAIAdapter(config);
   if (config.apiFormat === 'gemini') return new GeminiAdapter(config);
   // anthropic format: Claude models use SDK (native API), others use raw fetch
@@ -236,6 +240,7 @@ export class LLMServiceImpl implements LLMService {
       // Retry loop (aligns with call())
       let success = false;
       let hasYielded = false;
+      let midStreamReset = false;
       let lastError: Error | null = null;
       let doneChunk: StreamChunk | undefined;
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
@@ -252,13 +257,15 @@ export class LLMServiceImpl implements LLMService {
           lastError = err;
           // Don't retry on user abort
           if (err.name === 'AbortError') throw err;
-          // Mid-stream timeout: signal caller to discard partial state, then failover to next provider
+          // Mid-stream error: signal caller to discard partial state, then failover to next provider
           if (hasYielded) {
-            if (err instanceof LLMTimeoutError) {
-              yield { type: 'reset', provider: adapter.name, timeoutMs: err.timeoutMs };
-              break; // exit retry loop → outer loop continues to next provider
-            }
-            throw err;
+            yield {
+              type: 'reset',
+              provider: adapter.name,
+              ...(err instanceof LLMTimeoutError ? { timeoutMs: err.timeoutMs } : {}),
+            };
+            midStreamReset = true;
+            break; // exit retry loop → outer loop continues to next provider
           }
 
           // Don't wait after the last attempt
@@ -272,16 +279,23 @@ export class LLMServiceImpl implements LLMService {
         }
       }
 
-      if (success) {
+      if (success && hasYielded) {
         // Circuit breaker: record success
         breaker?.onSuccess();
         // Update current provider index (-1 = primary, 0..N = fallbacks)
         this.currentProviderIndex = pi === 0 ? -1 : pi - 1;
-        if (!hasYielded) {
-          console.warn(`[llm] provider "${adapter.name}" stream completed but yielded 0 chunks`);
-        }
         return; // Success, exit generator
-      } else {
+      }
+
+      if (success && !hasYielded) {
+        // Stream completed normally but produced nothing — treat as failure
+        breaker?.onFailure();
+        const err = new Error('Stream completed with 0 chunks');
+        console.warn(`[llm] provider "${adapter.name}" failed: ${err.message}`);
+        failures.push({ provider: adapter.name, error: err });
+        yield { type: 'provider_failed' as const, provider: adapter.name, model: adapter.model, error: err.message };
+        // Continue to next provider
+      } else if (!midStreamReset) {
         // Circuit breaker: record failure
         breaker?.onFailure();
         const err = lastError ?? new Error('Unknown stream error');

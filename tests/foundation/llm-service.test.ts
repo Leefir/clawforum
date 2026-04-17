@@ -152,7 +152,7 @@ describe('LLMServiceImpl - stream failover', () => {
     expect(caughtError!.message).toContain('All LLM providers failed');
   });
 
-  it('should throw after partial yield, not failover (H4)', async () => {
+  it('should yield reset and failover after partial yield on mid-stream error (H4)', async () => {
     const primary = createMockProvider('primary', async function* () {
       yield { type: 'text_delta', delta: 'partial' } as StreamChunk;
       throw new Error('mid-stream disconnect');
@@ -166,27 +166,24 @@ describe('LLMServiceImpl - stream failover', () => {
     const service = new LLMServiceImpl({
       primary: { name: 'primary', apiKey: 'test', model: 'test' },
       fallbacks: [{ name: 'fallback', apiKey: 'test', model: 'test' }],
-      maxAttempts: 2,   // 即使有重试机会也不应重试
+      maxAttempts: 2,   // 即使有重试机会也不应重试 mid-stream
       retryDelayMs: 0,
     });
     (service as any).primary = primary;
     (service as any).fallbacks = [fallback];
 
     const received: StreamChunk[] = [];
-    let caughtError: Error | undefined;
-    try {
-      for await (const chunk of service.stream({ messages: [] })) {
-        received.push(chunk);
-      }
-    } catch (err) {
-      caughtError = err as Error;
+    for await (const chunk of service.stream({ messages: [] })) {
+      received.push(chunk);
     }
 
-    // 收到 1 个 partial chunk，然后抛出（不继续 fallback）
-    expect(received).toHaveLength(1);
-    expect(received[0]).toEqual({ type: 'text_delta', delta: 'partial' });
-    expect(caughtError).toBeDefined();
-    expect(caughtError!.message).toContain('mid-stream disconnect');
+    // 收到 partial chunk、reset chunk，然后 failover 到 fallback
+    expect(received.some(c => c.type === 'text_delta' && c.delta === 'partial')).toBe(true);
+    const resetChunk = received.find(c => c.type === 'reset');
+    expect(resetChunk).toBeDefined();
+    expect(resetChunk).toMatchObject({ provider: 'primary' });
+    expect(received.some(c => c.type === 'text_delta' && c.delta === 'fallback')).toBe(true);
+    expect(received.some(c => c.type === 'done')).toBe(true);
   });
 
   it('should retry same provider before first chunk if no chunks yielded (H4)', async () => {
