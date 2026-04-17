@@ -90,6 +90,33 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
     );
   });
 
+  it('init writes snapshot_init_failed audit event on failure', async () => {
+    const { exec: processExec } = await import('../../src/foundation/process-exec/index.js');
+    const execSpy = vi.spyOn(await import('../../src/foundation/process-exec/index.js'), 'exec');
+    let initCalled = false;
+    execSpy.mockImplementation(async (cmd: string, opts: any) => {
+      if (cmd.includes('git') && cmd.includes('init') && !initCalled) {
+        initCalled = true;
+        return processExec(cmd, opts);
+      }
+      if (cmd.includes('config')) {
+        throw new Error('mock config failure');
+      }
+      return processExec(cmd, opts);
+    });
+
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const audit = { write: vi.fn() };
+    const snapshot = new Snapshot(tmpDir, audit);
+    await snapshot.init();
+
+    expect(audit.write).toHaveBeenCalledWith(
+      'snapshot_init_failed',
+      expect.stringContaining('reason='),
+    );
+  });
+
   // ========================================================================
   // commit()
   // ========================================================================
@@ -176,6 +203,50 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
     await snapshot1.commit('fail-3');
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('commit writes snapshot_degraded audit at exactly 3 consecutive failures', async () => {
+    const audit = { write: vi.fn() };
+    const snapshot = new Snapshot(tmpDir, audit);
+    await snapshot.init();
+    await fsp.writeFile(path.join(tmpDir, 'data.txt'), 'hello');
+
+    // 破坏 git
+    await fsp.rm(path.join(tmpDir, '.git', 'HEAD'));
+
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await snapshot.commit('fail-1');
+    await snapshot.commit('fail-2');
+    expect(audit.write).not.toHaveBeenCalled(); // 还没到 3
+
+    await snapshot.commit('fail-3');
+    expect(audit.write).toHaveBeenCalledTimes(1);
+    expect(audit.write).toHaveBeenCalledWith(
+      'snapshot_degraded',
+      'consecutive=3',
+      expect.stringContaining('reason='),
+    );
+  });
+
+  it('commit does not write snapshot_degraded on 4th+ failure', async () => {
+    const audit = { write: vi.fn() };
+    const snapshot = new Snapshot(tmpDir, audit);
+    await snapshot.init();
+    await fsp.writeFile(path.join(tmpDir, 'data.txt'), 'hello');
+    await fsp.rm(path.join(tmpDir, '.git', 'HEAD'));
+
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await snapshot.commit('fail-1');
+    await snapshot.commit('fail-2');
+    await snapshot.commit('fail-3'); // 写一次
+    await snapshot.commit('fail-4');
+    await snapshot.commit('fail-5');
+
+    expect(audit.write).toHaveBeenCalledTimes(1); // 仍然只有一次
   });
 
   // ========================================================================

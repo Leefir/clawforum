@@ -10,6 +10,7 @@
 
 import { exec } from '../process-exec/index.js';
 import { NodeFileSystem } from '../fs/node-fs.js';
+import type { IAuditSink } from '../audit/index.js';
 
 const GITIGNORE_CONTENT = `stream.jsonl
 audit.tsv
@@ -22,10 +23,12 @@ export class Snapshot {
   private dir: string;
   private fs: NodeFileSystem;
   private consecutiveFailures = 0;
+  private audit?: IAuditSink;
 
-  constructor(dir: string) {
+  constructor(dir: string, audit?: IAuditSink) {
     this.dir = dir;
     this.fs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
+    this.audit = audit;
   }
 
   private static async git(dir: string, args: string[]): Promise<string> {
@@ -45,7 +48,9 @@ export class Snapshot {
       await Snapshot.git(this.dir, ['add', '.']);
       await Snapshot.git(this.dir, ['commit', '--allow-empty', '-m', 'init']);
     } catch (err) {
-      console.error('[snapshot] init failed, cleaning up .git:', err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[snapshot] init failed, cleaning up .git:', msg);
+      this.audit?.write('snapshot_init_failed', `reason=${msg.slice(0, 200)}`);
       try { await this.fs.removeDir('.git'); } catch { /* ignore */ }
     }
   }
@@ -67,6 +72,9 @@ export class Snapshot {
         console.error(`[snapshot] commit failed (${this.consecutiveFailures} consecutive):`, msg);
       } else {
         console.warn('[snapshot] commit failed:', msg);
+      }
+      if (this.consecutiveFailures === 3) {
+        this.audit?.write('snapshot_degraded', `consecutive=${this.consecutiveFailures}`, `reason=${msg.slice(0, 200)}`);
       }
     }
   }
