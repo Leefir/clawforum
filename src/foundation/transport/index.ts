@@ -77,4 +77,4 @@ export interface Transport {
   onMessage(cb: (conn: Connection, data: string) => void): void;
 }
 
-// TODO: UnixDomainSocketTransport implementation — future phase
+export { UnixDomainSocketTransport } from './unix-socket.js';
