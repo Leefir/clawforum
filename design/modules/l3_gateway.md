@@ -49,10 +49,11 @@ interface Gateway {
 
 ## 模式决策
 
-### online / offline 一次性定型
+### online / offline 模式
 
-- `transport` 是否传入在构造时一次性决定，运行期不切换。
-- offline 模式：`start()`/`stop()` 均为 no-op；`getActiveConnections()` 返回 `[]`；`askUser()` 返回 failure（Step 3）。
+- `transport` 是否传入在构造时一次性决定，运行期不切换（内部模式定型）。
+- `isOnline()` 是对外观察点：返回 `transport 已注入 && start() 已调 && stop() 未调`。`stop()` 后返回 false，语义等价"不再接受外部交互"。
+- offline 模式：`start()`/`stop()` 均为 no-op；`getActiveConnections()` 始终返回 `[]`；`askUser()` 立即返回 failure。
 
 ### 客户端消息路由
 

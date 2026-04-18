@@ -215,7 +215,7 @@ export function createGateway(input: GatewayInput): Gateway {
     },
 
     isOnline() {
-      return isOnlineMode;
+      return isOnlineMode && started;
     },
   };
 }

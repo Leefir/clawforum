@@ -116,6 +116,15 @@ describe('Gateway', () => {
     expect(gateway.getActiveConnections()).toEqual([]);
   });
 
+  it('online: isOnline() is false before start, true after start, false after stop', async () => {
+    gateway = createGateway(createOnlineInput());
+    expect(gateway.isOnline()).toBe(false);
+    await gateway.start();
+    expect(gateway.isOnline()).toBe(true);
+    await gateway.stop();
+    expect(gateway.isOnline()).toBe(false);
+  });
+
   it('online mode: start binds transport callbacks and calls stream.start', async () => {
     gateway = createGateway(createOnlineInput());
     await gateway.start();

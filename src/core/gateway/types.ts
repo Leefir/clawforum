@@ -46,7 +46,7 @@ export interface Gateway {
   /** Step 2 占位：抛 Error('ask_user not implemented in this phase') */
   askUser(question: string, ctx: ExecContext): Promise<ToolResult>;
   /** 返回当前连接快照（调用方不持有引用） */
-  getActiveConnections(): Connection[];
+  getActiveConnections(): readonly Connection[];
   /** online/offline 一次性定型 */
   isOnline(): boolean;
 }
