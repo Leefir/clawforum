@@ -23,7 +23,7 @@ import type {
   StreamChunk,
 } from './types.js';
 import { STREAM_MAX_DURATION_MS } from '../../constants.js';
-import { withCombinedAbortSignal, type CombinedAbortHandle } from './abort-helper.js';
+import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 
 /**
  * Decode HTML entities in tool call arguments (xAI/grok sometimes HTML-encodes JSON)
@@ -155,17 +155,8 @@ export class OpenAIAdapter implements ProviderAdapter {
       return this.parseResponse(data);
       
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        // 区分用户主动中断（Ctrl+C）和内部超时
-        if (signal?.aborted) {
-          // 用户主动中断
-          const err = new Error('Execution aborted');
-          err.name = 'AbortError';
-          throw err;
-        }
-        // 内部超时
-        throw new LLMTimeoutError(this.name, timeout);
-      }
+      const classified = classifyFetchAbortError(error, signal, timeout, this.name);
+      if (classified) throw classified;
       
       if (error instanceof LLMError) {
         throw error;
@@ -230,15 +221,8 @@ export class OpenAIAdapter implements ProviderAdapter {
         clearTimeout(maxTimer);
       }
     } catch (error) {
-      // 与 call() 相同的错误处理
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        if (signal?.aborted) {
-          const err = new Error('Execution aborted');
-          err.name = 'AbortError';
-          throw err;
-        }
-        throw new LLMTimeoutError(this.name, timeout);
-      }
+      const classified = classifyFetchAbortError(error, signal, timeout, this.name);
+      if (classified) throw classified;
       if (error instanceof LLMError) throw error;
       throw new LLMError(`LLM stream failed: ${(error as Error).message}`, { provider: this.name });
     } finally {

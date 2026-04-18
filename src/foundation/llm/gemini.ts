@@ -21,7 +21,7 @@ import type {
   StreamChunk,
 } from './types.js';
 import { STREAM_MAX_DURATION_MS } from '../../constants.js';
-import { withCombinedAbortSignal, type CombinedAbortHandle } from './abort-helper.js';
+import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 
 type GeminiPart =
   | { text: string }
@@ -161,14 +161,8 @@ export class GeminiAdapter implements ProviderAdapter {
       const data = await response.json() as GeminiResponse;
       return this.parseResponse(data);
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        if (options.signal?.aborted) {
-          const e = new Error('Execution aborted');
-          e.name = 'AbortError';
-          throw e;
-        }
-        throw new LLMTimeoutError(this.name, timeout);
-      }
+      const classified = classifyFetchAbortError(error, options.signal, timeout, this.name);
+      if (classified) throw classified;
       if (error instanceof LLMError) throw error;
       throw new LLMError(`LLM call failed: ${(error as Error).message}`, { provider: this.name });
     } finally {
@@ -201,14 +195,8 @@ export class GeminiAdapter implements ProviderAdapter {
         clearTimeout(maxTimer);
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        if (options.signal?.aborted) {
-          const e = new Error('Execution aborted');
-          e.name = 'AbortError';
-          throw e;
-        }
-        throw new LLMTimeoutError(this.name, timeout);
-      }
+      const classified = classifyFetchAbortError(error, options.signal, timeout, this.name);
+      if (classified) throw classified;
       if (error instanceof LLMError) throw error;
       throw new LLMError(`LLM stream failed: ${(error as Error).message}`, { provider: this.name });
     } finally {

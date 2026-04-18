@@ -21,6 +21,7 @@ import type {
 } from './types.js';
 import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS } from '../../constants.js';
 import { BaseAnthropicAdapter, type AnthropicRequestBody } from './base-anthropic.js';
+import { makeExternalAbortError } from './abort-helper.js';
 
 /**
  * Anthropic adapter implementation using official SDK
@@ -87,9 +88,7 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
     // Use name check for mock compatibility in tests
     const errName = (error as Error)?.constructor?.name;
     if (errName === 'APIUserAbortError') {
-      const err = new Error('Execution aborted');
-      err.name = 'AbortError';
-      return err;
+      return makeExternalAbortError();
     }
     if (errName === 'RateLimitError') {
       const retryAfter = (error as { headers?: Headers })?.headers?.get?.('retry-after');
