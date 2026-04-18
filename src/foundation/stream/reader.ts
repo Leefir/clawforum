@@ -1,0 +1,121 @@
+/**
+ * StreamReader - 订阅 stream.jsonl 新追加事件的 L2 原语
+ *
+ * 职责：
+ * - 监听 stream.jsonl append，解析为新事件后通过 onEvent 回调推送
+ * - 维护 byte offset，避免重复推送
+ * - 生命周期 start()/stop() 明确绑定 watcher 开关
+ *
+ * 不做：
+ * - 不 replay 历史
+ * - 不解释业务语义（只 JSON parse，不 filter/transform）
+ * - 不管归档/轮转
+ */
+
+import type { FileSystem } from '../fs/types.js';
+import type { StreamEvent } from './types.js';
+import { createWatcher, type Watcher } from '../file-watcher/index.js';
+
+const STREAM_FILE = 'stream.jsonl';
+
+export interface StreamReader {
+  /** Start watching and emit new events. Throws if already started. */
+  start(): void;
+  /** Stop watching. Idempotent. */
+  stop(): Promise<void>;
+  /** Whether the reader is currently watching. */
+  isActive(): boolean;
+}
+
+export function createStreamReader(
+  fs: FileSystem,
+  onEvent: (event: StreamEvent) => void,
+): StreamReader {
+  let watcher: Watcher | null = null;
+  let offset = 0;
+  let pending = '';
+  let started = false;
+  let active = false;
+
+  const readIncrement = (): void => {
+    try {
+      if (!fs.existsSync(STREAM_FILE)) return;
+      const size = fs.statSync(STREAM_FILE).size;
+      if (size < offset) {
+        // File truncated / replaced — reset
+        offset = 0;
+        pending = '';
+      }
+      if (size === offset) return;
+      const all = fs.readSync(STREAM_FILE);
+      const chunk = all.slice(offset, size);
+      offset = size;
+      pending += chunk;
+      let nl = pending.indexOf('\n');
+      while (nl >= 0) {
+        const line = pending.slice(0, nl);
+        pending = pending.slice(nl + 1);
+        if (line) {
+          try {
+            const ev = JSON.parse(line) as StreamEvent;
+            try {
+              onEvent(ev);
+            } catch (cbErr) {
+              console.error('[StreamReader] onEvent callback error:', cbErr);
+            }
+          } catch (err) {
+            console.error('[StreamReader] JSON parse error:', line.slice(0, 200), err);
+          }
+        }
+        nl = pending.indexOf('\n');
+      }
+    } catch (err) {
+      console.error('[StreamReader] readIncrement failed:', err);
+    }
+  };
+
+  return {
+    start() {
+      if (started) throw new Error('StreamReader already started');
+      started = true;
+      active = true;
+      if (fs.existsSync(STREAM_FILE)) {
+        offset = fs.statSync(STREAM_FILE).size;
+      } else {
+        offset = 0;
+      }
+      watcher = createWatcher(
+        fs,
+        STREAM_FILE,
+        (ev) => {
+          if (ev.type === 'add' || ev.type === 'change') {
+            readIncrement();
+          } else if (ev.type === 'unlink') {
+            console.error('[StreamReader] stream.jsonl unlinked');
+            offset = 0;
+            pending = '';
+          }
+        },
+        {
+          onError: (err) => {
+            console.error('[StreamReader] watcher error:', err);
+            active = false;
+          },
+        },
+      );
+    },
+    async stop() {
+      if (!started) return;
+      started = false;
+      active = false;
+      if (watcher) {
+        const w = watcher;
+        watcher = null;
+        await w.close();
+      }
+    },
+    isActive() {
+      return active;
+    },
+  };
+}
