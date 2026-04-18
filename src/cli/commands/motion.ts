@@ -173,9 +173,10 @@ export async function initCommand(silent = false): Promise<void> {
   await installBuiltinSkills(motionDir);
 
   // Init git for motion directory
-  await new Snapshot(motionDir, new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false })).init().catch(err =>
-    console.warn('[snapshot] motion init failed:', err instanceof Error ? err.message : String(err))
-  );
+  const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+  const { AuditWriter } = await import('../../foundation/audit/index.js');
+  const motionAudit = new AuditWriter(motionFs, 'audit.tsv');
+  await new Snapshot(motionDir, motionFs, motionAudit).init();
 
   // Output results
   console.log('\n✓ Motion initialized successfully');

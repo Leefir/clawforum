@@ -20,7 +20,14 @@ export const AUDIT_EVENTS = {
   SESSION_ARCHIVE_FAILED: 'session_archive_failed',
   SESSION_ARCHIVE_READ_FAILED: 'session_archive_read_failed',
 
-  // --- Snapshot ---（Step 4 追加）
+  // --- Snapshot ---
+  SNAPSHOT_INIT_FAILED: 'snapshot_init_failed',
+  SNAPSHOT_INIT_CLEANUP_FAILED: 'snapshot_init_cleanup_failed',
+  SNAPSHOT_COMMIT_FAILED: 'snapshot_commit_failed',
+  SNAPSHOT_COMMITTED: 'snapshot_committed',
+  SNAPSHOT_DEGRADED: 'snapshot_degraded',
+
+  // --- FileWatcher ---（Step 5 追加）
   // --- FileWatcher ---（Step 5 追加）
   // --- Stream ---（Step 6 追加）
   // --- Messaging ---（Step 7 追加）
