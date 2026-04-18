@@ -433,6 +433,103 @@ describe('ContractManager', () => {
       .rejects.toThrow(/Failed to acquire lock after/);
   }, 2000);
 
+  it('should audit cleanup failure when unlinking stale lock fails (EACCES)', async () => {
+    const mockAudit = { write: vi.fn() };
+    const testManager = new ContractManager(
+      clawDir, 'test-claw', nodeFs, undefined, undefined, undefined, mockAudit as any
+    );
+
+    const contractId = await testManager.create({
+      schema_version: 1 as const,
+      title: 'Lock Cleanup Audit',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    // 写 stale lock：持有者 PID 不存在（process.kill(deadPid, 0) 会 ESRCH）
+    const deadPid = 999999;
+    const lockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
+    await fs.writeFile(lockPath, JSON.stringify({ pid: deadPid, time: Date.now() }), 'utf-8');
+
+    // 针对 progress.lock 的 unlink 抛 EACCES；其他路径（如 writeAtomic 的 tmp 文件）走原函数
+    const realUnlink = fsNative.promises.unlink.bind(fsNative.promises);
+    const unlinkSpy = vi.spyOn(fsNative.promises, 'unlink').mockImplementation(async (p: any) => {
+      if (String(p).endsWith('progress.lock')) {
+        const err: any = new Error('permission denied');
+        err.code = 'EACCES';
+        throw err;
+      }
+      return realUnlink(p);
+    });
+
+    try {
+      // unlink 持续失败 → LOCK_MAX_RETRIES 耗尽 → 抛 ToolError
+      await expect(testManager.pause(contractId, 'checkpoint'))
+        .rejects.toThrow(/Failed to acquire lock after/);
+
+      // 每次重试走 unlinkStaleLock 失败路径 → audit 至少一次
+      const cleanupCalls = mockAudit.write.mock.calls.filter(
+        (c: any[]) => c[0] === 'contract_lock_cleanup_failed'
+      );
+      expect(cleanupCalls.length).toBeGreaterThan(0);
+      // 参数：type, reason, code, message
+      expect(cleanupCalls[0][1]).toBe(`stale_pid_${deadPid}`);
+      expect(cleanupCalls[0][2]).toBe('EACCES');
+      expect(cleanupCalls[0][3]).toContain('permission denied');
+    } finally {
+      unlinkSpy.mockRestore();
+    }
+  }, 2000);
+
+  it('should NOT audit when stale lock is already gone (ENOENT)', async () => {
+    const mockAudit = { write: vi.fn() };
+    const testManager = new ContractManager(
+      clawDir, 'test-claw', nodeFs, undefined, undefined, undefined, mockAudit as any
+    );
+
+    const contractId = await testManager.create({
+      schema_version: 1 as const,
+      title: 'Lock Cleanup ENOENT',
+      goal: 'Test',
+      deliverables: [],
+      subtasks: [{ id: 't1', description: 'T1' }],
+      acceptance: [],
+      auth_level: 'auto' as const,
+    });
+
+    const deadPid = 999999;
+    const lockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
+    await fs.writeFile(lockPath, JSON.stringify({ pid: deadPid, time: Date.now() }), 'utf-8');
+
+    // 模拟"已被其他路径清理"：unlink 对 progress.lock 抛 ENOENT
+    const realUnlink = fsNative.promises.unlink.bind(fsNative.promises);
+    const unlinkSpy = vi.spyOn(fsNative.promises, 'unlink').mockImplementation(async (p: any) => {
+      if (String(p).endsWith('progress.lock')) {
+        // 先实际删除一次，再把后续 unlink 都当成 ENOENT（模拟"外部已清理"）
+        await realUnlink(p).catch(() => {});
+        const err: any = new Error('no such file or directory');
+        err.code = 'ENOENT';
+        throw err;
+      }
+      return realUnlink(p);
+    });
+
+    try {
+      // unlinkStaleLock 看到 ENOENT 返回 true → 走 continue 立即重试 → 此时锁已真的不存在 → 获取成功
+      await expect(testManager.pause(contractId, 'checkpoint')).resolves.not.toThrow();
+
+      const cleanupCalls = mockAudit.write.mock.calls.filter(
+        (c: any[]) => c[0] === 'contract_lock_cleanup_failed'
+      );
+      expect(cleanupCalls).toHaveLength(0);
+    } finally {
+      unlinkSpy.mockRestore();
+    }
+  }, 2000);
+
   // Note: runScriptAcceptance tests removed - implementation now uses execFile (async)
   // New tests for async script acceptance should be added in future phases
 
