@@ -26,8 +26,9 @@ function createTempDir(): string {
 function cleanupTempDir(tempDir: string): void {
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch {
-    // Ignore
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return;
+    console.warn(`[test cleanup] Failed to remove ${tempDir}: ${err?.message ?? err}`);
   }
 }
 

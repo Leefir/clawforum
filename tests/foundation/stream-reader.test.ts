@@ -18,8 +18,9 @@ async function createTempDir(): Promise<string> {
 async function cleanupTempDir(dir: string): Promise<void> {
   try {
     await nativeFs.rm(dir, { recursive: true, force: true });
-  } catch {
-    // ignore
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return;
+    console.warn(`[test cleanup] Failed to remove ${dir}: ${err?.message ?? err}`);
   }
 }
 

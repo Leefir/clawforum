@@ -49,7 +49,12 @@ async function createTempDir(): Promise<string> {
 }
 
 async function cleanupTempDir(d: string) {
-  try { await fs.rm(d, { recursive: true, force: true }); } catch { /* ignore */ }
+  try {
+    await fs.rm(d, { recursive: true, force: true });
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return;
+    console.warn(`[test cleanup] Failed to remove ${d}: ${err?.message ?? err}`);
+  }
 }
 
 // LLMService 是 mock，config 字段无实际意义

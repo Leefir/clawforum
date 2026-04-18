@@ -21,8 +21,9 @@ async function createTempDir(): Promise<string> {
 async function cleanupTempDir(tempDir: string): Promise<void> {
   try {
     await fs.rm(tempDir, { recursive: true, force: true });
-  } catch {
-    // Ignore
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return;
+    console.warn(`[test cleanup] Failed to remove ${tempDir}: ${err?.message ?? err}`);
   }
 }
 

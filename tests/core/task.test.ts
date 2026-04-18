@@ -60,8 +60,9 @@ async function waitFor(
 async function cleanupTempDir(tempDir: string): Promise<void> {
   try {
     await fs.rm(tempDir, { recursive: true, force: true });
-  } catch {
-    // Ignore cleanup errors
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return;
+    console.warn(`[test cleanup] Failed to remove ${tempDir}: ${err?.message ?? err}`);
   }
 }
 
@@ -119,14 +120,12 @@ function createHangingMockLLM(): LLMService {
  */
 function createAbortableHangingMockLLM(): LLMService {
   async function* hangingStream(signal?: AbortSignal): AsyncIterableIterator<StreamChunk> {
-    // Wait indefinitely but check for abort
-    await new Promise<void>((resolve, reject) => {
-      const checkInterval = setInterval(() => {
-        if (signal?.aborted) {
-          clearInterval(checkInterval);
-          reject(new Error('Aborted'));
-        }
-      }, 10);
+    await new Promise<void>((_, reject) => {
+      if (signal?.aborted) {
+        reject(new Error('Aborted'));
+        return;
+      }
+      signal?.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
     });
     yield { type: 'done' };
   }
