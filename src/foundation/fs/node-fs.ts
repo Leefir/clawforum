@@ -48,7 +48,6 @@ export class NodeFileSystem implements FileSystem {
     
     const permOptions: PermissionOptions = {
       clawDir: options.baseDir,
-      allowedPaths: options.allowedPaths,
       strict: this.enforcePermissions,
     };
     

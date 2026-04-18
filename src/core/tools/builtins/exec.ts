@@ -53,9 +53,6 @@ export const execTool: Tool = {
         cwd: ctx.clawDir,
         timeout,
         signal: ctx.signal,
-        env: ctx.originClawId && ctx.originClawId !== ctx.clawId
-          ? { CLAW_ORIGIN_ID: ctx.originClawId }
-          : undefined,
       });
 
       // Truncate output for LLM context window

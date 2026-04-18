@@ -7,8 +7,6 @@
 export const PROCESS_EXEC_TIMEOUT_MIN_MS = 1000;
 export const PROCESS_EXEC_TIMEOUT_MAX_MS = 120_000;
 export const PROCESS_EXEC_DEFAULT_TIMEOUT_MS = 30_000;
-export const PROCESS_EXEC_MAX_BUFFER = 1024 * 1024; // 1MB
-
 export interface ExecOptions {
   /** Working directory (required) */
   cwd: string;
@@ -16,8 +14,6 @@ export interface ExecOptions {
   timeout?: number;
   /** Abort signal for cancellation */
   signal?: AbortSignal;
-  /** Additional environment variables (merged into process.env) */
-  env?: Record<string, string>;
 }
 
 export interface ExecResult {

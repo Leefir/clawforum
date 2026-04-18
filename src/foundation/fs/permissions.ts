@@ -5,7 +5,7 @@
  * - System space (read-only): AGENTS.md, dialog/, config.yaml, system/
  * - Claw writable space: MEMORY.md, memory/, clawspace/, prompts/, skills/, inbox/, outbox/
  * - Claw readable space: + contract/, tasks/results/, tasks/done/
- * - Outside clawDir: denied (unless in allowedPaths)
+ * - Outside clawDir: denied
  */
 
 import * as path from 'path';
@@ -56,37 +56,11 @@ export interface PermissionOptions {
   /** Base directory for the claw */
   clawDir: string;
   
-  /** Additional allowed paths outside clawDir */
-  allowedPaths?: string[];
-  
   /** System paths that should be read-only (default: SYSTEM_PATHS) */
   systemPaths?: string[];
   
   /** Whether to enforce strict mode (default: true) */
   strict?: boolean;
-}
-
-/**
- * Check if a path is within allowed base paths
- */
-function isWithinAllowedPaths(
-  targetPath: string, 
-  allowedPaths: string[]
-): boolean {
-  const resolved = path.resolve(targetPath);
-  
-  for (const allowed of allowedPaths) {
-    const resolvedAllowed = path.resolve(allowed);
-    // Check if targetPath is equal to or within allowed path
-    if (
-      resolved === resolvedAllowed ||
-      resolved.startsWith(resolvedAllowed + path.sep)
-    ) {
-      return true;
-    }
-  }
-  
-  return false;
 }
 
 /**
@@ -162,7 +136,7 @@ function checkReadPermission(
   targetPath: string,
   options: PermissionOptions
 ): void {
-  const { clawDir, allowedPaths = [], strict = true } = options;
+  const { clawDir, strict = true } = options;
   
   // Non-strict mode allows everything
   if (!strict) {
@@ -174,11 +148,6 @@ function checkReadPermission(
   
   if (relativePath !== null) {
     // Within clawDir - readable by default
-    return;
-  }
-  
-  // Check additional allowed paths
-  if (isWithinAllowedPaths(targetPath, allowedPaths)) {
     return;
   }
   
@@ -197,7 +166,6 @@ function checkWritePermission(
 ): void {
   const { 
     clawDir, 
-    allowedPaths = [], 
     systemPaths = SYSTEM_PATHS,
     strict = true 
   } = options;
@@ -223,11 +191,6 @@ function checkWritePermission(
     
     // By default, allow writes within clawDir but outside system paths
     // This includes subdirectories like skills/, memory/, etc.
-    return;
-  }
-  
-  // Check additional allowed paths
-  if (isWithinAllowedPaths(targetPath, allowedPaths)) {
     return;
   }
   

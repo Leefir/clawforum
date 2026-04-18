@@ -18,8 +18,9 @@ import {
   PROCESS_EXEC_TIMEOUT_MIN_MS,
   PROCESS_EXEC_TIMEOUT_MAX_MS,
   PROCESS_EXEC_DEFAULT_TIMEOUT_MS,
-  PROCESS_EXEC_MAX_BUFFER,
 } from './types.js';
+
+const PROCESS_EXEC_MAX_BUFFER = 1024 * 1024; // 1MB; internal
 import type { ExecOptions, ExecResult } from './types.js';
 import { ProcessExecError } from './types.js';
 
@@ -55,7 +56,6 @@ async function runProcess(
       env: {
         ...process.env,
         PATH: augmentedPath,
-        ...options.env,
       },
     });
 

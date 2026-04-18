@@ -230,7 +230,4 @@ export interface FileSystemOptions {
   
   /** Enable permission checks (default: true) */
   enforcePermissions?: boolean;
-  
-  /** Additional allowed paths outside baseDir (e.g., skills directory) */
-  allowedPaths?: string[];
 }

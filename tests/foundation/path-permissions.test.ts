@@ -2,7 +2,7 @@
  * createPermissionChecker — 路径级权限控制测试
  *
  * 覆盖：
- * - checkRead：clawDir 内/外，allowedPaths，路径穿越
+ * - checkRead：clawDir 内/外，路径穿越
  * - checkWrite：可写路径，系统只读路径，clawDir 外
  * - resolveAndCheck：相对路径解析，穿越阻断
  * - strict: false 模式
@@ -44,24 +44,6 @@ describe('createPermissionChecker', () => {
       // path.resolve 会展开穿越，最终落在 clawDir 外
       const traversal = path.resolve(CLAW_DIR, '../../etc/passwd');
       expect(() => checker.checkRead(traversal))
-        .toThrow(PathNotInClawSpaceError);
-    });
-
-    it('allowedPaths 内的路径允许读', () => {
-      const extraDir = '/tmp/shared-workspace';
-      const checker = createPermissionChecker({
-        clawDir: CLAW_DIR,
-        allowedPaths: [extraDir],
-      });
-      expect(() => checker.checkRead(`${extraDir}/data.json`)).not.toThrow();
-    });
-
-    it('不在 clawDir 也不在 allowedPaths 的路径抛出错误', () => {
-      const checker = createPermissionChecker({
-        clawDir: CLAW_DIR,
-        allowedPaths: ['/tmp/other'],
-      });
-      expect(() => checker.checkRead('/tmp/unrelated/file.txt'))
         .toThrow(PathNotInClawSpaceError);
     });
 
