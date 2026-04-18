@@ -84,21 +84,21 @@ function createStreamReader(
 
 | 失败源 | Stream 行为 |
 |---|---|
-| `open()` 归档 move 失败 | `console.error`，继续 append 到现有 `stream.jsonl`；write `session_boundary, reason=archive_failed` 事件让观察者知道降级 |
+| `open()` 归档 move 失败 | audit `stream_archive_failed(reason=...)`；继续 append 到现有 `stream.jsonl`；write `session_boundary, reason=archive_failed` 事件让观察者知道降级（Phase 148 已修复） |
 | `open()` 重复调用 | 第二次起 no-op（`isOpen` 守卫） |
-| `write(event)` 未先 open | `console.warn('[StreamWriter] write() called before open(), event dropped')`，**事件丢失**。**违规，见 A.2** |
-| `write(event)` `appendSync` 失败 | `console.error('[StreamWriter] write failed: ...')`，**事件丢失**。**违规，见 A.3** |
-| `pruneArchives` 列目录 / parse 失败 | `console.warn('[StreamWriter] pruneArchives failed: ...')`，继续主流程 |
-| `pruneArchives` 删除单文件失败 | `console.warn('[StreamWriter] failed to delete archive: ...')`，继续下一个 |
+| `write(event)` 未先 open | audit `stream_write_dropped(type=...)`；事件不写入文件（Phase 148 已修复） |
+| `write(event)` `appendSync` 失败 | audit `stream_append_failed(reason=...)`；事件丢失但后续 write 继续尝试（Phase 148 已修复） |
+| `pruneArchives` 列目录 / parse 失败 | audit `stream_archive_prune_failed(reason=...)`；继续主流程（Phase 148 已修复） |
+| `pruneArchives` 删除单文件失败 | audit `stream_archive_prune_failed(path=..., reason=...)`；继续下一个（Phase 148 已修复） |
 | `close()` | 纯状态切换，不抛 |
 | `StreamReader.start()` 重复调用 | 抛 `Error('StreamReader already started')`（预期失败由调用方处理） |
 | `StreamReader.stop()` 未 start | no-op，idempotent |
-| `StreamReader` 增量读取 FS 失败 | `console.error('[StreamReader] readIncrement failed: ...')`，继续下次触发。**静默路径，见 A.3** |
-| `StreamReader` JSON.parse 单行失败 | `console.error`，跳过该行继续解析后续。**静默路径，见 A.3** |
-| `StreamReader` `onEvent` 回调抛错 | `console.error`，不冒泡（错误隔离）；其他事件继续 |
+| `StreamReader` 增量读取 FS 失败 | audit `stream_reader_read_failed(reason=...)`；继续下次触发（Phase 148 已修复） |
+| `StreamReader` JSON.parse 单行失败 | audit `stream_reader_parse_failed(line_prefix=..., reason=...)`；跳过该行继续解析后续（Phase 148 已修复） |
+| `StreamReader` `onEvent` 回调抛错 | audit `stream_reader_callback_failed(reason=...)`；不冒泡（错误隔离）；其他事件继续（Phase 148 已修复） |
 | `StreamReader` 检测到 `size < offset`（文件被截断 / 替换） | reset offset + pending 从 0 重新跟 |
-| `StreamReader` 检测到 `unlink` | `console.error('[StreamReader] stream.jsonl unlinked')` + reset offset |
-| `StreamReader` watcher 层错误 | `console.error` + 置 `active=false`（`isActive()` 反映降级） |
+| `StreamReader` 检测到 `unlink` | audit `stream_reader_unlinked(path=stream.jsonl)` + reset offset（Phase 148 已修复） |
+| `StreamReader` watcher 层错误 | audit `stream_reader_watcher_failed(reason=...)` + 置 `active=false`（`isActive()` 反映降级）（Phase 148 已修复） |
 
 ## 不可消除的耦合
 

@@ -32,7 +32,18 @@ export const AUDIT_EVENTS = {
   WATCHER_READY_FAILED: 'watcher_ready_failed',
   WATCHER_ERROR: 'watcher_error',
 
-  // --- Stream ---（Step 6 追加）
+  // --- Stream ---
+  STREAM_WRITE_DROPPED: 'stream_write_dropped',
+  STREAM_APPEND_FAILED: 'stream_append_failed',
+  STREAM_ARCHIVE_FAILED: 'stream_archive_failed',
+  STREAM_ARCHIVE_PRUNE_FAILED: 'stream_archive_prune_failed',
+  STREAM_READER_CALLBACK_FAILED: 'stream_reader_callback_failed',
+  STREAM_READER_PARSE_FAILED: 'stream_reader_parse_failed',
+  STREAM_READER_READ_FAILED: 'stream_reader_read_failed',
+  STREAM_READER_UNLINKED: 'stream_reader_unlinked',
+  STREAM_READER_WATCHER_FAILED: 'stream_reader_watcher_failed',
+
+  // --- Messaging ---（Step 7 追加）
   // --- FileWatcher ---（Step 5 追加）
   // --- Stream ---（Step 6 追加）
   // --- Messaging ---（Step 7 追加）
