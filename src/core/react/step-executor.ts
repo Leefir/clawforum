@@ -42,7 +42,7 @@ export interface StepInput {
   llm: LLMService;
   tools: ToolDefinition[];
   executor: IToolExecutor;
-  registry: ToolRegistry;
+  registry?: ToolRegistry;
   ctx: ExecContext;
   maxTokens?: number;
   callbacks?: StepCallbacks;
@@ -353,7 +353,7 @@ async function collectStreamResponse(
     try {
       parsedInput = JSON.parse(currentToolUse.input || '{}');
     } catch (err) {
-      console.error(`[step-executor] Failed to parse tool input for "${currentToolUse.name}": ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`[loop] Failed to parse tool input for "${currentToolUse.name}": ${err instanceof Error ? err.message : String(err)}`);
       parsedInput = { __parseError: true, __raw: currentToolUse.input ?? '' };
     }
     contentBlocks.push({
@@ -376,7 +376,7 @@ async function executeToolCalls(
   toolCalls: ToolUseBlock[],
   executor: IToolExecutor,
   ctx: ExecContext,
-  registry: ToolRegistry,
+  registry: ToolRegistry | undefined,
   callbacks?: StepCallbacks,
 ): Promise<ToolResultBlock[]> {
   // If no registry, fall back to sequential execution

@@ -20,7 +20,7 @@ export interface AgentInput {
   llm: LLMService;
   tools: ToolDefinition[];
   executor: IToolExecutor;
-  registry: ToolRegistry;
+  registry?: ToolRegistry;
   ctx: ExecContext;
 
   sessionStore?: SessionManager;       // 可选：未提供则跳过落盘
@@ -89,8 +89,16 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
       if (result.meta.allParseErrors) {
         consecutiveParseErrors++;
         if (consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS) {
+          // 从最近一条 assistant 消息的 tool_use blocks 提取工具名（为错误消息保留上下文）
+          const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+          const toolNames = Array.isArray(lastAssistant?.content)
+            ? lastAssistant!.content
+                .filter((b): b is { type: 'tool_use'; name: string } => (b as { type?: string }).type === 'tool_use')
+                .map(b => b.name)
+                .join(', ')
+            : '';
           throw new Error(
-            `工具输入 JSON 连续解析失败 ${MAX_CONSECUTIVE_PARSE_ERRORS} 次，终止执行`
+            `工具输入 JSON 连续解析失败 ${MAX_CONSECUTIVE_PARSE_ERRORS} 次（工具: ${toolNames}），终止执行`
           );
         }
       } else {

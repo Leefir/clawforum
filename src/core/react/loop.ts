@@ -51,10 +51,6 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     onReset, onProviderFailed, onLLMResult,
   } = options;
 
-  if (!registry) {
-    throw new Error('runReact: `registry` is required (AgentExecutor no longer supports registry-less mode)');
-  }
-
   // 用闭包捕获 stepCount（适配旧 onToolResult 签名的 step/maxSteps 参数）
   let stepCount = 0;
 
