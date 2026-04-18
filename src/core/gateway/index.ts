@@ -13,3 +13,4 @@ export type {
 } from './types.js';
 
 export { createGateway } from './gateway.js';
+export { createAskUserTool } from './ask-user-tool.js';

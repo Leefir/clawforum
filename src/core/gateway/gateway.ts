@@ -7,7 +7,7 @@
  * 3. Gateway ↔ Transport 生命周期绑定（同 start/stop 周期）
  * 4. Gateway → Transport 连接视图派生（Map 跟随 onConnect/onDisconnect）
  *
- * 派生状态不持久化：connections、lastInterruptTs 重启后从事件流自然重建。
+ * 派生状态不持久化：connections、lastInterruptTs、pending 重启后从事件流自然重建。
  */
 
 import type {
@@ -19,16 +19,38 @@ import type {
 import type { Connection } from '../../foundation/transport/index.js';
 import type { StreamReader, StreamEvent } from '../../foundation/stream/index.js';
 import type { ToolResult, ExecContext } from '../tools/index.js';
-import { GATEWAY_INTERRUPT_DEBOUNCE_MS } from '../../constants.js';
+import {
+  GATEWAY_INTERRUPT_DEBOUNCE_MS,
+  GATEWAY_ASK_USER_TIMEOUT_MS,
+} from '../../constants.js';
+
+interface AskUserEntry {
+  id: string;
+  resolve: (r: ToolResult) => void;
+  timer: ReturnType<typeof setTimeout>;
+  abortListener: (() => void) | null;
+  signal: AbortSignal | null;
+}
+
+function successResult(content: string): ToolResult {
+  return { success: true, content };
+}
+
+function failureResult(content: string): ToolResult {
+  return { success: false, content };
+}
 
 export function createGateway(input: GatewayInput): Gateway {
-  const { streamFactory, transport, interrupt } = input;
+  const { streamFactory, transport, interrupt, askUserTimeoutMs } = input;
   const isOnlineMode = transport !== undefined;
+  const timeoutMs = askUserTimeoutMs ?? GATEWAY_ASK_USER_TIMEOUT_MS;
 
   const connections = new Map<string, Connection>();
+  const pending = new Map<string, AskUserEntry>();
   let streamReader: StreamReader | null = null;
   let lastInterruptTs = 0;
   let started = false;
+  let askCounter = 0;
 
   const broadcast = (msg: ServerMessage): void => {
     if (!transport) return;
@@ -43,6 +65,28 @@ export function createGateway(input: GatewayInput): Gateway {
     if (!connections.has(connId)) return;
     connections.delete(connId);
     broadcast({ type: 'connection_dropped', connectionId: connId, reason });
+  };
+
+  const cleanup = (id: string): void => {
+    const entry = pending.get(id);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    if (entry.abortListener && entry.signal) {
+      entry.signal.removeEventListener('abort', entry.abortListener);
+    }
+    pending.delete(id);
+  };
+
+  const cancel = (id: string, reason: 'timeout' | 'abort'): void => {
+    const entry = pending.get(id);
+    if (!entry) return; // 已被其他分支收口
+    cleanup(id);
+    const message =
+      reason === 'timeout'
+        ? `用户未回复（超时 ${timeoutMs}ms）`
+        : 'ask_user 被中断取消';
+    entry.resolve(failureResult(message));
+    broadcast({ type: 'ask_user_cancelled', id, reason });
   };
 
   const handleClientMessage = (conn: Connection, data: string): void => {
@@ -71,8 +115,14 @@ export function createGateway(input: GatewayInput): Gateway {
         return;
       }
       case 'ask_user_reply': {
-        // Step 3: 路由到 askUser 状态机。
-        // Step 2: 合法 type 但无 pending session → 静默忽略，不 drop 连接。
+        const entry = pending.get(msg.id);
+        if (!entry) {
+          // 重复 / 过期 reply：drop 消息，不 drop 连接
+          return;
+        }
+        cleanup(msg.id);
+        entry.resolve(successResult(msg.answer));
+        broadcast({ type: 'ask_user_resolved', id: msg.id, by: conn.id });
         return;
       }
       default:
@@ -113,24 +163,57 @@ export function createGateway(input: GatewayInput): Gateway {
       started = false;
       if (!isOnlineMode) return;
 
-      // 1. 先停 reader，避免 stop 过程中仍有事件尝试 broadcast
+      // 1. 先取消所有 pending askUser，让等待者立刻 unblock
+      for (const id of [...pending.keys()]) {
+        cancel(id, 'abort');
+      }
+
+      // 2. 停 reader，避免 stop 过程中仍有事件尝试 broadcast
       if (streamReader) {
         const sr = streamReader;
         streamReader = null;
         await sr.stop();
       }
 
-      // 2. 内部 drop 所有连接
+      // 3. 内部 drop 所有连接
       for (const id of [...connections.keys()]) {
         dropConnection(id, 'gateway stopping');
       }
 
-      // 3. 关闭 transport
+      // 4. 关闭 transport
       await transport!.close();
     },
 
-    async askUser(_question: string, _ctx: ExecContext): Promise<ToolResult> {
-      throw new Error('ask_user not implemented in this phase');
+    async askUser(question: string, ctx: ExecContext): Promise<ToolResult> {
+      if (!started) {
+        throw new Error('Gateway not started');
+      }
+      if (!isOnlineMode) {
+        return failureResult('未启用实时交互通道，跳过 ask_user');
+      }
+      if (ctx.signal?.aborted) {
+        return failureResult('ask_user 被中断取消');
+      }
+
+      const id = `ask_${Date.now()}_${askCounter++}`;
+
+      return new Promise<ToolResult>((resolve) => {
+        const timer = setTimeout(() => {
+          cancel(id, 'timeout');
+        }, timeoutMs);
+
+        let abortListener: (() => void) | null = null;
+        if (ctx.signal) {
+          abortListener = () => {
+            cancel(id, 'abort');
+          };
+          ctx.signal.addEventListener('abort', abortListener, { once: true });
+        }
+
+        pending.set(id, { id, resolve, timer, abortListener, signal: ctx.signal ?? null });
+
+        broadcast({ type: 'ask_user_pending', id, question });
+      });
     },
 
     getActiveConnections() {
