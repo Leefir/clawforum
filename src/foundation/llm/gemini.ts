@@ -21,6 +21,7 @@ import type {
   StreamChunk,
 } from './types.js';
 import { STREAM_MAX_DURATION_MS } from '../../constants.js';
+import { withCombinedAbortSignal, type CombinedAbortHandle } from './abort-helper.js';
 
 type GeminiPart =
   | { text: string }
@@ -143,10 +144,7 @@ export class GeminiAdapter implements ProviderAdapter {
   async call(options: LLMCallOptions): Promise<LLMResponse> {
     const body = this.buildRequestBody(options);
     const timeout = options.timeoutMs ?? this.config.timeoutMs;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    const onAbort = options.signal ? () => controller.abort() : undefined;
-    if (options.signal && onAbort) options.signal.addEventListener('abort', onAbort);
+    const [abortHandle, cleanup] = withCombinedAbortSignal(options.signal, timeout);
 
     try {
       const model = options.model ?? this.config.model;
@@ -156,7 +154,7 @@ export class GeminiAdapter implements ProviderAdapter {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.config.apiKey },
           body: JSON.stringify(body),
-          signal: controller.signal,
+          signal: abortHandle.signal,
         }
       );
       if (!response.ok) await this.handleErrorResponse(response);
@@ -174,18 +172,14 @@ export class GeminiAdapter implements ProviderAdapter {
       if (error instanceof LLMError) throw error;
       throw new LLMError(`LLM call failed: ${(error as Error).message}`, { provider: this.name });
     } finally {
-      clearTimeout(timeoutId);
-      if (options.signal && onAbort) options.signal.removeEventListener('abort', onAbort);
+      cleanup();
     }
   }
 
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
     const body = this.buildRequestBody(options);
     const timeout = options.timeoutMs ?? this.config.timeoutMs;
-    const controller = new AbortController();
-    let timeoutId = setTimeout(() => controller.abort(), timeout);
-    const onAbort = options.signal ? () => controller.abort() : undefined;
-    if (options.signal && onAbort) options.signal.addEventListener('abort', onAbort);
+    const [abortHandle, cleanup] = withCombinedAbortSignal(options.signal, timeout);
 
     try {
       const model = options.model ?? this.config.model;
@@ -195,14 +189,14 @@ export class GeminiAdapter implements ProviderAdapter {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.config.apiKey },
           body: JSON.stringify(body),
-          signal: controller.signal,
+          signal: abortHandle.signal,
         }
       );
       if (!response.ok) await this.handleErrorResponse(response);
-      clearTimeout(timeoutId);
-      const maxTimer = setTimeout(() => controller.abort(), STREAM_MAX_DURATION_MS);
+      abortHandle.clearInternalTimeout();
+      const maxTimer = setTimeout(() => abortHandle.abort(), STREAM_MAX_DURATION_MS);
       try {
-        yield* this.parseSSEStream(response, controller, timeout);
+        yield* this.parseSSEStream(response, abortHandle, timeout);
       } finally {
         clearTimeout(maxTimer);
       }
@@ -218,14 +212,13 @@ export class GeminiAdapter implements ProviderAdapter {
       if (error instanceof LLMError) throw error;
       throw new LLMError(`LLM stream failed: ${(error as Error).message}`, { provider: this.name });
     } finally {
-      clearTimeout(timeoutId);
-      if (options.signal && onAbort) options.signal.removeEventListener('abort', onAbort);
+      cleanup();
     }
   }
 
   private async* parseSSEStream(
     response: Response,
-    controller: AbortController,
+    controller: CombinedAbortHandle,
     idleTimeoutMs: number,
   ): AsyncIterableIterator<StreamChunk> {
     const reader = response.body!.getReader();
