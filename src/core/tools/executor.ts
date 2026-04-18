@@ -126,7 +126,6 @@ export interface ExecuteOptions {
   timeoutMs?: number;
   async?: boolean;   // 新增：true 时走异步路径
   toolUseId?: string;   // 新增：LLM 生成的 tool_use block id
-  signal?: AbortSignal; // 外部取消信号，与 executor 内部 timeout 合并后传给 tool
 }
 
 /**
@@ -173,6 +172,7 @@ export class ToolExecutorImpl implements IToolExecutor {
       throw new ToolInvalidInputError(toolName, validation.errors?.[0] ?? 'Invalid input');
     }
 
+    // Async path: tool lifecycle owned by TaskSystem, no signal merge here.
     // 4. Async path: submit to TaskSystem, return immediately
     if (options.async) {
       if (ctx.callerType !== 'claw') {
@@ -211,7 +211,7 @@ export class ToolExecutorImpl implements IToolExecutor {
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
-    const upstreamSignals = [ctx.signal, options.signal].filter(Boolean) as AbortSignal[];
+    const upstreamSignals = ctx.signal ? [ctx.signal] : [];
     const mergedSignal = upstreamSignals.length === 0
       ? timeoutController.signal
       : AbortSignal.any([...upstreamSignals, timeoutController.signal]);
@@ -242,9 +242,7 @@ export class ToolExecutorImpl implements IToolExecutor {
       // finally 块完成 audit logging 后走 return result!
     } finally {
       // Clean up timeout timer
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
       
       // Audit logging via auditWriter (TSV format)
       const duration = Date.now() - startTime;

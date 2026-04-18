@@ -16,6 +16,7 @@ import { registerBuiltinTools } from '../../src/core/tools/builtins/index.js';
 import type { LLMResponse } from '../../src/types/message.js';
 import type { LLMService } from '../../src/foundation/llm/index.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
+import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -39,12 +40,6 @@ async function* responseToStreamChunks(response: LLMResponse): AsyncIterableIter
   yield { type: 'done' };
 }
 
-async function createTempDir(): Promise<string> {
-  const tempDir = path.join(tmpdir(), `clawforum-task-test-${randomUUID()}`);
-  await fs.mkdir(tempDir, { recursive: true });
-  return tempDir;
-}
-
 async function waitFor(
   condition: () => boolean | Promise<boolean>,
   timeoutMs = 5000,
@@ -55,15 +50,6 @@ async function waitFor(
     await new Promise(r => setTimeout(r, 10));
   }
   throw new Error(`waitFor timed out after ${timeoutMs}ms`);
-}
-
-async function cleanupTempDir(tempDir: string): Promise<void> {
-  try {
-    await fs.rm(tempDir, { recursive: true, force: true });
-  } catch (err: any) {
-    if (err?.code === 'ENOENT') return;
-    console.warn(`[test cleanup] Failed to remove ${tempDir}: ${err?.message ?? err}`);
-  }
 }
 
 function createMockLLM(responses: LLMResponse[]): LLMService {
@@ -98,7 +84,7 @@ function createHangingMockLLM(): LLMService {
   async function* hangingStream(signal?: AbortSignal): AsyncIterableIterator<StreamChunk> {
     await new Promise<void>((_, reject) => {
       if (signal?.aborted) return reject(new Error('Aborted'));
-      signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+      signal?.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
     });
     yield { type: 'done' };
   }
@@ -106,7 +92,7 @@ function createHangingMockLLM(): LLMService {
   return {
     call: vi.fn(({ signal } = {}) => new Promise((_, reject) => {
       if (signal?.aborted) return reject(new Error('Aborted'));
-      signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+      signal?.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
     })),
     stream: vi.fn((opts: { signal?: AbortSignal } = {}) => hangingStream(opts?.signal)),
     close: vi.fn(),
