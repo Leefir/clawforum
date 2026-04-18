@@ -289,4 +289,13 @@ describe('UnixDomainSocketTransport', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(msgs).toEqual(['a', '', 'b']);
   });
+
+  it('throws when listen is called after close', async () => {
+    const t = new UnixDomainSocketTransport();
+    await t.listen({ socketPath: makeSocketPath() });
+    await t.close();
+    await expect(t.listen({ socketPath: makeSocketPath() })).rejects.toThrow(
+      /already closed/,
+    );
+  });
 });
