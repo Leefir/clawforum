@@ -263,7 +263,7 @@ export class ClawRuntime {
     });
 
     // 12. Create OutboxWriter first (needed by ExecContextImpl)
-    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs);
+    this.outboxWriter = new OutboxWriter(clawId, clawDir, this.systemFs, this.auditWriter);
 
     // Inject late-created dependencies into TaskSystem (created before SkillRegistry/ContractManager/OutboxWriter)
     this.taskSystem.setSkillRegistry(this.skillRegistry);

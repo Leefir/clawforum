@@ -43,7 +43,15 @@ export const AUDIT_EVENTS = {
   STREAM_READER_UNLINKED: 'stream_reader_unlinked',
   STREAM_READER_WATCHER_FAILED: 'stream_reader_watcher_failed',
 
-  // --- Messaging ---（Step 7 追加）
+  // --- Messaging ---
+  INBOX_DONE: 'inbox_done',
+  INBOX_FAILED: 'inbox_failed',
+  INBOX_LIST_FAILED: 'inbox_list_failed',
+  INBOX_MOVE_FAILED: 'inbox_move_failed',
+  OUTBOX_SENT: 'outbox_sent',
+  OUTBOX_SEND_FAILED: 'outbox_send_failed',
+
+  // --- ProcessManager ---（Step 8 追加）
   // --- FileWatcher ---（Step 5 追加）
   // --- Stream ---（Step 6 追加）
   // --- Messaging ---（Step 7 追加）
