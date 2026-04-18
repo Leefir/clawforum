@@ -187,13 +187,9 @@ export class GeminiAdapter implements ProviderAdapter {
         }
       );
       if (!response.ok) await this.handleErrorResponse(response);
-      abortHandle.clearInternalTimeout();
-      const maxTimer = setTimeout(() => abortHandle.abort(), STREAM_MAX_DURATION_MS);
-      try {
-        yield* this.parseSSEStream(response, abortHandle, timeout);
-      } finally {
-        clearTimeout(maxTimer);
-      }
+      // 进入 stream 阶段：切换 timer 为总时长保护
+      abortHandle.enterStreamPhase(STREAM_MAX_DURATION_MS);
+      yield* this.parseSSEStream(response, abortHandle, timeout);
     } catch (error) {
       const classified = classifyFetchAbortError(error, options.signal, timeout, this.name);
       if (classified) throw classified;
@@ -206,13 +202,13 @@ export class GeminiAdapter implements ProviderAdapter {
 
   private async* parseSSEStream(
     response: Response,
-    controller: CombinedAbortHandle,
+    handle: CombinedAbortHandle,
     idleTimeoutMs: number,
   ): AsyncIterableIterator<StreamChunk> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+    let idleTimer = setTimeout(() => handle.abort(), idleTimeoutMs);
     let fcIndex = 0;
     let lastUsage: { promptTokenCount: number; candidatesTokenCount: number } | undefined;
 
@@ -221,7 +217,7 @@ export class GeminiAdapter implements ProviderAdapter {
         const { done, value } = await reader.read();
         clearTimeout(idleTimer);
         if (done) break;
-        idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+        idleTimer = setTimeout(() => handle.abort(), idleTimeoutMs);
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');

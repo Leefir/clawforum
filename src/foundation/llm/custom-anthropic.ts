@@ -147,16 +147,9 @@ export class CustomAnthropicAdapter extends BaseAnthropicAdapter {
 
       if (!response.ok) await this.handleErrorResponse(response);
 
-      // fetch 成功，清除初始 timeout，由 parseSSEStream 管理 idle timeout
-      abortHandle.clearInternalTimeout();
-
-      // 总超时兜底：无论 idle timer 是否生效，N 分钟后强制 abort
-      const maxTimer = setTimeout(() => abortHandle.abort(), STREAM_MAX_DURATION_MS);
-      try {
-        yield* this.parseSSEStream(response, abortHandle, timeout);
-      } finally {
-        clearTimeout(maxTimer);
-      }
+      // 进入 stream 阶段：切换 timer 为总时长保护
+      abortHandle.enterStreamPhase(STREAM_MAX_DURATION_MS);
+      yield* this.parseSSEStream(response, abortHandle, timeout);
     } catch (error) {
       const classified = classifyFetchAbortError(error, signal, timeout, this.name);
       if (classified) throw classified;
@@ -172,13 +165,13 @@ export class CustomAnthropicAdapter extends BaseAnthropicAdapter {
    */
   private async* parseSSEStream(
     response: Response,
-    controller: CombinedAbortHandle,
+    handle: CombinedAbortHandle,
     idleTimeoutMs: number,
   ): AsyncIterableIterator<StreamChunk> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+    let idleTimer = setTimeout(() => handle.abort(), idleTimeoutMs);
     let currentToolId = '';
     let currentToolName = '';
 
@@ -187,7 +180,7 @@ export class CustomAnthropicAdapter extends BaseAnthropicAdapter {
         const { done, value } = await reader.read();
         clearTimeout(idleTimer);
         if (done) break;
-        idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+        idleTimer = setTimeout(() => handle.abort(), idleTimeoutMs);
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');

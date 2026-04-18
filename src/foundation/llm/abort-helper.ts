@@ -9,9 +9,12 @@ export interface CombinedAbortHandle {
   signal: AbortSignal;
   /** Explicit abort (used by stream maxTimer, etc.) */
   abort(): void;
-  /** Clear the internal timeout without removing the external listener.
-   *  Needed when the fetch succeeds and the stream takes over timeout management. */
-  clearInternalTimeout(): void;
+  /**
+   * Switch from "initial timeout" phase to "streaming maxDuration" phase.
+   * Clears the old internal timer and starts a new one for maxDurationMs.
+   * External signal listener is unaffected.
+   */
+  enterStreamPhase(maxDurationMs: number): void;
 }
 
 /**
@@ -28,7 +31,8 @@ export function withCombinedAbortSignal(
   timeoutMs: number,
 ): [CombinedAbortHandle, () => void] {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let activeTimeoutId: ReturnType<typeof setTimeout> | undefined =
+    setTimeout(() => controller.abort(), timeoutMs);
 
   let onAbort: (() => void) | undefined;
   if (externalSignal) {
@@ -36,21 +40,26 @@ export function withCombinedAbortSignal(
     externalSignal.addEventListener('abort', onAbort);
   }
 
+  const handle: CombinedAbortHandle = {
+    signal: controller.signal,
+    abort: () => controller.abort(),
+    enterStreamPhase: (maxDurationMs: number) => {
+      if (activeTimeoutId !== undefined) clearTimeout(activeTimeoutId);
+      activeTimeoutId = setTimeout(() => controller.abort(), maxDurationMs);
+    },
+  };
+
   const cleanup = () => {
-    clearTimeout(timeoutId);
+    if (activeTimeoutId !== undefined) {
+      clearTimeout(activeTimeoutId);
+      activeTimeoutId = undefined;
+    }
     if (externalSignal && onAbort) {
       externalSignal.removeEventListener('abort', onAbort);
     }
   };
 
-  const clearInternalTimeout = () => {
-    clearTimeout(timeoutId);
-  };
-
-  return [
-    { signal: controller.signal, abort: () => controller.abort(), clearInternalTimeout },
-    cleanup,
-  ];
+  return [handle, cleanup];
 }
 
 /**

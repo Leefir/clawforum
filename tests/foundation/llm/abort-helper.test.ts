@@ -52,12 +52,33 @@ describe('withCombinedAbortSignal', () => {
     cleanup();
   });
 
-  it('clearInternalTimeout prevents timeout abort', async () => {
+  it('enterStreamPhase clears initial timeout and starts stream maxDuration timer', async () => {
     const [handle, cleanup] = withCombinedAbortSignal(undefined, 10);
-    handle.clearInternalTimeout();
+    handle.enterStreamPhase(50);
+    // 25ms later — initial timeout (10ms) would have fired but was cleared
+    await new Promise(r => setTimeout(r, 25));
+    expect(handle.signal.aborted).toBe(false);
+    // 30ms more (55ms total) — stream maxTimer (50ms) fires
+    await new Promise(r => setTimeout(r, 30));
+    expect(handle.signal.aborted).toBe(true);
+    cleanup();
+  });
+
+  it('external signal still works after enterStreamPhase', () => {
+    const external = new AbortController();
+    const [handle, cleanup] = withCombinedAbortSignal(external.signal, 10_000);
+    handle.enterStreamPhase(10_000);
+    external.abort();
+    expect(handle.signal.aborted).toBe(true);
+    cleanup();
+  });
+
+  it('cleanup after enterStreamPhase clears stream timer', async () => {
+    const [handle, cleanup] = withCombinedAbortSignal(undefined, 10_000);
+    handle.enterStreamPhase(10);
+    cleanup();
     await new Promise(r => setTimeout(r, 20));
     expect(handle.signal.aborted).toBe(false);
-    cleanup();
   });
 });
 
