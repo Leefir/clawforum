@@ -153,6 +153,8 @@ export async function daemonCommand(name: string): Promise<void> {
   // recovery-snapshot：将上次中断遗留的 working tree 变更固化（在 session repair 之前）
   await snapshot.commit('recovery-snapshot');
 
+  detectUncleanExit(dir, sharedAuditWriter);
+
   await runtime.initialize();
   await runtime.resumeContractIfPaused();
 
@@ -264,11 +266,11 @@ export async function daemonCommand(name: string): Promise<void> {
   }
 
   // daemon_start: 计算 AGENTS.md 的 sha256 前 6 位作为 system prompt 版本标识
-  const auditWriter = runtime.getAuditWriter();
+  const auditWriter = sharedAuditWriter;
 
   // 检测上次是否非正常退出（SIGKILL / OOM 等无法写 daemon_crash 的情况）
-  function detectUncleanExit(): void {
-    const auditPath = path.join(dir, 'audit.tsv');
+  function detectUncleanExit(auditDir: string, auditWriter: AuditWriter): void {
+    const auditPath = path.join(auditDir, 'audit.tsv');
     if (!fsNative.existsSync(auditPath)) return;
     try {
       const stat = fsNative.statSync(auditPath);
@@ -298,7 +300,6 @@ export async function daemonCommand(name: string): Promise<void> {
       }
     }
   }
-  detectUncleanExit();
 
   let promptHash = 'n/a';
   try {
