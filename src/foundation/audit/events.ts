@@ -2,8 +2,8 @@
  * Phase 148 结构化事件通道 — L2 审计事件常量
  *
  * 命名规范：<module>_<action>_<outcome>
- * outcome 语义：ok / failed / dropped / degraded / corrupted / recovered
- * 详见 coding plan/phase148/Phase 148 Step 1 决策文档.md § Q4
+ * outcome 枚举详见 coding plan/phase148/Phase 148 Step 1 决策文档.md § Q4
+ * （单一事实源，代码注释不维护重复清单）
  */
 
 export const AUDIT_EVENTS = {
