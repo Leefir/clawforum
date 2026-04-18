@@ -78,6 +78,12 @@ export function createWatcher(
     onReady?: () => void;
     /** Error callback */
     onError?: (error: Error) => void;
+    /**
+     * Write finish stability strategy.
+     * 'stable' (default): 100ms stabilityThreshold — safe for files being written over time.
+     * 'immediate': emit on every FS event without stabilization — for append-only log tails.
+     */
+    stability?: 'stable' | 'immediate';
   }
 ): Watcher {
   const watchPath = fs.resolve(relativePath);
@@ -86,10 +92,9 @@ export function createWatcher(
     ignoreInitial: true,
     depth: options?.recursive ? undefined : 0,
     ignored: options?.ignored,
-    awaitWriteFinish: {
-      stabilityThreshold: 100,
-      pollInterval: 50,
-    },
+    awaitWriteFinish: options?.stability === 'immediate'
+      ? false
+      : { stabilityThreshold: 100, pollInterval: 50 },
   });
 
   // Map chokidar events to our format

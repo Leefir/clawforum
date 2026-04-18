@@ -6,6 +6,8 @@
  * - 维护 byte offset，避免重复推送
  * - 生命周期 start()/stop() 明确绑定 watcher 开关
  *
+ * 依赖 FileWatcher 的 'immediate' 稳定性模式（契约 l2_file_watcher.md 候选 β）
+ *
  * 不做：
  * - 不 replay 历史
  * - 不解释业务语义（只 JSON parse，不 filter/transform）
@@ -97,6 +99,7 @@ export function createStreamReader(
           }
         },
         {
+          stability: 'immediate',
           onError: (err) => {
             console.error('[StreamReader] watcher error:', err);
             active = false;

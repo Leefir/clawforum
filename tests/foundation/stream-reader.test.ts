@@ -150,6 +150,23 @@ describe('StreamReader', () => {
     consoleSpy.mockRestore();
   });
 
+  it('emits appended events with < 50ms latency (immediate stability mode)', async () => {
+    writer.open();
+    reader = createStreamReader(fs, (ev) => events.push({ ...ev, _receivedAt: Date.now() } as any));
+    reader.start();
+
+    // watcher 启动需要时间，但属于一次性成本
+    await new Promise(r => setTimeout(r, 300));
+
+    const sentAt = Date.now();
+    writer.write({ ts: sentAt, type: 'latency_probe' });
+
+    await waitFor(() => events.length === 1);
+    const receivedAt = (events[0] as any)._receivedAt as number;
+    const elapsed = receivedAt - sentAt;
+    expect(elapsed).toBeLessThan(50);
+  });
+
   it('should enforce start/stop lifecycle', async () => {
     reader = createStreamReader(fs, (ev) => events.push(ev));
 
