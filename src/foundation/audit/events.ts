@@ -27,7 +27,12 @@ export const AUDIT_EVENTS = {
   SNAPSHOT_COMMITTED: 'snapshot_committed',
   SNAPSHOT_DEGRADED: 'snapshot_degraded',
 
-  // --- FileWatcher ---（Step 5 追加）
+  // --- FileWatcher ---
+  WATCHER_CALLBACK_FAILED: 'watcher_callback_failed',
+  WATCHER_READY_FAILED: 'watcher_ready_failed',
+  WATCHER_ERROR: 'watcher_error',
+
+  // --- Stream ---（Step 6 追加）
   // --- FileWatcher ---（Step 5 追加）
   // --- Stream ---（Step 6 追加）
   // --- Messaging ---（Step 7 追加）

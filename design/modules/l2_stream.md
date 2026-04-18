@@ -70,6 +70,7 @@ interface StreamReader {
 function createStreamReader(
   fs: FileSystem,
   onEvent: (event: StreamEvent) => void,
+  audit: Audit,                   // 必传；Step 5 透传至 FileWatcher
 ): StreamReader;
 ```
 

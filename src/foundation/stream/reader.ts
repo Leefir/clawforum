@@ -16,6 +16,7 @@
 
 import type { FileSystem } from '../fs/types.js';
 import type { StreamEvent } from './types.js';
+import type { Audit } from '../audit/index.js';
 import { createWatcher, type Watcher } from '../file-watcher/index.js';
 
 const STREAM_FILE = 'stream.jsonl';
@@ -32,6 +33,7 @@ export interface StreamReader {
 export function createStreamReader(
   fs: FileSystem,
   onEvent: (event: StreamEvent) => void,
+  audit: Audit,
 ): StreamReader {
   let watcher: Watcher | null = null;
   let offset = 0;
@@ -98,6 +100,7 @@ export function createStreamReader(
             pending = '';
           }
         },
+        audit,
         {
           stability: 'immediate',
           onError: (err) => {

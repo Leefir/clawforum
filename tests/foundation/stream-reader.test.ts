@@ -6,6 +6,7 @@ import { promises as nativeFs } from 'node:fs';
 
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { StreamWriter, createStreamReader, type StreamReader, type StreamEvent } from '../../src/foundation/stream/index.js';
+import { makeAudit } from '../helpers/audit.js';
 
 const TIMEOUT_MS = 10000;
 
@@ -71,7 +72,7 @@ describe('StreamReader', () => {
 
   it('should receive new events after start', async () => {
     writer.open();
-    reader = createStreamReader(fs, (ev) => events.push(ev));
+    reader = createStreamReader(fs, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
     // give chokidar watcher time to initialize before writing
@@ -93,7 +94,7 @@ describe('StreamReader', () => {
     // wait a tick so file is fully written and watcher settled
     await new Promise(r => setTimeout(r, 150));
 
-    reader = createStreamReader(fs, (ev) => events.push(ev));
+    reader = createStreamReader(fs, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
     // give watcher time to initialize
@@ -107,7 +108,7 @@ describe('StreamReader', () => {
 
   it('should receive multiple batched events in order', async () => {
     writer.open();
-    reader = createStreamReader(fs, (ev) => events.push(ev));
+    reader = createStreamReader(fs, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
     // give chokidar watcher time to initialize before writing
@@ -123,7 +124,7 @@ describe('StreamReader', () => {
 
   it('should isolate JSON parse errors and keep processing', async () => {
     writer.open();
-    reader = createStreamReader(fs, (ev) => events.push(ev));
+    reader = createStreamReader(fs, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
     // give chokidar watcher time to initialize before writing
@@ -152,7 +153,7 @@ describe('StreamReader', () => {
 
   it('emits appended events with < 50ms latency (immediate stability mode)', async () => {
     writer.open();
-    reader = createStreamReader(fs, (ev) => events.push({ ...ev, _receivedAt: Date.now() } as any));
+    reader = createStreamReader(fs, (ev) => events.push({ ...ev, _receivedAt: Date.now() } as any), makeAudit().audit);
     reader.start();
 
     // watcher 启动需要时间，但属于一次性成本
@@ -168,7 +169,7 @@ describe('StreamReader', () => {
   });
 
   it('should enforce start/stop lifecycle', async () => {
-    reader = createStreamReader(fs, (ev) => events.push(ev));
+    reader = createStreamReader(fs, (ev) => events.push(ev), makeAudit().audit);
 
     expect(reader.isActive()).toBe(false);
 

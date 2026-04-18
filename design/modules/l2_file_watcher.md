@@ -14,10 +14,10 @@ L2 文件系统变化通知原语。封装 chokidar，抹平多平台差异（in
 
 ### 做
 
-1. `createWatcher(fs, relativePath, callback, options?)`：基于 chokidar 创建 watcher；路径经 `fs.resolve` 解析为绝对路径
+1. `createWatcher(fs, relativePath, callback, audit, options?)`：基于 chokidar 创建 watcher；路径经 `fs.resolve` 解析为绝对路径
 2. 事件映射：chokidar `add` / `change` / `unlink` / `addDir` / `unlinkDir` → 同名 `WatchEventType`；附带 `stats` 时提供 `{ size, mtime }` 到 `WatchEvent.stats`
 3. Ready 信号：chokidar `ready` 事件（初始扫描完成）通过 `options.onReady` 回调暴露
-4. 错误处理：chokidar `error` 事件 `console.error` + `options.onError` 回调（调用方可决策 degrade / alert）
+4. 错误处理：chokidar `error` 事件 audit `watcher_error` + `options.onError` 回调（调用方可决策 degrade / alert）；callback / onReady / onError 抛错均被 try/catch 隔离
 5. `Watcher` 句柄：
    - `close()`：异步关闭 chokidar watcher，`active=false`；重复 close idempotent
    - `isActive()`：返回当前是否在监听
@@ -54,6 +54,7 @@ function createWatcher(
   fs: FileSystem,
   relativePath: string,
   callback: (event: WatchEvent) => void,
+  audit: Audit,                 // 必传；Phase 148 已修复
   options?: {
     recursive?: boolean;         // 默认 false（depth: 0）；true → depth: undefined（全递归）
     ignored?: (string | RegExp)[];
@@ -74,17 +75,17 @@ function createWatcher(
 - **`ignoreInitial: true`**：watcher 启动时**不**对现有文件发 `add` 事件；调用方如需"初始状态扫描"要自己先 `fs.list`，再 `createWatcher` 跟增量
 - **路径由 `fs.resolve` 解析**：`relativePath` 相对 `fs.root`；watcher 内部存的 `watchPath` 是绝对路径，`getPath()` 返回此值
 - **chokidar 未识别事件静默丢弃**：`mapEventType` 返回 null → `on('all')` return；见 B 类登记
-- **错误双通道**：chokidar `error` 同时触发 `console.error` 和 `onError` 回调——调用方若已处理结构化错误，`console.error` 仍会出现在终端，是轻度冗余
+- **错误双通道**：chokidar `error` 触发 audit `watcher_error` 和 `onError` 回调——audit 是结构化事件流，onError 是调用方决策通道，两者不冗余
 
 ## 失败语义
 
 | 失败源 | FileWatcher 行为 |
 |---|---|
-| chokidar 监听内部错误 | `console.error('Watcher error: ...')` + `options.onError?.(err)` 回调；watcher 状态未自动改变 |
+| chokidar 监听内部错误 | audit `watcher_error(path=..., reason=...)` + `options.onError?.(err)` 回调；watcher 状态未自动改变 |
 | chokidar 发射未识别事件（非 5 种 `WatchEventType`） | `mapEventType` 返回 null，`on('all')` return 静默丢弃。**见 B 类登记** |
-| `callback(event)` 调用方抛错 | **未隔离**——抛到 chokidar 的 `on('all')` 里，行为依 chokidar 内部实现（通常不再触发后续事件）。**违规，见 A.2** |
-| `options.onReady` 抛错 | 同上，未隔离。**违规，见 A.2** |
-| `options.onError` 抛错 | 同上，未隔离。**违规，见 A.2** |
+| `callback(event)` 调用方抛错 | audit `watcher_callback_failed(path=..., event=..., reason=...)`；callback 被隔离，后续事件继续触发（Phase 148 已修复） |
+| `options.onReady` 抛错 | audit `watcher_ready_failed(path=..., reason=...)`；onReady 被隔离（Phase 148 已修复） |
+| `options.onError` 抛错 | audit `watcher_error(path=..., context=onError_handler, reason=...)`；二级隔离（Phase 148 已修复） |
 | `close()` 时 chokidar 抛错 | 原样抛出（Promise reject） |
 | 重复 `close()` | no-op（靠 `active` 标志），第二次 Promise resolve |
 | `createWatcher` 传入的 `relativePath` 不存在 | chokidar 会在对应路径出现时触发 `add`（chokidar 设计如此）——不是错误，不抛 |
@@ -136,20 +137,21 @@ function createWatcher(
 
 **A.2 `callback` / `onReady` / `onError` 抛错未被 FileWatcher 隔离**
 
-违反原则：
-- "不可预期失败暴露而非吞没"——回调抛错当前穿透到 chokidar 内部，依 chokidar 实现决定后果（通常不再触发后续事件，是**静默降级**）
-- 与 Transport A.3 同构（回调抛错的错误隔离问题）
+**状态：Phase 148 已修复**
 
-**现状**：`watcher.on('all', (event, filePath, stats) => { ...; callback(watchEvent); })` 无 try/catch；`on('ready')` 和 `on('error')` 同样。
+修复详情（Step 5）：
+- `callback` 抛错 → audit `watcher_callback_failed(path=..., event=..., reason=...)`；try/catch 隔离，后续事件继续触发
+- `onReady` 抛错 → audit `watcher_ready_failed(path=..., reason=...)`；try/catch 隔离
+- `onError` 抛错 → audit `watcher_error(path=..., context=onError_handler, reason=...)`；二级 try/catch 隔离
+- commit 锚点：`<step4-sha>..<step5-sha>`
 
-修复候选：
-- **候选 α**：`on('all')` / `on('ready')` / `on('error')` 内部 try/catch；错误走 `console.error` + 可选的 `onInternalError` 回调
-- **候选 β**：合入 Transport / Stream / LLMService 的"结构化事件通道"修复思路
+违反原则（已修复）：
+- "不可预期失败暴露而非吞没"——回调抛错从"穿透 chokidar 静默降级"变为"结构化 audit 事件 + 隔离继续" ✓
 
 ### B. 偏差登记（当前合理或代价过高）
 
 - **chokidar 未识别事件静默丢弃**：`mapEventType` 返回 null → silently skip。当前 chokidar 版本只发 5 种，登记待未来升级时重新评估
-- **错误双通道（`console.error` + `onError`）**：chokidar `error` 事件同时走两路；若调用方处理了结构化错误，终端仍会出现 `console.error` 冗余。轻度违反"耦合界面最小"（多条错误通道）；但启动期辅助排障有价值，登记为合理偏差
+- ~~错误双通道（`console.error` + `onError`）~~ → Phase 148 已修复：console.error 移除，仅保留 audit + onError 双通道（audit 是结构化事件流，onError 是调用方决策回调，不冗余）
 - **`persistent: true` 不可开关**：内部硬编码，调用方无法要求"短命 watcher 不 keep event loop"。当前消费者都是 daemon 级长期监听，不需要，登记为已知限制
 - **`ignoreInitial: true` 不可开关**：同上。调用方如需初始扫描要自己 `fs.list`。当前消费者均如此分工，但选项层缺失——名字没反映可不可开关这件事（违反"名字准确反映意图"次要表现），登记
 - **唯一核心消费者是 StreamReader**：规划中的 Runtime / ContractSystem / Messaging 都未接入。这不是 FileWatcher 的问题，而是上层模块的设计演进问题——登记 `modules.md` 漂移待 Step 13 修
@@ -166,6 +168,12 @@ function createWatcher(
 
 ## 测试覆盖现状
 
-未见独立 `file-watcher.test.ts`。FileWatcher 行为由 `StreamReader` 集成测试 / CLI 集成测试间接覆盖。
+`tests/foundation/file-watcher.test.ts`（6 `it`）覆盖：
+- callback 正常 add/change/unlink 事件
+- callback 抛错隔离 → `watcher_callback_failed`，后续事件继续
+- onReady 抛错隔离 → `watcher_ready_failed`
+- chokidar error → `watcher_error`
+- onError 回调抛错 → 二级 `watcher_error`
+- close 幂等
 
 **注**：跨平台 FS event 抽象的契约测试需要在 mac / linux 两平台跑；当前测试基础设施是否覆盖这点待 Step 13 审查。
