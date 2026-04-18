@@ -2,13 +2,7 @@
  * StreamWriter - 追加写 stream.jsonl
  */
 import type { FileSystem } from '../fs/types.js';
-import type { StreamLog } from './types.js';
-
-interface StreamEvent {
-  ts: number;
-  type: string;
-  [key: string]: unknown;
-}
+import type { StreamEvent, StreamLog } from './types.js';
 
 interface StreamRetentionOptions {
   maxFiles?: number | null;
