@@ -1,6 +1,17 @@
 /**
- * ReAct module - Core reasoning and action loop
+ * ReAct module - StepExecutor + AgentExecutor + runReact shim
  */
 
+// Shim（向后兼容）
 export { runReact } from './loop.js';
 export type { ReactOptions, ReactResult } from './loop.js';
+
+// StepExecutor（新契约）
+export { executeStep, throwAbortError } from './step-executor.js';
+export type {
+  StepInput, StepResult, StepCallbacks, StepMeta, LLMCallInfo,
+} from './step-executor.js';
+
+// AgentExecutor（新契约）
+export { runAgent } from './agent-executor.js';
+export type { AgentInput, AgentResult } from './agent-executor.js';
