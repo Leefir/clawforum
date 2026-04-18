@@ -547,3 +547,60 @@ describe('LLMServiceImpl - external abort signal', () => {
     expect(fallbackStream).not.toHaveBeenCalled();
   });
 });
+
+
+  it('aborts immediately during call() backoff delay without waiting', async () => {
+    const primary: ProviderAdapter = {
+      name: 'primary',
+      model: 'test',
+      async call() { throw new Error('transient'); },
+      async *stream() { throw new Error('n/a'); },
+    };
+
+    const service = new LLMServiceImpl({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      maxAttempts: 3,
+      retryDelayMs: 10_000,
+    });
+    (service as any).primary = primary;
+
+    const ac = new AbortController();
+    const start = Date.now();
+
+    setTimeout(() => ac.abort(), 50);
+
+    await expect(service.call({ messages: [], signal: ac.signal }))
+      .rejects.toThrow(/aborted/i);
+
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(1_000);
+  });
+
+  it('aborts immediately during stream() backoff delay without waiting', async () => {
+    const primary: ProviderAdapter = {
+      name: 'primary',
+      model: 'test',
+      async call() { return { content: [], stop_reason: 'end_turn' }; },
+      async *stream() {
+        throw new Error('transient');
+      },
+    };
+
+    const service = new LLMServiceImpl({
+      primary: { name: 'primary', apiKey: 'test', model: 'test' },
+      maxAttempts: 3,
+      retryDelayMs: 10_000,
+    });
+    (service as any).primary = primary;
+
+    const ac = new AbortController();
+    const start = Date.now();
+    setTimeout(() => ac.abort(), 50);
+
+    await expect(async () => {
+      for await (const _ of service.stream({ messages: [], signal: ac.signal })) {}
+    }).rejects.toThrow(/aborted/i);
+
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(1_000);
+  });

@@ -44,10 +44,26 @@ function createProvider(config: ProviderConfig): ProviderAdapter {
 }
 
 /**
- * Delay helper for retry backoff
+ * Delay helper for retry backoff; abort-aware so external signal
+ * can short-circuit the wait immediately.
  */
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(makeExternalAbortError());
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(makeExternalAbortError());
+    };
+    timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**
@@ -156,7 +172,7 @@ export class LLMServiceImpl implements LLMService {
               this.config.retryDelayMs * Math.pow(2, attempt),
               30_000  // Max 30 seconds
             );
-            await delay(backoffMs);
+            await delay(backoffMs, options.signal);
           }
         }
       }
@@ -278,7 +294,7 @@ export class LLMServiceImpl implements LLMService {
               this.config.retryDelayMs * Math.pow(2, attempt),
               30000,
             );
-            await delay(backoffMs);
+            await delay(backoffMs, options.signal);
           }
         }
       }
