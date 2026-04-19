@@ -27,7 +27,6 @@ import {
   LLM_RETRY_MAX_DELAY_MS,
 } from '../../constants.js';
 import { notifyInbox } from '../../utils/notify.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 
 /**
@@ -149,7 +148,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, agentDir, clawId, inboxPendingDir, label, onBatchComplete, streamWriter } = options;
+  const { runtime, agentDir, clawId, inboxPendingDir, label, onBatchComplete, streamWriter, audit } = options;
   const fallbackTimeout = options.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   const loopFs = new NodeFileSystem({ baseDir: path.join(agentDir, '..'), enforcePermissions: false });
   let stopped = false;
@@ -232,7 +231,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           if (!alreadyPending && startupCheckCooledDown) {
             fsNative.mkdirSync(path.join(agentDir, 'status'), { recursive: true });
             fsNative.writeFileSync(startupCheckTsFile, String(Date.now()));
-            const loopAudit = new AuditWriter(loopFs, path.join(agentDir, 'audit.tsv'));
             notifyInbox(loopFs, {
               inboxDir: inboxPendingDir,
               type: 'startup_check',
@@ -240,7 +238,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               priority: 'high',
               body: '系统启动。请检查活跃契约并继续执行。',
               filenameTag: 'startup_check',
-            }, loopAudit);
+            }, audit);
           }
           // No continue — processBatch() naturally picks up the inbox file
         }

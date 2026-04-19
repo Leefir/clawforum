@@ -13,28 +13,14 @@ import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getMotionDir, getGlobalConfigPath, getClawforumRoot } from '../config.js';
-import { createAgentProcessManager } from './process-manager-factory.js';
-import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process-manager/index.js';
-import { AuditWriter, createSystemAudit } from '../../foundation/audit/index.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
 import { Snapshot } from '../../foundation/snapshot/index.js';
-import { AUDIT_FILE } from '../../foundation/audit/index.js';
+import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
-
-/**
- * Create a ProcessManager dedicated to Motion
- * @deprecated Use createAgentProcessManager(audit) directly
- */
-export function createMotionPM(): ProcessManager {
-  const baseDir = getClawforumRoot();
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
-  return createAgentProcessManager(systemAudit);
-}
 
 // Get current file directory (ESM compatible)
 const __filename = fileURLToPath(import.meta.url);
@@ -176,8 +162,7 @@ export async function initCommand(silent = false): Promise<void> {
   await installBuiltinSkills(motionDir);
 
   // Init git for motion directory
-  const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-  const motionAudit = new AuditWriter(motionFs, AUDIT_FILE);
+  const { fs: motionFs, audit: motionAudit } = createDirContext(motionDir);
   const motionSnapshot = new Snapshot(motionDir, motionFs, motionAudit, SNAPSHOT_IGNORE_PATTERNS);
   const initResult = await motionSnapshot.init();
   if (!initResult.ok) {
@@ -198,8 +183,7 @@ export async function chatCommand(): Promise<void> {
   const globalConfig = loadGlobalConfig();
   const motionDir = getMotionDir();
   const baseDir = path.dirname(motionDir);
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
+  const { audit: systemAudit } = createDirContext(baseDir);
 
   // Check whether Motion has been initialized
   try {
@@ -214,7 +198,7 @@ export async function chatCommand(): Promise<void> {
     baseDir,
     audit: systemAudit,
     ensureDaemon: async () => {
-      const pm = createMotionPM();
+      const pm = createProcessManagerForCLI();
       if (!pm.isAlive('motion')) {
         console.log('Starting Motion daemon...');
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -245,7 +229,7 @@ export async function chatCommand(): Promise<void> {
  */
 export async function stopCommand(): Promise<void> {
   loadGlobalConfig();
-  const pm = createMotionPM();
+  const pm = createProcessManagerForCLI();
 
   if (!pm.isAlive('motion')) {
     console.log('Motion is not running');

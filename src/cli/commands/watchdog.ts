@@ -12,8 +12,10 @@ import type { SpawnOptions } from '../../foundation/process-manager/index.js';
 import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../config.js';
 import { ProcessManager } from '../../foundation/process-manager/index.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
+import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
 import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, getContractCreatedMs, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
 
@@ -39,7 +41,21 @@ function getWatchdogPidFile(): string {
   return path.join(getClawforumDir(), 'watchdog.pid');
 }
 
-import { createMotionPM } from './motion.js';
+// motion audit 归属：watchdog 对 motion 的观察事件（inbox 通知 / crash 通知）
+// 命名契约：内部可变变量 `_motionCtx`（下划线前缀 = 模块私有），外部访问仅经 `getMotionContext()`
+// 唯一管理者：watchdog.ts 模块；进程级单例，lazy init
+let _motionCtx: { fs: FileSystem; audit: AuditWriter } | null = null;
+function getMotionContext(): { fs: FileSystem; audit: AuditWriter } {
+  if (!_motionCtx) {
+    _motionCtx = createDirContext(getMotionDir());
+    // 失败契约（fail-fast）：createDirContext 抛错 → 直接上抛
+    //   - _motionCtx 保持 null，调用方（watchdog 主循环）整个 iteration 失败
+    //   - 不做 catch 重建、不降级写 stdout；watchdog 进程应由 SIGTERM 或 uncaughtException 兜底
+    //   - 理由：motion audit 写入失败属基础设施损坏，静默继续会丢观察事件（违反"信息不丢失"）
+  }
+  return _motionCtx;
+}
+// 注：clawforum auditWriter（L334-338）不使用此 helper，它是 watchdog 进程自身事件的归属
 
 // Watchdog PID management
 function writeWatchdogPid(pid: number): void {
@@ -123,8 +139,7 @@ function log(message: string): void {
 function writeWatchdogInboxMessage(type: string, content: Record<string, unknown>): void {
   const motionDir = getMotionDir();
   const inboxDir = path.join(motionDir, 'inbox', 'pending');
-  const fs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-  const audit = new AuditWriter(fs, path.join(motionDir, 'audit.tsv'));
+  const { fs, audit } = getMotionContext();
   const body = (content.message as string) ?? JSON.stringify(content);
   writeInboxMessage(fs, {
     inboxDir,
@@ -304,8 +319,7 @@ function maybeCronClawCrash(pm: ProcessManager): void {
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
       const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}`;
 
-      const motionFs = new NodeFileSystem({ baseDir: getMotionDir(), enforcePermissions: false });
-      const motionAudit = new AuditWriter(motionFs, path.join(getMotionDir(), 'audit.tsv'));
+      const { fs: motionFs, audit: motionAudit } = getMotionContext();
       writeInboxMessage(motionFs, {
         inboxDir: path.join(getMotionDir(), 'inbox', 'pending'),
         type: 'crash_notification',
@@ -341,7 +355,7 @@ export async function daemonCommand(): Promise<void> {
   let stopped = false;
   
   // Create Motion ProcessManager (reused across loop iterations)
-  const pm = createMotionPM();
+  const pm = createProcessManagerForCLI();
   
   process.on('SIGTERM', () => {
     stopped = true;

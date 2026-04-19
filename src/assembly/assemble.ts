@@ -402,6 +402,16 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     const diskLimitMB = globalConfig.watchdog?.disk_warning_mb ?? 500;
     const diskScheduleStr = globalConfig.cron?.jobs?.disk_monitor?.schedule ?? 'hourly';
 
+    // phase155D：预制 clawforumFs，被 disk-monitor / dream-trigger 闭包共用（冻结 §6）
+    // 失败语义：与既有模块（Snapshot / StreamWriter）一致 —— audit 写 assemble_failed 后上抛
+    let clawforumFs: NodeFileSystem;
+    try {
+      clawforumFs = new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false });
+    } catch (e) {
+      auditWriter.write('assemble_failed', `module=cron_runner`, `phase=fs_construct`, `reason=${errMsg(e)}`);
+      throw new Error(`Assembly: clawforumFs construct failed: ${errMsg(e)}`, { cause: e });
+    }
+
     try {
       cronRunner = new CronRunner([
         {
@@ -412,7 +422,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             clawforumDir,
             motionInboxDir: path.join(clawDir, 'inbox', 'pending'),
             limitMB: diskLimitMB,
-            fs: new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false }),
+            fs: clawforumFs,
           }),
         },
         {
@@ -429,18 +439,17 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           enabled: globalConfig.cron?.jobs?.dream_trigger?.enabled ?? false,
           schedule: parseSchedule(globalConfig.cron?.jobs?.dream_trigger?.schedule ?? 'daily:04:00'),
           handler: async () => {
-            const cronFs = new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false });
             await runDeepDream({
               clawforumDir,
               llmConfig,
               maxCompressionTokens: globalConfig.cron?.jobs?.dream_trigger?.max_compression_tokens,
-              fs: cronFs,
+              fs: clawforumFs,
             });
             await runRandomDream({
               clawforumDir,
               motionDir: clawDir,
               taskSystem: runtime.getTaskSystem(),
-              fs: cronFs,
+              fs: clawforumFs,
             });
           },
         },

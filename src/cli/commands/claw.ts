@@ -55,8 +55,7 @@ async function getLastActiveMs(clawFs: FileSystem, audit: Audit): Promise<number
 }
 
 import { ProcessManager } from '../../foundation/process-manager/index.js';
-import { createAgentProcessManager } from './process-manager-factory.js';
-import { createSystemAudit } from '../../foundation/audit/index.js';
+import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { writeInbox } from '../../foundation/messaging/index.js';
 import { AuditWriter } from '../../foundation/audit/index.js';
@@ -112,15 +111,14 @@ export async function chatCommand(name: string): Promise<void> {
   const baseDir = path.dirname(globalConfigPath);
 
   const globalConfig = loadGlobalConfig();
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
+  const { audit: systemAudit } = createDirContext(baseDir);
   await runChatViewport({
     agentDir: clawDir,
     label: name,
     baseDir,
     audit: systemAudit,
     ensureDaemon: async () => {
-      const pm = createAgentProcessManager(systemAudit);
+      const pm = createProcessManagerForCLI();
       if (!pm.isAlive(name)) {
         console.log(`Starting Claw "${name}" daemon...`);
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -161,9 +159,8 @@ export async function stopCommand(name: string): Promise<void> {
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
   
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
-  const processManager = createAgentProcessManager(systemAudit);
+  const processManager = createProcessManagerForCLI();
+  const { audit: systemAudit } = createDirContext(baseDir);
 
   // Check if running
   if (!processManager.isAlive(name)) {
@@ -191,9 +188,8 @@ export async function listCommand(): Promise<void> {
   const baseDir = path.dirname(globalConfigPath);
   const clawsDir = path.join(baseDir, 'claws');
 
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
-  const processManager = createAgentProcessManager(systemAudit);
+  const processManager = createProcessManagerForCLI();
+  const { audit: systemAudit } = createDirContext(baseDir);
 
   // Helper: check contract status
   function getContractStatus(clawPath: string): string {
@@ -342,9 +338,8 @@ export async function healthCommand(name: string): Promise<void> {
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
 
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
-  const processManager = createAgentProcessManager(systemAudit);
+  const processManager = createProcessManagerForCLI();
+  const { audit: systemAudit } = createDirContext(baseDir);
 
   const isRunning = processManager.isAlive(name);
 

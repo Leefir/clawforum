@@ -7,11 +7,12 @@ import { Command } from 'commander';
 import {
   loadGlobalConfig,
   saveGlobalConfig,
+  getMotionDir,
   type ClawGlobalConfig,
   LLMProviderSchema,
 } from '../config.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
-import { createMotionPM } from './motion.js';
+import { createProcessManagerForCLI } from '../cli-factories.js';
 import { z } from 'zod';
 import { CliError } from '../errors.js';
 
@@ -20,7 +21,7 @@ import { CliError } from '../errors.js';
  * Killing the daemon is enough — watchdog will respawn it automatically.
  */
 async function promptRestartDaemon(rl?: readline.Interface): Promise<void> {
-  const pm = createMotionPM();
+  const pm = createProcessManagerForCLI();
   if (!pm.isAlive('motion')) return;
 
   const needClose = !rl;

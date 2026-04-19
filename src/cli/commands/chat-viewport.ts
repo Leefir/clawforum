@@ -8,8 +8,8 @@ import * as path from 'path';
 import chokidar from 'chokidar';
 
 import { writeInboxMessage } from '../../utils/inbox-writer.js';
+import { createDirContext } from '../cli-factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
 import { getContractCreatedMs, LLM_OUTPUT_EVENTS } from './watchdog-utils.js';
 import stringWidth from 'string-width';
 import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
@@ -17,7 +17,7 @@ import { OUTPUT_LINES_CAP } from '../../constants.js';
 import type { CallerType } from '../../core/tools/caller-type.js';
 import { createWatcher } from '../../foundation/file-watcher/index.js';
 import type { Watcher } from '../../foundation/file-watcher/types.js';
-import type { Audit } from '../../foundation/audit/index.js';
+import type { AuditWriter } from '../../foundation/audit/writer.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
 import type { StreamReader, StreamEvent } from '../../foundation/stream/index.js';
 
@@ -30,13 +30,12 @@ export interface ChatViewportOptions {
   showContractEvents?: boolean;   // contract 子任务完成信息，默认 true
   trimOutputNewlines?: boolean;   // LLM 输出首尾换行清理，默认 true
   baseDir: string;    // .clawforum 根目录，用于 fs 相对路径解析
-  audit: Audit;       // audit sink for createWatcher
+  audit: AuditWriter; // audit sink for createWatcher
 }
 
 function writeUserChat(agentDir: string, message: string): void {
   const inboxDir = path.join(agentDir, 'inbox', 'pending');
-  const fs = new NodeFileSystem({ baseDir: agentDir, enforcePermissions: false });
-  const audit = new AuditWriter(fs, path.join(agentDir, 'audit.tsv'));
+  const { fs, audit } = createDirContext(agentDir);
   writeInboxMessage(fs, {
     inboxDir,
     type: 'user_chat',
@@ -62,7 +61,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     await options.ensureDaemon();
   }
 
-  const fs = new NodeFileSystem({ baseDir: options.baseDir, enforcePermissions: false });
+  const { fs } = createDirContext(options.baseDir);
   const showRecapStream = options.showRecapStream ?? false;
   const showSystemMessages = options.showSystemMessages ?? false;
   const showContractEvents = options.showContractEvents ?? true;

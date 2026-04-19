@@ -18,12 +18,12 @@ import { initCommand } from './init.js';
 import {
   initCommand as motionInitCommand,
   chatCommand as motionChatCommand,
-  createMotionPM,
 } from './motion.js';
+import { createProcessManagerForCLI } from '../cli-factories.js';
 import { ContractManager } from '../../core/contract/manager.js';
+import { createDirContext } from '../cli-factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
 import { PROCESS_SPAWN_CONFIRM_MS, MOTION_CLAW_ID } from '../../constants.js';
 import { CliError } from '../errors.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
@@ -344,7 +344,7 @@ async function _start(): Promise<void> {
 
   // Step 2: motion init
   const motionDir = getMotionDir();
-  const notifyFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
+  const { fs: notifyFs, audit: notifyAudit } = createDirContext(motionDir);
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
   const bundleEntry = path.join(thisDir, 'daemon-entry.js');
   const daemonEntryPath = fs.existsSync(bundleEntry) ? bundleEntry : path.resolve(thisDir, '..', '..', 'daemon-entry.js');
@@ -363,7 +363,7 @@ async function _start(): Promise<void> {
 
   // onboarding 已完成 → 直接进 chat
   if (onboarding.state === 'complete') {
-    const pm = createMotionPM();
+    const pm = createProcessManagerForCLI();
     if (!pm.isAlive('motion')) {
       await pm.spawn('motion', motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
@@ -377,7 +377,7 @@ async function _start(): Promise<void> {
 
   if (wasFirstRun && onboarding.state === 'not_found') {
     // ★ 首次运行：后台启动 daemon，前台展示语言选择（并行）
-    const pm = createMotionPM();
+    const pm = createProcessManagerForCLI();
     const daemonReady = (async () => {
       if (!pm.isAlive('motion')) {
         await pm.spawn('motion', motionSpawnOptions);
@@ -390,8 +390,7 @@ async function _start(): Promise<void> {
     await daemonReady;
     if (!isWatchdogAlive()) await watchdogStartCommand();
 
-    const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-    const manager = new ContractManager(motionDir, MOTION_CLAW_ID, motionFs);
+    const manager = new ContractManager(motionDir, MOTION_CLAW_ID, notifyFs);
     const contractId = await manager.create({
       title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
@@ -399,7 +398,7 @@ async function _start(): Promise<void> {
       acceptance: [],
     });
 
-    const notifyAudit = new AuditWriter(notifyFs, path.join(motionDir, 'audit.tsv'));
+    
     new InboxWriter(notifyFs, inboxDir, notifyAudit).writeSync({
       type: 'message',
       source: 'system',
@@ -411,17 +410,16 @@ async function _start(): Promise<void> {
 
   } else {
     // 非首次但 not_found（极少），或 in_progress
-    const pm = createMotionPM();
+    const pm = createProcessManagerForCLI();
     if (!pm.isAlive('motion')) {
       await pm.spawn('motion', motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     if (!isWatchdogAlive()) await watchdogStartCommand();
 
-    const notifyAudit = new AuditWriter(notifyFs, path.join(motionDir, 'audit.tsv'));
+    
     if (onboarding.state === 'not_found') {
-      const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
-      const manager = new ContractManager(motionDir, MOTION_CLAW_ID, motionFs);
+      const manager = new ContractManager(motionDir, MOTION_CLAW_ID, notifyFs);
       const contractId = await manager.create({
         title: 'Onboarding',
         goal: 'Get to know the user and establish your identity before anything else.',

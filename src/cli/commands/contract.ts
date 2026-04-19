@@ -8,10 +8,10 @@ import * as path from 'path';
 
 import * as yaml from 'js-yaml';
 import { ContractManager, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
+import { createDirContext } from '../cli-factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { getClawDir } from '../config.js';
 import { notifySystem } from '../../utils/notify.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
 import { AUDIT_EVENTS } from '../../foundation/audit/events.js';
 import { STREAM_FILE } from '../../foundation/stream/index.js';
 
@@ -31,8 +31,7 @@ function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
 }
 
 function notifyContractCreated(clawDir: string, clawId: string, contractId: string, contract: ContractYaml): void {
-  const fs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const contractAudit = new AuditWriter(fs, path.join(clawDir, 'audit.tsv'));
+  const { fs, audit: contractAudit } = createDirContext(clawDir);
 
   // best-effort：通知 viewport via stream.jsonl（失败不中断 contract 创建）
   const streamLine = JSON.stringify({

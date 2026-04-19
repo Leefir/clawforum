@@ -8,10 +8,8 @@ import * as path from 'path';
 import { loadGlobalConfig, getGlobalConfigPath } from '../config.js';
 import { stopCommand as watchdogStop } from './watchdog.js';
 import { stopCommand as motionStop } from './motion.js';
-import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
-import { createSystemAudit } from '../../foundation/audit/index.js';
-import { createAgentProcessManager } from './process-manager-factory.js';
+import { createProcessManagerForCLI } from '../cli-factories.js';
 import { fileURLToPath } from 'url';
 
 export async function stopAllCommand(): Promise<void> {
@@ -26,9 +24,7 @@ export async function stopAllCommand(): Promise<void> {
   // 3. Stop all running claws
   const baseDir = path.dirname(getGlobalConfigPath());
   const clawsDir = path.join(baseDir, 'claws');
-  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
-  const systemAudit = createSystemAudit(nodeFs, baseDir);
-  const pm = createAgentProcessManager(systemAudit);
+  const pm = createProcessManagerForCLI();
 
   let clawNames: string[] = [];
   try {
