@@ -22,6 +22,7 @@ import { tmpdir } from 'os';
 import { readTool } from '../../src/core/tools/builtins/read.js';
 import { lsTool } from '../../src/core/tools/builtins/ls.js';
 import { searchTool } from '../../src/core/tools/builtins/search.js';
+import { makeAudit } from '../helpers/audit.js';
 
 // Mock tool for testing
 const createMockTool = (supportsAsync: boolean): Tool => ({
@@ -116,7 +117,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any,
-      { maxConcurrent: 3, retryBaseDelayMs: 10 }
+      { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit }
     );
     
     await taskSystem.initialize();
@@ -213,8 +214,8 @@ describe('TaskSystem Tool Tasks', () => {
       // Parse frontmatter + content
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
       expect(match).toBeTruthy();
-      expect(match![1]).toContain('from: task_system');
-      expect(match![1]).toContain('to: parent-claw');
+      expect(match![1]).toContain('from: "task_system"');
+      expect(match![1]).toContain('to: "parent-claw"');
       expect(match![1]).toContain('priority: normal');
       
       const content = JSON.parse(match![2]);
@@ -355,7 +356,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10 });
+      const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit });
       await taskSystem2.initialize();
 
       const taskId = await taskSystem2.scheduleTool(
@@ -490,7 +491,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10 }
+        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit }
       );
       await taskSystem2.initialize();
 
@@ -537,7 +538,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10 }
+        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit }
       );
       await taskSystem2.initialize();
 
@@ -588,7 +589,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10 }
+        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit }
       );
       await taskSystem2.initialize();
 
@@ -641,7 +642,7 @@ describe('TaskSystem Tool Tasks', () => {
           return { size: s.size, mtime: s.mtime, ctime: s.ctime, isFile: s.isFile(), isDirectory: s.isDirectory() };
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
-      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10 });
+      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit });
 
       // First restart: result.txt → .sent, inbox message written
       const ts1 = makeTs();
@@ -704,7 +705,7 @@ describe('TaskSystem Tool Tasks', () => {
           return { size: s.size, mtime: s.mtime, ctime: s.ctime, isFile: s.isFile(), isDirectory: s.isDirectory() };
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
-      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10 });
+      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit });
       await ts.initialize();
       await ts.shutdown(100).catch(() => {});
 
@@ -791,7 +792,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10 });
+      const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit });
       await taskSystem2.initialize();
 
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
@@ -990,7 +991,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       };
 
-      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3, retryBaseDelayMs: 10 });
+      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -1110,7 +1111,7 @@ describe('TaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(freshDir, from), path.join(freshDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10 },
+        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit },
       );
 
       await freshSystem.initialize();

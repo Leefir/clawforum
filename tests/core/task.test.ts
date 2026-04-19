@@ -17,6 +17,7 @@ import type { LLMResponse } from '../../src/types/message.js';
 import type { LLMService } from '../../src/foundation/llm/index.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
+import { makeAudit } from '../helpers/audit.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -139,7 +140,7 @@ describe('Task System + SubAgent', () => {
     mockFs = new NodeFileSystem({ baseDir: tempDir, enforcePermissions: false });
     await mockFs.ensureDir('tasks');
     
-    taskSystem = new TaskSystem(tempDir, mockFs);
+    taskSystem = new TaskSystem(tempDir, mockFs, { auditWriter: makeAudit().audit });
     await taskSystem.initialize();
 
     registry = new ToolRegistryImpl();
@@ -235,8 +236,8 @@ describe('Task System + SubAgent', () => {
       // Parse the message and verify frontmatter
       const { promises: nodeFs } = await import('fs');
       const content = await nodeFs.readFile(path.join(inboxDir, inboxFiles[0]), 'utf-8');
-      expect(content).toContain('from: subagent');
-      expect(content).toContain('to: motion');
+      expect(content).toContain('from: "subagent"');
+      expect(content).toContain('to: "motion"');
       expect(content).toContain(`"resultRef":"tasks/results/${taskId}/result.txt"`);
     });
 
@@ -363,7 +364,7 @@ describe('Task System + SubAgent', () => {
         return originalWriteAtomic(filePath, content);
       };
 
-      const failSystem = new TaskSystem(tempDir, patchedFs);
+      const failSystem = new TaskSystem(tempDir, patchedFs, { auditWriter: makeAudit().audit });
       await failSystem.initialize();
       failSystem.setLLMService(createMockLLM([{
         content: [{ type: 'text', text: 'done' }],
@@ -407,7 +408,7 @@ describe('Task System + SubAgent', () => {
         return originalMove(from, to);
       };
 
-      const failSystem = new TaskSystem(tempDir, patchedFs);
+      const failSystem = new TaskSystem(tempDir, patchedFs, { auditWriter: makeAudit().audit });
       await failSystem.initialize();
       failSystem.setLLMService(createMockLLM([{
         content: [{ type: 'text', text: 'done' }],

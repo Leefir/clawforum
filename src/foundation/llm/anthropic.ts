@@ -87,6 +87,9 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
   private mapSDKError(error: unknown, timeoutMs: number): Error {
     // Use name check for mock compatibility in tests
     const errName = (error as Error)?.constructor?.name;
+    // SDK 仅对 user-originated abort 抛 APIUserAbortError（对应 signal.aborted）；
+    // 其他类 SDK 错误不走此分支。不再显式检查 options.signal，依赖 SDK 自身语义。
+    // 若未来 SDK 语义漂移（例如非 user abort 也标此名），这里会误分类为 external abort。
     if (errName === 'APIUserAbortError') {
       return makeExternalAbortError();
     }

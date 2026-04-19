@@ -25,6 +25,9 @@ import type { ContractManager } from '../contract/manager.js';
 import type { SkillRegistry } from '../skill/registry.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
+import { STREAM_FILE } from '../../foundation/stream/types.js';
+import { writeInbox } from '../../foundation/messaging/index.js';
+import type { InboxMessage } from '../../types/contract.js';
 
 export interface SubAgentTask {
   kind: 'subagent';
@@ -71,7 +74,7 @@ export class TaskSystem {
   private skillRegistry?: SkillRegistry;
   private contractManager?: ContractManager;
   private outboxWriter?: OutboxWriter;
-  private auditWriter?: AuditWriter;
+  private auditWriter: AuditWriter;
   private parentStreamLog?: StreamLog;
 
   // Task result handlers (array for concurrent dispatch support)
@@ -103,7 +106,7 @@ export class TaskSystem {
   constructor(
     private clawDir: string,
     private fs: FileSystem,
-    options: { maxConcurrent?: number; auditWriter?: AuditWriter; retryBaseDelayMs?: number; parentStreamLog?: StreamLog } = {}
+    options: { maxConcurrent?: number; auditWriter: AuditWriter; retryBaseDelayMs?: number; parentStreamLog?: StreamLog }
   ) {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_TASKS;
     this.auditWriter = options.auditWriter;
@@ -509,7 +512,7 @@ export class TaskSystem {
     const taskDir = path.join(this.clawDir, 'tasks', 'results', task.id);
     fsSync.mkdirSync(taskDir, { recursive: true });
     const taskAuditWriter = new AuditWriter(this.fs, `tasks/results/${task.id}/audit.tsv`);
-    const taskStreamPath = path.join(taskDir, 'stream.jsonl');
+    const taskStreamPath = path.join(taskDir, STREAM_FILE);
     let taskStreamFd: number | null = null;
     try {
       taskStreamFd = fsSync.openSync(taskStreamPath, 'a');
@@ -847,26 +850,20 @@ export class TaskSystem {
         })
       : inlineContent;
 
-    // Write directly to inbox/pending/ in .md format (bypass transport path issues)
     const msgId = randomUUID();
-    const priority = isError ? 'high' : 'normal';
-    const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
-    const buildFileContent = (body: string) => [
-      '---',
-      `id: ${msgId}`,
-      `type: message`,
-      `from: ${task.callerType ?? 'task_system'}`,
-      `to: ${task.parentClawId}`,
-      `priority: ${priority}`,
-      `timestamp: ${new Date().toISOString()}`,
-      '---',
-      '',
-      body,
-    ].join('\n');
+    const priority: 'high' | 'normal' = isError ? 'high' : 'normal';
+    const baseMsg: InboxMessage = {
+      id: msgId,
+      type: 'message',
+      from: task.callerType ?? 'task_system',
+      to: task.parentClawId,
+      content: messageContent,
+      priority,
+      timestamp: new Date().toISOString(),
+    };
 
     try {
-      await this.fs.ensureDir('inbox/pending');
-      await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(messageContent));
+      await writeInbox(this.fs, 'inbox/pending', baseMsg, this.auditWriter);
     } catch (err) {
       if (resultRef) {
         // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
@@ -879,7 +876,7 @@ export class TaskSystem {
           });
         });
         try {
-          await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(inlineContent));
+          await writeInbox(this.fs, 'inbox/pending', { ...baseMsg, content: inlineContent }, this.auditWriter);
           return;
         } catch {
           // 降级也失败，继续抛出原始错误
@@ -899,7 +896,6 @@ export class TaskSystem {
   /**
    * Send task result to parent claw's inbox
    * Large outputs are offloaded to tasks/results/{taskId}.txt
-   * Writes directly to inbox/pending/ in .md format (standard inbox format)
    */
   private async sendResult(task: SubAgentTask, result: string, isError: boolean): Promise<void> {
     // Try to write full result to tasks/results/
@@ -937,26 +933,20 @@ export class TaskSystem {
         })
       : inlineContent;
 
-    // Write directly to inbox/pending/ in .md format (bypass transport path issues)
     const msgId = randomUUID();
-    const priority = isError ? 'high' : 'normal';
-    const filename = `${Date.now()}_${priority}_${msgId.slice(0, 8)}.md`;
-    const buildFileContent = (body: string) => [
-      '---',
-      `id: ${msgId}`,
-      `type: message`,
-      `from: ${task.callerType ?? 'subagent'}`,
-      `to: ${task.parentClawId}`,
-      `priority: ${priority}`,
-      `timestamp: ${new Date().toISOString()}`,
-      '---',
-      '',
-      body,
-    ].join('\n');
+    const priority: 'high' | 'normal' = isError ? 'high' : 'normal';
+    const baseMsg: InboxMessage = {
+      id: msgId,
+      type: 'message',
+      from: task.callerType ?? 'subagent',
+      to: task.parentClawId,
+      content: messageContent,
+      priority,
+      timestamp: new Date().toISOString(),
+    };
 
     try {
-      await this.fs.ensureDir('inbox/pending');
-      await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(messageContent));
+      await writeInbox(this.fs, 'inbox/pending', baseMsg, this.auditWriter);
     } catch (err) {
       if (resultRef) {
         // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
@@ -969,7 +959,7 @@ export class TaskSystem {
           });
         });
         try {
-          await this.fs.writeAtomic(`inbox/pending/${filename}`, buildFileContent(inlineContent));
+          await writeInbox(this.fs, 'inbox/pending', { ...baseMsg, content: inlineContent }, this.auditWriter);
           return;
         } catch {
           // 降级也失败，继续抛出原始错误
@@ -992,21 +982,16 @@ export class TaskSystem {
    */
   private async sendFallbackError(task: SubAgentTask | ToolTask, errorMsg: string): Promise<void> {
     const msgId = randomUUID();
-    const filename = `${Date.now()}_high_${msgId.slice(0, 8)}.md`;
-    const content = [
-      '---',
-      `id: ${msgId}`,
-      `type: message`,
-      `from: ${task.callerType ?? 'task_system'}`,
-      `to: ${task.parentClawId}`,
-      `priority: high`,
-      `timestamp: ${new Date().toISOString()}`,
-      '---',
-      '',
-      JSON.stringify({ taskId: task.id, is_error: true, result: `Task failed: ${errorMsg}` }),
-    ].join('\n');
-    await this.fs.ensureDir('inbox/pending');
-    await this.fs.writeAtomic(`inbox/pending/${filename}`, content);
+    const msg: InboxMessage = {
+      id: msgId,
+      type: 'message',
+      from: task.callerType ?? 'task_system',
+      to: task.parentClawId,
+      content: JSON.stringify({ taskId: task.id, is_error: true, result: `Task failed: ${errorMsg}` }),
+      priority: 'high',
+      timestamp: new Date().toISOString(),
+    };
+    await writeInbox(this.fs, 'inbox/pending', msg, this.auditWriter);
   }
 
   /**

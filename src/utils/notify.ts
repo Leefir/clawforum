@@ -55,14 +55,4 @@ export function notifySystem(
   }, audit, context);
 }
 
-/**
- * Append to stream.jsonl with standardized error handling (best-effort).
- */
-export function notifyStream(streamPath: string, line: string, context?: string): void {
-  try {
-    fsNative.appendFileSync(streamPath, line);
-  } catch (e) {
-    const prefix = context ? `[${context}] ` : '';
-    console.warn(`${prefix}Failed to append to stream:`, e instanceof Error ? e.message : String(e));
-  }
-}
+

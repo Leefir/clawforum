@@ -199,6 +199,9 @@ export async function initCommand(silent = false): Promise<void> {
 export async function chatCommand(): Promise<void> {
   const globalConfig = loadGlobalConfig();
   const motionDir = getMotionDir();
+  const baseDir = path.dirname(motionDir);
+  const nodeFs = new NodeFileSystem({ baseDir, enforcePermissions: false });
+  const systemAudit = createSystemAudit(nodeFs, baseDir);
 
   // Check whether Motion has been initialized
   try {
@@ -210,6 +213,8 @@ export async function chatCommand(): Promise<void> {
   await runChatViewport({
     agentDir: motionDir,
     label: 'motion',
+    baseDir,
+    audit: systemAudit,
     ensureDaemon: async () => {
       const pm = createMotionPM();
       if (!pm.isAlive('motion')) {

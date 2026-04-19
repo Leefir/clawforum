@@ -546,7 +546,6 @@ describe('LLMServiceImpl - external abort signal', () => {
     await expect(iter.next()).rejects.toThrow(/aborted/i);
     expect(fallbackStream).not.toHaveBeenCalled();
   });
-});
 
 
   it('aborts immediately during call() backoff delay without waiting', async () => {
@@ -604,3 +603,4 @@ describe('LLMServiceImpl - external abort signal', () => {
     const elapsed = Date.now() - start;
     expect(elapsed).toBeLessThan(1_000);
   });
+});

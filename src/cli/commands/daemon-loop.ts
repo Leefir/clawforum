@@ -6,9 +6,13 @@
 import * as fsNative from 'fs';
 import * as path from 'path';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
 import type { ClawRuntime, StreamCallbacks } from '../../core/runtime.js';
 import type { InboxMessage } from '../../types/contract.js';
 import type { StreamWriter, StreamLog } from '../../foundation/stream/index.js';
+import { createWatcher } from '../../foundation/file-watcher/index.js';
+import type { Watcher } from '../../foundation/file-watcher/types.js';
+import type { Audit } from '../../foundation/audit/index.js';
 import { oneLine } from '../../foundation/utils/string.js';
 
 import type { Heartbeat } from '../../core/heartbeat.js';
@@ -99,21 +103,27 @@ export interface DaemonLoopOptions {
   streamWriter?: StreamWriter;           // streaming event writer
   heartbeat?: Heartbeat;                 // heartbeat instance (motion only)
   onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;  // for review_request handling (motion only)
+  audit: Audit;                          // audit sink for createWatcher
 }
 
 /**
  * Wait for a new file to appear in the inbox directory, or until timeout.
  */
-export function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promise<void> {
+export function waitForInbox(
+  fs: FileSystem,
+  audit: Audit,
+  inboxPendingDir: string,
+  timeoutMs: number,
+): Promise<void> {
   return new Promise(resolve => {
-    let watcher: ReturnType<typeof fsNative.watch> | null = null;
+    let watcher: Watcher | null = null;
     let settled = false;
 
-    const done = () => {
+    const done = async () => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      watcher?.close();
+      await watcher?.close();
       watcher = null;
       resolve();
     };
@@ -121,11 +131,12 @@ export function waitForInbox(inboxPendingDir: string, timeoutMs: number): Promis
     const timer = setTimeout(done, timeoutMs);
 
     try {
-      fsNative.mkdirSync(inboxPendingDir, { recursive: true });
-      watcher = fsNative.watch(inboxPendingDir, done);
-      watcher.on('error', done);
+      fs.ensureDirSync(inboxPendingDir);
+      watcher = createWatcher(fs, inboxPendingDir, () => void done(), audit, {
+        stability: 'immediate',
+      });
     } catch {
-      done();
+      void done();
     }
   });
 }
@@ -300,7 +311,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               saveLlmRetryState();
               await onBatchComplete?.();
             } else {
-              await waitForInbox(inboxPendingDir, fallbackTimeout);
+              await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
             }
           }
         } finally {
@@ -350,7 +361,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             console.error(`${label} LLM max retries (${LLM_MAX_RETRIES}) exhausted: ${err instanceof Error ? err.message : String(err)}`);
           }
 
-          await waitForInbox(inboxPendingDir, fallbackTimeout);
+          await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
         }
       }
     }
