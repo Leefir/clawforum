@@ -72,6 +72,10 @@ describe('L2 factories — 行为契约', () => {
     expect(written).toContain(path.join('outbox', 'pending'));
     const contents = await readFile(written, 'utf-8');
     expect(contents.length).toBeGreaterThan(0);
+    // clawId 透传：消息 frontmatter 的 From 字段应等于工厂传入的 'c1'
+    // 反向保障：若工厂体参数对调（new OutboxWriter(clawDir, clawId, fs, audit)），
+    // TS 通过但 From 会变成 dir 绝对路径，此断言失败。
+    expect(contents).toContain('**From:** c1');
   });
 
   it('createSessionManager：clawId 透传且无 UUID 默认兜底（签名要求显式传）', () => {
