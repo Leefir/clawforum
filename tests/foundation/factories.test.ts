@@ -85,6 +85,23 @@ describe('L2 factories — 行为契约', () => {
     // 编译期保障：省略 clawId 应 TS 报错——由 tsc 全量检查覆盖，不在此 it 断言
   });
 
+  it('createSessionManager：dialogDir / clawId 透传（同类型 string 对调兜底）', async () => {
+    // dialogDir 与 clawId 均为 string 相邻，TS 对调无法捕获——靠行为断言兜底。
+    // 可观察锚点（src/foundation/session-store/store.ts）：
+    //   - L33: currentPath = path.join(dialogDir, 'current.json')
+    //   - L148: saved SessionData.clawId = this.clawId
+    // 工厂若对调为 new SessionManager(fs, clawId, audit, dialogDir)：
+    //   - current.json 会落在 'c1/current.json' 而非 'my_dialog/current.json' → readFile ENOENT
+    //   - 或 saved.clawId 会变成 'my_dialog' 而非 'c1' → toBe 断言失败
+    const { dir, fs, audit } = mkEnv();
+    const sm = createSessionManager(fs, 'my_dialog', audit, 'c1');
+    await sm.save([{ role: 'user', content: 'hi' }]);
+    const saved = JSON.parse(
+      await readFile(path.join(dir, 'my_dialog', 'current.json'), 'utf-8'),
+    );
+    expect(saved.clawId).toBe('c1');
+  });
+
   it('createStreamWriter / createSnapshot：返回类型正确（结构保底）', () => {
     const { dir, fs, audit } = mkEnv();
     expect(createStreamWriter(fs, audit)).toBeInstanceOf(StreamWriter);
