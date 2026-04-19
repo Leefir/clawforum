@@ -72,6 +72,7 @@ export function createStreamReader(
   fs: FileSystem,
   onEvent: (event: StreamEvent) => void,
   audit: Audit,
+  options?: { persistent?: boolean },
 ): StreamReader {
   let watcher: Watcher | null = null;
   let offset = 0;
@@ -154,6 +155,7 @@ export function createStreamReader(
         audit,
         {
           stability: 'immediate',
+          persistent: options?.persistent,
           onError: (err) => {
             audit.write(
               AUDIT_EVENTS.STREAM_READER_WATCHER_FAILED,

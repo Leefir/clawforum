@@ -88,11 +88,18 @@ export function createWatcher(
      * 'immediate': emit on every FS event without stabilization — for append-only log tails.
      */
     stability?: 'stable' | 'immediate';
+    /**
+     * Whether the watcher holds the event loop alive.
+     * Default: true (for daemon loops).
+     * Set false for short-lived TUI observers so the process can exit cleanly
+     * if a watcher cleanup is missed.
+     */
+    persistent?: boolean;
   }
 ): Watcher {
   const watchPath = fs.resolve(relativePath);
   const watcher = chokidarWatch(watchPath, {
-    persistent: true,
+    persistent: options?.persistent ?? true,
     ignoreInitial: true,
     depth: options?.recursive ? undefined : 0,
     ignored: options?.ignored,

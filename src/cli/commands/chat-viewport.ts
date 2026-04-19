@@ -455,7 +455,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const taskId = event.taskId as string;
         const callerType = (event.callerType as string) ?? 'subagent';
         const taskFs = new NodeFileSystem({ baseDir: path.join(options.agentDir, 'tasks', 'results', taskId), enforcePermissions: false });
-        const taskReader = createStreamReader(taskFs, (ev) => handleTaskEvent(taskId, callerType, ev), options.audit);
+        const taskReader = createStreamReader(taskFs, (ev) => handleTaskEvent(taskId, callerType, ev), options.audit, { persistent: false });
         taskReader.start();
         const tw: TaskWatch = {
           callerType: callerType as any,
@@ -469,7 +469,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   // tail stream.jsonl
-  const streamReader = createStreamReader(fs, (ev) => handleEvent(ev), options.audit);
+  const streamReader = createStreamReader(fs, (ev) => handleEvent(ev), options.audit, { persistent: false });
   streamReader.start();
 
   // Motion viewport：各 claw 步数追踪
@@ -546,6 +546,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         try {
           const w = createWatcher(fs, path.relative(options.baseDir, streamFile), () => refreshClawStatus(clawId), options.audit, {
             stability: 'immediate',
+            persistent: false,
             onError: () => { void w.close(); clawWatchers.delete(clawId); },
           });
           clawWatchers.set(clawId, w);
@@ -675,6 +676,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         try {
           const w = createWatcher(fs, path.relative(options.baseDir, streamFile), () => refreshClawStatus(clawId), options.audit, {
             stability: 'immediate',
+            persistent: false,
             onError: () => { void w.close(); clawWatchers.delete(clawId); },
           });
           clawWatchers.set(clawId, w);
@@ -831,6 +833,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         try {
           const w = createWatcher(fs, path.relative(options.baseDir, path.join(clawDir, STREAM_FILE)), () => refreshClawStatus(clawId), options.audit, {
             stability: 'immediate',
+            persistent: false,
             onError: () => { void w.close(); clawWatchers.delete(clawId); },
           });
           clawWatchers.set(clawId, w);
