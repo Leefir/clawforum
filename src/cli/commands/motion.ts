@@ -24,7 +24,6 @@ import { Snapshot } from '../../foundation/snapshot/index.js';
 import { STREAM_FILE } from '../../foundation/stream/index.js';
 import { AUDIT_FILE } from '../../foundation/audit/index.js';
 import { TASKS_RESULTS_DIR } from '../../types/paths.js';
-import { AuditWriter } from '../../foundation/audit/writer.js';
 
 /**
  * Create a ProcessManager dedicated to Motion

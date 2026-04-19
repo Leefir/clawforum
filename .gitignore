@@ -35,3 +35,6 @@ Thumbs.db
 .env.*.local
 skills/skill-creator/
 clawspace/
+
+# TypeScript incremental build info (pre-commit hook)
+.tsbuildinfo

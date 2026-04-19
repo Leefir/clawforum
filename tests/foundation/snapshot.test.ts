@@ -33,7 +33,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
   // ========================================================================
 
   it('init creates .git with .gitignore and initial commit', async () => {
-    const result = await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir, enforcePermissions: false }), { write: () => {} }, []).init();
+    const result = await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir, enforcePermissions: false }), { write: () => {} }, ['stream.jsonl', 'audit.tsv', 'tasks/results/']).init();
     expect(result.ok).toBe(true);
 
     // .git 目录存在
