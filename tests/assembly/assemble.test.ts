@@ -33,6 +33,9 @@ const mockCronRunner = {
   stop: vi.fn(),
 };
 const mockHeartbeat = {};
+const mockSessionManager = {};
+const mockInboxReader = { init: vi.fn() };
+const mockOutboxWriter = {};
 
 // ============================================================================
 // Module mocks
@@ -75,6 +78,21 @@ vi.mock('../../src/core/motion/runtime.js', () => ({
 
 vi.mock('../../src/core/heartbeat.js', () => ({
   Heartbeat: vi.fn(() => mockHeartbeat),
+}));
+
+vi.mock('../../src/foundation/session-store/index.js', () => ({
+  SessionManager: vi.fn(() => mockSessionManager),
+  createSessionManager: vi.fn(() => mockSessionManager),
+}));
+
+vi.mock('../../src/foundation/messaging/index.js', () => ({
+  InboxReader: vi.fn(() => mockInboxReader),
+  OutboxWriter: vi.fn(() => mockOutboxWriter),
+  createInboxReader: vi.fn(() => mockInboxReader),
+  createOutboxWriter: vi.fn(() => mockOutboxWriter),
+  readInboxFileMeta: vi.fn(),
+  InboxListFailed: class InboxListFailed extends Error {},
+  InboxMoveFailed: class InboxMoveFailed extends Error {},
 }));
 
 vi.mock('../../src/core/cron/runner.js', () => ({
@@ -555,5 +573,86 @@ describe('assemble', () => {
         expect.any(String),
       );
     });
+  });
+
+  // --------------------------------------------------------------------------
+  // phase155B: L2 dependencies passed to Runtime + Snapshot single instance
+  // --------------------------------------------------------------------------
+  it('L2 dependencies are passed to Runtime constructor', async () => {
+    await assemble(baseConfig);
+
+    const { MotionRuntime } = await import('../../src/core/motion/runtime.js');
+    const ctorCall = (MotionRuntime as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const deps = ctorCall[0].dependencies;
+
+    expect(deps).toBeDefined();
+    expect(deps.systemFs).toBeDefined();
+    expect(deps.clawFs).toBeDefined();
+    expect(deps.auditWriter).toBeDefined();
+    expect(deps.snapshot).toBe(mockSnapshot);
+    expect(deps.sessionManager).toBe(mockSessionManager);
+    expect(deps.inboxReader).toBe(mockInboxReader);
+    expect(deps.outboxWriter).toBe(mockOutboxWriter);
+  });
+
+  it('Snapshot is single instance across Instances and Runtime deps', async () => {
+    const result = await assemble(baseConfig);
+
+    const { MotionRuntime } = await import('../../src/core/motion/runtime.js');
+    const ctorCall = (MotionRuntime as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const depsSnapshot = ctorCall[0].dependencies.snapshot;
+
+    expect(result.snapshot).toBe(depsSnapshot);
+  });
+
+  it('L2 construct failure audits assemble_failed (session_manager)', async () => {
+    const { createSessionManager } = await import('../../src/foundation/session-store/index.js');
+    (createSessionManager as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('session_mgr fail');
+    });
+
+    await expect(assemble(baseConfig)).rejects.toThrow(
+      'Assembly: SessionManager construct failed: session_mgr fail'
+    );
+    expect(mockAuditWrite).toHaveBeenCalledWith(
+      'assemble_failed',
+      'module=session_manager',
+      'phase=construct',
+      'reason=session_mgr fail'
+    );
+  });
+
+  it('L2 construct failure audits assemble_failed (inbox_reader)', async () => {
+    const { createInboxReader } = await import('../../src/foundation/messaging/index.js');
+    (createInboxReader as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('inbox fail');
+    });
+
+    await expect(assemble(baseConfig)).rejects.toThrow(
+      'Assembly: InboxReader construct failed: inbox fail'
+    );
+    expect(mockAuditWrite).toHaveBeenCalledWith(
+      'assemble_failed',
+      'module=inbox_reader',
+      'phase=construct',
+      'reason=inbox fail'
+    );
+  });
+
+  it('L2 construct failure audits assemble_failed (outbox_writer)', async () => {
+    const { createOutboxWriter } = await import('../../src/foundation/messaging/index.js');
+    (createOutboxWriter as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('outbox fail');
+    });
+
+    await expect(assemble(baseConfig)).rejects.toThrow(
+      'Assembly: OutboxWriter construct failed: outbox fail'
+    );
+    expect(mockAuditWrite).toHaveBeenCalledWith(
+      'assemble_failed',
+      'module=outbox_writer',
+      'phase=construct',
+      'reason=outbox fail'
+    );
   });
 });

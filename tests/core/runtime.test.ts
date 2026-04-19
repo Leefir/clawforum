@@ -16,6 +16,7 @@ import type { Message } from '../../src/types/message.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../src/types/signals.js';
 import type { InboxMessage } from '../../src/types/contract.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
+import { makeRuntimeDeps, cleanupTestDirs } from './helpers/make-runtime-deps.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -100,6 +101,7 @@ describe('ClawRuntime', () => {
       await r.stop().catch(() => {});
     }
     await cleanupTempDir(tempDir);
+    cleanupTestDirs();
   });
 
   describe('initialization', () => {
@@ -108,6 +110,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
 
       await runtime.initialize();
@@ -137,6 +140,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
 
       expect(runtime.getStatus().initialized).toBe(false);
@@ -151,6 +155,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
 
       // Mock LLM responses
@@ -172,6 +177,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
 
       const mockLLM = createMockLLM([
@@ -198,6 +204,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
 
       const mockLLM = createMockLLM([{
@@ -229,6 +236,7 @@ describe('ClawRuntime', () => {
         clawId: 'my-claw-123',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
 
       expect(runtime.getStatus().clawId).toBe('my-claw-123');
@@ -241,6 +249,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -253,6 +262,7 @@ describe('ClawRuntime', () => {
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -316,6 +326,7 @@ ${msg.content}
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -359,6 +370,7 @@ Test message
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -375,6 +387,7 @@ Test message
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
       return runtime;
@@ -620,6 +633,7 @@ Test message
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -697,6 +711,7 @@ Test message`;
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -780,6 +795,7 @@ Test message`;
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -799,6 +815,7 @@ Test message`;
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -830,6 +847,7 @@ Test message`;
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -860,6 +878,7 @@ Test message`;
         clawId: 'test-claw',
         clawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       }));
       await runtime.initialize();
 
@@ -925,6 +944,7 @@ Test message`;
         clawId: 'edge-claw',
         clawDir: testClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: testClawDir }),
       });
       edgeRuntimes.push(runtime);
       await runtime.initialize();
@@ -964,6 +984,7 @@ Test message`;
         clawId: 'edge-claw',
         clawDir: testClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       });
       edgeRuntimes.push(runtime);
       await runtime.initialize();
@@ -1012,6 +1033,7 @@ Test message`;
         clawId: 'int-claw',
         clawDir: interruptClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: interruptClawDir }),
       });
       await runtime.initialize();
     });
@@ -1103,6 +1125,7 @@ Test message`;
         clawId: 'sig-claw',
         clawDir: clawDir2,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir2 }),
       });
       signalRuntimes.push(r);
       await r.initialize();
@@ -1183,6 +1206,7 @@ Test message`;
         clawId: 'pi-claw',
         clawDir: piClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: piClawDir }),
       });
       piRuntimes.push(runtime);
       const mockLLM = createMockLLM([{
@@ -1206,6 +1230,7 @@ Test message`;
         clawId: 'pi-claw',
         clawDir: piClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       });
       piRuntimes.push(runtime);
 
@@ -1237,6 +1262,7 @@ Test message`;
         clawId: 'pi-claw',
         clawDir: piClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       });
       piRuntimes.push(runtime);
       const mockLLM = createMockLLM([{
@@ -1261,6 +1287,7 @@ Test message`;
         clawId: 'pi-claw',
         clawDir: piClawDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawDir }),
       });
       piRuntimes.push(runtime);
       const mockLLM = createMockLLM([
@@ -1294,6 +1321,7 @@ Test message`;
         clawId: 'audit-claw',
         clawDir: clawSubDir,
         llmConfig: createMockLLMConfig(),
+        dependencies: makeRuntimeDeps({}, { baseDir: clawSubDir }),
       }));
       await runtime.initialize();
 

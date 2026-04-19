@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { MotionRuntime } from '../../src/core/motion/runtime.js';
 import type { LLMServiceConfig } from '../../src/foundation/llm/types.js';
+import { makeRuntimeDeps, cleanupTestDirs } from './helpers/make-runtime-deps.js';
 
 // 测试用的 LLM 配置
 const mockLLMConfig: LLMServiceConfig = {
@@ -55,6 +56,7 @@ describe('MotionRuntime', () => {
       await runtime.stop().catch(() => {});
     }
     await cleanupDir(tempDir);
+    cleanupTestDirs();
   });
 
   describe('buildSystemPrompt()', () => {
@@ -71,6 +73,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act
@@ -97,6 +100,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act
@@ -125,6 +129,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act & Assert: 不应抛出错误
@@ -147,6 +152,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act & Assert
@@ -169,6 +175,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act & Assert
@@ -191,6 +198,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act
@@ -216,6 +224,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       // Act & Assert
@@ -241,6 +250,7 @@ describe('MotionRuntime', () => {
         clawId: 'motion-test',
         clawDir: tempDir,
         llmConfig: mockLLMConfig,
+        dependencies: makeRuntimeDeps({}, { baseDir: tempDir }),
       });
 
       await runtime.initialize();
