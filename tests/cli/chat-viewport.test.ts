@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { createMainTurnUI } from '../../src/cli/commands/chat-viewport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const viewportPath = path.join(__dirname, '../../src/cli/commands/chat-viewport.ts');
@@ -128,7 +129,7 @@ describe('chat-viewport Phase 72', () => {
 
     it('updateDisplay 应使用 fitLine 动态渲染', () => {
       const updateDisplayMatch = sourceCode.match(
-        /const updateDisplay = \(\) => \{[\s\S]{0,1200}?\};/
+        /const updateDisplay = \(\) => \{[\s\S]*?\};/
       );
       expect(updateDisplayMatch).toBeTruthy();
       expect(updateDisplayMatch![0]).toContain('fitLine');
@@ -174,7 +175,7 @@ describe('chat-viewport Phase 72', () => {
 
     it('updateDisplay wrap=true 路径应先 split(\\n) 再 flatMap wrapLine', () => {
       const updateDisplayMatch = sourceCode.match(
-        /const updateDisplay = \(\) => \{[\s\S]{0,1200}?\};/
+        /const updateDisplay = \(\) => \{[\s\S]*?\};/
       );
       expect(updateDisplayMatch).toBeTruthy();
       const body = updateDisplayMatch![0];
@@ -267,6 +268,61 @@ describe('chat-viewport Phase 72', () => {
       expect(tdEnd).toBeGreaterThan(-1);
       const tdSection = sourceCode.slice(tdStart, tdEnd + 6);
       expect(tdSection).toContain('stringWidth(prefix)');
+    });
+  });
+
+  describe('Phase 164 Step 8: cleanup 时序', () => {
+    it('cleanup 块内 mainUI.stopSpinner() 在 observability.recordShutdown 之前', () => {
+      const cleanupStart = sourceCode.indexOf('await exitPromise;');
+      expect(cleanupStart).toBeGreaterThan(-1);
+      const cleanupBlock = sourceCode.slice(cleanupStart, cleanupStart + 1500);
+      const stopIdx = cleanupBlock.indexOf('mainUI.stopSpinner()');
+      const shutIdx = cleanupBlock.indexOf('observability.recordShutdown(shutdownReason)');
+      expect(stopIdx).toBeGreaterThan(-1);
+      expect(shutIdx).toBeGreaterThan(-1);
+      expect(stopIdx).toBeLessThan(shutIdx);
+    });
+
+    it('cleanup 块不调 observability.dispose()', () => {
+      const cleanupStart = sourceCode.indexOf('await exitPromise;');
+      const cleanupBlock = sourceCode.slice(cleanupStart, cleanupStart + 1500);
+      expect(cleanupBlock).not.toContain('observability.dispose()');
+    });
+  });
+
+  describe('Phase 164 Step 9: stopSpinner 空守卫', () => {
+    it('stopSpinner 在无 spinnerTimer 时早退，不产 recordSpinner audit', () => {
+      const audit = { write: () => {} };
+      const calls: Array<[string, string]> = [];
+      const observability = {
+        recordSpinner: (action: 'start' | 'stop', text: string) => calls.push([action, text]),
+      };
+      const mainUI = createMainTurnUI({
+        appendOutput: () => {},
+        updateDisplay: () => {},
+        trimOutputNewlines: true,
+        getThinkingMode: () => 'off',
+        audit,
+        observability,
+      });
+      // 无 start，直接连续 stop × 3
+      mainUI.stopSpinner();
+      mainUI.stopSpinner();
+      mainUI.stopSpinner();
+      expect(calls).toHaveLength(0);
+
+      // 正常路径：start → stop
+      mainUI.startSpinner('test');
+      mainUI.stopSpinner();
+      // startSpinner 内先 stopSpinner（无 timer，守卫跳过）→ 1 条 start + 1 条 stop
+      expect(calls).toEqual([
+        ['start', 'test'],
+        ['stop', 'test'],
+      ]);
+
+      // stop 之后再 stop：应早退
+      mainUI.stopSpinner();
+      expect(calls).toHaveLength(2); // 未变化
     });
   });
 });

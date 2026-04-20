@@ -88,19 +88,13 @@ export const AUDIT_EVENTS = {
 
   /**
    * Spinner 启停（不聚合，每次写）。
-   * 载荷：action(start|stop) / text / elapsed_ms（仅 stop 时）
+   * 载荷：action(start|stop) / text / elapsed_ms（仅 stop 时）/ orphan=1（孤 stop：无前置 start）
    */
   VIEWPORT_SPINNER_LIFECYCLE: 'viewport_spinner_lifecycle',
 
   /**
-   * streamReader 意外断开（watcher error / fs unlink）。
-   * 载荷：path / reason
-   */
-  VIEWPORT_STREAM_DETACHED: 'viewport_stream_detached',
-
-  /**
    * chat-viewport 退出。cleanup / daemon dead 检测 / ESC 中断 / stream 结束统一走此事件。
-   * 载荷：reason(daemon_dead|user_esc|user_quit|stream_end)
+   * 载荷：reason(daemon_dead|user_quit|stream_end)
    */
   VIEWPORT_SHUTDOWN: 'viewport_shutdown',
 } as const;

@@ -20,6 +20,7 @@ import type { Watcher } from '../../foundation/file-watcher/types.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
 import { AUDIT_EVENTS } from '../../foundation/audit/events.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
+import { createViewportObservability } from './chat-viewport-observability.js';
 import type { StreamReader, StreamEvent } from '../../foundation/stream/index.js';
 
 export interface ChatViewportOptions {
@@ -64,6 +65,7 @@ export interface MainTurnUIDeps {
   trimOutputNewlines: boolean;
   getThinkingMode: () => 'compact' | 'full' | 'off';
   audit: { write: (type: string, ...cols: (string | number)[]) => void };
+  observability?: { recordSpinner: (action: 'start' | 'stop', text: string) => void };
 }
 
 export interface MainTurnUIController {
@@ -85,6 +87,7 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
   let thinkingBuffer = '';
   let spinnerTimer: ReturnType<typeof setInterval> | null = null;
   let currentScope: 'main' | 'task' | 'system' | null = null;
+  let currentSpinnerText = 'Thinking...';
 
   const guardWrite = (method: string) => {
     if (currentScope === 'task') {
@@ -119,14 +122,19 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
 
   const stopSpinner = () => {
     guardWrite('stopSpinner');
+    if (spinnerTimer == null) return;
+    
     if (spinnerTimer) {
       clearInterval(spinnerTimer);
       spinnerTimer = null;
     }
+    deps.observability?.recordSpinner('stop', currentSpinnerText);
   };
   const startSpinner = (text = 'Thinking...') => {
     guardWrite('startSpinner');
     stopSpinner();
+    currentSpinnerText = text;
+    deps.observability?.recordSpinner('start', text);
     let frame = 0;
     spinnerTimer = setInterval(() => {
       suffix = `${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${text}`;
@@ -290,7 +298,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
 
 
+  const observability = createViewportObservability({ audit: options.audit });
+
   const updateDisplay = () => {
+    const startNow = performance.now();
     const cols = process.stdout.columns ?? 80;
     const body = outputLines
       .flatMap(({ color, text, wrap, hangIndent }) => {
@@ -315,6 +326,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     const full = suffixBody ? body + '\n' + suffixBody : body;
     outputText.setText(full);
     tui.requestRender();
+    const suffixLines = suffixBody ? suffixBody.split('\n').length : 0;
+    observability.recordRender({
+      outputLines: outputLines.length,
+      suffixLines,
+      elapsedMs: performance.now() - startNow,
+    });
   };
 
   const attachedClawBar = new Text('', 0, 0);
@@ -405,10 +422,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     trimOutputNewlines,
     getThinkingMode: () => thinkingMode,
     audit: options.audit,
+    observability,
   });
 
   // 处理一个 stream event
   const handleEvent = (event: { type: string; [key: string]: unknown }) => {
+    observability.recordEvent(event.type);
     switch (event.type) {
       case 'turn_start': {
         inTurn = true;
@@ -874,6 +893,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         mainUI.flushThinking();
         mainUI.clearSuffix();
         appendOutput('\x1b[31m', '✗ Daemon 已停止');
+        observability.recordShutdown('daemon_dead');
       }
     } catch {
       // PID 文件不存在或读取失败，忽略
@@ -1034,11 +1054,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // Ctrl+C / Ctrl+D 退出
   let resolveExit: () => void;
   const exitPromise = new Promise<void>(r => { resolveExit = r; });
+  let shutdownReason: 'daemon_dead' | 'user_quit' | 'stream_end' = 'user_quit';
 
   tui.addInputListener((data: string) => {
     // Ctrl+C / Ctrl+D → 退出 viewport（优先检查，避免被 ESC 逻辑抢先）
     // 使用 includes 匹配批量输入（如 \x03\x03\x1b\x1b）
     if (data.includes('\x03') || data.includes('\x04')) {
+      shutdownReason = 'user_quit';
       resolveExit();
       return { consume: true };
     }
@@ -1213,6 +1235,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   process.removeListener('uncaughtException', uncaughtHandler);
   process.removeListener('unhandledRejection', uncaughtHandler);
   mainUI.stopSpinner();
+  observability.recordShutdown(shutdownReason);
   clearInterval(pollInterval);
   clearInterval(daemonCheckInterval);
   await streamReader.stop();
