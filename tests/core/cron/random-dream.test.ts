@@ -20,14 +20,14 @@ import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import type { TaskSystem } from '../../../src/core/task/system.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 
-// ─── scheduleSubAgentWithTracking mock ───────────────────────
+// ─── writePendingSubagentTaskFile mock ───────────────────────
 
-const { mockScheduleSubAgent } = vi.hoisted(() => ({
-  mockScheduleSubAgent: vi.fn(),
+const { mockWriteFile } = vi.hoisted(() => ({
+  mockWriteFile: vi.fn(),
 }));
 
-vi.mock('../../../src/core/tools/builtins/spawn.js', () => ({
-  scheduleSubAgentWithTracking: mockScheduleSubAgent,
+vi.mock('../../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+  writePendingSubagentTaskFile: mockWriteFile,
 }));
 
 // ─── 工具函数 ─────────────────────────────────────────────────
@@ -60,8 +60,8 @@ describe('runRandomDream', () => {
     clawforumDir = await createTempDir();
     motionDir = await createTempDir();
     await fs.mkdir(path.join(motionDir, 'inbox', 'pending'), { recursive: true });
-    mockScheduleSubAgent.mockReset();
-    mockScheduleSubAgent.mockResolvedValue(taskId);
+    mockWriteFile.mockReset();
+    mockWriteFile.mockResolvedValue(taskId);
   });
 
   afterEach(async () => {
@@ -73,13 +73,13 @@ describe('runRandomDream', () => {
 
   it('claws 目录不存在时直接返回', async () => {
     await expect(runRandomDream(makeOpts(clawforumDir, motionDir))).resolves.toBeUndefined();
-    expect(mockScheduleSubAgent).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
   it('claws 目录存在但无 archive 契约时直接返回', async () => {
     await fs.mkdir(path.join(clawforumDir, 'claws', 'claw-1', 'contract', 'archive'), { recursive: true });
     await expect(runRandomDream(makeOpts(clawforumDir, motionDir))).resolves.toBeUndefined();
-    expect(mockScheduleSubAgent).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
   // ── 正常完成流程 ─────────────────────────────────────────────
@@ -208,7 +208,7 @@ Prompt: ...
 
     // 捕获传给 sub-agent 的 prompt
     let capturedPrompt = '';
-    mockScheduleSubAgent.mockImplementation(async (_ts: unknown, opts: { prompt: string }) => {
+    mockWriteFile.mockImplementation(async (_fs: unknown, _audit: unknown, opts: { prompt: string }) => {
       capturedPrompt = opts.prompt;
       return taskId;
     });
@@ -253,7 +253,7 @@ Prompt: ...
     );
 
     let capturedPrompt = '';
-    mockScheduleSubAgent.mockImplementation(async (_ts: unknown, opts: { prompt: string }) => {
+    mockWriteFile.mockImplementation(async (_fs: unknown, _audit: unknown, opts: { prompt: string }) => {
       capturedPrompt = opts.prompt;
       return taskId;
     });
@@ -295,7 +295,7 @@ Prompt: ...
     }), 'utf-8');
 
     let capturedPrompt = '';
-    mockScheduleSubAgent.mockImplementation(async (_ts: unknown, opts: { prompt: string }) => {
+    mockWriteFile.mockImplementation(async (_fs: unknown, _audit: unknown, opts: { prompt: string }) => {
       capturedPrompt = opts.prompt;
       return taskId;
     });
@@ -326,7 +326,7 @@ Prompt: ...
     await fs.mkdir(normalDir, { recursive: true });
 
     let capturedPrompt = '';
-    mockScheduleSubAgent.mockImplementation(async (_ts: unknown, opts: { prompt: string }) => {
+    mockWriteFile.mockImplementation(async (_fs: unknown, _audit: unknown, opts: { prompt: string }) => {
       capturedPrompt = opts.prompt;
       return taskId;
     });

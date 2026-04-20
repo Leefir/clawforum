@@ -41,7 +41,7 @@ export interface SubAgentOptions {
   onIdleTimeout?: () => void;
   systemPrompt?: string;                    // 替换 run() 里硬编码的默认 system prompt
   callerType?: CallerType;  // 默认 'subagent'
-  taskSystem?: TaskSystem;                  // dispatcher 调 spawn 需要，透传给 ToolExecutor
+  taskSystem?: TaskSystem;                  // dispatch tool addTaskResultHandler 路径需要；透传至 ToolExecutor / ExecContext。phase163 起不再供调度用途。
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
   skillRegistry?: SkillRegistry;            // skill 工具需要
@@ -69,6 +69,7 @@ export class SubAgent {
   private onIdleTimeout?: () => void;
   private systemPrompt?: string;
   private callerType?: CallerType;
+  /** @see SubAgentOptions.taskSystem */
   private taskSystem?: TaskSystem;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;

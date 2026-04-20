@@ -53,7 +53,13 @@ export interface ExecContextImplOptions {
   /** Optional abort signal */
   signal?: AbortSignal;
   
-  /** Optional task system for spawn tool */
+  /**
+   * TaskSystem 实例引用。phase163 后用途收窄：
+   *   - dispatch tool: addTaskResultHandler（B 类，handler 文件化推后）
+   *   - status tool: queueLength 只读展示
+   *   - executor.ts scheduleTool: async tool 路径（独立 phase 清理候选）
+   * 不再用于 subagent 调度（spawn / dispatch 创建均经 _pending-task-writer 直接写文件）。
+   */
   taskSystem?: TaskSystem;
   
   /** Optional skill registry for skill tool */
@@ -90,6 +96,7 @@ export class ExecContextImpl implements ExecContext {
   stepNumber: number;
   maxSteps: number;
   signal?: AbortSignal;
+  /** @see ExecContextImplOptions.taskSystem — 透传至 ExecContext */
   taskSystem?: TaskSystem;
   skillRegistry?: SkillRegistry;
   contractManager?: ContractManager;

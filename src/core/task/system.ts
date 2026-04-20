@@ -26,6 +26,9 @@ import type { SkillRegistry } from '../skill/registry.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
 import { STREAM_FILE } from '../../foundation/stream/types.js';
+import { TASKS_PENDING_DIR } from '../../types/paths.js';
+import { createWatcher, type Watcher } from '../../foundation/file-watcher/index.js';
+import { AUDIT_EVENTS } from '../../foundation/audit/events.js';
 
 export interface TaskSystemOptions {
   maxConcurrent?: number;
@@ -89,6 +92,7 @@ export class TaskSystem {
   private readonly outboxWriter: OutboxWriter;
   private auditWriter: AuditWriter;
   private parentStreamLog?: StreamLog;
+  private pendingWatcher?: Watcher;
 
   // Task result handlers (array for concurrent dispatch support)
   private _taskResultHandlers: Array<
@@ -110,8 +114,10 @@ export class TaskSystem {
     };
   }
   
-  // Pending queue for tasks waiting to be executed
+  // Transient dispatch buffer; subagent file persistence is authoritative,
+  // tool tasks still use this as entry point
   private pendingQueue: Array<SubAgentTask | ToolTask> = [];
+
   // Store tool callbacks separately (not serializable to disk)
   private pendingCallbacks: Map<string, () => Promise<ToolResult>> = new Map();
   private retryBaseDelayMs: number;
@@ -137,7 +143,7 @@ export class TaskSystem {
 
   async initialize(): Promise<void> {
     // Ensure task directories exist
-    await this.fs.ensureDir('tasks/pending');
+    await this.fs.ensureDir(TASKS_PENDING_DIR);
     await this.fs.ensureDir('tasks/running');
     await this.fs.ensureDir('tasks/done');
     await this.fs.ensureDir('tasks/failed');
@@ -154,6 +160,23 @@ export class TaskSystem {
    * initialize() has completed.
    */
   startDispatch(): void {
+    // 构造 watcher：add 事件触发 _ingestPendingFile 入队 + dispatch
+    // 防御：测试 mock fs 可能缺少 resolve，跳过不影响行为
+    if (!this.pendingWatcher && typeof this.fs.resolve === 'function') {
+      this.pendingWatcher = createWatcher(
+        this.fs,
+        TASKS_PENDING_DIR,
+        (event) => {
+          if (event.type !== 'add') return;
+          if (!event.path.endsWith('.json')) return;
+          void this._ingestPendingFile(event.path);
+        },
+        this.auditWriter,
+        { stability: 'immediate', recursive: false, persistent: true },
+      );
+    }
+    // 启动扫描：把 pending/ 中既有 subagent 文件入队（_ingestPendingFile 内含 _dispatch 触发）
+    void this._initialScanPending();
     this._dispatch();
   }
 
@@ -233,9 +256,8 @@ export class TaskSystem {
                 });
               } else {
                 // 结果未写出：移回 pending 重新执行（原有逻辑）
-                const pendingPath = `tasks/pending/${task.id}.json`;
+                const pendingPath = `${TASKS_PENDING_DIR}/${task.id}.json`;
                 await this.fs.move(entry.path, pendingPath);
-                this.pendingQueue.push(task);
                 recoveredFromRunning++;
                 this.monitor.log('task_recovered', {
                   taskId: task.id,
@@ -256,7 +278,7 @@ export class TaskSystem {
       }
       
       // Load pending tasks
-      const pendingEntries = await this.fs.list('tasks/pending');
+      const pendingEntries = await this.fs.list(TASKS_PENDING_DIR);
       for (const entry of pendingEntries) {
         if (entry.name.endsWith('.json')) {
           try {
@@ -280,7 +302,7 @@ export class TaskSystem {
                 });
               });
             } else {
-              this.pendingQueue.push(task);
+              // subagent 文件保留在 pending/，由 _initialScanPending 统一入队
             }
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
@@ -292,11 +314,6 @@ export class TaskSystem {
         }
       }
       
-      // Sort pending queue by createdAt to maintain order
-      this.pendingQueue.sort((a, b) => 
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-      
       // 统计历史失败任务数（仅用于审计，不重新执行）
       const failedEntries = await this.fs.list('tasks/failed').catch(() => []);
       const failedCount = failedEntries.filter(e => e.name.endsWith('.json')).length;
@@ -306,6 +323,8 @@ export class TaskSystem {
         recoveredFromRunning,
         failedCount,
       });
+
+      // _initialScanPending 已迁至 startDispatch（避免在 initialize 期间触发 _dispatch）
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.monitor.log('error', {
@@ -325,11 +344,6 @@ export class TaskSystem {
    * Returns taskId immediately, task enters pending queue and will be dispatched
    */
   async scheduleSubAgent(taskData: Omit<SubAgentTask, 'id' | 'createdAt'>): Promise<string> {
-    // Max size guard to prevent unbounded queue growth
-    if (this.pendingQueue.length >= TaskSystem.PENDING_QUEUE_MAX) {
-      throw new Error(`pendingQueue full (${TaskSystem.PENDING_QUEUE_MAX} tasks pending)`);
-    }
-
     const taskId = randomUUID();
     const task: SubAgentTask = {
       ...taskData,
@@ -337,34 +351,19 @@ export class TaskSystem {
       createdAt: new Date().toISOString(),
     };
 
-    // Save to pending directory
-    const taskPath = `tasks/pending/${taskId}.json`;
+    // Save to pending directory; watcher will pick up and dispatch
+    const taskPath = `${TASKS_PENDING_DIR}/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
-
-    // Add to pending queue
-    this.pendingQueue.push(task);
-
-    // Write task_started event to stream
-    this.parentStreamLog?.write({
-      ts: Date.now(),
-      type: 'task_started',
-      taskId,
-      callerType: taskData.callerType ?? 'subagent',
-      silent: false,
-    });
 
     // Log
     this.monitor.log('subagent_scheduled', {
       taskId,
       parentClawId: task.parentClawId,
       maxSteps: task.maxSteps,
-      queuePosition: this.pendingQueue.length,
     });
     this.auditWriter?.write('task_scheduled', taskId, 'kind=subagent', `parent=${task.parentClawId}`);
 
-    // Trigger dispatch
-    this._dispatch();
-
+    // No push, no dispatch; watcher ingests asynchronously
     return taskId;
   }
 
@@ -394,7 +393,7 @@ export class TaskSystem {
     };
 
     // Save to pending directory before registering in memory
-    const taskPath = `tasks/pending/${taskId}.json`;
+    const taskPath = `${TASKS_PENDING_DIR}/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
 
     // Guard: check queue capacity before registering callback
@@ -422,6 +421,62 @@ export class TaskSystem {
   }
 
   /**
+   * Startup scan: ingest all existing pending files through the same path
+   * as the watcher. Called by recoverTasks after filesystem cleanup.
+   */
+  private async _initialScanPending(): Promise<void> {
+    const entries = await this.fs.list(TASKS_PENDING_DIR);
+    for (const entry of entries) {
+      if (entry.name.endsWith('.json')) {
+        await this._ingestPendingFile(entry.path);
+      }
+    }
+  }
+
+  /**
+   * Ingest a single pending file: read, parse, dedupe, push, dispatch.
+   * Shared by watcher callback and _initialScanPending.
+   */
+  private async _ingestPendingFile(filePath: string): Promise<void> {
+    let taskId: string | undefined;
+    try {
+      const fileName = path.basename(filePath, '.json');
+      taskId = fileName;
+      if (this.runningTasks.has(taskId)) return;
+      if (this.pendingQueue.some(t => t.id === taskId)) return;
+
+      const content = await this.fs.read(filePath);
+      const task = JSON.parse(content) as SubAgentTask | ToolTask;
+      if (task.kind !== 'subagent') return;
+
+      // task_started stream event triggered here (covers spawn direct write,
+      // scheduleSubAgent, and startup recovery scan uniformly)
+      this.parentStreamLog?.write({
+        ts: Date.now(),
+        type: 'task_started',
+        taskId,
+        callerType: task.callerType ?? 'subagent',
+        silent: false,
+      });
+      this.pendingQueue.push(task);
+      this._dispatch();
+    } catch (err) {
+      this.auditWriter?.write(
+        AUDIT_EVENTS.PENDING_INGEST_FAILED,
+        taskId ?? '<unknown>',
+        `path=${filePath}`,
+        `reason=${err instanceof Error ? err.message : String(err)}`,
+      );
+      this.monitor.log('error', {
+        context: 'pending_ingest_failed',
+        taskId,
+        path: filePath,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
    * Dispatch pending tasks to running state
    * This is the core dispatcher that manages concurrency
    * 
@@ -433,12 +488,12 @@ export class TaskSystem {
     while (this.runningTasks.size < this.maxConcurrent && this.pendingQueue.length > 0) {
       const task = this.pendingQueue.shift();
       if (!task) break;
-      
+
       const abortController = new AbortController();
-      
+
       // Start the task (this will handle file move + execution)
       const promise = this._startTask(task, abortController.signal);
-      
+
       // IMMEDIATELY occupy slot - critical to prevent race conditions
       this.runningTasks.set(task.id, { abortController, promise });
     }
@@ -495,7 +550,7 @@ export class TaskSystem {
    */
   private async movePendingToRunning(taskId: string): Promise<void> {
     await this.fs.move(
-      `tasks/pending/${taskId}.json`,
+      `${TASKS_PENDING_DIR}/${taskId}.json`,
       `tasks/running/${taskId}.json`
     );
     this.auditWriter?.write('task_started', taskId);
@@ -1034,7 +1089,11 @@ export class TaskSystem {
   }
   
   /**
-   * List pending task IDs (for testing/monitoring)
+   * List pending task IDs.
+   *
+   * phase163 后语义：仅返回内存中等调度的任务（pendingQueue）；
+   * subagent 文件未被 watcher / startDispatch 拾起前不可见。
+   * 欲看完整 pending 状态请直读 tasks/pending/ 目录。
    */
   listPending(): string[] {
     return this.pendingQueue.map(task => task.id);
@@ -1053,18 +1112,34 @@ export class TaskSystem {
       return;
     }
 
-    // 2. 再检查 pending queue
-    const pendingIdx = this.pendingQueue.findIndex(t => t.id === taskId);
-    if (pendingIdx !== -1) {
-      const task = this.pendingQueue[pendingIdx];
-      this.pendingQueue.splice(pendingIdx, 1);
+    // 2. 再检查 pending（内存队列 + 文件系统双源）
+    const fileExists = await this.fs.exists(`${TASKS_PENDING_DIR}/${taskId}.json`);
+    const queueIdx = this.pendingQueue.findIndex(t => t.id === taskId);
 
-      // 清理 tool callback
-      this.pendingCallbacks.delete(taskId);
+    if (queueIdx === -1 && !fileExists) {
+      throw new Error(`Task ${taskId} not found in running or pending`);
+    }
 
-      // 文件：pending → failed
+    let task: SubAgentTask | ToolTask | undefined =
+      queueIdx !== -1 ? this.pendingQueue[queueIdx] : undefined;
+    if (queueIdx !== -1) this.pendingQueue.splice(queueIdx, 1);
+
+    // 若仅文件存在（未入队或已 shift），尝试从盘读出以决定是否 sendFallbackError
+    if (!task && fileExists) {
+      try {
+        task = JSON.parse(
+          await this.fs.read(`${TASKS_PENDING_DIR}/${taskId}.json`),
+        ) as SubAgentTask | ToolTask;
+      } catch { /* 无 task 仍可移文件 */ }
+    }
+
+    // 清理 tool callback
+    this.pendingCallbacks.delete(taskId);
+
+    // 文件：pending → failed
+    if (fileExists) {
       await this.fs.move(
-        `tasks/pending/${taskId}.json`,
+        `${TASKS_PENDING_DIR}/${taskId}.json`,
         `tasks/failed/${taskId}.json`
       ).catch((e) => {
         this.monitor.log('error', {
@@ -1073,30 +1148,31 @@ export class TaskSystem {
           error: e instanceof Error ? e.message : String(e),
         });
       });
-
-      // tool 任务：通知 parent
-      if (task.kind === 'tool') {
-        await this.sendFallbackError(task, 'Task cancelled before execution').catch((e) => {
-          this.monitor.log('error', {
-            context: 'cancel_pending.sendFallbackError',
-            taskId,
-            error: e instanceof Error ? e.message : String(e),
-          });
-        });
-      }
-
-      this.monitor.log('info', { event: 'task_cancelled', taskId, from: 'pending' });
-      return;
     }
 
-    // 3. 找不到
-    throw new Error(`Task ${taskId} not found in running or pending`);
+    // tool 任务：通知 parent
+    if (task?.kind === 'tool') {
+      await this.sendFallbackError(task, 'Task cancelled before execution').catch((e) => {
+        this.monitor.log('error', {
+          context: 'cancel_pending.sendFallbackError',
+          taskId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
+    }
+
+    this.monitor.log('info', { event: 'task_cancelled', taskId, from: 'pending' });
+    return;
   }
 
   /**
    * Shutdown - wait for all tasks to complete or timeout
    */
   async shutdown(timeoutMs: number = 30000): Promise<void> {
+    // 顺序：先关 watcher（避免 shutdown 期间新事件进队）→ 旧 shutdown 流程
+    await this.pendingWatcher?.close();
+    this.pendingWatcher = undefined;
+
     // Signal all running tasks to stop
     for (const state of this.runningTasks.values()) {
       state.abortController.abort();

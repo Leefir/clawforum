@@ -13,10 +13,11 @@ import { loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../c
 import type { InboxMessage } from '../../types/contract.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { AuditWriter } from '../../foundation/audit/writer.js';
 import { SkillRegistry } from '../../core/skill/registry.js';
 import { ContractManager } from '../../core/contract/manager.js';
-import { DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
-import { scheduleSubAgentWithTracking } from '../../core/tools/builtins/spawn.js';
+import { DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
+import { writePendingSubagentTaskFile } from '../../core/tools/builtins/_pending-task-writer.js';
 import type { Message } from '../../types/message.js';
 import { buildRetroPrompt } from '../../prompts/index.js';
 import { CliError } from '../errors.js';
@@ -211,22 +212,21 @@ export async function daemonCommand(name: string): Promise<void> {
           }
           const retroMessages: Message[] = [...baseMessages, { role: 'user', content: retroPrompt }];
 
-          // 调度复盘子代理
-          const taskSystem = runtime.getTaskSystem();
+          // 调度复盘子代理（文件驱动，watcher 异步拾起）
+          const motionFs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
+          const motionAudit = new AuditWriter(motionFs, path.join(dir, 'audit.tsv'));
           try {
-            await scheduleSubAgentWithTracking(
-              taskSystem,
-              {
-                prompt: '',
-                messages: retroMessages,
-                tools: ['read', 'write', 'skill', 'exec'],
-                timeout: 600,
-                maxSteps: DEFAULT_MAX_STEPS,
-                parentClawId: 'motion',
-                originClawId: 'motion',
-                silent: true,
-              }
-            );
+            await writePendingSubagentTaskFile(motionFs, motionAudit, {
+              kind: 'subagent',
+              prompt: '',
+              messages: retroMessages,
+              tools: ['read', 'write', 'skill', 'exec'],
+              timeout: 600,
+              maxSteps: DEFAULT_MAX_STEPS,
+              idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
+              parentClawId: 'motion',
+              originClawId: 'motion',
+            });
           } catch (e) {
             console.warn('[daemon] retrospective schedule failed, keeping pending files for retry:', e);
             continue;  // 不删文件，留待下次 daemon 重启时重试

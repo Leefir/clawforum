@@ -6,51 +6,17 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../executor.js';
-import type { TaskSystem } from '../../task/system.js';
 
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import type { Message } from '../../../types/message.js';
 import { TOOL_PROFILES } from '../profiles.js';
-
-/**
- * Schedule a subagent and write task_started to the stream.
- * Shared by spawn tool and daemon.ts (retrospective scheduling).
- */
-export async function scheduleSubAgentWithTracking(
-  taskSystem: TaskSystem,
-  args: {
-    prompt: string;
-    messages?: Message[];
-    tools?: string[];
-    timeout?: number;
-    maxSteps?: number;
-    idleTimeoutMs?: number;
-    parentClawId: string;
-    originClawId: string;
-    systemPrompt?: string;
-    silent?: boolean;   // true = 不在 viewport 显示 ReAct 过程
-  }
-): Promise<string> {
-  const taskId = await taskSystem.scheduleSubAgent({
-    kind: 'subagent',
-    prompt: args.prompt,
-    messages: args.messages,
-    tools: args.tools ?? TOOL_PROFILES['subagent'],
-    timeout: args.timeout ?? SPAWN_DEFAULT_TIMEOUT_S,
-    maxSteps: args.maxSteps ?? DEFAULT_MAX_STEPS,
-    idleTimeoutMs: args.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
-    parentClawId: args.parentClawId,
-    originClawId: args.originClawId,
-    systemPrompt: args.systemPrompt,
-  });
-
-  return taskId;
-}
+import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
 
 /**
  * Spawn tool implementation
- * 
- * Requires taskSystem to be injected before use.
+ *
+ * phase163: 直接写 tasks/pending/ 文件，由 watcher 异步调度。
+ * 不再依赖 TaskSystem 实例。
  */
 export const spawnTool: Tool = {
   name: 'spawn',
@@ -96,16 +62,6 @@ export const spawnTool: Tool = {
   idempotent: false,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const taskSystem = ctx.taskSystem;
-    
-    if (!taskSystem) {
-      return {
-        success: false,
-        content: 'TaskSystem not available. Spawn tool requires TaskSystem to be injected.',
-        error: 'TaskSystem not configured',
-      };
-    }
-
     const prompt = String(args.prompt);
     const messages = (() => {
       if (!Array.isArray(args.messages)) return undefined;
@@ -140,20 +96,19 @@ export const spawnTool: Tool = {
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     try {
-      const taskId = await scheduleSubAgentWithTracking(
-        taskSystem,
-        {
-          prompt,
-          messages,
-          tools,
-          timeout,
-          maxSteps,
-          idleTimeoutMs,
-          parentClawId: ctx.clawId,
-          originClawId: ctx.originClawId ?? ctx.clawId,
-          systemPrompt: typeof args.systemPrompt === 'string' ? args.systemPrompt : undefined,
-        }
-      );
+      const taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
+        kind: 'subagent',
+        prompt,
+        messages,
+        tools,
+        timeout,
+        maxSteps,
+        idleTimeoutMs,
+        parentClawId: ctx.clawId,
+        originClawId: ctx.originClawId ?? ctx.clawId,
+        systemPrompt: typeof args.systemPrompt === 'string' ? args.systemPrompt : undefined,
+        callerType: 'subagent',
+      });
 
       return {
         success: true,

@@ -11,6 +11,14 @@ import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import type { Message } from '../../src/types/message.js';
 
+const { mockWriteFile } = vi.hoisted(() => ({
+  mockWriteFile: vi.fn(),
+}));
+
+vi.mock('../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+  writePendingSubagentTaskFile: mockWriteFile,
+}));
+
 async function createTempDir(): Promise<string> {
   const d = path.join(tmpdir(), `dispatch-test-${randomUUID()}`);
   await fs.mkdir(d, { recursive: true });
@@ -32,24 +40,25 @@ describe('DispatchTool', () => {
     );
   });
 
+  beforeEach(() => {
+    mockWriteFile.mockReset();
+  });
+
   afterEach(async () => {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', mockSchedule?: () => Promise<string>, options?: { originClawId?: string; clawId?: string; dialogMessages?: Message[] }) {
-    const taskSystem = mockSchedule
-      ? {
-          scheduleSubAgent: vi.fn().mockImplementation(mockSchedule),
-          addTaskResultHandler: vi.fn().mockReturnValue(() => {}),  // 返回 no-op cleanup
-        }
-      : undefined;
+  function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', options?: { originClawId?: string; clawId?: string; dialogMessages?: Message[] }) {
+    const taskSystem = {
+      addTaskResultHandler: vi.fn().mockReturnValue(() => {}),
+    };
     return new ExecContextImpl({
       clawId: options?.clawId ?? 'test-claw',
       clawDir: tempDir,
       profile: 'full',
       callerType,
       fs: mockFs,
-      llm: {} as any,  // mining 模式需要 llm
+      llm: {} as any,
       taskSystem: taskSystem as any,
       originClawId: options?.originClawId,
       dialogMessages: options?.dialogMessages,
@@ -57,13 +66,13 @@ describe('DispatchTool', () => {
   }
 
   it('should allow dispatch when callerType is claw', async () => {
-    const mockSchedule = vi.fn().mockResolvedValue('task-123');
-    const ctx = makeCtx('claw', mockSchedule);
+    mockWriteFile.mockResolvedValue('task-123');
+    const ctx = makeCtx('claw');
     const result = await tool.execute({ goal: 'do something' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('task-123');
-    expect(mockSchedule).toHaveBeenCalled();
+    expect(mockWriteFile).toHaveBeenCalled();
   });
 
   it('should succeed when dispatch-skills directory exists', async () => {
@@ -79,8 +88,8 @@ Content.
 `
     );
 
-    const mockSchedule = vi.fn().mockResolvedValue('task-abc');
-    const ctx = makeCtx('claw', mockSchedule);
+    mockWriteFile.mockResolvedValue('task-abc');
+    const ctx = makeCtx('claw');
     const result = await tool.execute({ goal: 'generate report' }, ctx);
 
     expect(result.success).toBe(true);
@@ -88,8 +97,8 @@ Content.
   });
 
   it('should succeed without dispatch-skills directory', async () => {
-    const mockSchedule = vi.fn().mockResolvedValue('task-xyz');
-    const ctx = makeCtx('claw', mockSchedule);
+    mockWriteFile.mockResolvedValue('task-xyz');
+    const ctx = makeCtx('claw');
     const result = await tool.execute({ goal: 'some task' }, ctx);
 
     expect(result.success).toBe(true);
@@ -102,13 +111,13 @@ Content.
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi there' },
       ];
-      const mockSchedule = vi.fn().mockResolvedValue('task-dialog');
-      const ctx = makeCtx('claw', mockSchedule, { dialogMessages });
+      mockWriteFile.mockResolvedValue('task-dialog');
+      const ctx = makeCtx('claw', { dialogMessages });
 
       await tool.execute({ goal: 'follow up', mode: 'describing' }, ctx);
 
-      expect(mockSchedule).toHaveBeenCalled();
-      const call = mockSchedule.mock.calls[0][0];
+      expect(mockWriteFile).toHaveBeenCalled();
+      const call = mockWriteFile.mock.calls[0][2];
       // describing 模式继承 dialog history
       expect(call.messages).toBeDefined();
       expect(call.messages.length).toBe(2);
@@ -118,13 +127,13 @@ Content.
     });
 
     it('should send single user message when ctx.dialogMessages is undefined (mining mode)', async () => {
-      const mockSchedule = vi.fn().mockResolvedValue('task-single');
-      const ctx = makeCtx('claw', mockSchedule);
+      mockWriteFile.mockResolvedValue('task-single');
+      const ctx = makeCtx('claw');
 
       await tool.execute({ goal: 'standalone task' }, ctx);
 
-      expect(mockSchedule).toHaveBeenCalled();
-      const call = mockSchedule.mock.calls[0][0];
+      expect(mockWriteFile).toHaveBeenCalled();
+      const call = mockWriteFile.mock.calls[0][2];
       // mining mode: single user message with goal, no conversation history
       expect(call.messages).toBeDefined();
       expect(call.messages.length).toBe(1);
@@ -136,49 +145,49 @@ Content.
 
   describe('originClawId propagation', () => {
     it('should pass originClawId=motion when Motion calls dispatch', async () => {
-      const mockSchedule = vi.fn().mockResolvedValue('task-motion');
+      mockWriteFile.mockResolvedValue('task-motion');
       // Motion 调用：clawId='motion', originClawId=undefined
-      const ctx = makeCtx('claw', mockSchedule, { clawId: 'motion' });
+      const ctx = makeCtx('claw', { clawId: 'motion' });
 
       await tool.execute({ goal: 'do something' }, ctx);
 
-      expect(mockSchedule).toHaveBeenCalled();
-      expect(mockSchedule.mock.calls[0][0].originClawId).toBe('motion');
+      expect(mockWriteFile).toHaveBeenCalled();
+      expect(mockWriteFile.mock.calls[0][2].originClawId).toBe('motion');
     });
 
     it('should inherit originClawId when originClawId already set', async () => {
-      const mockSchedule = vi.fn().mockResolvedValue('task-inherit');
+      mockWriteFile.mockResolvedValue('task-inherit');
       // 模拟 subagent with full profile，已有 originClawId='motion'
-      const ctx = makeCtx('claw', mockSchedule, { 
-        clawId: 'task-uuid', 
-        originClawId: 'motion' 
+      const ctx = makeCtx('claw', {
+        clawId: 'task-uuid',
+        originClawId: 'motion',
       });
 
       await tool.execute({ goal: 'nested dispatch' }, ctx);
 
-      expect(mockSchedule).toHaveBeenCalled();
+      expect(mockWriteFile).toHaveBeenCalled();
       // 应该继承，不被覆盖
-      expect(mockSchedule.mock.calls[0][0].originClawId).toBe('motion');
+      expect(mockWriteFile.mock.calls[0][2].originClawId).toBe('motion');
     });
 
     it('should use clawId as originClawId when originClawId not set', async () => {
-      const mockSchedule = vi.fn().mockResolvedValue('task-claw');
+      mockWriteFile.mockResolvedValue('task-claw');
       // claw 调用：clawId='claw1', originClawId=undefined
-      const ctx = makeCtx('claw', mockSchedule, { clawId: 'claw1' });
+      const ctx = makeCtx('claw', { clawId: 'claw1' });
 
       await tool.execute({ goal: 'claw task' }, ctx);
 
-      expect(mockSchedule).toHaveBeenCalled();
+      expect(mockWriteFile).toHaveBeenCalled();
       // 应该使用 clawId 作为 originClawId
-      expect(mockSchedule.mock.calls[0][0].originClawId).toBe('claw1');
+      expect(mockWriteFile.mock.calls[0][2].originClawId).toBe('claw1');
     });
   });
 
   describe('CONTRACT_DONE handler', () => {
     function makeCtxWithMonitor(monitorLog: ReturnType<typeof vi.fn>) {
+      mockWriteFile.mockResolvedValue('task-handler-test');
       let capturedHandler: ((taskId: string, callerType: string, result: string, isError: boolean) => Promise<string>) | null = null;
       const taskSystem = {
-        scheduleSubAgent: vi.fn().mockResolvedValue('task-handler-test'),
         addTaskResultHandler: vi.fn().mockImplementation((handler: any) => {
           capturedHandler = handler;
           return () => {};
@@ -190,7 +199,7 @@ Content.
         profile: 'full',
         callerType: 'claw',
         fs: mockFs,
-        llm: {} as any,  // mining 模式需要 llm
+        llm: {} as any,
         taskSystem: taskSystem as any,
         monitor: { log: monitorLog } as any,
       });

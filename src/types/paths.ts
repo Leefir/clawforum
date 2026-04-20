@@ -10,6 +10,8 @@
  */
 /** tasks/results 目录相对路径 */
 export const TASKS_RESULTS_DIR = 'tasks/results';
+/** tasks/pending 目录相对路径 */
+export const TASKS_PENDING_DIR = 'tasks/pending';
 
 export const CLAW_SUBDIRS = [
   'dialog',
@@ -20,7 +22,7 @@ export const CLAW_SUBDIRS = [
   'outbox/pending',
   'outbox/done',
   'outbox/failed',
-  'tasks/pending',
+  TASKS_PENDING_DIR,
   'tasks/running',
   'tasks/done',
   TASKS_RESULTS_DIR,

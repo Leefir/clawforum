@@ -143,6 +143,7 @@ describe('Task System + SubAgent', () => {
     
     taskSystem = createTestTaskSystem(tempDir, mockFs, makeAudit().audit);
     await taskSystem.initialize();
+    taskSystem.startDispatch();
 
     registry = new ToolRegistryImpl();
     registerBuiltinTools(registry);
@@ -159,6 +160,7 @@ describe('Task System + SubAgent', () => {
       await taskSystem.shutdown(100);
       taskSystem = createTestTaskSystem(tempDir, mockFs, makeAudit().audit, createHangingMockLLM());
       await taskSystem.initialize();
+      taskSystem.startDispatch();
       
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -180,6 +182,37 @@ describe('Task System + SubAgent', () => {
       expect(taskSystem.listRunning()).toContain(taskId);
     });
 
+    it('should pass subagent task through watcher → ingest → dispatch chain (phase163)', async () => {
+      await taskSystem.shutdown(100);
+      taskSystem = createTestTaskSystem(tempDir, mockFs, makeAudit().audit, createHangingMockLLM());
+      await taskSystem.initialize();
+      taskSystem.startDispatch();
+
+      const taskId = await taskSystem.scheduleSubAgent({
+        kind: 'subagent',
+        prompt: 'watcher chain probe',
+        tools: ['read'],
+        timeout: 60,
+        maxSteps: 5,
+        parentClawId: 'parent-claw',
+      });
+
+      // 1. scheduleSubAgent 写文件后立即可见于 pending/
+      expect(await mockFs.exists(`tasks/pending/${taskId}.json`)).toBe(true);
+
+      // 2. watcher 拾起 → _ingestPendingFile → _dispatch → movePendingToRunning（异步，给足时间）
+      await waitFor(async () => {
+        return await mockFs.exists(`tasks/running/${taskId}.json`);
+      }, 3000);
+
+      // 3. pending/ 文件已被移走
+      expect(await mockFs.exists(`tasks/pending/${taskId}.json`)).toBe(false);
+      expect(await mockFs.exists(`tasks/running/${taskId}.json`)).toBe(true);
+
+      // 4. listRunning 反映状态
+      expect(taskSystem.listRunning()).toContain(taskId);
+    });
+
     it('should move task to done when completed', async () => {
       // Recreate with mock LLM that returns quickly
       await taskSystem.shutdown(100);
@@ -188,6 +221,7 @@ describe('Task System + SubAgent', () => {
         stop_reason: 'end_turn',
       }]));
       await taskSystem.initialize();
+      taskSystem.startDispatch();
 
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -218,6 +252,7 @@ describe('Task System + SubAgent', () => {
         stop_reason: 'end_turn',
       }]));
       await taskSystem.initialize();
+      taskSystem.startDispatch();
 
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -274,6 +309,7 @@ describe('Task System + SubAgent', () => {
         getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),
       } as unknown as LLMService);
       await taskSystem.initialize();
+      taskSystem.startDispatch();
       
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -306,6 +342,7 @@ describe('Task System + SubAgent', () => {
         stop_reason: 'end_turn',
       }]));
       await taskSystem.initialize();
+      taskSystem.startDispatch();
 
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -334,6 +371,7 @@ describe('Task System + SubAgent', () => {
       await taskSystem.shutdown(100);
       taskSystem = createTestTaskSystem(tempDir, mockFs, makeAudit().audit, createAbortableHangingMockLLM());
       await taskSystem.initialize();
+      taskSystem.startDispatch();
 
       const taskId = await taskSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -382,6 +420,7 @@ describe('Task System + SubAgent', () => {
         stop_reason: 'end_turn',
       }]));
       await failSystem.initialize();
+      failSystem.startDispatch();
 
       const taskId = await failSystem.scheduleSubAgent({
         kind: 'subagent',
@@ -425,6 +464,7 @@ describe('Task System + SubAgent', () => {
         stop_reason: 'end_turn',
       }]));
       await failSystem.initialize();
+      failSystem.startDispatch();
 
       const taskId = await failSystem.scheduleSubAgent({
         kind: 'subagent',

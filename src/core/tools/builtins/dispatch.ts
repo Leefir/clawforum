@@ -7,6 +7,7 @@ import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constan
 import { buildDescribingUserMessage, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { AskMotionTool } from './ask-motion.js';
 import { isDispatchCaller } from '../caller-type.js';
+import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
 
 export class DispatchTool implements Tool {
   readonly name = 'dispatch';
@@ -83,9 +84,9 @@ export class DispatchTool implements Tool {
     const userMessage = isMining
       ? buildMiningUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined)
       : buildDescribingUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined);
-    const taskSystem = ctx.taskSystem;
-    if (!taskSystem) {
-      return { success: false, content: 'TaskSystem not available. dispatch tool requires TaskSystem.' };
+    const taskHandlerHost = ctx.taskSystem;
+    if (!taskHandlerHost) {
+      return { success: false, content: 'dispatch tool requires TaskSystem for handler registration.' };
     }
     if (isMining && !ctx.llm) {
       return { success: false, content: 'Mining mode requires LLM service, but none is available.' };
@@ -95,7 +96,7 @@ export class DispatchTool implements Tool {
     let dispatcherTaskId: string | null = null;
     let removeHandler: (() => void) | null = null;
 
-    removeHandler = taskSystem.addTaskResultHandler(async (taskId, resultCallerType, result, isError) => {
+    removeHandler = taskHandlerHost.addTaskResultHandler(async (taskId, resultCallerType, result, isError) => {
       if (isDispatchCaller(resultCallerType) && taskId === dispatcherTaskId) {
         removeHandler?.();  // 任务完成一次后即注销，防止重复处理
         if (isError) return result;
@@ -229,7 +230,7 @@ export class DispatchTool implements Tool {
 
     // 调度 dispatcher（之后填入 dispatcherTaskId 供钩子定向）
     try {
-      dispatcherTaskId = await taskSystem.scheduleSubAgent({
+      dispatcherTaskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
         kind: 'subagent',
         messages: isMining
           ? [{ role: 'user' as const, content: userMessage }]  // miner 从空白开始，历史通过 AskMotionTool 查询
@@ -247,7 +248,7 @@ export class DispatchTool implements Tool {
         extraTools: askMotionInstance ? [askMotionInstance] : undefined,
       });
     } catch (e) {
-      removeHandler?.();  // scheduleSubAgent 失败，任务未创建，注销未使用的 handler
+      removeHandler?.();  // 写文件失败，任务未创建，注销未使用的 handler
       throw e;
     }
 

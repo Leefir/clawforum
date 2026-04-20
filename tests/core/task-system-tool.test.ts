@@ -122,6 +122,7 @@ describe('TaskSystem Tool Tasks', () => {
     );
     
     await taskSystem.initialize();
+    taskSystem.startDispatch();
   });
 
   afterEach(async () => {
@@ -359,6 +360,7 @@ describe('TaskSystem Tool Tasks', () => {
 
       const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
+      taskSystem2.startDispatch();
 
       const taskId = await taskSystem2.scheduleTool(
         'testTool',
@@ -495,9 +497,14 @@ describe('TaskSystem Tool Tasks', () => {
         { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       await taskSystem2.initialize();
-
-      // Subagent task should be in pendingQueue (tool tasks are discarded)
-      expect(taskSystem2.listPending()).toContain(taskId);
+      // phase163: recover 仅复原 running→pending 文件回搬，不动队列；
+      // 断言必须在 startDispatch 之前 —— 之后 _initialScanPending 会异步把文件 ingest + 移到 running/。
+      expect(
+        await fs.access(path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`))
+          .then(() => true)
+          .catch(() => false)
+      ).toBe(true);
+      taskSystem2.startDispatch();
 
       await taskSystem2.shutdown(100).catch(() => {});
     });
@@ -542,6 +549,7 @@ describe('TaskSystem Tool Tasks', () => {
         { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       await taskSystem2.initialize();
+      taskSystem2.startDispatch();
 
       // Tool task should be moved to failed/ (not pending/), callback is lost
       expect(taskSystem2.listPending()).not.toContain(taskId);
@@ -593,6 +601,7 @@ describe('TaskSystem Tool Tasks', () => {
         { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       await taskSystem2.initialize();
+      taskSystem2.startDispatch();
 
       // Tool task should be moved to failed/ (not queued), callback is lost
       expect(taskSystem2.listPending()).not.toContain(taskId);
@@ -648,6 +657,7 @@ describe('TaskSystem Tool Tasks', () => {
       // First restart: result.txt → .sent, inbox message written
       const ts1 = makeTs();
       await ts1.initialize();
+      ts1.startDispatch();
       await ts1.shutdown(100).catch(() => {});
 
       // sendResult() 内部会重写 result.txt，但 .sent 标记必须存在
@@ -660,6 +670,7 @@ describe('TaskSystem Tool Tasks', () => {
       // Second restart: task is in done/, inbox should stay at 1 (no duplicate)
       const ts2 = makeTs();
       await ts2.initialize();
+      ts2.startDispatch();
       await ts2.shutdown(100).catch(() => {});
 
       const inboxAfterSecond = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -708,6 +719,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await ts.initialize();
+      ts.startDispatch();
       await ts.shutdown(100).catch(() => {});
 
       // Task must NOT be re-queued (result was already delivered)
@@ -795,6 +807,7 @@ describe('TaskSystem Tool Tasks', () => {
 
       const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
+      taskSystem2.startDispatch();
 
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'fallback content' });
       await taskSystem2.scheduleTool('testTool', executeCallback, 'parent-claw');
@@ -1116,6 +1129,7 @@ describe('TaskSystem Tool Tasks', () => {
       );
 
       await freshSystem.initialize();
+      freshSystem.startDispatch();
       // Tool task should be moved to failed/ during recovery (callback lost), not executed
 
       // Task should be in failed/, not pending or running

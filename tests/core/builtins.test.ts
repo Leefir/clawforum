@@ -16,6 +16,14 @@ import { makeAudit } from '../helpers/audit.js';
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 
+const { mockWriteFile } = vi.hoisted(() => ({
+  mockWriteFile: vi.fn(),
+}));
+
+vi.mock('../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+  writePendingSubagentTaskFile: mockWriteFile,
+}));
+
 describe('Builtin Tools', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
@@ -913,87 +921,52 @@ describe('Builtin Tools', () => {
   });
 
   describe('spawn tool', () => {
-    it('should require TaskSystem', async () => {
-      const result = await spawnTool.execute({ prompt: 'test task' }, ctx);
-
-      // Without TaskSystem injected, should fail
-      expect(result.success).toBe(false);
-      expect(result.content).toContain('TaskSystem');
+    beforeEach(() => {
+      mockWriteFile.mockClear();
     });
 
-    it('should accept maxSteps parameter up to 50', async () => {
-      // maxSteps > 50 should be capped or rejected
-      // This test verifies the parameter is accepted
-      const result = await spawnTool.execute({
-        prompt: 'test task',
-        maxSteps: 100  // Over the 50 limit
-      }, ctx);
+    it('should pass maxSteps from context', async () => {
+      mockWriteFile.mockResolvedValue('task-xxx');
 
-      // Should fail due to no TaskSystem, but schema validation should pass
-      expect(result.success).toBe(false);
-      // Error should be about TaskSystem, not about maxSteps
-      expect(result.content).toContain('TaskSystem');
-    });
-
-    it('messages 非数组时忽略，正常走 TaskSystem 路径', async () => {
-      // 注入最小 fake TaskSystem，使代码能越过 !taskSystem 检查
-      const fakeTaskSystem = {
-        scheduleTask: vi.fn().mockResolvedValue('fake-task-id'),
-        // scheduleSubAgentWithTracking 内部调用的是 scheduleTask
-      };
-      const ctxWithTs = new ExecContextImpl({
+      const ctxWithMaxSteps = new ExecContextImpl({
         clawId: 'test-claw',
         clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
-        taskSystem: fakeTaskSystem as any,
+        outboxWriter,
+        maxSteps: 42,
       });
 
-      // messages 不是数组 → 应被忽略（返回 undefined），不报 Invalid messages 错误
-      // scheduleSubAgentWithTracking 最终可能失败，但错误不是 messages 相关
-      const result = await spawnTool.execute({ prompt: 'test', messages: 'not-an-array' as any }, ctxWithTs);
+      const result = await spawnTool.execute({
+        prompt: 'test task',
+      }, ctxWithMaxSteps);
+
+      expect(result.success).toBe(true);
+      expect(mockWriteFile).toHaveBeenCalled();
+      expect(mockWriteFile.mock.calls[0][2].maxSteps).toBe(42);
+      expect(mockWriteFile.mock.calls[0][2].prompt).toBe('test task');
+    });
+
+    it('messages 非数组时忽略，正常调度', async () => {
+      const result = await spawnTool.execute({ prompt: 'test', messages: 'not-an-array' as any }, ctx);
       // 不应是 Invalid messages 错误
       expect(result.content).not.toContain('Invalid messages');
     });
 
     it('messages 含无效元素时返回 Invalid messages 错误', async () => {
-      const fakeTaskSystem = {
-        scheduleTask: vi.fn().mockResolvedValue('fake-task-id'),
-      };
-      const ctxWithTs = new ExecContextImpl({
-        clawId: 'test-claw',
-        clawDir: tempDir,
-        profile: 'full',
-        fs: mockFs,
-        taskSystem: fakeTaskSystem as any,
-      });
-
-      // messages 数组中含 null 元素 → 应触发 Invalid messages
       const result = await spawnTool.execute({
         prompt: 'test',
         messages: [null] as any,
-      }, ctxWithTs);
+      }, ctx);
       expect(result.success).toBe(false);
       expect(result.content).toContain('Invalid messages');
     });
 
     it('messages 含无 role 字段的对象时返回 Invalid messages 错误', async () => {
-      const fakeTaskSystem = {
-        scheduleTask: vi.fn().mockResolvedValue('fake-task-id'),
-      };
-      const ctxWithTs = new ExecContextImpl({
-        clawId: 'test-claw',
-        clawDir: tempDir,
-        profile: 'full',
-        fs: mockFs,
-        taskSystem: fakeTaskSystem as any,
-      });
-
-      // role 不是 string
       const result = await spawnTool.execute({
         prompt: 'test',
         messages: [{ role: 42, content: 'hello' }] as any,
-      }, ctxWithTs);
+      }, ctx);
       expect(result.success).toBe(false);
       expect(result.content).toContain('Invalid messages');
     });

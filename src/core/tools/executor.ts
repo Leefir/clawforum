@@ -72,7 +72,13 @@ export interface ExecContext {
   subagentMaxSteps?: number;
   /** Outbox writer for send tool */
   outboxWriter?: OutboxWriter;
-  /** TaskSystem for async tool execution */
+  /**
+   * TaskSystem 实例。phase163 后限定用途：
+   *   - async tool 调度（scheduleTool 路径，独立 phase 清理候选）
+   *   - dispatch tool addTaskResultHandler（B 类）
+   *   - status tool queueLength 只读
+   * 透传到 ExecContext，本身不应被工具用于 subagent 调度。
+   */
   taskSystem?: TaskSystem;
   /** 当前对话 messages（由 runtime._runReact 注入，供 dispatch 工具读取） */
   dialogMessages?: Message[];
@@ -342,6 +348,7 @@ export interface ToolExecutorOptions {
   fs: FileSystem;
   monitor?: Logger;
   llm?: LLMService;
+  /** @see ToolExecutorOptions.taskSystem — 透传至 ExecContext */
   taskSystem?: TaskSystem;
   profile?: ToolProfile;
   outboxWriter?: OutboxWriter;
@@ -359,6 +366,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private fs: FileSystem;
   private monitor?: Logger;
   private llm?: LLMService;
+  /** @see ToolExecutorOptions.taskSystem */
   private taskSystem?: TaskSystem;
   private profile: ToolProfile;
   private outboxWriter?: OutboxWriter;

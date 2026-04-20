@@ -97,6 +97,9 @@ export const AUDIT_EVENTS = {
    * 载荷：reason(daemon_dead|user_quit|stream_end)
    */
   VIEWPORT_SHUTDOWN: 'viewport_shutdown',
+
+  // --- TaskSystem ---
+  PENDING_INGEST_FAILED: 'pending_ingest_failed',
 } as const;
 
 export type AuditEventName = typeof AUDIT_EVENTS[keyof typeof AUDIT_EVENTS];
