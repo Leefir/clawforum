@@ -17,9 +17,12 @@ import type { Message } from '../../src/types/message.js';
 import { AUDIT_EVENTS } from '../../src/foundation/audit/events.js';
 
 describe('Session Persistence', () => {
-  const testDir = '.test-session';
+  let testDir: string;
   beforeEach(async () => {
-    await fs.rm(testDir, { recursive: true, force: true });
+    testDir = path.join(
+      os.tmpdir(),
+      `.test-session-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    );
     await fs.mkdir(testDir, { recursive: true });
   });
 

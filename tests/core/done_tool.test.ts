@@ -11,9 +11,10 @@ import * as path from 'path';
 import { doneTool } from '../../src/core/tools/builtins/done.js';
 import { ContractManager } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import * as os from 'os';
 
-const testDir = '.test-done-tool';
-const clawDir = path.join(testDir, 'claws', 'test-claw');
+let testDir: string;
+let clawDir: string;
 
 /** 最小 ExecContext，只注入 contractManager */
 function makeCtx(contractManager: ContractManager) {
@@ -29,6 +30,11 @@ describe('doneTool', () => {
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
+    testDir = path.join(
+      os.tmpdir(),
+      `.test-done-tool-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    );
+    clawDir = path.join(testDir, 'claws', 'test-claw');
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(clawDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });

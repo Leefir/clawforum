@@ -11,12 +11,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 
 describe('Outbox (Send Tool)', () => {
-  const testDir = '.test-outbox';
+  let testDir: string;
 
   beforeEach(async () => {
-    await fs.rm(testDir, { recursive: true, force: true });
+    testDir = path.join(
+      os.tmpdir(),
+      `.test-outbox-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    );
     await fs.mkdir(testDir, { recursive: true });
   });
 

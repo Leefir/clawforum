@@ -30,14 +30,20 @@ vi.mock('../../src/constants.js', async (importOriginal) => {
   };
 });
 
-const testDir = '.test-contract-manager';
-const clawDir = path.join(testDir, 'claws', 'test-claw');
+let testDir: string;
+let clawDir: string;
 
 describe('ContractManager', () => {
   let manager: ContractManager;
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
+    testDir = path.join(
+      os.tmpdir(),
+      `.test-contract-manager-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    );
+    clawDir = path.join(testDir, 'claws', 'test-claw');
+
     vi.clearAllMocks();
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(clawDir, { recursive: true });
