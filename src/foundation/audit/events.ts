@@ -71,6 +71,38 @@ export const AUDIT_EVENTS = {
 
   // --- Viewport UI ---
   VIEWPORT_UI_CROSS_POLLUTION: 'viewport_ui_cross_pollution',
+
+  /**
+   * chat-viewport handleEvent 收到的 stream 事件批次聚合。
+   * 触发：每 INGEST_BATCH_SIZE 事件或 INGEST_FLUSH_MS 毫秒（先到者）。
+   * 载荷：batch_size / types（JSON histogram）/ span_ms（本批第一条到最后一条耗时）
+   */
+  VIEWPORT_EVENT_INGEST: 'viewport_event_ingest',
+
+  /**
+   * chat-viewport updateDisplay 渲染调用批次聚合。
+   * 触发：每 RENDER_BATCH_SIZE 次或 RENDER_FLUSH_MS 毫秒。
+   * 载荷：calls / total_ms / output_lines（最后一次的 outputLines 长度）/ suffix_lines
+   */
+  VIEWPORT_RENDER_BATCH: 'viewport_render_batch',
+
+  /**
+   * Spinner 启停（不聚合，每次写）。
+   * 载荷：action(start|stop) / text / elapsed_ms（仅 stop 时）
+   */
+  VIEWPORT_SPINNER_LIFECYCLE: 'viewport_spinner_lifecycle',
+
+  /**
+   * streamReader 意外断开（watcher error / fs unlink）。
+   * 载荷：path / reason
+   */
+  VIEWPORT_STREAM_DETACHED: 'viewport_stream_detached',
+
+  /**
+   * chat-viewport 退出。cleanup / daemon dead 检测 / ESC 中断 / stream 结束统一走此事件。
+   * 载荷：reason(daemon_dead|user_esc|user_quit|stream_end)
+   */
+  VIEWPORT_SHUTDOWN: 'viewport_shutdown',
 } as const;
 
 export type AuditEventName = typeof AUDIT_EVENTS[keyof typeof AUDIT_EVENTS];
