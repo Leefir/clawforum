@@ -10,6 +10,9 @@ import * as fsNative from 'fs';
 import { waitForInbox, startDaemonLoop } from '../../src/cli/commands/daemon-loop.js';
 import type { ClawRuntime } from '../../src/core/runtime.js';
 import type { Audit } from '../../src/foundation/audit/index.js';
+import type { Watcher } from '../../src/foundation/file-watcher/types.js';
+import type { FileSystem } from '../../src/foundation/fs/types.js';
+import { createWatcher } from '../../src/foundation/file-watcher/index.js';
 import { writeInboxMessage } from '../../src/utils/inbox-writer.js';
 import { IdleTimeoutSignal, UserInterrupt, PriorityInboxInterrupt } from '../../src/types/signals.js';
 
@@ -21,6 +24,10 @@ vi.mock('fs', async (importOriginal) => {
 
 vi.mock('../../src/utils/inbox-writer.js', () => ({
   writeInboxMessage: vi.fn(),
+}));
+
+vi.mock('../../src/foundation/file-watcher/index.js', () => ({
+  createWatcher: vi.fn(),
 }));
 
 // ─── fix 9: interrupt poller circuit breaker ──────────────────────────────────
@@ -418,5 +425,99 @@ describe('startDaemonLoop - iteration audit', () => {
     stop();
     vi.advanceTimersByTime(1_001);
     await flushMicrotasks();
+  });
+});
+
+// ─── waitForInbox ──────────────────────────────────────────────────────────────
+
+describe('waitForInbox', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('resolves when createWatcher callback fires (new file)', async () => {
+    vi.useFakeTimers();
+
+    // mock createWatcher 捕获 callback 供手动触发
+    let capturedCallback: (() => void) | null = null;
+    const mockWatcher = { close: vi.fn().mockResolvedValue(undefined) };
+    vi.mocked(createWatcher).mockImplementation((_fs, _dir, cb) => {
+      capturedCallback = cb;
+      return mockWatcher as unknown as Watcher;
+    });
+
+    const mockFs = {
+      ensureDirSync: vi.fn(),
+    } as unknown as FileSystem;
+    const mockAudit = { write: vi.fn() } as unknown as Audit;
+
+    const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 60_000);
+
+    await Promise.resolve();
+    expect(capturedCallback).not.toBeNull();
+
+    // 手动触发 callback 模拟新文件到达
+    capturedCallback!();
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(mockWatcher.close).toHaveBeenCalled();
+  });
+
+  it('resolves on timeout when no file arrives', async () => {
+    vi.useFakeTimers();
+
+    const mockWatcher = { close: vi.fn().mockResolvedValue(undefined) };
+    vi.mocked(createWatcher).mockReturnValue(mockWatcher as unknown as Watcher);
+
+    const mockFs = { ensureDirSync: vi.fn() } as unknown as FileSystem;
+    const mockAudit = { write: vi.fn() } as unknown as Audit;
+
+    const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 1_000);
+
+    vi.advanceTimersByTime(1_001);
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(mockWatcher.close).toHaveBeenCalled();
+  });
+
+  it('resolves immediately when ensureDirSync throws', async () => {
+    vi.useFakeTimers();
+
+    const mockFs = {
+      ensureDirSync: vi.fn(() => { throw new Error('EACCES'); }),
+    } as unknown as FileSystem;
+    const mockAudit = { write: vi.fn() } as unknown as Audit;
+
+    const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 60_000);
+
+    // catch 块 void done() 应立即 resolve（不需 advance timer）
+    await expect(promise).resolves.toBeUndefined();
+  });
+
+  it('settled guard: multiple done() triggers only one resolve', async () => {
+    // 可选 4 it：验证 fix 7
+    vi.useFakeTimers();
+
+    let capturedCallback: (() => void) | null = null;
+    const mockWatcher = { close: vi.fn().mockResolvedValue(undefined) };
+    vi.mocked(createWatcher).mockImplementation((_fs, _dir, cb) => {
+      capturedCallback = cb;
+      return mockWatcher as unknown as Watcher;
+    });
+
+    const mockFs = { ensureDirSync: vi.fn() } as unknown as FileSystem;
+    const mockAudit = { write: vi.fn() } as unknown as Audit;
+
+    const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 1_000);
+    await Promise.resolve();
+
+    // 同时触发 callback + timeout
+    capturedCallback!();
+    vi.advanceTimersByTime(1_001);
+
+    await expect(promise).resolves.toBeUndefined();
+    // close 只调用一次
+    expect(mockWatcher.close).toHaveBeenCalledTimes(1);
   });
 });
