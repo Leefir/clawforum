@@ -30,7 +30,7 @@ import type { OutboxWriter } from '../core/communication/index.js';
 import type { SessionManager } from '../foundation/session-store/index.js';
 
 import { Heartbeat } from '../core/heartbeat.js';
-import { CronRunner, parseSchedule } from '../core/cron/runner.js';
+import { createCronRunner, parseSchedule, CronRunner } from '../core/cron/index.js';
 import { runDiskMonitor } from '../core/cron/jobs/disk-monitor.js';
 import { runLlmStats } from '../core/cron/jobs/llm-stats.js';
 import { runDeepDream } from '../core/cron/jobs/deep-dream.js';
@@ -421,7 +421,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     }
 
     try {
-      cronRunner = new CronRunner([
+      cronRunner = createCronRunner([
         {
           name: 'disk-monitor',
           enabled: globalConfig.cron?.jobs?.disk_monitor?.enabled ?? true,

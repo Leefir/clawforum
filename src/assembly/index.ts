@@ -5,7 +5,7 @@ import type { ProcessManager } from '../foundation/process-manager/manager.js';
 import type { ClawRuntime } from '../core/runtime.js';
 import type { MotionRuntime } from '../core/motion/runtime.js';
 import type { Heartbeat } from '../core/heartbeat.js';
-import type { CronRunner } from '../core/cron/runner.js';
+import type { CronRunner } from '../core/cron/index.js';
 import type { ClawGlobalConfig, ClawConfig } from '../cli/config.js';
 import type { Gateway } from '../core/gateway/types.js';
 
