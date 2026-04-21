@@ -14,6 +14,7 @@ import type { InboxMessage } from '../../types/contract.js';
 import { startDaemonLoop } from './daemon-loop.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
+import { createSystemAudit, type Audit } from '../../foundation/audit/index.js';
 import { ContractManager, type MotionReviewContext } from '../../core/contract/manager.js';
 import { CliError } from '../errors.js';
 import { assemble, disassemble, LockConflictError } from '../../assembly/index.js';
@@ -30,7 +31,11 @@ export async function daemonCommand(name: string): Promise<void> {
 
   // 配置
   const dir = isMotion ? getMotionDir() : getClawDir(name);
-  
+
+  // pre-assemble audit sink（phase189 §7.A3 清零；assemble 前的失败也需 audit）
+  const preAssembleFs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
+  const preAssembleAudit: Audit = createSystemAudit(preAssembleFs, dir);
+
   // lockfile 单实例保护（先写 PID 文件，后续用 ProcessManager 接管）
   const statusDir = path.join(dir, 'status');
   const pidFile = path.join(statusDir, 'pid');
@@ -51,11 +56,14 @@ export async function daemonCommand(name: string): Promise<void> {
       clawConfig,
     });
   } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
     if (e instanceof LockConflictError) {
+      preAssembleAudit.write('assemble_failed', 'module=lockfile', 'phase=preconstruct', `reason=${reason}`);
       console.error(`[daemon] ${e.message}`);
       process.exit(1);
     }
-    console.error('[daemon] assemble failed:', e instanceof Error ? e.message : String(e));
+    preAssembleAudit.write('assemble_failed', 'module=pre_assemble', 'phase=preconstruct', `reason=${reason}`);
+    console.error('[daemon] assemble failed:', reason);
     process.exit(1);
   }
 

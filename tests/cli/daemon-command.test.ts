@@ -69,6 +69,12 @@ vi.mock('../../src/core/contract/manager.js', () => ({
   })),
 }));
 
+vi.mock('../../src/foundation/audit/index.js', () => ({
+  createSystemAudit: vi.fn(() => ({
+    write: mockState.mockAuditWrite,
+  })),
+}));
+
 vi.mock('../../src/cli/config.js', () => ({
   loadGlobalConfig: vi.fn(() => ({})),
   loadClawConfig: vi.fn(() => ({})),
@@ -201,7 +207,7 @@ describe('daemonCommand - A4a startup failure', () => {
     mockState.mockRuntime.resumeContractIfPaused.mockResolvedValue(undefined);
   });
 
-  it('it #3: assemble LockConflictError → console + exit 1（无 audit）', async () => {
+  it('it #3: assemble LockConflictError → audit module=lockfile + console + exit 1', async () => {
     const { LockConflictError } = await import('../../src/assembly/index.js');
     const lockErr = new LockConflictError('test-claw');
     mockState.mockAssemble.mockRejectedValue(lockErr);
@@ -210,12 +216,17 @@ describe('daemonCommand - A4a startup failure', () => {
     await expect(daemonCommand('test-claw')).rejects.toThrow('process.exit(1)');
 
     expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Lock conflict'));
-    // 无 audit：phase172 §7.A3 phase173 纠正的结构限制
-    expect(mockState.mockAuditWrite).not.toHaveBeenCalled();
+    // phase189 §7.A3 清零：LockConflictError 分支补 audit
+    expect(mockState.mockAuditWrite).toHaveBeenCalledWith(
+      'assemble_failed',
+      'module=lockfile',
+      'phase=preconstruct',
+      expect.stringMatching(/reason=.*Lock conflict/),
+    );
     errSpy.mockRestore();
   });
 
-  it('it #4: assemble 其他失败 → console + exit 1（无 audit）', async () => {
+  it('it #4: assemble 其他失败 → audit module=pre_assemble + console + exit 1', async () => {
     mockState.mockAssemble.mockRejectedValue(new Error('mock assemble crash'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -225,7 +236,12 @@ describe('daemonCommand - A4a startup failure', () => {
       '[daemon] assemble failed:',
       'mock assemble crash',
     );
-    expect(mockState.mockAuditWrite).not.toHaveBeenCalled();
+    expect(mockState.mockAuditWrite).toHaveBeenCalledWith(
+      'assemble_failed',
+      'module=pre_assemble',
+      'phase=preconstruct',
+      expect.stringMatching(/reason=.*mock assemble crash/),
+    );
     errSpy.mockRestore();
   });
 
