@@ -1,7 +1,7 @@
 import path from 'path';
 import * as fsNative from 'fs';
 
-import { AuditWriter } from '../foundation/audit/writer.js';
+import { createAuditWriter, type AuditWriter } from '../foundation/audit/index.js';
 import { SNAPSHOT_IGNORE_PATTERNS, createSnapshot } from '../foundation/snapshot/index.js';
 import type { Snapshot } from '../foundation/snapshot/index.js';
 import { createStreamWriter } from '../foundation/stream/index.js';
@@ -12,9 +12,9 @@ import { createAgentProcessManager } from '../cli/commands/process-manager-facto
 import { type ClawRuntime, type RuntimeDependencies } from '../core/runtime.js';
 import { type MotionRuntime } from '../core/motion/runtime.js';
 import { createRuntime } from '../core/create-runtime.js';
-import { LLMServiceImpl } from '../foundation/llm/service.js';
+import { createLLMService, type LLMServiceImpl } from '../foundation/llm/index.js';
 import { JsonlLogger } from '../foundation/monitor/monitor.js';
-import { ToolRegistryImpl } from '../core/tools/registry.js';
+import { createToolRegistry, type ToolRegistryImpl } from '../core/tools/index.js';
 import { ToolExecutorImpl } from '../core/tools/executor.js';
 import { createSkillRegistry, SkillRegistry } from '../core/skill/index.js';
 import { ContractManager, createContractManager } from '../core/contract/index.js';
@@ -93,7 +93,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- 1. AuditWriter (daemon.ts L100-104) ---
   let auditWriter: AuditWriter;
   try {
-    auditWriter = new AuditWriter(systemFs, 'audit.tsv', auditMaxSizeMb);
+    auditWriter = createAuditWriter(systemFs, 'audit.tsv', auditMaxSizeMb);
   } catch (e) {
     throw new Error(`Assembly: AuditWriter construct failed: ${errMsg(e)}`, { cause: e });
   }
@@ -152,7 +152,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- L3-L5: llm ---
   let llm: LLMServiceImpl;
   try {
-    llm = new LLMServiceImpl(llmConfig);
+    llm = createLLMService(llmConfig);
   } catch (e) {
     auditWriter.write('assemble_failed', `module=llm`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: LLMService construct failed: ${errMsg(e)}`, { cause: e });
@@ -161,7 +161,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- L3-L5: toolRegistry（空；DispatchTool 留给 Runtime） ---
   let toolRegistry: ToolRegistryImpl;
   try {
-    toolRegistry = new ToolRegistryImpl();
+    toolRegistry = createToolRegistry();
     registerBuiltinTools(toolRegistry);
   } catch (e) {
     auditWriter.write('assemble_failed', `module=tool_registry`, `phase=construct`, `reason=${errMsg(e)}`);
@@ -186,7 +186,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- L3-L5: verifierRegistry + contractManager ---
   let contractManager: ContractManager;
   try {
-    const verifierRegistry = new ToolRegistryImpl();
+    const verifierRegistry = createToolRegistry();
     for (const tool of toolRegistry.getForProfile('verifier')) {
       verifierRegistry.register(tool);
     }

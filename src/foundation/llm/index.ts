@@ -26,6 +26,13 @@ export { CustomAnthropicAdapter } from './custom-anthropic.js';
 // Abort helper
 export { withCombinedAbortSignal, type CombinedAbortHandle } from './abort-helper.js';
 
+import { LLMServiceImpl } from './service.js';
+import type { LLMServiceConfig } from './types.js';
+
+export function createLLMService(config: LLMServiceConfig): LLMServiceImpl {
+  return new LLMServiceImpl(config);
+}
+
 /**
  * LLMService interface
  * 

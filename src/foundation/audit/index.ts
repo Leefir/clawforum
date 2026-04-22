@@ -28,3 +28,11 @@ export { AuditWriter, AUDIT_FILE } from './writer.js';
 export function createSystemAudit(fs: FileSystem, baseDir: string): Audit {
   return new AuditWriter(fs, path.join(baseDir, AUDIT_FILE));
 }
+
+export function createAuditWriter(
+  fs: FileSystem,
+  filePath: string,
+  maxSizeMb?: number | null,
+): AuditWriter {
+  return new AuditWriter(fs, filePath, maxSizeMb);
+}
