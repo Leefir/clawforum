@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { executeStep } from '../../src/core/react/step-executor.js';
+import type { LLMCallInfo } from '../../src/core/react/step-executor.js';
 import type { LLMService } from '../../src/foundation/llm/index.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
 import type { LLMResponse, Message } from '../../src/types/message.js';
@@ -293,5 +294,29 @@ describe('StepExecutor', () => {
     });
     expect(result.kind).toBe('context_window_exceeded');
     expect(messages).toHaveLength(0);
+  });
+
+  it('onLLMResult.error contains JSON fields when LLM throws a non-Error object', async () => {
+    const plainObjError = { code: 'ECONNRESET', detail: 'connection reset' };
+    const llm = makeMockLLM([{ content: [{ type: 'text', text: '' }], stop_reason: 'end_turn' }]);
+    llm.stream.mockImplementationOnce(() => {
+      async function* gen(): AsyncIterableIterator<StreamChunk> {
+        throw plainObjError;
+      }
+      return gen();
+    });
+
+    const results: LLMCallInfo[] = [];
+    await expect(
+      executeStep({
+        messages: [], systemPrompt: '', llm, tools: [],
+        executor: makeExecutor({}), registry: makeRegistry({}), ctx: makeCtx(),
+        callbacks: { onLLMResult: (info) => results.push(info) },
+      })
+    ).rejects.toThrow();
+
+    expect(results).toHaveLength(1);
+    expect(results[0].error).not.toBe('[object Object]');
+    expect(results[0].error).toContain('ECONNRESET');
   });
 });

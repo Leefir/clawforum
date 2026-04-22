@@ -92,7 +92,11 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
       inputTokens: 0,
       outputTokens: 0,
       latencyMs: Date.now() - llmStartTime,
-      error: err instanceof Error ? err.message : String(err),
+      error: err instanceof Error
+        ? err.message
+        : (typeof err === 'object' && err !== null
+            ? JSON.stringify(err, Object.getOwnPropertyNames(err))
+            : String(err)),
     };
     callbacks?.onLLMResult?.(info);
     throw err;
@@ -243,7 +247,7 @@ async function collectStreamResponse(
     try {
       return JSON.parse(raw || '{}');
     } catch (err) {
-      console.error(`[loop] Failed to parse tool input for "${toolName}": ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`[step-executor] Failed to parse tool input for "${toolName}": ${err instanceof Error ? err.message : String(err)}`);
       return { __parseError: true, __raw: raw ?? '' };
     }
   }

@@ -675,7 +675,7 @@ describe('ReAct Loop', () => {
     });
 
     expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[loop] Failed to parse tool input for "read"'),
+      expect.stringContaining('[step-executor] Failed to parse tool input for "read"'),
     );
     // Tool executor should not have been called with the broken tool
     expect(mockExecutor.execute).not.toHaveBeenCalledWith(
