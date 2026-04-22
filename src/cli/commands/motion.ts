@@ -14,7 +14,7 @@ import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getMotionDir, getGlobalConfigPath, getClawforumRoot } from '../config.js';
 import { ProcessManager } from '../../foundation/process-manager/index.js';
-import { PROCESS_SPAWN_CONFIRM_MS } from '../../constants.js';
+import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';

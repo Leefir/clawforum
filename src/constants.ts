@@ -13,16 +13,6 @@
 export const MOTION_CLAW_ID = 'motion';
 
 // ----------------------------------------------------------------------------
-// Process Management
-// ----------------------------------------------------------------------------
-
-/** Max time to wait for process spawn confirmation (ms) — polls every 50ms */
-export const PROCESS_SPAWN_CONFIRM_MS = 3000;
-
-/** Grace period for SIGTERM before SIGKILL (ms) */
-export const SIGTERM_GRACE_MS = 5000;
-
-// ----------------------------------------------------------------------------
 // File System Tools
 // ----------------------------------------------------------------------------
 

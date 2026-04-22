@@ -24,7 +24,8 @@ import { ContractManager } from '../../core/contract/manager.js';
 import { createDirContext } from '../cli-factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { PROCESS_SPAWN_CONFIRM_MS, MOTION_CLAW_ID } from '../../constants.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
+import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 import { CliError } from '../errors.js';
 import { startCommand as watchdogStartCommand, isWatchdogAlive } from './watchdog.js';
 

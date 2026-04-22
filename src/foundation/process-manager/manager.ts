@@ -11,11 +11,11 @@ import { openSync, closeSync } from 'fs';  // openSync/closeSync 仅用于日志
 import type { FileSystem } from '../fs/types.js';
 import type { Audit } from '../audit/index.js';
 import { ProcessListUnavailable } from './errors.js';
-import {
-  PROCESS_SPAWN_CONFIRM_MS,
-  SIGTERM_GRACE_MS,
-} from '../../constants.js';
 import { AUDIT_EVENTS } from '../audit/events.js';
+
+export const PROCESS_SPAWN_CONFIRM_MS = 3000;
+export const SIGTERM_GRACE_MS = 5000;
+const SPAWN_POLL_INTERVAL_MS = 50;
 
 /**
  * Thrown when a lock is already held by another live process.
@@ -447,11 +447,11 @@ export class ProcessManager {
       await this.fs.writeAtomic(pidFile, String(pid));
 
       // Poll until alive or timeout (handles slow ESM startup on constrained servers).
-      // Always checks at least once; retries every 50ms up to PROCESS_SPAWN_CONFIRM_MS total.
+      // Always checks at least once; retries every SPAWN_POLL_INTERVAL_MS up to PROCESS_SPAWN_CONFIRM_MS total.
       let alive = this.isAlive(clawId);
       const deadline = Date.now() + PROCESS_SPAWN_CONFIRM_MS;
       while (!alive && Date.now() < deadline) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, SPAWN_POLL_INTERVAL_MS));
         alive = this.isAlive(clawId);
       }
       if (!alive) {

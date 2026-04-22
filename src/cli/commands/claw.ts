@@ -61,7 +61,8 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { AuditWriter } from '../../foundation/audit/index.js';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
-import { PROCESS_SPAWN_CONFIRM_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
+import { DEFAULT_MAX_STEPS } from '../../constants.js';
+import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 
 export async function createCommand(name: string): Promise<void> {
   // Load global config (ensures initialized)
