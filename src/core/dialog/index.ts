@@ -9,4 +9,4 @@ export { SessionManager } from '../../foundation/session-store/index.js';
 export type { SessionData } from '../../foundation/session-store/index.js';
 
 // Context injection stays here
-export { ContextInjector } from './injector.js';
+export { ContextInjector, createContextInjector } from './injector.js';

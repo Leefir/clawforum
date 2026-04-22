@@ -137,3 +137,11 @@ export class ContextInjector {
     return sections.join('\n\n');
   }
 }
+
+/**
+ * Factory: createContextInjector
+ * 装配期构造 ContextInjector / 承 phase212 D.1 工厂模板.
+ */
+export function createContextInjector(opts: ContextInjectorOptions): ContextInjector {
+  return new ContextInjector(opts);
+}

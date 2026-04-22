@@ -83,9 +83,13 @@ vi.mock('../../src/core/motion/runtime.js', () => ({
   }),
 }));
 
-vi.mock('../../src/core/heartbeat.js', () => ({
-  Heartbeat: vi.fn(() => mockHeartbeat),
-}));
+vi.mock('../../src/core/heartbeat.js', () => {
+  const Ctor = vi.fn(() => mockHeartbeat);
+  return {
+    Heartbeat: Ctor,
+    createHeartbeat: vi.fn((...args: any[]) => new (Ctor as any)(...args)),
+  };
+});
 
 vi.mock('../../src/core/cron/runner.js', () => ({
   CronRunner: vi.fn(() => mockCronRunner),
@@ -124,9 +128,13 @@ vi.mock('../../src/core/tools/registry.js', () => ({
   ToolRegistryImpl: trackCtor('ToolRegistryImpl', () => ({ register: vi.fn(), getForProfile: vi.fn(() => []), getAll: vi.fn(() => []), formatForLLM: vi.fn(), unregister: vi.fn() })),
 }));
 
-vi.mock('../../src/core/tools/executor.js', () => ({
-  ToolExecutorImpl: trackCtor('ToolExecutorImpl', () => ({ execute: vi.fn() })),
-}));
+vi.mock('../../src/core/tools/executor.js', () => {
+  const Ctor = trackCtor('ToolExecutorImpl', () => ({ execute: vi.fn() }));
+  return {
+    ToolExecutorImpl: Ctor,
+    createToolExecutor: vi.fn((...args: any[]) => new (Ctor as any)(...args)),
+  };
+});
 
 vi.mock('../../src/core/skill/registry.js', () => ({
   SkillRegistry: trackCtor('SkillRegistry', () => ({ loadAll: vi.fn().mockResolvedValue(undefined), getSkills: vi.fn(() => []) })),
@@ -140,9 +148,13 @@ vi.mock('../../src/core/task/system.js', () => ({
   TaskSystem: trackCtor('TaskSystem', () => ({ initialize: vi.fn().mockResolvedValue(undefined), startDispatch: vi.fn(), shutdown: vi.fn() })),
 }));
 
-vi.mock('../../src/core/dialog/injector.js', () => ({
-  ContextInjector: trackCtor('ContextInjector', () => ({ buildSystemPrompt: vi.fn(), buildParts: vi.fn() })),
-}));
+vi.mock('../../src/core/dialog/injector.js', () => {
+  const Ctor = trackCtor('ContextInjector', () => ({ buildSystemPrompt: vi.fn(), buildParts: vi.fn() }));
+  return {
+    ContextInjector: Ctor,
+    createContextInjector: vi.fn((...args: any[]) => new (Ctor as any)(...args)),
+  };
+});
 
 vi.mock('../../src/core/tools/context.js', () => ({
   ExecContextImpl: trackCtor('ExecContextImpl', () => ({ signal: undefined, dialogMessages: [] })),

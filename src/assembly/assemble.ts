@@ -15,12 +15,12 @@ import { createRuntime } from '../core/create-runtime.js';
 import { createLLMService, type LLMServiceImpl } from '../foundation/llm/index.js';
 import { JsonlLogger } from '../foundation/monitor/monitor.js';
 import { createToolRegistry, type ToolRegistryImpl } from '../core/tools/index.js';
-import { ToolExecutorImpl } from '../core/tools/executor.js';
+import { createToolExecutor, type ToolExecutorImpl } from '../core/tools/index.js';
 import { createSkillRegistry, SkillRegistry } from '../core/skill/index.js';
 import { ContractManager, createContractManager } from '../core/contract/index.js';
 import { createTaskSystem } from '../core/task/index.js';
 import type { TaskSystem } from '../core/task/system.js';
-import { ContextInjector } from '../core/dialog/injector.js';
+import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
 import { ExecContextImpl } from '../core/tools/context.js';
 import { registerBuiltinTools } from '../core/tools/builtins/index.js';
 import { createInboxReader, createOutboxWriter } from '../foundation/messaging/index.js';
@@ -29,7 +29,7 @@ import type { InboxReader } from '../foundation/messaging/index.js';
 import type { OutboxWriter } from '../foundation/messaging/index.js';
 import type { SessionManager } from '../foundation/session-store/index.js';
 
-import { Heartbeat } from '../core/heartbeat.js';
+import { createHeartbeat, type Heartbeat } from '../core/heartbeat.js';
 import { createCronRunner, parseSchedule, CronRunner } from '../core/cron/index.js';
 import { runDiskMonitor } from '../core/cron/jobs/disk-monitor.js';
 import { runLlmStats } from '../core/cron/jobs/llm-stats.js';
@@ -228,7 +228,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- L3-L5: contextInjector ---
   let contextInjector: ContextInjector;
   try {
-    contextInjector = new ContextInjector({ fs: systemFs, skillRegistry, contractManager });
+    contextInjector = createContextInjector({ fs: systemFs, skillRegistry, contractManager });
   } catch (e) {
     auditWriter.write('assemble_failed', `module=context_injector`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: ContextInjector construct failed: ${errMsg(e)}`, { cause: e });
@@ -261,7 +261,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- L3-L5: toolExecutor ---
   let toolExecutor: ToolExecutorImpl;
   try {
-    toolExecutor = new ToolExecutorImpl(toolRegistry, toolTimeoutMs);
+    toolExecutor = createToolExecutor(toolRegistry, toolTimeoutMs);
   } catch (e) {
     auditWriter.write('assemble_failed', `module=tool_executor`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: ToolExecutorImpl construct failed: ${errMsg(e)}`, { cause: e });
@@ -396,7 +396,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 0;
     if (heartbeatIntervalMs > 0) {
       try {
-        heartbeat = new Heartbeat(path.join(clawDir, '..'), {
+        heartbeat = createHeartbeat(path.join(clawDir, '..'), {
           interval: heartbeatIntervalMs / 1000,
           fs: parentFs,
           audit: auditWriter,

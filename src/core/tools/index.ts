@@ -17,6 +17,7 @@ export function createToolRegistry(): ToolRegistryImpl {
 export {
   ToolExecutorImpl,
   ToolExecutor,
+  createToolExecutor,
 } from './executor.js';
 
 // Context

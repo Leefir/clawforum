@@ -16,6 +16,7 @@ export { NodeFileSystem } from './foundation/fs/node-fs.js';
 
 export type { Logger, LogEvent } from './foundation/monitor/types.js';
 export { JsonlLogger } from './foundation/monitor/index.js';
+export { Heartbeat, createHeartbeat } from './core/heartbeat.js';
 
 export type { LLMService } from './foundation/llm/index.js';
 export { LLMServiceImpl } from './foundation/llm/service.js';

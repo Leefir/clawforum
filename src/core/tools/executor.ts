@@ -28,6 +28,7 @@ import {
 } from '../../types/errors.js';
 import { ExecContextImpl } from './context.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
+import type { ToolRegistryImpl } from './registry.js';
 // Note: ToolRegistry type imported via ToolRegistry interface
 
 function escapeForLog(s: string): string {
@@ -413,4 +414,16 @@ export class ToolExecutor extends ToolExecutorImpl {
       originClawId: options.originClawId,
     });
   }
+}
+
+/**
+ * Factory: createToolExecutor
+ * 装配期构造 ToolExecutorImpl / 承 phase212 D.1 工厂模板.
+ * 签名对齐 ctor: (registry, timeoutMs?).
+ */
+export function createToolExecutor(
+  registry: ToolRegistryImpl,
+  timeoutMs?: number,
+): ToolExecutorImpl {
+  return new ToolExecutorImpl(registry, timeoutMs);
 }

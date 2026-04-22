@@ -12,7 +12,7 @@ import type { Logger } from '../foundation/monitor/types.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
 import type { Audit } from '../foundation/audit/index.js';
 
-interface HeartbeatOptions {
+export interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
   interval?: number;
   monitor?: Logger;
@@ -82,4 +82,12 @@ export class Heartbeat {
       }
     }
   }
+}
+
+/**
+ * Factory: createHeartbeat
+ * 装配期构造 Heartbeat / 承 phase212 D.1 工厂模板.
+ */
+export function createHeartbeat(baseDir: string, opts: HeartbeatOptions): Heartbeat {
+  return new Heartbeat(baseDir, opts);
 }
