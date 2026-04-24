@@ -44,6 +44,7 @@ import type { AssembleConfig, Instances } from './index.js';
 import { LockConflictError } from './index.js';
 import { createGateway } from '../core/gateway/gateway.js';
 import type { Gateway } from '../core/gateway/types.js';
+import { createAskUserTool } from '../core/gateway/ask-user-tool.js';
 import { createStreamReader, STREAM_FILE } from '../foundation/stream/index.js';
 
 // 内部 helper（从 daemon.ts L42-75 搬入）
@@ -374,7 +375,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     throw new Error(`Assembly: Runtime construct failed: ${errMsg(e)}`, { cause: e });
   }
 
-  // --- Gateway (motion only, offline mode; phase157 装配, ask_user 注册留 phase169+) ---
+  // --- Gateway (motion only, offline mode) ---
   let gateway: Gateway | undefined;
   if (isMotion) {
     try {
@@ -388,6 +389,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       auditWriter.write('assemble_failed', `module=gateway`, `phase=construct`, `reason=${errMsg(e)}`);
       throw new Error(`Assembly: Gateway construct failed: ${errMsg(e)}`, { cause: e });
     }
+    // ask_user 工具：motion 启 / claw 不启（决策 #25：用户 ↔ motion ↔ claw 中介）
+    toolRegistry.register(createAskUserTool(gateway));
   }
 
   // --- 5. detectUncleanExit (daemon.ts L152) ---

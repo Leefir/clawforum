@@ -384,4 +384,13 @@ describe('createAskUserTool', () => {
     expect(mockGateway.askUser).toHaveBeenCalledWith('test?', ctx);
     expect(result.success).toBe(true);
   });
+
+  it('has name ask_user and required question schema', () => {
+    const mockGateway = { askUser: vi.fn() };
+    const tool = createAskUserTool(mockGateway as unknown as Gateway);
+
+    expect(tool.name).toBe('ask_user');
+    expect(tool.schema.properties).toHaveProperty('question');
+    expect((tool.schema as { required?: string[] }).required).toContain('question');
+  });
 });
