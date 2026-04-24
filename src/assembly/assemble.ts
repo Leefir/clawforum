@@ -126,9 +126,10 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   }
 
   // --- L3-L5: 派生配置统一求值（motion vs claw 分叉） ---
+  const globalDefaultMaxSteps = globalConfig.default_max_steps ?? DEFAULT_MAX_STEPS;
   const maxSteps = isMotion
-    ? (globalConfig.motion?.max_steps ?? DEFAULT_MAX_STEPS)
-    : clawConfig!.max_steps;
+    ? (globalConfig.motion?.max_steps ?? globalDefaultMaxSteps)
+    : (clawConfig!.max_steps ?? globalDefaultMaxSteps);
   const maxConcurrent = isMotion
     ? (globalConfig.motion?.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS)
     : (clawConfig!.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS);

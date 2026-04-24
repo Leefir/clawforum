@@ -61,7 +61,6 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { AuditWriter } from '../../foundation/audit/index.js';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
-import { DEFAULT_MAX_STEPS } from '../../constants.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 
 export async function createCommand(name: string): Promise<void> {
@@ -83,7 +82,6 @@ export async function createCommand(name: string): Promise<void> {
   // Create claw config (inherits from global)
   const config = {
     name,
-    max_steps: DEFAULT_MAX_STEPS,
     tool_profile: 'full' as const,
     max_concurrent_tasks: 3,
   };

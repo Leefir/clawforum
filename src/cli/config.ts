@@ -45,6 +45,7 @@ export const CircuitBreakerSchema = z.object({
 
 export const ClawGlobalConfigSchema = z.object({
   version: z.string().default('1'),
+  default_max_steps: z.number().min(1).max(1000).optional(),
   llm: z.object({
     primary: LLMProviderSchema,
     fallbacks: z.array(LLMProviderSchema).optional(), // 新增：多级 fallback 链
@@ -112,7 +113,7 @@ export const ClawConfigSchema = z.object({
   llm: z.object({
     primary: LLMProviderSchema.optional(),
   }).optional(),
-  max_steps: z.number().min(1).max(1000).default(100),
+  max_steps: z.number().min(1).max(1000).optional(),
   tool_profile: z.enum(['full', 'readonly', 'subagent', 'dream']).default('full'),
   subagent_max_steps: z.number().min(1).max(200).optional(),
   max_concurrent_tasks: z.number().min(1).max(20).default(3),
