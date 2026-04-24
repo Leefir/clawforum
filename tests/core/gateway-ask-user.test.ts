@@ -6,6 +6,10 @@ import type { Transport, Connection } from '../../src/foundation/transport/index
 import type { StreamReader, StreamEvent } from '../../src/foundation/stream/index.js';
 import type { ExecContext } from '../../src/core/tools/index.js';
 
+function mockAudit() {
+  return { write: vi.fn() };
+}
+
 function createStubTransport(): Transport & {
   _connect(conn: Connection): void;
   _disconnect(conn: Connection): void;
@@ -120,6 +124,7 @@ describe('Gateway askUser', () => {
       transport,
       interrupt: vi.fn(),
       askUserTimeoutMs: 50,
+      audit: mockAudit(),
       ...overrides,
     };
   }
@@ -315,6 +320,55 @@ describe('Gateway askUser', () => {
     expect(resolvedPayloads).toHaveLength(1);
     expect((resolvedPayloads[0] as { by: string }).by).toBe('c1');
   });
+
+  it('askUser: writes GATEWAY_ASK_USER_PENDING', async () => {
+    const audit = mockAudit();
+    gateway = createGateway(createInput({ audit }));
+    await gateway.start();
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    transport._connect(conn);
+
+    const promise = gateway.askUser('What?', mockCtx());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(audit.write).toHaveBeenCalledWith(
+      'gateway_ask_user_pending',
+      expect.stringContaining('id=ask_'),
+    );
+    // cleanup
+    const askId = extractAskId(transport);
+    transport._message(conn, JSON.stringify({ type: 'ask_user_reply', id: askId, answer: 'x' }));
+    await promise;
+  });
+
+  it('timeout: writes GATEWAY_ASK_USER_CANCELLED with reason=timeout', async () => {
+    const audit = mockAudit();
+    gateway = createGateway(createInput({ audit, askUserTimeoutMs: 1 }));
+    await gateway.start();
+
+    const result = await gateway.askUser('Q?', mockCtx());
+    expect(result.success).toBe(false);
+
+    expect(audit.write).toHaveBeenCalledWith(
+      'gateway_ask_user_cancelled', expect.stringContaining('id='), 'reason=timeout',
+    );
+  });
+
+  it('resolve: writes GATEWAY_ASK_USER_RESOLVED', async () => {
+    const audit = mockAudit();
+    gateway = createGateway(createInput({ audit }));
+    await gateway.start();
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    transport._connect(conn);
+
+    const promise = gateway.askUser('Q?', mockCtx());
+    const askId = extractAskId(transport);
+    transport._message(conn, JSON.stringify({ type: 'ask_user_reply', id: askId, answer: 'ok' }));
+    await promise;
+    expect(audit.write).toHaveBeenCalledWith(
+      'gateway_ask_user_resolved', expect.stringContaining('id='), expect.stringContaining('by='),
+    );
+  });
+
 });
 
 describe('createAskUserTool', () => {

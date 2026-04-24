@@ -382,6 +382,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         streamFactory: (onEvent) => createStreamReader(systemFs, STREAM_FILE, onEvent, auditWriter),
         transport: undefined,                      // offline mode
         interrupt: () => runtime.abort(),          // offline 不会触发，留接口
+        audit: auditWriter,
       });
     } catch (e) {
       auditWriter.write('assemble_failed', `module=gateway`, `phase=construct`, `reason=${errMsg(e)}`);

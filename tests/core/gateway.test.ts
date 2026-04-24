@@ -6,10 +6,16 @@ import type { Transport, Connection } from '../../src/foundation/transport/index
 import type { StreamReader, StreamEvent } from '../../src/foundation/stream/index.js';
 import type { ToolResult, ExecContext } from '../../src/core/tools/index.js';
 
+function mockAudit() {
+  return { write: vi.fn() };
+}
+
 function createStubTransport(): Transport & {
   _connect(conn: Connection): void;
   _disconnect(conn: Connection): void;
   _message(conn: Connection, data: string): void;
+  simulateMessage(conn: Connection, data: string): void;
+  fireTransportError(evt: import('../../src/foundation/transport/index.js').TransportErrorEvent): void;
 } {
   const connections = new Map<string, Connection>();
   const connectCbs: Array<(conn: Connection) => void> = [];
@@ -51,6 +57,22 @@ function createStubTransport(): Transport & {
           }));
         }
       }
+    },
+    simulateMessage: (conn, data) => {
+      for (const cb of messageCbs) {
+        try {
+          cb(conn, data);
+        } catch (err) {
+          transportErrorCbs.forEach((tcb) => tcb({
+            kind: 'callback_error',
+            callbackName: 'onMessage',
+            error: err instanceof Error ? err : new Error(String(err)),
+          }));
+        }
+      }
+    },
+    fireTransportError: (evt) => {
+      transportErrorCbs.forEach((tcb) => tcb(evt));
     },
   };
 }
@@ -109,6 +131,7 @@ describe('Gateway', () => {
       streamFactory: streamStub.factory,
       transport,
       interrupt: interruptFn,
+      audit: mockAudit(),
     };
   }
 
@@ -116,6 +139,7 @@ describe('Gateway', () => {
     return {
       streamFactory: streamStub.factory,
       interrupt: interruptFn,
+      audit: mockAudit(),
     };
   }
 
@@ -315,5 +339,98 @@ describe('Gateway', () => {
     gateway = createGateway(createOnlineInput());
     await gateway.start();
     await expect(gateway.start()).rejects.toThrow('Gateway already started');
+  });
+
+  it('start (online): writes GATEWAY_STARTED audit event', async () => {
+    const audit = mockAudit();
+    gateway = createGateway({ ...createOnlineInput(), audit });
+    await gateway.start();
+    expect(audit.write).toHaveBeenCalledWith('gateway_started', expect.stringContaining('isOnline='));
+  });
+
+  it('start (offline): does NOT write GATEWAY_STARTED', async () => {
+    const audit = mockAudit();
+    gateway = createGateway({ ...createOfflineInput(), audit });
+    await gateway.start();
+    expect(audit.write).not.toHaveBeenCalledWith('gateway_started', expect.anything());
+  });
+
+  it('stop (online): writes GATEWAY_STOPPED', async () => {
+    const audit = mockAudit();
+    gateway = createGateway({ ...createOnlineInput(), audit });
+    await gateway.start();
+    audit.write.mockClear();
+    await gateway.stop();
+    expect(audit.write).toHaveBeenCalledWith('gateway_stopped');
+  });
+
+  it('interrupt triggered: writes GATEWAY_INTERRUPT_TRIGGERED', async () => {
+    const audit = mockAudit();
+    const stubTransport = createStubTransport();
+    gateway = createGateway({ ...createOnlineInput(), transport: stubTransport, audit });
+    await gateway.start();
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    stubTransport._connect(conn);
+    stubTransport.simulateMessage(conn, JSON.stringify({ type: 'interrupt' }));
+    expect(audit.write).toHaveBeenCalledWith('gateway_interrupt_triggered', expect.stringContaining('connId='));
+  });
+
+  it('interrupt debounced: writes GATEWAY_INTERRUPT_DEBOUNCED on second call within window', async () => {
+    const audit = mockAudit();
+    const stubTransport = createStubTransport();
+    gateway = createGateway({ ...createOnlineInput(), transport: stubTransport, audit });
+    await gateway.start();
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    stubTransport._connect(conn);
+    stubTransport.simulateMessage(conn, JSON.stringify({ type: 'interrupt' }));
+    audit.write.mockClear();
+    vi.advanceTimersByTime(400);
+    stubTransport.simulateMessage(conn, JSON.stringify({ type: 'interrupt' }));
+    expect(audit.write).toHaveBeenCalledWith('gateway_interrupt_debounced', expect.stringContaining('connId='));
+    expect(audit.write).not.toHaveBeenCalledWith('gateway_interrupt_triggered', expect.anything());
+  });
+
+  it('connection_dropped: writes GATEWAY_CONNECTION_DROPPED', async () => {
+    const audit = mockAudit();
+    const stubTransport = createStubTransport();
+    gateway = createGateway({ ...createOnlineInput(), transport: stubTransport, audit });
+    await gateway.start();
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    stubTransport._connect(conn);
+    stubTransport.simulateMessage(conn, 'not-json');
+    expect(audit.write).toHaveBeenCalledWith(
+      'gateway_connection_dropped',
+      expect.stringContaining('connId='),
+      expect.stringContaining('reason=malformed JSON'),
+    );
+  });
+
+  it('onTransportError: writes GATEWAY_TRANSPORT_ERROR (replaces console.error)', async () => {
+    const audit = mockAudit();
+    const stubTransport = createStubTransport();
+    gateway = createGateway({ ...createOnlineInput(), transport: stubTransport, audit });
+    await gateway.start();
+    stubTransport.fireTransportError({ kind: 'callback_error', callbackName: 'onMessage', error: new Error('test') });
+    expect(audit.write).toHaveBeenCalledWith(
+      'gateway_transport_error',
+      expect.stringContaining('kind=callback_error'),
+      expect.stringContaining('error='),
+      expect.stringContaining('callbackName='),
+    );
+  });
+
+  it('ask_user_reply dropped: writes GATEWAY_ASK_USER_REPLY_DROPPED', async () => {
+    const audit = mockAudit();
+    const stubTransport = createStubTransport();
+    gateway = createGateway({ ...createOnlineInput(), transport: stubTransport, audit });
+    await gateway.start();
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    stubTransport._connect(conn);
+    stubTransport.simulateMessage(conn, JSON.stringify({ type: 'ask_user_reply', id: 'nonexistent', answer: 'x' }));
+    expect(audit.write).toHaveBeenCalledWith(
+      'gateway_ask_user_reply_dropped',
+      expect.stringContaining('id=nonexistent'),
+      expect.anything(),
+    );
   });
 });

@@ -199,6 +199,18 @@ export const AUDIT_EVENTS = {
   LLM_HEALTHCHECK_FAILED: 'llm_healthcheck_failed',
   LLM_STREAM_RESET: 'llm_stream_reset',
   LLM_STREAM_PARSE_ERROR: 'llm_stream_parse_error',
+
+  // --- Gateway (Phase 256) ---
+  GATEWAY_STARTED: 'gateway_started',
+  GATEWAY_STOPPED: 'gateway_stopped',
+  GATEWAY_ASK_USER_PENDING: 'gateway_ask_user_pending',
+  GATEWAY_ASK_USER_RESOLVED: 'gateway_ask_user_resolved',
+  GATEWAY_ASK_USER_CANCELLED: 'gateway_ask_user_cancelled',
+  GATEWAY_ASK_USER_REPLY_DROPPED: 'gateway_ask_user_reply_dropped',
+  GATEWAY_CONNECTION_DROPPED: 'gateway_connection_dropped',
+  GATEWAY_INTERRUPT_TRIGGERED: 'gateway_interrupt_triggered',
+  GATEWAY_INTERRUPT_DEBOUNCED: 'gateway_interrupt_debounced',
+  GATEWAY_TRANSPORT_ERROR: 'gateway_transport_error',
 } as const;
 
 export type AuditEventName = typeof AUDIT_EVENTS[keyof typeof AUDIT_EVENTS];
