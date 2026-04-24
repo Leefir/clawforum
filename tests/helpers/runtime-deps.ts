@@ -41,6 +41,7 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
     primary: { name: 'mock', apiKey: 'test', model: 'test', maxTokens: 1024, temperature: 0.7, timeoutMs: 30000, apiFormat: 'anthropic' },
     maxAttempts: 1,
     retryDelayMs: 100,
+    events: { emit: () => {} },
   });
   const toolRegistry = new ToolRegistryImpl();
   registerBuiltinTools(toolRegistry);

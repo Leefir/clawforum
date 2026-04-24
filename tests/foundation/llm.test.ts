@@ -396,6 +396,7 @@ describe('LLM Service', () => {
         primary: primaryConfig,
         maxAttempts: 3,
         retryDelayMs: 100,
+      events: { emit: () => {} },
       });
 
       const response = await service.call({
@@ -425,6 +426,7 @@ describe('LLM Service', () => {
         fallbacks: [fallbackConfig],
         maxAttempts: 1,
         retryDelayMs: 100,
+      events: { emit: () => {} },
       });
 
       const response = await service.call({
@@ -443,6 +445,7 @@ describe('LLM Service', () => {
         fallbacks: [fallbackConfig],
         maxAttempts: 1,
         retryDelayMs: 100,
+      events: { emit: () => {} },
       });
 
       await expect(service.call({
@@ -470,6 +473,7 @@ describe('LLM Service', () => {
         fallbacks: [fallbackConfig],
         maxAttempts: 3,
         retryDelayMs: 10, // Fast for test
+      events: { emit: () => {} },
       });
 
       const response = await service.call({
@@ -509,6 +513,7 @@ describe('LLM Service', () => {
         fallbacks: [fallbackConfig],
         maxAttempts: 1,
         retryDelayMs: 10,
+      events: { emit: () => {} },
       });
 
       // First call - should use fallback
@@ -551,6 +556,7 @@ describe('LLM Service', () => {
         // 3rd retry would be 200ms, etc.
         // All well under 30s cap - test verifies code path exists
         retryDelayMs: 50,
+      events: { emit: () => {} },
       });
 
       const start = Date.now();
@@ -575,6 +581,7 @@ describe('LLM Service', () => {
         fallback: fallbackConfig,
         maxAttempts: 1,
         retryDelayMs: 100,
+      events: { emit: () => {} },
       });
 
       const info = service.getProviderInfo();
@@ -598,6 +605,7 @@ describe('LLM Service', () => {
         primary: primaryConfig,
         maxAttempts: 1,
         retryDelayMs: 100,
+      events: { emit: () => {} },
       });
 
       await service.call({
@@ -644,6 +652,7 @@ describe('LLM Service', () => {
         fallbacks: [fallbackAdapter as any],
         maxAttempts: 1,
         retryDelayMs: 10,
+      events: { emit: () => {} },
       });
 
       const chunks: StreamChunk[] = [];
@@ -699,6 +708,7 @@ describe('LLM Service', () => {
         fallbacks: [fallbackAdapter as any],
         maxAttempts: 1,
         retryDelayMs: 10,
+      events: { emit: () => {} },
       });
 
       const chunks: StreamChunk[] = [];
@@ -729,6 +739,7 @@ describe('LLM Service', () => {
         fallbacks: [],
         maxAttempts: 1,
         retryDelayMs: 10,
+      events: { emit: () => {} },
       });
 
       await expect(async () => {
