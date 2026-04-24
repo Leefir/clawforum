@@ -54,10 +54,9 @@ export function createGateway(input: GatewayInput): Gateway {
 
   const broadcast = (msg: ServerMessage): void => {
     if (!transport) return;
-    try {
-      transport.broadcast(JSON.stringify(msg));
-    } catch (err) {
-      console.error('[Gateway] broadcast failed:', err);
+    const { failed } = transport.broadcast(JSON.stringify(msg));
+    for (const { connectionId } of failed) {
+      dropConnection(connectionId, 'broadcast write failed');
     }
   };
 
@@ -135,15 +134,18 @@ export function createGateway(input: GatewayInput): Gateway {
       transport!.onConnect((c) => {
         connections.set(c.id, c);
       });
-      transport!.onDisconnect((c) => {
+      transport!.onDisconnect((c, _reason) => {
         connections.delete(c.id);
+        // _reason 留给 Gateway A.3 audit phase 使用
       });
       transport!.onMessage((c, data) => {
-        try {
-          handleClientMessage(c, data);
-        } catch (err) {
-          console.error('[Gateway] handleClientMessage error:', err);
-        }
+        handleClientMessage(c, data);
+        // 抛错由 Transport safeFire 捕获 → fireTransportError({ kind: 'callback_error', callbackName: 'onMessage', error })
+        // → Gateway 的 onTransportError 处理器接收（见下方）
+      });
+      transport!.onTransportError((evt) => {
+        // TODO(Gateway A.3): 替换为 audit.write(AUDIT_EVENTS.GATEWAY_TRANSPORT_ERROR, ...)
+        console.error('[Gateway] transport error:', evt.kind, 'error' in evt ? evt.error : '');
       });
 
       streamReader = streamFactory((ev: StreamEvent) => {

@@ -28,6 +28,21 @@ export interface TransportOptions {
 }
 
 /**
+ * Structured failure entry for a single connection during broadcast.
+ */
+export interface BroadcastFailure {
+  connectionId: string;
+  error: Error;
+}
+
+/**
+ * Discriminated union for transport-level error events.
+ */
+export type TransportErrorEvent =
+  | { kind: 'callback_error'; callbackName: 'onConnect' | 'onDisconnect' | 'onMessage' | 'onTransportError'; connectionId?: string; error: Error }
+  | { kind: 'server_error'; error: Error };
+
+/**
  * Transport interface — real-time bidirectional communication.
  *
  * Lifecycle:
@@ -57,9 +72,9 @@ export interface Transport {
 
   /**
    * Send a message to all connected clients.
-   * Best-effort delivery: silently skips disconnected clients.
+   * Returns a list of connections that could not be written to.
    */
-  broadcast(data: string): void;
+  broadcast(data: string): { failed: BroadcastFailure[] };
 
   /**
    * List currently active connections.
@@ -73,8 +88,9 @@ export interface Transport {
 
   /**
    * Register callback for client disconnections.
+   * `reason` is present when the socket emitted an error before closing.
    */
-  onDisconnect(cb: (conn: Connection) => void): void;
+  onDisconnect(cb: (conn: Connection, reason?: Error) => void): void;
 
   /**
    * Register callback for incoming client messages.
@@ -85,6 +101,13 @@ export interface Transport {
    * whether to ignore them.
    */
   onMessage(cb: (conn: Connection, data: string) => void): void;
+
+  /**
+   * Register callback for transport-level errors (server errors or
+   * exceptions thrown inside other callbacks). Errors are isolated so
+   * that one bad callback does not crash the transport.
+   */
+  onTransportError(cb: (evt: TransportErrorEvent) => void): void;
 }
 
 export { UnixDomainSocketTransport } from './unix-socket.js';

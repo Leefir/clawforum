@@ -126,7 +126,8 @@ describe('UnixDomainSocketTransport', () => {
     await waitFor(twoConnected, 'two connects');
     const r1 = nextLine(c1);
     const r2 = nextLine(c2);
-    transport.broadcast('ping');
+    const { failed } = transport.broadcast('ping');
+    expect(failed).toHaveLength(0);
     const [l1, l2] = await waitFor(Promise.all([r1, r2]), 'broadcast recv');
     expect(l1).toBe('ping');
     expect(l2).toBe('ping');
@@ -136,7 +137,7 @@ describe('UnixDomainSocketTransport', () => {
     const path = makeSocketPath();
     transport = new UnixDomainSocketTransport();
     const gone = new Promise<Connection>((resolve) => {
-      transport!.onDisconnect((c) => resolve(c));
+      transport!.onDisconnect((c, _reason) => resolve(c));
     });
     await transport.listen({ socketPath: path });
     const c = await connectClient(path);
@@ -189,14 +190,16 @@ describe('UnixDomainSocketTransport', () => {
     );
 
     const recvs = cs.map((c) => nextLine(c));
-    transport.broadcast('hi');
+    const { failed: failed1 } = transport.broadcast('hi');
+    expect(failed1).toHaveLength(0);
     const lines = await waitFor(Promise.all(recvs), 'all receive');
     expect(lines).toEqual(['hi', 'hi', 'hi', 'hi', 'hi']);
 
     cs[2].destroy();
     await new Promise((r) => setTimeout(r, 30));
     const recvs2 = [cs[0], cs[1], cs[3], cs[4]].map((c) => nextLine(c));
-    transport.broadcast('again');
+    const { failed: failed2 } = transport.broadcast('again');
+    expect(failed2).toHaveLength(0);
     const lines2 = await waitFor(Promise.all(recvs2), 'remaining receive');
     expect(lines2).toEqual(['again', 'again', 'again', 'again']);
     expect(transport.getConnections()).toHaveLength(4);
@@ -261,9 +264,11 @@ describe('UnixDomainSocketTransport', () => {
     );
   });
 
-  it('isolates exceptions thrown in onMessage callbacks', async () => {
+  it('isolates exceptions thrown in onMessage callbacks and fires onTransportError', async () => {
     const path = makeSocketPath();
     transport = new UnixDomainSocketTransport();
+    const errors: TransportErrorEvent[] = [];
+    transport.onTransportError((evt) => errors.push(evt));
     const got: string[] = [];
     transport.onMessage(() => {
       throw new Error('cb1 boom');
@@ -275,6 +280,47 @@ describe('UnixDomainSocketTransport', () => {
     c.write('a\nb\n');
     await new Promise((r) => setTimeout(r, 50));
     expect(got).toEqual(['a', 'b']);
+    expect(errors.length).toBeGreaterThanOrEqual(2);
+    expect(errors[0]).toMatchObject({ kind: 'callback_error', callbackName: 'onMessage' });
+  });
+
+  it('broadcast returns empty failed list when no connections', async () => {
+    transport = new UnixDomainSocketTransport();
+    await transport.listen({ socketPath: makeSocketPath() });
+    const result = transport.broadcast('hello');
+    expect(result.failed).toEqual([]);
+  });
+
+  it('onDisconnect receives undefined reason on normal close', async () => {
+    const path = makeSocketPath();
+    transport = new UnixDomainSocketTransport();
+    let disconnectReason: Error | undefined = new Error('should-be-overwritten');
+    transport.onDisconnect((_c, reason) => {
+      disconnectReason = reason;
+    });
+    await transport.listen({ socketPath: path });
+    const c = await connectClient(path);
+    clients.push(c);
+    await new Promise((r) => setTimeout(r, 20));
+    c.end();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(disconnectReason).toBeUndefined();
+  });
+
+  it('emits server_error via onTransportError', async () => {
+    transport = new UnixDomainSocketTransport();
+    const errors: TransportErrorEvent[] = [];
+    transport.onTransportError((evt) => {
+      if (evt.kind === 'server_error') errors.push(evt);
+    });
+    await transport.listen({ socketPath: makeSocketPath() });
+    // Simulate a server-level error by forcing the internal server to emit 'error'
+    const server = (transport as unknown as { server: import('node:net').Server }).server;
+    server.emit('error', new Error('simulated server error'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ kind: 'server_error' });
+    expect(errors[0].error.message).toBe('simulated server error');
   });
 
   it('delivers empty messages from consecutive delimiters', async () => {

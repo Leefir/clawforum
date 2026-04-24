@@ -1,7 +1,7 @@
 import { createServer, connect, type Server, type Socket } from 'node:net';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import type { Transport, TransportOptions } from './index.js';
+import type { Transport, TransportOptions, BroadcastFailure, TransportErrorEvent } from './index.js';
 import type { Connection } from './types.js';
 
 interface ConnectionEntry {
@@ -15,7 +15,8 @@ export class UnixDomainSocketTransport implements Transport {
   private socketPath: string | null = null;
   private connections = new Map<string, ConnectionEntry>();
   private connectCbs: ((c: Connection) => void)[] = [];
-  private disconnectCbs: ((c: Connection) => void)[] = [];
+  private disconnectCbs: ((c: Connection, reason?: Error) => void)[] = [];
+  private transportErrorCbs: ((evt: TransportErrorEvent) => void)[] = [];
   private messageCbs: ((c: Connection, data: string) => void)[] = [];
   private closed = false;
 
@@ -48,7 +49,7 @@ export class UnixDomainSocketTransport implements Transport {
           return;
         }
         server.on('error', (err) => {
-          console.error('[transport] server error:', err);
+          this.fireTransportError({ kind: 'server_error', error: err });
         });
         this.server = server;
         resolve();
@@ -93,12 +94,13 @@ export class UnixDomainSocketTransport implements Transport {
         nl = entry.buf.indexOf('\n');
       }
     });
+    let disconnectReason: Error | undefined;
     sock.on('error', (err) => {
-      console.error(`[transport] connection ${id} error:`, err);
+      disconnectReason = err;
     });
     sock.on('close', () => {
       this.connections.delete(id);
-      this.safeFire(this.disconnectCbs, 'onDisconnect', meta);
+      this.safeFire(this.disconnectCbs, 'onDisconnect', meta, disconnectReason);
     });
     this.safeFire(this.connectCbs, 'onConnect', meta);
   }
@@ -109,15 +111,20 @@ export class UnixDomainSocketTransport implements Transport {
     entry.sock.write(data + '\n');
   }
 
-  broadcast(data: string): void {
+  broadcast(data: string): { failed: BroadcastFailure[] } {
     const line = data + '\n';
-    for (const { sock } of this.connections.values()) {
+    const failed: BroadcastFailure[] = [];
+    for (const { sock, meta } of this.connections.values()) {
       try {
         sock.write(line);
       } catch (err) {
-        console.error('[transport] broadcast write error:', err);
+        failed.push({
+          connectionId: meta.id,
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
       }
     }
+    return { failed };
   }
 
   getConnections(): Connection[] {
@@ -128,12 +135,26 @@ export class UnixDomainSocketTransport implements Transport {
     this.connectCbs.push(cb);
   }
 
-  onDisconnect(cb: (conn: Connection) => void): void {
+  onDisconnect(cb: (conn: Connection, reason?: Error) => void): void {
     this.disconnectCbs.push(cb);
+  }
+
+  onTransportError(cb: (evt: TransportErrorEvent) => void): void {
+    this.transportErrorCbs.push(cb);
   }
 
   onMessage(cb: (conn: Connection, data: string) => void): void {
     this.messageCbs.push(cb);
+  }
+
+  private fireTransportError(evt: TransportErrorEvent): void {
+    for (const cb of this.transportErrorCbs) {
+      try {
+        cb(evt);
+      } catch (err) {
+        console.error('[transport] onTransportError callback error:', err);
+      }
+    }
   }
 
   private safeFire<T extends unknown[]>(
@@ -145,7 +166,11 @@ export class UnixDomainSocketTransport implements Transport {
       try {
         cb(...args);
       } catch (err) {
-        console.error(`[transport] ${label} callback error:`, err);
+        this.fireTransportError({
+          kind: 'callback_error',
+          callbackName: label as 'onConnect' | 'onDisconnect' | 'onMessage',
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
       }
     }
   }
