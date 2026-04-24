@@ -4,6 +4,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { Audit } from '../../../foundation/audit/index.js';
 import { LLMServiceImpl } from '../../../foundation/llm/service.js';
 import type { LLMServiceConfig } from '../../../foundation/llm/types.js';
+import { createLLMAuditSink } from '../../../assembly/llm-audit-sink.js';
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../../types/message.js';
 import { InboxWriter } from '../../../foundation/messaging/index.js';
 import { AuditWriter } from '../../../foundation/audit/index.js';
@@ -270,7 +271,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
 
   if (clawIds.length === 0) return;
 
-  const llm = new LLMServiceImpl(opts.llmConfig);
+  const llm = new LLMServiceImpl({ ...opts.llmConfig, events: createLLMAuditSink(opts.audit) });
 
   try {
     // 串行处理每个 claw

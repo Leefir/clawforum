@@ -13,6 +13,7 @@ import { type ClawRuntime, type RuntimeDependencies } from '../core/runtime.js';
 import { type MotionRuntime } from '../core/motion/runtime.js';
 import { createRuntime } from '../core/create-runtime.js';
 import { createLLMService, type LLMServiceImpl } from '../foundation/llm/index.js';
+import { createLLMAuditSink } from './llm-audit-sink.js';
 import { JsonlLogger } from '../foundation/monitor/monitor.js';
 import { createToolRegistry, type ToolRegistryImpl } from '../core/tools/index.js';
 import { createToolExecutor, type ToolExecutorImpl } from '../core/tools/index.js';
@@ -153,7 +154,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- L3-L5: llm ---
   let llm: LLMServiceImpl;
   try {
-    llm = createLLMService(llmConfig);
+    llm = createLLMService({ ...llmConfig, events: createLLMAuditSink(auditWriter) });
   } catch (e) {
     auditWriter.write('assemble_failed', `module=llm`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: LLMService construct failed: ${errMsg(e)}`, { cause: e });

@@ -176,3 +176,26 @@ export interface ProviderAdapter {
   /** Set by LLMServiceImpl; providers call this for SSE parse errors (A.4) */
   onStreamParseError?: (event: { provider: string; raw: string; error: string }) => void;
 }
+
+/**
+ * LLM event payload union — emitted by LLMService, consumed by fan-out adapter
+ */
+export type LLMEvent =
+  | { type: 'provider_attempt_failed'; provider: string; attempt: number; error: string }
+  | { type: 'retry_scheduled'; provider: string; attempt: number; backoffMs: number }
+  | { type: 'provider_exhausted'; provider: string; error: string }
+  | { type: 'fallback_switched'; from: string; to: string; reason: string }
+  | { type: 'breaker_opened'; provider: string; consecutiveFailures: number }
+  | { type: 'breaker_half_open'; provider: string }
+  | { type: 'breaker_closed'; provider: string }
+  | { type: 'healthcheck_failed'; provider: string; error: string }
+  | { type: 'stream_reset'; provider: string; error: string }
+  | { type: 'stream_parse_error'; provider: string; raw: string; error: string };
+
+/**
+ * LLM event sink protocol — defined here (L1), implemented by assembly layer (L6+)
+ * Error isolation: implementations must not throw; failures must be absorbed internally.
+ */
+export interface LLMEventSink {
+  emit(event: LLMEvent): void;
+}

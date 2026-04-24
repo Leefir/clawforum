@@ -166,7 +166,13 @@ async function checkLLMConnection(): Promise<
 > {
   const globalConfig = loadGlobalConfig();
   const llmConfig = buildLLMConfig(globalConfig);
-  const svc = new LLMServiceImpl({ primary: llmConfig.primary, fallbacks: [], maxAttempts: 1, retryDelayMs: 0 });
+  const svc = new LLMServiceImpl({
+    primary: llmConfig.primary,
+    fallbacks: [],
+    maxAttempts: 1,
+    retryDelayMs: 0,
+    events: { emit: () => {} },  // noop: health check, no audit semantics
+  });
   try {
     await svc.call({
       messages: [{ role: 'user', content: 'Hi' }],
