@@ -187,6 +187,18 @@ export const AUDIT_EVENTS = {
 
   // --- Runtime ---
   RUNTIME_PROCESS_BATCH_FAILED: 'runtime_process_batch_failed',
+
+  // --- LLM Service (Phase 254) ---
+  LLM_PROVIDER_ATTEMPT_FAILED: 'llm_provider_attempt_failed',
+  LLM_RETRY_SCHEDULED: 'llm_retry_scheduled',
+  LLM_PROVIDER_EXHAUSTED: 'llm_provider_exhausted',
+  LLM_FALLBACK_SWITCHED: 'llm_fallback_switched',
+  LLM_BREAKER_OPENED: 'llm_breaker_opened',
+  LLM_BREAKER_HALF_OPEN: 'llm_breaker_half_open',
+  LLM_BREAKER_CLOSED: 'llm_breaker_closed',
+  LLM_HEALTHCHECK_FAILED: 'llm_healthcheck_failed',
+  LLM_STREAM_RESET: 'llm_stream_reset',
+  LLM_STREAM_PARSE_ERROR: 'llm_stream_parse_error',
 } as const;
 
 export type AuditEventName = typeof AUDIT_EVENTS[keyof typeof AUDIT_EVENTS];

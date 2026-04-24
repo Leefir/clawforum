@@ -75,6 +75,9 @@ export interface LLMServiceConfig {
   /** Delay between retries (exponential backoff base) */
   retryDelayMs: number;
 
+  /** Event sink for structured observability (required, injected by assembly layer) */
+  events: LLMEventSink;
+
   /** Circuit breaker configuration (optional) */
   circuitBreaker?: { failureThreshold: number; resetTimeoutMs: number };
 }
@@ -169,4 +172,7 @@ export interface ProviderAdapter {
    * Stream LLM response
    */
   stream?(options: LLMCallOptions): AsyncIterableIterator<StreamChunk>;
+
+  /** Set by LLMServiceImpl; providers call this for SSE parse errors (A.4) */
+  onStreamParseError?: (event: { provider: string; raw: string; error: string }) => void;
 }
