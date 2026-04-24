@@ -13,28 +13,44 @@ function createStubTransport(): Transport & {
 } {
   const connections = new Map<string, Connection>();
   const connectCbs: Array<(conn: Connection) => void> = [];
-  const disconnectCbs: Array<(conn: Connection) => void> = [];
+  const disconnectCbs: Array<(conn: Connection, reason?: Error) => void> = [];
   const messageCbs: Array<(conn: Connection, data: string) => void> = [];
+  const transportErrorCbs: Array<(evt: import('../../src/foundation/transport/index.js').TransportErrorEvent) => void> = [];
 
   return {
     listen: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     send: vi.fn(),
-    broadcast: vi.fn(),
+    broadcast: vi.fn().mockReturnValue({ failed: [] }),
     getConnections: () => Array.from(connections.values()),
     onConnect: (cb) => connectCbs.push(cb),
     onDisconnect: (cb) => disconnectCbs.push(cb),
     onMessage: (cb) => messageCbs.push(cb),
+    onTransportError: (cb) => transportErrorCbs.push(cb),
     _connect: (conn) => {
       connections.set(conn.id, conn);
-      connectCbs.forEach((cb) => cb(conn));
+      for (const cb of connectCbs) {
+        try { cb(conn); } catch (err) { /* Transport safeFire isolates */ }
+      }
     },
     _disconnect: (conn) => {
       connections.delete(conn.id);
-      disconnectCbs.forEach((cb) => cb(conn));
+      for (const cb of disconnectCbs) {
+        try { cb(conn); } catch (err) { /* Transport safeFire isolates */ }
+      }
     },
     _message: (conn, data) => {
-      messageCbs.forEach((cb) => cb(conn, data));
+      for (const cb of messageCbs) {
+        try {
+          cb(conn, data);
+        } catch (err) {
+          transportErrorCbs.forEach((tcb) => tcb({
+            kind: 'callback_error',
+            callbackName: 'onMessage',
+            error: err instanceof Error ? err : new Error(String(err)),
+          }));
+        }
+      }
     },
   };
 }
@@ -271,8 +287,7 @@ describe('Gateway', () => {
     expect(gateway.getActiveConnections()).toHaveLength(0);
   });
 
-  it('interrupt callback throw is logged, does not drop connection or block future messages', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('interrupt callback throw is isolated by Transport safeFire, does not drop connection or block future messages', async () => {
     interruptFn.mockImplementationOnce(() => {
       throw new Error('interrupt boom');
     });
@@ -283,13 +298,9 @@ describe('Gateway', () => {
     const conn: Connection = { id: 'c1', connectedAt: Date.now() };
     transport._connect(conn);
 
-    // first interrupt: callback throws, but Gateway swallows and logs
+    // first interrupt: callback throws, but Transport safeFire isolates it
     transport._message(conn, JSON.stringify({ type: 'interrupt', reason: 'user' }));
     expect(interruptFn).toHaveBeenCalledTimes(1);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[Gateway] handleClientMessage error:'),
-      expect.anything(),
-    );
     // connection still alive
     expect(gateway.getActiveConnections().some((c) => c.id === 'c1')).toBe(true);
 
@@ -298,8 +309,6 @@ describe('Gateway', () => {
     transport._message(conn, JSON.stringify({ type: 'interrupt', reason: 'user' }));
     expect(interruptFn).toHaveBeenCalledTimes(2);
     expect(gateway.getActiveConnections().some((c) => c.id === 'c1')).toBe(true);
-
-    consoleSpy.mockRestore();
   });
 
   it('start twice throws', async () => {

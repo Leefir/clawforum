@@ -13,28 +13,44 @@ function createStubTransport(): Transport & {
 } {
   const connections = new Map<string, Connection>();
   const connectCbs: Array<(conn: Connection) => void> = [];
-  const disconnectCbs: Array<(conn: Connection) => void> = [];
+  const disconnectCbs: Array<(conn: Connection, reason?: Error) => void> = [];
   const messageCbs: Array<(conn: Connection, data: string) => void> = [];
+  const transportErrorCbs: Array<(evt: import('../../src/foundation/transport/index.js').TransportErrorEvent) => void> = [];
 
   return {
     listen: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     send: vi.fn(),
-    broadcast: vi.fn(),
+    broadcast: vi.fn().mockReturnValue({ failed: [] }),
     getConnections: () => Array.from(connections.values()),
     onConnect: (cb) => connectCbs.push(cb),
     onDisconnect: (cb) => disconnectCbs.push(cb),
     onMessage: (cb) => messageCbs.push(cb),
+    onTransportError: (cb) => transportErrorCbs.push(cb),
     _connect: (conn) => {
       connections.set(conn.id, conn);
-      connectCbs.forEach((cb) => cb(conn));
+      for (const cb of connectCbs) {
+        try { cb(conn); } catch (err) { /* Transport safeFire isolates */ }
+      }
     },
     _disconnect: (conn) => {
       connections.delete(conn.id);
-      disconnectCbs.forEach((cb) => cb(conn));
+      for (const cb of disconnectCbs) {
+        try { cb(conn); } catch (err) { /* Transport safeFire isolates */ }
+      }
     },
     _message: (conn, data) => {
-      messageCbs.forEach((cb) => cb(conn, data));
+      for (const cb of messageCbs) {
+        try {
+          cb(conn, data);
+        } catch (err) {
+          transportErrorCbs.forEach((tcb) => tcb({
+            kind: 'callback_error',
+            callbackName: 'onMessage',
+            error: err instanceof Error ? err : new Error(String(err)),
+          }));
+        }
+      }
     },
   };
 }
