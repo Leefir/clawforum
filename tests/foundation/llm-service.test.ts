@@ -738,3 +738,110 @@ describe('LLMServiceImpl - events (Phase 254)', () => {
     expect(emitted.some(e => e.type === 'stream_reset')).toBe(true);
   });
 });
+
+function makeSlowAdapter(name: string): ProviderAdapter {
+  return {
+    name,
+    model: 'mock-model',
+    async call(opts) {
+      await new Promise<never>((_, reject) => {
+        if (opts.signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+        opts.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+      throw new Error('unreachable');
+    },
+    async *stream(opts) {
+      await new Promise<never>((_, reject) => {
+        if (opts.signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+        opts.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+      throw new Error('unreachable');
+    },
+  };
+}
+
+describe('LLMServiceImpl - idle failover', () => {
+  it('idle timeout on P1 → failover to P2 → success', async () => {
+    const { sink, emitted } = createMockSink();
+    const p1 = makeSlowAdapter('p1');
+    const p2 = createMockProvider('p2', async function* () {
+      yield { type: 'text_delta', delta: 'ok' };
+      yield { type: 'done' };
+    });
+
+    const svc = new LLMServiceImpl({
+      primary: { name: 'p1', apiKey: 'k', model: 'm' },
+      fallbacks: [{ name: 'p2', apiKey: 'k', model: 'm' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+      events: sink,
+    });
+    (svc as any).primary = p1;
+    (svc as any).fallbacks = [p2];
+
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of svc.stream({ messages: [], idleTimeoutMs: 50 })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.some(c => c.type === 'text_delta')).toBe(true);
+    expect(emitted.filter(e => e.type === 'idle_failover_triggered').length).toBe(1);
+    const ev = emitted.find(e => e.type === 'idle_failover_triggered') as any;
+    expect(ev.provider).toBe('p1');
+    expect(ev.ms).toBe(50);
+  });
+
+  it('all providers idle timeout → LLMAllProvidersFailedError', async () => {
+    const { sink, emitted } = createMockSink();
+    const p1 = makeSlowAdapter('p1');
+    const p2 = makeSlowAdapter('p2');
+
+    const svc = new LLMServiceImpl({
+      primary: { name: 'p1', apiKey: 'k', model: 'm' },
+      fallbacks: [{ name: 'p2', apiKey: 'k', model: 'm' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+      events: sink,
+    });
+    (svc as any).primary = p1;
+    (svc as any).fallbacks = [p2];
+
+    await expect(async () => {
+      for await (const _ of svc.stream({ messages: [], idleTimeoutMs: 50 })) {}
+    }).rejects.toThrow(LLMAllProvidersFailedError);
+
+    expect(emitted.filter(e => e.type === 'idle_failover_triggered').length).toBe(2);
+  });
+
+  it('user abort during idle failover → immediate throw, P2 not tried', async () => {
+    const { sink, emitted } = createMockSink();
+    const p1 = makeSlowAdapter('p1');
+    let p2Called = false;
+    const p2: ProviderAdapter = {
+      name: 'p2',
+      model: 'm',
+      async call() { return { content: [], stop_reason: 'end_turn' }; },
+      async *stream() { p2Called = true; yield { type: 'done' }; },
+    };
+
+    const svc = new LLMServiceImpl({
+      primary: { name: 'p1', apiKey: 'k', model: 'm' },
+      fallbacks: [{ name: 'p2', apiKey: 'k', model: 'm' }],
+      maxAttempts: 1,
+      retryDelayMs: 0,
+      events: sink,
+    });
+    (svc as any).primary = p1;
+    (svc as any).fallbacks = [p2];
+
+    const userCtrl = new AbortController();
+    setTimeout(() => userCtrl.abort(), 20);
+
+    await expect(async () => {
+      for await (const _ of svc.stream({ messages: [], signal: userCtrl.signal, idleTimeoutMs: 200 })) {}
+    }).rejects.toThrow();
+
+    expect(p2Called).toBe(false);
+    expect(emitted.filter(e => e.type === 'idle_failover_triggered').length).toBe(0);
+  });
+});

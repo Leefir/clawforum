@@ -45,6 +45,7 @@ export interface StepInput {
   registry?: ToolRegistry;
   ctx: ExecContext;
   maxTokens?: number;
+  idleTimeoutMs?: number;
   callbacks?: StepCallbacks;
 }
 
@@ -83,6 +84,7 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
         tools,
         maxTokens,
         signal: ctx.signal,
+        idleTimeoutMs: input.idleTimeoutMs,
       },
       callbacks,
     );

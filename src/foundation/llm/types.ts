@@ -148,8 +148,11 @@ export interface LLMCallOptions {
   /** Timeout in milliseconds */
   timeoutMs?: number;
   
-  /** Signal for cancellation */
+  /** Signal for cancellation (user abort + step_yield only; idle timeout is service-internal) */
   signal?: AbortSignal;
+  /** Per-attempt idle timeout (ms); service.ts creates internal AbortController per provider attempt.
+   *  0 / undefined = disabled. */
+  idleTimeoutMs?: number;
 }
 
 /**
@@ -190,7 +193,8 @@ export type LLMEvent =
   | { type: 'breaker_closed'; provider: string }
   | { type: 'healthcheck_failed'; provider: string; error: string }
   | { type: 'stream_reset'; provider: string; error: string }
-  | { type: 'stream_parse_error'; provider: string; raw: string; error: string };
+  | { type: 'stream_parse_error'; provider: string; raw: string; error: string }
+  | { type: 'idle_failover_triggered'; provider: string; ms: number };
 
 /**
  * LLM event sink protocol — defined here (L1), implemented by assembly layer (L6+)

@@ -466,18 +466,6 @@ export class ClawRuntime {
     );
     const systemPrompt = await this.buildSystemPrompt();
 
-    // Idle timeout: abort if no token output for idleTimeoutMs (0 = disabled)
-    const idleTimeoutMs = this.options.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS;
-    let idleTimerId: ReturnType<typeof setTimeout> | undefined;
-    const resetIdle = idleTimeoutMs > 0 ? () => {
-      clearTimeout(idleTimerId);
-      idleTimerId = setTimeout(
-        () => this.currentAbortController?.abort({ type: 'idle_timeout', ms: idleTimeoutMs }),
-        idleTimeoutMs
-      );
-    } : undefined;
-    resetIdle?.();
-
     // 首个 LLM 输出 delta 时上报当前生效的 provider（确认 API 可用后才显示）
     let providerInfoEmitted = false;
     const emitProviderInfoOnce = () => {
@@ -501,8 +489,7 @@ export class ClawRuntime {
       origOnToolResult?.(name, toolUseId, result, step, maxSteps);
     };
 
-    try {
-      await runReact({
+    await runReact({
         messages: messages,
         systemPrompt,
         llm: this.llm,
@@ -511,6 +498,7 @@ export class ClawRuntime {
         tools,
         registry: this.toolRegistry,  // Enable parallel execution for readonly tools
         maxSteps: this.options.maxSteps,
+        idleTimeoutMs: this.options.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
         onLLMResult: (info) => {
           if (info.error) {
             this.auditWriter.write('llm_error', info.model, `err=${info.error}`, `ms=${info.latencyMs}`);
@@ -525,14 +513,13 @@ export class ClawRuntime {
             this.currentAbortController?.abort({ type: 'step_yield' });
           }
         },
-        onTextDelta: (d) => { resetIdle?.(); emitProviderInfoOnce(); callbacks?.onTextDelta?.(d); },
+        onTextDelta: (d) => { emitProviderInfoOnce(); callbacks?.onTextDelta?.(d); },
         onTextEnd: callbacks?.onTextEnd,
-        onThinkingDelta: (d) => { resetIdle?.(); emitProviderInfoOnce(); callbacks?.onThinkingDelta?.(d); },
-        onToolCall: (n, id) => { resetIdle?.(); callbacks?.onToolCall?.(n, id); },
+        onThinkingDelta: (d) => { emitProviderInfoOnce(); callbacks?.onThinkingDelta?.(d); },
+        onToolCall: (n, id) => { callbacks?.onToolCall?.(n, id); },
         onToolResult: auditOnToolResult,
-        onBeforeLLMCall: () => { resetIdle?.(); callbacks?.onBeforeLLMCall?.(); },
+        onBeforeLLMCall: () => { callbacks?.onBeforeLLMCall?.(); },
         onReset: (provider, timeoutMs) => {
-          resetIdle?.();
           providerInfoEmitted = false;
           callbacks?.onProviderFailover?.({ from: provider, timeoutMs });
         },
@@ -540,9 +527,6 @@ export class ClawRuntime {
           callbacks?.onProviderFailed?.({ provider, model, error });
         },
       });
-    } finally {
-      clearTimeout(idleTimerId);
-    }
     await this.sessionManager.save(messages);
 
     // turn auto-commit

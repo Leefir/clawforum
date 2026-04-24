@@ -20,6 +20,7 @@ export interface ReactOptions {
   executor: IToolExecutor;
   ctx: ExecContext;
   maxSteps?: number;
+  idleTimeoutMs?: number;
   onToolCall?: (toolName: string, toolUseId: string) => void | Promise<void>;
   onBeforeLLMCall?: () => void;
   onToolResult?: (toolName: string, toolUseId: string, result: ToolResult, step: number, maxSteps: number) => void;
@@ -44,6 +45,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   const {
     messages, systemPrompt, llm, executor, ctx,
     maxSteps = 20,
+    idleTimeoutMs,
     onToolCall, onBeforeLLMCall, onToolResult, onStepComplete,
     tools = [],
     registry,
@@ -71,6 +73,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   const result = await runAgent({
     messages, systemPrompt, llm, tools, executor, registry, ctx,
     maxSteps,
+    idleTimeoutMs,
     stepCallbacks,
     onAfterStep: async () => {
       stepCount = ctx.stepNumber;  // incrementStep 已被 AgentExecutor 执行

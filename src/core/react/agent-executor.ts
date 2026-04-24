@@ -27,6 +27,7 @@ export interface AgentInput {
 
   maxSteps?: number;                   // 默认 20
   maxTokens?: number;                  // 透传给 executeStep
+  idleTimeoutMs?: number;              // 透传给 StepInput
   stepCallbacks?: StepCallbacks;
   onAfterStep?: (meta: StepMeta) => void | Promise<void>;
 }
@@ -58,6 +59,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     const result = await executeStep({
       messages, systemPrompt, llm, tools, executor, registry, ctx,
       maxTokens,
+      idleTimeoutMs: input.idleTimeoutMs,
       callbacks: stepCallbacks,
     });
 

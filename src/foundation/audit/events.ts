@@ -202,6 +202,7 @@ export const AUDIT_EVENTS = {
   LLM_HEALTHCHECK_FAILED: 'llm_healthcheck_failed',
   LLM_STREAM_RESET: 'llm_stream_reset',
   LLM_STREAM_PARSE_ERROR: 'llm_stream_parse_error',
+  LLM_IDLE_FAILOVER_TRIGGERED: 'llm_idle_failover_triggered',
 
   // --- Gateway (Phase 256) ---
   GATEWAY_STARTED: 'gateway_started',

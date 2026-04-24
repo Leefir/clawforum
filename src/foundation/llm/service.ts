@@ -166,22 +166,32 @@ export class LLMServiceImpl implements LLMService {
     if (!isBreakerOpen(0)) {
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
         if (options.signal?.aborted) throw makeExternalAbortError();
+
+        const idleCtrl = options.idleTimeoutMs ? new AbortController() : null;
+        const idleTimer = idleCtrl ? setTimeout(() => idleCtrl!.abort(), options.idleTimeoutMs!) : undefined;
+        const providerSignal = mergeSignals(options.signal, idleCtrl?.signal);
+        const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, idleTimeoutMs: undefined };
+
         try {
-          const response = await this.primary.call(options);
-          
+          const response = await this.primary.call(providerOptions);
+          clearTimeout(idleTimer);
+
           // Circuit breaker: record success
           this.breakers[0]?.onSuccess();
-          
+
           // Reset to primary
           this.currentProviderIndex = -1;
           return response;
-          
+
         } catch (error) {
+          clearTimeout(idleTimer);
           lastError = error as Error;
 
           // Don't retry on user abort (would add multi-second delay)
-          if (lastError.name === 'AbortError') throw lastError;
-          
+          if (options.signal?.aborted) throw lastError;
+          // Provider self-thrown AbortError when idle signal did not fire
+          if (lastError.name === 'AbortError' && !idleCtrl?.signal.aborted) throw lastError;
+
           // Wait before retry (exponential backoff with 30s max)
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(
@@ -224,19 +234,30 @@ export class LLMServiceImpl implements LLMService {
         failures.push({ provider: this.fallbacks[i].name, error: new Error('Circuit breaker open') });
         continue;
       }
-      
+
       const fb = this.fallbacks[i];
+
+      const idleCtrl = options.idleTimeoutMs ? new AbortController() : null;
+      const idleTimer = idleCtrl ? setTimeout(() => idleCtrl!.abort(), options.idleTimeoutMs!) : undefined;
+      const providerSignal = mergeSignals(options.signal, idleCtrl?.signal);
+      const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, idleTimeoutMs: undefined };
+
       try {
-        const response = await fb.call(options);
-        
+        const response = await fb.call(providerOptions);
+        clearTimeout(idleTimer);
+
         // Circuit breaker: record success
         this.breakers[i + 1]?.onSuccess();
-        
+
         this.currentProviderIndex = i;
         return response;
-        
+
       } catch (fallbackError) {
+        clearTimeout(idleTimer);
         const err = fallbackError as Error;
+        if (options.signal?.aborted) throw err;
+        // Provider self-thrown AbortError when idle signal did not fire
+        if (err.name === 'AbortError' && !idleCtrl?.signal.aborted) throw err;
         this.events.emit({ type: 'provider_exhausted', provider: fb.name, error: err.message });
         const wasOpen = this.breakers[i + 1]?.isOpen();
         this.breakers[i + 1]?.onFailure();
@@ -291,20 +312,54 @@ export class LLMServiceImpl implements LLMService {
       let midStreamReset = false;
       let lastError: Error | null = null;
       let doneChunk: StreamChunk | undefined;
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+      let idleCtrl: AbortController | null = null;
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
+        idleTimer = undefined;
+        idleCtrl = null;
         try {
-          for await (const chunk of adapter.stream(options)) {
+          idleCtrl = options.idleTimeoutMs ? new AbortController() : null;
+          const resetIdleTimer = () => {
+            if (!idleCtrl || !options.idleTimeoutMs) return;
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => idleCtrl!.abort(), options.idleTimeoutMs);
+          };
+
+          const providerSignal = mergeSignals(options.signal, idleCtrl?.signal);
+          const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, idleTimeoutMs: undefined };
+
+          resetIdleTimer();
+          for await (const chunk of adapter.stream(providerOptions)) {
+            resetIdleTimer();
             hasYielded = true;
             if (chunk.type === 'done') doneChunk = chunk;
             yield chunk;
           }
+          clearTimeout(idleTimer);
           success = true;
           break; // Success, exit retry loop
         } catch (error) {
+          clearTimeout(idleTimer);
           const err = error as Error;
           lastError = err;
-          // Don't retry on user abort
+          const isUserAbort = options.signal?.aborted;
+          const isIdleTimeout = idleCtrl?.signal.aborted && !isUserAbort;
+
+          if (isUserAbort) throw err;
+
+          if (isIdleTimeout) {
+            this.events.emit({
+              type: 'idle_failover_triggered',
+              provider: adapter.name,
+              ms: options.idleTimeoutMs!,
+            });
+            lastError = new Error(`Idle timeout after ${options.idleTimeoutMs}ms`);
+            break; // exit retry loop → outer loop continues to next provider
+          }
+
+          // Provider self-thrown AbortError when no signal fired
           if (err.name === 'AbortError') throw err;
+
           // Mid-stream error: signal caller to discard partial state, then failover to next provider
           if (hasYielded) {
             this.events.emit({ type: 'stream_reset', provider: adapter.name, error: err.message });
@@ -410,4 +465,19 @@ export class LLMServiceImpl implements LLMService {
   async close(): Promise<void> {
     // No persistent connections to close
   }
+}
+
+function mergeSignals(
+  a: AbortSignal | undefined,
+  b: AbortSignal | undefined,
+): AbortSignal | undefined {
+  if (!a && !b) return undefined;
+  if (!a) return b;
+  if (!b) return a;
+  const ctrl = new AbortController();
+  const abort = () => ctrl.abort();
+  if (a.aborted || b.aborted) { ctrl.abort(); return ctrl.signal; }
+  a.addEventListener('abort', abort, { once: true });
+  b.addEventListener('abort', abort, { once: true });
+  return ctrl.signal;
 }

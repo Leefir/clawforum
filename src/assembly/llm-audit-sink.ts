@@ -45,6 +45,13 @@ export function createLLMAuditSink(audit: Audit): LLMEventSink {
             audit.write(AUDIT_EVENTS.LLM_STREAM_PARSE_ERROR,
               `provider=${event.provider}`, `raw=${event.raw}`, `error=${event.error}`);
             break;
+          case 'idle_failover_triggered':
+            audit.write(
+              AUDIT_EVENTS.LLM_IDLE_FAILOVER_TRIGGERED,
+              `provider=${event.provider}`,
+              `ms=${event.ms}`,
+            );
+            break;
         }
       } catch {
         // Error isolation: audit failure must not interrupt LLM path
