@@ -18,6 +18,7 @@ import { AuditWriter } from '../../foundation/audit/writer.js';
 import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, getContractCreatedMs, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
+import { AUDIT_EVENTS } from '../../foundation/audit/events.js';
 
 // Get the .clawforum/ directory (CLAWFORUM_ROOT takes priority)
 function getClawforumDir(): string {
@@ -135,6 +136,17 @@ function log(message: string): void {
   }
 }
 
+export function logWithAudit(
+  message: string,
+  auditType?: string,
+  payload?: string,
+): void {
+  log(message);
+  if (auditType && _auditWriter) {
+    _auditWriter.write(auditType, payload ?? message);
+  }
+}
+
 // Write an inbox message (YAML frontmatter .md format)
 function writeWatchdogInboxMessage(type: string, content: Record<string, unknown>): void {
   const motionDir = getMotionDir();
@@ -195,6 +207,11 @@ function getGlobalConfig() {
     globalConfigCache = loadGlobalConfig();
   }
   return globalConfigCache;
+}
+
+let _auditWriter: AuditWriter | null = null;
+export function setAuditWriter(auditWriter: AuditWriter | null): void {
+  _auditWriter = auditWriter;
 }
 
 // Check for claws with an active contract but no progress for a long time, and send a reminder
@@ -347,7 +364,8 @@ export async function runWatchdogLoop(): Promise<void> {
     auditMaxSizeMb,
   );
   auditWriter.write('watchdog_start');
-  
+  _auditWriter = auditWriter;
+
   let stopped = false;
   
   // Create Motion ProcessManager (reused across loop iterations)
@@ -394,7 +412,8 @@ export async function runWatchdogLoop(): Promise<void> {
       try {
         // First clean up any stale PID file that may exist
         await pm.stop('motion').catch((e) => {
-          log(`[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`);
+          const msg = `[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`;
+          logWithAudit(msg, AUDIT_EVENTS.WATCHDOG_CLEANUP_FAILED, msg.slice(0, 200));
         });
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
         const bundleEntry = path.join(thisDir, 'daemon-entry.js');

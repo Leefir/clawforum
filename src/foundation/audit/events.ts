@@ -164,6 +164,9 @@ export const AUDIT_EVENTS = {
   CRON_RUNNER_STARTED: 'cron_runner_started',
   CRON_RUNNER_STOPPED: 'cron_runner_stopped',
 
+  // --- Watchdog ---
+  WATCHDOG_CLEANUP_FAILED: 'watchdog_cleanup_failed',
+
   // --- Heartbeat ---
   HEARTBEAT_FIRE_FAILED: 'heartbeat_fire_failed',
 

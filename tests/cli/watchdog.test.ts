@@ -34,7 +34,7 @@ vi.mock('../../src/cli/commands/watchdog-utils.js', async (importOriginal) => {
   };
 });
 
-import { maybeCronClawInactivity, shutdownWatchdog } from '../../src/cli/commands/watchdog.js';
+import { maybeCronClawInactivity, shutdownWatchdog, logWithAudit, setAuditWriter } from '../../src/cli/commands/watchdog.js';
 import { getMotionDir, loadGlobalConfig } from '../../src/cli/config.js';
 import { clawHasContract } from '../../src/cli/commands/watchdog-utils.js';
 
@@ -99,6 +99,75 @@ describe('maybeCronClawInactivity — fix 4: per-claw error isolation', () => {
 
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import { AUDIT_EVENTS } from '../../src/foundation/audit/events.js';
+
+describe('logWithAudit — A1 clearance', () => {
+  let tmpDir: string;
+  let auditWriter: AuditWriter;
+
+  beforeEach(() => {
+    tmpDir = path.join(os.tmpdir(), `wd-audit-${randomUUID()}`);
+    const clawforumDir = path.join(tmpDir, '.clawforum');
+    fs.mkdirSync(path.join(clawforumDir, 'motion'), { recursive: true });
+    fs.mkdirSync(path.join(clawforumDir, 'logs'), { recursive: true });
+    vi.mocked(getMotionDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
+
+    auditWriter = new AuditWriter(
+      new NodeFileSystem({ baseDir: clawforumDir, enforcePermissions: false }),
+      'audit.tsv',
+      null,
+    );
+  });
+
+  afterEach(() => {
+    setAuditWriter(null);
+    vi.clearAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes audit when auditType is provided and _auditWriter is set', () => {
+    setAuditWriter(auditWriter);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    logWithAudit('test message', AUDIT_EVENTS.WATCHDOG_CLEANUP_FAILED, 'test payload');
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('test message'));
+
+    const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
+    const auditLines = fs.readFileSync(auditPath, 'utf-8');
+    expect(auditLines).toContain('watchdog_cleanup_failed');
+    expect(auditLines).toContain('test payload');
+
+    logSpy.mockRestore();
+  });
+
+  it('only logs when auditType is omitted', () => {
+    setAuditWriter(auditWriter);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    logWithAudit('no audit message');
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('no audit message'));
+
+    const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
+    const auditLines = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
+    expect(auditLines).not.toContain('no audit message');
+
+    logSpy.mockRestore();
+  });
+
+  it('does not throw when _auditWriter is null', () => {
+    setAuditWriter(null);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    expect(() => logWithAudit('null audit message', AUDIT_EVENTS.WATCHDOG_CLEANUP_FAILED)).not.toThrow();
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('null audit message'));
+
+    logSpy.mockRestore();
+  });
+});
 
 describe('shutdownWatchdog — fix 005: save state on signal', () => {
   let tmpDir: string;
