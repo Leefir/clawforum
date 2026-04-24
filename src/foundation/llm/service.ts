@@ -20,6 +20,7 @@ import type {
   LLMCallOptions,
   ProviderAdapter,
   StreamChunk,
+  LLMEventSink,
 } from './types.js';
 import type { LLMService } from './index.js';
 import { AnthropicAdapter } from './anthropic.js';
@@ -129,8 +130,11 @@ export class LLMServiceImpl implements LLMService {
   // Circuit breakers for each provider (primary + fallbacks)
   private breakers: CircuitBreaker[];
 
+  private events: LLMEventSink;
+
   constructor(config: LLMServiceConfig) {
     this.config = config;
+    this.events = config.events;
     this.primary = createProvider(config.primary);
     this.fallbacks = (config.fallbacks ?? []).map(createProvider);
     
@@ -139,6 +143,12 @@ export class LLMServiceImpl implements LLMService {
     this.breakers = cb
       ? [this.primary, ...this.fallbacks].map(() => new CircuitBreaker(cb.failureThreshold, cb.resetTimeoutMs))
       : [];
+
+    // Wire onStreamParseError for A.4 (Step 5 calls this)
+    const parseErrHandler = (e: { provider: string; raw: string; error: string }) =>
+      this.events.emit({ type: 'stream_parse_error', ...e });
+    this.primary.onStreamParseError = parseErrHandler;
+    this.fallbacks.forEach(fb => { fb.onStreamParseError = parseErrHandler; });
   }
 
   /**
@@ -178,24 +188,33 @@ export class LLMServiceImpl implements LLMService {
               this.config.retryDelayMs * Math.pow(2, attempt),
               30_000  // Max 30 seconds
             );
+            this.events.emit({ type: 'retry_scheduled', provider: this.primary.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
           }
         }
       }
       
       // Circuit breaker: record failure
+      const wasOpen0 = this.breakers[0]?.isOpen();
       this.breakers[0]?.onFailure();
-      
+      if (!wasOpen0 && this.breakers[0]?.isOpen()) {
+        this.events.emit({ type: 'breaker_opened', provider: this.primary.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
+      }
+
       // Primary failed, continue to fallbacks
     }
-    
+
     // Primary failed or breaker open, try fallbacks in order
     const failures: Array<{ provider: string; error: Error }> = [];
     if (isBreakerOpen(0)) {
       failures.push({ provider: this.primary.name, error: new Error('Circuit breaker open') });
     } else if (lastError) {
-      console.warn(`[llm] provider "${this.primary.name}" failed: ${lastError.message}`);
+      this.events.emit({ type: 'provider_exhausted', provider: this.primary.name, error: lastError.message });
       failures.push({ provider: this.primary.name, error: lastError });
+    }
+
+    if (this.fallbacks.length > 0 && lastError) {
+      this.events.emit({ type: 'fallback_switched', from: this.primary.name, to: this.fallbacks[0].name, reason: 'primary_exhausted' });
     }
     
     for (let i = 0; i < this.fallbacks.length; i++) {
@@ -218,8 +237,12 @@ export class LLMServiceImpl implements LLMService {
         
       } catch (fallbackError) {
         const err = fallbackError as Error;
-        console.warn(`[llm] provider "${fb.name}" failed: ${err.message}`);
+        this.events.emit({ type: 'provider_exhausted', provider: fb.name, error: err.message });
+        const wasOpen = this.breakers[i + 1]?.isOpen();
         this.breakers[i + 1]?.onFailure();
+        if (!wasOpen && this.breakers[i + 1]?.isOpen()) {
+          this.events.emit({ type: 'breaker_opened', provider: fb.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
+        }
         failures.push({ provider: fb.name, error: err });
       }
     }
@@ -253,7 +276,6 @@ export class LLMServiceImpl implements LLMService {
       // Check circuit breaker
       const breaker = this.breakers[breakerIndex];
       if (breaker?.isOpen()) {
-        console.warn(`[llm] provider "${adapter.name}" skipped: circuit breaker open`);
         failures.push({ provider: adapter.name, error: new Error('Circuit breaker open') });
         yield { type: 'provider_failed' as const, provider: adapter.name, model: adapter.model, error: 'Circuit breaker open' };
         continue;
@@ -300,6 +322,7 @@ export class LLMServiceImpl implements LLMService {
               this.config.retryDelayMs * Math.pow(2, attempt),
               30000,
             );
+            this.events.emit({ type: 'retry_scheduled', provider: adapter.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
           }
         }
@@ -315,17 +338,25 @@ export class LLMServiceImpl implements LLMService {
 
       if (success && !hasYielded) {
         // Stream completed normally but produced nothing — treat as failure
+        const wasOpen = breaker?.isOpen();
         breaker?.onFailure();
+        if (!wasOpen && breaker?.isOpen()) {
+          this.events.emit({ type: 'breaker_opened', provider: adapter.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
+        }
         const err = new Error('Stream completed with 0 chunks');
-        console.warn(`[llm] provider "${adapter.name}" failed: ${err.message}`);
+        this.events.emit({ type: 'provider_attempt_failed', provider: adapter.name, attempt: 0, error: err.message });
         failures.push({ provider: adapter.name, error: err });
         yield { type: 'provider_failed' as const, provider: adapter.name, model: adapter.model, error: err.message };
         // Continue to next provider
       } else if (!midStreamReset) {
         // Circuit breaker: record failure
+        const wasOpen = breaker?.isOpen();
         breaker?.onFailure();
+        if (!wasOpen && breaker?.isOpen()) {
+          this.events.emit({ type: 'breaker_opened', provider: adapter.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
+        }
         const err = lastError ?? new Error('Unknown stream error');
-        console.warn(`[llm] provider "${adapter.name}" failed: ${err.message}`);
+        this.events.emit({ type: 'provider_attempt_failed', provider: adapter.name, attempt: 0, error: err.message });
         failures.push({ provider: adapter.name, error: err });
         yield { type: 'provider_failed' as const, provider: adapter.name, model: adapter.model, error: err.message };
         // Continue to next provider
@@ -367,7 +398,7 @@ export class LLMServiceImpl implements LLMService {
       });
       return true;
     } catch (err) {
-      console.warn('[llm] healthCheck failed:', err instanceof Error ? err.message : err);
+      this.events.emit({ type: 'healthcheck_failed', provider: this.primary.name, error: err instanceof Error ? err.message : String(err) });
       return false;
     }
   }
