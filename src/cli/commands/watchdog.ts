@@ -169,6 +169,7 @@ const clawPreviouslyAlive: Map<string, boolean> = new Map();
 const inactivityNotifyCount: Map<string, number> = new Map();  // consecutive notification count, used for backoff
 
 interface WatchdogState {
+  version?: number;  // v0 = absent (legacy), v1 = current
   lastInactivityNotified: Record<string, number>;
   inactivityNotifyCount: Record<string, number>;
 }
@@ -177,27 +178,47 @@ function getWatchdogStateFile(): string {
   return path.join(getClawforumDir(), 'watchdog-state.json');
 }
 
-function loadWatchdogState(): void {
+export function loadWatchdogState(): void {
   try {
     const raw = fs.readFileSync(getWatchdogStateFile(), 'utf-8');
     const state = JSON.parse(raw) as WatchdogState;
+    // version ?? 0 — 旧文件无 version 字段，视为 v0，兼容加载
     for (const [k, v] of Object.entries(state.lastInactivityNotified ?? {})) {
       lastInactivityNotified.set(k, v);
     }
     for (const [k, v] of Object.entries(state.inactivityNotifyCount ?? {})) {
       inactivityNotifyCount.set(k, v);
     }
-  } catch {
-    // 首次启动或文件损坏 — 从空状态开始
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      // 首次启动 — 从空状态开始
+      return;
+    }
+    // 文件损坏（SyntaxError / 字段类型错等）
+    const backupPath = getWatchdogStateFile() + `.corrupt-${Date.now()}`;
+    try {
+      fs.renameSync(getWatchdogStateFile(), backupPath);
+    } catch {
+      // rename 失败不重试
+    }
+    _auditWriter?.write(
+      AUDIT_EVENTS.WATCHDOG_STATE_LOAD_FAILED,
+      `backup=${backupPath} err=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
+    );
   }
 }
 
-function saveWatchdogState(): void {
+export function saveWatchdogState(): void {
   const state: WatchdogState = {
+    version: 1,
     lastInactivityNotified: Object.fromEntries(lastInactivityNotified),
     inactivityNotifyCount: Object.fromEntries(inactivityNotifyCount),
   };
-  fs.writeFileSync(getWatchdogStateFile(), JSON.stringify(state, null, 2));
+  const dest = getWatchdogStateFile();
+  const tmp = dest + `.tmp-${process.pid}`;
+  // POSIX: renameSync is atomic; on Windows this is best-effort
+  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+  fs.renameSync(tmp, dest);
 }
 
 // Global config (loaded lazily on first access)
@@ -364,20 +385,22 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditWriter): void
 // Daemon main loop
 export async function runWatchdogLoop(): Promise<void> {
   log('[watchdog] Daemon starting...');
-  
+
   writeWatchdogPid(process.pid);
-  loadWatchdogState();   // 恢复通知状态
-  log('[watchdog] State loaded.');
-  
-  // Create auditWriter for watchdog
+
+  // 先建 auditWriter，让 loadWatchdogState corrupt 路径可写 audit（N1 修复）
   const auditMaxSizeMb = getGlobalConfig().audit?.retention?.max_size_mb ?? null;
   const auditWriter = new AuditWriter(
     new NodeFileSystem({ baseDir: getClawforumDir(), enforcePermissions: false }),
     'audit.tsv',
     auditMaxSizeMb,
   );
-  auditWriter.write('watchdog_start');
   _auditWriter = auditWriter;
+
+  loadWatchdogState();   // 恢复通知状态（_auditWriter 已设，corrupt 路径可写 audit）
+  log('[watchdog] State loaded.');
+
+  auditWriter.write('watchdog_start');
 
   let stopped = false;
   

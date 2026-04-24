@@ -171,6 +171,7 @@ export const AUDIT_EVENTS = {
   WATCHDOG_CLAW_SCAN: 'watchdog_claw_scan',
   CLAW_CRASH_DETECTED: 'claw_crash_detected',
   CLAW_CRASH_NOTIFY_DROPPED: 'claw_crash_notify_dropped',
+  WATCHDOG_STATE_LOAD_FAILED: 'watchdog_state_load_failed',
 
   // --- Heartbeat ---
   HEARTBEAT_FIRE_FAILED: 'heartbeat_fire_failed',
