@@ -9,6 +9,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
+export const IGNORE_PATTERN = '.tmp_';
+
 /**
  * Read file as UTF-8 string
  */
@@ -29,7 +31,7 @@ export async function writeAtomic(
   options?: { encoding?: BufferEncoding; mode?: number }
 ): Promise<void> {
   const dir = path.dirname(filePath);
-  const tmpFile = path.join(dir, `.tmp_${randomUUID()}`);
+  const tmpFile = path.join(dir, `${IGNORE_PATTERN}${randomUUID()}`);
   
   try {
     // Write to temp file
@@ -152,7 +154,7 @@ export async function cleanupOrphanedTemp(dirPath: string): Promise<string[]> {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     
     for (const entry of entries) {
-      if (!entry.name.startsWith('.tmp_')) continue;
+      if (!entry.name.startsWith(IGNORE_PATTERN)) continue;
       if (!entry.isFile()) continue;          // Skip directories and symbolic links
       const fullPath = path.join(dirPath, entry.name);
       try {
