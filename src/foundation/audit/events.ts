@@ -146,6 +146,8 @@ export const AUDIT_EVENTS = {
   CONTRACT_ACCEPTANCE_INBOX_FAILED: 'contract_acceptance_inbox_failed',
   CONTRACT_ACCEPTANCE_RESET_FAILED: 'contract_acceptance_reset_failed',
   CONTRACT_ACCEPTANCE_SCRIPT_STARTED: 'contract_acceptance_script_started',
+  CONTRACT_SUBTASK_DUPLICATE_DONE: 'contract_subtask_duplicate_done',
+  CONTRACT_SUBTASK_ALREADY_COMPLETED: 'contract_subtask_already_completed',
   CONTRACT_RETRO_INDEX_FAILED: 'contract_retro_index_failed',
   CONTRACT_RETRO_YAML_FAILED: 'contract_retro_yaml_failed',
   CONTRACT_RETRO_SKILL_FAILED: 'contract_retro_skill_failed',

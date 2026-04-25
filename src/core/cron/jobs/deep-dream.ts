@@ -156,12 +156,10 @@ async function runDeepDreamForClaw(
 
   if (sessionFiles.length === 0) {
     audit.write('cron_deep_dream_job', `step=skip_empty`, `clawId=${clawId}`);
-    console.log(`[cron:deep-dream] ${clawId}: nothing to process`);
     return;
   }
 
   audit.write('cron_deep_dream_job', `step=started`, `clawId=${clawId}`, `session_count=${sessionFiles.length}`);
-  console.log(`[cron:deep-dream] ${clawId}: processing ${sessionFiles.length} session(s)`);
 
   let compressions: string[] = [];
   const dreamOutputs: string[] = [];
@@ -255,7 +253,6 @@ async function runDeepDreamForClaw(
   });
 
   audit.write('cron_deep_dream_job', `step=finished`, `clawId=${clawId}`, `dream_count=${dreamOutputs.length}`);
-  console.log(`[cron:deep-dream] ${clawId}: done, ${dreamOutputs.length} dream(s) sent`);
 }
 
 // ─── 主函数 ───────────────────────────────────────────────────

@@ -230,12 +230,10 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
 
   if (weightedContracts.length === 0) {
     opts.audit.write('cron_random_dream_job', `step=skip_empty`);
-    console.log('[cron:random-dream] no archived contracts found, skipping');
     return;
   }
 
   opts.audit.write('cron_random_dream_job', `step=scheduled`, `count=${weightedContracts.length}`);
-  console.log(`[cron:random-dream] scheduling sub-agent for ${weightedContracts.length} contracts`);
 
   // 调度 sub-agent（文件驱动，watcher 异步拾起）
   const motionAudit = new AuditWriter(opts.fs, path.join(opts.motionDir, 'audit.tsv'));
@@ -252,7 +250,6 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   });
 
   opts.audit.write('cron_random_dream_job', `step=subagent_started`, `taskId=${taskId}`);
-  console.log(`[cron:random-dream] sub-agent started, taskId=${taskId}, waiting (up to 1h)...`);
 
   // 等待完成（最长 1h，每 30s 轮询）
   const log = await waitForTaskResult(opts.motionDir, taskId, 3_600_000, opts.audit);
@@ -271,7 +268,6 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   }
 
   opts.audit.write('cron_random_dream_job', `step=finished`, `output_count=${outputs.length}`);
-  console.log(`[cron:random-dream] extracted ${outputs.length} dream output(s)`);
 
   // 更新 state
   const updatedState: RandomDreamState = {

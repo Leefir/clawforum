@@ -402,7 +402,6 @@ export class ContractManager {
         `old=${existing.id}`,
         `new=${contractId}`,
       );
-      console.log(`[contract] Archiving existing contract ${existing.id} for new contract ${contractId}`);
       await this.moveToArchive(existing.id);
     }
 
@@ -570,22 +569,20 @@ export class ContractManager {
       const currentStatus = progress.subtasks[subtaskId].status;
       if (currentStatus === 'in_progress') {
         result = { passed: false, feedback: `Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.` };
-        console.warn({
-          context: 'ContractManager._completeSubtaskSync',
-          contractId,
-          subtaskId,
-          message: 'Duplicate done() call ignored - acceptance in progress',
-        });
+        this.auditWriter?.write(
+          AUDIT_EVENTS.CONTRACT_SUBTASK_DUPLICATE_DONE,
+          `contractId=${contractId}`,
+          `subtaskId=${subtaskId}`,
+        );
         return;
       }
       if (currentStatus === 'completed') {
         result = { passed: false, feedback: `Subtask "${subtaskId}" is already completed.` };
-        console.warn({
-          context: 'ContractManager._completeSubtaskSync',
-          contractId,
-          subtaskId,
-          message: 'Subtask already completed',
-        });
+        this.auditWriter?.write(
+          AUDIT_EVENTS.CONTRACT_SUBTASK_ALREADY_COMPLETED,
+          `contractId=${contractId}`,
+          `subtaskId=${subtaskId}`,
+        );
         return;
       }
       
@@ -1120,7 +1117,6 @@ export class ContractManager {
       `script=${scriptFile}`,
       `cwd=${this.clawDir}`,
     );
-    console.log(`[contract] Running acceptance script: ${scriptFile} (cwd: ${this.clawDir})`);
 
     try {
       await execFile('sh', [resolved], {
