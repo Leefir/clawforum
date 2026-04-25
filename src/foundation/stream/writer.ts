@@ -53,11 +53,7 @@ export class StreamWriter implements StreamLog {
   /** 写一行事件 */
   write(event: StreamEvent): void {
     if (!this.isOpen) {
-      this.audit.write(
-        AUDIT_EVENTS.STREAM_WRITE_DROPPED,
-        `type=${event.type}`,
-      );
-      return;
+      throw new Error('StreamWriter: write() called before open()');
     }
     const line = JSON.stringify(event) + '\n';
     try {
@@ -65,7 +61,9 @@ export class StreamWriter implements StreamLog {
     } catch (err) {
       this.audit.write(
         AUDIT_EVENTS.STREAM_APPEND_FAILED,
+        `type=${event.type}`,
         `reason=${err instanceof Error ? err.message : String(err)}`,
+        `body=${line.trimEnd()}`,
       );
     }
   }

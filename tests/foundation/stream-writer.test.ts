@@ -33,14 +33,13 @@ describe('StreamWriter', () => {
     expect(parsed.type).toBe('test');
   });
 
-  it('write before open triggers stream_write_dropped and does not write', () => {
-    const { audit, events } = makeAudit();
+  it('write before open throws', () => {
+    const { audit } = makeAudit();
     const writer = new StreamWriter(fs, audit);
-    writer.write({ ts: 1, type: 'dropped' });
-
-    const exists = fsSync.existsSync(path.join(tmpDir, 'stream.jsonl'));
-    expect(exists).toBe(false);
-    expect(events.some(e => e[0] === AUDIT_EVENTS.STREAM_WRITE_DROPPED)).toBe(true);
+    expect(() => writer.write({ ts: 1, type: 'dropped' })).toThrow(
+      'StreamWriter: write() called before open()',
+    );
+    expect(fsSync.existsSync(path.join(tmpDir, 'stream.jsonl'))).toBe(false);
   });
 
   it('open archives existing stream.jsonl', () => {
@@ -98,6 +97,10 @@ describe('StreamWriter', () => {
 
     writer.write({ ts: 1, type: 'fail' });
     expect(events.some(e => e[0] === AUDIT_EVENTS.STREAM_APPEND_FAILED)).toBe(true);
+
+    const failEvent = events.find(e => e[0] === AUDIT_EVENTS.STREAM_APPEND_FAILED);
+    expect(failEvent?.some((col: unknown) => String(col).startsWith('type='))).toBe(true);
+    expect(failEvent?.some((col: unknown) => String(col).startsWith('body='))).toBe(true);
 
     // Subsequent write should still work (appendSync mock restored on next call)
     writer.write({ ts: 2, type: 'ok' });

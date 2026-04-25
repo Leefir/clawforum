@@ -23,12 +23,13 @@ describe('StreamWriter', () => {
     await fsp.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('write() before open is a no-op and does not throw', () => {
+  it('write() before open throws', () => {
     const fs = new NodeFileSystem({ baseDir: tmpDir, enforcePermissions: false });
-    const { audit, events } = makeAudit();
+    const { audit } = makeAudit();
     const sw = new StreamWriter(fs, audit);
-    expect(() => sw.write({ ts: 1, type: 'test' })).not.toThrow();
-    expect(events.some(e => e[0] === 'stream_write_dropped')).toBe(true);
+    expect(() => sw.write({ ts: 1, type: 'test' })).toThrow(
+      'StreamWriter: write() called before open()',
+    );
   });
 
   it('write() when appendSync throws audits and does not propagate', () => {
@@ -43,6 +44,10 @@ describe('StreamWriter', () => {
 
     expect(() => sw.write({ ts: 1, type: 'test' })).not.toThrow();
     expect(events.some(e => e[0] === 'stream_append_failed')).toBe(true);
+
+    const failEvent = events.find(e => e[0] === 'stream_append_failed');
+    expect(failEvent?.some((col: unknown) => String(col).startsWith('type='))).toBe(true);
+    expect(failEvent?.some((col: unknown) => String(col).startsWith('body='))).toBe(true);
 
     vi.restoreAllMocks();
   });
