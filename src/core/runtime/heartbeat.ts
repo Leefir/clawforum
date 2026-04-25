@@ -5,12 +5,12 @@
  */
 
 import * as path from 'path';
-import type { FileSystem } from '../foundation/fs/types.js';
-import { NodeFileSystem } from '../foundation/fs/node-fs.js';
-import { InboxWriter } from '../foundation/messaging/index.js';
-import { AUDIT_EVENTS } from '../foundation/audit/events.js';
-import { AuditWriter } from '../foundation/audit/writer.js';
-import type { Audit } from '../foundation/audit/index.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import { InboxWriter } from '../../foundation/messaging/index.js';
+import { AUDIT_EVENTS } from '../../foundation/audit/events.js';
+import { AuditWriter } from '../../foundation/audit/writer.js';
+import type { Audit } from '../../foundation/audit/index.js';
 
 export interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */

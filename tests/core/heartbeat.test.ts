@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Heartbeat } from '../../src/core/heartbeat.js';
+import { Heartbeat } from '../../src/core/runtime/index.js';
 import { createTempDir, cleanupTempDirSync } from '../utils/temp.js';
 
 describe('Heartbeat', () => {

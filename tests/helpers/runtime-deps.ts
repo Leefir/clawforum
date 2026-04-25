@@ -14,7 +14,7 @@ import { TaskSystem } from '../../src/core/task/system.js';
 import { ContextInjector } from '../../src/core/dialog/injector.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { registerBuiltinTools } from '../../src/core/tools/builtins/index.js';
-import type { RuntimeDependencies } from '../../src/core/runtime.js';
+import type { RuntimeDependencies } from '../../src/core/runtime/index.js';
 import type { LLMServiceConfig } from '../../src/foundation/llm/types.js';
 
 export const TEST_CLAW_ID = 'test-claw';

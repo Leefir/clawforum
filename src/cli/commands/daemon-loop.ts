@@ -7,7 +7,7 @@ import * as fsNative from 'fs';
 import * as path from 'path';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import type { ClawRuntime, StreamCallbacks } from '../../core/runtime.js';
+import type { ClawRuntime, StreamCallbacks } from '../../core/runtime/index.js';
 import type { InboxMessage } from '../../types/contract.js';
 import type { StreamWriter, StreamLog } from '../../foundation/stream/index.js';
 import { createWatcher } from '../../foundation/file-watcher/index.js';
@@ -15,7 +15,7 @@ import type { Watcher } from '../../foundation/file-watcher/types.js';
 import type { Audit } from '../../foundation/audit/index.js';
 import { oneLine } from '../../types/utils.js';
 
-import type { Heartbeat } from '../../core/heartbeat.js';
+import type { Heartbeat } from '../../core/runtime/index.js';
 
 import {
   DAEMON_FALLBACK_TIMEOUT_MS,

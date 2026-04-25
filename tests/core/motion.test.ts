@@ -13,8 +13,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { ClawRuntime } from '../../src/core/runtime.js';
-import { buildMotionSystemPrompt } from '../../src/core/create-runtime.js';
+import { ClawRuntime, buildMotionSystemPrompt } from '../../src/core/runtime/index.js';
 import type { LLMServiceConfig } from '../../src/foundation/llm/types.js';
 import { makeRuntimeDeps } from '../helpers/runtime-deps.js';
 

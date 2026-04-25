@@ -7,7 +7,7 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { ClawRuntime } from '../../src/core/runtime.js';
+import { ClawRuntime } from '../../src/core/runtime/index.js';
 import { makeRuntimeDeps } from '../helpers/runtime-deps.js';
 import { writeSessionWithIncompleteToolUse } from '../helpers/session-fixtures.js';
 import type { LLMServiceConfig } from '../../src/foundation/llm/types.js';

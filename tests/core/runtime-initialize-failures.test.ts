@@ -16,7 +16,7 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { ClawRuntime } from '../../src/core/runtime.js';
+import { ClawRuntime } from '../../src/core/runtime/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { SessionManager } from '../../src/foundation/session-store/index.js';

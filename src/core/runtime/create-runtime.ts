@@ -13,8 +13,8 @@
  */
 
 import { ClawRuntime, type ClawRuntimeOptions } from './runtime.js';
-import type { ContextInjector } from './dialog/injector.js';
-import type { FileSystem } from '../foundation/fs/types.js';
+import type { ContextInjector } from '../dialog/injector.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
 
 export type CreateRuntimeOptions = ClawRuntimeOptions & {
   identity: 'motion' | 'claw';

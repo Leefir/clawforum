@@ -2,7 +2,7 @@
  * Core module exports
  */
 
-export { ClawRuntime, type ClawRuntimeOptions } from './runtime.js';
+export { ClawRuntime, type ClawRuntimeOptions } from './runtime/index.js';
 
 // Re-export core modules for advanced usage
 export * from './dialog/index.js';

@@ -73,15 +73,13 @@ vi.mock('../../src/cli/commands/process-manager-factory.js', () => ({
   createAgentProcessManager: vi.fn(() => mockProcessManager),
 }));
 
-vi.mock('../../src/core/runtime.js', () => ({
-  ClawRuntime: vi.fn(() => mockRuntime),
-}));
-
-vi.mock('../../src/core/heartbeat.js', () => {
-  const Ctor = vi.fn(() => mockHeartbeat);
+vi.mock('../../src/core/runtime/index.js', () => {
+  const HeartbeatCtor = vi.fn(() => mockHeartbeat);
   return {
-    Heartbeat: Ctor,
-    createHeartbeat: vi.fn((...args: any[]) => new (Ctor as any)(...args)),
+    ClawRuntime: vi.fn(() => mockRuntime),
+    createRuntime: vi.fn(() => mockRuntime),
+    Heartbeat: HeartbeatCtor,
+    createHeartbeat: vi.fn((...args: any[]) => new (HeartbeatCtor as any)(...args)),
   };
 });
 
@@ -476,8 +474,8 @@ describe('assemble', () => {
   });
 
   it('Runtime 构造失败 → assemble_failed + 抛 Error', async () => {
-    const { ClawRuntime } = await import('../../src/core/runtime.js');
-    (ClawRuntime as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+    const { createRuntime } = await import('../../src/core/runtime/index.js');
+    (createRuntime as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('runtime fail');
     });
 
@@ -493,7 +491,7 @@ describe('assemble', () => {
   });
 
   it('Heartbeat 构造失败 → assemble_failed + 抛 Error', async () => {
-    const { Heartbeat } = await import('../../src/core/heartbeat.js');
+    const { Heartbeat } = await import('../../src/core/runtime/index.js');
     (Heartbeat as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('heartbeat fail');
     });

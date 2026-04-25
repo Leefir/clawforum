@@ -8,45 +8,45 @@
 
 import * as path from 'path';
 import { promises as fs } from 'fs';
-import type { LLMServiceConfig } from '../foundation/llm/types.js';
-import type { LLMService } from '../foundation/llm/index.js';
-import type { FileSystem } from '../foundation/fs/types.js';
-import type { ToolProfile } from '../types/config.js';
-import type { Message } from '../types/message.js';
-import type { InboxMessage, Priority } from '../types/contract.js';
-import type { OutboxWriteOptions } from '../foundation/messaging/index.js';
-import type { SessionData } from '../foundation/session-store/index.js';
-import { InboxWriter, InboxListFailed, InboxMoveFailed } from '../foundation/messaging/index.js';
+import type { LLMServiceConfig } from '../../foundation/llm/types.js';
+import type { LLMService } from '../../foundation/llm/index.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
+import type { ToolProfile } from '../../types/config.js';
+import type { Message } from '../../types/message.js';
+import type { InboxMessage, Priority } from '../../types/contract.js';
+import type { OutboxWriteOptions } from '../../foundation/messaging/index.js';
+import type { SessionData } from '../../foundation/session-store/index.js';
+import { InboxWriter, InboxListFailed, InboxMoveFailed } from '../../foundation/messaging/index.js';
 
 
-import { LLMServiceImpl } from '../foundation/llm/service.js';
-import { JsonlLogger } from '../foundation/monitor/monitor.js';
+import { LLMServiceImpl } from '../../foundation/llm/service.js';
+import { JsonlLogger } from '../../foundation/monitor/monitor.js';
 
 
-import { SessionManager } from '../foundation/session-store/index.js';
-import { ContextInjector } from './dialog/injector.js';
-import { ToolRegistryImpl } from './tools/registry.js';
-import { ToolExecutorImpl } from './tools/executor.js';
-import { ExecContextImpl } from './tools/context.js';
-import { registerBuiltinTools } from './tools/builtins/index.js';
-import { DispatchTool } from './task/tools/dispatch.js';
-import { runReact } from './react/loop.js';
+import { SessionManager } from '../../foundation/session-store/index.js';
+import { ContextInjector } from '../dialog/injector.js';
+import { ToolRegistryImpl } from '../tools/registry.js';
+import { ToolExecutorImpl } from '../tools/executor.js';
+import { ExecContextImpl } from '../tools/context.js';
+import { registerBuiltinTools } from '../tools/builtins/index.js';
+import { DispatchTool } from '../task/tools/dispatch.js';
+import { runReact } from '../react/loop.js';
 import { summarizeLastExit } from './last-exit-summary.js';
-import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../types/signals.js';
-import type { ToolResult } from './tools/executor.js';
-import { AuditWriter } from '../foundation/audit/writer.js';
-import { AUDIT_EVENTS } from '../foundation/audit/events.js';
-import { InboxReader } from '../foundation/messaging/index.js';
-import { OutboxWriter } from '../foundation/messaging/index.js';
-import { TaskSystem } from './task/system.js';
-import { SkillRegistry } from './skill/registry.js';
-import { ContractManager } from './contract/manager.js';
-import { CLAW_SUBDIRS } from '../types/paths.js';
-import { oneLine } from '../types/utils.js';
-import { Snapshot } from '../foundation/snapshot/index.js';
-import { SNAPSHOT_IGNORE_PATTERNS } from '../foundation/snapshot/index.js';
-import { MaxStepsExceededError } from '../types/errors.js';
-import { MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../constants.js';
+import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
+import type { ToolResult } from '../tools/executor.js';
+import { AuditWriter } from '../../foundation/audit/writer.js';
+import { AUDIT_EVENTS } from '../../foundation/audit/events.js';
+import { InboxReader } from '../../foundation/messaging/index.js';
+import { OutboxWriter } from '../../foundation/messaging/index.js';
+import { TaskSystem } from '../task/system.js';
+import { SkillRegistry } from '../skill/registry.js';
+import { ContractManager } from '../contract/manager.js';
+import { CLAW_SUBDIRS } from '../../types/paths.js';
+import { oneLine } from '../../types/utils.js';
+import { Snapshot } from '../../foundation/snapshot/index.js';
+import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
+import { MaxStepsExceededError } from '../../types/errors.js';
+import { MOTION_CLAW_ID, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
 
 /**
  * ClawRuntime constructor options
@@ -75,7 +75,7 @@ export interface RuntimeDependencies {
   readonly execContext: ExecContextImpl;
 
   // 构造期注入（phase182 B.p166-5 升档：setter 双阶段消除）
-  readonly parentStreamLog?: import('../foundation/stream/types.js').StreamLog;
+  readonly parentStreamLog?: import('../../foundation/stream/types.js').StreamLog;
   readonly contractNotifyCallback?: (type: string, data: Record<string, unknown>) => void;
 }
 
@@ -253,7 +253,7 @@ export class ClawRuntime {
       () => this.buildSystemPrompt(),
       () => this.toolRegistry.formatForLLM(this.toolRegistry.getAll()),
       (profile) => this.toolRegistry.formatForLLM(
-        this.toolRegistry.getForProfile(profile as import('../types/config.js').ToolProfile),
+        this.toolRegistry.getForProfile(profile as import('../../types/config.js').ToolProfile),
       ),
     );
     dispatchTool.taskSystem = this.taskSystem;
@@ -372,7 +372,7 @@ export class ClawRuntime {
     count: number;
     infos: InboxMessage[];
   }> {
-    let entries: import('../foundation/messaging/inbox-reader.js').InboxEntry[];
+    let entries: import('../../foundation/messaging/inbox-reader.js').InboxEntry[];
     try {
       entries = await this.inboxReader.drainInbox();
     } catch (err) {
