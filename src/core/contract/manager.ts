@@ -21,7 +21,7 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/index.js';
 import { ToolRegistryImpl } from '../tools/registry.js';
 import { buildRetroPrompt } from '../../prompts/retrospective.js';
-import { writePendingSubagentTaskFile } from '../tools/builtins/_pending-task-writer.js';
+import { writePendingSubagentTaskFile } from '../task/tools/_pending-task-writer.js';
 import { ReportResultTool } from '../tools/report-result.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
 import type { Message } from '../../types/message.js';

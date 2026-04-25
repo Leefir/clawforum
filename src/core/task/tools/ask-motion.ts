@@ -1,4 +1,4 @@
-import type { Tool, ToolResult } from '../executor.js';
+import type { Tool, ToolResult } from '../../tools/executor.js';
 import type { LLMService } from '../../../foundation/llm/index.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';

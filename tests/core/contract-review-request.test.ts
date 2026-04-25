@@ -32,7 +32,7 @@ const { mockWritePending } = vi.hoisted(() => ({
   mockWritePending: vi.fn().mockResolvedValue('mock-task-id'),
 }));
 
-vi.mock('../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+vi.mock('../../src/core/task/tools/_pending-task-writer.js', () => ({
   writePendingSubagentTaskFile: mockWritePending,
 }));
 

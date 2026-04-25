@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AskMotionTool } from '../../../src/core/tools/builtins/ask-motion.js';
+import { AskMotionTool } from '../../../src/core/task/tools/ask-motion.js';
 import type { LLMService } from '../../../src/foundation/llm/index.js';
 import type { Message } from '../../../src/types/message.js';
 

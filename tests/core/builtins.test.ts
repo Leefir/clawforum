@@ -8,7 +8,8 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySearchTool, execTool, spawnTool } from '../../src/core/tools/builtins/index.js';
+import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySearchTool, execTool } from '../../src/core/tools/builtins/index.js';
+import { spawnTool } from '../../src/core/task/tools/spawn.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { OutboxWriter } from '../../src/foundation/messaging/index.js';
@@ -20,7 +21,7 @@ const { mockWriteFile } = vi.hoisted(() => ({
   mockWriteFile: vi.fn(),
 }));
 
-vi.mock('../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+vi.mock('../../src/core/task/tools/_pending-task-writer.js', () => ({
   writePendingSubagentTaskFile: mockWriteFile,
 }));
 

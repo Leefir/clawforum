@@ -26,7 +26,7 @@ const { mockWriteFile } = vi.hoisted(() => ({
   mockWriteFile: vi.fn(),
 }));
 
-vi.mock('../../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+vi.mock('../../../src/core/task/tools/_pending-task-writer.js', () => ({
   writePendingSubagentTaskFile: mockWriteFile,
 }));
 

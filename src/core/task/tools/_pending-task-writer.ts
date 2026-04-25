@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import { TASKS_PENDING_DIR } from '../../../types/paths.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { Audit } from '../../../foundation/audit/index.js';
-import type { SubAgentTask } from '../../task/system.js';
+import type { SubAgentTask } from '../system.js';
 
 /**
  * Write a pending subagent task file. Watcher will pick it up.

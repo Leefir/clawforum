@@ -5,11 +5,11 @@
  * Results are delivered via inbox message when the subagent completes.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../tools/executor.js';
 
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import type { Message } from '../../../types/message.js';
-import { TOOL_PROFILES } from '../profiles.js';
+import { TOOL_PROFILES } from '../../tools/profiles.js';
 import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
 
 /**

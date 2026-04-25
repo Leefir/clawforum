@@ -6,7 +6,7 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { DispatchTool } from '../../src/core/tools/builtins/dispatch.js';
+import { DispatchTool } from '../../src/core/task/tools/dispatch.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import type { Message } from '../../src/types/message.js';
@@ -15,7 +15,7 @@ const { mockWriteFile } = vi.hoisted(() => ({
   mockWriteFile: vi.fn(),
 }));
 
-vi.mock('../../src/core/tools/builtins/_pending-task-writer.js', () => ({
+vi.mock('../../src/core/task/tools/_pending-task-writer.js', () => ({
   writePendingSubagentTaskFile: mockWriteFile,
 }));
 

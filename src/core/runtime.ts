@@ -29,7 +29,7 @@ import { ToolRegistryImpl } from './tools/registry.js';
 import { ToolExecutorImpl } from './tools/executor.js';
 import { ExecContextImpl } from './tools/context.js';
 import { registerBuiltinTools } from './tools/builtins/index.js';
-import { DispatchTool } from './tools/builtins/dispatch.js';
+import { DispatchTool } from './task/tools/dispatch.js';
 import { runReact } from './react/loop.js';
 import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../types/signals.js';

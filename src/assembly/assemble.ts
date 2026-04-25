@@ -23,6 +23,7 @@ import type { TaskSystem } from '../core/task/system.js';
 import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
 import { ExecContextImpl } from '../core/tools/context.js';
 import { registerBuiltinTools } from '../core/tools/builtins/index.js';
+import { spawnTool } from '../core/task/tools/spawn.js';
 import { createInboxReader, createOutboxWriter } from '../foundation/messaging/index.js';
 import { createSessionManager } from '../foundation/session-store/index.js';
 import type { InboxReader } from '../foundation/messaging/index.js';
@@ -165,6 +166,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   try {
     toolRegistry = createToolRegistry();
     registerBuiltinTools(toolRegistry);
+    toolRegistry.register(spawnTool);
   } catch (e) {
     auditWriter.write('assemble_failed', `module=tool_registry`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: ToolRegistry construct failed: ${errMsg(e)}`, { cause: e });
