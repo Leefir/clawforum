@@ -667,10 +667,10 @@ describe('Builtin Tools', () => {
       await mockFs.writeAtomic('tasks/pending/t1.json', '{}');
       await mockFs.writeAtomic('tasks/running/t2.json', '{}');
 
-      (ctx as any).taskSystem = {};
+      statusTool.taskSystem = {};
       const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('1 running, 1 pending');
-      delete (ctx as any).taskSystem;
+      delete statusTool.taskSystem;
     });
 
     // 只有 pending
@@ -679,20 +679,20 @@ describe('Builtin Tools', () => {
       await mockFs.writeAtomic('tasks/pending/t1.json', '{}');
       await mockFs.writeAtomic('tasks/pending/t2.json', '{}');
 
-      (ctx as any).taskSystem = {};
+      statusTool.taskSystem = {};
       const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('2 pending');
-      delete (ctx as any).taskSystem;
+      delete statusTool.taskSystem;
     });
 
     // tasks/pending 不存在 → silent (ENOENT is expected for fresh setup)
     it('should treat pending count as 0 when tasks/pending does not exist', async () => {
-      (ctx as any).taskSystem = {};
+      statusTool.taskSystem = {};
 
       const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('Tasks: idle');
       // ENOENT is now silently ignored (expected for fresh setup)
-      delete (ctx as any).taskSystem;
+      delete statusTool.taskSystem;
     });
 
     // Audit event tests for status tool error paths
@@ -731,7 +731,7 @@ describe('Builtin Tools', () => {
         auditWriter: auditWriter as any,
       });
       // Inject a dummy taskSystem so getTaskStatus enters file-reading path
-      (ctxWithAudit as any).taskSystem = {};
+      statusTool.taskSystem = {};
 
       await statusTool.execute({}, ctxWithAudit);
 
@@ -739,6 +739,7 @@ describe('Builtin Tools', () => {
         'status_task_pending_error',
         'error=permission denied',
       );
+      delete statusTool.taskSystem;
 
       listSpy.mockRestore();
     });
@@ -762,7 +763,7 @@ describe('Builtin Tools', () => {
         auditWriter: auditWriter as any,
       });
       // Inject a dummy taskSystem so getTaskStatus enters file-reading path
-      (ctxWithAudit as any).taskSystem = {};
+      statusTool.taskSystem = {};
 
       await statusTool.execute({}, ctxWithAudit);
 
@@ -770,6 +771,7 @@ describe('Builtin Tools', () => {
         'status_task_running_error',
         'error=disk error',
       );
+      delete statusTool.taskSystem;
 
       listSpy.mockRestore();
     });

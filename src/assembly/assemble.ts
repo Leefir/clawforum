@@ -254,6 +254,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   doneTool.contractManager = contractManager;
   statusTool.contractManager = contractManager;
   skillTool.skillRegistry = skillRegistry;
+  statusTool.taskSystem = taskSystem;
   sendTool.outboxWriter = outboxWriter;
 
   // --- L3-L5: toolExecutor ---

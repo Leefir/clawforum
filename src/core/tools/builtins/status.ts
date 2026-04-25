@@ -36,7 +36,7 @@ async function getContractStatus(ctx: ExecContext): Promise<string> {
 }
 
 async function getTaskStatus(ctx: ExecContext): Promise<string> {
-  const taskSystem = (ctx as { taskSystem?: TaskSystem }).taskSystem;
+  const taskSystem = statusTool.taskSystem;
   if (!taskSystem) return 'Tasks: N/A';
   
   try {
@@ -108,7 +108,7 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
   return lines;
 }
 
-export const statusTool: Tool & { contractManager?: ContractManager } = {
+export const statusTool: Tool & { contractManager?: ContractManager; taskSystem?: TaskSystem } = {
   contractManager: undefined,
   name: 'status',
   description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
