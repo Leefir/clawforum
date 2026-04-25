@@ -29,6 +29,8 @@ import { OpenAIAdapter } from './openai.js';
 import { GeminiAdapter } from './gemini.js';
 import { makeExternalAbortError } from './abort-helper.js';
 
+const MAX_BACKOFF_MS = 30_000;
+
 /**
  * Provider factory - creates appropriate adapter for config
  */
@@ -196,7 +198,7 @@ export class LLMServiceImpl implements LLMService {
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(
               this.config.retryDelayMs * Math.pow(2, attempt),
-              30_000  // Max 30 seconds
+              MAX_BACKOFF_MS,
             );
             this.events.emit({ type: 'retry_scheduled', provider: this.primary.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
@@ -376,7 +378,7 @@ export class LLMServiceImpl implements LLMService {
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(
               this.config.retryDelayMs * Math.pow(2, attempt),
-              30000,
+              MAX_BACKOFF_MS,
             );
             this.events.emit({ type: 'retry_scheduled', provider: adapter.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
