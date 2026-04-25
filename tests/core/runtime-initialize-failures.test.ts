@@ -54,7 +54,6 @@ describe('Runtime.initialize() failure audits', () => {
         formatForLLM: vi.fn().mockReturnValue(''),
       } as any,
       toolExecutor: {} as any,
-      skillRegistry: {} as any,
       contractManager: {} as any,
       taskSystem: {
         initialize: vi.fn().mockResolvedValue(undefined),

@@ -50,14 +50,14 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
     clawDir, clawId, systemFs, auditWriter, llm, verifierRegistry, auditWriter,
   );
   const taskSystem = new TaskSystem(clawDir, systemFs, {
-    auditWriter, llm, skillRegistry, contractManager, outboxWriter,
+    auditWriter, llm, contractManager, outboxWriter,
   });
   await taskSystem.initialize();
   taskSystem.startDispatch();
   const contextInjector = new ContextInjector({ fs: systemFs, skillRegistry, contractManager });
   const execContext = new ExecContextImpl({
     clawId, clawDir, profile: 'full', callerType: 'claw', fs: clawFs,
-    llm, maxSteps: 30, taskSystem, skillRegistry, contractManager,
+    llm, maxSteps: 30, taskSystem, contractManager,
     outboxWriter, auditWriter,
   });
   const toolExecutor = new ToolExecutorImpl(toolRegistry, 60000);

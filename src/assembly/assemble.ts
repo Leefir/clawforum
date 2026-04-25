@@ -211,7 +211,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       maxConcurrent,
       auditWriter,
       llm,
-      skillRegistry,
       contractManager,
       outboxWriter,
     });

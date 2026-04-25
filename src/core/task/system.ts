@@ -21,7 +21,6 @@ import type { ToolResult, Tool } from '../tools/executor.js';
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractManager } from '../contract/manager.js';
-import type { SkillRegistry } from '../skill/registry.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
 import { STREAM_FILE } from '../../foundation/stream/types.js';
@@ -37,7 +36,6 @@ export interface TaskSystemOptions {
 
   // phase155C 新增（4 个原 setter 合入 ctor）
   llm: LLMService;
-  skillRegistry: SkillRegistry;
   contractManager: ContractManager;
   outboxWriter: OutboxWriter;
 }
@@ -85,7 +83,6 @@ export class TaskSystem {
   private maxConcurrent: number;
   private registry: ToolRegistryImpl;
   private readonly llm: LLMService;
-  private readonly skillRegistry: SkillRegistry;
   private readonly contractManager: ContractManager;
   private readonly outboxWriter: OutboxWriter;
   private auditWriter: AuditWriter;
@@ -130,7 +127,6 @@ export class TaskSystem {
     this.parentStreamLog = options.parentStreamLog;
     this.retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
     this.llm = options.llm;
-    this.skillRegistry = options.skillRegistry;
     this.contractManager = options.contractManager;
     this.outboxWriter = options.outboxWriter;
     // Create tool registry for subagents
@@ -561,7 +557,6 @@ export class TaskSystem {
         messages: task.messages,
         originClawId: task.originClawId,
         taskSystem: this,   // dispatcher 的 spawn 工具需要
-        skillRegistry: this.skillRegistry,
         contractManager: this.contractManager,
         outboxWriter: this.outboxWriter,
         taskStreamWriter: { write: writeTaskEvent },

@@ -17,7 +17,6 @@ import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import type { TaskSystem } from '../task/system.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractManager } from '../contract/manager.js';
-import type { SkillRegistry } from '../skill/registry.js';
 import type { Message } from '../../types/message.js';
 import type { Audit } from '../../foundation/audit/index.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
@@ -45,7 +44,6 @@ export interface SubAgentOptions {
   taskSystem?: TaskSystem;                  // dispatch tool addTaskResultHandler 路径需要；透传至 ToolExecutor / ExecContext。phase163 起不再供调度用途。
   outboxWriter?: OutboxWriter;              // send 工具需要
   contractManager?: ContractManager;        // contract create / done 工具需要
-  skillRegistry?: SkillRegistry;            // skill 工具需要
   subagentMaxSteps?: number;                 // 传给子 SubAgent
   messages?: Message[];                      // 若提供，直接用；否则从 prompt 构建
   originClawId?: string;                     // 创建链路源头，传给子 SubAgent
@@ -74,7 +72,6 @@ export class SubAgent {
   private taskSystem?: TaskSystem;
   private outboxWriter?: OutboxWriter;
   private contractManager?: ContractManager;
-  private skillRegistry?: SkillRegistry;
   private subagentMaxSteps?: number;
   private messages?: Message[];
   private originClawId?: string;
@@ -101,7 +98,6 @@ export class SubAgent {
     this.taskSystem = options.taskSystem;
     this.outboxWriter = options.outboxWriter;
     this.contractManager = options.contractManager;
-    this.skillRegistry = options.skillRegistry;
     this.subagentMaxSteps = options.subagentMaxSteps;
     this.messages = options.messages;
     this.originClawId = options.originClawId;
