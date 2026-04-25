@@ -1,4 +1,5 @@
 /**
+ * @module L3.Tools
  * Tools module
  * Phase 1: Tool registry and executor framework
  */

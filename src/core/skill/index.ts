@@ -1,4 +1,5 @@
 /**
+ * @module L2.SkillSystem
  * Skill module exports
  */
 

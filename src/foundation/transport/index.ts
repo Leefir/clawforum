@@ -1,4 +1,5 @@
 /**
+ * @module L1.Transport
  * Transport module (L1)
  *
  * Real-time bidirectional communication primitives.

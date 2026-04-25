@@ -1,4 +1,5 @@
 /**
+ * @module L2.Monitor
  * Monitor module (F3)
  * Phase 0: Interface definition + JSONL implementation
  * 

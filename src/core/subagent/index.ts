@@ -1,4 +1,5 @@
 /**
+ * @module L3.SubAgent
  * SubAgent exports
  */
 

@@ -8,11 +8,6 @@
  * Watchdog 守护进程 — 每 30s 检查 motion 存活 / 内建简易 cron。
  */
 
-/**
- * Watchdog daemon
- * Checks motion liveness every 30s, with a built-in simple cron
- */
-
 import * as fs from 'fs';
 import { existsSync } from 'fs';
 import * as path from 'path';

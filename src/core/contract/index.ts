@@ -1,4 +1,5 @@
 /**
+ * @module L4.ContractSystem
  * Contract module exports
  */
 

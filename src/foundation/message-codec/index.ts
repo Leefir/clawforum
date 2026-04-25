@@ -1,4 +1,5 @@
 /**
+ * @module L1.MessageCodec
  * MessageCodec module (L1)
  *
  * Inbox/outbox message encode/decode. Pure functions only: no I/O, no side effects.

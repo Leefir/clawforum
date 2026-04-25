@@ -1,4 +1,5 @@
 /**
+ * @module L3.Gateway
  * Gateway module (L3)
  *
  * 外部客户端 ↔ 内部系统 的实时交互门面。

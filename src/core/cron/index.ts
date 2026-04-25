@@ -1,4 +1,5 @@
 /**
+ * @module L5.Cron
  * Cron module exports
  */
 

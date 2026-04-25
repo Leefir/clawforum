@@ -1,4 +1,5 @@
 /**
+ * @module L2.ProcessManager
  * ProcessManager module (L2)
  *
  * 进程生命周期管理。spawn、stop、存活检查、PID 文件管理。

@@ -1,4 +1,5 @@
 /**
+ * @module L3.ContextInjector
  * Dialog module
  * Session management re-exported from SessionStore (L2).
  * Context injection remains in core/dialog.

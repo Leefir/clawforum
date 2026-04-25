@@ -1,4 +1,5 @@
 /**
+ * @module L1.FileSystem
  * FileSystem module (L1)
  *
  * clawforum 进程内代码的所有文件 I/O 的唯一入口。

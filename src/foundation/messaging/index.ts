@@ -1,4 +1,5 @@
 /**
+ * @module L2.Messaging
  * Messaging module (L2)
  *
  * Inbox/outbox directory management, message delivery and retrieval.

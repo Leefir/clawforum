@@ -1,3 +1,8 @@
+/**
+ * @module L6c.Assembly
+ * Assembly — 运行时依赖组装与注入。
+ */
+
 import type { AuditWriter } from '../foundation/audit/writer.js';
 import type { Snapshot } from '../foundation/snapshot/index.js';
 import type { StreamWriter } from '../foundation/stream/writer.js';

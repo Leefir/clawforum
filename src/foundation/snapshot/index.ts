@@ -1,3 +1,8 @@
+/**
+ * @module L2.Snapshot
+ * 代码快照生成与管理。
+ */
+
 export { Snapshot } from './snapshot.js';
 export { SNAPSHOT_IGNORE_PATTERNS } from './ignore-patterns.js';
 

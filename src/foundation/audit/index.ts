@@ -1,4 +1,5 @@
 /**
+ * @module L2.AuditLog
  * AuditLog module (L2)
  *
  * 状态迁移审计记录。纯追加写。

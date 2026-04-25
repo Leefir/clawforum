@@ -8,13 +8,6 @@
  * Daemon 主入口 — 启动 ClawRuntime 并保持运行至 SIGTERM。
  */
 
-/**
- * daemon command - main daemon entry point
- *
- * Supports foreground execution (CLAWFORUM_DAEMON_MODE) and automatic background launch via CLI
- * Responsible for starting ClawRuntime and keeping it running until SIGTERM is received
- */
-
 import * as path from 'path';
 import * as fsNative from 'fs';
 import * as fsAsync from 'fs/promises';

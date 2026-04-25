@@ -1,3 +1,8 @@
+/**
+ * @module L5.Runtime
+ * ClawRuntime — 核心运行时编排器。
+ */
+
 export { ClawRuntime } from './runtime.js';
 export type { ClawRuntimeOptions, RuntimeDependencies, StreamCallbacks } from './runtime.js';
 export { createRuntime, buildMotionSystemPrompt } from './create-runtime.js';

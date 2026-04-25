@@ -1,4 +1,5 @@
 /**
+ * @module L5.Runtime
  * Core module exports
  */
 

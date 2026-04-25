@@ -1,4 +1,5 @@
 /**
+ * @module L1.ProcessExec
  * ProcessExec module (L1)
  *
  * External process execution: the single entry point for all subprocess invocation.

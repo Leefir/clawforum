@@ -1,4 +1,5 @@
 /**
+ * @module L1.LLMService
  * LLM Service module (F2)
  * Phase 0: Anthropic adapter + failover service
  * 

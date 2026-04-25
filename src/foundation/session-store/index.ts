@@ -1,4 +1,5 @@
 /**
+ * @module L2.SessionStore
  * SessionStore module (L2)
  *
  * Messages array persistence. Serves crash-recoverable sessions.
