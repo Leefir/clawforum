@@ -140,7 +140,9 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
         callbacks?.onToolResult?.(name, id, result);
       },
     };
-    const toolResults = await executeToolCalls(toolCalls, executor, ctx, registry, trackingCallbacks);
+    // B.idle-abort: signal 已 abort 但 tool_use 已完整收集时，先让工具执行完
+    const toolCtx = ctx.signal?.aborted ? { ...ctx, signal: undefined } : ctx;
+    const toolResults = await executeToolCalls(toolCalls, executor, toolCtx, registry, trackingCallbacks);
 
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     appendToolResults(messages, toolResults);
@@ -364,14 +366,16 @@ async function collectStreamResponse(
       }
     }
   } catch (err) {
-    // Provider（anthropic/openai）在 signal 被 abort 时抛出 Error('Execution aborted')，
-    // 但丢失了 signal.reason，无法区分 idle timeout 和用户中断。
-    // 此处用 signal.reason 重新生成正确的错误类型。
     if (callOptions.signal?.aborted) {
-      throwAbortError(callOptions.signal);
-      // throwAbortError 是 never，不会 fall through
+      // B.idle-abort 修复：tool_use 已开始收集时不在此处 abort，
+      // fall through 到 "保存最后的 blocks" 节，由 executeStep L145 在工具执行后 abort。
+      if (stopReason !== 'tool_use') {
+        throwAbortError(callOptions.signal);
+      }
+      // stopReason === 'tool_use'：不 throw，fall through
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   // 保存最后的 blocks

@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { executeStep } from '../../src/core/react/step-executor.js';
+import { IdleTimeoutSignal } from '../../src/types/signals.js';
 import type { LLMCallInfo } from '../../src/core/react/step-executor.js';
 import type { LLMService } from '../../src/foundation/llm/index.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
@@ -318,5 +319,43 @@ describe('StepExecutor', () => {
     expect(results).toHaveLength(1);
     expect(results[0].error).not.toBe('[object Object]');
     expect(results[0].error).toContain('ECONNRESET');
+  });
+
+  it('executes tool before throwing abort when abort fires during tool_use stream', async () => {
+    const abortController = new AbortController();
+    let toolExecuted = false;
+
+    async function* stream(): AsyncIterableIterator<StreamChunk> {
+      yield { type: 'tool_use_start', toolUse: { id: 'tu1', name: 'testTool', partialInput: '' } };
+      yield { type: 'tool_use_delta', toolUse: { id: '', name: '', partialInput: '{"key":"value"}' } };
+      abortController.abort({ type: 'idle_timeout', ms: 120000 });
+      throw new Error('Execution aborted');
+    }
+
+    const llm = {
+      call: vi.fn(),
+      stream: vi.fn(() => stream()),
+      healthCheck: vi.fn(async () => true),
+      getProviderInfo: vi.fn(() => ({ name: 'mock', model: 'mock-model', isFallback: false })),
+      close: vi.fn(),
+    } as unknown as LLMService;
+
+    const exec = {
+      execute: vi.fn(async () => {
+        toolExecuted = true;
+        return { success: true, content: 'done' };
+      }),
+      executeParallel: vi.fn(),
+      validateArgs: vi.fn(),
+    } as unknown as IToolExecutor;
+
+    const ctx = { ...makeCtx(), signal: abortController.signal };
+
+    await expect(executeStep({
+      messages: [], systemPrompt: '', llm, tools: [],
+      executor: exec, registry: makeRegistry({ testTool: { readonly: false } }), ctx,
+    })).rejects.toThrow(IdleTimeoutSignal);
+
+    expect(toolExecuted).toBe(true);
   });
 });
