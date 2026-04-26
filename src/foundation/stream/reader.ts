@@ -205,8 +205,7 @@ export function createStreamReader(
         );
       }
       watcher = createWatcher(
-        fs,
-        streamPath,
+        fs.resolve(streamPath),
         (ev) => {
           if (ev.type === 'add' || ev.type === 'change') {
             readIncrement();
@@ -219,14 +218,23 @@ export function createStreamReader(
             pending = '';
           }
         },
-        audit,
         {
           stability: 'immediate',
           persistent: options?.persistent,
-          onError: (err) => {
+          onError: (err, context) => {
+            if (context === 'callback') {
+              audit.write(
+                AUDIT_EVENTS.STREAM_READER_WATCHER_CALLBACK_FAILED,
+                `path=${streamPath}`,
+                `reason=${err.message}`,
+              );
+              return;
+            }
             audit.write(
               AUDIT_EVENTS.STREAM_READER_WATCHER_FAILED,
-              `reason=${err instanceof Error ? err.message : String(err)}`,
+              `path=${streamPath}`,
+              `context=${context}`,
+              `reason=${err.message}`,
             );
             active = false;
           },

@@ -43,6 +43,7 @@ export const AUDIT_EVENTS = {
   STREAM_READER_READ_FAILED: 'stream_reader_read_failed',
   STREAM_READER_UNLINKED: 'stream_reader_unlinked',
   STREAM_READER_WATCHER_FAILED: 'stream_reader_watcher_failed',
+  STREAM_READER_WATCHER_CALLBACK_FAILED: 'stream_reader_watcher_callback_failed',
 
   /**
    * StreamReader 连续 parse_failed 越阈值升级为 corrupt（Design「不静默」硬化）。
@@ -59,6 +60,8 @@ export const AUDIT_EVENTS = {
   INBOX_WRITTEN: 'inbox_written',
   INBOX_WRITE_FAILED: 'inbox_write_failed',
   INBOX_FAILED: 'inbox_failed',
+  INBOX_WATCHER_FAILED: 'inbox_watcher_failed',
+  INBOX_WATCHER_CALLBACK_FAILED: 'inbox_watcher_callback_failed',
   INBOX_LIST_FAILED: 'inbox_list_failed',
   INBOX_MOVE_FAILED: 'inbox_move_failed',
   OUTBOX_SENT: 'outbox_sent',
@@ -113,9 +116,13 @@ export const AUDIT_EVENTS = {
    * 载荷：reason(daemon_dead|user_quit|stream_end)
    */
   VIEWPORT_SHUTDOWN: 'viewport_shutdown',
+  CHAT_VIEWPORT_WATCHER_FAILED: 'chat_viewport_watcher_failed',
+  CHAT_VIEWPORT_WATCHER_CALLBACK_FAILED: 'chat_viewport_watcher_callback_failed',
 
   // --- TaskSystem ---
   PENDING_INGEST_FAILED: 'pending_ingest_failed',
+  TASK_PENDING_WATCHER_FAILED: 'task_pending_watcher_failed',
+  TASK_PENDING_WATCHER_CALLBACK_FAILED: 'task_pending_watcher_callback_failed',
 
   // --- TaskSystem （phase248 B.2 sub-phase 2 补齐）---
   TASK_DISCARDED: 'task_discarded',

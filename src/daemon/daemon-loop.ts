@@ -23,6 +23,7 @@ import type { StreamWriter, StreamLog } from '../foundation/stream/index.js';
 import { createWatcher } from '../foundation/file-watcher/index.js';
 import type { Watcher } from '../foundation/file-watcher/types.js';
 import type { Audit } from '../foundation/audit/index.js';
+import { AUDIT_EVENTS } from '../foundation/audit/events.js';
 import { oneLine } from '../types/utils.js';
 
 import type { Heartbeat } from '../core/runtime/index.js';
@@ -158,9 +159,24 @@ export function waitForInbox(
 
     try {
       fs.ensureDirSync(inboxPendingDir);
-      watcher = createWatcher(fs, inboxPendingDir, () => void done(), audit, {
-        stability: 'immediate',
-      });
+      watcher = createWatcher(
+        fs.resolve(inboxPendingDir),
+        () => void done(),
+        {
+          stability: 'immediate',
+          onError: (err, context) => {
+            const eventType = context === 'callback'
+              ? AUDIT_EVENTS.INBOX_WATCHER_CALLBACK_FAILED
+              : AUDIT_EVENTS.INBOX_WATCHER_FAILED;
+            audit.write(
+              eventType,
+              `path=${inboxPendingDir}`,
+              `context=${context}`,
+              `reason=${err.message}`,
+            );
+          },
+        },
+      );
     } catch {
       void done();
     }

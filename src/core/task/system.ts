@@ -156,15 +156,28 @@ export class TaskSystem {
     // 防御：测试 mock fs 可能缺少 resolve，跳过不影响行为
     if (!this.pendingWatcher && typeof this.fs.resolve === 'function') {
       this.pendingWatcher = createWatcher(
-        this.fs,
-        TASKS_PENDING_DIR,
+        this.fs.resolve(TASKS_PENDING_DIR),
         (event) => {
           if (event.type !== 'add') return;
           if (!event.path.endsWith('.json')) return;
           void this._ingestPendingFile(event.path);
         },
-        this.auditWriter,
-        { stability: 'immediate', recursive: false, persistent: true },
+        {
+          stability: 'immediate',
+          recursive: false,
+          persistent: true,
+          onError: (err, context) => {
+            const eventType = context === 'callback'
+              ? AUDIT_EVENTS.TASK_PENDING_WATCHER_CALLBACK_FAILED
+              : AUDIT_EVENTS.TASK_PENDING_WATCHER_FAILED;
+            this.auditWriter.write(
+              eventType,
+              `path=${TASKS_PENDING_DIR}`,
+              `context=${context}`,
+              `reason=${err.message}`,
+            );
+          },
+        },
       );
     }
     // 启动扫描：把 pending/ 中既有 subagent 文件入队（_ingestPendingFile 内含 _dispatch 触发）

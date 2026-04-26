@@ -10,6 +10,7 @@ import chokidar from 'chokidar';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
 import { getContractCreatedMs, LLM_OUTPUT_EVENTS } from '../../watchdog/watchdog-utils.js';
 import stringWidth from 'string-width';
 import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
@@ -32,6 +33,44 @@ export interface ChatViewportOptions {
   showContractEvents?: boolean;   // contract 子任务完成信息，默认 true
   trimOutputNewlines?: boolean;   // LLM 输出首尾换行清理，默认 true
   audit: AuditWriter; // audit sink for createWatcher
+}
+
+function createChatViewportWatcher(
+  fs: FileSystem,
+  clawId: string,
+  streamPath: string,
+  refresh: () => void,
+  audit: AuditWriter,
+  onClose: () => void,
+  persistent?: boolean,
+): Watcher {
+  let self: Watcher | null = null;
+  const w = createWatcher(
+    fs.resolve(streamPath),
+    refresh,
+    {
+      stability: 'immediate',
+      persistent,
+      onError: (err, context) => {
+        const eventType = context === 'callback'
+          ? AUDIT_EVENTS.CHAT_VIEWPORT_WATCHER_CALLBACK_FAILED
+          : AUDIT_EVENTS.CHAT_VIEWPORT_WATCHER_FAILED;
+        audit.write(
+          eventType,
+          `claw=${clawId}`,
+          `path=${streamPath}`,
+          `context=${context}`,
+          `reason=${err.message}`,
+        );
+        if (context === 'watch') {
+          void self?.close();
+          onClose();
+        }
+      },
+    },
+  );
+  self = w;
+  return w;
 }
 
 function writeUserChat(agentDir: string, message: string): void {
@@ -691,11 +730,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const stale = clawWatchers.get(clawId);
         if (stale) { void stale.close(); clawWatchers.delete(clawId); }
         try {
-          const w = createWatcher(fs, streamFile, () => refreshClawStatus(clawId), options.audit, {
-            stability: 'immediate',
-            persistent: false,
-            onError: () => { void w.close(); clawWatchers.delete(clawId); },
-          });
+          const w = createChatViewportWatcher(
+            fs, clawId, streamFile,
+            () => refreshClawStatus(clawId),
+            options.audit,
+            () => clawWatchers.delete(clawId),
+            false,
+          );
           clawWatchers.set(clawId, w);
         } catch { /* polling fallback */ }
         // reset state
@@ -821,11 +862,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
       if (!clawWatchers.has(clawId)) {
         try {
-          const w = createWatcher(fs, streamFile, () => refreshClawStatus(clawId), options.audit, {
-            stability: 'immediate',
-            persistent: false,
-            onError: () => { void w.close(); clawWatchers.delete(clawId); },
-          });
+          const w = createChatViewportWatcher(
+            fs, clawId, streamFile,
+            () => refreshClawStatus(clawId),
+            options.audit,
+            () => clawWatchers.delete(clawId),
+            false,
+          );
           clawWatchers.set(clawId, w);
         } catch { /* fallback to polling */ }
       }
@@ -944,11 +987,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         t.referenceMs = Date.now();
         clawTrackMap.set(clawId, t);
         try {
-          const w = createWatcher(fs, path.join(clawDir, STREAM_FILE), () => refreshClawStatus(clawId), options.audit, {
-            stability: 'immediate',
-            persistent: false,
-            onError: () => { void w.close(); clawWatchers.delete(clawId); },
-          });
+          const w = createChatViewportWatcher(
+            fs, clawId, path.join(clawDir, STREAM_FILE),
+            () => refreshClawStatus(clawId),
+            options.audit,
+            () => clawWatchers.delete(clawId),
+            false,
+          );
           clawWatchers.set(clawId, w);
         } catch { /* polling fallback */ }
         updateClawPanel();
@@ -1202,10 +1247,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
             clawTrackMap.set(clawId, t);
             // 开 watcher
             try {
-              const w = createWatcher(fs, path.join(clawDir, STREAM_FILE), () => refreshClawStatus(clawId), options.audit, {
-                stability: 'immediate',
-                onError: () => { void w.close(); clawWatchers.delete(clawId); },
-              });
+              const w = createChatViewportWatcher(
+                fs, clawId, path.join(clawDir, STREAM_FILE),
+                () => refreshClawStatus(clawId),
+                options.audit,
+                () => clawWatchers.delete(clawId),
+              );
               clawWatchers.set(clawId, w);
             } catch { /* polling fallback */ }
           }
