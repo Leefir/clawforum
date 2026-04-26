@@ -4,18 +4,13 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { createWatcher } from '../../src/foundation/file-watcher/index.js';
-import { AUDIT_EVENTS } from '../../src/foundation/audit/events.js';
-import { makeAudit } from '../helpers/audit.js';
 
 describe('FileWatcher', () => {
   let tmpDir: string;
-  let fs: NodeFileSystem;
 
   beforeEach(async () => {
     tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'fw-test-'));
-    fs = new NodeFileSystem({ baseDir: tmpDir, enforcePermissions: false });
   });
 
   afterEach(async () => {
@@ -23,13 +18,10 @@ describe('FileWatcher', () => {
   });
 
   it('callback receives add/change/unlink events', async () => {
-    const { audit } = makeAudit();
     const events: { type: string; path: string }[] = [];
     const watcher = createWatcher(
-      fs,
-      'watch.txt',
+      path.join(tmpDir, 'watch.txt'),
       (ev) => events.push({ type: ev.type, path: path.basename(ev.path) }),
-      audit,
       { stability: 'immediate' },
     );
 
@@ -47,18 +39,19 @@ describe('FileWatcher', () => {
     expect(events.some(e => e.type === 'change')).toBe(true);
   });
 
-  it('callback error triggers watcher_callback_failed and continues', async () => {
-    const { audit, events: auditEvents } = makeAudit();
+  it('callback error triggers onError(err, "callback") and continues', async () => {
+    const errors: { err: Error; context: string }[] = [];
     let callCount = 0;
     const watcher = createWatcher(
-      fs,
-      'watch.txt',
+      path.join(tmpDir, 'watch.txt'),
       (ev) => {
         callCount++;
         if (callCount === 1) throw new Error('callback boom');
       },
-      audit,
-      { stability: 'immediate' },
+      {
+        stability: 'immediate',
+        onError: (err, context) => errors.push({ err, context }),
+      },
     );
 
     await new Promise(r => setTimeout(r, 300));
@@ -71,88 +64,76 @@ describe('FileWatcher', () => {
 
     await watcher.close();
 
-    expect(auditEvents.some(e => e[0] === AUDIT_EVENTS.WATCHER_CALLBACK_FAILED)).toBe(true);
-    expect(callCount).toBeGreaterThanOrEqual(2); // 第二次仍然触发
+    expect(errors.some(e => e.context === 'callback' && e.err.message === 'callback boom')).toBe(true);
+    expect(callCount).toBeGreaterThanOrEqual(2);
   });
 
-  it('onReady error triggers watcher_ready_failed', async () => {
-    const { audit, events: auditEvents } = makeAudit();
+  it('onReady error triggers onError(err, "ready")', async () => {
+    const errors: { err: Error; context: string }[] = [];
     const watcher = createWatcher(
-      fs,
-      'watch.txt',
+      path.join(tmpDir, 'watch.txt'),
       () => {},
-      audit,
       {
         stability: 'immediate',
         onReady: () => { throw new Error('ready boom'); },
+        onError: (err, context) => errors.push({ err, context }),
       },
     );
 
     await new Promise(r => setTimeout(r, 500));
     await watcher.close();
 
-    expect(auditEvents.some(e => e[0] === AUDIT_EVENTS.WATCHER_READY_FAILED)).toBe(true);
+    expect(errors.some(e => e.context === 'ready' && e.err.message === 'ready boom')).toBe(true);
   });
 
-  it('chokidar error triggers watcher_failed audit', async () => {
-    const { audit, events: auditEvents } = makeAudit();
+  it('chokidar error triggers onError(err, "watch")', async () => {
+    const errors: { err: Error; context: string }[] = [];
     // watch a non-existent path deep inside non-existent dirs to trigger chokidar error
     const watcher = createWatcher(
-      fs,
-      'deep/nested/missing.txt',
+      path.join(tmpDir, 'deep', 'nested', 'missing.txt'),
       () => {},
-      audit,
-      { stability: 'immediate' },
+      {
+        stability: 'immediate',
+        onError: (err, context) => errors.push({ err, context }),
+      },
     );
 
     await new Promise(r => setTimeout(r, 500));
     await watcher.close();
 
     // chokidar may or may not emit error depending on timing;
-    // if it does, audit should capture it
-    const errorEvents = auditEvents.filter(e => e[0] === AUDIT_EVENTS.WATCHER_FAILED);
-    // 不强求一定触发（取决于 chokidar 行为），但如果触发则必须走 audit
-    if (errorEvents.length > 0) {
-      expect(errorEvents[0]).toContain(expect.stringContaining('path='));
+    // if it does, onError should capture it
+    if (errors.length > 0) {
+      expect(errors.some(e => e.context === 'watch')).toBe(true);
     }
   });
 
-  it('onError callback error triggers secondary watcher_failed', async () => {
-    const { audit, events: auditEvents } = makeAudit();
-    // 用一个会触发 error 的路径 + onError 抛错
+  it('onError handler error is swallowed and not propagated', async () => {
+    const errors: { err: Error; context: string }[] = [];
     const watcher = createWatcher(
-      fs,
-      'deep/nested/missing.txt',
+      path.join(tmpDir, 'deep', 'nested', 'missing.txt'),
       () => {},
-      audit,
       {
         stability: 'immediate',
-        onError: () => { throw new Error('onError boom'); },
+        onError: (err, context) => {
+          errors.push({ err, context });
+          throw new Error('onError boom');
+        },
       },
     );
 
     await new Promise(r => setTimeout(r, 500));
     await watcher.close();
 
-    const errorEvents = auditEvents.filter(e => e[0] === AUDIT_EVENTS.WATCHER_FAILED);
-    if (errorEvents.length > 0) {
-      // 至少有一次是二级失败（带 context=onError_handler）
-      const secondary = errorEvents.find(e =>
-        e.some(col => String(col).includes('context=onError_handler'))
-      );
-      if (secondary) {
-        expect(secondary.some(col => String(col).includes('onError boom'))).toBe(true);
-      }
-    }
+    // onError throwing should not cause infinite loop or unhandled rejection
+    // we just verify the watcher still closes cleanly
+    expect(watcher.isActive()).toBe(false);
   });
 
   it('close is idempotent', async () => {
-    const { audit } = makeAudit();
     const watcher = createWatcher(
-      fs,
-      'watch.txt',
+      path.join(tmpDir, 'watch.txt'),
       () => {},
-      audit,
       { stability: 'immediate' },
     );
     await watcher.close();

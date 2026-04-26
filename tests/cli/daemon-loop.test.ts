@@ -429,13 +429,14 @@ describe('waitForInbox', () => {
     // mock createWatcher 捕获 callback 供手动触发
     let capturedCallback: (() => void) | null = null;
     const mockWatcher = { close: vi.fn().mockResolvedValue(undefined) };
-    vi.mocked(createWatcher).mockImplementation((_fs, _dir, cb) => {
+    vi.mocked(createWatcher).mockImplementation((_absPath, cb) => {
       capturedCallback = cb;
       return mockWatcher as unknown as Watcher;
     });
 
     const mockFs = {
       ensureDirSync: vi.fn(),
+      resolve: vi.fn((p: string) => p),
     } as unknown as FileSystem;
     const mockAudit = { write: vi.fn() } as unknown as Audit;
 
@@ -457,7 +458,7 @@ describe('waitForInbox', () => {
     const mockWatcher = { close: vi.fn().mockResolvedValue(undefined) };
     vi.mocked(createWatcher).mockReturnValue(mockWatcher as unknown as Watcher);
 
-    const mockFs = { ensureDirSync: vi.fn() } as unknown as FileSystem;
+    const mockFs = { ensureDirSync: vi.fn(), resolve: vi.fn((p: string) => p) } as unknown as FileSystem;
     const mockAudit = { write: vi.fn() } as unknown as Audit;
 
     const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 1_000);
@@ -473,6 +474,7 @@ describe('waitForInbox', () => {
 
     const mockFs = {
       ensureDirSync: vi.fn(() => { throw new Error('EACCES'); }),
+      resolve: vi.fn((p: string) => p),
     } as unknown as FileSystem;
     const mockAudit = { write: vi.fn() } as unknown as Audit;
 
@@ -488,12 +490,12 @@ describe('waitForInbox', () => {
 
     let capturedCallback: (() => void) | null = null;
     const mockWatcher = { close: vi.fn().mockResolvedValue(undefined) };
-    vi.mocked(createWatcher).mockImplementation((_fs, _dir, cb) => {
+    vi.mocked(createWatcher).mockImplementation((_absPath, cb) => {
       capturedCallback = cb;
       return mockWatcher as unknown as Watcher;
     });
 
-    const mockFs = { ensureDirSync: vi.fn() } as unknown as FileSystem;
+    const mockFs = { ensureDirSync: vi.fn(), resolve: vi.fn((p: string) => p) } as unknown as FileSystem;
     const mockAudit = { write: vi.fn() } as unknown as Audit;
 
     const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 1_000);

@@ -119,8 +119,8 @@ inbox/outbox 消息的唯一编解码点。纯函数,不碰磁盘。
 
 - **装配归属**：两者（StreamReader / ContractSystem watcher 消费者，两类 daemon 都需要）
 - **资源**：无(订阅集合是运行期状态,重启重建)
-- **依赖**：FileSystem, AuditLog
-- **耦合**：AuditLog（必需；callback / onReady / onError 三处隔离后事件写入 `WATCHER_*` 命名空间）
+- **依赖**：~~FileSystem, AuditLog~~（phase327 修复：仅依赖 chokidar；路径解析与 audit 写入归 caller）
+- **耦合**：~~AuditLog（必需；callback / onReady / onError 三处隔离后事件写入 `WATCHER_*` 命名空间）~~（phase327 修复：caller 自写 audit，命名空间归各 caller）
 - **被谁调用**：Stream（`StreamReader` 通过 FileWatcher 监听 `stream.jsonl` 追加事件）；Contract 等其他 watcher 消费者
 - **对外接口契约**：[modules/l2_file_watcher.md](modules/l2_file_watcher.md)
 

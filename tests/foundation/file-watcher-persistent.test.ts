@@ -5,9 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { createWatcher } from '../../src/foundation/file-watcher/index.js';
-import { makeAudit } from '../helpers/audit.js';
 
 vi.mock('chokidar', () => ({
   watch: vi.fn(() => ({
@@ -19,15 +17,12 @@ vi.mock('chokidar', () => ({
 import * as chokidar from 'chokidar';
 
 describe('createWatcher persistent option', () => {
-  const fs = new NodeFileSystem({ baseDir: '/tmp', enforcePermissions: false });
-
   beforeEach(() => {
     vi.mocked(chokidar.watch).mockClear();
   });
 
   it('defaults to persistent: true', () => {
-    const { audit } = makeAudit();
-    createWatcher(fs, 'x', () => {}, audit);
+    createWatcher('/tmp/x', () => {});
     expect(vi.mocked(chokidar.watch)).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ persistent: true }),
@@ -35,8 +30,7 @@ describe('createWatcher persistent option', () => {
   });
 
   it('passes persistent: false through to chokidar', () => {
-    const { audit } = makeAudit();
-    createWatcher(fs, 'x', () => {}, audit, { persistent: false });
+    createWatcher('/tmp/x', () => {}, { persistent: false });
     expect(vi.mocked(chokidar.watch)).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ persistent: false }),

@@ -27,11 +27,6 @@ export const AUDIT_EVENTS = {
   SNAPSHOT_COMMITTED: 'snapshot_committed',
   SNAPSHOT_DEGRADED: 'snapshot_degraded',
 
-  // --- FileWatcher ---
-  WATCHER_CALLBACK_FAILED: 'watcher_callback_failed',
-  WATCHER_READY_FAILED: 'watcher_ready_failed',
-  WATCHER_FAILED: 'watcher_failed',
-
   // --- Stream ---
   STREAM_WRITE_DROPPED: 'stream_write_dropped',
   STREAM_APPEND_FAILED: 'stream_append_failed',
