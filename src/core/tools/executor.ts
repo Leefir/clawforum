@@ -23,7 +23,7 @@ import {
   ToolTimeoutError,
   ToolInvalidInputError,
 } from '../../types/errors.js';
-import { ExecContextImpl } from './context.js';
+import { ExecContextImpl, cloneExecContext } from './context.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';
 import type { ToolRegistryImpl } from './registry.js';
 // Note: ToolRegistry type imported via ToolRegistry interface
@@ -220,8 +220,8 @@ export class ToolExecutorImpl implements IToolExecutor {
     });
     timeoutPromise.catch(() => {});  // race 胜出后的孤立 rejection fallback
 
-    // 用 mergedSignal 覆盖 ctx.signal
-    const ctxWithSignal = { ...ctx, signal: mergedSignal };
+    // 用 mergedSignal 覆盖 ctx.signal（保留 prototype chain）
+    const ctxWithSignal = cloneExecContext(ctx, { signal: mergedSignal });
     const executionPromise = tool.execute(args, ctxWithSignal);
     executionPromise.catch(() => {});  // 对不响应 signal 的 tool 保底
 

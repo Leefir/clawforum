@@ -16,6 +16,7 @@ import type { IToolExecutor, ExecContext, ToolResult, ToolRegistry } from '../to
 import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 import { throwAbortError } from './abort-helpers.js';
+import { cloneExecContext } from '../tools/context.js';
 
 export interface LLMCallInfo {
   model: string;
@@ -143,7 +144,9 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
       },
     };
     // B.idle-abort: signal 已 abort 但 tool_use 已完整收集时，先让工具执行完
-    const toolCtx = ctx.signal?.aborted ? { ...ctx, signal: undefined } : ctx;
+    const toolCtx = ctx.signal?.aborted
+      ? cloneExecContext(ctx, { signal: undefined })
+      : ctx;
     const toolResults = await executeToolCalls(toolCalls, executor, toolCtx, registry, trackingCallbacks);
 
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);

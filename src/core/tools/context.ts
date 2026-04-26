@@ -62,6 +62,26 @@ export interface ExecContextImplOptions {
 }
 
 /**
+ * Clone an ExecContext while preserving prototype chain.
+ *
+ * Object spread `{ ...ctx, ... }` only copies own enumerable properties,
+ * losing class methods/getters from ExecContextImpl (`isMotionChain`,
+ * `getElapsedMs`, `incrementStep`). This helper preserves them.
+ *
+ * Works for both class instances (ExecContextImpl) and plain object mocks
+ * (test fixtures) — falls back to Object.prototype when `ctx` has no class.
+ */
+export function cloneExecContext(
+  ctx: ExecContext,
+  overrides: Partial<ExecContext>,
+): ExecContext {
+  const proto = Object.getPrototypeOf(ctx) ?? Object.prototype;
+  const clone = Object.create(proto);
+  Object.assign(clone, ctx, overrides);
+  return clone;
+}
+
+/**
  * Execution context implementation
  */
 export class ExecContextImpl implements ExecContext {
