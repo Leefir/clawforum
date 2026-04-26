@@ -26,3 +26,5 @@ export interface Watcher {
   /** Get the watched path */
   getPath(): string;
 }
+
+export type WatcherErrorContext = 'watch' | 'callback' | 'ready';

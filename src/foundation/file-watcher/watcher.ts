@@ -4,12 +4,8 @@
  * Wraps chokidar to provide our Watcher interface
  */
 
-import * as path from 'path';
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar';
-import type { Watcher, WatchEvent, WatchEventType } from './types.js';
-import type { FileSystem } from '../fs/types.js';
-import type { Audit } from '../audit/index.js';
-import { AUDIT_EVENTS } from '../audit/events.js';
+import type { Watcher, WatchEvent, WatchEventType, WatcherErrorContext } from './types.js';
 
 /**
  * Chokidar-based watcher implementation
@@ -62,18 +58,14 @@ function mapEventType(chokidarEvent: string): WatchEventType | null {
 
 /**
  * Create a file watcher
- * @param fs - FileSystem instance for path resolution
- * @param relativePath - Relative path to watch (file or directory)
+ * @param absolutePath - Absolute path to watch (file or directory)
  * @param callback - Called on each change event
- * @param audit - Audit sink (必传)
  * @param options - Watch options
  * @returns Watcher handle
  */
 export function createWatcher(
-  fs: FileSystem,
-  relativePath: string,
+  absolutePath: string,
   callback: (event: WatchEvent) => void,
-  audit: Audit,
   options?: {
     /** Watch recursively (for directories) */
     recursive?: boolean;
@@ -82,7 +74,7 @@ export function createWatcher(
     /** Initial scan callback */
     onReady?: () => void;
     /** Error callback */
-    onError?: (error: Error) => void;
+    onError?: (err: Error, context: WatcherErrorContext) => void;
     /**
      * Write finish stability strategy.
      * 'stable' (default): 100ms stabilityThreshold — safe for files being written over time.
@@ -98,10 +90,7 @@ export function createWatcher(
     persistent?: boolean;
   }
 ): Watcher {
-  const watchPath = path.isAbsolute(relativePath)
-    ? relativePath
-    : fs.resolve(relativePath);
-  const watcher = chokidarWatch(watchPath, {
+  const watcher = chokidarWatch(absolutePath, {
     persistent: options?.persistent ?? true,
     ignoreInitial: true,
     depth: options?.recursive ? undefined : 0,
@@ -133,12 +122,8 @@ export function createWatcher(
     try {
       callback(watchEvent);
     } catch (err) {
-      audit.write(
-        AUDIT_EVENTS.WATCHER_CALLBACK_FAILED,
-        `path=${filePath}`,
-        `event=${type}`,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
-      );
+      const e = err instanceof Error ? err : new Error(String(err));
+      try { options?.onError?.(e, 'callback'); } catch { /* swallow secondary */ }
     }
   });
 
@@ -147,33 +132,16 @@ export function createWatcher(
     try {
       options?.onReady?.();
     } catch (err) {
-      audit.write(
-        AUDIT_EVENTS.WATCHER_READY_FAILED,
-        `path=${watchPath}`,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
-      );
+      const e = err instanceof Error ? err : new Error(String(err));
+      try { options?.onError?.(e, 'ready'); } catch { /* swallow */ }
     }
   });
 
   // Error handling
-  watcher.on('error', (rawError) => {
-    const normalizedError = rawError instanceof Error ? rawError : new Error(String(rawError));
-    audit.write(
-      AUDIT_EVENTS.WATCHER_FAILED,
-      `path=${watchPath}`,
-      `reason=${normalizedError.message}`,
-    );
-    try {
-      options?.onError?.(normalizedError);
-    } catch (cbErr) {
-      audit.write(
-        AUDIT_EVENTS.WATCHER_FAILED,
-        `path=${watchPath}`,
-        `context=onError_handler`,
-        `reason=${cbErr instanceof Error ? cbErr.message : String(cbErr)}`,
-      );
-    }
+  watcher.on('error', (raw) => {
+    const e = raw instanceof Error ? raw : new Error(String(raw));
+    try { options?.onError?.(e, 'watch'); } catch { /* swallow */ }
   });
 
-  return new ChokidarWatcher(watcher, watchPath);
+  return new ChokidarWatcher(watcher, absolutePath);
 }
