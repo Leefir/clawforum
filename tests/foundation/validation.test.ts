@@ -4,7 +4,7 @@ import {
   VALID_TYPES,
   validatePriority,
   validateType,
-} from '../../src/foundation/message-codec/index.js';
+} from '../../src/foundation/messaging/codec-validation.js';
 
 afterEach(() => {
   // no-op: kept in case future tests need cleanup

@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
 import type { OutboxMessage } from '../../types/messaging.js';
 import type { Audit } from '../audit/index.js';
-import { encodeOutbox } from '../message-codec/index.js';
+import { encodeOutbox } from './codec-outbox.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 
 /**

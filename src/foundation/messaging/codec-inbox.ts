@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { InboxMessage } from '../../types/messaging.js';
-import { parseFrontmatter } from './frontmatter.js';
-import { validatePriority, validateType } from './validation.js';
+import { parseFrontmatter } from '../frontmatter/index.js';
+import { validatePriority, validateType } from './codec-validation.js';
 
 /**
  * Quote a value for safe YAML insertion.

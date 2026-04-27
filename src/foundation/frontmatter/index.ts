@@ -1,17 +1,15 @@
 /**
- * YAML frontmatter parser utility
+ * @module L1.Frontmatter
+ * Frontmatter module (L1)
  *
- * Unified implementation to replace 5 duplicated copies across the codebase.
+ * Pure YAML frontmatter parser utility. No I/O, no side effects.
+ * No runtime dependencies. No type dependencies on higher layers.
  *
- * Features:
- * - Supports `: ` (preferred) and `:` (compatibility)
- * - Strips quotes from values ("value" or 'value' → value)
- * - Returns { meta, body } format
- *
- * Safety: body content containing `\n---\n` cannot confuse this parser because:
- * 1. All frontmatter values are single-line (encodeInbox uses yamlQuote for strings)
- * 2. indexOf('\n---\n') finds the FIRST match, which is always the closing delimiter
- * 3. Body content appears after the first match and is never scanned for delimiters
+ * Originally extracted from L1.MessageCodec (phase 361) to dissolve the
+ * L1→L2 reverse predict violation: message-codec/inbox.ts imported
+ * InboxMessage (L2 business type), forcing the entire module to span
+ * pure parsing (L1 OK) and business encoding (L2). Inbox/outbox codec
+ * relocated to L2 Messaging; this module retains only the pure parser.
  */
 
 export function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {

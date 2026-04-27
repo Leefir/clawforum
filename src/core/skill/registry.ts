@@ -9,7 +9,7 @@
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { Audit } from '../../foundation/audit/index.js';
 import { ToolError } from '../../types/errors.js';
-import { parseFrontmatter } from '../../foundation/message-codec/index.js';
+import { parseFrontmatter } from '../../foundation/frontmatter/index.js';
 import { SKILL_AUDIT_EVENTS } from './audit-events.js';
 
 export interface SkillMeta {

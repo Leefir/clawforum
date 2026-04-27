@@ -10,7 +10,8 @@
  * - CRLF 支持
  */
 import { describe, it, expect } from 'vitest';
-import { parseFrontmatter, decodeInbox, encodeInbox } from '../../src/foundation/message-codec/index.js';
+import { parseFrontmatter } from '../../src/foundation/frontmatter/index.js';
+import { decodeInbox, encodeInbox } from '../../src/foundation/messaging/codec-inbox.js';
 
 describe('parseFrontmatter', () => {
   it('parses normal frontmatter', () => {

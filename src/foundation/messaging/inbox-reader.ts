@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
 import type { InboxMessage } from '../../types/messaging.js';
 import { PRIORITY_VALUES } from '../../types/priority.js';
-import { decodeInbox } from '../message-codec/index.js';
+import { decodeInbox } from './codec-inbox.js';
 import type { Audit } from '../audit/index.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 import { InboxListFailed, InboxMoveFailed } from './errors.js';
