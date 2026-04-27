@@ -85,3 +85,29 @@ export function createDirContext(dir: string): {
   const audit = new AuditWriter(fs, path.join(dir, AUDIT_FILE));
   return { fs, audit };
 }
+
+import type { WatchdogPort } from '../../cli/watchdog-port.js';
+import {
+  getWatchdogPid,
+  isWatchdogAlive,
+  getWatchdogEntryPath,
+  startCommand as watchdogStart,
+  stopCommand as watchdogStop,
+} from '../../watchdog/watchdog.js';
+
+/**
+ * createWatchdogPort
+ *
+ * 输入：无参数
+ * 输出：WatchdogPort adapter / 包装 watchdog 模块导出为 port interface
+ * 边界：structural typing / watchdog 侧 0 改
+ */
+export function createWatchdogPort(): WatchdogPort {
+  return {
+    getWatchdogPid,
+    isWatchdogAlive,
+    getWatchdogEntryPath,
+    startCommand: watchdogStart,
+    stopCommand: watchdogStop,
+  };
+}

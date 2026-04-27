@@ -31,14 +31,13 @@ import {
 } from './commands/motion.js';
 import { contractCreateCommand, contractCreateFromDirCommand, contractLogCommand, contractEventsCommand } from './commands/contract.js';
 import { skillInstallUserCommand, skillInstallClawCommand } from './commands/skill.js';
-import {
-  startCommand as watchdogStartCommand,
-  stopCommand as watchdogStopCommand,
-  runWatchdogLoop,
-} from '../watchdog/watchdog.js';
+import { runWatchdogLoop } from '../watchdog/watchdog.js';
+import { createWatchdogPort } from '../foundation/config/factories.js';
 import { configCommand } from './commands/config.js';
 import { stopAllCommand } from './commands/stop.js';
 import { statusCommand } from './commands/status.js';
+
+const watchdogPort = createWatchdogPort();
 
 program
   .name('clawforum')
@@ -448,7 +447,7 @@ watchdogCmd
   .description('Start watchdog')
   .action(async () => {
     try {
-      await watchdogStartCommand();
+      await watchdogPort.startCommand();
     } catch (error) {
       process.exitCode = handleCliError(error);
     }
@@ -460,7 +459,7 @@ watchdogCmd
   .description('Stop watchdog')
   .action(async () => {
     try {
-      await watchdogStopCommand();
+      await watchdogPort.stopCommand();
     } catch (error) {
       process.exitCode = handleCliError(error);
     }

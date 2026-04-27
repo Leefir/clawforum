@@ -27,7 +27,7 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 import { CliError } from '../errors.js';
-import { startCommand as watchdogStartCommand, isWatchdogAlive } from '../../watchdog/watchdog.js';
+import { createWatchdogPort } from '../../foundation/config/factories.js';
 
 export function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
   let langInstruction: string;
@@ -375,7 +375,8 @@ async function _start(): Promise<void> {
       await pm.spawn('motion', motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
-    if (!isWatchdogAlive()) await watchdogStartCommand();
+    const watchdog = createWatchdogPort();
+    if (!watchdog.isWatchdogAlive()) await watchdog.startCommand();
     await motionChatCommand();
     return;
   }
@@ -395,7 +396,8 @@ async function _start(): Promise<void> {
 
     const language = await pickLanguage();
     await daemonReady;
-    if (!isWatchdogAlive()) await watchdogStartCommand();
+    const watchdog = createWatchdogPort();
+    if (!watchdog.isWatchdogAlive()) await watchdog.startCommand();
 
     const manager = new ContractManager(motionDir, MOTION_CLAW_ID, notifyFs, notifyAudit);
     const contractId = await manager.create({
@@ -422,7 +424,8 @@ async function _start(): Promise<void> {
       await pm.spawn('motion', motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
-    if (!isWatchdogAlive()) await watchdogStartCommand();
+    const watchdog = createWatchdogPort();
+    if (!watchdog.isWatchdogAlive()) await watchdog.startCommand();
 
     
     if (onboarding.state === 'not_found') {

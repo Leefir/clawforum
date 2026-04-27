@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import { loadGlobalConfig, getGlobalConfigPath } from '../../foundation/config/index.js';
-import { stopCommand as watchdogStop } from '../../watchdog/watchdog.js';
+import { createWatchdogPort } from '../../foundation/config/factories.js';
 import { stopCommand as motionStop } from './motion.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
 import { createProcessManagerForCLI } from '../../foundation/config/factories.js';
@@ -16,7 +16,8 @@ export async function stopAllCommand(): Promise<void> {
   loadGlobalConfig();
 
   // 1. Stop watchdog first (prevents it from restarting motion)
-  await watchdogStop();
+  const watchdog = createWatchdogPort();
+  await watchdog.stopCommand();
 
   // 2. Stop motion
   await motionStop();

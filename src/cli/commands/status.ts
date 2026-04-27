@@ -9,14 +9,15 @@ import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getMotionDir } from '../../foundation/config/index.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
 import { createProcessManagerForCLI } from '../../foundation/config/factories.js';
-import { getWatchdogPid, isWatchdogAlive, getWatchdogEntryPath } from '../../watchdog/watchdog.js';
+import { createWatchdogPort } from '../../foundation/config/factories.js';
 
 export async function statusCommand(): Promise<void> {
   loadGlobalConfig();
 
   // 1. Watchdog
-  const watchdogPid = getWatchdogPid();
-  const watchdogAlive = isWatchdogAlive();
+  const watchdog = createWatchdogPort();
+  const watchdogPid = watchdog.getWatchdogPid();
+  const watchdogAlive = watchdog.isWatchdogAlive();
   console.log(`watchdog: ${watchdogAlive ? `running (PID=${watchdogPid})` : 'stopped'}`);
 
   // 2. Motion
@@ -44,7 +45,7 @@ export async function statusCommand(): Promise<void> {
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
 
   // Watchdog orphans
-  const wdPath = getWatchdogEntryPath();
+  const wdPath = watchdog.getWatchdogEntryPath();
   let wdPids: number[] = [];
   try {
     wdPids = pm.findProcesses(wdPath).filter(p => p !== watchdogPid && p !== process.pid);
