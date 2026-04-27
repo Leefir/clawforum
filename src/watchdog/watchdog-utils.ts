@@ -17,6 +17,7 @@ import * as path from 'path';
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { Audit } from '../foundation/audit/index.js';
 import { readAll, STREAM_FILE } from '../foundation/stream/index.js';
+import { LLM_OUTPUT_EVENTS } from '../foundation/stream/types.js';
 
 // Parse stream.jsonl, return the timestamp of the last event and the last error message
 export interface ClawActivityInfo {
@@ -24,9 +25,6 @@ export interface ClawActivityInfo {
   lastError: string | null;    // error message when the last terminal event was turn_error
                                // only cleared by turn_end
 }
-
-// Only count direct LLM output events (excludes infrastructure events like llm_start/tool_result)
-export const LLM_OUTPUT_EVENTS = new Set(['thinking_delta', 'text_delta', 'tool_call']);
 
 export async function getClawActivityInfo(
   clawFs: FileSystem,
@@ -73,25 +71,6 @@ export function clawHasContract(clawDir: string): boolean {
     } catch { /* skip */ }
   }
   return false;
-}
-
-/** 返回当前活跃/暂停契约的创建时间（毫秒），无契约时返回 null */
-export function getContractCreatedMs(clawDir: string): number | null {
-  for (const sub of ['active', 'paused']) {
-    try {
-      const entries = fs.readdirSync(
-        path.join(clawDir, 'contract', sub),
-        { withFileTypes: true },
-      );
-      for (const e of entries) {
-        if (!e.isDirectory()) continue;
-        const ts = parseInt(e.name.split('-')[0], 10);
-        // 合理的毫秒时间戳：> 2020-01-01
-        if (!isNaN(ts) && ts > 1_577_836_800_000) return ts;
-      }
-    } catch { /* 目录不存在 */ }
-  }
-  return null;
 }
 
 // ---- Phase 18: gatherClawSnapshot ----

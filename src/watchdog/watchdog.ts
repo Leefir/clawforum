@@ -22,7 +22,9 @@ import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { AuditWriter } from '../foundation/audit/writer.js';
 import { createDirContext, createProcessManagerForCLI } from '../foundation/config/factories.js';
 import { InboxWriter } from '../foundation/messaging/index.js';
-import { type ClawActivityInfo, LLM_OUTPUT_EVENTS, getClawActivityInfo, clawHasContract, getContractCreatedMs, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
+import { type ClawActivityInfo, getClawActivityInfo, clawHasContract, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
+import { LLM_OUTPUT_EVENTS } from '../foundation/stream/types.js';
+import { getContractCreatedMs } from '../core/contract/utils.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 
 // Get the .clawforum/ directory (CLAWFORUM_ROOT takes priority)
