@@ -82,7 +82,7 @@ export function createDirContext(dir: string): {
   audit: AuditWriter;
 } {
   const fs = new NodeFileSystem({ baseDir: dir, enforcePermissions: false });
-  const audit = new AuditWriter(fs, path.join(dir, AUDIT_FILE));
+  const audit = createSystemAudit(fs, dir);
   return { fs, audit };
 }
 

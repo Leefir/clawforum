@@ -23,7 +23,7 @@ import { buildRetroPrompt } from '../../prompts/retrospective.js';
 import { writePendingSubagentTaskFile } from '../task/tools/_pending-task-writer.js';
 import type { ContractVerifierScheduler } from './verifier-scheduler.js';
 import { createSubAgentVerifierScheduler } from './verifier-scheduler.js';
-import { AuditWriter } from '../../foundation/audit/writer.js';
+import { AuditWriter, createSystemAudit } from '../../foundation/audit/index.js';
 import type { Message } from '../../types/message.js';
 import { createSkillRegistry } from '../skill/index.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
@@ -867,7 +867,7 @@ export class ContractManager {
       body = feedback || 'No feedback provided';
     }
 
-    const audit = this.auditWriter ?? new AuditWriter(this.fs, path.join(this.clawDir, 'audit.tsv'));
+    const audit = this.auditWriter ?? createSystemAudit(this.fs, this.clawDir);
     new InboxWriter(
       this.fs,
       path.join(this.clawDir, 'inbox', 'pending'),
@@ -890,7 +890,7 @@ export class ContractManager {
     const errorMsg = error instanceof Error ? error.message : String(error);
 
     try {
-      const audit = this.auditWriter ?? new AuditWriter(this.fs, path.join(this.clawDir, 'audit.tsv'));
+      const audit = this.auditWriter ?? createSystemAudit(this.fs, this.clawDir);
       new InboxWriter(
         this.fs,
         path.join(this.clawDir, 'inbox', 'pending'),
@@ -1308,7 +1308,7 @@ export class ContractManager {
     // 2.1 加载契约 YAML（临时 new ContractManager for target claw，B.p175-2 登记）
     const clawDir = path.join(ctx.clawsBaseDir, targetClaw);
     const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-    const clawContractManager = new ContractManager(clawDir, targetClaw, clawFs, new AuditWriter(clawFs, path.join(clawDir, 'audit.tsv')));
+    const clawContractManager = new ContractManager(clawDir, targetClaw, clawFs, createSystemAudit(clawFs, clawDir));
 
     let contractYaml: string;
     try {

@@ -58,7 +58,7 @@ import { ProcessManager } from '../../foundation/process-manager/index.js';
 import { createDirContext, createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
+import { createSystemAudit } from '../../foundation/audit/index.js';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
@@ -405,7 +405,7 @@ export async function sendCommand(
   const clawDir = path.join(baseDir, 'claws', name);
   const inboxPending = path.join(clawDir, 'inbox', 'pending');
   const fs = new NodeFileSystem({ baseDir: '/', enforcePermissions: false });
-  const audit = new AuditWriter(fs, path.join(clawDir, 'audit.tsv'));
+  const audit = createSystemAudit(fs, clawDir);
 
   await new InboxWriter(fs, inboxPending, audit).write({
     id: randomUUID(),

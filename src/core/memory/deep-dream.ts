@@ -7,7 +7,7 @@ import type { LLMService } from '../../foundation/llm/index.js';
 import type { LLMServiceConfig } from '../../foundation/llm/types.js';
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../types/message.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
+import { createSystemAudit } from '../../foundation/audit/index.js';
 import {
   DEEP_DREAM_SYSTEM_PROMPT,
   buildDreamInput,
@@ -242,7 +242,7 @@ async function runDeepDreamForClaw(
   if (dreamOutputs.length === 0) return;
 
   // 投递到 claw inbox
-  const clawAudit = new AuditWriter(fileSystem, path.join(clawDir, 'audit.tsv'));
+  const clawAudit = createSystemAudit(fileSystem, clawDir);
   new InboxWriter(fileSystem, path.join(clawDir, 'inbox', 'pending'), clawAudit).writeSync({
     type: 'deep_dream',
     source: 'cron:dream',

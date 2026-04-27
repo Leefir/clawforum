@@ -19,7 +19,7 @@ import { getMotionDir, loadGlobalConfig } from '../foundation/config/index.js';
 import { ProcessManager } from '../foundation/process-manager/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
-import { AuditWriter } from '../foundation/audit/writer.js';
+import { AuditWriter, createAuditWriter } from '../foundation/audit/index.js';
 import { createDirContext, createProcessManagerForCLI } from '../foundation/config/factories.js';
 import { InboxWriter } from '../foundation/messaging/index.js';
 import { type ClawActivityInfo, getClawActivityInfo, clawHasContract, type ClawSnapshot, type ProcessLiveness, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
@@ -397,7 +397,7 @@ export async function runWatchdogLoop(): Promise<void> {
 
   // 先建 auditWriter，让 loadWatchdogState corrupt 路径可写 audit（N1 修复）
   const auditMaxSizeMb = getGlobalConfig().audit?.retention?.max_size_mb ?? null;
-  const auditWriter = new AuditWriter(
+  const auditWriter = createAuditWriter(
     new NodeFileSystem({ baseDir: getClawforumDir(), enforcePermissions: false }),
     'audit.tsv',
     auditMaxSizeMb,

@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fsSync from 'fs';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { AuditWriter } from '../../foundation/audit/writer.js';
+import { AuditWriter, createAuditWriter } from '../../foundation/audit/index.js';
 import type { LLMService } from '../../foundation/llm/index.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
 import { STREAM_FILE } from '../../foundation/stream/types.js';
@@ -48,7 +48,7 @@ export async function executeSubAgentTask(
   // Per-task stream writer setup
   const taskDir = path.join(clawDir, 'tasks', 'results', task.id);
   fsSync.mkdirSync(taskDir, { recursive: true });
-  const taskAuditWriter = new AuditWriter(fs, `tasks/results/${task.id}/audit.tsv`);
+  const taskAuditWriter = createAuditWriter(fs, `tasks/results/${task.id}/audit.tsv`);
   const taskStreamPath = path.join(taskDir, STREAM_FILE);
   let taskStreamFd: number | null = null;
   try {

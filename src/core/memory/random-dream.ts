@@ -7,7 +7,7 @@ import type { TaskLifecyclePort } from '../runtime/runtime-ports.js';
 import { writePendingSubagentTaskFile } from '../task/tools/_pending-task-writer.js';
 import { TOOL_PROFILES } from '../tools/profiles.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { AuditWriter } from '../../foundation/audit/index.js';
+import { createSystemAudit } from '../../foundation/audit/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
 import {
   RANDOM_DREAM_SYSTEM_PROMPT,
@@ -237,7 +237,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=scheduled`, `count=${weightedContracts.length}`);
 
   // 调度 sub-agent（文件驱动，watcher 异步拾起）
-  const motionAudit = new AuditWriter(opts.fs, path.join(opts.motionDir, 'audit.tsv'));
+  const motionAudit = createSystemAudit(opts.fs, opts.motionDir);
   const taskId = await writePendingSubagentTaskFile(opts.fs, motionAudit, {
     kind: 'subagent',
     prompt: buildRandomDreamPrompt(weightedContracts),

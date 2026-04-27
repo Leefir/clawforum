@@ -3,7 +3,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { Audit } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { InboxWriter } from '../../../foundation/messaging/index.js';
-import { AuditWriter } from '../../../foundation/audit/index.js';
+import { createAuditWriter } from '../../../foundation/audit/index.js';
 
 /** 递归计算目录大小（bytes） */
 function getDirSize(dir: string, fs: FileSystem): number {
@@ -45,7 +45,7 @@ export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
   if (totalMB > opts.limitMB) {
     opts.audit.write(CRON_AUDIT_EVENTS.DISK_MONITOR_THRESHOLD_EXCEEDED, `totalMB=${totalMB}`, `limitMB=${opts.limitMB}`);
     console.warn(`[cron:disk-monitor] WARNING: usage ${totalMB}MB > limit ${opts.limitMB}MB`);
-    const motionAudit = new AuditWriter(opts.fs, path.join(opts.motionInboxDir, '..', '..', 'audit.tsv'));
+    const motionAudit = createAuditWriter(opts.fs, path.join(opts.motionInboxDir, '..', '..', 'audit.tsv'));
     new InboxWriter(opts.fs, opts.motionInboxDir, motionAudit).writeSync({
       type: 'cron_disk_warning',
       source: 'cron',

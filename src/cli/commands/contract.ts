@@ -14,7 +14,7 @@ import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { getClawDir } from '../../foundation/config/index.js';
 import { notifySystem } from '../../foundation/messaging/index.js';
 import { STREAM_AUDIT_EVENTS } from '../../foundation/stream/audit-events.js';
-import { AuditWriter } from '../../foundation/audit/writer.js';
+import { createSystemAudit } from '../../foundation/audit/index.js';
 import { STREAM_FILE } from '../../foundation/stream/index.js';
 
 
@@ -80,7 +80,7 @@ export async function contractCreateCommand(clawId: string, filePath: string): P
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawId, clawFs, new AuditWriter(clawFs, path.join(clawDir, 'audit.tsv')));
+  const manager = new ContractManager(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir));
 
   const contractId = await manager.create(contract);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
@@ -99,7 +99,7 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawId, clawFs, new AuditWriter(clawFs, path.join(clawDir, 'audit.tsv')));
+  const manager = new ContractManager(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir));
 
   const contractId = await manager.create(contract);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
@@ -139,7 +139,7 @@ export async function contractEventsCommand(clawId: string, sinceTs: number): Pr
 export async function contractLogCommand(clawId: string, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir, enforcePermissions: false });
-  const manager = new ContractManager(clawDir, clawId, clawFs, new AuditWriter(clawFs, path.join(clawDir, 'audit.tsv')));
+  const manager = new ContractManager(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir));
 
   // 若未指定 contractId，用 active 契约
   let resolvedId = contractId;

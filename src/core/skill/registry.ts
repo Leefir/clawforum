@@ -10,6 +10,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { Audit } from '../../foundation/audit/index.js';
 import { ToolError } from '../../types/errors.js';
 import { parseFrontmatter } from '../../foundation/message-codec/index.js';
+import { SKILL_AUDIT_EVENTS } from './audit-events.js';
 
 export interface SkillMeta {
   name: string;
@@ -56,7 +57,7 @@ export class SkillRegistry {
       try {
         await this.register(skillDir);
       } catch (err) {
-        this.audit?.write('skill_load_failed',
+        this.audit?.write(SKILL_AUDIT_EVENTS.LOAD_FAILED,
           `skill_dir=${skillDir}`,
           `skills_dir=${this.skillsDir}`,
           `err=${err instanceof Error ? err.message : String(err)}`,
@@ -67,7 +68,7 @@ export class SkillRegistry {
     }
 
     // 正常出口 audit
-    this.audit?.write('skill_registry_loaded',
+    this.audit?.write(SKILL_AUDIT_EVENTS.REGISTRY_LOADED,
       `skills_dir=${this.skillsDir}`,
       `count=${this.metaMap.size}`,
     );
@@ -96,7 +97,7 @@ export class SkillRegistry {
     // Duplicate check: preserve first registration, skip later ones
     if (this.metaMap.has(meta.name)) {
       const existing = this.metaMap.get(meta.name)!;
-      this.audit?.write('skill_duplicate_skipped',
+      this.audit?.write(SKILL_AUDIT_EVENTS.DUPLICATE_SKIPPED,
         `name=${meta.name}`,
         `existing_skill_dir=${existing.skillDir}`,
         `attempted_skill_dir=${skillDir}`,

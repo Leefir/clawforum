@@ -26,7 +26,7 @@ export interface Audit {
 
 export { AuditWriter, AUDIT_FILE } from './writer.js';
 
-export function createSystemAudit(fs: FileSystem, baseDir: string): Audit {
+export function createSystemAudit(fs: FileSystem, baseDir: string): AuditWriter {
   return new AuditWriter(fs, path.join(baseDir, AUDIT_FILE));
 }
 

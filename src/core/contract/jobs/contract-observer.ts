@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as fsNative from 'fs';
 import { notifyInbox } from '../../../foundation/messaging/index.js';
 import { NodeFileSystem } from '../../../foundation/fs/node-fs.js';
-import { AuditWriter } from '../../../foundation/audit/index.js';
+import { createSystemAudit } from '../../../foundation/audit/index.js';
 import { collectContractEvents } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 
@@ -36,7 +36,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   } catch { return; /* claws/ 不存在 */ }
 
   const events: string[] = [];
-  const motionAudit = new AuditWriter(fs, path.join(clawforumDir, 'motion', 'audit.tsv'));
+  const motionAudit = createSystemAudit(fs, path.join(clawforumDir, 'motion'));
 
   for (const clawId of clawIds) {
     try {
