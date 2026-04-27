@@ -467,7 +467,7 @@ export class ContractManager {
         `err=${err instanceof Error ? err.message : String(err)}`,
       );
     }
-    this.auditWriter?.write('contract_created', contractId, `subtasks=${contractYaml.subtasks.length}`, `title=${contractYaml.title}`);
+    this.auditWriter?.write(CONTRACT_AUDIT_EVENTS.CREATED, contractId, `subtasks=${contractYaml.subtasks.length}`, `title=${contractYaml.title}`);
     this.audit.write(CONTRACT_AUDIT_EVENTS.CREATED, `contractId=${contractId}`);
     return contractId;
   }
@@ -746,7 +746,7 @@ export class ContractManager {
         );
 
         // Audit: acceptance_passed
-        this.auditWriter?.write('acceptance_passed', `${contractId}/${subtaskId}`);
+        this.auditWriter?.write(CONTRACT_AUDIT_EVENTS.PASSED, `${contractId}/${subtaskId}`);
 
         // Check all completed
         const allCompleted = await this.checkAllCompleted(contractId, progress);
@@ -993,7 +993,7 @@ export class ContractManager {
       progress.checkpoint = checkpointNote;
       await this.saveProgress(contractId, progress);
     });
-    this.auditWriter?.write('contract_paused', contractId, `checkpoint=${checkpointNote}`);
+    this.auditWriter?.write(CONTRACT_AUDIT_EVENTS.PAUSED, contractId, `checkpoint=${checkpointNote}`);
   }
 
   /**
@@ -1016,7 +1016,7 @@ export class ContractManager {
       progress.checkpoint = null;
       await this.saveProgress(contractId, progress);
     });
-    this.auditWriter?.write('contract_resumed', contractId);
+    this.auditWriter?.write(CONTRACT_AUDIT_EVENTS.RESUMED, contractId);
     return this.loadContract(contractId);
   }
 
@@ -1038,7 +1038,7 @@ export class ContractManager {
       progress.checkpoint = `cancelled: ${reason}`;
       await this.saveProgress(contractId, progress);
     });
-    this.auditWriter?.write('contract_cancelled', contractId, `reason=${reason}`);
+    this.auditWriter?.write(CONTRACT_AUDIT_EVENTS.CANCELLED, contractId, `reason=${reason}`);
   }
 
   /**
@@ -1114,7 +1114,7 @@ export class ContractManager {
     // In Phase 1, the contract YAML is read-only; status changes are recorded in progress.json
     // In a real project, you may need to update the status field in the contract file itself
     if (status === 'completed') {
-      this.auditWriter?.write('contract_completed', contractId);
+      this.auditWriter?.write(CONTRACT_AUDIT_EVENTS.COMPLETED, contractId);
     }
   }
 

@@ -27,4 +27,10 @@ export const CONTRACT_AUDIT_EVENTS = {
   RETRO_SCHEDULE_FAILED: 'contract_retro_schedule_failed',
   RETRO_CLEANUP_FAILED: 'contract_retro_cleanup_failed',
   UNEXPECTED_ASYNC_THROW: 'contract_unexpected_async_throw',
+  // phase345: caller 风格统一并轨（B.p344-1 / contract lifecycle events）
+  PASSED: 'acceptance_passed',
+  CANCELLED: 'contract_cancelled',
+  COMPLETED: 'contract_completed',
+  PAUSED: 'contract_paused',
+  RESUMED: 'contract_resumed',
 } as const;

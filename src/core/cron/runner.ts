@@ -4,6 +4,7 @@
  */
 
 import type { Audit } from '../../foundation/audit/index.js';
+import { CRON_AUDIT_EVENTS } from './audit-events.js';
 
 export type CronSchedule =
   | { type: 'daily'; time: string }       // "HH:MM"，每天固定时刻
@@ -46,14 +47,14 @@ export class CronRunner {
   start(tickIntervalMs = 1000): void {
     if (this.timer) return;
     this.timer = setInterval(() => this.tick(), tickIntervalMs);
-    this.audit.write('cron_runner_started', `jobs=${this.jobs.length}`);
+    this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STARTED, `jobs=${this.jobs.length}`);
   }
 
   stop(): void {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
-      this.audit.write('cron_runner_stopped', `jobs=${this.jobs.length}`);
+      this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STOPPED, `jobs=${this.jobs.length}`);
     }
   }
 

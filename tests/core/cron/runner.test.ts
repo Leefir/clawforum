@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Audit } from '../../../src/foundation/audit/index.js';
+import { CRON_AUDIT_EVENTS } from '../../../src/core/cron/audit-events.js';
 import {
   CronRunner,
   parseSchedule,
@@ -83,7 +84,7 @@ describe('CronRunner', () => {
     const job: CronJob = { name: 'test', enabled: true, schedule: { type: 'hourly' }, handler: vi.fn() };
     const runner = new CronRunner([job], audit as unknown as Audit);
     runner.start();
-    expect(audit.write).toHaveBeenCalledWith('cron_runner_started', 'jobs=1');
+    expect(audit.write).toHaveBeenCalledWith(CRON_AUDIT_EVENTS.RUNNER_STARTED, 'jobs=1');
     runner.stop();
   });
 
@@ -93,7 +94,7 @@ describe('CronRunner', () => {
     runner.start();
     audit.write.mockClear();
     runner.stop();
-    expect(audit.write).toHaveBeenCalledWith('cron_runner_stopped', 'jobs=1');
+    expect(audit.write).toHaveBeenCalledWith(CRON_AUDIT_EVENTS.RUNNER_STOPPED, 'jobs=1');
   });
 
   it('stop clears timer; subsequent tick no-op', () => {

@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import { MEMORY_AUDIT_EVENTS } from './audit-events.js';
 import type { Audit } from '../../foundation/audit/index.js';
 import type { TaskLifecyclePort } from '../runtime/runtime-ports.js';
 import { writePendingSubagentTaskFile } from '../task/tools/_pending-task-writer.js';
@@ -229,11 +230,11 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   const weightedContracts = discoverWeightedContracts(opts.clawforumDir, state);
 
   if (weightedContracts.length === 0) {
-    opts.audit.write('cron_random_dream_job', `step=skip_empty`);
+    opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=skip_empty`);
     return;
   }
 
-  opts.audit.write('cron_random_dream_job', `step=scheduled`, `count=${weightedContracts.length}`);
+  opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=scheduled`, `count=${weightedContracts.length}`);
 
   // 调度 sub-agent（文件驱动，watcher 异步拾起）
   const motionAudit = new AuditWriter(opts.fs, path.join(opts.motionDir, 'audit.tsv'));
@@ -249,12 +250,12 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
     systemPrompt: RANDOM_DREAM_SYSTEM_PROMPT,
   });
 
-  opts.audit.write('cron_random_dream_job', `step=subagent_started`, `taskId=${taskId}`);
+  opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=subagent_started`, `taskId=${taskId}`);
 
   // 等待完成（最长 1h，每 30s 轮询）
   const log = await waitForTaskResult(opts.motionDir, taskId, 3_600_000, opts.audit);
   if (!log) {
-    opts.audit.write('cron_random_dream_warning', `reason=subagent_timeout`);
+    opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WARNING, `reason=subagent_timeout`);
     console.warn('[cron:random-dream] sub-agent did not complete within timeout');
     return;
   }
@@ -262,12 +263,12 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   // 解析梦境输出
   const { outputs, contractIds } = extractDreamOutputs(log);
   if (outputs.length === 0) {
-    opts.audit.write('cron_random_dream_warning', `reason=no_output`);
+    opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WARNING, `reason=no_output`);
     console.warn('[cron:random-dream] no [DREAM_OUTPUT] blocks found in log');
     return;
   }
 
-  opts.audit.write('cron_random_dream_job', `step=finished`, `output_count=${outputs.length}`);
+  opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=finished`, `output_count=${outputs.length}`);
 
   // 更新 state
   const updatedState: RandomDreamState = {
