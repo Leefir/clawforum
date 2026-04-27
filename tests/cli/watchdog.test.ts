@@ -12,8 +12,8 @@ import { randomUUID } from 'crypto';
 import type { ProcessManager } from '../../src/foundation/process-manager/index.js';
 
 // Mock config so getClawforumDir() and getGlobalConfig() return controllable values
-vi.mock('../../src/cli/config.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/cli/config.js')>();
+vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/foundation/config/index.js')>();
   return {
     ...actual,
     getMotionDir: vi.fn(),
@@ -50,8 +50,8 @@ vi.mock('timers/promises', () => ({
 }));
 
 // Mock cli-factories (runWatchdogLoop uses createProcessManagerForCLI)
-vi.mock('../../src/cli/cli-factories.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/cli/cli-factories.js')>();
+vi.mock('../../src/foundation/config/factories.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/foundation/config/factories.js')>();
   return {
     ...actual,
     createProcessManagerForCLI: vi.fn(),
@@ -75,12 +75,12 @@ import {
   loadWatchdogState,
   saveWatchdogState,
 } from '../../src/watchdog/watchdog.js';
-import { getMotionDir, loadGlobalConfig } from '../../src/cli/config.js';
+import { getMotionDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { clawHasContract, gatherClawSnapshot } from '../../src/watchdog/watchdog-utils.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
 import { spawn } from 'child_process';
 import { setTimeout as setTimeoutP } from 'timers/promises';
-import { createProcessManagerForCLI } from '../../src/cli/cli-factories.js';
+import { createProcessManagerForCLI } from '../../src/foundation/config/factories.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';

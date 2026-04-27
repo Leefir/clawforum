@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { promises as nativeFs, appendFileSync as nativeAppend } from 'node:fs';
 import * as nativePath from 'node:path';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
-import { createDirContext } from '../../src/cli/cli-factories.js';
+import { createDirContext } from '../../src/foundation/config/factories.js';
 import {
   createStreamReader,
   STREAM_FILE,

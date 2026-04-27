@@ -11,7 +11,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../config.js';
+import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../../foundation/config/index.js';
 import { LLMServiceImpl } from '../../foundation/llm/service.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { initCommand } from './init.js';
@@ -19,9 +19,9 @@ import {
   initCommand as motionInitCommand,
   chatCommand as motionChatCommand,
 } from './motion.js';
-import { createProcessManagerForCLI } from '../cli-factories.js';
+import { createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { ContractManager } from '../../core/contract/manager.js';
-import { createDirContext } from '../cli-factories.js';
+import { createDirContext } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';

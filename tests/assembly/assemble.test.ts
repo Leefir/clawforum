@@ -178,7 +178,7 @@ vi.mock('../../src/foundation/session-store/index.js', () => ({
   createSessionManager: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn() })),
 }));
 
-vi.mock('../../src/cli/config.js', () => ({
+vi.mock('../../src/foundation/config/index.js', () => ({
   buildLLMConfig: vi.fn(() => ({ provider: 'mock' })),
 }));
 
@@ -413,7 +413,7 @@ describe('assemble', () => {
   });
 
   it('buildLLMConfig 失败 → assemble_failed module=llm_config + 抛 Error', async () => {
-    const { buildLLMConfig } = await import('../../src/cli/config.js');
+    const { buildLLMConfig } = await import('../../src/foundation/config/index.js');
     (buildLLMConfig as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('llm cfg boom');
     });

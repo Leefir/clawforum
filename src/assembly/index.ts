@@ -9,7 +9,7 @@ import type { StreamWriter } from '../foundation/stream/writer.js';
 import type { ProcessManager } from '../foundation/process-manager/manager.js';
 import type { ClawRuntime, Heartbeat } from '../core/runtime/index.js';
 import type { CronRunner } from '../core/cron/index.js';
-import type { ClawGlobalConfig, ClawConfig } from '../cli/config.js';
+import type { ClawGlobalConfig, ClawConfig } from '../foundation/config/index.js';
 import type { Gateway } from '../core/gateway/types.js';
 
 export type Identity = 'motion' | 'claw';

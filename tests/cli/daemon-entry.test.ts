@@ -42,7 +42,7 @@ describe('daemon-entry shim audit', () => {
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
     }));
-    vi.doMock('../../src/cli/config.js', () => ({
+    vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
@@ -70,7 +70,7 @@ describe('daemon-entry shim audit', () => {
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
     }));
-    vi.doMock('../../src/cli/config.js', () => ({
+    vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
@@ -107,7 +107,7 @@ describe('daemon-entry shim audit', () => {
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
     }));
-    vi.doMock('../../src/cli/config.js', () => ({
+    vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
@@ -144,7 +144,7 @@ describe('daemon-entry shim audit', () => {
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
     }));
-    vi.doMock('../../src/cli/config.js', () => ({
+    vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
@@ -180,7 +180,7 @@ describe('daemon-entry shim audit', () => {
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: throwingWrite })),
     }));
-    vi.doMock('../../src/cli/config.js', () => ({
+    vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));

@@ -12,14 +12,14 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { loadGlobalConfig, getMotionDir, getGlobalConfigPath, getClawforumRoot } from '../config.js';
+import { loadGlobalConfig, getMotionDir, getGlobalConfigPath, getClawforumRoot } from '../../foundation/config/index.js';
 import { ProcessManager } from '../../foundation/process-manager/index.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
 import { Snapshot } from '../../foundation/snapshot/index.js';
-import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
+import { createDirContext, createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
 
 // Get current file directory (ESM compatible)

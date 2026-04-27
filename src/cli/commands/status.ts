@@ -6,9 +6,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { loadGlobalConfig, getMotionDir } from '../config.js';
+import { loadGlobalConfig, getMotionDir } from '../../foundation/config/index.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
-import { createProcessManagerForCLI } from '../cli-factories.js';
+import { createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { getWatchdogPid, isWatchdogAlive, getWatchdogEntryPath } from '../../watchdog/watchdog.js';
 
 export async function statusCommand(): Promise<void> {

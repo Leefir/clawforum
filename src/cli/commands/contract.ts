@@ -8,9 +8,9 @@ import * as path from 'path';
 
 import * as yaml from 'js-yaml';
 import { ContractManager, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
-import { createDirContext } from '../cli-factories.js';
+import { createDirContext } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { getClawDir } from '../config.js';
+import { getClawDir } from '../../foundation/config/index.js';
 import { notifySystem } from '../../foundation/messaging/index.js';
 import { STREAM_AUDIT_EVENTS } from '../../foundation/stream/audit-events.js';
 import { AuditWriter } from '../../foundation/audit/writer.js';

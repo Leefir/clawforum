@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { AuditWriter, createSystemAudit, AUDIT_FILE } from '../../src/foundation/audit/index.js';
 import { createAgentProcessManager } from '../../src/cli/commands/process-manager-factory.js';
-import { createProcessManagerForCLI, createDirContext } from '../../src/cli/cli-factories.js';
+import { createProcessManagerForCLI, createDirContext } from '../../src/foundation/config/factories.js';
 
 function freshDir(): string {
   return mkdtempSync(path.join(tmpdir(), 'shared-'));

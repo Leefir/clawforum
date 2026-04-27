@@ -7,7 +7,7 @@
 
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { ProcessManager } from '../../foundation/process-manager/index.js';
-import { getClawforumRoot, resolveAgentDir } from '../config.js';
+import { getClawforumRoot, resolveAgentDir } from '../../foundation/config/index.js';
 import type { Audit } from '../../foundation/audit/index.js';
 
 export function createAgentProcessManager(audit: Audit): ProcessManager {

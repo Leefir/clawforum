@@ -14,7 +14,7 @@ import {
   clawExists,
   getGlobalConfigPath,
   getClawDir,
-} from '../../src/cli/config.js';
+} from '../../src/foundation/config/index.js';
 import { listCommand } from '../../src/cli/commands/claw.js';
 
 describe('CLI Config', () => {

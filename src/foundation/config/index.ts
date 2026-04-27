@@ -6,11 +6,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
-import type { LLMServiceConfig, ProviderConfig } from '../foundation/llm/types.js';
-import { resolvePreset } from '../foundation/llm/presets.js';
+import type { LLMServiceConfig, ProviderConfig } from '../llm/types.js';
+import { resolvePreset } from '../llm/presets.js';
 
 // Re-export shared constants
-export { CLAW_SUBDIRS } from '../types/paths.js';
+export { CLAW_SUBDIRS } from '../../types/paths.js';
 
 // API format code → preset id (for manual entry)
 export const FORMAT_MAP: Record<string, string> = {

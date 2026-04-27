@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '../config.js';
+import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '../../foundation/config/index.js';
 import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
 import { DEFAULT_MAX_STEPS } from '../../constants.js';

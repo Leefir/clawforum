@@ -10,9 +10,9 @@ import {
   getMotionDir,
   type ClawGlobalConfig,
   LLMProviderSchema,
-} from '../config.js';
+} from '../../foundation/config/index.js';
 import { PRESETS } from '../../foundation/llm/presets.js';
-import { createProcessManagerForCLI } from '../cli-factories.js';
+import { createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { z } from 'zod';
 import { CliError } from '../errors.js';
 

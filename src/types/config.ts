@@ -3,7 +3,7 @@
  * Phase 0: Zod schemas with TypeScript type inference
  * 
  * NOTE: This file now only exports ToolProfile type.
- * All other config schemas have been moved to cli/config.ts
+ * All other config schemas have been moved to foundation/config/index.ts
  * as they are CLI-specific and not used by the core runtime.
  */
 

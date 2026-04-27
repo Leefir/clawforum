@@ -13,7 +13,7 @@ import * as fsAsync from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
-vi.mock('../../src/cli/config.js', () => ({
+vi.mock('../../src/foundation/config/index.js', () => ({
   getClawDir: (name: string) => (globalThis as any).__TEST_CLAW_DIR__,
 }));
 

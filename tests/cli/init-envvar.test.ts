@@ -28,7 +28,7 @@ vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | u
 });
 
 const { initCommand } = await import('../../src/cli/commands/init.js');
-const { loadGlobalConfig } = await import('../../src/cli/config.js');
+const { loadGlobalConfig } = await import('../../src/foundation/config/index.js');
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 

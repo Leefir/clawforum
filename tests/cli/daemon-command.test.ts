@@ -76,7 +76,7 @@ vi.mock('../../src/foundation/audit/index.js', () => ({
   })),
 }));
 
-vi.mock('../../src/cli/config.js', () => ({
+vi.mock('../../src/foundation/config/index.js', () => ({
   loadGlobalConfig: vi.fn(() => ({})),
   loadClawConfig: vi.fn(() => ({})),
   getClawDir: vi.fn((name: string) => `/tmp/test-${name}`),

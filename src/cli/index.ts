@@ -215,7 +215,7 @@ clawCmd
   .action(async (name: string) => {
     try {
       // 前台入口：后台启动
-      const { loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath } = await import('./config.js');
+      const { loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath } = await import('../foundation/config/index.js');
       const { NodeFileSystem } = await import('../foundation/fs/node-fs.js');
       const { createSystemAudit } = await import('../foundation/audit/index.js');
       const { createAgentProcessManager } = await import('./commands/process-manager-factory.js');
@@ -304,7 +304,7 @@ motionCmd
   .action(async () => {
     try {
       // 前台入口
-      const { loadGlobalConfig, getMotionDir } = await import('./config.js');
+      const { loadGlobalConfig, getMotionDir } = await import('../foundation/config/index.js');
       const { NodeFileSystem } = await import('../foundation/fs/node-fs.js');
       const { createSystemAudit } = await import('../foundation/audit/index.js');
       const { createAgentProcessManager } = await import('./commands/process-manager-factory.js');

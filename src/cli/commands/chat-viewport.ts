@@ -8,7 +8,7 @@ import * as path from 'path';
 import chokidar from 'chokidar';
 
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
+import { createDirContext, createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { getContractCreatedMs, LLM_OUTPUT_EVENTS } from '../../watchdog/watchdog-utils.js';

@@ -15,7 +15,7 @@ import {
   buildLLMConfig,
   getGlobalConfigPath,
   CLAW_SUBDIRS,
-} from '../config.js';
+} from '../../foundation/config/index.js';
 import { CliError, handleCliError } from '../errors.js';
 
 import { runChatViewport } from './chat-viewport.js';
@@ -55,7 +55,7 @@ async function getLastActiveMs(clawFs: FileSystem, audit: Audit): Promise<number
 }
 
 import { ProcessManager } from '../../foundation/process-manager/index.js';
-import { createDirContext, createProcessManagerForCLI } from '../cli-factories.js';
+import { createDirContext, createProcessManagerForCLI } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { AuditWriter } from '../../foundation/audit/index.js';
