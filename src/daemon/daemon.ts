@@ -23,6 +23,7 @@ import { ContractManager, type MotionReviewContext } from '../core/contract/mana
 import { CliError } from '../cli/errors.js';
 import { assemble, disassemble, LockConflictError } from '../assembly/index.js';
 import { ASSEMBLY_AUDIT_EVENTS } from '../assembly/audit-events.js';
+import { DAEMON_AUDIT_EVENTS } from './audit-events.js';
 import type { Instances } from '../assembly/index.js';
 
 
@@ -110,11 +111,11 @@ export async function daemonCommand(name: string): Promise<void> {
   // daemon-start commit（不阻塞启动）
   snapshot.commit(`daemon-start ${new Date().toISOString()}`).then((result) => {
     if (!result.ok && result.error.kind === 'uncategorized') {
-      auditWriter.write('snapshot_commit_uncategorized', `context=daemon-start`, `exitCode=${result.error.exitCode}`);
+      auditWriter.write(DAEMON_AUDIT_EVENTS.SNAPSHOT_COMMIT_UNCATEGORIZED, `context=daemon-start`, `exitCode=${result.error.exitCode}`);
     }
   }).catch((err: unknown) => {
     // 不可预期失败：audit 已在 snapshot 内写
-    auditWriter.write('snapshot_commit_failed', `context=daemon-start`, `reason=${err instanceof Error ? err.message : String(err)}`);
+    auditWriter.write(DAEMON_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=daemon-start`, `reason=${err instanceof Error ? err.message : String(err)}`);
   });
 
   const inboxPendingDir = path.join(dir, 'inbox', 'pending');

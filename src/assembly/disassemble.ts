@@ -35,7 +35,7 @@ export async function disassemble(instances: Instances, signal: string): Promise
     await runtime.stop();
   } catch (e) {
     auditWriter.write(
-      'disassemble_step_failed',
+      ASSEMBLY_AUDIT_EVENTS.DISASSEMBLE_STEP_FAILED,
       `step=runtime_stop`,
       `reason=${_reason(e)}`,
     );
@@ -46,7 +46,7 @@ export async function disassemble(instances: Instances, signal: string): Promise
     streamWriter.close();
   } catch (e) {
     auditWriter.write(
-      'disassemble_step_failed',
+      ASSEMBLY_AUDIT_EVENTS.DISASSEMBLE_STEP_FAILED,
       `step=stream_close`,
       `reason=${_reason(e)}`,
     );
@@ -57,7 +57,7 @@ export async function disassemble(instances: Instances, signal: string): Promise
     processManager.releaseLock(clawId);
   } catch (e) {
     auditWriter.write(
-      'disassemble_step_failed',
+      ASSEMBLY_AUDIT_EVENTS.DISASSEMBLE_STEP_FAILED,
       `step=release_lock`,
       `reason=${_reason(e)}`,
     );

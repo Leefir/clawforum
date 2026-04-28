@@ -24,6 +24,7 @@ import { createWatcher } from '../foundation/file-watcher/index.js';
 import type { Watcher } from '../foundation/file-watcher/types.js';
 import type { Audit } from '../foundation/audit/index.js';
 import { MESSAGING_AUDIT_EVENTS } from '../foundation/messaging/audit-events.js';
+import { DAEMON_AUDIT_EVENTS } from './audit-events.js';
 import { oneLine } from '../types/utils.js';
 
 import type { Heartbeat } from '../core/runtime/index.js';
@@ -325,7 +326,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               console.warn(`${label} interrupt poll error: ${err instanceof Error ? err.message : String(err)}`);
             }
             if (interruptErrCount >= 20) {
-              options.audit.write('daemon_loop_interrupt_poller_disabled', `err_count=${interruptErrCount}`, `last_err=${err instanceof Error ? err.message : String(err)}`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT_POLLER_DISABLED, `err_count=${interruptErrCount}`, `last_err=${err instanceof Error ? err.message : String(err)}`);
               console.error(`${label} interrupt poll failed ${interruptErrCount} times, disabling`);
               clearInterval(interruptPoller!);
               interruptPoller = null;
@@ -355,7 +356,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               }
 
               // Audit: chain reaction 完成
-              options.audit.write('daemon_loop_iteration', `type=chain`, `injected=${injected}`, `chain_total=${chainTotal}`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_ITERATION, `type=chain`, `injected=${injected}`, `chain_total=${chainTotal}`);
 
               // Turn finished (not interrupted) — reset LLM retry state
               llmRetryCount = 0;
@@ -364,7 +365,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               await onBatchComplete?.();
             } else {
               // Audit: empty processBatch → 走 waitForInbox
-              options.audit.write('daemon_loop_iteration', `type=wait`, `injected=0`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_ITERATION, `type=wait`, `injected=0`);
 
               await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
             }
@@ -385,16 +386,16 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         // Distinguish system idle timeout, user interrupts from genuine errors
         if (err instanceof IdleTimeoutSignal) {
           // System idle timeout — turn_interrupted already written by processBatch/retryLastTurn via callbacks
-          options.audit.write('daemon_loop_interrupt', `cause=idle_timeout`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=idle_timeout`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (err instanceof UserInterrupt) {
           // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
-          options.audit.write('daemon_loop_interrupt', `cause=user_interrupt`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=user_interrupt`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (err instanceof PriorityInboxInterrupt) {
           // 步间中断 — 直接继续，下一轮立即处理优先消息，无需 recovery delay
-          options.audit.write('daemon_loop_interrupt', `cause=priority_inbox`, `recovery_delay_ms=0`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=priority_inbox`, `recovery_delay_ms=0`);
         } else if (
           err instanceof Error &&
           LLM_ERROR_PATTERN.test(err.message) &&
@@ -403,7 +404,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           // Transient LLM failure — schedule retry via llmRetryPending flag
           llmRetryCount++;
           const delaySec = Math.round(llmRetryDelayMs / 1000);
-          options.audit.write('daemon_loop_llm_retry', `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `err=${err.message}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_LLM_RETRY, `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `err=${err.message}`);
           console.warn(`${label} LLM error, retrying in ${delaySec}s (${llmRetryCount}/${LLM_MAX_RETRIES}): ${err.message}`);
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
           llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, LLM_RETRY_MAX_DELAY_MS);
@@ -415,7 +416,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryCount = 0;
           llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
           saveLlmRetryState();
-          options.audit.write('daemon_loop_fatal', `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `err=${err instanceof Error ? err.message : String(err)}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `err=${err instanceof Error ? err.message : String(err)}`);
           console.error(`${label} processBatch error:`, err);
           if (isLLMMaxRetry) {
             console.error(`${label} LLM max retries (${LLM_MAX_RETRIES}) exhausted: ${err instanceof Error ? err.message : String(err)}`);
