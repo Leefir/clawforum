@@ -5,21 +5,21 @@
  * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
 import {
   EXEC_MAX_STDOUT,
   EXEC_MAX_STDERR,
-} from '../../../constants.js';
-import { exec } from '../../../foundation/process-exec/index.js';
-import { ProcessExecError } from '../../../foundation/process-exec/index.js';
-import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../../../foundation/process-exec/index.js';
+} from '../../constants.js';
+import { exec } from '../../foundation/process-exec/index.js';
+import { ProcessExecError } from '../../foundation/process-exec/index.js';
+import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../../foundation/process-exec/index.js';
 
 function truncate(str: string, maxLen: number): string {
   if (!str || str.length <= maxLen) return str || '';
   return str.slice(0, maxLen) + '\n[truncated]';
 }
 
-import { EXEC_TOOL_NAME } from '../tool-names.js';
+import { EXEC_TOOL_NAME } from '../tools/tool-names.js';
 export { EXEC_TOOL_NAME };
 
 export const execTool: Tool = {
@@ -32,13 +32,17 @@ export const execTool: Tool = {
         type: 'string',
         description: 'Shell command string to execute, e.g. "ls -la" or "grep -r foo ./clawspace | head -20"',
       },
-      timeout: {
+      cwd: {
+        type: 'string',
+        description: 'Working directory (relative to claw root). Default: claw root.',
+      },
+      timeoutMs: {
         type: 'number',
         description: `Timeout in milliseconds (default ${PROCESS_EXEC_DEFAULT_TIMEOUT_MS})`,
       },
-      async: {
-        type: 'boolean',
-        description: 'If true, run command in background. Result delivered to inbox when complete. Use for long-running commands (>30s).',
+      env: {
+        type: 'object',
+        description: 'Environment variables to add (merged with parent process env).',
       },
     },
     required: ['command'],
@@ -49,12 +53,15 @@ export const execTool: Tool = {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     const command = args.command as string;
-    const timeout = (args.timeout as number) ?? undefined;
+    const cwd = (args.cwd as string) ?? ctx.clawDir;
+    const timeoutMs = (args.timeoutMs as number) ?? undefined;
+    // env 字段已加入 schema（设计 §3 / D1d 行为契约扩），但 L1 ProcessExec 当前未接受 env
+    // 推 r52+/r53+ 真实装（参 §5「不改 ProcessExec L1」）
 
     try {
       const result = await exec(command, {
-        cwd: ctx.clawDir,
-        timeout,
+        cwd,
+        timeout: timeoutMs,
         signal: ctx.signal,
       });
 

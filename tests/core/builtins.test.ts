@@ -8,7 +8,8 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySearchTool, execTool } from '../../src/core/tools/builtins/index.js';
+import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool, memorySearchTool } from '../../src/core/tools/builtins/index.js';
+import { execTool } from '../../src/core/shell-tool/index.js';
 import { spawnTool } from '../../src/core/task/tools/spawn.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
@@ -910,6 +911,10 @@ describe('Builtin Tools', () => {
     });
   });
 
+  it('反向 1：物理迁后 exec 工具 name lookup 不变', () => {
+    expect(execTool.name).toBe('exec');
+  });
+
   describe('exec tool', () => {
     it('should return error for non-existent command', async () => {
       const result = await execTool.execute({ command: 'nonexistent_command_xyz' }, ctx);
@@ -921,7 +926,7 @@ describe('Builtin Tools', () => {
     it('should have timeout parameter processed', async () => {
       // Test that timeout parameter is accepted and processed
       // (actual timeout behavior depends on environment having shell commands)
-      const result = await execTool.execute({ command: 'echo test', timeout: 5000 }, ctx);
+      const result = await execTool.execute({ command: 'echo test', timeoutMs: 5000 }, ctx);
 
       // Should either succeed or fail with some error (not crash)
       expect(typeof result.success).toBe('boolean');
@@ -1012,6 +1017,21 @@ describe('Builtin Tools', () => {
 
       expect(result.success).toBe(false);
       expect(result.content).toContain('Error');
+    });
+
+    // 反向 2：schema D1d 修 bug + cwd/env 行为契约扩
+    it('execTool schema 含 cwd/env/timeoutMs / 不含 async/timeout', () => {
+      const props = execTool.schema.properties as Record<string, unknown>;
+      expect(props).toHaveProperty('cwd');
+      expect(props).toHaveProperty('env');
+      expect(props).toHaveProperty('timeoutMs');
+      expect(props).not.toHaveProperty('async');
+      expect(props).not.toHaveProperty('timeout');
+    });
+
+    it('execTool args.cwd 优先于 ctx.clawDir', async () => {
+      const result = await execTool.execute({ command: 'pwd', cwd: '/tmp' }, ctx);
+      expect(result.content).toContain('/tmp');
     });
   });
 
