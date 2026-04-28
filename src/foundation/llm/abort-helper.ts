@@ -86,17 +86,40 @@ export function classifyFetchAbortError(
     return null;
   }
   if (externalSignal?.aborted) {
-    return makeExternalAbortError();
+    return makeExternalAbortError(externalSignal.reason as AbortReason | undefined);
   }
   return new LLMTimeoutError(providerName, timeoutMs);
 }
 
 /**
+ * Abort reason carried through external signal.
+ * Distinguishes user_abort / idle_timeout / priority_inbox / turn_timeout / external (plain).
+ */
+export type AbortReason =
+  | { type: 'user' }
+  | { type: 'idle_timeout'; ms: number }
+  | { type: 'step_yield' }
+  | { type: 'turn_timeout'; ms: number }
+  | { type: 'external'; original?: unknown };
+
+/**
  * Construct the standard "Execution aborted" error used for both
  * fetch-based external signal aborts and SDK-based APIUserAbortError.
+ *
+ * Optional `reason` propagates abort context to consumers (e.g. SubAgent
+ * catch block can classify turn_interrupted cause).
  */
-export function makeExternalAbortError(): Error {
-  const err = new Error('Execution aborted');
+export function makeExternalAbortError(reason?: AbortReason): Error {
+  const validReason = reason && typeof (reason as any).type === 'string' ? reason : undefined;
+  const tail = validReason
+    ? (validReason.type === 'idle_timeout' || validReason.type === 'turn_timeout'
+        ? ` (cause=${validReason.type}, ms=${validReason.ms})`
+        : ` (cause=${validReason.type})`)
+    : '';
+  const err = new Error(`Execution aborted${tail}`);
   err.name = 'AbortError';
+  if (validReason !== undefined) {
+    (err as Error & { cause: AbortReason }).cause = validReason;
+  }
   return err;
 }

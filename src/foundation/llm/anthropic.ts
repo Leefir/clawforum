@@ -21,7 +21,7 @@ import type {
 } from './types.js';
 import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS } from '../../constants.js';
 import { BaseAnthropicAdapter, type AnthropicRequestBody } from './base-anthropic.js';
-import { makeExternalAbortError } from './abort-helper.js';
+import { makeExternalAbortError, type AbortReason } from './abort-helper.js';
 
 /**
  * Anthropic adapter implementation using official SDK
@@ -84,14 +84,14 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
   /**
    * Map SDK errors to our error types
    */
-  private mapSDKError(error: unknown, timeoutMs: number): Error {
+  private mapSDKError(error: unknown, timeoutMs: number, signal?: AbortSignal): Error {
     // Use name check for mock compatibility in tests
     const errName = (error as Error)?.constructor?.name;
     // SDK 仅对 user-originated abort 抛 APIUserAbortError（对应 signal.aborted）；
     // 其他类 SDK 错误不走此分支。不再显式检查 options.signal，依赖 SDK 自身语义。
     // 若未来 SDK 语义漂移（例如非 user abort 也标此名），这里会误分类为 external abort。
     if (errName === 'APIUserAbortError') {
-      return makeExternalAbortError();
+      return makeExternalAbortError(signal?.reason as AbortReason | undefined);
     }
     if (errName === 'RateLimitError') {
       const retryAfter = (error as { headers?: Headers })?.headers?.get?.('retry-after');
@@ -131,7 +131,7 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
       );
       return this.parseResponse(response);
     } catch (error) {
-      throw this.mapSDKError(error, options.timeoutMs ?? this.config.timeoutMs);
+      throw this.mapSDKError(error, options.timeoutMs ?? this.config.timeoutMs, options.signal);
     }
   }
 
@@ -152,7 +152,7 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
       );
       yield* this.parseSDKStream(sdkStream);
     } catch (error) {
-      throw this.mapSDKError(error, STREAM_MAX_DURATION_MS);
+      throw this.mapSDKError(error, STREAM_MAX_DURATION_MS, options.signal);
     }
   }
 

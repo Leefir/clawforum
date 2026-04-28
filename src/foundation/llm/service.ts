@@ -27,7 +27,7 @@ import { AnthropicAdapter } from './anthropic.js';
 import { CustomAnthropicAdapter } from './custom-anthropic.js';
 import { OpenAIAdapter } from './openai.js';
 import { GeminiAdapter } from './gemini.js';
-import { makeExternalAbortError } from './abort-helper.js';
+import { makeExternalAbortError, type AbortReason } from './abort-helper.js';
 
 const MAX_BACKOFF_MS = 30_000;
 
@@ -59,13 +59,13 @@ function createProvider(config: ProviderConfig): ProviderAdapter {
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      reject(makeExternalAbortError());
+      reject(makeExternalAbortError(signal?.reason as AbortReason | undefined));
       return;
     }
     let timer: ReturnType<typeof setTimeout>;
     const onAbort = () => {
       clearTimeout(timer);
-      reject(makeExternalAbortError());
+      reject(makeExternalAbortError(signal?.reason as AbortReason | undefined));
     };
     timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort);
@@ -181,7 +181,7 @@ export class LLMServiceImpl implements LLMService {
     let lastError: Error | undefined;
     if (!isBreakerOpen(0)) {
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
-        if (options.signal?.aborted) throw makeExternalAbortError();
+        if (options.signal?.aborted) throw makeExternalAbortError(options.signal.reason as AbortReason | undefined);
 
         const idleCtrl = options.idleTimeoutMs ? new AbortController() : null;
         const idleTimer = idleCtrl ? setTimeout(() => idleCtrl!.abort(), options.idleTimeoutMs!) : undefined;
@@ -244,7 +244,7 @@ export class LLMServiceImpl implements LLMService {
     }
     
     for (let i = 0; i < this.fallbacks.length; i++) {
-      if (options.signal?.aborted) throw makeExternalAbortError();
+      if (options.signal?.aborted) throw makeExternalAbortError(options.signal.reason as AbortReason | undefined);
       // Skip if breaker is open
       if (isBreakerOpen(i + 1)) {
         failures.push({ provider: this.fallbacks[i].name, error: new Error('Circuit breaker open') });
@@ -305,7 +305,7 @@ export class LLMServiceImpl implements LLMService {
     const failures: Array<{ provider: string; error: Error }> = [];
 
     for (let pi = 0; pi < providers.length; pi++) {
-      if (options.signal?.aborted) throw makeExternalAbortError();
+      if (options.signal?.aborted) throw makeExternalAbortError(options.signal.reason as AbortReason | undefined);
       const { adapter, breakerIndex } = providers[pi];
 
       if (!adapter.stream) continue;

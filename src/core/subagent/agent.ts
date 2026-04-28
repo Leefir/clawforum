@@ -11,6 +11,9 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMService } from '../../foundation/llm/index.js';
 import type { ToolDefinition } from '../../types/message.js';
 import { ToolTimeoutError } from '../../types/errors.js';
+import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
+import type { AbortReason } from '../../foundation/llm/abort-helper.js';
+import { makeExternalAbortError } from '../../foundation/llm/abort-helper.js';
 import { SUBAGENT_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { oneLine } from '../../types/utils.js';
 import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
@@ -105,7 +108,7 @@ export class SubAgent {
     // Create timeout controller
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => {
-      timeoutController.abort();
+      timeoutController.abort({ type: 'turn_timeout', ms: this.timeoutMs } satisfies AbortReason);
     }, this.timeoutMs);
 
     // Idle timeout: abort if no LLM activity for idleTimeoutMs
@@ -115,7 +118,7 @@ export class SubAgent {
           clearTimeout(idleTimerId);
           idleTimerId = setTimeout(() => {
             this.onIdleTimeout?.();
-            timeoutController.abort();
+            timeoutController.abort({ type: 'idle_timeout', ms: this.idleTimeoutMs! } satisfies AbortReason);
           }, this.idleTimeoutMs!);
         }
       : undefined;
@@ -126,7 +129,7 @@ export class SubAgent {
     // Combine with external signal if provided
     if (this.signal) {
       this.signal.addEventListener('abort', () => {
-        timeoutController.abort();
+        timeoutController.abort(this.signal!.reason);
       }, { once: true });
     }
 
@@ -186,7 +189,18 @@ export class SubAgent {
       // ToolTimeoutError，不等 LLM 自然结束。
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutController.signal.addEventListener('abort', () => {
-          reject(new ToolTimeoutError('subagent_run', this.timeoutMs));
+          const r = timeoutController.signal.reason as AbortReason | undefined;
+          if (r?.type === 'turn_timeout') {
+            reject(new ToolTimeoutError('subagent_run', r.ms));
+          } else if (r?.type === 'idle_timeout') {
+            reject(new IdleTimeoutSignal(r.ms));
+          } else if (r?.type === 'user') {
+            reject(new UserInterrupt());
+          } else if (r?.type === 'step_yield') {
+            reject(new PriorityInboxInterrupt());
+          } else {
+            reject(makeExternalAbortError(r));
+          }
         }, { once: true });
       });
       timeoutPromise.catch(() => {}); // 防止 race 胜出后的孤立 rejection
@@ -324,7 +338,24 @@ export class SubAgent {
 
       if (error instanceof ToolTimeoutError) {
         sw.write({ ts: Date.now(), type: 'turn_interrupted', message: `Timeout after ${this.timeoutMs}ms` });
-        this.auditWriter.write('turn_interrupted', 'reason=system');
+        this.auditWriter.write('turn_interrupted', 'cause=turn_timeout', `ms=${this.timeoutMs}`);
+      } else if (error instanceof IdleTimeoutSignal) {
+        sw.write({ ts: Date.now(), type: 'turn_interrupted', message: `Idle timeout after ${error.timeoutMs}ms` });
+        this.auditWriter.write('turn_interrupted', 'cause=idle_timeout', `ms=${error.timeoutMs}`);
+      } else if (error instanceof UserInterrupt) {
+        sw.write({ ts: Date.now(), type: 'turn_interrupted', message: 'User interrupt' });
+        this.auditWriter.write('turn_interrupted', 'cause=user_interrupt');
+      } else if (error instanceof PriorityInboxInterrupt) {
+        sw.write({ ts: Date.now(), type: 'turn_interrupted', message: 'Priority inbox' });
+        this.auditWriter.write('turn_interrupted', 'cause=priority_inbox');
+      } else if ((error as Error)?.name === 'AbortError') {
+        const cause = (error as Error & { cause?: AbortReason }).cause;
+        sw.write({ ts: Date.now(), type: 'turn_interrupted', message: errMsg });
+        this.auditWriter.write(
+          'turn_interrupted',
+          'cause=external',
+          ...(cause ? [`type=${cause.type}`] : []),
+        );
       } else {
         sw.write({ ts: Date.now(), type: 'turn_error', error: errMsg });
         this.auditWriter.write('turn_error', `err=${errMsg}`);
