@@ -8,23 +8,20 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../executor.js';
-import type { ContractManager } from '../../contract/manager.js';
-import type { TaskSystem } from '../../task/system.js';
+import type { ContractStatusPort } from './status-port.js';
 import { TASKS_PENDING_DIR, TASKS_RUNNING_DIR } from '../../../types/paths.js';
 import { STATUS_AUDIT_EVENTS } from './status-audit-events.js';
 
 async function getContractStatus(ctx: ExecContext): Promise<string> {
-  const contractManager = statusTool.contractManager;
-  if (!contractManager) return 'Contract: N/A';
-  
+  const port = statusTool.contractStatus;
+  if (!port) return 'Contract: N/A';
+
   try {
-    const contract = await contractManager.loadActive();
-    if (!contract) return 'Contract: No active contract';
-    
-    const total = contract.subtasks.length;
-    const done = contract.subtasks.filter(s => s.status === 'completed').length;
-    const lines = [`Contract: "${contract.title}" (${done}/${total} subtasks done)`];
-    for (const s of contract.subtasks) {
+    const view = await port.loadStatusView();
+    if (!view) return 'Contract: No active contract';
+
+    const lines = [`Contract: "${view.title}" (${view.doneCount}/${view.totalCount} subtasks done)`];
+    for (const s of view.items) {
       const icon = s.status === 'completed' ? '✓' : s.status === 'failed' ? '✗' : '○';
       lines.push(`  ${icon} ${s.id}: ${s.description}`);
     }
@@ -36,9 +33,6 @@ async function getContractStatus(ctx: ExecContext): Promise<string> {
 }
 
 async function getTaskStatus(ctx: ExecContext): Promise<string> {
-  const taskSystem = statusTool.taskSystem;
-  if (!taskSystem) return 'Tasks: N/A';
-  
   try {
     // Check if task system is functional by accessing its state
     // Design doc: was returning fake 'See task system logs', now shows actual status
@@ -111,8 +105,8 @@ async function getStorageStatus(ctx: ExecContext): Promise<string[]> {
 import { STATUS_TOOL_NAME } from '../tool-names.js';
 export { STATUS_TOOL_NAME };
 
-export const statusTool: Tool & { contractManager?: ContractManager; taskSystem?: TaskSystem } = {
-  contractManager: undefined,
+export const statusTool: Tool & { contractStatus?: ContractStatusPort } = {
+  contractStatus: undefined,
   name: STATUS_TOOL_NAME,
   description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
   schema: {
