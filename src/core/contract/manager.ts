@@ -444,6 +444,17 @@ export class ContractManager {
     } catch (err) {
       // 清理整个合约目录，避免残留空目录或孤立文件在 active/
       await this.fs.removeDir(`${this.activeDir}/${contractId}`).catch((deleteErr) => {
+        // phase384/B.p347-retro-8: 区分编程 bug vs 业务 throw / 编程 bug 暴露 audit (Coding #5 / phase342 模式推广)
+        if (isProgrammingBug(deleteErr)) {
+          this.audit.write(
+            CONTRACT_AUDIT_EVENTS.UNEXPECTED_ASYNC_THROW,
+            `context=ContractManager.rollbackCleanup`,
+            `contractId=${contractId}`,
+            `errorType=${deleteErr instanceof Error ? deleteErr.constructor.name : typeof deleteErr}`,
+            `error=${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`,
+            `stack=${deleteErr instanceof Error ? deleteErr.stack ?? '' : ''}`,
+          );
+        }
         this.audit.write(
           CONTRACT_AUDIT_EVENTS.ROLLBACK_FAILED,
           `contractId=${contractId}`,
@@ -1364,12 +1375,22 @@ export class ContractManager {
     }
 
     // 3.3 调度成功后 cleanup by-contract 索引（best-effort）
-    await fsAsync.unlink(byContractPath).catch(e =>
+    await fsAsync.unlink(byContractPath).catch(e => {
+      // phase384/B.p347-retro-8: 区分编程 bug vs 业务 throw / 编程 bug 暴露 audit (Coding #5 / phase342 模式推广)
+      if (isProgrammingBug(e)) {
+        this.audit.write(
+          CONTRACT_AUDIT_EVENTS.UNEXPECTED_ASYNC_THROW,
+          `context=ContractManager.retroIndexCleanup`,
+          `errorType=${e instanceof Error ? e.constructor.name : typeof e}`,
+          `error=${e instanceof Error ? e.message : String(e)}`,
+          `stack=${e instanceof Error ? e.stack ?? '' : ''}`,
+        );
+      }
       this.audit.write(
         CONTRACT_AUDIT_EVENTS.RETRO_CLEANUP_FAILED,
         `err=${e instanceof Error ? e.message : String(e)}`,
-      )
-    );
+      );
+    });
   }
 
 }
