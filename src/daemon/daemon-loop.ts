@@ -24,7 +24,7 @@ import { createWatcher } from '../foundation/file-watcher/index.js';
 import type { Watcher } from '../foundation/file-watcher/types.js';
 import type { Audit } from '../foundation/audit/index.js';
 import { MESSAGING_AUDIT_EVENTS } from '../foundation/messaging/audit-events.js';
-import { DAEMON_AUDIT_EVENTS } from './audit-events.js';
+import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES, LOOP_INTERRUPT_CAUSES } from './audit-events.js';
 import { oneLine } from '../types/utils.js';
 
 import type { Heartbeat } from '../core/runtime/index.js';
@@ -356,7 +356,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               }
 
               // Audit: chain reaction 完成
-              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_ITERATION, `type=chain`, `injected=${injected}`, `chain_total=${chainTotal}`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_ITERATION, `type=${LOOP_ITERATION_TYPES.CHAIN}`, `injected=${injected}`, `chain_total=${chainTotal}`);
 
               // Turn finished (not interrupted) — reset LLM retry state
               llmRetryCount = 0;
@@ -365,7 +365,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               await onBatchComplete?.();
             } else {
               // Audit: empty processBatch → 走 waitForInbox
-              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_ITERATION, `type=wait`, `injected=0`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_ITERATION, `type=${LOOP_ITERATION_TYPES.WAIT}`, `injected=0`);
 
               await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
             }
@@ -386,16 +386,16 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         // Distinguish system idle timeout, user interrupts from genuine errors
         if (err instanceof IdleTimeoutSignal) {
           // System idle timeout — turn_interrupted already written by processBatch/retryLastTurn via callbacks
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=idle_timeout`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.IDLE_TIMEOUT}`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (err instanceof UserInterrupt) {
           // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
           // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=user_interrupt`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.USER_INTERRUPT}`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (err instanceof PriorityInboxInterrupt) {
           // 步间中断 — 直接继续，下一轮立即处理优先消息，无需 recovery delay
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=priority_inbox`, `recovery_delay_ms=0`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.PRIORITY_INBOX}`, `recovery_delay_ms=0`);
         } else if (
           err instanceof Error &&
           LLM_ERROR_PATTERN.test(err.message) &&

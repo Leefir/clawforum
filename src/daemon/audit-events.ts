@@ -14,3 +14,14 @@ export const DAEMON_AUDIT_EVENTS = {
   LOOP_LLM_RETRY: 'daemon_loop_llm_retry',
   LOOP_FATAL: 'daemon_loop_fatal',
 } as const;
+
+export const LOOP_ITERATION_TYPES = {
+  CHAIN: 'chain',
+  WAIT: 'wait',
+} as const;
+
+export const LOOP_INTERRUPT_CAUSES = {
+  IDLE_TIMEOUT: 'idle_timeout',
+  USER_INTERRUPT: 'user_interrupt',
+  PRIORITY_INBOX: 'priority_inbox',
+} as const;
