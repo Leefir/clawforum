@@ -52,7 +52,7 @@ function makeSubAgent(
     ...overrides.fs,
   } as unknown as FileSystem;
 
-  const mockAudit = { write: vi.fn() };
+  const mockAuditWriter = { write: vi.fn() };
 
   const mockRegistry = {
     getAll: vi.fn().mockReturnValue([]),
@@ -75,13 +75,12 @@ function makeSubAgent(
       llm: mockLLM,
       registry: mockRegistry,
       fs: mockFs,
-      audit: mockAudit as any,
       maxSteps: 5,
       taskStreamWriter: new NoopStreamWriter(),
-      auditWriter: new NoopAuditWriter(),
+      auditWriter: mockAuditWriter,
     }),
     mockFs,
-    mockAudit,
+    mockAuditWriter,
   };
 }
 
@@ -93,7 +92,7 @@ describe('SubAgent', () => {
   // ─── fix 1: onStepComplete fs.append failure is caught ──────────────────────
   describe('fix 1 — onStepComplete error handling', () => {
     it('when steps log append throws, audit writes the error and run() still completes', async () => {
-      const { agent, mockFs, mockAudit } = makeSubAgent();
+      const { agent, mockFs, mockAuditWriter } = makeSubAgent();
 
       // fs.append fails for the steps JSONL, succeeds for main log
       (mockFs.append as ReturnType<typeof vi.fn>).mockImplementation(
@@ -116,7 +115,7 @@ describe('SubAgent', () => {
       const result = await agent.run();
 
       expect(result).toBe('result');
-      expect(mockAudit.write).toHaveBeenCalledWith(
+      expect(mockAuditWriter.write).toHaveBeenCalledWith(
         SUBAGENT_AUDIT_EVENTS.STEP_COMPLETE_FAILED,
         expect.stringContaining('agentId='),
         expect.stringContaining('error='),

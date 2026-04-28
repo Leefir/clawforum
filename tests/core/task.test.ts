@@ -734,7 +734,7 @@ describe('Task System + SubAgent', () => {
     });
 
     it('should write audit event when appendToLog fs.append throws', async () => {
-      const mockAudit = { write: vi.fn() };
+      const mockAuditWriter = { write: vi.fn() };
 
       // FS mock：append 始终失败，其余方法正常
       const throwingFs = Object.create(mockFs);
@@ -750,15 +750,14 @@ describe('Task System + SubAgent', () => {
         }]),
         registry,
         fs: throwingFs,
-        audit: mockAudit as any,
         taskStreamWriter: new NoopStreamWriter(),
-        auditWriter: new NoopAuditWriter(),
+        auditWriter: mockAuditWriter as any,
       });
 
       // run 应该正常完成，appendToLog 失败不影响主流程
       await agent.run();
 
-      expect(mockAudit.write).toHaveBeenCalledWith(
+      expect(mockAuditWriter.write).toHaveBeenCalledWith(
         SUBAGENT_AUDIT_EVENTS.LOG_APPEND_FAILED,
         expect.stringContaining('agentId='),
         expect.stringContaining('error='),
