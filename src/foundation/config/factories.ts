@@ -12,7 +12,6 @@
  *   - NodeFileSystem 构造签名（foundation/fs）、AuditWriter 构造签名、createAgentProcessManager 签名
  *
  * §7 B 类偏差（#7/#8 权衡登记）：
- *   - B.p375-1: assemble_failed 字面量保留 / L1→L4 cross-layer-up design-gap / 推 r52+ 解 / phase375 裁决 4
  *   - 不升格为独立模块：本文件是 L6 CLI 入口层的实现细节，职责非独立可变；若未来 L2+ 装配并入，
  *     合入 Assembly 或新 L2 工厂模块，届时拆出
  *   - createDirContext 返 { fs, audit } 而非仅 audit：CLI 场景绝大多数调用方同时需 fs（写 subfile /
