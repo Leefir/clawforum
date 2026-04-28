@@ -77,7 +77,7 @@ async function setupFixtures(): Promise<TestFixtures> {
   const motionFs = new NodeFileSystem({ baseDir: motionDir, enforcePermissions: false });
   const motionAudit = new AuditWriter(motionFs, 'audit.tsv');
   const mockAudit = { write: vi.fn() };
-  const manager = new ContractManager(motionDir, 'motion', motionFs, mockAudit as any, undefined, undefined, mockAudit as any);
+  const manager = new ContractManager(motionDir, 'motion', motionFs, mockAudit as any);
   const ctx: MotionReviewContext = {
     motionFs,
     motionBaseDir: motionDir,

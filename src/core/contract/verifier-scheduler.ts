@@ -16,19 +16,17 @@
 
 import type { LLMService } from '../../foundation/llm/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import type { ToolRegistry } from '../tools/executor.js';
 import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/index.js';
 import { ReportResultTool } from '../tools/report-result.js';
 import { ToolRegistryImpl } from '../tools/registry.js';
 import { ToolTimeoutError } from '../../types/errors.js';
+import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 
 export interface VerifierConfig {
   agentId: string;
   prompt: string;
-  systemPrompt: string;
   clawDir: string;
   llm: LLMService;
-  registry: ToolRegistry;
   fs: FileSystem;
   maxSteps: number;
   idleTimeoutMs: number;
@@ -61,12 +59,9 @@ export function createSubAgentVerifierScheduler(): ContractVerifierScheduler {
   return {
     async schedule(config: VerifierConfig): Promise<VerifierResult> {
       try {
-        // Build registry: caller-provided tools + report_result tool
+        // Build registry: report_result tool only (internalized)
         const reportTool = new ReportResultTool();
         const registry = new ToolRegistryImpl();
-        for (const t of config.registry.getAll()) {
-          registry.register(t);
-        }
         registry.register(reportTool);
 
         // Create SubAgent
@@ -80,7 +75,7 @@ export function createSubAgentVerifierScheduler(): ContractVerifierScheduler {
           maxSteps: config.maxSteps,
           idleTimeoutMs: config.idleTimeoutMs,
           onIdleTimeout: config.onIdleTimeout,
-          systemPrompt: config.systemPrompt,
+          systemPrompt: CONTRACT_VERIFIER_SYSTEM_PROMPT,
           taskStreamWriter: new NoopStreamWriter(),
           auditWriter: new NoopAuditWriter(),
         });

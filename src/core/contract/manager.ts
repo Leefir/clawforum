@@ -16,16 +16,13 @@ import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { exec, execFile } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
-import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { ToolRegistryImpl } from '../tools/registry.js';
-import { buildRetroPrompt } from '../../prompts/retrospective.js';
-import { writePendingSubagentTaskFile } from '../task/tools/_pending-task-writer.js';
 import type { ContractVerifierScheduler } from './verifier-scheduler.js';
 import { createSubAgentVerifierScheduler } from './verifier-scheduler.js';
+import type { ContractRetroScheduler } from './retro-scheduler.js';
+import { createDefaultRetroScheduler } from './retro-scheduler.js';
 import { AuditWriter, createSystemAudit } from '../../foundation/audit/index.js';
 import type { Message } from '../../types/message.js';
-import { createSkillRegistry } from '../skill/index.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 
@@ -113,8 +110,8 @@ export class ContractManager {
   private readonly clawId: string;
   private readonly audit: AuditWriter;
   private llm?: LLMService;
-  private verifierRegistry?: ToolRegistryImpl;
   private verifierScheduler: ContractVerifierScheduler;
+  private retroScheduler: ContractRetroScheduler;
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
   private archiveDir = 'contract/archive';
@@ -126,16 +123,16 @@ export class ContractManager {
     fs: FileSystem,
     audit: AuditWriter,
     llm?: LLMService,
-    verifierRegistry?: ToolRegistryImpl,
     verifierScheduler?: ContractVerifierScheduler,
+    retroScheduler?: ContractRetroScheduler,
   ) {
     this.clawDir = clawDir;
     this.clawId = clawId;
     this.fs = fs;
     this.audit = audit;
     this.llm = llm;
-    this.verifierRegistry = verifierRegistry;
     this.verifierScheduler = verifierScheduler ?? createSubAgentVerifierScheduler();
+    this.retroScheduler = retroScheduler ?? createDefaultRetroScheduler();
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
@@ -1197,10 +1194,8 @@ export class ContractManager {
       const result = await this.verifierScheduler.schedule({
         agentId: `verifier-${contractId}-${subtaskId}`,
         prompt: filledPrompt,
-        systemPrompt: CONTRACT_VERIFIER_SYSTEM_PROMPT,
         clawDir: this.clawDir,
         llm: this.llm!,
-        registry: this.verifierRegistry ?? new ToolRegistryImpl(),
         fs: this.fs,
         maxSteps: DEFAULT_MAX_STEPS,
         idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
@@ -1319,22 +1314,6 @@ export class ContractManager {
       return;
     }
 
-    // 2.2 加载 dispatch-skills（best-effort 退化）
-    let skillsSummary = '';
-    try {
-      const reg = createSkillRegistry(ctx.motionFs, 'clawspace/dispatch-skills');
-      await reg.loadAll();
-      const formatted = reg.formatForContext();
-      if (!formatted.includes('No skills loaded')) {
-        skillsSummary = formatted;
-      }
-    } catch (e) {
-      this.audit.write(
-        CONTRACT_AUDIT_EVENTS.RETRO_SKILL_FAILED,
-        `err=${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-
     // 2.3 加载 mining task messages（若 mining 模式，2 best-effort 退化）
     let baseMessages: Message[] = [];
     if (mode === 'mining' && miningTaskId) {
@@ -1364,24 +1343,17 @@ export class ContractManager {
       }
     }
 
-    // Part 3: buildRetroPrompt + writePending + cleanup（daemon.ts:215-238 等价）
-
-    // 3.1 构建复盘 prompt + retroMessages
-    const retroPrompt = buildRetroPrompt(targetClaw, contractId, contractYaml, skillsSummary);
-    const retroMessages: Message[] = [...baseMessages, { role: 'user', content: retroPrompt }];
-
-    // 3.2 调度复盘子代理（writePending 失败不清 by-contract 留重试）
+    // Part 3: retro scheduling via RetroScheduler port（A.3+A.4+A.5 / phase364）
     try {
-      await writePendingSubagentTaskFile(ctx.motionFs, ctx.motionAudit, {
-        kind: 'subagent',
-        prompt: '',
-        messages: retroMessages,
-        tools: ['read', 'write', 'skill', 'exec'],
-        timeout: 600,
-        maxSteps: DEFAULT_MAX_STEPS,
-        idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
-        parentClawId: 'motion',
-        originClawId: 'motion',
+      await this.retroScheduler.schedule({
+        targetClaw,
+        contractId,
+        contractYaml,
+        motionFs: ctx.motionFs,
+        motionAudit: ctx.motionAudit,
+        motionBaseDir: ctx.motionBaseDir,
+        baseMessages,
+        audit: this.audit,
       });
     } catch (e) {
       this.audit.write(

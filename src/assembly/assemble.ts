@@ -181,15 +181,11 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     throw new Error(`Assembly: SkillRegistry.loadAll failed: ${errMsg(e)}`, { cause: e });
   }
 
-  // --- L3-L5: verifierRegistry + contractManager ---
+  // --- L3-L5: contractManager ---
   let contractManager: ContractManager;
   try {
-    const verifierRegistry = createToolRegistry();
-    for (const tool of toolRegistry.getForProfile('verifier')) {
-      verifierRegistry.register(tool);
-    }
     contractManager = createContractManager(
-      clawDir, clawId, systemFs, auditWriter, llm, verifierRegistry,
+      clawDir, clawId, systemFs, auditWriter, llm,
       createSubAgentVerifierScheduler(),
     );
   } catch (e) {

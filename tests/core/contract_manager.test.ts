@@ -1,7 +1,7 @@
 /**
  * ContractManager 测试 - 状态转换
  * 
- * 构造函数: new ContractManager(clawDir, clawId, fs, audit, llm?, verifierRegistry?, auditWriter?)
+ * 构造函数: new ContractManager(clawDir, clawId, fs, audit, llm?, verifierScheduler?, retroScheduler?)
  * 
  * 新增测试：
  * - loadActive() 按 started_at 排序

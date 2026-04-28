@@ -69,7 +69,6 @@ import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../src/core/contract/audit-events.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
 import type { ContractVerifierScheduler, VerifierConfig } from '../../src/core/contract/verifier-scheduler.js';
-import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../src/prompts/subagent.js';
 import { DEFAULT_MAX_STEPS } from '../../src/constants.js';
 
 /**
@@ -171,7 +170,7 @@ describe('ContractManager Acceptance Flow', () => {
   let manager: ContractManager;
   let mockAudit: { write: ReturnType<typeof vi.fn> };
   let mockLLM: LLMService;
-  let mockRegistry: ToolRegistryImpl;
+  // mockRegistry removed — ToolRegistryImpl internalized in VerifierScheduler (phase364)
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -201,8 +200,7 @@ describe('ContractManager Acceptance Flow', () => {
       stream: vi.fn(),
     } as unknown as LLMService;
 
-    mockRegistry = new ToolRegistryImpl();
-    manager = new ContractManager(clawDir, 'test-claw', nodeFs, mockAudit as any, mockLLM, mockRegistry);
+    manager = new ContractManager(clawDir, 'test-claw', nodeFs, mockAudit as any, mockLLM);
   });
 
   afterEach(async () => {
@@ -890,9 +888,8 @@ describe('ContractManager — verifier scheduler port', () => {
       call: vi.fn(),
       stream: vi.fn(),
     } as unknown as LLMService;
-    const mockRegistry = new ToolRegistryImpl();
     const manager = new ContractManager(
-      clawDir, 'test-claw', nodeFs, mockAudit as any, mockLLM, mockRegistry,
+      clawDir, 'test-claw', nodeFs, mockAudit as any, mockLLM,
       mockScheduler,
     );
 
@@ -920,9 +917,7 @@ describe('ContractManager — verifier scheduler port', () => {
     }
     expect(capturedConfig).toBeDefined();
     expect(capturedConfig!.agentId).toBe(`verifier-${contractId}-${subtaskId}`);
-    expect(capturedConfig!.systemPrompt).toBe(CONTRACT_VERIFIER_SYSTEM_PROMPT);
     expect(capturedConfig!.maxSteps).toBe(DEFAULT_MAX_STEPS);
-    expect(capturedConfig!.registry).toBe(mockRegistry);
     expect(capturedConfig!.clawDir).toBe(clawDir);
 
     await cleanupTempDir(rootDir);
@@ -942,10 +937,8 @@ describe('ContractManager — verifier scheduler port', () => {
       call: vi.fn(),
       stream: vi.fn(),
     } as unknown as LLMService;
-    const mockRegistry = new ToolRegistryImpl();
-
     const manager = new ContractManager(
-      clawDir, 'test-claw', nodeFs, captureAudit as any, mockLLM, mockRegistry, undefined,
+      clawDir, 'test-claw', nodeFs, captureAudit as any, mockLLM,
     );
 
     const contractId = 'typeerror-test-contract';
@@ -1001,10 +994,8 @@ describe('ContractManager — verifier scheduler port', () => {
       call: vi.fn(),
       stream: vi.fn(),
     } as unknown as LLMService;
-    const mockRegistry = new ToolRegistryImpl();
-
     const manager = new ContractManager(
-      clawDir, 'test-claw', nodeFs, captureAudit as any, mockLLM, mockRegistry, undefined,
+      clawDir, 'test-claw', nodeFs, captureAudit as any, mockLLM,
     );
 
     const contractId = 'business-error-test-contract';
