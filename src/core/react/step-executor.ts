@@ -38,6 +38,7 @@ export interface StepCallbacks {
   onProviderFailed?: (provider: string, model: string, error: string) => void;
   onEmptyResponse?: (stopReason: string) => void;
   onUnknownStopReason?: (stopReason: string) => void;
+  onUnparseableToolUse?: (stopReason: string) => void;
 }
 
 export interface StepInput {
@@ -160,7 +161,8 @@ async function handleToolUseStop(
   if (toolCalls.length === 0) {
     const text = extractText(response.content);
     appendAssistantMessage(messages, response.content);
-    console.warn(`[step-executor] LLM returned tool_use stop_reason but no parseable tool calls, treating as no_tool`);
+    if (callbacks?.onUnparseableToolUse) callbacks.onUnparseableToolUse(response.stop_reason);
+    else console.warn(`[step-executor] LLM returned tool_use stop_reason but no parseable tool calls, treating as no_tool`);
     return { kind: 'final', stopReason: 'no_tool', finalText: text };
   }
   appendAssistantMessage(messages, response.content);
@@ -377,7 +379,7 @@ async function collectStreamResponse(
           }
           break;
         case 'reset':
-          console.warn(`[llm] mid-stream failover: ${chunk.provider} timed out after ${chunk.timeoutMs}ms`);
+          if (!callbacks?.onReset) console.warn(`[llm] mid-stream failover: ${chunk.provider} timed out after ${chunk.timeoutMs}ms`);
           resetState(state);
           callbacks?.onReset?.(chunk.provider ?? 'unknown', chunk.timeoutMs ?? 0);
           break;

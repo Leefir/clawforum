@@ -534,6 +534,9 @@ export class ClawRuntime {
         onUnknownStopReason: (stopReason) => {
           this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNKNOWN_STOP_REASON, `stop_reason=${stopReason}`);
         },
+        onUnparseableToolUse: (stopReason) => {
+          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNPARSEABLE_TOOL_USE, `stop_reason=${stopReason}`);
+        },
       });
     await this.sessionManager.save(messages);
 

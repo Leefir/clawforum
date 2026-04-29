@@ -13,6 +13,7 @@ export const RUNTIME_AUDIT_EVENTS = {
   PROCESS_BATCH_FAILED: 'runtime_process_batch_failed',
   LLM_EMPTY_RESPONSE: 'llm_empty_response',
   LLM_UNKNOWN_STOP_REASON: 'llm_unknown_stop_reason',
+  LLM_UNPARSEABLE_TOOL_USE: 'llm_unparseable_tool_use',
   // SESSION_*
   SESSION_LOADED: 'session_loaded',
   SESSION_REPAIRED: 'session_repaired',
