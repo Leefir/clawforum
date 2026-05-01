@@ -1019,14 +1019,14 @@ describe('Builtin Tools', () => {
       expect(result.content).toContain('Error');
     });
 
-    // 反向 2：schema D1d 修 bug + cwd/env 行为契约扩
-    it('execTool schema 含 cwd/env/timeoutMs / 不含 async/timeout', () => {
+    // 反向 2：schema D1d 修 bug + cwd/timeoutMs 行为契约（env 已删 / phase402 YAGNI 收紧）
+    it('execTool schema 含 cwd/timeoutMs / 不含 async/timeout/env', () => {
       const props = execTool.schema.properties as Record<string, unknown>;
       expect(props).toHaveProperty('cwd');
-      expect(props).toHaveProperty('env');
       expect(props).toHaveProperty('timeoutMs');
       expect(props).not.toHaveProperty('async');
       expect(props).not.toHaveProperty('timeout');
+      expect(props).not.toHaveProperty('env');
     });
 
     it('execTool args.cwd 优先于 ctx.clawDir', async () => {

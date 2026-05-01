@@ -40,10 +40,6 @@ export const execTool: Tool = {
         type: 'number',
         description: `Timeout in milliseconds (default ${PROCESS_EXEC_DEFAULT_TIMEOUT_MS})`,
       },
-      env: {
-        type: 'object',
-        description: 'Environment variables to add (merged with parent process env).',
-      },
     },
     required: ['command'],
   },
@@ -55,8 +51,6 @@ export const execTool: Tool = {
     const command = args.command as string;
     const cwd = (args.cwd as string) ?? ctx.clawDir;
     const timeoutMs = (args.timeoutMs as number) ?? undefined;
-    // env 字段已加入 schema（设计 §3 / D1d 行为契约扩），但 L1 ProcessExec 当前未接受 env
-    // 推 r52+/r53+ 真实装（参 §5「不改 ProcessExec L1」）
 
     try {
       const result = await exec(command, {
