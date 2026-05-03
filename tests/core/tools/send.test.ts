@@ -10,8 +10,8 @@
  * 不测 OutboxWriter 行为（归属 tests/foundation/outbox-writer.test.ts）
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sendTool } from '../../../src/core/tools/builtins/send.js';
-import type { ExecContext } from '../../../src/core/tools/executor.js';
+import { sendTool } from '../../../src/foundation/tools/builtins/send.js';
+import type { ExecContext } from '../../../src/foundation/tools/executor.js';
 import type { OutboxWriter } from '../../../src/foundation/messaging/index.js';
 
 function createMockCtx(): ExecContext {

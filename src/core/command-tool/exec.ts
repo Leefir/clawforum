@@ -5,7 +5,7 @@
  * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../foundation/tools/executor.js';
 import {
   EXEC_MAX_STDOUT,
   EXEC_MAX_STDERR,
@@ -19,7 +19,7 @@ function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen) + '\n[truncated]';
 }
 
-import { EXEC_TOOL_NAME } from '../tools/tool-names.js';
+import { EXEC_TOOL_NAME } from '../../foundation/tools/tool-names.js';
 export { EXEC_TOOL_NAME };
 
 export const execTool: Tool = {

@@ -9,7 +9,7 @@
  */
 
 import * as path from 'path';
-import type { Tool, ToolResult, ExecContext } from '../../core/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
 import { WRITE_SIZE_LIMITS, WRITE_VERSION_RETENTION } from '../../constants.js';
 
 function getSizeLimits(filePath: string): [number, number] {
@@ -69,7 +69,7 @@ async function backupVersion(fs: ExecContext['fs'], filePath: string): Promise<s
   return null;
 }
 
-import { WRITE_TOOL_NAME } from '../../core/tools/tool-names.js';
+import { WRITE_TOOL_NAME } from '../tools/tool-names.js';
 export { WRITE_TOOL_NAME };
 
 export const writeTool: Tool = {

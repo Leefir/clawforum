@@ -49,7 +49,7 @@ vi.mock('child_process', async (importOriginal) => {
 
 // Mock SubAgent
 const mockSubAgentRun = vi.fn();
-let capturedSubAgentRegistry: import('../../src/core/tools/registry.js').ToolRegistryImpl | null = null;
+let capturedSubAgentRegistry: import('../../src/foundation/tools/registry.js').ToolRegistryImpl | null = null;
 let capturedOnIdleTimeout: (() => void) | null = null;
 vi.mock('../../src/core/subagent/agent.js', () => ({
   SubAgent: vi.fn().mockImplementation((opts: any) => {
@@ -63,7 +63,7 @@ vi.mock('../../src/core/subagent/agent.js', () => ({
 import { ContractSystem } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import type { LLMOrchestrator } from '../../src/foundation/llm-orchestrator/index.js';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../src/core/contract/audit-events.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';

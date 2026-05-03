@@ -4,7 +4,7 @@ import { createGateway } from '../../src/core/gateway/index.js';
 import type { Gateway, GatewayInput } from '../../src/core/gateway/index.js';
 import type { Transport, Connection } from '../../src/foundation/transport/index.js';
 import type { StreamReader, StreamEvent } from '../../src/foundation/stream/index.js';
-import type { ToolResult, ExecContext } from '../../src/core/tools/index.js';
+import type { ToolResult, ExecContext } from '../../src/foundation/tools/index.js';
 
 function mockAudit() {
   return { write: vi.fn() };

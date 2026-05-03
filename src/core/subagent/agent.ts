@@ -5,8 +5,8 @@
  */
 
 import { runReact } from '../react/loop.js';
-import { ToolExecutor } from '../tools/executor.js';
-import { ToolRegistryImpl } from '../tools/registry.js';
+import { ToolExecutor } from '../../foundation/tools/executor.js';
+import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { ToolDefinition } from '../../types/message.js';
@@ -17,13 +17,13 @@ import { makeExternalAbortError } from '../../foundation/llm-provider/abort-help
 import { SUBAGENT_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { oneLine } from '../../types/utils.js';
 import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
-import type { TaskScheduler } from '../tools/task-scheduler.js';
+import type { TaskScheduler } from '../../foundation/tools/task-scheduler.js';
 import type { Message } from '../../types/message.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUBAGENT_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './audit-events.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
-import type { CallerType } from '../tools/caller-type.js';
-import { callerTypeToProfile } from '../tools/caller-type.js';
+import type { CallerType } from '../../foundation/tools/caller-type.js';
+import { callerTypeToProfile } from '../../foundation/tools/caller-type.js';
 
 export interface SubAgentOptions {
   agentId: string;

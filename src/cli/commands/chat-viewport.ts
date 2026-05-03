@@ -16,7 +16,7 @@ import { LLM_OUTPUT_EVENTS } from '../../foundation/stream/types.js';
 import stringWidth from 'string-width';
 import { sliceFromStart, fitLine, wrapLine } from '../utils/string.js';
 import { OUTPUT_LINES_CAP } from '../../constants.js';
-import type { CallerType } from '../../core/tools/caller-type.js';
+import type { CallerType } from '../../foundation/tools/caller-type.js';
 import { createWatcher } from '../../foundation/file-watcher/index.js';
 import type { Watcher } from '../../foundation/file-watcher/types.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';

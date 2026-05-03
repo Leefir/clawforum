@@ -3,7 +3,7 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../executor.js';
-import type { OutboxWriter } from '../../../foundation/messaging/index.js';
+import type { OutboxWriter } from '../../messaging/index.js';
 
 import { SEND_TOOL_NAME } from '../tool-names.js';
 export { SEND_TOOL_NAME };

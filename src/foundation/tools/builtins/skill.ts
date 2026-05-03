@@ -6,7 +6,7 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../executor.js';
-import { createSkillSystem, type SkillSystem } from '../../../foundation/skill-system/index.js';
+import { createSkillSystem, type SkillSystem } from '../../skill-system/index.js';
 
 /**
  * Skill tool implementation

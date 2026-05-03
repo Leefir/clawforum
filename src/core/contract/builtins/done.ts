@@ -5,7 +5,7 @@
  * which triggers the acceptance process defined in the contract.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../../tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../../foundation/tools/executor.js';
 import type { ContractSystem } from '../manager.js';
 
 /**
@@ -13,7 +13,7 @@ import type { ContractSystem } from '../manager.js';
  * 
  * Requires contractManager to be injected before use.
  */
-import { DONE_TOOL_NAME } from '../../tools/tool-names.js';
+import { DONE_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 export { DONE_TOOL_NAME };
 
 export const doneTool: Tool & { contractManager?: ContractSystem } = {

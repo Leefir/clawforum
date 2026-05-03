@@ -1,9 +1,9 @@
-import type { Tool, ToolResult } from '../../tools/executor.js';
+import type { Tool, ToolResult } from '../../../foundation/tools/executor.js';
 import type { LLMOrchestrator } from '../../../foundation/llm-orchestrator/index.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
 
-import { ASK_MOTION_TOOL_NAME } from '../../tools/tool-names.js';
+import { ASK_MOTION_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 export { ASK_MOTION_TOOL_NAME };
 
 export class AskMotionTool implements Tool {

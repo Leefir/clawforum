@@ -7,7 +7,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { DispatchTool } from '../../src/core/task/tools/dispatch.js';
-import { ExecContextImpl } from '../../src/core/tools/context.js';
+import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import type { Message } from '../../src/types/message.js';
 

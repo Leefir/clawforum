@@ -10,7 +10,7 @@
 
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
-import type { Tool, ToolResult, ExecContext } from '../../core/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
 
 // Allowed paths/prefixes for search tool (MVP aligned)
 const SEARCH_ALLOWLIST = [
@@ -63,7 +63,7 @@ async function walkNative(
   return rem;
 }
 
-import { SEARCH_TOOL_NAME } from '../../core/tools/tool-names.js';
+import { SEARCH_TOOL_NAME } from '../tools/tool-names.js';
 export { SEARCH_TOOL_NAME };
 
 export const searchTool: Tool = {

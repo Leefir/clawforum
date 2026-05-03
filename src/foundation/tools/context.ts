@@ -8,15 +8,15 @@
  * - Execution tracking (stepNumber, elapsed time)
  */
 
-import type { FileSystem } from '../../foundation/fs/types.js';
-import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
+import type { FileSystem } from '../fs/types.js';
+import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { ToolProfile } from '../../types/config.js';
 import type { ExecContext } from './executor.js';
 import { MOTION_CLAW_ID, DEFAULT_MAX_STEPS } from '../../constants.js';
 
 
 import type { Message } from '../../types/message.js';
-import type { AuditLog } from '../../foundation/audit/index.js';
+import type { AuditLog } from '../audit/index.js';
 import type { CallerType } from './caller-type.js';
 
 /**

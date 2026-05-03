@@ -2,7 +2,7 @@
  * Tool profiles tests
  */
 import { describe, it, expect } from 'vitest';
-import { TOOL_PROFILES } from '../../src/core/tools/profiles.js';
+import { TOOL_PROFILES } from '../../src/foundation/tools/profiles.js';
 
 describe('Tool Profiles', () => {
   it('should have correct tools in each profile', () => {

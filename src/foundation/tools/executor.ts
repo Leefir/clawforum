@@ -9,13 +9,13 @@
 
 import type { JSONSchema7 } from '../../types/message.js';
 import type { ToolProfile } from '../../types/config.js';
-import type { FileSystem } from '../../foundation/fs/types.js';
-import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
+import type { FileSystem } from '../fs/types.js';
+import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { TaskScheduler } from './task-scheduler.js';
-import type { OutboxWriter } from '../../foundation/messaging/index.js';
+import type { OutboxWriter } from '../messaging/index.js';
 import type { Message } from '../../types/message.js';
 import type { CallerType } from './caller-type.js';
-import type { AuditLog } from '../../foundation/audit/index.js';
+import type { AuditLog } from '../audit/index.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {

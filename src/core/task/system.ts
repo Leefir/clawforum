@@ -11,12 +11,12 @@ import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
-import { ToolRegistryImpl } from '../tools/registry.js';
-import { registerBuiltinTools } from '../tools/builtins/index.js';
+import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
+import { registerBuiltinTools } from '../../foundation/tools/builtins/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { CallerType } from '../tools/caller-type.js';
+import type { CallerType } from '../../foundation/tools/caller-type.js';
 
-import type { ToolResult, Tool } from '../tools/executor.js';
+import type { ToolResult, Tool } from '../../foundation/tools/executor.js';
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractSystem } from '../contract/manager.js';

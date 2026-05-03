@@ -8,12 +8,12 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { statusTool, sendTool } from '../../src/core/tools/builtins/index.js';
+import { statusTool, sendTool } from '../../src/foundation/tools/builtins/index.js';
 import { readTool, writeTool, lsTool, searchTool } from '../../src/foundation/file-tool/index.js';
 import { memorySearchTool } from '../../src/core/memory/tools/memory_search.js';
 import { execTool } from '../../src/core/command-tool/index.js';
 import { spawnTool } from '../../src/core/task/tools/spawn.js';
-import { ExecContextImpl } from '../../src/core/tools/context.js';
+import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { OutboxWriter } from '../../src/foundation/messaging/index.js';
 import { makeAudit } from '../helpers/audit.js';
@@ -21,8 +21,8 @@ import { ContractSystem } from '../../src/core/contract/manager.js';
 import { createContractStatusPort } from '../../src/core/contract/status-port-impl.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { TASKS_RUNNING_DIR } from '../../src/types/paths.js';
-import { ToolExecutor } from '../../src/core/tools/executor.js';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
+import { ToolExecutor } from '../../src/foundation/tools/executor.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 
 const { mockWriteFile } = vi.hoisted(() => ({
   mockWriteFile: vi.fn(),

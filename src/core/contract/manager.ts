@@ -17,8 +17,8 @@ import { ProcessExecError } from '../../foundation/process-exec/index.js';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/index.js';
-import { ReportResultTool } from '../tools/report-result.js';
-import { ToolRegistryImpl } from '../tools/registry.js';
+import { ReportResultTool } from '../../foundation/tools/report-result.js';
+import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
 import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 
 import { AuditWriter } from '../../foundation/audit/index.js';

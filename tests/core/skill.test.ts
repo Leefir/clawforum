@@ -6,8 +6,8 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { skillTool } from '../../src/core/tools/builtins/skill.js';
-import { ExecContextImpl } from '../../src/core/tools/context.js';
+import { skillTool } from '../../src/foundation/tools/builtins/skill.js';
+import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 
 async function createTempDir(): Promise<string> {

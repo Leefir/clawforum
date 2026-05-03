@@ -6,7 +6,7 @@
  * phase378 物理迁实施 / phase421 反向 rename align arch §17 + 表 1。
  */
 
-import type { Tool } from '../tools/executor.js';
+import type { Tool } from '../../foundation/tools/executor.js';
 import { execTool } from './exec.js';
 
 export interface CommandToolModule {
@@ -36,4 +36,4 @@ export function createCommandTools(_deps: CommandToolDeps = {}): CommandToolModu
 }
 
 export { execTool };
-export { EXEC_TOOL_NAME } from '../tools/tool-names.js';
+export { EXEC_TOOL_NAME } from '../../foundation/tools/tool-names.js';

@@ -7,7 +7,7 @@ import { SubAgent } from '../../src/core/subagent/agent.js';
 import { NoopStreamWriter, NoopAuditWriter } from '../../src/core/subagent/noop-writers.js';
 import type { FileSystem } from '../../src/foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../src/foundation/llm-orchestrator/index.js';
-import type { ToolRegistryImpl } from '../../src/core/tools/registry.js';
+import type { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import { SUBAGENT_AUDIT_EVENTS } from '../../src/core/subagent/audit-events.js';
 
 // Mock the entire react loop module so runReact is fully controllable
@@ -16,7 +16,7 @@ vi.mock('../../src/core/react/loop.js', () => ({
 }));
 
 // Mock ToolExecutor so SubAgent.run() doesn't need real FS / LLM
-vi.mock('../../src/core/tools/executor.js', () => ({
+vi.mock('../../src/foundation/tools/executor.js', () => ({
   ToolExecutor: vi.fn().mockImplementation(() => ({
     getExecContext: vi.fn().mockReturnValue({
       clawId: 'test-agent',

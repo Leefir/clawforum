@@ -8,11 +8,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
-import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
-import { ExecContextImpl } from '../../src/core/tools/context.js';
-import { TOOL_PROFILES } from '../../src/core/tools/profiles.js';
-import type { Tool, ToolResult } from '../../src/core/tools/executor.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
+import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
+import { ExecContextImpl } from '../../src/foundation/tools/context.js';
+import { TOOL_PROFILES } from '../../src/foundation/tools/profiles.js';
+import type { Tool, ToolResult } from '../../src/foundation/tools/executor.js';
 import type { FileSystem } from '../../src/foundation/fs/types.js';
 import {
   ToolNotFoundError,

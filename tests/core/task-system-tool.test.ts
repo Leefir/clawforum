@@ -10,9 +10,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { INBOX_PENDING_DIR, TASKS_RUNNING_DIR, TASKS_DONE_DIR } from '../../src/types/paths.js';
 import { TaskSystem, SubAgentTask, ToolTask } from '../../src/core/task/system.js';
-import { ToolExecutorImpl, ExecuteOptions } from '../../src/core/tools/executor.js';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
-import { Tool, ToolResult, ExecContext } from '../../src/core/tools/executor.js';
+import { ToolExecutorImpl, ExecuteOptions } from '../../src/foundation/tools/executor.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
+import { Tool, ToolResult, ExecContext } from '../../src/foundation/tools/executor.js';
 import type { JSONSchema7 } from '../../src/types/message.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';

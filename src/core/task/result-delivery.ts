@@ -6,7 +6,7 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { INBOX_PENDING_DIR } from '../../types/paths.js';
 import type { SubAgentTask, ToolTask } from './system.js';
-import type { ToolResult } from '../tools/executor.js';
+import type { ToolResult } from '../../foundation/tools/executor.js';
 
 /**
  * Send tool task result to parent claw's inbox

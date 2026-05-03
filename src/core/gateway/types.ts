@@ -12,7 +12,7 @@
 
 import type { Connection, Transport } from '../../foundation/transport/index.js';
 import type { StreamEvent, StreamReader } from '../../foundation/stream/index.js';
-import type { ToolResult, ExecContext } from '../tools/index.js';
+import type { ToolResult, ExecContext } from '../../foundation/tools/index.js';
 import type { AuditWriter } from '../../foundation/audit/index.js';
 
 /**

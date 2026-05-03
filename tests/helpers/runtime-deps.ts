@@ -6,14 +6,14 @@ import { createClawPermissionChecker } from '../../src/core/permissions/claw-per
 import { DialogStore } from '../../src/foundation/dialog-store/index.js';
 import { InboxReader, OutboxWriter } from '../../src/foundation/messaging/index.js';
 import { LLMOrchestratorImpl } from '../../src/foundation/llm-orchestrator/orchestrator.js';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
-import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
+import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
 import { createSkillSystem } from '../../src/foundation/skill-system/index.js';
 import { ContractSystem } from '../../src/core/contract/manager.js';
 import { TaskSystem } from '../../src/core/task/system.js';
 import { ContextInjector } from '../../src/core/dialog/injector.js';
-import { ExecContextImpl } from '../../src/core/tools/context.js';
-import { registerBuiltinTools } from '../../src/core/tools/builtins/index.js';
+import { ExecContextImpl } from '../../src/foundation/tools/context.js';
+import { registerBuiltinTools } from '../../src/foundation/tools/builtins/index.js';
 import type { RuntimeDependencies } from '../../src/core/runtime/index.js';
 import type { LLMOrchestratorConfig } from '../../src/foundation/llm-orchestrator/types.js';
 import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../src/types/paths.js';

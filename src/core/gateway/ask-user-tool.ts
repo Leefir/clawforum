@@ -6,7 +6,7 @@
  */
 
 import type { Gateway } from './types.js';
-import type { Tool } from '../tools/index.js';
+import type { Tool } from '../../foundation/tools/index.js';
 
 export function createAskUserTool(gateway: Gateway): Tool {
   return {

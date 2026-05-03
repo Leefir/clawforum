@@ -1,17 +1,17 @@
-import type { Tool, ToolResult, ExecContext } from '../../tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../../foundation/tools/executor.js';
 import type { TaskSystem } from '../system.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { createSkillSystem } from '../../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../../evolution-system/dispatch-skills-paths.js';
-import { ToolRegistryImpl } from '../../tools/registry.js';
+import { ToolRegistryImpl } from '../../../foundation/tools/registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import { buildDescribingUserMessage, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { AskMotionTool } from './ask-motion.js';
-import { isDispatchCaller } from '../../tools/caller-type.js';
+import { isDispatchCaller } from '../../../foundation/tools/caller-type.js';
 import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
 import { DISPATCH_AUDIT_EVENTS } from './dispatch-audit-events.js';
 
-import { DISPATCH_TOOL_NAME } from '../../tools/tool-names.js';
+import { DISPATCH_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 export { DISPATCH_TOOL_NAME };
 
 export class DispatchTool implements Tool {

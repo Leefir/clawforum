@@ -12,7 +12,7 @@ import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } fro
 import type { LLMOrchestrator } from '../../src/foundation/llm-orchestrator/index.js';
 import type { StreamChunk } from '../../src/foundation/llm-orchestrator/types.js';
 import type { LLMResponse, Message } from '../../src/types/message.js';
-import type { IToolExecutor, ExecContext, ToolRegistry, ToolResult } from '../../src/core/tools/executor.js';
+import type { IToolExecutor, ExecContext, ToolRegistry, ToolResult } from '../../src/foundation/tools/executor.js';
 
 // ── Mock factories ──────────────────────────────────────────────────────────
 

@@ -7,10 +7,10 @@
 
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
-import type { Tool, ToolResult, ExecContext } from '../../core/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
 import { LS_MAX_ENTRIES } from '../../constants.js';
 
-import { LS_TOOL_NAME } from '../../core/tools/tool-names.js';
+import { LS_TOOL_NAME } from '../tools/tool-names.js';
 export { LS_TOOL_NAME };
 
 export const lsTool: Tool = {

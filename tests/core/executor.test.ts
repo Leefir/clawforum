@@ -10,9 +10,9 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
-import { ExecContextImpl } from '../../src/core/tools/context.js';
+import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
+import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';

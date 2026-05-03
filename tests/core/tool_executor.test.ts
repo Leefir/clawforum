@@ -9,8 +9,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import * as path from 'path';
-import { ToolExecutorImpl } from '../../src/core/tools/executor.js';
-import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
+import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
+import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import type { Tool, ToolPermission } from '../../src/types/tool.js';
 
 describe('Tool Path Validation', () => {

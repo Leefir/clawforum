@@ -9,7 +9,7 @@ import { runReact } from '../../src/core/react/loop.js';
 import type { Message, ContentBlock, LLMResponse, ToolDefinition } from '../../src/types/message.js';
 import type { LLMOrchestrator } from '../../src/foundation/llm-orchestrator/index.js';
 import type { StreamChunk } from '../../src/foundation/llm-orchestrator/types.js';
-import type { IToolExecutor, ExecContext } from '../../src/core/tools/executor.js';
+import type { IToolExecutor, ExecContext } from '../../src/foundation/tools/executor.js';
 import { MaxStepsExceededError } from '../../src/types/errors.js';
 
 /**

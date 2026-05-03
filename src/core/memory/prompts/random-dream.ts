@@ -1,7 +1,7 @@
 /**
  * Random Dream Prompt Builder
  *
- * 随机梦境子代理使用 `dream` tool profile（已在 `src/core/tools/profiles.ts` 定义）：
+ * 随机梦境子代理使用 `dream` tool profile（已在 `src/foundation/tools/profiles.ts` 定义）：
  * `['read', 'search', 'ls', 'memory_search']`，只读探索，无写权限。
  *
  * ### 契约权重说明

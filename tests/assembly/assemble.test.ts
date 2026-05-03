@@ -122,11 +122,11 @@ vi.mock('../../src/foundation/monitor/monitor.js', () => ({
   JsonlLogger: trackCtor('JsonlLogger', () => ({ log: vi.fn(), close: vi.fn() })),
 }));
 
-vi.mock('../../src/core/tools/registry.js', () => ({
+vi.mock('../../src/foundation/tools/registry.js', () => ({
   ToolRegistryImpl: trackCtor('ToolRegistryImpl', () => ({ register: vi.fn(), getForProfile: vi.fn(() => []), getAll: vi.fn(() => []), formatForLLM: vi.fn(), unregister: vi.fn() })),
 }));
 
-vi.mock('../../src/core/tools/executor.js', () => {
+vi.mock('../../src/foundation/tools/executor.js', () => {
   const Ctor = trackCtor('ToolExecutorImpl', () => ({ execute: vi.fn() }));
   return {
     ToolExecutorImpl: Ctor,
@@ -154,11 +154,11 @@ vi.mock('../../src/core/dialog/injector.js', () => {
   };
 });
 
-vi.mock('../../src/core/tools/context.js', () => ({
+vi.mock('../../src/foundation/tools/context.js', () => ({
   ExecContextImpl: trackCtor('ExecContextImpl', () => ({ signal: undefined, dialogMessages: [] })),
 }));
 
-vi.mock('../../src/core/tools/builtins/index.js', () => ({
+vi.mock('../../src/foundation/tools/builtins/index.js', () => ({
   registerBuiltinTools: vi.fn(),
 }));
 
@@ -714,7 +714,7 @@ describe('assemble', () => {
 
     it('tool_registry construct failure → audit module=tool_registry phase=construct + throw', async () => {
       const { events, thrown } = await expectAssembleFailure(
-        '../../src/core/tools/registry.js', 'ToolRegistryImpl', 'ctor',
+        '../../src/foundation/tools/registry.js', 'ToolRegistryImpl', 'ctor',
       );
       expect(events.some(e => /^assemble_failed\tmodule=tool_registry\tphase=construct\treason=injected/.test(e))).toBe(true);
       expect(thrown.message).toMatch(/ToolRegistry construct failed/);
@@ -762,7 +762,7 @@ describe('assemble', () => {
 
     it('exec_context construct failure → audit module=exec_context phase=construct + throw', async () => {
       const { events, thrown } = await expectAssembleFailure(
-        '../../src/core/tools/context.js', 'ExecContextImpl', 'ctor',
+        '../../src/foundation/tools/context.js', 'ExecContextImpl', 'ctor',
       );
       expect(events.some(e => /^assemble_failed\tmodule=exec_context\tphase=construct\treason=injected/.test(e))).toBe(true);
       expect(thrown.message).toMatch(/ExecContextImpl construct failed/);
@@ -770,7 +770,7 @@ describe('assemble', () => {
 
     it('tool_executor construct failure → audit module=tool_executor phase=construct + throw', async () => {
       const { events, thrown } = await expectAssembleFailure(
-        '../../src/core/tools/executor.js', 'ToolExecutorImpl', 'ctor',
+        '../../src/foundation/tools/executor.js', 'ToolExecutorImpl', 'ctor',
       );
       expect(events.some(e => /^assemble_failed\tmodule=tool_executor\tphase=construct\treason=injected/.test(e))).toBe(true);
       expect(thrown.message).toMatch(/ToolExecutorImpl construct failed/);
