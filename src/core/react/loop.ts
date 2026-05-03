@@ -20,6 +20,8 @@ export interface ReactOptions {
   executor: IToolExecutor;
   ctx: ExecContext;
   maxSteps?: number;
+  maxConsecutiveParseErrors?: number;
+  maxConsecutiveMaxTokensToolUse?: number;
   idleTimeoutMs?: number;
   onToolCall?: (toolName: string, toolUseId: string) => void | Promise<void>;
   onBeforeLLMCall?: () => void;
@@ -48,6 +50,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   const {
     messages, systemPrompt, llm, executor, ctx,
     maxSteps = 20,
+    maxConsecutiveParseErrors,
+    maxConsecutiveMaxTokensToolUse,
     idleTimeoutMs,
     onToolCall, onBeforeLLMCall, onToolResult, onStepComplete,
     tools = [],
@@ -80,6 +84,8 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
   const result = await runAgent({
     messages, systemPrompt, llm, tools, executor, registry, ctx,
     maxSteps,
+    maxConsecutiveParseErrors,
+    maxConsecutiveMaxTokensToolUse,
     idleTimeoutMs,
     stepCallbacks,
     onAfterStep: async () => {

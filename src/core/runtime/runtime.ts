@@ -85,6 +85,8 @@ export interface ClawRuntimeOptions {
   toolTimeoutMs?: number;
   subagentMaxSteps?: number;
   maxConcurrentTasks?: number;
+  maxConsecutiveParseErrors?: number;
+  maxConsecutiveMaxTokensToolUse?: number;
   idleTimeoutMs?: number;  // 覆盖 DEFAULT_LLM_IDLE_TIMEOUT_MS（0 = 禁用）
 
   dependencies: RuntimeDependencies;  // 必传（phase155B 起，字段随 phase155C 扩展）
@@ -500,6 +502,8 @@ export class ClawRuntime {
         tools,
         registry: this.toolRegistry,  // Enable parallel execution for readonly tools
         maxSteps: this.options.maxSteps,
+        maxConsecutiveParseErrors: this.options.maxConsecutiveParseErrors,
+        maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
         idleTimeoutMs: this.options.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
         onLLMResult: (info) => {
           if (info.error) {
@@ -771,6 +775,8 @@ export class ClawRuntime {
         tools,
         registry: this.toolRegistry,  // Enable parallel execution for readonly tools
         maxSteps: this.options.maxSteps,
+        maxConsecutiveParseErrors: this.options.maxConsecutiveParseErrors,
+        maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
         onLLMResult: (info) => {
           if (info.error) {
             this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `err=${info.error}`, `ms=${info.latencyMs}`);

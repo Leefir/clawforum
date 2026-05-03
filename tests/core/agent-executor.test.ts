@@ -7,7 +7,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runAgent } from '../../src/core/react/agent-executor.js';
 import type { StepMeta } from '../../src/core/react/step-executor.js';
-import { MaxStepsExceededError } from '../../src/types/errors.js';
+import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../../src/types/errors.js';
 import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from '../../src/constants.js';
 import type { LLMService } from '../../src/foundation/llm/index.js';
 import type { StreamChunk } from '../../src/foundation/llm/types.js';
@@ -114,74 +114,8 @@ describe('AgentExecutor', () => {
     expect(res.stepsUsed).toBe(1);
   });
 
-  it('sessionStore.save：每个 continue 步调一次，final 步不调', async () => {
-    const saveMock = vi.fn(async () => {});
-    const sessionStore = { save: saveMock } as any;
-    const llm = makeMockLLM([
-      { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'tool_use' },
-      { content: [{ type: 'tool_use', id: 'b', name: 'foo', input: {} }], stop_reason: 'tool_use' },
-      { content: [{ type: 'text', text: 'done' }], stop_reason: 'end_turn' },
-    ]);
-    await runAgent({
-      messages: [], systemPrompt: '', llm, tools: [],
-      executor: makeExecutor({ foo: { success: true, content: 'ok' } }),
-      registry: makeRegistry({ foo: { readonly: false } }),
-      ctx: makeCtx(),
-      sessionStore,
-    });
-    expect(saveMock).toHaveBeenCalledTimes(2);  // 2 次 continue
-  });
-
-  it('max_tokens_tool_use：不 save、不 stepCount++', async () => {
-    const saveMock = vi.fn(async () => {});
-    const sessionStore = { save: saveMock } as any;
-    const llm = makeMockLLM([
-      { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'max_tokens' },
-      { content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' },
-    ]);
-    const res = await runAgent({
-      messages: [], systemPrompt: '', llm, tools: [],
-      executor: makeExecutor({}),
-      registry: makeRegistry({ foo: { readonly: false } }),
-      ctx: makeCtx(),
-      sessionStore,
-    });
-    expect(saveMock).toHaveBeenCalledTimes(0);
-    expect(res.stepsUsed).toBe(0);
-  });
-
-  it('连续 parse errors 达阈值抛错', async () => {
-    const responses = Array(MAX_CONSECUTIVE_PARSE_ERRORS).fill(null).map(() => ({
-      content: [{ type: 'tool_use' as const, id: 'x', name: 'foo', input: {} }],
-      stop_reason: 'tool_use' as const,
-    }));
-    const llm = makeMalformedSequenceLLM(responses);
-    await expect(runAgent({
-      messages: [], systemPrompt: '', llm, tools: [],
-      executor: makeExecutor({}),
-      registry: makeRegistry({ foo: { readonly: false } }),
-      ctx: makeCtx(),
-    })).rejects.toThrow(/工具输入 JSON 连续解析失败/);
-  });
-
-  it('连续 max_tokens_tool_use 达阈值抛错', async () => {
-    const responses = Array(MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE).fill(null).map(() => ({
-      content: [{ type: 'tool_use' as const, id: 'x', name: 'foo', input: {} }],
-      stop_reason: 'max_tokens' as const,
-    }));
-    const llm = makeMockLLM(responses);
-    await expect(runAgent({
-      messages: [], systemPrompt: '', llm, tools: [],
-      executor: makeExecutor({}),
-      registry: makeRegistry({ foo: { readonly: false } }),
-      ctx: makeCtx(),
-    })).rejects.toThrow(/max_tokens 截断 tool_use/);
-  });
-
-  it('onAfterStep：在 save 之后调、meta 正确、max_tokens_tool_use 不调', async () => {
+  it('onAfterStep：在 continue 步调、meta 正确、max_tokens_tool_use 不调', async () => {
     const calls: StepMeta[] = [];
-    const saveOrder: string[] = [];
-    const sessionStore = { save: async () => { saveOrder.push('save'); } } as any;
     const llm = makeMockLLM([
       { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'max_tokens' },  // 不触发
       { content: [{ type: 'tool_use', id: 'b', name: 'foo', input: {} }], stop_reason: 'tool_use' },   // 触发
@@ -192,12 +126,10 @@ describe('AgentExecutor', () => {
       executor: makeExecutor({ foo: { success: true, content: 'ok' } }),
       registry: makeRegistry({ foo: { readonly: false } }),
       ctx: makeCtx(),
-      sessionStore,
-      onAfterStep: async (meta) => { saveOrder.push('after'); calls.push(meta); },
+      onAfterStep: async (meta) => { calls.push(meta); },
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].toolCallCount).toBe(1);
-    expect(saveOrder).toEqual(['save', 'after']);  // save 在 after 之前
   });
 
   it('stepCount 达 maxSteps 抛 MaxStepsExceededError', async () => {
@@ -211,5 +143,81 @@ describe('AgentExecutor', () => {
       ctx: makeCtx(),
       maxSteps: 3,
     })).rejects.toThrow(MaxStepsExceededError);
+  });
+
+  it('max_tokens_tool_use：不 stepCount++、不 onAfterStep', async () => {
+    const llm = makeMockLLM([
+      { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'max_tokens' },
+      { content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' },
+    ]);
+    const res = await runAgent({
+      messages: [], systemPrompt: '', llm, tools: [],
+      executor: makeExecutor({}),
+      registry: makeRegistry({ foo: { readonly: false } }),
+      ctx: makeCtx(),
+    });
+    expect(res.stepsUsed).toBe(0);
+  });
+});
+
+describe('runAgent circuit breaker thresholds (caller injection)', () => {
+  it('should respect caller-injected maxConsecutiveParseErrors', async () => {
+    // 注入 thresholds = 1 / 第 1 次 parse error 即抛
+    const responses = Array(1).fill(null).map(() => ({
+      content: [{ type: 'tool_use' as const, id: 'x', name: 'foo', input: {} }],
+      stop_reason: 'tool_use' as const,
+    }));
+    const llm = makeMalformedSequenceLLM(responses);
+    await expect(runAgent({
+      messages: [], systemPrompt: '', llm, tools: [],
+      executor: makeExecutor({}),
+      registry: makeRegistry({ foo: { readonly: false } }),
+      ctx: makeCtx(),
+      maxConsecutiveParseErrors: 1,
+    })).rejects.toThrow(ConsecutiveParseErrorsExceededError);
+  });
+
+  it('should fallback to constants.ts default when caller does not inject parse error threshold', async () => {
+    const responses = Array(MAX_CONSECUTIVE_PARSE_ERRORS).fill(null).map(() => ({
+      content: [{ type: 'tool_use' as const, id: 'x', name: 'foo', input: {} }],
+      stop_reason: 'tool_use' as const,
+    }));
+    const llm = makeMalformedSequenceLLM(responses);
+    await expect(runAgent({
+      messages: [], systemPrompt: '', llm, tools: [],
+      executor: makeExecutor({}),
+      registry: makeRegistry({ foo: { readonly: false } }),
+      ctx: makeCtx(),
+    })).rejects.toThrow(/工具输入 JSON 连续解析失败/);
+  });
+
+  it('should respect caller-injected maxConsecutiveMaxTokensToolUse', async () => {
+    // 注入 = 1 / 第 1 次 max_tokens_tool_use 即抛
+    const responses = Array(1).fill(null).map(() => ({
+      content: [{ type: 'tool_use' as const, id: 'x', name: 'foo', input: {} }],
+      stop_reason: 'max_tokens' as const,
+    }));
+    const llm = makeMockLLM(responses);
+    await expect(runAgent({
+      messages: [], systemPrompt: '', llm, tools: [],
+      executor: makeExecutor({}),
+      registry: makeRegistry({ foo: { readonly: false } }),
+      ctx: makeCtx(),
+      maxConsecutiveMaxTokensToolUse: 1,
+    })).rejects.toThrow(ConsecutiveMaxTokensToolUseError);
+  });
+
+  it('should fallback to constants.ts default when caller does not inject maxTokensToolUse threshold', async () => {
+    const responses = Array(MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE).fill(null).map(() => ({
+      content: [{ type: 'tool_use' as const, id: 'x', name: 'foo', input: {} }],
+      stop_reason: 'max_tokens' as const,
+    }));
+    const llm = makeMockLLM(responses);
+    await expect(runAgent({
+      messages: [], systemPrompt: '', llm, tools: [],
+      executor: makeExecutor({}),
+      registry: makeRegistry({ foo: { readonly: false } }),
+      ctx: makeCtx(),
+    })).rejects.toThrow(/max_tokens 截断 tool_use/);
   });
 });

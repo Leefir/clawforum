@@ -38,6 +38,8 @@ export interface SubAgentOptions {
   toolsForLLM?: ToolDefinition[];  // Pre-filtered tool list for LLM, overrides registry.getAll()
   idleTimeoutMs?: number;
   onIdleTimeout?: () => void;
+  maxConsecutiveParseErrors?: number;
+  maxConsecutiveMaxTokensToolUse?: number;
   systemPrompt?: string;                    // 替换 run() 里硬编码的默认 system prompt
   callerType?: CallerType;  // 默认 'subagent'
   taskSystem?: TaskScheduler;               // dispatch tool addTaskResultHandler 路径需要；透传至 ToolExecutor / ExecContext。phase163 起不再供调度用途。
@@ -56,6 +58,8 @@ export class SubAgent {
   private registry: ToolRegistryImpl;
   private fs: FileSystem;
   private maxSteps: number;
+  private maxConsecutiveParseErrors?: number;
+  private maxConsecutiveMaxTokensToolUse?: number;
   private timeoutMs: number;
   private signal?: AbortSignal;
   private logPath: string;
@@ -80,6 +84,8 @@ export class SubAgent {
     this.registry = options.registry;
     this.fs = options.fs;
     this.maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
+    this.maxConsecutiveParseErrors = options.maxConsecutiveParseErrors;
+    this.maxConsecutiveMaxTokensToolUse = options.maxConsecutiveMaxTokensToolUse;
     this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
     this.logPath = `tasks/results/${this.agentId}/daemon.log`;
@@ -254,6 +260,8 @@ export class SubAgent {
             originClawId: this.originClawId,
           }),
           maxSteps: this.maxSteps,
+          maxConsecutiveParseErrors: this.maxConsecutiveParseErrors,
+          maxConsecutiveMaxTokensToolUse: this.maxConsecutiveMaxTokensToolUse,
           registry: this.registry,  // Enable parallel execution for readonly tools
           tools,                    // Enable native tool_use
           onLLMResult: (info) => {

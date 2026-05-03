@@ -9,7 +9,6 @@
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { LLMService } from '../../foundation/llm/index.js';
 import type { IToolExecutor, ExecContext, ToolRegistry } from '../tools/executor.js';
-import type { SessionManager } from '../../foundation/session-store/index.js';
 import { executeStep, type StepCallbacks, type StepMeta } from './step-executor.js';
 import { throwAbortError } from './abort-helpers.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../../types/errors.js';
@@ -24,9 +23,9 @@ export interface AgentInput {
   registry?: ToolRegistry;
   ctx: ExecContext;
 
-  sessionStore?: SessionManager;       // 可选：未提供则跳过落盘
-
-  maxSteps?: number;                   // 默认 20
+  maxSteps?: number;                              // 默认 20
+  maxConsecutiveParseErrors?: number;             // 默认 constants.ts MAX_CONSECUTIVE_PARSE_ERRORS (=3)
+  maxConsecutiveMaxTokensToolUse?: number;        // 默认 constants.ts MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE (=3)
   maxTokens?: number;                  // 透传给 executeStep
   idleTimeoutMs?: number;              // 透传给 StepInput
   stepCallbacks?: StepCallbacks;
@@ -42,12 +41,13 @@ export interface AgentResult {
 export async function runAgent(input: AgentInput): Promise<AgentResult> {
   const {
     messages, systemPrompt, llm, tools, executor, registry, ctx,
-    sessionStore,
     maxTokens,
     stepCallbacks,
     onAfterStep,
   } = input;
   const maxSteps = input.maxSteps ?? 20;
+  const maxConsecutiveParseErrors = input.maxConsecutiveParseErrors ?? MAX_CONSECUTIVE_PARSE_ERRORS;
+  const maxConsecutiveMaxTokensToolUse = input.maxConsecutiveMaxTokensToolUse ?? MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE;
 
   let stepCount = 0;
   let consecutiveParseErrors = 0;
@@ -73,19 +73,14 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     }
 
     if (result.kind === 'continue') {
-      // 1. 落盘
-      if (sessionStore) {
-        await sessionStore.save(messages);
-      }
-
-      // 2. 步进
+      // 1. 步进（落盘归 caller 经 onStepComplete callback / phase409 align M#1+M#3）
       ctx.incrementStep();
       stepCount = ctx.stepNumber;
 
-      // 3. 熔断判定（parse errors）
+      // 2. 熔断判定（parse errors）
       if (result.meta.allParseErrors) {
         consecutiveParseErrors++;
-        if (consecutiveParseErrors >= MAX_CONSECUTIVE_PARSE_ERRORS) {
+        if (consecutiveParseErrors >= maxConsecutiveParseErrors) {
           // 从最近一条 assistant 消息的 tool_use blocks 提取工具名（为错误消息保留上下文）
           const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
           const toolNames = Array.isArray(lastAssistant?.content)
@@ -94,14 +89,14 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
                 .map(b => b.name)
                 .join(', ')
             : '';
-          throw new ConsecutiveParseErrorsExceededError(MAX_CONSECUTIVE_PARSE_ERRORS, toolNames);
+          throw new ConsecutiveParseErrorsExceededError(maxConsecutiveParseErrors, toolNames);
         }
       } else {
         consecutiveParseErrors = 0;
       }
       consecutiveMaxTokensToolUse = 0;
 
-      // 4. onAfterStep（save 之后、熔断检查之后）
+      // 3. onAfterStep（步进之后、熔断检查之后）
       if (onAfterStep) {
         await onAfterStep(result.meta);
       }
@@ -111,10 +106,10 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
 
     if (result.kind === 'max_tokens_tool_use') {
       consecutiveMaxTokensToolUse++;
-      if (consecutiveMaxTokensToolUse >= MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE) {
-        throw new ConsecutiveMaxTokensToolUseError(MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE);
+      if (consecutiveMaxTokensToolUse >= maxConsecutiveMaxTokensToolUse) {
+        throw new ConsecutiveMaxTokensToolUseError(maxConsecutiveMaxTokensToolUse);
       }
-      // 不 stepCount++、不 save、不 onAfterStep
+      // 不 stepCount++、不 onAfterStep
       continue;
     }
 
