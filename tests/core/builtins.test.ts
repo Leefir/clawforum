@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 
 import { readTool, writeTool, lsTool, searchTool, statusTool, sendTool } from '../../src/core/tools/builtins/index.js';
 import { memorySearchTool } from '../../src/core/memory/tools/memory_search.js';
-import { execTool } from '../../src/core/shell-tool/index.js';
+import { execTool } from '../../src/core/command-tool/index.js';
 import { spawnTool } from '../../src/core/task/tools/spawn.js';
 import { ExecContextImpl } from '../../src/core/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';

@@ -28,7 +28,7 @@ import type { TaskSystem } from '../core/task/system.js';
 import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
 import { ExecContextImpl } from '../core/tools/context.js';
 import { registerBuiltinTools } from '../core/tools/builtins/index.js';
-import { createShellTools } from '../core/shell-tool/index.js';
+import { createCommandTools } from '../core/command-tool/index.js';
 import { spawnTool } from '../core/task/tools/spawn.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { createInboxReader, createOutboxWriter, notifyInbox } from '../foundation/messaging/index.js';
@@ -173,9 +173,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     registerBuiltinTools(toolRegistry);
     toolRegistry.register(spawnTool);
 
-    // phase378 后 exec 业务归 ShellTool L2 / 不再经 registerBuiltinTools / Assembly 显式注册
-    const shellTools = createShellTools();
-    toolRegistry.register(shellTools.exec);
+    // phase378 后 exec 业务归 CommandTool L2 / 不再经 registerBuiltinTools / Assembly 显式注册
+    const commandTools = createCommandTools();
+    toolRegistry.register(commandTools.exec);
   } catch (e) {
     auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=tool_registry`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: ToolRegistry construct failed: ${errMsg(e)}`, { cause: e });
