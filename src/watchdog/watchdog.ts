@@ -8,12 +8,9 @@
  * Watchdog 守护进程 — 每 30s 检查 motion 存活 / 内建简易 cron。
  */
 
-import * as fs from 'fs';
-import { existsSync } from 'fs';
 import * as path from 'path';
-import { spawn, spawnSync } from 'child_process';
+import { spawnDetached } from '../foundation/process-exec/spawn-detached.js';
 import { fileURLToPath } from 'url';
-import type { SpawnOptions } from '../foundation/process-manager/index.js';
 import { setTimeout } from 'timers/promises';
 import { getMotionDir, loadGlobalConfig } from '../foundation/config/index.js';
 import { ProcessManager } from '../foundation/process-manager/index.js';
@@ -40,9 +37,13 @@ function getClawforumDir(): string {
 export function getWatchdogEntryPath(): string {
   const thisDir = path.dirname(fileURLToPath(import.meta.url));
   const bundleEntry = path.join(thisDir, 'watchdog-entry.js');
-  return existsSync(bundleEntry)
+  const fallbackEntry = path.resolve(thisDir, '..', '..', 'dist', 'watchdog-entry.js');
+  const projectRoot = path.resolve(thisDir, '..', '..');
+  const fsProj = new NodeFileSystem({ baseDir: projectRoot });
+  const relBundle = path.relative(projectRoot, bundleEntry);
+  return fsProj.existsSync(relBundle)
     ? bundleEntry
-    : path.resolve(thisDir, '..', '..', 'dist', 'watchdog-entry.js');
+    : fallbackEntry;
 }
 
 // PID file path
@@ -69,12 +70,14 @@ function getMotionContext(): { fs: FileSystem; audit: AuditWriter } {
 // Watchdog PID management
 function writeWatchdogPid(pid: number): void {
   const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
-  fs.writeFileSync(getWatchdogPidFile(), JSON.stringify({ pid, root }), 'utf-8');
+  const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+  fs.writeAtomicSync('watchdog.pid', JSON.stringify({ pid, root }));
 }
 
 function removeWatchdogPid(): void {
   try {
-    fs.unlinkSync(getWatchdogPidFile());
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    fs.deleteSync('watchdog.pid');
   } catch {
     // ignore
   }
@@ -103,7 +106,8 @@ export function shutdownWatchdog(
 
 export function getWatchdogPid(): number | null {
   try {
-    const content = fs.readFileSync(getWatchdogPidFile(), 'utf-8');
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    const content = fs.readSync('watchdog.pid');
     const parsed = JSON.parse(content);
     return typeof parsed.pid === 'number' ? parsed.pid : null;
   } catch {
@@ -113,7 +117,8 @@ export function getWatchdogPid(): number | null {
 
 export function isWatchdogAlive(): boolean {
   try {
-    const content = fs.readFileSync(getWatchdogPidFile(), 'utf-8');
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    const content = fs.readSync('watchdog.pid');
     const { pid, root } = JSON.parse(content);
     if (typeof pid !== 'number') return false;
     const currentRoot = process.env.CLAWFORUM_ROOT ?? process.cwd();
@@ -136,9 +141,9 @@ function log(message: string): void {
   console.log(logLine.trim());
 
   try {
-    const logDir = path.join(getClawforumDir(), LOGS_DIR);
-    fs.mkdirSync(logDir, { recursive: true });
-    fs.appendFileSync(path.join(logDir, 'watchdog.log'), logLine, 'utf-8');
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    fs.ensureDirSync(LOGS_DIR);
+    fs.appendSync(path.join(LOGS_DIR, 'watchdog.log'), logLine);
   } catch {
     // Fallback: already output to stdout above
   }
@@ -188,7 +193,8 @@ function getWatchdogStateFile(): string {
 
 export function loadWatchdogState(): void {
   try {
-    const raw = fs.readFileSync(getWatchdogStateFile(), 'utf-8');
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    const raw = fs.readSync('watchdog-state.json');
     const state = JSON.parse(raw) as WatchdogState;
     // version ?? 0 — 旧文件无 version 字段，视为 v0，兼容加载
     for (const [k, v] of Object.entries(state.lastInactivityNotified ?? {})) {
@@ -203,11 +209,12 @@ export function loadWatchdogState(): void {
       return;
     }
     // 文件损坏（SyntaxError / 字段类型错等）
-    const backupPath = getWatchdogStateFile() + `.corrupt-${Date.now()}`;
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    const backupPath = `watchdog-state.json.corrupt-${Date.now()}`;
     try {
-      fs.renameSync(getWatchdogStateFile(), backupPath);
+      fs.moveSync('watchdog-state.json', backupPath);
     } catch {
-      // rename 失败不重试
+      // move 失败不重试
     }
     _auditWriter?.write(
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
@@ -222,11 +229,8 @@ export function saveWatchdogState(): void {
     lastInactivityNotified: Object.fromEntries(lastInactivityNotified),
     inactivityNotifyCount: Object.fromEntries(inactivityNotifyCount),
   };
-  const dest = getWatchdogStateFile();
-  const tmp = dest + `.tmp-${process.pid}`;
-  // POSIX: renameSync is atomic; on Windows this is best-effort
-  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
-  fs.renameSync(tmp, dest);
+  const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+  fs.writeAtomicSync('watchdog-state.json', JSON.stringify(state, null, 2));
 }
 
 // Global config (loaded lazily on first access)
@@ -252,17 +256,12 @@ export function writeWatchdogCrash(err: Error): void {
 // Check for claws with an active contract but no progress for a long time, and send a reminder
 export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditWriter): Promise<void> {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
-  const clawsDir = path.join(getClawforumDir(), 'claws');
-  if (!fs.existsSync(clawsDir)) return;
+  const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+  if (!fs.existsSync('claws')) return;
 
   // 清理已不存在的 claw 的 Map 条目
-  const existingClawIds = new Set(fs.readdirSync(clawsDir).filter(id => {
-    try {
-      return fs.statSync(path.join(clawsDir, id)).isDirectory();
-    } catch {
-      return false;
-    }
-  }));
+  const clawEntries = fs.listSync('claws', { includeDirs: true });
+  const existingClawIds = new Set(clawEntries.filter(entry => entry.isDirectory).map(entry => entry.name));
   audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_SCAN, `ctx=inactivity present=${[...existingClawIds].join(',')}`);
   for (const id of lastInactivityNotified.keys()) {
     if (!existingClawIds.has(id)) {
@@ -272,9 +271,9 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditWr
   }
 
   const now = Date.now();
-  for (const clawId of fs.readdirSync(clawsDir)) {
+  for (const clawId of clawEntries.map(e => e.name)) {
     try {
-      const clawDir = path.join(clawsDir, clawId);
+      const clawDir = path.join(getClawforumDir(), 'claws', clawId);
 
       // Has an active contract?
       if (!clawHasContract(clawDir)) continue;
@@ -335,17 +334,12 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditWr
 
 // Detect claw process crashes and notify motion
 export function maybeCronClawCrash(pm: ProcessManager, audit: AuditWriter): void {
-  const clawsDir = path.join(getClawforumDir(), 'claws');
-  if (!fs.existsSync(clawsDir)) return;
+  const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+  if (!fs.existsSync('claws')) return;
 
   // 清理已不存在的 claw 的 Map 条目
-  const existingClawIds = new Set(fs.readdirSync(clawsDir).filter(id => {
-    try {
-      return fs.statSync(path.join(clawsDir, id)).isDirectory();
-    } catch {
-      return false;
-    }
-  }));
+  const clawEntries = fs.listSync('claws', { includeDirs: true });
+  const existingClawIds = new Set(clawEntries.filter(entry => entry.isDirectory).map(entry => entry.name));
   audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_SCAN, `ctx=crash present=${[...existingClawIds].join(',')}`);
   for (const id of clawPreviouslyAlive.keys()) {
     if (!existingClawIds.has(id)) {
@@ -353,8 +347,8 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditWriter): void
     }
   }
 
-  for (const clawId of fs.readdirSync(clawsDir)) {
-    const clawDir = path.join(clawsDir, clawId);
+  for (const clawId of clawEntries.map(e => e.name)) {
+    const clawDir = path.join(getClawforumDir(), 'claws', clawId);
     const currentlyAlive = pm.isAlive(clawId);
     const wasAlive = clawPreviouslyAlive.get(clawId);
 
@@ -436,16 +430,12 @@ export async function runWatchdogLoop(): Promise<void> {
     const aliveIds: string[] = [];
     const presentClawIds: string[] = [];
     if (status.alive) aliveIds.push('motion');
-    const clawsBaseDir = path.join(getClawforumDir(), 'claws');
-    if (existsSync(clawsBaseDir)) {
-      for (const id of fs.readdirSync(clawsBaseDir)) {
-        try {
-          if (fs.statSync(path.join(clawsBaseDir, id)).isDirectory()) {
-            presentClawIds.push(id);
-            if (pm.isAlive(id)) aliveIds.push(id);
-          }
-        } catch {
-          // ignore
+    const fs = new NodeFileSystem({ baseDir: getClawforumDir() });
+    if (fs.existsSync('claws')) {
+      for (const entry of fs.listSync('claws', { includeDirs: true })) {
+        if (entry.isDirectory) {
+          presentClawIds.push(entry.name);
+          if (pm.isAlive(entry.name)) aliveIds.push(entry.name);
         }
       }
     }
@@ -463,7 +453,10 @@ export async function runWatchdogLoop(): Promise<void> {
         });
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
         const bundleEntry = path.join(thisDir, 'daemon-entry.js');
-        const daemonEntryPath = fs.existsSync(bundleEntry) ? bundleEntry : path.resolve(thisDir, '..', 'daemon-entry.js');
+        const projectRoot = path.resolve(thisDir, '..', '..');
+        const fsProj = new NodeFileSystem({ baseDir: projectRoot });
+        const relBundle = path.relative(projectRoot, bundleEntry);
+        const daemonEntryPath = fsProj.existsSync(relBundle) ? bundleEntry : path.resolve(thisDir, '..', 'daemon-entry.js');
         const clawforumDir = getClawforumDir();
         const pid = await pm.spawn('motion', {
           command: 'node',
@@ -515,12 +508,9 @@ export async function startCommand(): Promise<void> {
 
   // spawn watchdog，显式传 CLAWFORUM_ROOT
   const clawforumRoot = process.env.CLAWFORUM_ROOT ?? process.cwd();
-  const proc = spawn('node', [watchdogEntryPath], {
-    detached: true,
-    stdio: 'ignore',
+  spawnDetached('node', [watchdogEntryPath], {
     env: { ...process.env, CLAWFORUM_ROOT: clawforumRoot },
   });
-  proc.unref();
 
   // 等待 PID 文件写入
   let attempts = 0;

@@ -12,8 +12,8 @@
  * Watchdog utility functions — extracted for testability
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
+import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import { readAll, STREAM_FILE } from '../foundation/stream/index.js';
@@ -65,10 +65,11 @@ export async function getClawActivityInfo(
 
 // Check if a claw has an active or paused contract
 export function clawHasContract(clawDir: string): boolean {
+  const fs = new NodeFileSystem({ baseDir: clawDir });
   for (const sub of ['active', 'paused']) {
     try {
-      const entries = fs.readdirSync(path.join(clawDir, CONTRACT_DIR, sub), { withFileTypes: true });
-      if (entries.some(e => e.isDirectory())) return true;
+      const entries = fs.listSync(path.join(CONTRACT_DIR, sub), { includeDirs: true });
+      if (entries.some(e => e.isDirectory)) return true;
     } catch { /* skip */ }
   }
   return false;
@@ -91,20 +92,21 @@ export interface ProcessLiveness {
 export function gatherClawSnapshot(clawDir: string, pm: ProcessLiveness, clawId: string): ClawSnapshot {
   const status = pm.isAlive(clawId) ? 'running' : 'stopped';
 
+  const fs = new NodeFileSystem({ baseDir: clawDir });
   let contract = 'none';
   for (const sub of ['active', 'paused']) {
     try {
-      const entries = fs.readdirSync(path.join(clawDir, CONTRACT_DIR, sub), { withFileTypes: true });
-      const dir = entries.find(e => e.isDirectory());
+      const entries = fs.listSync(path.join(CONTRACT_DIR, sub), { includeDirs: true });
+      const dir = entries.find(e => e.isDirectory);
       if (dir) { contract = `${sub}:${dir.name}`; break; }
     } catch { /* skip */ }
   }
 
   const countMd = (dir: string) => {
-    try { return fs.readdirSync(dir).filter(f => f.endsWith('.md')).length; } catch { return 0; }
+    try { return fs.listSync(dir).filter(f => f.name.endsWith('.md')).length; } catch { return 0; }
   };
-  const inboxPending = countMd(path.join(clawDir, 'inbox', 'pending'));
-  const outboxPending = countMd(path.join(clawDir, 'outbox', 'pending'));
+  const inboxPending = countMd(path.join('inbox', 'pending'));
+  const outboxPending = countMd(path.join('outbox', 'pending'));
 
   return { status, contract, inboxPending, outboxPending };
 }

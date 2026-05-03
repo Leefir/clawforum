@@ -34,7 +34,12 @@ vi.mock('../../src/watchdog/watchdog-utils.js', async (importOriginal) => {
   };
 });
 
-// Mock child_process (startCommand uses spawn)
+// Mock spawnDetached (startCommand uses spawnDetached from L1 ProcessExec)
+vi.mock('../../src/foundation/process-exec/spawn-detached.js', () => ({
+  spawnDetached: vi.fn().mockReturnValue({ pid: 12345 }),
+}));
+
+// Mock child_process (keep for any other indirect usage)
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
   return {
@@ -78,7 +83,7 @@ import {
 import { getMotionDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { clawHasContract, gatherClawSnapshot } from '../../src/watchdog/watchdog-utils.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
-import { spawn } from 'child_process';
+import { spawnDetached } from '../../src/foundation/process-exec/spawn-detached.js';
 import { setTimeout as setTimeoutP } from 'timers/promises';
 import { createProcessManagerForCLI } from '../../src/foundation/config/factories.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
@@ -276,14 +281,14 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
   it('writes save_failed to audit and exits with code 1 when saveWatchdogState fails', () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
 
+    // Make watchdog-state.json a directory so atomic rename fails (EISDIR) while audit remains writable
     const stateFile = path.join(tmpDir, '.clawforum', 'watchdog-state.json');
-    fs.writeFileSync(stateFile, '{}');
-    // 原子写先写 .tmp-<pid> 再 rename；预建只读 tmp 文件使 writeFileSync 失败
-    const tmpFile = stateFile + `.tmp-${process.pid}`;
-    fs.writeFileSync(tmpFile, '');
-    fs.chmodSync(tmpFile, 0o444);
+    fs.rmSync(stateFile, { force: true });
+    fs.mkdirSync(stateFile);
 
     expect(() => shutdownWatchdog(auditWriter, 'SIGTERM')).toThrow('exit');
+
+    fs.rmdirSync(stateFile);
 
     const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
     const auditLines = fs.readFileSync(auditPath, 'utf-8');
@@ -293,9 +298,6 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
 
     exitSpy.mockRestore();
-    fs.chmodSync(stateFile, 0o644);
-    fs.chmodSync(tmpFile, 0o644);
-    fs.unlinkSync(tmpFile);
   });
 });
 
@@ -393,7 +395,7 @@ describe('startCommand', () => {
     const clawforumDir = path.join(tmpDir, '.clawforum');
     fs.mkdirSync(clawforumDir, { recursive: true });
     vi.mocked(getMotionDir).mockReturnValue(path.join(clawforumDir, 'motion'));
-    vi.mocked(spawn).mockReturnValue({ unref: vi.fn() } as any);
+    vi.mocked(spawnDetached).mockReturnValue({ pid: 12345 });
   });
 
   afterEach(() => {
@@ -410,7 +412,7 @@ describe('startCommand', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await startCommand();
 
-    expect(spawn).not.toHaveBeenCalled();
+    expect(spawnDetached).not.toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('already running'));
     logSpy.mockRestore();
     vi.restoreAllMocks();
@@ -420,10 +422,10 @@ describe('startCommand', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await startCommand();
 
-    expect(spawn).toHaveBeenCalledWith(
+    expect(spawnDetached).toHaveBeenCalledWith(
       'node',
       expect.arrayContaining([expect.stringContaining('watchdog-entry')]),
-      expect.objectContaining({ detached: true, stdio: 'ignore' }),
+      expect.objectContaining({ env: expect.any(Object) }),
     );
     logSpy.mockRestore();
   });
