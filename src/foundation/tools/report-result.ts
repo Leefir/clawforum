@@ -14,7 +14,7 @@
  * Currently used by contract LLM acceptance verifiers.
  */
 
-import type { Tool, ToolResult, ExecContext } from './executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 
 export interface ReportResultPayload {
   passed: boolean;

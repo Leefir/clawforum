@@ -5,8 +5,8 @@ import { AuditWriter, createAuditWriter } from '../../foundation/audit/index.js'
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
 import { STREAM_FILE } from '../../foundation/stream/types.js';
-import type { CallerType } from '../../foundation/tools/caller-type.js';
-import { callerTypeToProfile } from '../../foundation/tools/caller-type.js';
+import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
+import { callerTypeToProfile } from '../../foundation/tool-protocol/caller-type.js';
 import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
 import { createSubAgent } from '../subagent/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';

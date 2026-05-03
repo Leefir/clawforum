@@ -10,7 +10,7 @@
 
 import * as nodePath from 'path';
 import * as fsNative from 'fs';
-import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from '../../constants.js';
 import { createClawPermissionChecker } from '../../core/permissions/claw-permissions.js';
 import type { PermissionChecker } from '../../core/permissions/claw-permissions.js';

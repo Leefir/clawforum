@@ -1,4 +1,4 @@
-import type { Tool, ToolResult, ExecContext } from '../../../foundation/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-protocol/index.js';
 import type { TaskSystem } from '../system.js';
 import type { Message, ToolDefinition } from '../../../types/message.js';
 import { createSkillSystem } from '../../../foundation/skill-system/index.js';
@@ -7,7 +7,7 @@ import { ToolRegistryImpl } from '../../../foundation/tools/registry.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import { buildDescribingUserMessage, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { AskMotionTool } from './ask-motion.js';
-import { isDispatchCaller } from '../../../foundation/tools/caller-type.js';
+import { isDispatchCaller } from '../../../foundation/tool-protocol/caller-type.js';
 import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
 import { DISPATCH_AUDIT_EVENTS } from './dispatch-audit-events.js';
 

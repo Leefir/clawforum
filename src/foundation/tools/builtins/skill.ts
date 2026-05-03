@@ -5,7 +5,7 @@
  * Loaded on-demand when this tool is called.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../tool-protocol/index.js';
 import { createSkillSystem, type SkillSystem } from '../../skill-system/index.js';
 
 /**

@@ -12,7 +12,8 @@
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock, LLMResponse, ToolDefinition } from '../../types/message.js';
 import type { LLMOrchestrator, LLMCallOptions } from '../../foundation/llm-orchestrator/index.js';
 import type { StreamChunk } from '../../foundation/llm-orchestrator/index.js';
-import type { IToolExecutor, ExecContext, ToolResult, ToolRegistry } from '../../foundation/tools/executor.js';
+import type { ExecContext, ToolResult } from '../../foundation/tool-protocol/index.js';
+import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/executor.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
 import { throwAbortError } from './abort-helpers.js';

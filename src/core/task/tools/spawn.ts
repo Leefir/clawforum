@@ -5,7 +5,7 @@
  * Results are delivered via inbox message when the subagent completes.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../../../foundation/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-protocol/index.js';
 
 import { SPAWN_DEFAULT_TIMEOUT_S, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../../constants.js';
 import type { Message } from '../../../types/message.js';

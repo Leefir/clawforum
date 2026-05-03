@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sendTool } from '../../../src/foundation/tools/builtins/send.js';
-import type { ExecContext } from '../../../src/foundation/tools/executor.js';
+import type { ExecContext } from '../../../src/foundation/tool-protocol/index.js';
 import type { OutboxWriter } from '../../../src/foundation/messaging/index.js';
 
 function createMockCtx(): ExecContext {

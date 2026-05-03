@@ -12,7 +12,7 @@ import { INBOX_PENDING_DIR, TASKS_RUNNING_DIR, TASKS_DONE_DIR } from '../../src/
 import { TaskSystem, SubAgentTask, ToolTask } from '../../src/core/task/system.js';
 import { ToolExecutorImpl, ExecuteOptions } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
-import { Tool, ToolResult, ExecContext } from '../../src/foundation/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../src/foundation/tool-protocol/index.js';
 import type { JSONSchema7 } from '../../src/types/message.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';

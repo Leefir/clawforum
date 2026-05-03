@@ -7,7 +7,7 @@
  * - MEMORY.md size, clawspace file count
  */
 
-import type { Tool, ToolResult, ExecContext } from '../executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../tool-protocol/index.js';
 import type { ContractStatusPort } from './status-port.js';
 import { TASKS_PENDING_DIR, TASKS_RUNNING_DIR } from '../../../types/paths.js';
 import { STATUS_AUDIT_EVENTS } from './status-audit-events.js';

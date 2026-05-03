@@ -22,8 +22,8 @@ import type { Message } from '../../types/message.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUBAGENT_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './audit-events.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
-import type { CallerType } from '../../foundation/tools/caller-type.js';
-import { callerTypeToProfile } from '../../foundation/tools/caller-type.js';
+import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
+import { callerTypeToProfile } from '../../foundation/tool-protocol/caller-type.js';
 
 export interface SubAgentOptions {
   agentId: string;

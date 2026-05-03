@@ -27,15 +27,9 @@ export { ExecContextImpl } from './context.js';
 // Profiles
 export { TOOL_PROFILES } from './profiles.js';
 
-// Types (from executor.ts - Phase 0 interfaces)
-export type {
-  ToolResult,
-  ExecContext,
-  Tool,
-  ToolRegistry,
-  IToolExecutor,
-  ExecuteOptions,
-} from './executor.js';
+// Types (from tool-protocol - Phase 435)
+export type { ToolResult, ExecContext, Tool } from '../tool-protocol/index.js';
+export type { ToolRegistry, IToolExecutor, ExecuteOptions } from './executor.js';
 
 export type { ExecContextImplOptions } from './context.js';
 

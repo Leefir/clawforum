@@ -11,13 +11,13 @@
 import type { FileSystem } from '../fs/types.js';
 import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { ToolProfile } from '../../types/config.js';
-import type { ExecContext } from './executor.js';
+import type { ExecContext } from '../tool-protocol/index.js';
 import { MOTION_CLAW_ID, DEFAULT_MAX_STEPS } from '../../constants.js';
 
 
 import type { Message } from '../../types/message.js';
 import type { AuditLog } from '../audit/index.js';
-import type { CallerType } from './caller-type.js';
+import type { CallerType } from '../tool-protocol/caller-type.js';
 
 /**
  * Options for creating execution context

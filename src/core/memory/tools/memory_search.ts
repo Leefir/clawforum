@@ -2,7 +2,7 @@
  * memory_search tool - Search in memory directory with metadata filtering
  */
 
-import type { Tool, ToolResult, ExecContext } from '../../../foundation/tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-protocol/index.js';
 import type { FileEntry } from '../../../foundation/fs/types.js';
 import { parseFrontmatter } from '../../../foundation/frontmatter/index.js';
 

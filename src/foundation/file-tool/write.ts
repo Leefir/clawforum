@@ -9,7 +9,7 @@
  */
 
 import * as path from 'path';
-import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import { WRITE_SIZE_LIMITS, WRITE_VERSION_RETENTION } from '../../constants.js';
 import { createClawPermissionChecker } from '../../core/permissions/claw-permissions.js';
 import type { PermissionChecker } from '../../core/permissions/claw-permissions.js';

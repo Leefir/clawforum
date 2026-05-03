@@ -8,7 +8,8 @@
 
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { IToolExecutor, ExecContext, ToolRegistry } from '../../foundation/tools/executor.js';
+import type { ExecContext } from '../../foundation/tool-protocol/index.js';
+import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/executor.js';
 import { executeStep, type StepCallbacks, type StepMeta } from './step-executor.js';
 import { throwAbortError } from './abort-helpers.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../../types/errors.js';

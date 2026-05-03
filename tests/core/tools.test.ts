@@ -12,7 +12,7 @@ import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { TOOL_PROFILES } from '../../src/foundation/tools/profiles.js';
-import type { Tool, ToolResult } from '../../src/foundation/tools/executor.js';
+import type { Tool, ToolResult } from '../../src/foundation/tool-protocol/index.js';
 import type { FileSystem } from '../../src/foundation/fs/types.js';
 import {
   ToolNotFoundError,

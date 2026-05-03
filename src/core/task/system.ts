@@ -14,9 +14,9 @@ import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
 import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
 import { registerBuiltinTools } from '../../foundation/tools/builtins/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { CallerType } from '../../foundation/tools/caller-type.js';
+import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 
-import type { ToolResult, Tool } from '../../foundation/tools/executor.js';
+import type { ToolResult, Tool } from '../../foundation/tool-protocol/index.js';
 import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractSystem } from '../contract/manager.js';
@@ -478,7 +478,7 @@ export class TaskSystem {
     return writePendingSubagentTaskFile(this.fs, motionAudit, taskInfo);
   }
 
-  private buildToolTaskExecContext(task: ToolTask, signal: AbortSignal): import('../../foundation/tools/executor.js').ExecContext {
+  private buildToolTaskExecContext(task: ToolTask, signal: AbortSignal): import('../../foundation/tool-protocol/index.js').ExecContext {
     return {
       clawId: task.parentClawId,
       clawDir: task.parentClawDir,

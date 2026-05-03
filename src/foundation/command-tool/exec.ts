@@ -5,7 +5,7 @@
  * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  */
 
-import type { Tool, ToolResult, ExecContext } from '../tools/executor.js';
+import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import {
   EXEC_MAX_STDOUT,
   EXEC_MAX_STDERR,
