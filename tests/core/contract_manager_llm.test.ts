@@ -67,7 +67,7 @@ import { ToolRegistryImpl } from '../../src/core/tools/registry.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../src/core/contract/audit-events.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
-import type { ContractVerifierScheduler, VerifierConfig } from '../../src/core/contract/verifier-scheduler.js';
+
 import { DEFAULT_MAX_STEPS } from '../../src/constants.js';
 
 /**
@@ -868,60 +868,7 @@ describe('ContractSystem Acceptance Flow', () => {
   });
 });
 
-describe('ContractSystem — verifier scheduler port', () => {
-  it('delegates verifier execution to ContractVerifierScheduler port', async () => {
-    let capturedConfig: VerifierConfig | undefined;
-    const mockScheduler: ContractVerifierScheduler = {
-      async schedule(config) {
-        capturedConfig = config;
-        return { passed: true, feedback: '{"passed":true}', structured: { passed: true, reason: 'mock' } };
-      },
-    };
-
-    const rootDir = await createTempDir();
-    const clawDir = path.join(rootDir, 'claws', 'test-claw');
-    await fs.mkdir(clawDir, { recursive: true });
-    const nodeFs = new NodeFileSystem({ baseDir: clawDir });
-    const mockAudit = { write: vi.fn() };
-    const mockLLM = {
-      call: vi.fn(),
-      stream: vi.fn(),
-    } as unknown as LLMOrchestrator;
-    const manager = new ContractSystem(
-      clawDir, 'test-claw', nodeFs, mockAudit as any, mockLLM,
-      mockScheduler,
-    );
-
-    const contractId = 'port-test-contract';
-    const subtaskId = 'task-1';
-    await setupContract(clawDir, contractId, {
-      schema_version: 1,
-      title: 'Port Test',
-      goal: 'Test port delegation',
-      subtasks: [{ id: subtaskId, description: 'Verify port delegation' }],
-      acceptance: [{ subtask_id: subtaskId, type: 'llm', prompt_file: `acceptance/${subtaskId}.prompt.txt` }],
-    }, { [subtaskId]: 'todo' });
-    await fs.mkdir(path.join(clawDir, 'contract', 'active', contractId, 'acceptance'), { recursive: true });
-    await fs.writeFile(
-      path.join(clawDir, 'contract', 'active', contractId, 'acceptance', `${subtaskId}.prompt.txt`),
-      'Evidence: {{evidence}}',
-    );
-
-    await manager.completeSubtask({ contractId, subtaskId, evidence: 'done' });
-
-    // Poll for scheduler invocation (background acceptance is fire-and-forget)
-    const deadline = Date.now() + 3000;
-    while (!capturedConfig && Date.now() < deadline) {
-      await new Promise(r => setTimeout(r, 10));
-    }
-    expect(capturedConfig).toBeDefined();
-    expect(capturedConfig!.agentId).toBe(`verifier-${contractId}-${subtaskId}`);
-    expect(capturedConfig!.maxSteps).toBe(DEFAULT_MAX_STEPS);
-    expect(capturedConfig!.clawDir).toBe(clawDir);
-
-    await cleanupTempDir(rootDir);
-  });
-
+describe('ContractSystem — background acceptance error handling', () => {
   it('catches TypeError in fire-and-forget acceptance and emits UNEXPECTED_ASYNC_THROW audit', async () => {
     const auditEvents: Array<{ type: string; cols: string[] }> = [];
     const captureAudit = {

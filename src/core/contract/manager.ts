@@ -16,8 +16,10 @@ import { exec, execFile } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import type { ContractVerifierScheduler } from './verifier-scheduler.js';
-import { createSubAgentVerifierScheduler } from './verifier-scheduler.js';
+import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/index.js';
+import { ReportResultTool } from '../tools/report-result.js';
+import { ToolRegistryImpl } from '../tools/registry.js';
+import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 
 import { AuditWriter } from '../../foundation/audit/index.js';
 import type { Message } from '../../types/message.js';
@@ -86,13 +88,32 @@ export interface AcceptanceResult {
   structured?: { passed: boolean; reason: string; issues?: string[] };  // LLM 验收的结构化结果
 }
 
+/**
+ * Verifier scheduling config（移自 verifier-scheduler.ts / phase427 STALE 推翻 / inline）
+ */
+export interface VerifierConfig {
+  agentId: string;
+  prompt: string;
+  clawDir: string;
+  llm: LLMOrchestrator;
+  fs: FileSystem;
+  maxSteps: number;
+  idleTimeoutMs: number;
+  onIdleTimeout?: () => void;
+}
+
+export interface VerifierResult {
+  passed: boolean;
+  feedback: string;
+  structured?: { passed: boolean; reason: string; issues?: string[] };
+}
+
 export class ContractSystem {
   private fs: FileSystem;
   private clawDir: string;
   private readonly clawId: string;
   private readonly audit: AuditWriter;
   private llm?: LLMOrchestrator;
-  private verifierScheduler: ContractVerifierScheduler;
 
   private activeDir = 'contract/active';
   private pausedDir = 'contract/paused';
@@ -105,14 +126,12 @@ export class ContractSystem {
     fs: FileSystem,
     audit: AuditWriter,
     llm?: LLMOrchestrator,
-    verifierScheduler?: ContractVerifierScheduler,
   ) {
     this.clawDir = clawDir;
     this.clawId = clawId;
     this.fs = fs;
     this.audit = audit;
     this.llm = llm;
-    this.verifierScheduler = verifierScheduler ?? createSubAgentVerifierScheduler();
 
   }
 
@@ -1184,8 +1203,8 @@ export class ContractSystem {
         .replace(/\{\{artifacts\}\}/g, artifacts.join(', '))
         .replace(/\{\{subtask_description\}\}/g, subtaskDesc);
 
-      // Delegate to ContractVerifierScheduler port
-      const result = await this.verifierScheduler.schedule({
+      // phase427 inline (STALE port 推翻)
+      const result = await this._runVerifierSubagent({
         agentId: `verifier-${contractId}-${subtaskId}`,
         prompt: filledPrompt,
         clawDir: this.clawDir,
@@ -1202,6 +1221,68 @@ export class ContractSystem {
         },
       });
       return result;
+    } catch (err) {
+      if (err instanceof ToolTimeoutError) {
+        return { passed: false, feedback: '验收子代理超时' };
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      return { passed: false, feedback: `LLM 验收失败: ${msg}` };
+    }
+  }
+
+  /**
+   * Run verifier subagent (inlined from phase340 ContractVerifierScheduler port).
+   *
+   * phase427 STALE 推翻：原 port abstraction 是 design work-around / 真合规 = 同层
+   * directly compose createSubAgent + ReportResultTool / 0 抽象增益 / 行为 0 改。
+   *
+   * H6 异步化 (verifier 走 TaskSystem dispatch 通道) = 独立 design-gap (应然 silent
+   * on verifier sync vs async / acceptance state machine sync 反馈 可能合理业务) →
+   * 推 r+1 design 评估 / 不在本 phase 强行 mechanical 异步化。
+   */
+  private async _runVerifierSubagent(config: VerifierConfig): Promise<VerifierResult> {
+    try {
+      // Build registry: report_result tool only (internalized)
+      const reportTool = new ReportResultTool();
+      const registry = new ToolRegistryImpl();
+      registry.register(reportTool);
+
+      // Create SubAgent
+      const agent = createSubAgent({
+        agentId: config.agentId,
+        prompt: config.prompt,
+        clawDir: config.clawDir,
+        llm: config.llm,
+        registry,
+        fs: config.fs as any,
+        maxSteps: config.maxSteps,
+        idleTimeoutMs: config.idleTimeoutMs,
+        onIdleTimeout: config.onIdleTimeout,
+        systemPrompt: CONTRACT_VERIFIER_SYSTEM_PROMPT,
+        taskStreamWriter: new NoopStreamWriter(),
+        auditWriter: new NoopAuditWriter(),
+      });
+
+      // Run
+      const text = await agent.run();
+
+      // Prefer structured tool result
+      if (reportTool.capturedResult) {
+        return {
+          passed: reportTool.capturedResult.passed,
+          feedback: JSON.stringify(reportTool.capturedResult),
+          structured: reportTool.capturedResult,
+        };
+      }
+
+      // Fallback: text-based JSON parsing
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON — ${text}` };
+      }
+      const jsonStr = jsonMatch[1] || jsonMatch[0];
+      const result = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
+      return { passed: result.passed, feedback: jsonStr, structured: result };
     } catch (err) {
       if (err instanceof ToolTimeoutError) {
         return { passed: false, feedback: '验收子代理超时' };

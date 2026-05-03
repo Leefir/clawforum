@@ -22,7 +22,7 @@ import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/skill-paths.js';
 import { ContractSystem, createContractSystem } from '../core/contract/index.js';
 import { createEvolutionSystem } from '../core/evolution-system/index.js';
 import type { EvolutionSystem } from '../core/evolution-system/index.js';
-import { createSubAgentVerifierScheduler } from '../core/contract/verifier-scheduler.js';
+
 import { createTaskSystem } from '../core/task/index.js';
 import type { TaskSystem } from '../core/task/system.js';
 import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
@@ -201,7 +201,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   try {
     contractManager = createContractSystem(
       clawDir, clawId, systemFs, auditWriter, llm,
-      createSubAgentVerifierScheduler(),
     );
   } catch (e) {
     auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=contract_manager`, `phase=construct`, `reason=${errMsg(e)}`);

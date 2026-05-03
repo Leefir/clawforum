@@ -7,13 +7,12 @@ import { ContractSystem } from './manager.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
-import type { ContractVerifierScheduler } from './verifier-scheduler.js';
-
-
 export {
   ContractSystem,
   type ProgressData,
   type AcceptanceResult,
+  type VerifierConfig,
+  type VerifierResult,
 } from './manager.js';
 
 export { doneTool, DONE_TOOL_NAME } from './builtins/done.js';
@@ -32,7 +31,6 @@ export function createContractSystem(
   fs: FileSystem,
   audit: AuditWriter,
   llm?: LLMOrchestrator,
-  verifierScheduler?: ContractVerifierScheduler,
 ): ContractSystem {
-  return new ContractSystem(clawDir, clawId, fs, audit, llm, verifierScheduler);
+  return new ContractSystem(clawDir, clawId, fs, audit, llm);
 }
