@@ -1,6 +1,6 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { MEMORY_AUDIT_EVENTS } from './audit-events.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
@@ -68,20 +68,18 @@ function estimateTokens(text: string): number {
 
 // ─── Dream State I/O ─────────────────────────────────────────
 
-function statePath(clawDir: string): string {
-  return path.join(clawDir, '.deep-dream-state.json');
-}
+const DEEP_DREAM_STATE_FILE = '.deep-dream-state.json';
 
-function loadDreamState(clawDir: string): DreamStateData {
+function loadDreamState(clawFs: FileSystem): DreamStateData {
   try {
-    return JSON.parse(fs.readFileSync(statePath(clawDir), 'utf-8')) as DreamStateData;
+    return JSON.parse(clawFs.readSync(DEEP_DREAM_STATE_FILE)) as DreamStateData;
   } catch {
     return { processedArchives: [], currentSessionDreamedDate: '' };
   }
 }
 
-function saveDreamState(clawDir: string, state: DreamStateData): void {
-  fs.writeFileSync(statePath(clawDir), JSON.stringify(state, null, 2), 'utf-8');
+function saveDreamState(clawFs: FileSystem, state: DreamStateData): void {
+  clawFs.writeAtomicSync(DEEP_DREAM_STATE_FILE, JSON.stringify(state, null, 2));
 }
 
 // ─── 文件发现 ─────────────────────────────────────────────────
@@ -92,14 +90,15 @@ interface SessionFile {
   tsMs: number;           // 时间戳，用于排序
 }
 
-function discoverUnprocessed(clawDir: string, state: DreamStateData, today: string): SessionFile[] {
+function discoverUnprocessed(clawFs: FileSystem, state: DreamStateData, today: string): SessionFile[] {
   const processed = new Set(state.processedArchives);
   const files: SessionFile[] = [];
 
   // archive 文件（文件名: {tsMs}_{uuid8}.json）
-  const archiveDir = path.join(clawDir, DIALOG_DIR, 'archive');
-  if (fs.existsSync(archiveDir)) {
-    for (const name of fs.readdirSync(archiveDir)) {
+  const archiveDir = path.join(DIALOG_DIR, 'archive');
+  if (clawFs.existsSync(archiveDir)) {
+    for (const e of clawFs.listSync(archiveDir, { includeDirs: false })) {
+      const name = e.name;
       if (!name.endsWith('.json')) continue;
       if (processed.has(name)) continue;
       const tsMs = parseInt(name.split('_')[0], 10);
@@ -109,9 +108,9 @@ function discoverUnprocessed(clawDir: string, state: DreamStateData, today: stri
   }
 
   // current.json（当日未处理）
-  const currentPath = path.join(clawDir, DIALOG_DIR, 'current.json');
+  const currentPath = path.join(DIALOG_DIR, 'current.json');
   if (
-    fs.existsSync(currentPath) &&
+    clawFs.existsSync(currentPath) &&
     state.currentSessionDreamedDate !== today
   ) {
     files.push({ filename: 'current.json', filePath: currentPath, tsMs: Date.now() });
@@ -147,14 +146,14 @@ async function maybeMergeCompressions(
 async function runDeepDreamForClaw(
   clawId: string,
   clawDir: string,
+  clawFs: FileSystem,           // NEW
   llm: LLMOrchestrator,
   maxCompressionTokens: number,
-  fileSystem: FileSystem,
   audit: AuditLog,
 ): Promise<void> {
   const today = new Date().toLocaleDateString('sv');   // ← 统一在此计算
-  const state = loadDreamState(clawDir);
-  const sessionFiles = discoverUnprocessed(clawDir, state, today);  // ← 传入 today
+  const state = loadDreamState(clawFs);
+  const sessionFiles = discoverUnprocessed(clawFs, state, today);  // ← 传入 today
 
   if (sessionFiles.length === 0) {
     audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_JOB, `step=skip_empty`, `clawId=${clawId}`);
@@ -171,7 +170,7 @@ async function runDeepDreamForClaw(
     // 读取并序列化会话
     let sessionData: { messages: Message[] };
     try {
-      sessionData = JSON.parse(fs.readFileSync(sf.filePath, 'utf-8'));
+      sessionData = JSON.parse(clawFs.readSync(sf.filePath));
     } catch {
       console.warn(`[cron:deep-dream] ${clawId}: failed to read ${sf.filename}, skipping`);
       continue;
@@ -237,14 +236,14 @@ async function runDeepDreamForClaw(
         ? today
         : state.currentSessionDreamedDate,
     };
-    saveDreamState(clawDir, updatedState);
+    saveDreamState(clawFs, updatedState);
   }
 
   if (dreamOutputs.length === 0) return;
 
   // 投递到 claw inbox
-  const clawAudit = createSystemAudit(fileSystem, clawDir);
-  new InboxWriter(fileSystem, path.join(clawDir, 'inbox', 'pending'), clawAudit).writeSync({
+  const clawAudit = createSystemAudit(clawFs, clawDir);
+  new InboxWriter(clawFs, path.join('inbox', 'pending'), clawAudit).writeSync({
     type: 'deep_dream',
     source: 'cron:dream',
     priority: 'low',
@@ -261,12 +260,11 @@ async function runDeepDreamForClaw(
 
 export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
   const maxCompressionTokens = opts.maxCompressionTokens ?? 4000;
-  const clawsDir = path.join(opts.clawforumDir, 'claws');
-  if (!fs.existsSync(clawsDir)) return;
+  if (!opts.fs.existsSync('claws')) return;
 
-  const clawIds = fs.readdirSync(clawsDir).filter(id =>
-    fs.statSync(path.join(clawsDir, id)).isDirectory()
-  );
+  const clawIds = opts.fs.listSync('claws', { includeDirs: true })
+    .filter(e => opts.fs.statSync(path.join('claws', e.name)).isDirectory)
+    .map(e => e.name);
 
   if (clawIds.length === 0) return;
 
@@ -274,9 +272,10 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
 
   // 串行处理每个 claw
   for (const clawId of clawIds) {
-    const clawDir = path.join(clawsDir, clawId);
+    const clawDir = path.join(opts.clawforumDir, 'claws', clawId);
+    const clawFs = new NodeFileSystem({ baseDir: clawDir });
     try {
-      await runDeepDreamForClaw(clawId, clawDir, llm, maxCompressionTokens, opts.fs, opts.audit);
+      await runDeepDreamForClaw(clawId, clawDir, clawFs, llm, maxCompressionTokens, opts.audit);
     } catch (err) {
       opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR, `step=unexpected`, `clawId=${clawId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
       console.error(`[cron:deep-dream] ${clawId}: unexpected error:`, err);
