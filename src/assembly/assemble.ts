@@ -37,7 +37,6 @@ import { spawnTool } from '../core/task/tools/spawn.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { createInboxReader, createOutboxWriter, notifyInbox } from '../foundation/messaging/index.js';
 import { doneTool } from '../core/contract/index.js';
-import { createContractStatusPort } from '../core/contract/status-port-impl.js';
 import { statusTool } from '../core/status-service/index.js';
 import { skillTool } from '../foundation/skill-system/tools/skill.js';
 import { sendTool } from '../foundation/messaging/tools/send.js';
@@ -308,7 +307,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // done 注册：phase360 后 done 业务归 ContractSystem / 不再经 registerBuiltinTools / Assembly 显式注册
   toolRegistry.register(doneTool);
   doneTool.contractManager = contractManager;
-  statusTool.contractStatus = createContractStatusPort(contractManager);
+  statusTool.contractSystem = contractManager;
   toolRegistry.register(statusTool);   // phase 446: builtins/index.ts 不再 register / Assembly 显式（同 phase 440 send + phase 442 skill 模板）
   skillTool.skillRegistry = skillRegistry;
 

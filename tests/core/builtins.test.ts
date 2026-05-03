@@ -21,7 +21,7 @@ import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { OutboxWriter } from '../../src/foundation/messaging/index.js';
 import { makeAudit } from '../helpers/audit.js';
 import { ContractSystem } from '../../src/core/contract/manager.js';
-import { createContractStatusPort } from '../../src/core/contract/status-port-impl.js';
+
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { TASKS_RUNNING_DIR } from '../../src/types/paths.js';
 import { ToolExecutor } from '../../src/foundation/tools/executor.js';
@@ -542,7 +542,7 @@ describe('Builtin Tools', () => {
     it('should show "No active contract" when contractManager has no active contract', async () => {
       const mockAudit = { write: vi.fn() };
       const manager = new ContractSystem(tempDir, 'test-claw', mockFs, mockAudit as any);
-      statusTool.contractStatus = createContractStatusPort(manager);
+      statusTool.contractSystem = manager;
 
       const result = await executeViaExecutor('status', {}, ctx);
 
@@ -565,7 +565,7 @@ describe('Builtin Tools', () => {
         acceptance: [],
         auth_level: 'auto' as const,
       });
-      statusTool.contractStatus = createContractStatusPort(manager);
+      statusTool.contractSystem = manager;
 
       const result = await executeViaExecutor('status', {}, ctx);
 
@@ -594,7 +594,7 @@ describe('Builtin Tools', () => {
       });
       // 完成第一个子任务（无 acceptance 脚本，直接通过）
       await manager.completeSubtask({ contractId, subtaskId: 'done-task', evidence: 'done' });
-      statusTool.contractStatus = createContractStatusPort(manager);
+      statusTool.contractSystem = manager;
 
       const result = await executeViaExecutor('status', {}, ctx);
 
@@ -647,12 +647,12 @@ describe('Builtin Tools', () => {
 
     // contractManager.loadActive 抛异常
     it('should show Contract Error loading when loadActive throws', async () => {
-      statusTool.contractStatus = {
-        loadStatusView: vi.fn().mockRejectedValue(new Error('corrupted yaml')),
+      statusTool.contractSystem = {
+        loadActive: vi.fn().mockRejectedValue(new Error('corrupted yaml')),
       } as any;
       const result = await executeViaExecutor('status', {}, ctx);
       expect(result.content).toContain('Contract: Error loading');
-      statusTool.contractStatus = undefined;
+      statusTool.contractSystem = undefined;
     });
 
     // 先找文件顶部的 import 部分来加
@@ -678,11 +678,11 @@ describe('Builtin Tools', () => {
       progress.subtasks['fail-task'].status = 'failed';
       await fs.writeFile(progressPath, JSON.stringify(progress));
 
-      statusTool.contractStatus = createContractStatusPort(manager);
+      statusTool.contractSystem = manager;
       const result = await executeViaExecutor('status', {}, ctx);
       expect(result.content).toContain('✗ fail-task');
       expect(result.content).toContain('○ ok-task');
-      statusTool.contractStatus = undefined;
+      statusTool.contractSystem = undefined;
     });
 
     // task running + pending
@@ -723,12 +723,12 @@ describe('Builtin Tools', () => {
         fs: mockFs,
         auditWriter: auditWriter as any,
       });
-      statusTool.contractStatus = {
-        loadStatusView: vi.fn().mockRejectedValue(new Error('yaml parse error')),
+      statusTool.contractSystem = {
+        loadActive: vi.fn().mockRejectedValue(new Error('yaml parse error')),
       } as any;
 
       await executeViaExecutor('status', {}, ctxWithAudit);
-      statusTool.contractStatus = undefined;
+      statusTool.contractSystem = undefined;
 
       expect(auditWriter.write).toHaveBeenCalledWith(
         'status_contract_error',
@@ -807,11 +807,11 @@ describe('Builtin Tools', () => {
       progress.subtasks['fail-task'].status = 'failed';
       await fs.writeFile(progressPath, JSON.stringify(progress));
 
-      statusTool.contractStatus = createContractStatusPort(manager);
+      statusTool.contractSystem = manager;
       const result = await executeViaExecutor('status', {}, ctx);
       expect(result.content).toContain('✗ fail-task');
       expect(result.content).toContain('○ ok-task');
-      statusTool.contractStatus = undefined;
+      statusTool.contractSystem = undefined;
     });
   });
 
