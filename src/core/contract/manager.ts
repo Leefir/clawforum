@@ -1245,6 +1245,7 @@ export class ContractSystem {
       // Create SubAgent
       const agent = createSubAgent({
         agentId: config.agentId,
+        resultDir: `tasks/results/${config.agentId}`,             // phase443: 保现行为（Noop writers 不消费 / 0 行为差）
         prompt: config.prompt,
         clawDir: config.clawDir,
         llm: config.llm,

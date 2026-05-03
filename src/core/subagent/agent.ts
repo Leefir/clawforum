@@ -27,6 +27,7 @@ import { callerTypeToProfile } from '../../foundation/tool-protocol/caller-type.
 
 export interface SubAgentOptions {
   agentId: string;
+  resultDir: string;        // phase443: caller 注入完整 path（如 `tasks/results/${task.id}`）/ SubAgent 0 知字符串约定
   prompt: string;
   clawDir: string;
   llm: LLMOrchestrator;
@@ -51,6 +52,7 @@ export interface SubAgentOptions {
 
 export class SubAgent {
   private agentId: string;
+  private resultDir: string;
   private prompt: string;
   private clawDir: string;
   private llm: LLMOrchestrator;
@@ -75,6 +77,7 @@ export class SubAgent {
 
   constructor(options: SubAgentOptions) {
     this.agentId = options.agentId;
+    this.resultDir = options.resultDir;
     this.prompt = options.prompt;
     this.clawDir = options.clawDir;
     this.llm = options.llm;
@@ -85,7 +88,7 @@ export class SubAgent {
     this.maxConsecutiveMaxTokensToolUse = options.maxConsecutiveMaxTokensToolUse;
     this.timeoutMs = options.timeoutMs ?? SUBAGENT_TIMEOUT_MS; // 5 min default
     this.signal = options.signal;
-    this.logPath = `tasks/results/${this.agentId}/daemon.log`;
+    this.logPath = `${this.resultDir}/daemon.log`;
     this.toolsForLLM = options.toolsForLLM;
     this.idleTimeoutMs = options.idleTimeoutMs;
     this.onIdleTimeout = options.onIdleTimeout;
@@ -163,7 +166,7 @@ export class SubAgent {
         : [{ role: 'user' as const, content: this.prompt }];
 
       // Ensure task directory exists
-      await this.fs.ensureDir(`tasks/results/${this.agentId}`);
+      await this.fs.ensureDir(this.resultDir);
 
       // Log start
       await this.appendToLog(`=== SubAgent ${this.agentId} started ===\n`);
@@ -173,7 +176,7 @@ export class SubAgent {
       let auditStep = 0;
       let auditStepTools: string[] = [];
       let auditStepStart = Date.now();
-      const stepsLogPath = `tasks/results/${this.agentId}/steps.jsonl`;
+      const stepsLogPath = `${this.resultDir}/steps.jsonl`;
 
       // System prompt for subagent (use custom or default from prompts module)
       const systemPrompt = this.systemPrompt ?? DEFAULT_SUBAGENT_SYSTEM_PROMPT;
@@ -317,7 +320,7 @@ export class SubAgent {
       // 持久化 messages 供复盘子代理继承（best-effort，不影响主流程）
       try {
         await this.fs.writeAtomic(
-          `tasks/results/${this.agentId}/messages.json`,
+          `${this.resultDir}/messages.json`,         // phase443: path 迁 caller 注入 / fs.writeAtomic 调用保留 / A.r60+1 涉 L2 推后
           JSON.stringify(messages),
         );
       } catch (e) {

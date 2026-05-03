@@ -70,6 +70,7 @@ function makeSubAgent(
   return {
     agent: new SubAgent({
       agentId: 'test-agent',
+      resultDir: 'tasks/results/test-agent',
       prompt: 'do something',
       clawDir: '/tmp/test',
       llm: mockLLM,

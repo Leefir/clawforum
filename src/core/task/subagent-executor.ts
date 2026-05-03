@@ -98,6 +98,7 @@ export async function executeSubAgentTask(
 
     const subAgent = createSubAgent({
       agentId: task.id,
+      resultDir: `tasks/results/${task.id}`,                      // phase443: TaskSystem own 字符串约定
       prompt: task.prompt,
       clawDir,
       llm,

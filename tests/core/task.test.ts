@@ -684,6 +684,7 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-1',
+        resultDir: 'tasks/results/test-agent-1',
         prompt: 'Do something',
         clawDir: tempDir,
         llm: mockLLM,
@@ -720,6 +721,7 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-2',
+        resultDir: 'tasks/results/test-agent-2',
         prompt: 'Read test.txt',
         clawDir: tempDir,
         llm: mockLLM,
@@ -754,6 +756,7 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-exec',
+        resultDir: 'tasks/results/test-agent-exec',
         prompt: 'Run echo command',
         clawDir: tempDir,
         llm: mockLLM,
@@ -798,6 +801,7 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-3',
+        resultDir: 'tasks/results/test-agent-3',
         prompt: 'Slow task',
         clawDir: tempDir,
         llm: mockLLM,
@@ -827,6 +831,7 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-idle',
+        resultDir: 'tasks/results/test-idle',
         prompt: 'Test idle',
         clawDir: tempDir,
         llm: hangingLLM,
@@ -858,6 +863,7 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-append-fail',
+        resultDir: 'tasks/results/test-append-fail',
         prompt: 'Test',
         clawDir: tempDir,
         llm: createMockLLM([{
