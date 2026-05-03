@@ -1,5 +1,3 @@
-import * as path from 'path';
-import * as fsSync from 'fs';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { AuditWriter, createAuditWriter } from '../../foundation/audit/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
@@ -43,25 +41,15 @@ export async function executeSubAgentTask(
   const taskStartTime = Date.now();
   let taskFailed = false;
 
-  // Per-task stream writer setup
-  const taskDir = path.join(clawDir, 'tasks', 'results', task.id);
-  fsSync.mkdirSync(taskDir, { recursive: true });
-  const taskAuditWriter = createAuditWriter(fs, `tasks/results/${task.id}/audit.tsv`);
-  const taskStreamPath = path.join(taskDir, STREAM_FILE);
-  let taskStreamFd: number | null = null;
-  try {
-    taskStreamFd = fsSync.openSync(taskStreamPath, 'a');
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code !== 'ENOENT') {
-      auditWriter?.write(TASK_AUDIT_EVENTS.STREAM_FAILED, task.id, 'context=openStream', `code=${code}`);
-    }
-  }
+  // Per-task stream writer setup（fd-less / appendSync 模式）
+  const taskResultDir = `tasks/results/${task.id}`;   // 相对 clawDir / fs baseDir
+  fs.ensureDirSync(taskResultDir);
+  const taskAuditWriter = createAuditWriter(fs, `${taskResultDir}/audit.tsv`);
+  const taskStreamRelPath = `${taskResultDir}/${STREAM_FILE}`;
 
   const writeTaskEvent = (event: Record<string, unknown>) => {
-    if (taskStreamFd === null) return;
     try {
-      fsSync.writeSync(taskStreamFd, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
+      fs.appendSync(taskStreamRelPath, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
     } catch (err) {
       auditWriter?.write(TASK_AUDIT_EVENTS.STREAM_FAILED, task.id, 'context=writeStream', `error=${err instanceof Error ? err.message : JSON.stringify(err)}`);
     }
@@ -69,13 +57,6 @@ export async function executeSubAgentTask(
 
   // 每次执行开头写分隔标记，方便区分多次尝试
   writeTaskEvent({ type: 'task_attempt_start', taskId: task.id });
-
-  const closeTaskStream = () => {
-    if (taskStreamFd !== null) {
-      try { fsSync.closeSync(taskStreamFd); } catch {}
-      taskStreamFd = null;
-    }
-  };
 
   try {
     // LLM is guaranteed by constructor (readonly non-null field)
@@ -174,8 +155,6 @@ export async function executeSubAgentTask(
     auditWriter?.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, `parent=${task.parentClawId}`, `error=${errorMsg}`);
     auditWriter?.write('task_completed', task.id, 'err', `ms=${Date.now() - taskStartTime}`);
   } finally {
-    // Close task stream
-    closeTaskStream();
     // Move from running to done/failed based on success
     if (taskFailed) {
       await moveTaskToFailed(task.id);
