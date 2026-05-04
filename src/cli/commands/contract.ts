@@ -7,7 +7,7 @@ import * as fsNative from 'fs';
 import * as path from 'path';
 
 import * as yaml from 'js-yaml';
-import { ContractSystem, type ContractYaml, type ProgressData } from '../../core/contract/manager.js';
+import { ContractSystem, type ContractYaml, type ProgressData } from '../../core/contract/index.js';
 import { collectContractEvents } from '../../core/contract/jobs/event-collector.js';
 import { createDirContext } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';

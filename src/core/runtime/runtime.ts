@@ -37,9 +37,9 @@ import type { OutboxWriter } from '../../foundation/messaging/outbox-writer.js';
 import type { ExecContext } from '../../foundation/tool-protocol/index.js';
 import type { ToolRegistry, IToolExecutor } from '../../foundation/tools/executor.js';
 import type { ContextInjector } from '../dialog/injector.js';
-import type { ContractSystem } from '../contract/manager.js';
+import type { ContractSystem } from '../contract/index.js';
 import type { SkillSystem } from '../../foundation/skill-system/index.js';
-import type { TaskSystem } from '../task/system.js';
+import type { TaskSystem } from '../task/index.js';
 
 /**
  * Runtime constructor options

@@ -20,7 +20,7 @@ import {
   chatCommand as motionChatCommand,
 } from './motion.js';
 import { createProcessManagerForCLI } from '../../foundation/config/factories.js';
-import { ContractSystem } from '../../core/contract/manager.js';
+import { ContractSystem } from '../../core/contract/index.js';
 import { createDirContext } from '../../foundation/config/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';

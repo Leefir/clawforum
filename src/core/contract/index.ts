@@ -13,6 +13,7 @@ export {
   type AcceptanceResult,
   type VerifierConfig,
   type VerifierResult,
+  type ContractYaml,
 } from './manager.js';
 
 export { doneTool, DONE_TOOL_NAME } from './tools/done.js';
