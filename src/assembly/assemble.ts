@@ -236,6 +236,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       llm,
       contractManager,
       outboxWriter,
+      registry: toolRegistry,     // NEW: 装配好的 registry 注入 TaskSystem / 子代理共用
     });
   } catch (e) {
     auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=task_system`, `phase=construct`, `reason=${errMsg(e)}`);

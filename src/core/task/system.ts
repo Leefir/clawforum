@@ -11,8 +11,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
-import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
-import { registerBuiltinTools } from '../../foundation/tools/builtins/index.js';
+import type { ToolRegistryImpl } from '../../foundation/tools/registry.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 
@@ -49,6 +48,7 @@ export interface TaskSystemOptions {
   outboxWriter: OutboxWriter;
   // phase470: main dialog store ref for ask_caller
   mainDialogStore?: DialogStore;
+  registry: ToolRegistryImpl;     // NEW: caller 注入填充好的 registry / Assembly own 装配
 }
 
 
@@ -138,9 +138,7 @@ export class TaskSystem {
     this.contractManager = options.contractManager;
     this.outboxWriter = options.outboxWriter;
     this.mainDialogStore = options.mainDialogStore;
-    // Create tool registry for subagents
-    this.registry = new ToolRegistryImpl();
-    registerBuiltinTools(this.registry);
+    this.registry = options.registry;
   }
 
   async initialize(): Promise<void> {
