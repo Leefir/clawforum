@@ -10,13 +10,19 @@ import type { Watcher, WatchEvent, WatchEventType, WatcherErrorContext } from '.
 /**
  * Chokidar-based watcher implementation
  */
+const DEFAULT_FALLBACK_POLL_MS = 500;
+
 class ChokidarWatcher implements Watcher {
   private active = true;
+  private fallbackTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly watcher: FSWatcher,
-    private readonly watchPath: string
-  ) {}
+    private readonly watchPath: string,
+    fallbackTimer: ReturnType<typeof setInterval> | null = null,
+  ) {
+    this.fallbackTimer = fallbackTimer;
+  }
 
   async close(): Promise<void> {
     if (!this.active) {
@@ -24,6 +30,10 @@ class ChokidarWatcher implements Watcher {
     }
 
     this.active = false;
+    if (this.fallbackTimer) {
+      clearInterval(this.fallbackTimer);
+      this.fallbackTimer = null;
+    }
     await this.watcher.close();
   }
 
@@ -88,6 +98,12 @@ export function createWatcher(
      * if a watcher cleanup is missed.
      */
     persistent?: boolean;
+    /**
+     * Fallback poll interval (ms) / override default 500ms.
+     * Only enabled when `stability === 'immediate'` on macOS.
+     * Ignored on other platforms or in 'stable' mode.
+     */
+    fallbackPollMs?: number;
   }
 ): Watcher {
   const watcher = chokidarWatch(absolutePath, {
@@ -143,5 +159,22 @@ export function createWatcher(
     try { options?.onError?.(e, 'watch'); } catch { /* swallow */ }
   });
 
-  return new ChokidarWatcher(watcher, absolutePath);
+  // Fallback poll for macOS FSEvents silent stall (phase352 / phase469)
+  let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+  const enableFallback =
+    process.platform === 'darwin' &&
+    options?.stability === 'immediate';
+  if (enableFallback) {
+    const intervalMs = options?.fallbackPollMs ?? DEFAULT_FALLBACK_POLL_MS;
+    fallbackTimer = setInterval(() => {
+      try {
+        callback({ type: 'change', path: absolutePath });
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        try { options?.onError?.(e, 'callback'); } catch { /* swallow */ }
+      }
+    }, intervalMs);
+  }
+
+  return new ChokidarWatcher(watcher, absolutePath, fallbackTimer);
 }

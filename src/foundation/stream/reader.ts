@@ -21,9 +21,6 @@ import { createWatcher, type Watcher } from '../file-watcher/index.js';
 import { STREAM_AUDIT_EVENTS } from './audit-events.js';
 import { StringDecoder } from 'node:string_decoder';
 
-/** chokidar 静默停火 fallback poll 间隔（A.6 / phase352） */
-const FALLBACK_POLL_MS = 500;
-
 /** 连续 parse_failed 达到此值触发 STREAM_READER_CORRUPT（trigger=consecutive_fail）。 */
 const CONSECUTIVE_PARSE_FAIL_LIMIT = 5;
 
@@ -89,7 +86,6 @@ export function createStreamReader(
   options?: { persistent?: boolean },
 ): StreamReader {
   let watcher: Watcher | null = null;
-  let fallbackTimer: ReturnType<typeof setInterval> | null = null;
   let offset = 0;
   let pending = '';
   let decoder = new StringDecoder('utf-8');
@@ -116,10 +112,6 @@ export function createStreamReader(
       `recent_fail=${recentFail}`,
     );
     active = false;
-    if (fallbackTimer) {
-      clearInterval(fallbackTimer);
-      fallbackTimer = null;
-    }
     void watcher?.close();
     watcher = null;
   };
@@ -212,10 +204,6 @@ export function createStreamReader(
           'reason=start_existsSync_false',
         );
       }
-      fallbackTimer = setInterval(() => {
-        if (active) readIncrement();
-      }, FALLBACK_POLL_MS);
-
       watcher = createWatcher(
         fs.resolve(streamPath),
         (ev) => {
@@ -257,10 +245,6 @@ export function createStreamReader(
       if (!started) return;
       started = false;
       active = false;
-      if (fallbackTimer) {
-        clearInterval(fallbackTimer);
-        fallbackTimer = null;
-      }
       if (watcher) {
         const w = watcher;
         watcher = null;

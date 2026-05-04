@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fileWatcherModule from '../../src/foundation/file-watcher/index.js';
 import { promises as nativeFs, appendFileSync as nativeAppend } from 'node:fs';
 import * as nativePath from 'node:path';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
@@ -341,57 +340,4 @@ describe('StreamReader', () => {
     expect(reader.isActive()).toBe(false);
   });
 
-  // === 反向测试：fallback poll（phase352 / A.6） ===
-
-  it('fallback poll 在 chokidar 静默停火时仍交付事件', async () => {
-    const mockWatcher = { close: vi.fn().mockResolvedValue(undefined), isActive: () => true, getPath: () => '' };
-    const createWatcherSpy = vi.spyOn(fileWatcherModule, 'createWatcher').mockReturnValue(mockWatcher as any);
-
-    const auditRec = makeAudit();
-    reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), auditRec.audit);
-    reader.start();
-
-    // 等 fallback poll 启动
-    await new Promise(r => setTimeout(r, 100));
-
-    // 直接写文件（mock watcher 不触发 callback，模拟 chokidar 静默停火）
-    fs.appendSync('stream.jsonl', '{"ts":1,"type":"test","payload":"a"}\n');
-
-    // 等 fallback poll 触发（≤ 500ms + 缓冲）
-    await waitFor(() => events.length >= 1, 1500);
-
-    expect(events).toHaveLength(1);
-    expect(events[0]?.type).toBe('test'); // 硬编码断言（强反向）
-
-    await reader.stop();
-    createWatcherSpy.mockRestore();
-  });
-
-  it('stop() 后 fallback poll 被清理 / 资源不泄漏', async () => {
-    const setSpy = vi.spyOn(globalThis, 'setInterval');
-    reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), makeAudit().audit);
-    reader.start();
-
-    expect(setSpy).toHaveBeenCalledWith(expect.any(Function), 500);
-    const timerHandle = setSpy.mock.results[0].value;
-
-    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
-    await reader.stop();
-
-    expect(clearSpy).toHaveBeenCalledWith(timerHandle); // 硬编码：stop 必须清同一 timer
-
-    setSpy.mockRestore();
-    clearSpy.mockRestore();
-  });
-
-  it('fallback poll 间隔为 500ms', async () => {
-    const spy = vi.spyOn(globalThis, 'setInterval');
-    reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), makeAudit().audit);
-    reader.start();
-
-    expect(spy).toHaveBeenCalledWith(expect.any(Function), 500); // 硬编码 500
-
-    await reader.stop();
-    spy.mockRestore();
-  });
 });

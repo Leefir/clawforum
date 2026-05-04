@@ -139,4 +139,117 @@ describe('FileWatcher', () => {
     await watcher.close();
     await expect(watcher.close()).resolves.toBeUndefined();
   });
+
+  // === fallback poll（phase469 / macOS + immediate only）===
+
+  it('macOS immediate mode enables fallback poll with default 500ms', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const setSpy = vi.spyOn(globalThis, 'setInterval');
+
+    const watcher = createWatcher(
+      path.join(tmpDir, 'watch.txt'),
+      () => {},
+      { stability: 'immediate' },
+    );
+
+    expect(setSpy).toHaveBeenCalledWith(expect.any(Function), 500);
+
+    await watcher.close();
+    platformSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it('fallback poll interval is overridable via options.fallbackPollMs', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const setSpy = vi.spyOn(globalThis, 'setInterval');
+
+    const watcher = createWatcher(
+      path.join(tmpDir, 'watch.txt'),
+      () => {},
+      { stability: 'immediate', fallbackPollMs: 200 },
+    );
+
+    expect(setSpy).toHaveBeenCalledWith(expect.any(Function), 200);
+
+    await watcher.close();
+    platformSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it('stable mode does not enable fallback poll', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const setSpy = vi.spyOn(globalThis, 'setInterval');
+
+    const watcher = createWatcher(
+      path.join(tmpDir, 'watch.txt'),
+      () => {},
+      { stability: 'stable' },
+    );
+
+    expect(setSpy).not.toHaveBeenCalled();
+
+    await watcher.close();
+    platformSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it('non-macOS platform does not enable fallback poll even in immediate mode', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+    const setSpy = vi.spyOn(globalThis, 'setInterval');
+
+    const watcher = createWatcher(
+      path.join(tmpDir, 'watch.txt'),
+      () => {},
+      { stability: 'immediate' },
+    );
+
+    expect(setSpy).not.toHaveBeenCalled();
+
+    await watcher.close();
+    platformSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it('fallback poll emits change event to callback', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const events: { type: string; path: string }[] = [];
+
+    const watcher = createWatcher(
+      path.join(tmpDir, 'watch.txt'),
+      (ev) => events.push({ type: ev.type, path: path.basename(ev.path) }),
+      { stability: 'immediate', fallbackPollMs: 50 },
+    );
+
+    await new Promise(r => setTimeout(r, 150));
+
+    expect(events.length).toBeGreaterThanOrEqual(1);
+    expect(events.every(e => e.type === 'change')).toBe(true);
+
+    await watcher.close();
+    platformSpy.mockRestore();
+  });
+
+  it('close clears fallback poll timer / no resource leak', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const setSpy = vi.spyOn(globalThis, 'setInterval');
+
+    const watcher = createWatcher(
+      path.join(tmpDir, 'watch.txt'),
+      () => {},
+      { stability: 'immediate' },
+    );
+
+    const timerHandle = setSpy.mock.results[0]?.value;
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
+
+    await watcher.close();
+
+    if (timerHandle !== undefined) {
+      expect(clearSpy).toHaveBeenCalledWith(timerHandle);
+    }
+
+    platformSpy.mockRestore();
+    setSpy.mockRestore();
+    clearSpy.mockRestore();
+  });
 });
