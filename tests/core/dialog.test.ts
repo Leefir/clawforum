@@ -30,7 +30,7 @@ describe('Dialog', () => {
       tempDir = await createTempDir();
       nodeFs = new NodeFileSystem({ baseDir: tempDir });
       await nodeFs.ensureDir('dialog');
-      sessionManager = new DialogStore(nodeFs, 'dialog', { write: () => {} }, 'current.json', 'test-claw');
+      sessionManager = new DialogStore(nodeFs, 'dialog', { write: () => {} }, 'current.json', 'test-system-prompt', 'test-claw');
     });
 
     afterEach(async () => {

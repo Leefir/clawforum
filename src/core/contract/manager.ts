@@ -1252,6 +1252,7 @@ export class ContractSystem {
           `tasks/results/${config.agentId}`,
           new NoopAuditWriter(),                   // verifier 用 Noop（保现行为）
           'messages.json',
+          CONTRACT_VERIFIER_SYSTEM_PROMPT,         // phase 466: verifier system prompt
         ),
         prompt: config.prompt,
         clawDir: config.clawDir,

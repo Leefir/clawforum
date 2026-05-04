@@ -86,6 +86,7 @@ export async function executeSubAgentTask(
         `tasks/results/${task.id}`,             // baseDir = resultDir
         taskAuditWriter,                         // per-task audit writer
         'messages.json',                         // filename 必填
+        task.systemPrompt ?? '',                 // phase 466: SubAgent 已有 system / pass through
       ),
       prompt: task.prompt,
       clawDir,

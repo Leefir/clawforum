@@ -11,7 +11,7 @@ import * as path from 'path';
 import type { FileSystem } from '../fs/types.js';
 
 import type { Message, ToolUseBlock, ToolResultBlock } from '../../types/message.js';
-import type { SessionData, LoadResult } from './types.js';
+import type { SessionData, LoadResult, DialogMarker, RestoreResult } from './types.js';
 import type { AuditLog } from '../audit/index.js';
 import { DIALOG_AUDIT_EVENTS } from './audit-events.js';
 import { randomUUID } from 'crypto';
@@ -23,17 +23,20 @@ export class DialogStore {
   private readonly currentPath: string;
   private readonly archiveDir: string;
   private createdAt: string | null = null;
-  
+  readonly systemPrompt: string;     // phase 466: lifetime 锁定 / 暴露给 caller (Runtime ContextInjector 等) 比对
+
   constructor(
     private readonly fs: FileSystem,
     dialogDir: string,
     private readonly audit: AuditLog,
     filename: string,                                 // phase 450: 必填 / caller 注入
+    systemPrompt: string,                             // phase 466: 必填 / 一次性锁定
     private readonly clawId?: string,                 // phase 450: 可选 / subagent ephemeral 用例 0 clawId
     archiveDir?: string,                              // phase 450: 可选 / 默认 'archive' subdir 保兼容
   ) {
     this.currentPath = path.join(dialogDir, filename);
     this.archiveDir = path.join(dialogDir, archiveDir ?? 'archive');
+    this.systemPrompt = systemPrompt;
   }
 
   /**
@@ -46,7 +49,11 @@ export class DialogStore {
     // Try current.json first
     try {
       const content = await this.fs.read(this.currentPath);
-      const data = this.validateSession(JSON.parse(content) as SessionData);
+      const parsed = JSON.parse(content) as Partial<SessionData>;
+      const data = this.validateSession({
+        ...parsed,
+        systemPrompt: parsed.systemPrompt ?? this.systemPrompt,  // phase 466: 兼容老 / 回填 ctor 锁定值
+      } as SessionData);
       // Cache createdAt for subsequent saves
       this.createdAt = data.createdAt;
       return { session: data, source: 'current' };
@@ -83,6 +90,7 @@ export class DialogStore {
       ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
       createdAt: now,
       updatedAt: now,
+      systemPrompt: this.systemPrompt,  // phase 466: empty session 也含锁定 systemPrompt
       messages: [],
     };
     return { session: emptySession, source: 'empty' };
@@ -150,6 +158,7 @@ export class DialogStore {
       ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
       createdAt: this.createdAt,
       updatedAt: now,
+      systemPrompt: this.systemPrompt,          // phase 466: 锁定值同步落盘
       messages,
     };
 
@@ -215,8 +224,12 @@ export class DialogStore {
         const entryPath = path.join(this.archiveDir, entry.name);
         try {
           const content = await this.fs.read(entryPath);
-          const data = JSON.parse(content) as SessionData;
-          return { session: this.validateSession(data), name: entry.name };
+          const parsed = JSON.parse(content) as Partial<SessionData>;
+          const data = this.validateSession({
+            ...parsed,
+            systemPrompt: parsed.systemPrompt ?? this.systemPrompt,  // phase 466: 兼容老 archive
+          } as SessionData);
+          return { session: data, name: entry.name };
         } catch (parseErr) {
           this.audit.write(
             DIALOG_AUDIT_EVENTS.CORRUPTED,
@@ -240,13 +253,107 @@ export class DialogStore {
   /**
    * Validate and normalize session data
    */
+  /**
+   * Restore message prefix up to and including the marker assistant message.
+   * Scans current.json then archive/*.json (newest first).
+   */
+  async restorePrefix(marker: DialogMarker): Promise<RestoreResult> {
+    // 1. Scan current.json
+    try {
+      const content = await this.fs.read(this.currentPath);
+      const parsed = JSON.parse(content) as Partial<SessionData>;
+      const data = this.validateSession({
+        ...parsed,
+        systemPrompt: parsed.systemPrompt ?? this.systemPrompt,
+      } as SessionData);
+      const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId);
+      if (sliced !== null) {
+        return {
+          messages: sliced,
+          systemPrompt: data.systemPrompt,
+          meta: { foundIn: 'current' },
+        };
+      }
+    } catch (err) {
+      // current 不存在或损坏 / 走 archive
+    }
+
+    // 2. Scan archive/*.json (按时间倒序 / 找首个含 toolUseId 的)
+    try {
+      await this.fs.ensureDir(this.archiveDir);
+      const entries = await this.fs.list(this.archiveDir);
+      const sorted = entries
+        .filter(e => e.isFile && e.name.endsWith('.json'))
+        .sort((a, b) => b.name.localeCompare(a.name));  // 时间戳倒序
+
+      for (const entry of sorted) {
+        try {
+          const content = await this.fs.read(path.join(this.archiveDir, entry.name));
+          const parsed = JSON.parse(content) as Partial<SessionData>;
+          const data = this.validateSession({
+            ...parsed,
+            systemPrompt: parsed.systemPrompt ?? this.systemPrompt,
+          } as SessionData);
+          const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId);
+          if (sliced !== null) {
+            return {
+              messages: sliced,
+              systemPrompt: data.systemPrompt,
+              meta: { foundIn: 'archive', foundFile: entry.name },
+            };
+          }
+        } catch {
+          // 单个 archive 损坏跳过 / 继续找
+        }
+      }
+    } catch {
+      // archive dir 失败 / 走最终抛错
+    }
+
+    // 3. 找不到
+    throw new MarkerNotFoundError(marker.clawId, marker.toolUseId);
+  }
+
+  /**
+   * Validate and normalize session data
+   */
   private validateSession(data: SessionData): SessionData {
     return {
       version: data.version ?? 1,
       clawId: data.clawId ?? this.clawId,
       createdAt: data.createdAt ?? new Date().toISOString(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
+      systemPrompt: data.systemPrompt ?? this.systemPrompt,  // phase 466: 兜底 ctor 锁定值
       messages: Array.isArray(data.messages) ? data.messages : [],
     };
+  }
+}
+
+/**
+ * 找含 toolUseId 的 assistant message / 返切片（含该 message）
+ * 0 命中返 null
+ */
+function sliceMessagesAtMarker(messages: Message[], toolUseId: string): Message[] | null {
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+      const hasMarker = msg.content.some(
+        block => block.type === 'tool_use' && block.id === toolUseId,
+      );
+      if (hasMarker) {
+        return messages.slice(0, i + 1);  // 含 marker assistant message
+      }
+    }
+  }
+  return null;
+}
+
+export class MarkerNotFoundError extends Error {
+  constructor(
+    readonly clawId: string,
+    readonly toolUseId: string,
+  ) {
+    super(`marker not found: clawId=${clawId} toolUseId=${toolUseId}`);
+    this.name = 'MarkerNotFoundError';
   }
 }

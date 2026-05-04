@@ -77,6 +77,7 @@ function makeSubAgent(
         'tasks/results/test-agent',
         mockAuditWriter,
         'messages.json',
+        'test-system-prompt',
       ),
       prompt: 'do something',
       clawDir: '/tmp/test',

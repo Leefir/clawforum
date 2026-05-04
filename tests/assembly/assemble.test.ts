@@ -82,6 +82,7 @@ vi.mock('../../src/core/runtime/index.js', () => {
   return {
     Runtime: vi.fn(() => mockRuntime),
     createRuntime: vi.fn(() => mockRuntime),
+    buildMotionSystemPrompt: vi.fn(() => Promise.resolve('')),
     Heartbeat: HeartbeatCtor,
     createHeartbeat: vi.fn((...args: any[]) => new (HeartbeatCtor as any)(...args)),
   };
@@ -179,8 +180,8 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
 });
 
 vi.mock('../../src/foundation/dialog-store/index.js', () => ({
-  DialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn() })),
-  createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn() })),
+  DialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), systemPrompt: '' })),
+  createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), restorePrefix: vi.fn(), systemPrompt: '' })),
 }));
 
 vi.mock('../../src/foundation/config/index.js', () => ({
