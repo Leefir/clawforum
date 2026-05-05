@@ -1,7 +1,23 @@
 /**
- * ContractSystem - Contract lifecycle management
+ * @module L4.ContractSystem
+ * Contract lifecycle orchestrator — thin class / 装配 + delegate
  *
- * Manages contract loading, progress tracking, acceptance, and status transitions.
+ * 业务逻辑下沉到 sub-module:
+ * - types.ts        / 5 interface
+ * - lock.ts         / lock primitives
+ * - discovery.ts    / loadActive/Paused
+ * - persistence.ts  / yaml + progress.json fs helpers
+ * - verifier-job.ts / runContractVerifier
+ * - lifecycle.ts    / pause/resume/cancel/isComplete/moveToArchive
+ * - acceptance.ts   / completeSubtask + acceptance pipeline
+ *
+ * 本 class own:
+ * - 装配（ctx 构造）
+ * - public API method（thin delegate）
+ * - private contractDir helper（路径解析跨 active/paused/archive）
+ * - getProgress（读 progress.json）
+ * - create（contract 创建）
+ * - setOnNotify + onContractCompleted + _emitContractCompleted（事件）
  */
 
 import * as yaml from 'js-yaml';
@@ -10,31 +26,46 @@ import * as path from 'path';
 
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { Contract, SubTask, ContractStatus, SubtaskStatus, LastFailedFeedback, AcceptanceFailedNotification } from '../../types/contract.js';
-import { ToolError, ToolTimeoutError, FileNotFoundError } from '../../types/errors.js';
-import { exec } from '../../foundation/process-exec/index.js';
-import { ProcessExecError } from '../../foundation/process-exec/index.js';
-import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
+import type { Contract, ContractStatus, SubtaskStatus, LastFailedFeedback, AcceptanceFailedNotification } from '../../types/contract.js';
+import { ToolError, ToolTimeoutError } from '../../types/errors.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
-import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/index.js';
-import { createDialogStore } from '../../foundation/dialog-store/index.js';
-import { ReportResultTool } from '../../foundation/tools/report-result.js';
-import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
-import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
-
 import { AuditWriter } from '../../foundation/audit/index.js';
-import type { Message } from '../../types/message.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 
+import type {
+  ContractYaml, ProgressData, AcceptanceResult, VerifierConfig, VerifierResult,
+} from './types.js';
+import {
+  acquireLock, unlinkStaleLock, releaseLock, withProgressLock as wpl,
+  type LockContext,
+} from './lock.js';
+import { loadActiveContract, loadPausedContract, type DiscoveryContext } from './discovery.js';
+import {
+  loadContractYaml as loadYaml, readContractYamlRaw as readYaml,
+  loadContract as loadCt, saveProgress as saveProg,
+  updateContractStatus as updateStatus, checkAllSubtasksCompleted,
+  type PersistenceContext,
+} from './persistence.js';
+import { runContractVerifier } from './verifier-job.js';
+import {
+  pauseContract, resumeContract, cancelContract,
+  isContractComplete, moveContractToArchive,
+  type LifecycleContext,
+} from './lifecycle.js';
+import {
+  runAcceptancePipeline, runAcceptanceInBackground, completeSubtaskSync,
+  writeAcceptanceInbox, writeAcceptanceError, formatRejectionFeedback,
+  runScriptAcceptance as runScriptAcceptanceFn,
+  runLLMAcceptance as runLLMAcceptanceFn,
+  type AcceptanceContext,
+} from './acceptance.js';
 
 // Programming bug detection (per Coding #5 / phase342 / r40 反向 3 教训)
-// 编程 bug (TypeError 等) vs 业务 throw 区分 / 编程 bug 走 audit 暴露
 const PROGRAMMING_BUG_TYPES = [TypeError, ReferenceError, SyntaxError, RangeError];
 
 function isProgrammingBug(err: unknown): boolean {
   return PROGRAMMING_BUG_TYPES.some(T => err instanceof T);
 }
-
 
 // Contract default value constants
 const CONTRACT_DEFAULTS = {
@@ -42,72 +73,13 @@ const CONTRACT_DEFAULTS = {
   auth_level: 'auto' as const,
 };
 
-// YAML contract file structure (exported for CLI use)
-export interface ContractYaml {
-  schema_version?: number;
-  id?: string;
-  title: string;
-  background?: string;      // 用户意图
-  goal: string;
-  expectations?: string;    // 全局执行要求和质量期望
-  subtasks: Array<{
-    id: string;
-    description: string;
-  }>;
-  acceptance?: Array<
-    | { subtask_id: string; type: 'script'; script_file?: string }
-    | { subtask_id: string; type: 'llm'; prompt_file?: string }
-  >;
-  auth_level?: 'auto' | 'notify' | 'confirm';
-  escalation?: {
-    max_retries?: number;  // 默认 3
-  };
-}
-
-// Progress data structure
-export interface ProgressData {
-  contract_id: string;
-  status: ContractStatus;
-  subtasks: Record<string, {
-    status: SubtaskStatus;
-    completed_at?: string;
-    evidence?: string;
-    artifacts?: string[];
-    retry_count?: number;           // 默认 0，每次验收失败 +1
-    last_failed_feedback?: LastFailedFeedback;
-    escalated_at?: string;
-  }>;
-  started_at?: string;
-  checkpoint?: string | null;
-}
-
-export interface AcceptanceResult {
-  passed: boolean;
-  feedback: string;
-  allCompleted?: boolean;  // 仅 passed=true 时有意义
-  async?: boolean;         // true 时代表验收已提交后台，结果由 inbox 通知
-  structured?: { passed: boolean; reason: string; issues?: string[] };  // LLM 验收的结构化结果
-}
-
-/**
- * Verifier scheduling config（移自 verifier-scheduler.ts / phase427 STALE 推翻 / inline）
- */
-export interface VerifierConfig {
-  agentId: string;
-  prompt: string;
-  clawDir: string;
-  llm: LLMOrchestrator;
-  fs: FileSystem;
-  maxSteps: number;
-  idleTimeoutMs: number;
-  onIdleTimeout?: () => void;
-}
-
-export interface VerifierResult {
-  passed: boolean;
-  feedback: string;
-  structured?: { passed: boolean; reason: string; issues?: string[] };
-}
+export {
+  type ContractYaml,
+  type ProgressData,
+  type AcceptanceResult,
+  type VerifierConfig,
+  type VerifierResult,
+};
 
 export class ContractSystem {
   private fs: FileSystem;
@@ -121,6 +93,8 @@ export class ContractSystem {
   private archiveDir = 'contract/archive';
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
+  private contractCompletedCallbacks: Set<(contractId: string) => Promise<void>> = new Set();
+
   constructor(
     clawDir: string,
     clawId: string,
@@ -133,16 +107,16 @@ export class ContractSystem {
     this.fs = fs;
     this.audit = audit;
     this.llm = llm;
-
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
     this.onNotify = cb;
   }
 
-  /**
-   * Returns the directory prefix where the contract currently resides (active, paused, or archive)
-   */
+  // ============================================================================
+  // contractDir helper
+  // ============================================================================
+
   private async contractDir(contractId: string): Promise<string> {
     if (await this.fs.exists(`${this.activeDir}/${contractId}/progress.json`)) {
       return this.activeDir;
@@ -156,221 +130,143 @@ export class ContractSystem {
     throw new ToolError(`Contract "${contractId}" not found`);
   }
 
-  /**
-   * Acquire a file lock (exclusive creation mode)
-   * Uses writeAtomic + exists check to simulate exclusive creation
-   */
-  private async acquireLock(lockPath: string): Promise<void> {
-    // base-dir traversal 守护由 FileSystem L1 自治（无条件 resolve()）
-    await this.fs.ensureDir(path.dirname(lockPath));
+  // ============================================================================
+  // ctx 装配 helper
+  // ============================================================================
 
-    let lastReason = 'unknown';
-
-    for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
-      try {
-        // wx flag = O_EXCL: 文件存在时原子性失败，无 TOCTOU
-        this.fs.writeExclusiveSync(
-          lockPath,
-          JSON.stringify({ pid: process.pid, time: Date.now() }),
-        );
-        return; // 成功获取锁
-      } catch (err: any) {
-        if (err?.code !== 'EEXIST') throw err; // 非竞争错误，向上抛
-
-        // EEXIST：尝试检测 stale lock（持有者进程已死或持锁超时）
-        try {
-          const raw = await this.fs.read(lockPath);
-          const { pid, time } = JSON.parse(raw) as { pid: number; time: number };
-          let isAlive = true;
-          try { process.kill(pid, 0); } catch { isAlive = false; }
-          if (!isAlive) {
-            // 持有者已死，清理 stale lock 后立即重试（不计入重试次数）
-            lastReason = `holder PID ${pid} is dead (stale lock)`;
-            if (await this.unlinkStaleLock(lockPath, `stale_pid_${pid}`)) continue;
-            lastReason = `unlink failed on stale lock (PID ${pid})`;
-          } else if (Date.now() - time > LOCK_STALE_TIMEOUT_MS) {
-            // 持有者存活但持锁超时：强制清理（防止 bug 导致永久死锁）
-            lastReason = `holder PID ${pid} exceeded timeout (${LOCK_STALE_TIMEOUT_MS}ms)`;
-            this.audit.write(
-              CONTRACT_AUDIT_EVENTS.LOCK_CLEARED,
-              `pid=${pid}`,
-              `timeout=${LOCK_STALE_TIMEOUT_MS}`,
-              'reason=stale',
-            );
-            if (await this.unlinkStaleLock(lockPath, `timeout_pid_${pid}`)) continue;
-            lastReason = `unlink failed on timeout lock (PID ${pid})`;
-          } else {
-            lastReason = `held by PID ${pid} (${Math.round((Date.now() - time) / 1000)}s)`;
-          }
-        } catch {
-          // 读取或解析失败：lock 文件损坏，清理后重试
-          lastReason = 'lock file corrupt or unreadable';
-          if (await this.unlinkStaleLock(lockPath, 'corrupt_lock_file')) continue;
-          lastReason = 'unlink failed on corrupt lock file';
-        }
-
-        // 持有者还活着，等待后重试
-        if (i < LOCK_MAX_RETRIES - 1) {
-          await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY_MS));
-        }
-      }
-    }
-    throw new ToolError(`Failed to acquire lock after ${LOCK_MAX_RETRIES} retries: ${lockPath} (${lastReason})`);
+  private _lockCtx(): LockContext {
+    return { fs: this.fs, audit: this.audit };
   }
 
-  /**
-   * 清理 stale lock 文件；区分 ENOENT（预期/已被其他路径清理）与真故障（权限/IO）。
-   * @returns true 表示 lock 文件已不存在或成功删除；false 表示删除失败需外层重试
-   */
-  private async unlinkStaleLock(lockPath: string, reason: string): Promise<boolean> {
-    try {
-      await this.fs.delete(lockPath);
-      return true;
-    } catch (err: any) {
-      if (err instanceof FileNotFoundError) return true; // 已被其他路径清理，等同成功
-      // 真故障（权限/IO）：记 audit（phase230 清零后 / L232 已 audit 化 / 循环外层通过 audit.tsv 审计）
-      this.audit.write(
-        'contract_lock_cleanup_failed',
-        reason,
-        err?.code ?? 'unknown',
-        err?.message ?? String(err),
-      );
-      this.audit.write(
-        CONTRACT_AUDIT_EVENTS.LOCK_UNLINK_FAILED,
-        `reason=${reason}`,
-        `err=${err?.message ?? String(err)}`,
-      );
-      return false;
-    }
+  private _persistenceCtx(): PersistenceContext {
+    return {
+      fs: this.fs,
+      audit: this.audit,
+      contractDir: (id) => this.contractDir(id),
+      getProgress: (id) => this.getProgress(id),
+    };
   }
 
-  /**
-   * Release the file lock
-   */
-  private async releaseLock(lockPath: string): Promise<void> {
-    try {
-      await this.fs.delete(lockPath);
-    } catch (e) {
-      // Ignore deletion failure (may have already been cleaned up by another process)
-      this.audit.write(CONTRACT_AUDIT_EVENTS.LOCK_UNLINK_FAILED, `context=ContractSystem.releaseLock`, `lockPath=${lockPath}`, `error=${e instanceof Error ? e.message : String(e)}`);
-    }
+  private _discoveryCtx(): DiscoveryContext {
+    return {
+      fs: this.fs,
+      audit: this.audit,
+      loadContract: (id) => this.loadContract(id),
+    };
   }
 
-  /**
-   * Lock-protected progress.json update
-   */
-  private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
-    const dir = await this.contractDir(contractId);
-    const lockPath = `${dir}/${contractId}/progress.lock`;
-    await this.acquireLock(lockPath);
-    try {
-      return await fn();
-    } finally {
-      await this.releaseLock(lockPath);
-    }
+  private _lifecycleCtx(): LifecycleContext {
+    return {
+      ...this._lockCtx(),
+      activeDir: this.activeDir,
+      pausedDir: this.pausedDir,
+      archiveDir: this.archiveDir,
+      contractDir: (id) => this.contractDir(id),
+      loadContract: (id) => this.loadContract(id),
+      getProgress: (id) => this.getProgress(id),
+      saveProgress: (id, p) => this.saveProgress(id, p),
+      checkAllSubtasksCompleted: (id, p) => this.checkAllCompleted(id, p),
+    };
   }
 
-  /**
-   * Load the currently active contract (returns the most recent contract in the active/ directory)
-   */
+  private _acceptanceCtx(): AcceptanceContext {
+    return {
+      ...this._lockCtx(),
+      clawDir: this.clawDir,
+      clawId: this.clawId,
+      llm: this.llm,
+      contractDir: (id) => this.contractDir(id),
+      loadContractYaml: (id) => this.loadContractYaml(id),
+      getProgress: (id) => this.getProgress(id),
+      saveProgress: (id, p) => this.saveProgress(id, p),
+      updateContractStatus: (id, s) => this.updateContractStatus(id, s),
+      checkAllSubtasksCompleted: (id, p) => this.checkAllCompleted(id, p),
+      moveContractToArchive: (id) => this.moveToArchive(id),
+      emitContractCompleted: (id) => this._emitContractCompleted(id),
+      onNotify: this.onNotify,
+      runScriptAcceptance: (scriptFile, contractAbsDir) => this.runScriptAcceptance(scriptFile, contractAbsDir),
+      runLLMAcceptance: (promptFile, contractAbsDir, contractId, subtaskId, subtaskDesc, evidence, artifacts) =>
+        this.runLLMAcceptance(promptFile, contractAbsDir, contractId, subtaskId, subtaskDesc, evidence, artifacts),
+      withProgressLock: (contractId, fn) => this.withProgressLock(contractId, fn),
+    };
+  }
+
+  // ============================================================================
+  // public API method（thin delegate to sub-module function）
+  // ============================================================================
+
+  // Discovery
   async loadActive(): Promise<Contract | null> {
-    const exists = await this.fs.exists(this.activeDir);
-    if (!exists) return null;
-
-    // Scan the contract/active/ directory — contracts inside are active (do not check the status field)
-    const entries = await this.fs.list(this.activeDir, { includeDirs: true });
-    
-    let latest: { name: string; startedAt: string } | null = null;
-    
-    for (const entry of entries) {
-      if (!entry.isDirectory) continue;
-      
-      const progressPath = `${this.activeDir}/${entry.name}/progress.json`;
-      const hasProgress = await this.fs.exists(progressPath);
-      if (!hasProgress) continue;
-
-      try {
-        const progressData = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
-        // Contracts in the active/ directory are active — trust directory location, do not check the status field
-        const startedAt = progressData.started_at ?? '';
-        if (!latest || startedAt > latest.startedAt) {
-          latest = { name: entry.name, startedAt };
-        }
-      } catch (error) {
-        // Distinguish file-not-found (ENOENT, skip normally) from other errors (JSON parse failure, corruption, etc.)
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code !== 'ENOENT') {
-          this.audit.write(
-            CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED,
-            `file=${entry.name}`,
-            `err=${error instanceof Error ? error.message : String(error)}`,
-          );
-          this.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=${'ContractSystem.loadActive'}`, `contract=${entry.name}`, `error=${error instanceof Error ? error.message : String(error)}`);
-        }
-        continue;
-      }
-    }
-
-    if (!latest) return null;
-    const contract = await this.loadContract(latest.name);
-    contract.status = 'running';   // 目录位置决定状态（P1）
-    return contract;
+    return loadActiveContract(this._discoveryCtx(), this.activeDir);
   }
 
-  /**
-   * Load the currently paused contract (returns the most recent contract in the paused/ directory)
-   */
   async loadPaused(): Promise<Contract | null> {
-    const exists = await this.fs.exists(this.pausedDir);
-    if (!exists) return null;
-
-    const entries = await this.fs.list(this.pausedDir, { includeDirs: true });
-    let latest: { name: string; startedAt: string } | null = null;
-
-    for (const entry of entries) {
-      if (!entry.isDirectory) continue;
-      const progressPath = `${this.pausedDir}/${entry.name}/progress.json`;
-      const hasProgress = await this.fs.exists(progressPath);
-      if (!hasProgress) continue;
-
-      try {
-        const data = JSON.parse(await this.fs.read(progressPath)) as ProgressData;
-        const startedAt = data.started_at ?? '';
-        if (!latest || startedAt > latest.startedAt) {
-          latest = { name: entry.name, startedAt };
-        }
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code !== 'ENOENT') {
-          this.audit.write(
-            CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED,
-            `file=${entry.name}`,
-            `err=${error instanceof Error ? error.message : String(error)}`,
-          );
-          this.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=${'ContractSystem.loadPaused'}`, `contract=${entry.name}`, `error=${error instanceof Error ? error.message : String(error)}`);
-        }
-        continue;
-      }
-    }
-
-    if (!latest) return null;
-    const contract = await this.loadContract(latest.name);
-    contract.status = 'paused';    // 目录位置决定状态（P1）
-    return contract;
+    return loadPausedContract(this._discoveryCtx(), this.pausedDir);
   }
 
-  /**
-   * Create a new contract
-   */
+  // Acceptance
+  async completeSubtask(params: {
+    contractId: string;
+    subtaskId: string;
+    evidence: string;
+    artifacts?: string[];
+  }): Promise<AcceptanceResult> {
+    return runAcceptancePipeline(this._acceptanceCtx(), params);
+  }
+
+  // Lifecycle
+  async pause(contractId: string, checkpointNote: string): Promise<void> {
+    return pauseContract(this._lifecycleCtx(), contractId, checkpointNote);
+  }
+
+  async resume(contractId: string): Promise<Contract> {
+    return resumeContract(this._lifecycleCtx(), contractId);
+  }
+
+  async cancel(contractId: string, reason: string): Promise<void> {
+    return cancelContract(this._lifecycleCtx(), contractId, reason);
+  }
+
+  async isComplete(contractId: string): Promise<boolean> {
+    return isContractComplete(this._lifecycleCtx(), contractId);
+  }
+
+  // Persistence
+  public async readContractYamlRaw(contractId: string): Promise<string> {
+    return readYaml(this._persistenceCtx(), contractId);
+  }
+
+  // Events
+  onContractCompleted(cb: (contractId: string) => Promise<void>): () => void {
+    this.contractCompletedCallbacks.add(cb);
+    return () => { this.contractCompletedCallbacks.delete(cb); };
+  }
+
+  private async _emitContractCompleted(contractId: string): Promise<void> {
+    for (const cb of this.contractCompletedCallbacks) {
+      try {
+        await cb(contractId);
+      } catch (e) {
+        this.audit.write(
+          CONTRACT_AUDIT_EVENTS.CONTRACT_COMPLETED_HANDLER_FAILED,
+          `contractId=${contractId}`,
+          `err=${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+  }
+
+  // ============================================================================
+  // class own logic（不下沉的部分）
+  // ============================================================================
+
   async create(contractYaml: ContractYaml): Promise<string> {
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, 8)}`;
 
-    // Validate subtasks: must have at least one subtask
     if (!contractYaml.subtasks || contractYaml.subtasks.length === 0) {
       throw new Error('Contract must have at least one subtask');
     }
 
-    // Validate acceptance config: type/field binding must match
     for (const a of contractYaml.acceptance ?? []) {
       if (a.type === 'script' && !('script_file' in a)) {
         throw new Error(
@@ -384,7 +280,6 @@ export class ContractSystem {
       }
     }
 
-    // Validate acceptance config: no duplicate subtask_id
     const seenSubtaskIds = new Set<string>();
     for (const a of contractYaml.acceptance ?? []) {
       if (seenSubtaskIds.has(a.subtask_id)) {
@@ -395,7 +290,6 @@ export class ContractSystem {
       seenSubtaskIds.add(a.subtask_id);
     }
 
-    // Archive any existing active contract (prevents conflicts with multiple running contracts)
     const existing = await this.loadActive();
     if (existing && existing.id !== contractId) {
       this.audit.write(
@@ -408,7 +302,6 @@ export class ContractSystem {
 
     await this.fs.ensureDir(`${this.activeDir}/${contractId}`);
 
-    // Write contract.yaml (populate defaults; write id to ensure consistency)
     const content = yaml.dump({
       schema_version: contractYaml.schema_version ?? CONTRACT_DEFAULTS.schema_version,
       id: contractId,
@@ -422,7 +315,6 @@ export class ContractSystem {
     });
     await this.fs.writeAtomic(`${this.activeDir}/${contractId}/contract.yaml`, content);
 
-    // Write initial progress.json
     const progress: ProgressData = {
       contract_id: contractId,
       status: 'running',
@@ -438,9 +330,7 @@ export class ContractSystem {
         JSON.stringify(progress, null, 2)
       );
     } catch (err) {
-      // 清理整个合约目录，避免残留空目录或孤立文件在 active/
       await this.fs.removeDir(`${this.activeDir}/${contractId}`).catch((deleteErr) => {
-        // phase384/B.p347-retro-8: 区分编程 bug vs 业务 throw / 编程 bug 暴露 audit (Coding #5 / phase342 模式推广)
         if (isProgrammingBug(deleteErr)) {
           this.audit.write(
             CONTRACT_AUDIT_EVENTS.UNEXPECTED_ASYNC_THROW,
@@ -473,9 +363,6 @@ export class ContractSystem {
     return contractId;
   }
 
-  /**
-   * Read the progress of a contract
-   */
   async getProgress(contractId: string): Promise<ProgressData> {
     const dir = await this.contractDir(contractId);
     const progressPath = `${dir}/${contractId}/progress.json`;
@@ -483,379 +370,72 @@ export class ContractSystem {
     return JSON.parse(content) as ProgressData;
   }
 
-  /**
-   * Mark a subtask as complete and trigger acceptance
-   * 
-   * If acceptance is configured, runs asynchronously and returns { async: true }
-   * Result will be delivered via inbox message
-   */
-  async completeSubtask(params: {
-    contractId: string;
-    subtaskId: string;
-    evidence: string;
-    artifacts?: string[];
-  }): Promise<AcceptanceResult> {
-    const { contractId, subtaskId, evidence, artifacts } = params;
+  // ============================================================================
+  // private thin delegate（保 method 名 / tests white-box 调用面 + spy 保护）
+  // ============================================================================
 
-    // Load contract YAML to get acceptance configuration
-    const contractYaml = await this.loadContractYaml(contractId);
-    
-    // Run acceptance check
-    const acceptanceConfig = contractYaml.acceptance?.find(
-      a => a.subtask_id === subtaskId
-    );
-
-    // No acceptance criteria configured: pass immediately (sync)
-    if (!acceptanceConfig) {
-      return this._completeSubtaskSync(contractId, subtaskId, evidence, artifacts);
-    }
-
-    // Has acceptance config: verify subtask exists, mark in_progress, then async
-    await this.withProgressLock(contractId, async () => {
-      const progress = await this.getProgress(contractId);
-      
-      // Verify subtaskId exists
-      if (!progress.subtasks[subtaskId]) {
-        const validIds = Object.keys(progress.subtasks).join(', ');
-        throw new ToolError(`Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`);
-      }
-
-      // Guard: reject duplicate done() call
-      const currentStatus = progress.subtasks[subtaskId].status;
-      if (currentStatus === 'in_progress') {
-        throw new ToolError(`Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.`);
-      }
-      if (currentStatus === 'completed') {
-        throw new ToolError(`Subtask "${subtaskId}" is already completed.`);
-      }
-      
-      // Mark as in_progress during acceptance verification
-      progress.subtasks[subtaskId] = {
-        ...progress.subtasks[subtaskId], // 保留 retry_count / last_failed_feedback
-        status: 'in_progress',
-        evidence,
-        artifacts,
-      };
-      
-      await this.saveProgress(contractId, progress);
-      
-      this.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_STARTED, `contractId=${contractId}`, `subtaskId=${subtaskId}`);
-    });
-
-    // Start background acceptance (fire-and-forget)
-    this._runAcceptanceInBackground(params, contractYaml, acceptanceConfig)
-      .catch(err => {
-        // phase342: 区分编程 bug vs 业务 throw / 编程 bug 暴露 audit (Coding #5)
-        if (isProgrammingBug(err)) {
-          this.audit.write(
-            CONTRACT_AUDIT_EVENTS.UNEXPECTED_ASYNC_THROW,
-            `context=ContractSystem.backgroundAcceptance`,
-            `contractId=${contractId}`,
-            `subtaskId=${subtaskId}`,
-            `errorType=${err instanceof Error ? err.constructor.name : typeof err}`,
-            `error=${err instanceof Error ? err.message : String(err)}`,
-            `stack=${err instanceof Error ? err.stack ?? '' : ''}`,
-          );
-        }
-        this.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=ContractSystem.backgroundAcceptance`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `error=${err instanceof Error ? err.message : String(err)}`);
-        return this._writeAcceptanceError(contractId, subtaskId, err);
-      });
-
-    // Return immediately with async flag
-    return { passed: false, feedback: '', async: true };
+  private async acquireLock(lockPath: string): Promise<void> {
+    return acquireLock(this._lockCtx(), lockPath);
   }
 
-  /**
-   * Synchronous completion (no acceptance configured)
-   */
+  private async unlinkStaleLock(lockPath: string, reason: string): Promise<boolean> {
+    return unlinkStaleLock(this._lockCtx(), lockPath, reason);
+  }
+
+  private async releaseLock(lockPath: string): Promise<void> {
+    return releaseLock(this._lockCtx(), lockPath);
+  }
+
+  private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
+    const dir = await this.contractDir(contractId);
+    return wpl(this._lockCtx(), dir, contractId, fn);
+  }
+
+  private async loadContractYaml(contractId: string): Promise<ContractYaml> {
+    return loadYaml(this._persistenceCtx(), contractId);
+  }
+
+  private async loadContract(contractId: string): Promise<Contract> {
+    return loadCt(this._persistenceCtx(), contractId);
+  }
+
+  private async saveProgress(contractId: string, progress: ProgressData): Promise<void> {
+    return saveProg(this._persistenceCtx(), contractId, progress);
+  }
+
+  private async updateContractStatus(contractId: string, status: ContractStatus): Promise<void> {
+    return updateStatus(this._persistenceCtx(), contractId, status);
+  }
+
+  private async checkAllCompleted(contractId: string, progress: ProgressData): Promise<boolean> {
+    return checkAllSubtasksCompleted(this._persistenceCtx(), contractId, progress);
+  }
+
+  private async moveToArchive(contractId: string): Promise<void> {
+    return moveContractToArchive(this._lifecycleCtx(), contractId);
+  }
+
+  private async _runVerifierSubagent(config: VerifierConfig): Promise<VerifierResult> {
+    return runContractVerifier(config);
+  }
+
   private async _completeSubtaskSync(
     contractId: string,
     subtaskId: string,
     evidence: string,
     artifacts?: string[],
   ): Promise<AcceptanceResult> {
-    let allCompleted = false;
-    let result: AcceptanceResult = { passed: true, feedback: 'No acceptance criteria configured' };
-    const contractYaml = await this.loadContractYaml(contractId);
-    
-    await this.withProgressLock(contractId, async () => {
-      const progress = await this.getProgress(contractId);
-      
-      // Verify subtaskId exists
-      if (!progress.subtasks[subtaskId]) {
-        const validIds = Object.keys(progress.subtasks).join(', ');
-        result = { passed: false, feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}` };
-        this.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=ContractSystem._completeSubtaskSync`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `message=Unknown subtaskId`);
-        return;
-      }
-
-      // Guard: skip if acceptance already running or subtask already completed
-      const currentStatus = progress.subtasks[subtaskId].status;
-      if (currentStatus === 'in_progress') {
-        result = { passed: false, feedback: `Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.` };
-        this.audit.write(
-          CONTRACT_AUDIT_EVENTS.SUBTASK_DUPLICATE_DONE,
-          `contractId=${contractId}`,
-          `subtaskId=${subtaskId}`,
-        );
-        return;
-      }
-      if (currentStatus === 'completed') {
-        result = { passed: false, feedback: `Subtask "${subtaskId}" is already completed.` };
-        this.audit.write(
-          CONTRACT_AUDIT_EVENTS.SUBTASK_ALREADY_COMPLETED,
-          `contractId=${contractId}`,
-          `subtaskId=${subtaskId}`,
-        );
-        return;
-      }
-      
-      progress.subtasks[subtaskId] = {
-        ...progress.subtasks[subtaskId],
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        evidence,
-        artifacts,
-      };
-      try {
-        this.onNotify?.('subtask_completed', { contractId, subtaskId });
-      } catch (err) {
-        this.audit.write(
-          CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
-          `err=${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-      const subtaskTotal = contractYaml.subtasks.length;
-      const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
-      // AuditLog: subtask_completed
-      this.audit.write(
-        'subtask_completed',
-        `${contractId}/${subtaskId}`,
-        `progress=${completedCount}/${subtaskTotal}`,
-        `claw=${this.clawId}`,
-      );
-
-      // Check whether all subtasks are complete
-      allCompleted = await this.checkAllCompleted(contractId, progress);
-      if (allCompleted) {
-        progress.status = 'completed';
-        await this.updateContractStatus(contractId, 'completed');
-      }
-
-      await this.saveProgress(contractId, progress);
-      
-      this.audit.write(CONTRACT_AUDIT_EVENTS.UPDATED, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `status=${allCompleted ? 'completed' : 'running'}`);
-    });
-
-    // Archive and log completion outside the lock (best-effort)
-    if (allCompleted) {
-      const title = contractYaml.title;
-      try {
-        await this.moveToArchive(contractId);
-        this.audit.write(
-          'contract_completed',
-          contractId,
-          `title=${title}`,
-          `claw=${this.clawId}`,
-        );
-        await this._emitContractCompleted(contractId);
-      } catch (err) {
-        this.audit.write(
-          CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED,
-          `err=${err instanceof Error ? err.message : String(err)}`,
-        );
-        this.audit.write(CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED, `context=${'ContractSystem._completeSubtaskSync'}`, `message=${'moveToArchive failed; contract stays in active/'}`, `error=${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-    
-    return { ...result, allCompleted };
+    return completeSubtaskSync(this._acceptanceCtx(), contractId, subtaskId, evidence, artifacts);
   }
 
-  /**
-   * Run acceptance verification in background
-   */
   private async _runAcceptanceInBackground(
     params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
     contractYaml: ContractYaml,
     acceptanceConfig: { subtask_id: string; type: 'script'; script_file?: string } | { subtask_id: string; type: 'llm'; prompt_file?: string },
   ): Promise<void> {
-    const { contractId, subtaskId, evidence, artifacts = [] } = params;
-    
-    // Get subtask description from contract YAML
-    const subtaskDef = contractYaml.subtasks.find(st => st.id === subtaskId);
-    const subtaskDesc = subtaskDef?.description || subtaskId;
-    
-    // Run acceptance check
-    const contractAbsDir = path.join(this.clawDir, await this.contractDir(contractId), contractId);
-    let result: AcceptanceResult;
-
-    if (acceptanceConfig.type === 'script') {
-      const scriptFile = acceptanceConfig.script_file;
-      if (!scriptFile) {
-        result = { passed: false, feedback: 'acceptance config script 类型缺少 script_file' };
-        this.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._runAcceptanceInBackground'}`, `message=${'acceptance config missing script_file'}`);
-      } else {
-        result = await this.runScriptAcceptance(scriptFile, contractAbsDir);
-      }
-    } else {
-      const promptFile = acceptanceConfig.prompt_file;
-      if (!promptFile) {
-        result = { passed: false, feedback: 'acceptance config llm 类型缺少 prompt_file' };
-        this.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._runAcceptanceInBackground'}`, `message=${'acceptance config missing prompt_file'}`);
-      } else {
-        result = await this.runLLMAcceptance(
-          promptFile,
-          contractAbsDir,
-          contractId,
-          subtaskId,
-          subtaskDesc,
-          evidence,
-          artifacts,
-        );
-      }
-    }
-
-    // Handle acceptance result
-    await this.withProgressLock(contractId, async () => {
-      const progress = await this.getProgress(contractId);
-      const subtask = progress.subtasks[subtaskId];
-      
-      if (!subtask) {
-        this.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=ContractSystem._runAcceptanceInBackground`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `error=subtask missing from progress after in_progress mark`);
-        return;
-      }
-      
-      if (result.passed) {
-        // Mark completed
-        subtask.status = 'completed';
-        subtask.completed_at = new Date().toISOString();
-        try {
-          this.onNotify?.('subtask_completed', { contractId, subtaskId });
-        } catch (err) {
-          this.audit.write(
-            CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
-            `err=${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-        const subtaskTotal = contractYaml.subtasks.length;
-        const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
-        // AuditLog: subtask_completed
-        this.audit.write(
-          'subtask_completed',
-          `${contractId}/${subtaskId}`,
-          `progress=${completedCount}/${subtaskTotal}`,
-          `claw=${this.clawId}`,
-        );
-
-        // AuditLog: acceptance_passed
-        this.audit.write(CONTRACT_AUDIT_EVENTS.PASSED, `${contractId}/${subtaskId}`);
-
-        // Check all completed
-        const allCompleted = await this.checkAllCompleted(contractId, progress);
-        if (allCompleted) {
-          progress.status = 'completed';
-          await this.updateContractStatus(contractId, 'completed');
-        }
-        
-        await this.saveProgress(contractId, progress);
-        
-        // Write inbox notification to claw
-        this._writeAcceptanceInbox(contractId, subtaskId, 'passed', allCompleted);
-        
-        // AuditLog log if all completed
-        if (allCompleted) {
-          try {
-            await this.moveToArchive(contractId);
-            this.audit.write(
-              'contract_completed',
-              contractId,
-              `title=${contractYaml.title}`,
-              `claw=${this.clawId}`,
-            );
-            await this._emitContractCompleted(contractId);
-          } catch (err) {
-            this.audit.write(
-              CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED,
-              `err=${err instanceof Error ? err.message : String(err)}`,
-            );
-            this.audit.write(CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED, `context=${'ContractSystem._runAcceptanceInBackground'}`, `message=${'moveToArchive failed; contract stays in active/'}`, `error=${err instanceof Error ? err.message : String(err)}`);
-          }
-        }
-      } else {
-        // Rejected - track retry count and feedback
-        subtask.retry_count = (subtask.retry_count || 0) + 1;
-        subtask.last_failed_feedback = {
-          feedback: result.feedback,
-          cause: 'llm_rejected',
-        };
-        
-        // Reset to todo for retry
-        subtask.status = 'todo';
-        
-        const maxRetries = contractYaml.escalation?.max_retries ?? 3;
-        try {
-          this.onNotify?.('acceptance_failed', {
-            contract_id: contractId,
-            subtask_id: subtaskId,
-            cause: 'llm_rejected',
-            feedback: result.feedback,
-            retry_count: subtask.retry_count,
-            max_retries: maxRetries,
-          } satisfies AcceptanceFailedNotification);
-        } catch (err) {
-          this.audit.write(
-            CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
-            `err=${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        // AuditLog: acceptance_failed
-        this.audit.write(
-          'acceptance_failed',
-          `${contractId}/${subtaskId}`,
-          `feedback=${result.feedback}`,
-        );
-
-        await this.saveProgress(contractId, progress);
-        
-        // Format rejection feedback
-        const acceptanceFile = acceptanceConfig.type === 'script' 
-          ? acceptanceConfig.script_file ?? 'unknown'
-          : acceptanceConfig.prompt_file ?? 'unknown';
-        const formattedFeedback = result.structured
-          ? this.formatRejectionFeedback(
-              subtaskId,
-              subtaskDesc,
-              result.structured.reason,
-              result.structured.issues || [],
-              subtask.retry_count,
-              maxRetries,
-              acceptanceConfig.type,
-              acceptanceFile,
-            )
-          : result.feedback;
-        
-        // Write inbox rejection notification
-        this._writeAcceptanceInbox(contractId, subtaskId, 'rejected', false, formattedFeedback, subtask.retry_count);
-        
-        // Escalate if too many retries
-        if (subtask.retry_count >= maxRetries) {
-          subtask.escalated_at = new Date().toISOString();
-          await this.saveProgress(contractId, progress);
-          this.audit.write(
-            'contract_escalation',
-            `${contractId}/${subtaskId}`,
-            `retry_count=${subtask.retry_count}`,
-            `claw=${this.clawId}`,
-          );
-        }
-      }
-    });
+    return runAcceptanceInBackground(this._acceptanceCtx(), params, contractYaml, acceptanceConfig);
   }
 
-  /**
-   * Write acceptance result to claw inbox
-   */
   private _writeAcceptanceInbox(
     contractId: string,
     subtaskId: string,
@@ -864,123 +444,13 @@ export class ContractSystem {
     feedback?: string,
     retryCount?: number,
   ): void {
-    const extraFields: Record<string, string> = {
-      contract_id: contractId,
-      subtask_id: subtaskId,
-      verdict,
-    };
-    if (retryCount !== undefined) extraFields.retry_count = String(retryCount);
-
-    let body: string;
-    if (verdict === 'passed') {
-      body = allCompleted
-        ? `Subtask ${subtaskId} accepted. All subtasks complete!`
-        : `Subtask ${subtaskId} accepted.`;
-    } else {
-      body = feedback || 'No feedback provided';
-    }
-
-    const audit = this.audit;
-    new InboxWriter(
-      this.fs,
-      path.join(this.clawDir, 'inbox', 'pending'),
-      audit,
-    ).writeSync({
-      type: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
-      source: 'contract_system',
-      to: this.clawId,
-      priority: verdict === 'rejected' ? 'high' : 'normal',
-      body,
-      filenameTag: verdict === 'rejected' ? 'high' : 'normal',
-      extraFields,
-    });
+    return writeAcceptanceInbox(this._acceptanceCtx(), contractId, subtaskId, verdict, allCompleted, feedback, retryCount);
   }
 
-  /**
-   * Write acceptance error to claw inbox (best-effort)
-   */
-  private async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-
-    // 区分 timeout vs programming bug（含 TypeError 等）
-    const cause: LastFailedFeedback['cause'] =
-      error instanceof ToolTimeoutError ? 'subagent_timeout' : 'programming_bug';
-    const feedbackText =
-      cause === 'subagent_timeout'
-        ? `Acceptance verifier timed out after ${(error as ToolTimeoutError).context?.timeoutMs ?? '?'}ms. 资源 / 网络问题 / 重试可能修复。Error: ${errorMsg}`
-        : `Acceptance verification crashed (system bug). Error: ${errorMsg}. 修代码后再 retry。`;
-
-    try {
-      const audit = this.audit;
-      new InboxWriter(
-        this.fs,
-        path.join(this.clawDir, 'inbox', 'pending'),
-        audit,
-      ).writeSync({
-        type: 'acceptance_error',
-        source: 'contract_system',
-        to: this.clawId,
-        priority: 'high',
-        body: `Acceptance verification failed with error: ${errorMsg}`,
-        idPrefix: 'acceptance_error',
-        filenameTag: 'high',
-        extraFields: {
-          contract_id: contractId,
-          subtask_id: subtaskId,
-        },
-      });
-    } catch (e) {
-      // Best-effort: log but don't throw
-      this.audit.write(
-        CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED,
-        `err=${e instanceof Error ? e.message : String(e)}`,
-      );
-      this.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED, `context=${'ContractSystem._writeAcceptanceError'}`, `error=${e instanceof Error ? e.message : String(e)}`);
-    }
-
-    // 重置 subtask 状态，防止永久卡在 in_progress
-    try {
-      await this.withProgressLock(contractId, async () => {
-        const progress = await this.getProgress(contractId);
-        const subtask = progress.subtasks[subtaskId];
-        if (subtask && subtask.status === 'in_progress') {
-          subtask.status = 'todo';
-          subtask.retry_count = (subtask.retry_count || 0) + 1;
-          subtask.last_failed_feedback = { feedback: feedbackText, cause };
-          await this.saveProgress(contractId, progress);
-
-          // onNotify acceptance_failed payload align rejected 路径
-          const contractYaml = await this.loadContractYaml(contractId);
-          const maxRetries = contractYaml.escalation?.max_retries ?? 3;
-          try {
-            this.onNotify?.('acceptance_failed', {
-              contract_id: contractId,
-              subtask_id: subtaskId,
-              cause,
-              feedback: feedbackText,
-              retry_count: subtask.retry_count,
-              max_retries: maxRetries,
-            } satisfies AcceptanceFailedNotification);
-          } catch (notifyErr) {
-            this.audit.write(
-              CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
-              `err=${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
-            );
-          }
-        }
-      });
-    } catch (e) {
-      this.audit.write(
-        CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED,
-        `err=${e instanceof Error ? e.message : String(e)}`,
-      );
-      this.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._writeAcceptanceError.resetStatus'}`, `error=${e instanceof Error ? e.message : String(e)}`);
-    }
+  async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
+    return writeAcceptanceError(this._acceptanceCtx(), contractId, subtaskId, error);
   }
 
-  /**
-   * Format rejection feedback for claw with structured information
-   */
   private formatRejectionFeedback(
     subtaskId: string,
     subtaskDesc: string,
@@ -991,217 +461,13 @@ export class ContractSystem {
     acceptanceType: string,
     acceptanceFile: string,
   ): string {
-    const issuesList = issues.length > 0
-      ? issues.map(i => `- ${i}`).join('\n')
-      : '- (未提供具体问题)';
-
-    return [
-      `## 验收失败 — ${subtaskId}`,
-      '',
-      `**子任务：** ${subtaskDesc}`,
-      '',
-      '**失败原因：**',
-      reason,
-      '',
-      '**需要修正的问题：**',
-      issuesList,
-      '',
-      `**验收标准：** ${acceptanceType} (${acceptanceFile})`,
-      '',
-      `已失败 ${retryCount}/${maxRetries} 次。`,
-    ].join('\n');
+    return formatRejectionFeedback(subtaskId, subtaskDesc, reason, issues, retryCount, maxRetries, acceptanceType, acceptanceFile);
   }
 
-  /**
-   * Pause a contract (move from active/ to paused/)
-   */
-  async pause(contractId: string, checkpointNote: string): Promise<void> {
-    const dir = await this.contractDir(contractId);
-    if (dir !== this.activeDir) {
-      throw new ToolError(`Cannot pause contract "${contractId}": not in active/`);
-    }
-    // Move directory first — filesystem location is source of truth
-    await this.fs.ensureDir(this.pausedDir);
-    await this.fs.move(
-      `${this.activeDir}/${contractId}`,
-      `${this.pausedDir}/${contractId}`
-    );
-    // Update progress.json at new location inside lock
-    await this.withProgressLock(contractId, async () => {
-      const progress = await this.getProgress(contractId);
-      progress.status = 'paused';
-      progress.checkpoint = checkpointNote;
-      await this.saveProgress(contractId, progress);
-    });
-    this.audit.write(CONTRACT_AUDIT_EVENTS.PAUSED, contractId, `checkpoint=${checkpointNote}`);
+  private async runScriptAcceptance(scriptFile: string, contractAbsDir: string): Promise<AcceptanceResult> {
+    return runScriptAcceptanceFn(this._acceptanceCtx(), scriptFile, contractAbsDir);
   }
 
-  /**
-   * Resume a contract (move from paused/ to active/)
-   */
-  async resume(contractId: string): Promise<Contract> {
-    const dir = await this.contractDir(contractId);
-    if (dir !== this.pausedDir) {
-      throw new ToolError(`Cannot resume contract "${contractId}": not in paused/`);
-    }
-    // Move directory first — filesystem location is source of truth
-    await this.fs.move(
-      `${this.pausedDir}/${contractId}`,
-      `${this.activeDir}/${contractId}`
-    );
-    // Update progress.json at new location inside lock
-    await this.withProgressLock(contractId, async () => {
-      const progress = await this.getProgress(contractId);
-      progress.status = 'running';
-      progress.checkpoint = null;
-      await this.saveProgress(contractId, progress);
-    });
-    this.audit.write(CONTRACT_AUDIT_EVENTS.RESUMED, contractId);
-    return this.loadContract(contractId);
-  }
-
-  /**
-   * Cancel a contract (move from active/ or paused/ to archive/)
-   */
-  async cancel(contractId: string, reason: string): Promise<void> {
-    const dir = await this.contractDir(contractId);
-    if (dir === this.archiveDir) {
-      throw new ToolError(`Cannot cancel contract "${contractId}": already archived`);
-    }
-    // Move directory first — filesystem location is source of truth
-    await this.fs.ensureDir(this.archiveDir);
-    await this.fs.move(`${dir}/${contractId}`, `${this.archiveDir}/${contractId}`);
-    // Update progress.json at new location inside lock
-    await this.withProgressLock(contractId, async () => {
-      const progress = await this.getProgress(contractId);
-      progress.status = 'cancelled';
-      progress.checkpoint = `cancelled: ${reason}`;
-      await this.saveProgress(contractId, progress);
-    });
-    this.audit.write(CONTRACT_AUDIT_EVENTS.CANCELLED, contractId, `reason=${reason}`);
-  }
-
-  /**
-   * Move a contract from active/ or paused/ to archive/
-   */
-  private async moveToArchive(contractId: string): Promise<void> {
-    const dir = await this.contractDir(contractId);
-    if (dir === this.archiveDir) return; // Already in archive
-    const dst = `${this.archiveDir}/${contractId}`;
-    await this.fs.ensureDir(this.archiveDir);
-    await this.fs.move(`${dir}/${contractId}`, dst);
-  }
-
-  /**
-   * Check whether all subtasks are complete
-   */
-  async isComplete(contractId: string): Promise<boolean> {
-    const progress = await this.getProgress(contractId);
-    return this.checkAllCompleted(contractId, progress);
-  }
-
-  // ============================================================================
-  // Private methods
-  // ============================================================================
-
-  private async loadContractYaml(contractId: string): Promise<ContractYaml> {
-    const dir = await this.contractDir(contractId);
-    const contractPath = `${dir}/${contractId}/contract.yaml`;
-    const content = await this.fs.read(contractPath);
-    return yaml.load(content) as ContractYaml;
-  }
-
-  // 新增：供外部（daemon.ts）直接读取 YAML 原始字符串
-  public async readContractYamlRaw(contractId: string): Promise<string> {
-    const dir = await this.contractDir(contractId);
-    const contractPath = `${dir}/${contractId}/contract.yaml`;
-    return this.fs.read(contractPath);
-  }
-
-  private async loadContract(contractId: string): Promise<Contract> {
-    const yamlContract = await this.loadContractYaml(contractId);
-    const progress = await this.getProgress(contractId);
-
-    // Convert YAML format to the Contract interface (using unified defaults)
-    return {
-      id: yamlContract.id ?? contractId,
-      title: yamlContract.title,
-      description: yamlContract.goal,
-      status: progress.status,
-      priority: 'normal',
-      creator: 'system',
-      goal: yamlContract.goal,
-      subtasks: yamlContract.subtasks.map(st => ({
-        id: st.id,
-        description: st.description,
-        status: progress.subtasks[st.id]?.status || 'todo',
-        created_at: progress.started_at || new Date().toISOString(),
-        updated_at: progress.subtasks[st.id]?.completed_at || new Date().toISOString(),
-      })),
-      auth_level: yamlContract.auth_level ?? CONTRACT_DEFAULTS.auth_level,
-      created_at: progress.started_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-  }
-
-  private async saveProgress(contractId: string, progress: ProgressData): Promise<void> {
-    const dir = await this.contractDir(contractId);
-    const progressPath = `${dir}/${contractId}/progress.json`;
-    await this.fs.writeAtomic(progressPath, JSON.stringify(progress, null, 2));
-  }
-
-  private async updateContractStatus(contractId: string, status: ContractStatus): Promise<void> {
-    // In Phase 1, the contract YAML is read-only; status changes are recorded in progress.json
-    // In a real project, you may need to update the status field in the contract file itself
-    if (status === 'completed') {
-      this.audit.write(CONTRACT_AUDIT_EVENTS.COMPLETED, contractId);
-    }
-  }
-
-  private async checkAllCompleted(contractId: string, progress: ProgressData): Promise<boolean> {
-    const contractYaml = await this.loadContractYaml(contractId);
-    return contractYaml.subtasks.every(st => 
-      progress.subtasks[st.id]?.status === 'completed'
-    );
-  }
-
-  private async runScriptAcceptance(
-    scriptFile: string,
-    contractAbsDir: string,
-  ): Promise<AcceptanceResult> {
-    // 路径安全：script_file 必须在契约目录内（ContractSystem 业务语义）
-    const resolved = path.resolve(contractAbsDir, scriptFile);
-    if (!resolved.startsWith(contractAbsDir + path.sep)) {
-      return { passed: false, feedback: `路径安全拒绝: script_file 必须在契约目录内` };
-    }
-
-    this.audit.write(
-      CONTRACT_AUDIT_EVENTS.ACCEPTANCE_SCRIPT_STARTED,
-      `script=${scriptFile}`,
-      `cwd=${this.clawDir}`,
-    );
-
-    try {
-      await exec('sh', [resolved], {
-        cwd: this.clawDir,
-        timeout: CONTRACT_SCRIPT_TIMEOUT_MS,
-      });
-      return { passed: true, feedback: 'Script acceptance passed' };
-    } catch (err) {
-      if (!(err instanceof ProcessExecError)) {
-        return { passed: false, feedback: `验收失败: ${err instanceof Error ? err.message : String(err)}` };
-      }
-
-      const prefix = err.killed ? '验收脚本超时' : '验收失败';
-      const detail = err.stderr || err.stdout || err.message;
-      const firstLine = detail.split('\n').find(l => l.trim()) ?? detail.trim();
-      return { passed: false, feedback: `${prefix}: ${firstLine}` };
-    }
-  }
-
-  /**
-   * Run LLM acceptance verification using SubAgent
-   */
   private async runLLMAcceptance(
     promptFile: string,
     contractAbsDir: string,
@@ -1211,148 +477,6 @@ export class ContractSystem {
     evidence: string,
     artifacts: string[],
   ): Promise<AcceptanceResult> {
-    // LLM not injected
-    if (!this.llm) {
-      return { passed: false, feedback: 'LLM 验收未配置（llm 未注入）' };
-    }
-
-    // Path security check
-    const resolved = path.resolve(contractAbsDir, promptFile);
-    if (!resolved.startsWith(contractAbsDir + path.sep)) {
-      return { passed: false, feedback: '路径安全拒绝: prompt_file 必须在契约目录内' };
-    }
-
-    try {
-      // Read prompt template
-      const relativePath = path.relative(this.clawDir, resolved);
-      if (relativePath.startsWith('..')) {
-        return { passed: false, feedback: '路径安全拒绝: prompt_file 解析后逃出 claw 目录' };
-      }
-      const promptTemplate = await this.fs.read(relativePath);
-
-      // Inject variables
-      const filledPrompt = promptTemplate
-        .replace(/\{\{evidence\}\}/g, evidence)
-        .replace(/\{\{artifacts\}\}/g, artifacts.join(', '))
-        .replace(/\{\{subtask_description\}\}/g, subtaskDesc);
-
-      // phase427 inline (STALE port 推翻)
-      const result = await this._runVerifierSubagent({
-        agentId: `verifier-${contractId}-${subtaskId}`,
-        prompt: filledPrompt,
-        clawDir: this.clawDir,
-        llm: this.llm!,
-        fs: this.fs,
-        maxSteps: DEFAULT_MAX_STEPS,
-        idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
-        onIdleTimeout: () => {
-          this.audit.write(
-            'acceptance_timeout',
-            `${contractId}/${subtaskId}`,
-            `claw=${this.clawId}`,
-          );
-        },
-      });
-      return result;
-    } catch (err) {
-      if (err instanceof ToolTimeoutError) {
-        return { passed: false, feedback: '验收子代理超时' };
-      }
-      const msg = err instanceof Error ? err.message : String(err);
-      return { passed: false, feedback: `LLM 验收失败: ${msg}` };
-    }
+    return runLLMAcceptanceFn(this._acceptanceCtx(), promptFile, contractAbsDir, contractId, subtaskId, subtaskDesc, evidence, artifacts);
   }
-
-  /**
-   * Run verifier subagent (inlined from phase340 ContractVerifierScheduler port).
-   *
-   * phase427 STALE 推翻：原 port abstraction 是 design work-around / 真合规 = 同层
-   * directly compose createSubAgent + ReportResultTool / 0 抽象增益 / 行为 0 改。
-   *
-   * H6 异步化 (verifier 走 TaskSystem dispatch 通道) = 独立 design-gap (应然 silent
-   * on verifier sync vs async / acceptance state machine sync 反馈 可能合理业务) →
-   * 推 r+1 design 评估 / 不在本 phase 强行 mechanical 异步化。
-   */
-  private async _runVerifierSubagent(config: VerifierConfig): Promise<VerifierResult> {
-    try {
-      // Build registry: report_result tool only (internalized)
-      const reportTool = new ReportResultTool();
-      const registry = new ToolRegistryImpl();
-      registry.register(reportTool);
-
-      // Create SubAgent
-      const agent = createSubAgent({
-        agentId: config.agentId,
-        resultDir: `tasks/results/${config.agentId}`,             // phase443: 保现行为（Noop writers 不消费 / 0 行为差）
-        messageStore: createDialogStore(           // phase453: verifier ephemeral DialogStore 装配
-          config.fs as any,
-          `tasks/results/${config.agentId}`,
-          new NoopAuditWriter(),                   // verifier 用 Noop（保现行为）
-          'messages.json',
-          CONTRACT_VERIFIER_SYSTEM_PROMPT,         // phase 466: verifier system prompt
-        ),
-        prompt: config.prompt,
-        clawDir: config.clawDir,
-        llm: config.llm,
-        registry,
-        fs: config.fs as any,
-        maxSteps: config.maxSteps,
-        idleTimeoutMs: config.idleTimeoutMs,
-        onIdleTimeout: config.onIdleTimeout,
-        systemPrompt: CONTRACT_VERIFIER_SYSTEM_PROMPT,
-        taskStreamWriter: new NoopStreamWriter(),
-        auditWriter: new NoopAuditWriter(),
-      });
-
-      // Run
-      const text = await agent.run();
-
-      // Prefer structured tool result
-      if (reportTool.capturedResult) {
-        return {
-          passed: reportTool.capturedResult.passed,
-          feedback: JSON.stringify(reportTool.capturedResult),
-          structured: reportTool.capturedResult,
-        };
-      }
-
-      // Fallback: text-based JSON parsing
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return { passed: false, feedback: `LLM 返回格式错误: 无法解析 JSON — ${text}` };
-      }
-      const jsonStr = jsonMatch[1] || jsonMatch[0];
-      const result = JSON.parse(jsonStr) as { passed: boolean; reason: string; issues?: string[] };
-      return { passed: result.passed, feedback: jsonStr, structured: result };
-    } catch (err) {
-      if (err instanceof ToolTimeoutError) {
-        return { passed: false, feedback: '验收子代理超时' };
-      }
-      const msg = err instanceof Error ? err.message : String(err);
-      return { passed: false, feedback: `LLM 验收失败: ${msg}` };
-    }
-  }
-
-  // --- contract_completed callback (phase411 Step B) ---
-  private contractCompletedCallbacks: Set<(contractId: string) => Promise<void>> = new Set();
-
-  onContractCompleted(cb: (contractId: string) => Promise<void>): () => void {
-    this.contractCompletedCallbacks.add(cb);
-    return () => this.contractCompletedCallbacks.delete(cb);
-  }
-
-  private async _emitContractCompleted(contractId: string): Promise<void> {
-    for (const cb of this.contractCompletedCallbacks) {
-      try {
-        await cb(contractId);
-      } catch (e) {
-        this.audit.write(
-          CONTRACT_AUDIT_EVENTS.CONTRACT_COMPLETED_HANDLER_FAILED,
-          `contractId=${contractId}`,
-          `err=${e instanceof Error ? e.message : String(e)}`,
-        );
-      }
-    }
-  }
-
 }

@@ -1,0 +1,595 @@
+/**
+ * @module L4.ContractSystem.Acceptance
+ * Acceptance pipeline — sync + async + script + LLM + inbox 通知 + error 处理
+ *
+ * Migrated from manager.ts:492-1015 + 1168-1273 (phase 480 内拆)
+ */
+
+import * as path from 'path';
+import type { FileSystem } from '../../foundation/fs/types.js';
+import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
+import type { AuditWriter } from '../../foundation/audit/index.js';
+import type { Contract, AcceptanceFailedNotification, LastFailedFeedback } from '../../types/contract.js';
+import { ToolError, ToolTimeoutError } from '../../types/errors.js';
+import { exec } from '../../foundation/process-exec/index.js';
+import { ProcessExecError } from '../../foundation/process-exec/index.js';
+import { CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
+import { InboxWriter } from '../../foundation/messaging/index.js';
+import type { ContractYaml, ProgressData, AcceptanceResult } from './types.js';
+import { withProgressLock, type LockContext } from './lock.js';
+import { runContractVerifier } from './verifier-job.js';
+import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+
+const PROGRAMMING_BUG_TYPES = [TypeError, ReferenceError, SyntaxError, RangeError];
+
+function isProgrammingBug(err: unknown): boolean {
+  return PROGRAMMING_BUG_TYPES.some(T => err instanceof T);
+}
+
+export interface AcceptanceContext extends LockContext {
+  clawDir: string;
+  clawId: string;
+  llm?: LLMOrchestrator;
+  contractDir: (contractId: string) => Promise<string>;
+  loadContractYaml: (contractId: string) => Promise<ContractYaml>;
+  getProgress: (contractId: string) => Promise<ProgressData>;
+  saveProgress: (contractId: string, progress: ProgressData) => Promise<void>;
+  updateContractStatus: (contractId: string, status: 'completed') => Promise<void>;
+  checkAllSubtasksCompleted: (contractId: string, progress: ProgressData) => Promise<boolean>;
+  moveContractToArchive: (contractId: string) => Promise<void>;
+  emitContractCompleted: (contractId: string) => Promise<void>;
+  onNotify?: (type: string, data: Record<string, unknown>) => void;
+  runScriptAcceptance: (scriptFile: string, contractAbsDir: string) => Promise<AcceptanceResult>;
+  runLLMAcceptance: (
+    promptFile: string,
+    contractAbsDir: string,
+    contractId: string,
+    subtaskId: string,
+    subtaskDesc: string,
+    evidence: string,
+    artifacts: string[],
+  ) => Promise<AcceptanceResult>;
+  withProgressLock: <T>(contractId: string, fn: () => Promise<T>) => Promise<T>;
+}
+
+export async function completeSubtaskSync(
+  ctx: AcceptanceContext,
+  contractId: string,
+  subtaskId: string,
+  evidence: string,
+  artifacts?: string[],
+): Promise<AcceptanceResult> {
+  let allCompleted = false;
+  let result: AcceptanceResult = { passed: true, feedback: 'No acceptance criteria configured' };
+  const contractYaml = await ctx.loadContractYaml(contractId);
+
+  await ctx.withProgressLock(contractId, async () => {
+    const progress = await ctx.getProgress(contractId);
+    if (!progress.subtasks[subtaskId]) {
+      const validIds = Object.keys(progress.subtasks).join(', ');
+      result = { passed: false, feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}` };
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=ContractSystem._completeSubtaskSync`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `message=Unknown subtaskId`);
+      return;
+    }
+
+    const currentStatus = progress.subtasks[subtaskId].status;
+    if (currentStatus === 'in_progress') {
+      result = { passed: false, feedback: `Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.` };
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.SUBTASK_DUPLICATE_DONE,
+        `contractId=${contractId}`,
+        `subtaskId=${subtaskId}`,
+      );
+      return;
+    }
+    if (currentStatus === 'completed') {
+      result = { passed: false, feedback: `Subtask "${subtaskId}" is already completed.` };
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.SUBTASK_ALREADY_COMPLETED,
+        `contractId=${contractId}`,
+        `subtaskId=${subtaskId}`,
+      );
+      return;
+    }
+
+    progress.subtasks[subtaskId] = {
+      ...progress.subtasks[subtaskId],
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      evidence,
+      artifacts,
+    };
+    try {
+      ctx.onNotify?.('subtask_completed', { contractId, subtaskId });
+    } catch (err) {
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+        `err=${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    const subtaskTotal = contractYaml.subtasks.length;
+    const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
+    ctx.audit.write(
+      'subtask_completed',
+      `${contractId}/${subtaskId}`,
+      `progress=${completedCount}/${subtaskTotal}`,
+      `claw=${ctx.clawId}`,
+    );
+
+    allCompleted = await ctx.checkAllSubtasksCompleted(contractId, progress);
+    if (allCompleted) {
+      progress.status = 'completed';
+      await ctx.updateContractStatus(contractId, 'completed');
+    }
+
+    await ctx.saveProgress(contractId, progress);
+    ctx.audit.write(CONTRACT_AUDIT_EVENTS.UPDATED, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `status=${allCompleted ? 'completed' : 'running'}`);
+  });
+
+  if (allCompleted) {
+    const title = contractYaml.title;
+    try {
+      await ctx.moveContractToArchive(contractId);
+      ctx.audit.write(
+        'contract_completed',
+        contractId,
+        `title=${title}`,
+        `claw=${ctx.clawId}`,
+      );
+      await ctx.emitContractCompleted(contractId);
+    } catch (err) {
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED,
+        `err=${err instanceof Error ? err.message : String(err)}`,
+      );
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED, `context=${'ContractSystem._completeSubtaskSync'}`, `message=${'moveToArchive failed; contract stays in active/'}`, `error=${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { ...result, allCompleted };
+}
+
+export async function runAcceptancePipeline(
+  ctx: AcceptanceContext,
+  params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
+): Promise<AcceptanceResult> {
+  const { contractId, subtaskId, evidence, artifacts } = params;
+  const contractYaml = await ctx.loadContractYaml(contractId);
+  const acceptanceConfig = contractYaml.acceptance?.find(a => a.subtask_id === subtaskId);
+
+  if (!acceptanceConfig) {
+    return completeSubtaskSync(ctx, contractId, subtaskId, evidence, artifacts);
+  }
+
+  await ctx.withProgressLock(contractId, async () => {
+    const progress = await ctx.getProgress(contractId);
+    if (!progress.subtasks[subtaskId]) {
+      const validIds = Object.keys(progress.subtasks).join(', ');
+      throw new ToolError(`Unknown subtask "${subtaskId}". Valid subtask IDs: ${validIds}`);
+    }
+    const currentStatus = progress.subtasks[subtaskId].status;
+    if (currentStatus === 'in_progress') {
+      throw new ToolError(`Subtask "${subtaskId}" acceptance is already in progress — duplicate done() call ignored.`);
+    }
+    if (currentStatus === 'completed') {
+      throw new ToolError(`Subtask "${subtaskId}" is already completed.`);
+    }
+    progress.subtasks[subtaskId] = {
+      ...progress.subtasks[subtaskId],
+      status: 'in_progress',
+      evidence,
+      artifacts,
+    };
+    await ctx.saveProgress(contractId, progress);
+    ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_STARTED, `contractId=${contractId}`, `subtaskId=${subtaskId}`);
+  });
+
+  runAcceptanceInBackground(ctx, params, contractYaml, acceptanceConfig)
+    .catch(err => {
+      if (isProgrammingBug(err)) {
+        ctx.audit.write(
+          CONTRACT_AUDIT_EVENTS.UNEXPECTED_ASYNC_THROW,
+          `context=ContractSystem.backgroundAcceptance`,
+          `contractId=${contractId}`,
+          `subtaskId=${subtaskId}`,
+          `errorType=${err instanceof Error ? err.constructor.name : typeof err}`,
+          `error=${err instanceof Error ? err.message : String(err)}`,
+          `stack=${err instanceof Error ? err.stack ?? '' : ''}`,
+        );
+      }
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=ContractSystem.backgroundAcceptance`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `error=${err instanceof Error ? err.message : String(err)}`);
+      return writeAcceptanceError(ctx, contractId, subtaskId, err);
+    });
+
+  return { passed: false, feedback: '', async: true };
+}
+
+export async function runAcceptanceInBackground(
+  ctx: AcceptanceContext,
+  params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
+  contractYaml: ContractYaml,
+  acceptanceConfig: { subtask_id: string; type: 'script'; script_file?: string } | { subtask_id: string; type: 'llm'; prompt_file?: string },
+): Promise<void> {
+  const { contractId, subtaskId, evidence, artifacts = [] } = params;
+  const subtaskDef = contractYaml.subtasks.find(st => st.id === subtaskId);
+  const subtaskDesc = subtaskDef?.description || subtaskId;
+  const contractAbsDir = path.join(ctx.clawDir, await ctx.contractDir(contractId), contractId);
+  let result: AcceptanceResult;
+
+  if (acceptanceConfig.type === 'script') {
+    const scriptFile = acceptanceConfig.script_file;
+    if (!scriptFile) {
+      result = { passed: false, feedback: 'acceptance config script 类型缺少 script_file' };
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._runAcceptanceInBackground'}`, `message=${'acceptance config missing script_file'}`);
+    } else {
+      result = await ctx.runScriptAcceptance(scriptFile, contractAbsDir);
+    }
+  } else {
+    const promptFile = acceptanceConfig.prompt_file;
+    if (!promptFile) {
+      result = { passed: false, feedback: 'acceptance config llm 类型缺少 prompt_file' };
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._runAcceptanceInBackground'}`, `message=${'acceptance config missing prompt_file'}`);
+    } else {
+      result = await ctx.runLLMAcceptance(
+        promptFile,
+        contractAbsDir,
+        contractId,
+        subtaskId,
+        subtaskDesc,
+        evidence,
+        artifacts,
+      );
+    }
+  }
+
+  await ctx.withProgressLock(contractId, async () => {
+    const progress = await ctx.getProgress(contractId);
+    const subtask = progress.subtasks[subtaskId];
+    if (!subtask) {
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=ContractSystem._runAcceptanceInBackground`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `error=subtask missing from progress after in_progress mark`);
+      return;
+    }
+
+    if (result.passed) {
+      subtask.status = 'completed';
+      subtask.completed_at = new Date().toISOString();
+      try {
+        ctx.onNotify?.('subtask_completed', { contractId, subtaskId });
+      } catch (err) {
+        ctx.audit.write(
+          CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+          `err=${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      const subtaskTotal = contractYaml.subtasks.length;
+      const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
+      ctx.audit.write(
+        'subtask_completed',
+        `${contractId}/${subtaskId}`,
+        `progress=${completedCount}/${subtaskTotal}`,
+        `claw=${ctx.clawId}`,
+      );
+      ctx.audit.write(CONTRACT_AUDIT_EVENTS.PASSED, `${contractId}/${subtaskId}`);
+
+      const allCompleted = await ctx.checkAllSubtasksCompleted(contractId, progress);
+      if (allCompleted) {
+        progress.status = 'completed';
+        await ctx.updateContractStatus(contractId, 'completed');
+      }
+      await ctx.saveProgress(contractId, progress);
+      writeAcceptanceInbox(ctx, contractId, subtaskId, 'passed', allCompleted);
+
+      if (allCompleted) {
+        try {
+          await ctx.moveContractToArchive(contractId);
+          ctx.audit.write(
+            'contract_completed',
+            contractId,
+            `title=${contractYaml.title}`,
+            `claw=${ctx.clawId}`,
+          );
+          await ctx.emitContractCompleted(contractId);
+        } catch (err) {
+          ctx.audit.write(
+            CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED,
+            `err=${err instanceof Error ? err.message : String(err)}`,
+          );
+          ctx.audit.write(CONTRACT_AUDIT_EVENTS.MOVE_ARCHIVE_FAILED, `context=${'ContractSystem._runAcceptanceInBackground'}`, `message=${'moveToArchive failed; contract stays in active/'}`, `error=${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    } else {
+      subtask.retry_count = (subtask.retry_count || 0) + 1;
+      subtask.last_failed_feedback = {
+        feedback: result.feedback,
+        cause: 'llm_rejected',
+      };
+      subtask.status = 'todo';
+      const maxRetries = contractYaml.escalation?.max_retries ?? 3;
+      try {
+        ctx.onNotify?.('acceptance_failed', {
+          contract_id: contractId,
+          subtask_id: subtaskId,
+          cause: 'llm_rejected',
+          feedback: result.feedback,
+          retry_count: subtask.retry_count,
+          max_retries: maxRetries,
+        } satisfies AcceptanceFailedNotification);
+      } catch (err) {
+        ctx.audit.write(
+          CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+          `err=${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      ctx.audit.write(
+        'acceptance_failed',
+        `${contractId}/${subtaskId}`,
+        `feedback=${result.feedback}`,
+      );
+      await ctx.saveProgress(contractId, progress);
+
+      const acceptanceFile = acceptanceConfig.type === 'script'
+        ? acceptanceConfig.script_file ?? 'unknown'
+        : acceptanceConfig.prompt_file ?? 'unknown';
+      const formattedFeedback = result.structured
+        ? formatRejectionFeedback(
+            subtaskId,
+            subtaskDesc,
+            result.structured.reason,
+            result.structured.issues || [],
+            subtask.retry_count,
+            maxRetries,
+            acceptanceConfig.type,
+            acceptanceFile,
+          )
+        : result.feedback;
+      writeAcceptanceInbox(ctx, contractId, subtaskId, 'rejected', false, formattedFeedback, subtask.retry_count);
+
+      if (subtask.retry_count >= maxRetries) {
+        subtask.escalated_at = new Date().toISOString();
+        await ctx.saveProgress(contractId, progress);
+        ctx.audit.write(
+          'contract_escalation',
+          `${contractId}/${subtaskId}`,
+          `retry_count=${subtask.retry_count}`,
+          `claw=${ctx.clawId}`,
+        );
+      }
+    }
+  });
+}
+
+export async function runScriptAcceptance(
+  ctx: AcceptanceContext,
+  scriptFile: string,
+  contractAbsDir: string,
+): Promise<AcceptanceResult> {
+  const resolved = path.resolve(contractAbsDir, scriptFile);
+  if (!resolved.startsWith(contractAbsDir + path.sep)) {
+    return { passed: false, feedback: `路径安全拒绝: script_file 必须在契约目录内` };
+  }
+  ctx.audit.write(
+    CONTRACT_AUDIT_EVENTS.ACCEPTANCE_SCRIPT_STARTED,
+    `script=${scriptFile}`,
+    `cwd=${ctx.clawDir}`,
+  );
+  try {
+    await exec('sh', [resolved], {
+      cwd: ctx.clawDir,
+      timeout: CONTRACT_SCRIPT_TIMEOUT_MS,
+    });
+    return { passed: true, feedback: 'Script acceptance passed' };
+  } catch (err) {
+    if (!(err instanceof ProcessExecError)) {
+      return { passed: false, feedback: `验收失败: ${err instanceof Error ? err.message : String(err)}` };
+    }
+    const prefix = err.killed ? '验收脚本超时' : '验收失败';
+    const detail = err.stderr || err.stdout || err.message;
+    const firstLine = detail.split('\n').find(l => l.trim()) ?? detail.trim();
+    return { passed: false, feedback: `${prefix}: ${firstLine}` };
+  }
+}
+
+export async function runLLMAcceptance(
+  ctx: AcceptanceContext,
+  promptFile: string,
+  contractAbsDir: string,
+  contractId: string,
+  subtaskId: string,
+  subtaskDesc: string,
+  evidence: string,
+  artifacts: string[],
+): Promise<AcceptanceResult> {
+  if (!ctx.llm) {
+    return { passed: false, feedback: 'LLM 验收未配置（llm 未注入）' };
+  }
+  const resolved = path.resolve(contractAbsDir, promptFile);
+  if (!resolved.startsWith(contractAbsDir + path.sep)) {
+    return { passed: false, feedback: '路径安全拒绝: prompt_file 必须在契约目录内' };
+  }
+  try {
+    const relativePath = path.relative(ctx.clawDir, resolved);
+    if (relativePath.startsWith('..')) {
+      return { passed: false, feedback: '路径安全拒绝: prompt_file 解析后逃出 claw 目录' };
+    }
+    const promptTemplate = await ctx.fs.read(relativePath);
+    const filledPrompt = promptTemplate
+      .replace(/\{\{evidence\}\}/g, evidence)
+      .replace(/\{\{artifacts\}\}/g, artifacts.join(', '))
+      .replace(/\{\{subtask_description\}\}/g, subtaskDesc);
+
+    const result = await runContractVerifier({
+      agentId: `verifier-${contractId}-${subtaskId}`,
+      prompt: filledPrompt,
+      clawDir: ctx.clawDir,
+      llm: ctx.llm,
+      fs: ctx.fs,
+      maxSteps: DEFAULT_MAX_STEPS,
+      idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
+      onIdleTimeout: () => {
+        ctx.audit.write(
+          'acceptance_timeout',
+          `${contractId}/${subtaskId}`,
+          `claw=${ctx.clawId}`,
+        );
+      },
+    });
+    return result;
+  } catch (err) {
+    if (err instanceof ToolTimeoutError) {
+      return { passed: false, feedback: '验收子代理超时' };
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    return { passed: false, feedback: `LLM 验收失败: ${msg}` };
+  }
+}
+
+export function writeAcceptanceInbox(
+  ctx: AcceptanceContext,
+  contractId: string,
+  subtaskId: string,
+  verdict: 'passed' | 'rejected',
+  allCompleted: boolean,
+  feedback?: string,
+  retryCount?: number,
+): void {
+  const extraFields: Record<string, string> = {
+    contract_id: contractId,
+    subtask_id: subtaskId,
+    verdict,
+  };
+  if (retryCount !== undefined) extraFields.retry_count = String(retryCount);
+
+  let body: string;
+  if (verdict === 'passed') {
+    body = allCompleted
+      ? `Subtask ${subtaskId} accepted. All subtasks complete!`
+      : `Subtask ${subtaskId} accepted.`;
+  } else {
+    body = feedback || 'No feedback provided';
+  }
+
+  const audit = ctx.audit;
+  new InboxWriter(
+    ctx.fs,
+    path.join(ctx.clawDir, 'inbox', 'pending'),
+    audit,
+  ).writeSync({
+    type: verdict === 'passed' ? 'acceptance_result' : 'acceptance_rejection',
+    source: 'contract_system',
+    to: ctx.clawId,
+    priority: verdict === 'rejected' ? 'high' : 'normal',
+    body,
+    filenameTag: verdict === 'rejected' ? 'high' : 'normal',
+    extraFields,
+  });
+}
+
+export async function writeAcceptanceError(
+  ctx: AcceptanceContext,
+  contractId: string,
+  subtaskId: string,
+  error: unknown,
+): Promise<void> {
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  const cause: LastFailedFeedback['cause'] =
+    error instanceof ToolTimeoutError ? 'subagent_timeout' : 'programming_bug';
+  const feedbackText =
+    cause === 'subagent_timeout'
+      ? `Acceptance verifier timed out after ${(error as ToolTimeoutError).context?.timeoutMs ?? '?'}ms. 资源 / 网络问题 / 重试可能修复。Error: ${errorMsg}`
+      : `Acceptance verification crashed (system bug). Error: ${errorMsg}. 修代码后再 retry。`;
+
+  try {
+    const audit = ctx.audit;
+    new InboxWriter(
+      ctx.fs,
+      path.join(ctx.clawDir, 'inbox', 'pending'),
+      audit,
+    ).writeSync({
+      type: 'acceptance_error',
+      source: 'contract_system',
+      to: ctx.clawId,
+      priority: 'high',
+      body: `Acceptance verification failed with error: ${errorMsg}`,
+      idPrefix: 'acceptance_error',
+      filenameTag: 'high',
+      extraFields: {
+        contract_id: contractId,
+        subtask_id: subtaskId,
+      },
+    });
+  } catch (e) {
+    ctx.audit.write(
+      CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED,
+      `err=${e instanceof Error ? e.message : String(e)}`,
+    );
+    ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED, `context=${'ContractSystem._writeAcceptanceError'}`, `error=${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  try {
+    await ctx.withProgressLock(contractId, async () => {
+      const progress = await ctx.getProgress(contractId);
+      const subtask = progress.subtasks[subtaskId];
+      if (subtask && subtask.status === 'in_progress') {
+        subtask.status = 'todo';
+        subtask.retry_count = (subtask.retry_count || 0) + 1;
+        subtask.last_failed_feedback = { feedback: feedbackText, cause };
+        await ctx.saveProgress(contractId, progress);
+
+        const contractYaml = await ctx.loadContractYaml(contractId);
+        const maxRetries = contractYaml.escalation?.max_retries ?? 3;
+        try {
+          ctx.onNotify?.('acceptance_failed', {
+            contract_id: contractId,
+            subtask_id: subtaskId,
+            cause,
+            feedback: feedbackText,
+            retry_count: subtask.retry_count,
+            max_retries: maxRetries,
+          } satisfies AcceptanceFailedNotification);
+        } catch (notifyErr) {
+          ctx.audit.write(
+            CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+            `err=${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
+          );
+        }
+      }
+    });
+  } catch (e) {
+    ctx.audit.write(
+      CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED,
+      `err=${e instanceof Error ? e.message : String(e)}`,
+    );
+    ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._writeAcceptanceError.resetStatus'}`, `error=${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+export function formatRejectionFeedback(
+  subtaskId: string,
+  subtaskDesc: string,
+  reason: string,
+  issues: string[],
+  retryCount: number,
+  maxRetries: number,
+  acceptanceType: string,
+  acceptanceFile: string,
+): string {
+  const issuesList = issues.length > 0
+    ? issues.map(i => `- ${i}`).join('\n')
+    : '- (未提供具体问题)';
+
+  return [
+    `## 验收失败 — ${subtaskId}`,
+    '',
+    `**子任务：** ${subtaskDesc}`,
+    '',
+    '**失败原因：**',
+    reason,
+    '',
+    '**需要修正的问题：**',
+    issuesList,
+    '',
+    `**验收标准：** ${acceptanceType} (${acceptanceFile})`,
+    '',
+    `已失败 ${retryCount}/${maxRetries} 次。`,
+  ].join('\n');
+}

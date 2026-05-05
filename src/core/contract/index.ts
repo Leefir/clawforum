@@ -7,14 +7,18 @@ import { ContractSystem } from './manager.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { AuditWriter } from '../../foundation/audit/writer.js';
+
 export {
   ContractSystem,
+} from './manager.js';
+
+export {
   type ProgressData,
   type AcceptanceResult,
   type VerifierConfig,
   type VerifierResult,
   type ContractYaml,
-} from './manager.js';
+} from './types.js';
 
 export { doneTool, DONE_TOOL_NAME } from './tools/done.js';
 
