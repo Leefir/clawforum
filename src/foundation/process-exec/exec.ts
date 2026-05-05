@@ -1,9 +1,8 @@
 /**
  * ProcessExec - External process execution (L1)
  *
- * Two entry points:
- * - exec(command, options): shell command via `sh -c`
- * - execFile(command, args, options): direct invocation, no shell
+ * Single entry point: exec(command, args, options) — direct invocation, no shell.
+ * Callers may pass 'sh' as the command to run scripts via shell.
  *
  * Shared: timeout clamping, PATH augmentation, maxBuffer protection, ProcessExecError.
  */
@@ -99,17 +98,10 @@ async function runProcess(
 }
 
 /**
- * Execute a shell command via `sh -c`.
- */
-export async function exec(command: string, options: ExecOptions): Promise<ExecResult> {
-  return runProcess('sh', ['-c', command], options);
-}
-
-/**
  * Execute a command with explicit args — no shell string interpolation.
- * Callers may pass 'sh' as the command to run scripts via shell.
+ * L1 ProcessExec 不 own shell 兼容层（应然 §10）/ caller 显式调 'sh' 自负跨 OS 风险。
  */
-export async function execFile(
+export async function exec(
   command: string,
   args: string[],
   options: ExecOptions,

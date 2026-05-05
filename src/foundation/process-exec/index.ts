@@ -9,7 +9,6 @@
  */
 
 export { exec } from './exec.js';
-export { execFile } from './exec.js';
 export { spawnDetached, pgrepSync } from './spawn-detached.js';
 export type { ExecOptions, ExecResult, SpawnDetachedOptions } from './types.js';
 export { ProcessExecError } from './types.js';

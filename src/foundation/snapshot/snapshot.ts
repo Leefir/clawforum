@@ -52,9 +52,7 @@ export class Snapshot {
   }
 
   private static async git(dir: string, args: string[]): Promise<string> {
-    // 所有参数用单引号包裹，防止 shell 注入
-    const cmd = args.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
-    const result = await exec(`git ${cmd}`, { cwd: dir });
+    const result = await exec('git', args, { cwd: dir });
     return result.stdout.trim();
   }
 

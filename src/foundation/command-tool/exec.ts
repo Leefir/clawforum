@@ -53,7 +53,7 @@ export const execTool: Tool = {
     const timeoutMs = (args.timeoutMs as number) ?? undefined;
 
     try {
-      const result = await exec(command, {
+      const result = await exec('sh', ['-c', command], {
         cwd,
         timeout: timeoutMs,
         signal: ctx.signal,

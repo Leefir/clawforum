@@ -12,7 +12,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { Contract, SubTask, ContractStatus, SubtaskStatus, LastFailedFeedback, AcceptanceFailedNotification } from '../../types/contract.js';
 import { ToolError, ToolTimeoutError, FileNotFoundError } from '../../types/errors.js';
-import { exec, execFile } from '../../foundation/process-exec/index.js';
+import { exec } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS, CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
@@ -1182,7 +1182,7 @@ export class ContractSystem {
     );
 
     try {
-      await execFile('sh', [resolved], {
+      await exec('sh', [resolved], {
         cwd: this.clawDir,
         timeout: CONTRACT_SCRIPT_TIMEOUT_MS,
       });

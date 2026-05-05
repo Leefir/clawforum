@@ -68,21 +68,22 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
     const { exec: processExec } = await import('../../src/foundation/process-exec/index.js');
     const execSpy = vi.spyOn(await import('../../src/foundation/process-exec/index.js'), 'exec');
     let initCalled = false;
-    execSpy.mockImplementation(async (cmd: string, opts: any) => {
+    execSpy.mockImplementation(async (cmd: string, args: string[], opts: any) => {
+      const fullCmd = `${cmd} ${args.join(' ')}`;
       // git init 正常执行
-      if (cmd.includes('git') && cmd.includes('init') && !initCalled) {
+      if (fullCmd.includes('git') && fullCmd.includes('init') && !initCalled) {
         initCalled = true;
-        return processExec(cmd, opts);
+        return processExec(cmd, args, opts);
       }
       // git config 抛异常（模拟预期失败）
-      if (cmd.includes('config')) {
+      if (fullCmd.includes('config')) {
         const err = new Error('mock config failure') as any;
         err.exitCode = 1;
         err.stderr = '';
         throw err;
       }
       // 其他 git 命令正常
-      return processExec(cmd, opts);
+      return processExec(cmd, args, opts);
     });
 
     const audit = { write: vi.fn() };
@@ -101,7 +102,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
 
   it('init throws on unexpected failure (ENOENT)', async () => {
     const execSpy = vi.spyOn(await import('../../src/foundation/process-exec/index.js'), 'exec');
-    execSpy.mockImplementation(async () => {
+    execSpy.mockImplementation(async (cmd: string, args: string[], opts: any) => {
       const err = new Error('ENOENT: git not found') as any;
       err.code = 'ENOENT';
       throw err;
