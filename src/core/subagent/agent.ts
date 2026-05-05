@@ -6,7 +6,7 @@
 
 import { runReact } from '../agent-executor/loop.js';
 import { ToolExecutor } from '../../foundation/tools/executor.js';
-import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { ToolDefinition } from '../../types/message.js';
@@ -33,7 +33,7 @@ export interface SubAgentOptions {
   clawDir: string;
   syncDir: string;
   llm: LLMOrchestrator;
-  registry: ToolRegistryImpl;
+  registry: ToolRegistry;
   fs: FileSystem;
   maxSteps?: number;
   timeoutMs?: number;
@@ -62,7 +62,7 @@ export class SubAgent {
   private clawDir: string;
   private syncDir: string;
   private llm: LLMOrchestrator;
-  private registry: ToolRegistryImpl;
+  private registry: ToolRegistry;
   private fs: FileSystem;
   private maxSteps: number;
   private maxConsecutiveParseErrors?: number;

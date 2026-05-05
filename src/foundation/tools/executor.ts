@@ -352,7 +352,7 @@ export class ToolExecutor extends ToolExecutorImpl {
  * 签名对齐 ctor: (registry, timeoutMs?).
  */
 export function createToolExecutor(
-  registry: ToolRegistryImpl,
+  registry: ToolRegistry,
   timeoutMs?: number,
   scheduleAsyncTool?: ScheduleAsyncTool,
 ): ToolExecutorImpl {

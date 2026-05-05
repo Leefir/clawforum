@@ -6,7 +6,8 @@ import type { StreamLog } from '../../foundation/stream/types.js';
 import { STREAM_FILE } from '../../foundation/stream/types.js';
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 import { callerTypeToProfile } from '../../foundation/tool-protocol/caller-type.js';
-import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
+import { createToolRegistry } from '../../foundation/tools/index.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { createSubAgent } from '../subagent/index.js';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
@@ -23,7 +24,7 @@ export interface SubAgentExecutionDeps {
   fs: FileSystem;
   auditWriter: AuditWriter;
   llm: LLMOrchestrator;
-  registry: ToolRegistryImpl;
+  registry: ToolRegistry;
   clawDir: string;
   parentStreamLog?: StreamLog;
   postProcessors: Map<string, PostProcessor>;
@@ -67,7 +68,7 @@ export async function executeSubAgentTask(
     // Build per-task registry filtered by caller profile + extraTools
     const subagentProfile = callerTypeToProfile(task.callerType ?? 'subagent');
     const effectiveRegistry = (() => {
-      const r = new ToolRegistryImpl();
+      const r = createToolRegistry();
       for (const t of registry.getForProfile(subagentProfile)) r.register(t);
       for (const t of task.extraTools ?? []) r.register(t);
       return r;

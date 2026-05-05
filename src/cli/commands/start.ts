@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../../foundation/config/index.js';
-import { LLMOrchestratorImpl } from '../../foundation/llm-orchestrator/index.js';
+import { createLLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import { PRESETS } from '../../foundation/llm-provider/presets.js';
 import { initCommand } from './init.js';
 import {
@@ -167,7 +167,7 @@ async function checkLLMConnection(): Promise<
 > {
   const globalConfig = loadGlobalConfig();
   const llmConfig = buildLLMConfig(globalConfig);
-  const svc = new LLMOrchestratorImpl({
+  const svc = createLLMOrchestrator({
     primary: llmConfig.primary,
     fallbacks: [],
     maxAttempts: 1,

@@ -23,7 +23,7 @@ export type {
 import { LLMOrchestratorImpl } from './orchestrator.js';
 import type { LLMOrchestratorConfig } from './types.js';
 
-export function createLLMOrchestrator(config: LLMOrchestratorConfig): LLMOrchestratorImpl {
+export function createLLMOrchestrator(config: LLMOrchestratorConfig): LLMOrchestrator {
   return new LLMOrchestratorImpl(config);
 }
 

@@ -12,10 +12,10 @@ import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { createAgentProcessManager } from '../foundation/process-manager/agent-factory.js';
 import { type Runtime, type RuntimeDependencies } from '../core/runtime/index.js';
 import { createRuntime, buildMotionSystemPrompt } from '../core/runtime/index.js';
-import { createLLMOrchestrator, type LLMOrchestratorImpl } from '../foundation/llm-orchestrator/index.js';
+import { createLLMOrchestrator, type LLMOrchestrator } from '../foundation/llm-orchestrator/index.js';
 import { createLLMAuditSink } from './llm-audit-sink.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
-import { createToolRegistry, type ToolRegistryImpl } from '../foundation/tools/index.js';
+import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index.js';
 import { createToolExecutor, type ToolExecutorImpl } from '../foundation/tools/index.js';
 import { writePendingToolTaskFile } from '../core/task/tools/_pending-tool-task-writer.js';
 import { createSkillSystem, SkillSystem } from '../foundation/skill-system/index.js';
@@ -163,7 +163,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   const idleTimeoutMs = globalConfig.motion?.llm_idle_timeout_ms;
 
   // --- L3-L5: llm ---
-  let llm: LLMOrchestratorImpl;
+  let llm: LLMOrchestrator;
   try {
     llm = createLLMOrchestrator({ ...llmConfig, events: createLLMAuditSink(auditWriter) });
   } catch (e) {
@@ -172,7 +172,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   }
 
   // --- L3-L5: toolRegistry（空；DispatchTool 留给 Runtime） ---
-  let toolRegistry: ToolRegistryImpl;
+  let toolRegistry: ToolRegistry;
   try {
     toolRegistry = createToolRegistry();
 

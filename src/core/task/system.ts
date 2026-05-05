@@ -11,7 +11,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
-import type { ToolRegistryImpl } from '../../foundation/tools/registry.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 
@@ -48,7 +48,7 @@ export interface TaskSystemOptions {
   outboxWriter: OutboxWriter;
   // phase470: main dialog store ref for ask_caller
   mainDialogStore?: DialogStore;
-  registry: ToolRegistryImpl;     // NEW: caller 注入填充好的 registry / Assembly own 装配
+  registry: ToolRegistry;     // NEW: caller 注入填充好的 registry / Assembly own 装配
 }
 
 
@@ -90,7 +90,7 @@ interface TaskState {
 export class TaskSystem {
   private runningTasks: Map<string, TaskState> = new Map();
   private maxConcurrent: number;
-  private registry: ToolRegistryImpl;
+  private registry: ToolRegistry;
   private readonly llm: LLMOrchestrator;
   private readonly contractManager: ContractSystem;
   private readonly outboxWriter: OutboxWriter;

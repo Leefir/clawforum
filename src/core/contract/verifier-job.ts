@@ -9,7 +9,7 @@ import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/i
 import * as path from 'path';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { ReportResultTool } from '../../foundation/tools/report-result.js';
-import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
+import { createToolRegistry } from '../../foundation/tools/index.js';
 import { CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import type { VerifierConfig, VerifierResult } from './types.js';
@@ -17,7 +17,7 @@ import type { VerifierConfig, VerifierResult } from './types.js';
 export async function runContractVerifier(config: VerifierConfig): Promise<VerifierResult> {
   try {
     const reportTool = new ReportResultTool();
-    const registry = new ToolRegistryImpl();
+    const registry = createToolRegistry();
     registry.register(reportTool);
 
     const agent = createSubAgent({

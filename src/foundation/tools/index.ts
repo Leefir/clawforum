@@ -10,7 +10,7 @@ export { ToolRegistryImpl } from './registry.js';
 import { ToolRegistryImpl } from './registry.js';
 import type { ToolRegistry } from './executor.js';
 
-export function createToolRegistry(): ToolRegistryImpl {
+export function createToolRegistry(): ToolRegistry {
   return new ToolRegistryImpl();
 }
 
