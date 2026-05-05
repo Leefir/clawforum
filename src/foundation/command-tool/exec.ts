@@ -6,6 +6,8 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
+import { randomUUID } from 'crypto';
+import * as path from 'path';
 import {
   EXEC_MAX_OUTPUT,
 } from '../../constants.js';
@@ -16,6 +18,33 @@ import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../process-exec/index.js';
 function truncate(str: string, maxLen: number): string {
   if (!str || str.length <= maxLen) return str || '';
   return str.slice(0, maxLen) + '\n[truncated]';
+}
+
+const HEAD_LIMIT = 600;
+const TAIL_LIMIT = 1400;
+// EXEC_MAX_OUTPUT = 2000 (HEAD + TAIL = 2000)
+
+function truncateHeadTail(output: string, relPath: string): string {
+  if (output.length <= EXEC_MAX_OUTPUT) return output;
+  const head = output.slice(0, HEAD_LIMIT);
+  const tail = output.slice(-TAIL_LIMIT);
+  const truncatedBytes = output.length - HEAD_LIMIT - TAIL_LIMIT;
+  return `${head}\n[...truncated ${truncatedBytes} bytes...]\n${tail}\nFull output saved to: ${relPath}`;
+}
+
+async function persistOverflow(
+  ctx: ExecContext,
+  output: string,
+): Promise<string | null> {
+  try {
+    const id = randomUUID().slice(0, 8);
+    const fullPath = `${ctx.syncDir}/${id}.md`;
+    const frontmatter = `---\nsource: exec_overflow\ncontent_length: ${output.length}\ncreated_at: ${new Date().toISOString()}\n---\n`;
+    await ctx.fs.writeAtomic(fullPath, frontmatter + output);
+    return path.relative(ctx.clawDir, fullPath);
+  } catch {
+    return null;
+  }
 }
 
 import { EXEC_TOOL_NAME } from '../tools/tool-names.js';
@@ -58,13 +87,14 @@ export const execTool: Tool = {
         signal: ctx.signal,
       });
 
-      // Truncate output for LLM context window
-      const output = truncate(result.output, EXEC_MAX_OUTPUT) || '(no output)';
-
-      return {
-        success: true,
-        content: output,
-      };
+      if (result.output.length > EXEC_MAX_OUTPUT) {
+        const relPath = await persistOverflow(ctx, result.output);
+        const content = relPath
+          ? truncateHeadTail(result.output, relPath)
+          : truncate(result.output, EXEC_MAX_OUTPUT);
+        return { success: true, content };
+      }
+      return { success: true, content: result.output || '(no output)' };
     } catch (error) {
       // 失败时总是附上 cwd，防止 LLM 对路径上下文产生幻觉（例如误以为在根目录）
       const cwdHint = `\n[cwd]: ${ctx.clawDir}`;
@@ -78,6 +108,13 @@ export const execTool: Tool = {
 
       // maxBuffer exceeded
       if (error.maxBufferExceeded) {
+        if (error.output.length > EXEC_MAX_OUTPUT) {
+          const relPath = await persistOverflow(ctx, error.output);
+          const truncated = relPath
+            ? truncateHeadTail(error.output, relPath)
+            : truncate(error.output, EXEC_MAX_OUTPUT);
+          return { success: false, content: `Error: command output exceeded 1 MB limit.${cwdHint}\n[output]: ${truncated}` };
+        }
         const partial = error.output
           ? `\n[partial output]: ${truncate(error.output, EXEC_MAX_OUTPUT)}`
           : '';
@@ -88,6 +125,13 @@ export const execTool: Tool = {
       }
 
       // General error (non-zero exit code, timeout, etc.)
+      if (error.output.length > EXEC_MAX_OUTPUT) {
+        const relPath = await persistOverflow(ctx, error.output);
+        const truncated = relPath
+          ? truncateHeadTail(error.output, relPath)
+          : truncate(error.output, EXEC_MAX_OUTPUT);
+        return { success: false, content: `Error: ${error.message}${cwdHint}\n[output]: ${truncated}` };
+      }
       const output = error.output ? `\n[output]: ${truncate(error.output, EXEC_MAX_OUTPUT)}` : '';
 
       return {

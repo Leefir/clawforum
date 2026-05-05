@@ -30,6 +30,9 @@ export interface ExecContextImplOptions {
   /** Claw workspace directory */
   clawDir: string;
   
+  /** 装配-level 共享 sync dir（兜底落盘 + FileTool write_backups 共用 / 应然 §A.7） */
+  syncDir: string;
+  
   /** Tool profile for permission control */
   profile: ToolProfile;
   
@@ -94,6 +97,7 @@ export function cloneExecContext(
 export class ExecContextImpl implements ExecContext {
   clawId: string;
   clawDir: string;
+  syncDir: string;
   profile: ToolProfile;
   callerType: CallerType;
   fs: FileSystem;
@@ -114,6 +118,7 @@ export class ExecContextImpl implements ExecContext {
   constructor(options: ExecContextImplOptions) {
     this.clawId = options.clawId;
     this.clawDir = options.clawDir;
+    this.syncDir = options.syncDir;
     this.profile = options.profile;
     this.callerType = options.callerType ?? 'claw';
     this.fs = options.fs;

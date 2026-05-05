@@ -66,7 +66,7 @@ vi.mock('../../src/foundation/stream/index.js', () => ({
 }));
 
 vi.mock('../../src/foundation/fs/node-fs.js', () => ({
-  NodeFileSystem: vi.fn(() => ({})),
+  NodeFileSystem: vi.fn(() => ({ ensureDir: vi.fn().mockResolvedValue(undefined) })),
 }));
 
 vi.mock('../../src/assembly/cleanup.js', () => ({

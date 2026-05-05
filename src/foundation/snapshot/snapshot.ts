@@ -39,12 +39,14 @@ export class Snapshot {
   private consecutiveFailures = 0;
   private readonly audit: AuditLog;
   private readonly ignorePatterns: readonly string[];
+  private readonly syncDir?: string;
 
-  constructor(dir: string, fs: FileSystem, audit: AuditLog, ignorePatterns: readonly string[]) {
+  constructor(dir: string, fs: FileSystem, audit: AuditLog, ignorePatterns: readonly string[], syncDir?: string) {
     this.dir = dir;
     this.fs = fs;
     this.audit = audit;
     this.ignorePatterns = ignorePatterns;
+    this.syncDir = syncDir;
   }
 
   private buildGitignore(): string {
@@ -122,6 +124,22 @@ export class Snapshot {
         `dir=${this.dir}`,
         `message=${message.slice(0, 200)}`,
       );
+
+      // generic clean syncDir on commit success (turn-scoped lifecycle / 应然 §A.7)
+      if (this.syncDir) {
+        try {
+          const relSyncDir = path.relative(this.dir, this.syncDir);
+          await this.fs.removeDir(relSyncDir);
+          await this.fs.ensureDir(relSyncDir);
+        } catch (e) {
+          this.audit.write(
+            SNAPSHOT_AUDIT_EVENTS.SYNC_CLEAN_FAILED,
+            `dir=${this.syncDir}`,
+            `reason=${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      }
+
       return ok(undefined);
     } catch (rawErr) {
       const classified = classifyGitError(toGitExecError(rawErr));

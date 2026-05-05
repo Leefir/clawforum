@@ -165,7 +165,9 @@ export async function initCommand(silent = false): Promise<void> {
 
   // Init git for motion directory
   const { fs: motionFs, audit: motionAudit } = createDirContext(motionDir);
-  const motionSnapshot = new Snapshot(motionDir, motionFs, motionAudit, SNAPSHOT_IGNORE_PATTERNS);
+  const motionSyncDir = path.join(motionDir, 'tasks', 'sync');
+  await motionFs.ensureDir(motionSyncDir);
+  const motionSnapshot = new Snapshot(motionDir, motionFs, motionAudit, SNAPSHOT_IGNORE_PATTERNS, motionSyncDir);
   const initResult = await motionSnapshot.init();
   if (!initResult.ok) {
     // 预期失败：audit 已写；启动继续（snapshot 是旁路）

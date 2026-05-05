@@ -15,6 +15,7 @@ export function createSnapshot(
   fs: FileSystem,
   audit: AuditLog,
   ignorePatterns: readonly string[],
+  syncDir?: string,
 ): Snapshot {
-  return new Snapshot(dir, fs, audit, ignorePatterns);
+  return new Snapshot(dir, fs, audit, ignorePatterns, syncDir);
 }

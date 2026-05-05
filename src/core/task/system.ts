@@ -483,6 +483,7 @@ export class TaskSystem {
     return {
       clawId: task.parentClawId,
       clawDir: task.parentClawDir,
+      syncDir: path.join(task.parentClawDir, 'tasks', 'sync'),
       callerType: task.callerType ?? 'claw',
       fs: this.fs,
       profile: 'full',

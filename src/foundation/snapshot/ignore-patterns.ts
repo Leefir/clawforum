@@ -10,4 +10,5 @@ export const SNAPSHOT_IGNORE_PATTERNS: readonly string[] = [
   STREAM_FILE,
   AUDIT_FILE,
   `${TASKS_RESULTS_DIR}/`,
+  'tasks/sync/',
 ];

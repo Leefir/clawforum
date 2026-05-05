@@ -6,6 +6,7 @@
  */
 
 import { createSubAgent, NoopStreamWriter, NoopAuditWriter } from '../subagent/index.js';
+import * as path from 'path';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { ReportResultTool } from '../../foundation/tools/report-result.js';
 import { ToolRegistryImpl } from '../../foundation/tools/registry.js';
@@ -31,6 +32,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       ),
       prompt: config.prompt,
       clawDir: config.clawDir,
+      syncDir: path.join(config.clawDir, 'tasks', 'sync'),
       llm: config.llm,
       registry,
       fs: config.fs as any,

@@ -38,6 +38,8 @@ export interface ToolResult {
 export interface ExecContext {
   clawId: string;
   clawDir: string;
+  /** 装配-level 共享 sync dir（兜底落盘 + FileTool write_backups 共用 / 应然 §A.7）/ Assembly 装配期注入 */
+  syncDir: string;
   contractId?: string;
   /** Caller type for spawn recursion prevention */
   callerType: CallerType;

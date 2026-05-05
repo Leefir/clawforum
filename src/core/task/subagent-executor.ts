@@ -1,3 +1,4 @@
+import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { AuditWriter, createAuditWriter } from '../../foundation/audit/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
@@ -86,6 +87,7 @@ export async function executeSubAgentTask(
       ),
       prompt: task.intent,
       clawDir,
+      syncDir: path.join(clawDir, 'tasks', 'sync'),
       llm,
       registry: effectiveRegistry,
       fs,

@@ -31,6 +31,7 @@ export interface SubAgentOptions {
   messageStore: DialogStore;             // phase453: caller 装配期注入 ephemeral DialogStore（filename='messages.json' / 0 clawId / 0 archive 触发）
   prompt: string;
   clawDir: string;
+  syncDir: string;
   llm: LLMOrchestrator;
   registry: ToolRegistryImpl;
   fs: FileSystem;
@@ -59,6 +60,7 @@ export class SubAgent {
   private messageStore: DialogStore;
   private prompt: string;
   private clawDir: string;
+  private syncDir: string;
   private llm: LLMOrchestrator;
   private registry: ToolRegistryImpl;
   private fs: FileSystem;
@@ -87,6 +89,7 @@ export class SubAgent {
     this.messageStore = options.messageStore;
     this.prompt = options.prompt;
     this.clawDir = options.clawDir;
+    this.syncDir = options.syncDir;
     this.llm = options.llm;
     this.registry = options.registry;
     this.fs = options.fs;
@@ -159,6 +162,7 @@ export class SubAgent {
       const executor = new ToolExecutor({
         registry: this.registry,
         clawDir: this.clawDir,
+        syncDir: this.syncDir,
         fs: this.fs,
         llm: this.llm,
         subagentMaxSteps: this.subagentMaxSteps ?? this.maxSteps,

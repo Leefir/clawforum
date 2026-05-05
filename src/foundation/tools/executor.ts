@@ -281,6 +281,7 @@ export class ToolExecutorImpl implements IToolExecutor {
 export interface ToolExecutorOptions {
   registry: ToolRegistry;
   clawDir: string;
+  syncDir: string;
   fs: FileSystem;
   llm?: LLMOrchestrator;
   profile?: ToolProfile;
@@ -297,6 +298,7 @@ export interface ToolExecutorOptions {
  */
 export class ToolExecutor extends ToolExecutorImpl {
   private clawDir: string;
+  private syncDir: string;
   private fs: FileSystem;
   private llm?: LLMOrchestrator;
   private profile: ToolProfile;
@@ -308,6 +310,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   constructor(options: ToolExecutorOptions) {
     super(options.registry, undefined, options.scheduleAsyncTool);
     this.clawDir = options.clawDir;
+    this.syncDir = options.syncDir;
     this.fs = options.fs;
     this.llm = options.llm;
     this.profile = options.profile ?? 'full';
@@ -327,6 +330,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
       clawDir: this.clawDir,
+      syncDir: this.syncDir,
       profile,
       callerType: options.callerType ?? 'claw',
       fs: this.fs,

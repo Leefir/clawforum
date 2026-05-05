@@ -108,6 +108,10 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   const clawFs = new NodeFileSystem({ baseDir: clawDir });
   const parentFs = new NodeFileSystem({ baseDir: path.join(clawDir, '..') });
 
+  // syncDir = clawDir/tasks/sync (装配-level 共享 dir / 应然 §A.7)
+  const syncDir = path.join(clawDir, 'tasks', 'sync');
+  await clawFs.ensureDir(syncDir);
+
   // --- 1. AuditWriter (daemon.ts L100-104) ---
   let auditWriter: AuditWriter;
   try {
@@ -289,6 +293,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     execContext = new ExecContextImpl({
       clawId,
       clawDir,
+      syncDir,
       profile: toolProfile,
       callerType: 'claw',
       fs: clawFs,
@@ -363,7 +368,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   // --- Snapshot（phase155B 已搬，但需保证在 Runtime 之前） ---
   let snapshot: Snapshot;
   try {
-    snapshot = createSnapshot(clawDir, systemFs, auditWriter, SNAPSHOT_IGNORE_PATTERNS);
+    snapshot = createSnapshot(clawDir, systemFs, auditWriter, SNAPSHOT_IGNORE_PATTERNS, syncDir);
   } catch (e) {
     auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=snapshot`, `phase=construct`, `reason=${errMsg(e)}`);
     throw new Error(`Assembly: Snapshot construct failed: ${errMsg(e)}`, { cause: e });
