@@ -1,0 +1,3 @@
+export const PROCESS_SPAWN_CONFIRM_MS = 3000;
+export const SIGTERM_GRACE_MS = 5000;
+export const SPAWN_POLL_INTERVAL_MS = 50;
