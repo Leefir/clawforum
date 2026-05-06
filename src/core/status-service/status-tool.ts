@@ -9,7 +9,7 @@
 
 import type { Tool, ToolResult, ExecContext } from '../../foundation/tool-protocol/index.js';
 import type { ContractSystem } from '../contract/manager.js';
-import { TASKS_PENDING_DIR, TASKS_RUNNING_DIR } from '../../types/paths.js';
+import { TASKS_QUEUES_PENDING_DIR, TASKS_QUEUES_RUNNING_DIR } from '../../types/paths.js';
 import { STATUS_AUDIT_EVENTS } from './audit-events.js';
 
 async function getContractStatus(ctx: ExecContext): Promise<string> {
@@ -40,8 +40,8 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
   try {
     // Check if task system is functional by accessing its state
     // Design doc: was returning fake 'See task system logs', now shows actual status
-    const pendingDir = TASKS_PENDING_DIR;
-    const runningDir = TASKS_RUNNING_DIR;
+    const pendingDir = TASKS_QUEUES_PENDING_DIR;
+    const runningDir = TASKS_QUEUES_RUNNING_DIR;
     
     let pendingCount = 0;
     let runningCount = 0;

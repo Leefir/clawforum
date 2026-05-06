@@ -1,6 +1,6 @@
 import { STREAM_FILE } from '../stream/index.js';
 import { AUDIT_FILE } from '../audit/index.js';
-import { TASKS_RESULTS_DIR } from '../../types/paths.js';
+import { TASKS_QUEUES_RESULTS_DIR } from '../../types/paths.js';
 
 /**
  * Snapshot 需要忽略的跨模块资源清单（消费侧定义）。
@@ -9,6 +9,6 @@ import { TASKS_RESULTS_DIR } from '../../types/paths.js';
 export const SNAPSHOT_IGNORE_PATTERNS: readonly string[] = [
   STREAM_FILE,
   AUDIT_FILE,
-  `${TASKS_RESULTS_DIR}/`,
+  `${TASKS_QUEUES_RESULTS_DIR}/`,
   'tasks/sync/',
 ];

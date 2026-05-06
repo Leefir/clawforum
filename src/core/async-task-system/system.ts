@@ -20,11 +20,15 @@ import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractSystem } from '../contract/manager.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import { TASKS_RUNNING_DIR, TASKS_DONE_DIR } from '../../types/paths.js';
+import {
+  TASKS_QUEUES_PENDING_DIR,
+  TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR,
+  TASKS_QUEUES_FAILED_DIR,
+  TASKS_QUEUES_RESULTS_DIR,
+} from '../../types/paths.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
-
-import { TASKS_PENDING_DIR } from '../../types/paths.js';
 import { sendFallbackError } from './result-delivery.js';
 import { recoverTasks } from './task-recovery.js';
 import { executeSubAgentTask } from './subagent-executor.js';
@@ -142,11 +146,11 @@ export class AsyncTaskSystem {
 
   async initialize(): Promise<void> {
     // Ensure task directories exist
-    await this.fs.ensureDir(TASKS_PENDING_DIR);
-    await this.fs.ensureDir(TASKS_RUNNING_DIR);
-    await this.fs.ensureDir(TASKS_DONE_DIR);
-    await this.fs.ensureDir('tasks/failed');
-    await this.fs.ensureDir('tasks/results');
+    await this.fs.ensureDir(TASKS_QUEUES_PENDING_DIR);
+    await this.fs.ensureDir(TASKS_QUEUES_RUNNING_DIR);
+    await this.fs.ensureDir(TASKS_QUEUES_DONE_DIR);
+    await this.fs.ensureDir(TASKS_QUEUES_FAILED_DIR);
+    await this.fs.ensureDir(TASKS_QUEUES_RESULTS_DIR);
 
     // Cold-start recovery: load existing pending and running tasks
     await recoverTasks({ fs: this.fs, auditWriter: this.auditWriter, pendingQueue: this.pendingQueue });
@@ -162,7 +166,7 @@ export class AsyncTaskSystem {
     // 防御：测试 mock fs 可能缺少 resolve，跳过不影响行为
     if (!this.pendingWatcher && typeof this.fs.resolve === 'function') {
       this.pendingWatcher = createWatcher(
-        this.fs.resolve(TASKS_PENDING_DIR),
+        this.fs.resolve(TASKS_QUEUES_PENDING_DIR),
         (event) => {
           if (event.type !== 'add') return;
           if (!event.path.endsWith('.json')) return;
@@ -178,7 +182,7 @@ export class AsyncTaskSystem {
               : TASK_AUDIT_EVENTS.PENDING_WATCHER_FAILED;
             this.auditWriter.write(
               eventType,
-              `path=${TASKS_PENDING_DIR}`,
+              `path=${TASKS_QUEUES_PENDING_DIR}`,
               `context=${context}`,
               `reason=${err.message}`,
             );
@@ -210,7 +214,7 @@ export class AsyncTaskSystem {
     };
 
     // Save to pending directory; watcher will pick up and dispatch
-    const taskPath = `${TASKS_PENDING_DIR}/${taskId}.json`;
+    const taskPath = `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`;
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
 
     this.auditWriter?.write('task_scheduled', taskId, 'kind=subagent', `parent=${task.parentClawId}`, `maxSteps=${task.maxSteps}`);
@@ -226,7 +230,7 @@ export class AsyncTaskSystem {
    * as the watcher. Called by recoverTasks after filesystem cleanup.
    */
   private async _initialScanPending(): Promise<void> {
-    const entries = await this.fs.list(TASKS_PENDING_DIR);
+    const entries = await this.fs.list(TASKS_QUEUES_PENDING_DIR);
     for (const entry of entries) {
       if (entry.name.endsWith('.json')) {
         await this._ingestPendingFile(entry.path);
@@ -355,8 +359,8 @@ export class AsyncTaskSystem {
    */
   private async movePendingToRunning(taskId: string): Promise<void> {
     await this.fs.move(
-      `${TASKS_PENDING_DIR}/${taskId}.json`,
-      `tasks/running/${taskId}.json`
+      `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
+      `${TASKS_QUEUES_RUNNING_DIR}/${taskId}.json`
     );
     this.auditWriter?.write('task_started', taskId);
   }
@@ -367,14 +371,14 @@ export class AsyncTaskSystem {
   private async moveTaskToDone(taskId: string): Promise<void> {
     try {
       await this.fs.move(
-        `tasks/running/${taskId}.json`,
-        `tasks/done/${taskId}.json`
+        `${TASKS_QUEUES_RUNNING_DIR}/${taskId}.json`,
+        `${TASKS_QUEUES_DONE_DIR}/${taskId}.json`
       );
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=move_to_done', `error=${errMsg}`);
       // 删除 running 文件防止重启后重复执行，丢失记录好过重复副作用
-      await this.fs.delete(`tasks/running/${taskId}.json`).catch((e) => {
+      await this.fs.delete(`${TASKS_QUEUES_RUNNING_DIR}/${taskId}.json`).catch((e) => {
         this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=move_done_delete', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
       });
     }
@@ -383,13 +387,13 @@ export class AsyncTaskSystem {
   private async moveTaskToFailed(taskId: string): Promise<void> {
     try {
       await this.fs.move(
-        `tasks/running/${taskId}.json`,
-        `tasks/failed/${taskId}.json`
+        `${TASKS_QUEUES_RUNNING_DIR}/${taskId}.json`,
+        `${TASKS_QUEUES_FAILED_DIR}/${taskId}.json`
       );
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=move_to_failed', `error=${errMsg}`);
-      await this.fs.delete(`tasks/running/${taskId}.json`).catch((e) => {
+      await this.fs.delete(`${TASKS_QUEUES_RUNNING_DIR}/${taskId}.json`).catch((e) => {
         this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=move_failed_delete', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
       });
     }
@@ -407,7 +411,7 @@ export class AsyncTaskSystem {
    *
    * phase163 后语义：仅返回内存中等调度的任务（pendingQueue）；
    * subagent 文件未被 watcher / startDispatch 拾起前不可见。
-   * 欲看完整 pending 状态请直读 tasks/pending/ 目录。
+   * 欲看完整 pending 状态请直读 TASKS_QUEUES_PENDING_DIR/ 目录。
    */
   listPending(): string[] {
     return this.pendingQueue.map(task => task.id);
@@ -427,7 +431,7 @@ export class AsyncTaskSystem {
     }
 
     // 2. 再检查 pending（内存队列 + 文件系统双源）
-    const fileExists = await this.fs.exists(`${TASKS_PENDING_DIR}/${taskId}.json`);
+    const fileExists = await this.fs.exists(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`);
     const queueIdx = this.pendingQueue.findIndex(t => t.id === taskId);
 
     if (queueIdx === -1 && !fileExists) {
@@ -442,7 +446,7 @@ export class AsyncTaskSystem {
     if (!task && fileExists) {
       try {
         task = JSON.parse(
-          await this.fs.read(`${TASKS_PENDING_DIR}/${taskId}.json`),
+          await this.fs.read(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`),
         ) as SubAgentTask | ToolTask;
       } catch { /* 无 task 仍可移文件 */ }
     }
@@ -450,8 +454,8 @@ export class AsyncTaskSystem {
     // 文件：pending → failed
     if (fileExists) {
       await this.fs.move(
-        `${TASKS_PENDING_DIR}/${taskId}.json`,
-        `tasks/failed/${taskId}.json`
+        `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
+        `${TASKS_QUEUES_FAILED_DIR}/${taskId}.json`
       ).catch((e) => {
         this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=cancel_pending_move', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
       });

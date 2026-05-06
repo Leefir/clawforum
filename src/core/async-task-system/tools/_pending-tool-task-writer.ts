@@ -5,7 +5,7 @@
  * Watcher (AsyncTaskSystem._ingestPendingFile) consumes the file asynchronously.
  */
 import { randomUUID } from 'crypto';
-import { TASKS_PENDING_DIR } from '../../../types/paths.js';
+import { TASKS_QUEUES_PENDING_DIR } from '../../../types/paths.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { AsyncToolTaskArgs } from '../../../foundation/tools/async-dispatch.js';
@@ -27,7 +27,7 @@ export async function writePendingToolTaskFile(
     ...args,
   };
   await fs.writeAtomic(
-    `${TASKS_PENDING_DIR}/${taskId}.json`,
+    `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
     JSON.stringify(task, null, 2),
   );
   audit?.write('task_scheduled', taskId, 'kind=tool', `parent=${args.parentClawId}`, `tool=${args.toolName}`);

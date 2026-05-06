@@ -71,10 +71,10 @@ function makeSubAgent(
   return {
     agent: new SubAgent({
       agentId: 'test-agent',
-      resultDir: 'tasks/results/test-agent',
+      resultDir: 'tasks/queues/results/test-agent',
       messageStore: createDialogStore(
         mockFs,
-        'tasks/results/test-agent',
+        'tasks/queues/results/test-agent',
         mockAuditWriter,
         'messages.json',
         'test-system-prompt',

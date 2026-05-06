@@ -352,7 +352,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'task_started': {
         const taskId = event.taskId as string;
         const callerType = (event.callerType as string) ?? 'subagent';
-        const { fs: taskFs } = createDirContext(path.join(options.agentDir, 'tasks', 'results', taskId));
+        const { fs: taskFs } = createDirContext(path.join(options.agentDir, 'tasks', 'queues', 'results', taskId));
         const taskReader = createStreamReader(taskFs, STREAM_FILE, (ev) => mainUI.withScope('task', () => handleTaskEvent(taskId, callerType, ev)), options.audit, { persistent: false });
         taskReader.start();
         const tw: TaskWatch = {

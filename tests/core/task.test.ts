@@ -176,7 +176,7 @@ describe('Task System + SubAgent', () => {
       expect(typeof taskId).toBe('string');
 
       // Wait for dispatch to move from pending to running (file on disk)
-      await waitFor(() => mockFs.exists(`tasks/running/${taskId}.json`));
+      await waitFor(() => mockFs.exists(`tasks/queues/running/${taskId}.json`));
 
       // Check task is tracked in running list
       expect(taskSystem.listRunning()).toContain(taskId);
@@ -197,16 +197,16 @@ describe('Task System + SubAgent', () => {
       });
 
       // 1. scheduleSubAgent 写文件后立即可见于 pending/
-      expect(await mockFs.exists(`tasks/pending/${taskId}.json`)).toBe(true);
+      expect(await mockFs.exists(`tasks/queues/pending/${taskId}.json`)).toBe(true);
 
       // 2. watcher 拾起 → _ingestPendingFile → _dispatch → movePendingToRunning（异步，给足时间）
       await waitFor(async () => {
-        return await mockFs.exists(`tasks/running/${taskId}.json`);
+        return await mockFs.exists(`tasks/queues/running/${taskId}.json`);
       }, 3000);
 
       // 3. pending/ 文件已被移走
-      expect(await mockFs.exists(`tasks/pending/${taskId}.json`)).toBe(false);
-      expect(await mockFs.exists(`tasks/running/${taskId}.json`)).toBe(true);
+      expect(await mockFs.exists(`tasks/queues/pending/${taskId}.json`)).toBe(false);
+      expect(await mockFs.exists(`tasks/queues/running/${taskId}.json`)).toBe(true);
 
       // 4. listRunning 反映状态
       expect(taskSystem.listRunning()).toContain(taskId);
@@ -231,14 +231,14 @@ describe('Task System + SubAgent', () => {
       });
 
       // Wait for task to complete
-      await waitFor(() => mockFs.exists(`tasks/done/${taskId}.json`));
+      await waitFor(() => mockFs.exists(`tasks/queues/done/${taskId}.json`));
 
       // Task should be moved to done
-      const doneExists = await mockFs.exists(`tasks/done/${taskId}.json`);
+      const doneExists = await mockFs.exists(`tasks/queues/done/${taskId}.json`);
       expect(doneExists).toBe(true);
 
       // Running file should not exist
-      const runningExists = await mockFs.exists(`tasks/running/${taskId}.json`);
+      const runningExists = await mockFs.exists(`tasks/queues/running/${taskId}.json`);
       expect(runningExists).toBe(false);
     });
 
@@ -275,7 +275,7 @@ describe('Task System + SubAgent', () => {
       const content = await nodeFs.readFile(path.join(inboxDir, inboxFiles[0]), 'utf-8');
       expect(content).toContain('from: "subagent"');
       expect(content).toContain('to: "motion"');
-      expect(content).toContain(`"resultRef":"tasks/results/${taskId}/result.txt"`);
+      expect(content).toContain(`"resultRef":"tasks/queues/results/${taskId}/result.txt"`);
     });
 
     it('should cancel task', async () => {
@@ -324,7 +324,7 @@ describe('Task System + SubAgent', () => {
 
       // Task should be removed from running
       expect(taskSystem.listRunning()).not.toContain(taskId);
-      const runningExists = await mockFs.exists(`tasks/running/${taskId}.json`);
+      const runningExists = await mockFs.exists(`tasks/queues/running/${taskId}.json`);
       expect(runningExists).toBe(false);
     });
 
@@ -453,7 +453,7 @@ describe('Task System + SubAgent', () => {
       const patchedFs = new NodeFileSystem({ baseDir: tempDir });
       const originalMove = patchedFs.move.bind(patchedFs);
       patchedFs.move = async (from: string, to: string) => {
-        if (from.startsWith('tasks/pending/') && to.startsWith('tasks/running/')) {
+        if (from.startsWith('tasks/queues/pending/') && to.startsWith('tasks/queues/running/')) {
           throw new Error('Simulated move failure');
         }
         return originalMove(from, to);
@@ -663,10 +663,10 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-1',
-        resultDir: 'tasks/results/test-agent-1',
+        resultDir: 'tasks/queues/results/test-agent-1',
         messageStore: createDialogStore(
           mockFs,
-          'tasks/results/test-agent-1',
+          'tasks/queues/results/test-agent-1',
           new NoopAuditWriter(),
           'messages.json',
           'test-system-prompt',
@@ -707,10 +707,10 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-2',
-        resultDir: 'tasks/results/test-agent-2',
+        resultDir: 'tasks/queues/results/test-agent-2',
         messageStore: createDialogStore(
           mockFs,
-          'tasks/results/test-agent-2',
+          'tasks/queues/results/test-agent-2',
           new NoopAuditWriter(),
           'messages.json',
           'test-system-prompt',
@@ -749,10 +749,10 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-exec',
-        resultDir: 'tasks/results/test-agent-exec',
+        resultDir: 'tasks/queues/results/test-agent-exec',
         messageStore: createDialogStore(
           mockFs,
-          'tasks/results/test-agent-exec',
+          'tasks/queues/results/test-agent-exec',
           new NoopAuditWriter(),
           'messages.json',
           'test-system-prompt',
@@ -801,10 +801,10 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-agent-3',
-        resultDir: 'tasks/results/test-agent-3',
+        resultDir: 'tasks/queues/results/test-agent-3',
         messageStore: createDialogStore(
           mockFs,
-          'tasks/results/test-agent-3',
+          'tasks/queues/results/test-agent-3',
           new NoopAuditWriter(),
           'messages.json',
           'test-system-prompt',
@@ -838,10 +838,10 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-idle',
-        resultDir: 'tasks/results/test-idle',
+        resultDir: 'tasks/queues/results/test-idle',
         messageStore: createDialogStore(
           mockFs,
-          'tasks/results/test-idle',
+          'tasks/queues/results/test-idle',
           new NoopAuditWriter(),
           'messages.json',
           'test-system-prompt',
@@ -877,10 +877,10 @@ describe('Task System + SubAgent', () => {
 
       const agent = new SubAgent({
         agentId: 'test-append-fail',
-        resultDir: 'tasks/results/test-append-fail',
+        resultDir: 'tasks/queues/results/test-append-fail',
         messageStore: createDialogStore(
           throwingFs,
-          'tasks/results/test-append-fail',
+          'tasks/queues/results/test-append-fail',
           mockAuditWriter as any,
           'messages.json',
           'test-system-prompt',

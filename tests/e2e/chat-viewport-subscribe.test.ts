@@ -143,7 +143,7 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
     cleanups.push(() => cleanupTempDir(agentDir));
 
     const taskId = 'task-audit';
-    const taskDir = path.join(agentDir, 'tasks', 'results', taskId);
+    const taskDir = path.join(agentDir, 'tasks', 'queues', 'results', taskId);
     await nativeFs.mkdir(taskDir, { recursive: true });
 
     const mainStreamPath = path.join(agentDir, STREAM_FILE);
@@ -247,7 +247,7 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
     cleanups.push(() => cleanupTempDir(agentDir));
 
     const taskId = 'task-concurrent';
-    const taskDir = path.join(agentDir, 'tasks', 'results', taskId);
+    const taskDir = path.join(agentDir, 'tasks', 'queues', 'results', taskId);
     await nativeFs.mkdir(taskDir, { recursive: true });
 
     const mainStreamPath = path.join(agentDir, STREAM_FILE);

@@ -5,8 +5,8 @@
  * Enforces access rules:
  * - System space (read-only): AGENTS.md, dialog/, config.yaml, .clawforum/, system/
  * - Claw writable space: MEMORY.md, memory/, USER.md, IDENTITY.md, SOUL.md,
- *   clawspace/, prompts/, skills/, inbox/, outbox/, tasks/{pending,running,done,failed}, logs/
- * - Claw readable space: + contract/, tasks/results/
+ *   clawspace/, prompts/, skills/, inbox/, outbox/, tasks/queues/{pending,running,done,failed}, logs/
+ * - Claw readable space: + contract/, tasks/queues/results/, tasks/results/ (sync 临 / 推 phase 511)
  * - Outside clawDir: denied (PathNotInClawSpaceError)
  *
  * Phase430: PermissionChecker interface + createClawPermissionChecker 完全归 L4。
@@ -19,7 +19,13 @@ import {
   PathNotInClawSpaceError,
   WriteOperationForbiddenError,
 } from '../../types/errors.js';
-import { TASKS_RUNNING_DIR, TASKS_DONE_DIR } from '../../types/paths.js';
+import {
+  TASKS_QUEUES_PENDING_DIR,
+  TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR,
+  TASKS_QUEUES_FAILED_DIR,
+  TASKS_QUEUES_RESULTS_DIR,
+} from '../../types/paths.js';
 import type { PermissionChecker } from '../../types/permission.js';
 export type { PermissionChecker } from '../../types/permission.js';
 
@@ -49,10 +55,11 @@ const WRITABLE_PATHS = [
   'skills',
   'inbox',
   'outbox',
-  'tasks/pending',
-  TASKS_RUNNING_DIR,
-  TASKS_DONE_DIR,
-  'tasks/failed',
+  TASKS_QUEUES_PENDING_DIR,
+  TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR,
+  TASKS_QUEUES_FAILED_DIR,
+  TASKS_QUEUES_RESULTS_DIR,
   'logs',
 ];
 

@@ -6,7 +6,7 @@
  * Watcher (AsyncTaskSystem._ingestPendingFile) consumes the file asynchronously.
  */
 import { randomUUID } from 'crypto';
-import { TASKS_PENDING_DIR } from '../../../types/paths.js';
+import { TASKS_QUEUES_PENDING_DIR } from '../../../types/paths.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { SubAgentTask } from '../system.js';
@@ -27,7 +27,7 @@ export async function writePendingSubagentTaskFile(
     createdAt: new Date().toISOString(),
   };
   await fs.writeAtomic(
-    `${TASKS_PENDING_DIR}/${taskId}.json`,
+    `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
     JSON.stringify(task, null, 2),
   );
   audit?.write('task_scheduled', taskId, 'kind=subagent', `parent=${task.parentClawId}`);

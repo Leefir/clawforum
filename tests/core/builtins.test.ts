@@ -23,7 +23,7 @@ import { makeAudit } from '../helpers/audit.js';
 import { ContractSystem } from '../../src/core/contract/manager.js';
 
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
-import { TASKS_RUNNING_DIR } from '../../src/types/paths.js';
+import { TASKS_QUEUES_RUNNING_DIR } from '../../src/types/paths.js';
 import { ToolExecutor } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 
@@ -849,10 +849,10 @@ describe('Builtin Tools', () => {
 
     // task running + pending
     it('should show running and pending task counts', async () => {
-      await mockFs.ensureDir('tasks/pending');
-      await mockFs.ensureDir(TASKS_RUNNING_DIR);
-      await mockFs.writeAtomic('tasks/pending/t1.json', '{}');
-      await mockFs.writeAtomic('tasks/running/t2.json', '{}');
+      await mockFs.ensureDir('tasks/queues/pending');
+      await mockFs.ensureDir(TASKS_QUEUES_RUNNING_DIR);
+      await mockFs.writeAtomic('tasks/queues/pending/t1.json', '{}');
+      await mockFs.writeAtomic('tasks/queues/running/t2.json', '{}');
 
       const result = await executeViaExecutor('status', {}, ctx);
       expect(result.content).toContain('1 running, 1 pending');
@@ -860,16 +860,16 @@ describe('Builtin Tools', () => {
 
     // 只有 pending
     it('should show only pending task count when no running tasks', async () => {
-      await mockFs.ensureDir('tasks/pending');
-      await mockFs.writeAtomic('tasks/pending/t1.json', '{}');
-      await mockFs.writeAtomic('tasks/pending/t2.json', '{}');
+      await mockFs.ensureDir('tasks/queues/pending');
+      await mockFs.writeAtomic('tasks/queues/pending/t1.json', '{}');
+      await mockFs.writeAtomic('tasks/queues/pending/t2.json', '{}');
 
       const result = await executeViaExecutor('status', {}, ctx);
       expect(result.content).toContain('2 pending');
     });
 
-    // tasks/pending 不存在 → silent (ENOENT is expected for fresh setup)
-    it('should treat pending count as 0 when tasks/pending does not exist', async () => {
+    // tasks/queues/pending 不存在 → silent (ENOENT is expected for fresh setup)
+    it('should treat pending count as 0 when tasks/queues/pending does not exist', async () => {
       const result = await executeViaExecutor('status', {}, ctx);
       expect(result.content).toContain('Tasks: idle');
       // ENOENT is now silently ignored (expected for fresh setup)

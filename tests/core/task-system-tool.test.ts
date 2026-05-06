@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { INBOX_PENDING_DIR, TASKS_RUNNING_DIR, TASKS_DONE_DIR } from '../../src/types/paths.js';
+import { INBOX_PENDING_DIR, TASKS_QUEUES_RUNNING_DIR, TASKS_QUEUES_DONE_DIR } from '../../src/types/paths.js';
 import { AsyncTaskSystem, SubAgentTask, ToolTask } from '../../src/core/async-task-system/system.js';
 import { ToolExecutorImpl, ExecuteOptions } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
@@ -26,7 +26,7 @@ import { searchTool } from '../../src/foundation/file-tool/search.js';
 import { makeAudit } from '../helpers/audit.js';
 import { makeTaskSystemDeps } from '../helpers/task-system.js';
 import { writePendingToolTaskFile } from '../../src/core/async-task-system/tools/_pending-tool-task-writer.js';
-import { TASKS_PENDING_DIR } from '../../src/types/paths.js';
+import { TASKS_QUEUES_PENDING_DIR } from '../../src/types/paths.js';
 
 // Test helper: fs-driven async tool scheduling (replaces removed scheduleTool API)
 async function scheduleToolCompat(
@@ -64,7 +64,7 @@ async function scheduleToolCompat(
   });
 
   // Manually ingest to trigger dispatch immediately in tests (skip watcher latency)
-  await (taskSystem as any)._ingestPendingFile(`${TASKS_PENDING_DIR}/${taskId}.json`);
+  await (taskSystem as any)._ingestPendingFile(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`);
   return taskId;
 }
 
@@ -131,10 +131,10 @@ describe('AsyncTaskSystem Tool Tasks', () => {
     await fs.mkdir(testDir, { recursive: true });
     testClawDir = path.join(testDir, `test-${Date.now()}`);
     await fs.mkdir(testClawDir, { recursive: true });
-    await fs.mkdir(path.join(testClawDir, 'tasks', 'pending'), { recursive: true });
-    await fs.mkdir(path.join(testClawDir, 'tasks', 'running'), { recursive: true });
-    await fs.mkdir(path.join(testClawDir, 'tasks', 'done'), { recursive: true });
-    await fs.mkdir(path.join(testClawDir, 'tasks', 'results'), { recursive: true });
+    await fs.mkdir(path.join(testClawDir, 'tasks', 'queues', 'pending'), { recursive: true });
+    await fs.mkdir(path.join(testClawDir, 'tasks', 'queues', 'running'), { recursive: true });
+    await fs.mkdir(path.join(testClawDir, 'tasks', 'queues', 'done'), { recursive: true });
+    await fs.mkdir(path.join(testClawDir, 'tasks', 'queues', 'results'), { recursive: true });
     await fs.mkdir(path.join(testClawDir, 'inbox', 'pending'), { recursive: true });
     await fs.mkdir(path.join(testClawDir, 'logs'), { recursive: true });
 
@@ -184,7 +184,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(typeof taskId).toBe('string');
     });
 
-    it('should save task to tasks/pending/ or tasks/running/ (atomic move may complete immediately)', async () => {
+    it('should save task to tasks/queues/pending/ or tasks/queues/running/ (atomic move may complete immediately)', async () => {
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: 'ok' });
 
       const taskId = await scheduleToolCompat(taskSystem, 'testTool', executeCallback, 'parent-claw');
@@ -193,12 +193,12 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       let rawFile: string;
       try {
         rawFile = await fs.readFile(
-          path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
+          path.join(testClawDir, 'tasks', 'queues', 'pending', `${taskId}.json`),
           'utf-8'
         );
       } catch {
         rawFile = await fs.readFile(
-          path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+          path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`),
           'utf-8'
         );
       }
@@ -208,7 +208,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(taskData.parentClawId).toBe('parent-claw');
     });
 
-    it('should move task to tasks/running/ when dispatched', async () => {
+    it('should move task to tasks/queues/running/ when dispatched', async () => {
       // Use a slow callback so we can check the running state before completion
       const slowCallback = async () => {
         await new Promise(r => setTimeout(r, 200));
@@ -217,7 +217,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       const taskId = await scheduleToolCompat(taskSystem, 'testTool', slowCallback, 'parent-claw');
 
-      const runningPath = path.join(testClawDir, 'tasks', 'running', `${taskId}.json`);
+      const runningPath = path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`);
       await waitFor(async () => {
         try { await fs.access(runningPath); return true; } catch { return false; }
       });
@@ -269,11 +269,11 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(content.is_error).toBe(false);
       // Should have summary and resultRef instead of full result
       expect(content.summary).toBeDefined();
-      expect(content.resultRef).toBe(`tasks/results/${taskId}/result.txt`);
+      expect(content.resultRef).toBe(`tasks/queues/results/${taskId}/result.txt`);
       expect(content.result).toBeUndefined(); // Full result should not be in inbox
     });
 
-    it('should save full result to tasks/results/', async () => {
+    it('should save full result to tasks/queues/results/', async () => {
       const longResult = 'x'.repeat(1000); // Long result to test full content
       const executeCallback = vi.fn().mockResolvedValue({ success: true, content: longResult });
       
@@ -281,7 +281,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       await waitFor(async () => {
         try {
-          await fs.readFile(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt'), 'utf-8');
+          await fs.readFile(path.join(testClawDir, 'tasks', 'queues', 'results', taskId, 'result.txt'), 'utf-8');
           return true;
         } catch {
           return false;
@@ -290,7 +290,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       // Full result should be in results directory
       const resultFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt'),
+        path.join(testClawDir, 'tasks', 'queues', 'results', taskId, 'result.txt'),
         'utf-8'
       );
       expect(resultFile).toContain(longResult);
@@ -342,7 +342,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(content.toolName).toBe('testTool');
       expect(content.is_error).toBe(true);
       expect(content.summary).toBeDefined();
-      expect(content.resultRef).toBe(`tasks/results/${taskId}/result.txt`);
+      expect(content.resultRef).toBe(`tasks/queues/results/${taskId}/result.txt`);
     });
 
     it('should move task to done after completion', async () => {
@@ -352,7 +352,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       await waitFor(async () => {
         try {
-          await fs.readFile(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`), 'utf-8');
+          await fs.readFile(path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`), 'utf-8');
           return true;
         } catch {
           return false;
@@ -361,7 +361,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       // Task should be in done directory
       const doneFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'done', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`),
         'utf-8'
       );
       const doneData = JSON.parse(doneFile);
@@ -464,7 +464,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       // Should be in done
       const doneFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'done', `${fourthId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'done', `${fourthId}.json`),
         'utf-8'
       ).catch(() => null);
       expect(doneFile).not.toBeNull();
@@ -510,7 +510,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         createdAt: new Date().toISOString() 
       };
       await fs.writeFile(
-        path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'pending', `${taskId}.json`),
         JSON.stringify(task)
       );
 
@@ -543,7 +543,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       // phase163: recover 仅复原 running→pending 文件回搬，不动队列；
       // 断言必须在 startDispatch 之前 —— 之后 _initialScanPending 会异步把文件 ingest + 移到 running/。
       expect(
-        await fs.access(path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`))
+        await fs.access(path.join(testClawDir, 'tasks', 'queues', 'pending', `${taskId}.json`))
           .then(() => true)
           .catch(() => false)
       ).toBe(true);
@@ -568,7 +568,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         retryCount: 0,
       };
       await fs.writeFile(
-        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`),
         JSON.stringify(task)
       );
 
@@ -611,13 +611,13 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       // phase432: running tool task 移回 pending，再被 ingest 执行
       await waitFor(async () => {
-        const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+        const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
         return doneExists;
       });
 
-      const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
+      const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(runningExists).toBe(false);
-      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(doneExists).toBe(true);
 
       await taskSystem2.shutdown(100).catch(() => {});
@@ -639,7 +639,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         retryCount: 0,
       };
       await fs.writeFile(
-        path.join(testClawDir, 'tasks', 'pending', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'pending', `${taskId}.json`),
         JSON.stringify(task)
       );
 
@@ -681,11 +681,11 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       // phase432: pending tool task 被 ingest 并执行
       await waitFor(async () => {
-        const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+        const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
         return doneExists;
       });
 
-      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      const doneExists = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(doneExists).toBe(true);
 
       await taskSystem2.shutdown(100).catch(() => {});
@@ -704,10 +704,10 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         parentClawId: 'parent-claw',
         createdAt: new Date().toISOString(),
       };
-      await fs.mkdir(path.join(testClawDir, 'tasks', 'results', taskId), { recursive: true });
-      await fs.writeFile(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt'), 'task output');
+      await fs.mkdir(path.join(testClawDir, 'tasks', 'queues', 'results', taskId), { recursive: true });
+      await fs.writeFile(path.join(testClawDir, 'tasks', 'queues', 'results', taskId, 'result.txt'), 'task output');
       await fs.writeFile(
-        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`),
         JSON.stringify(task)
       );
 
@@ -739,7 +739,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       await ts1.shutdown(100).catch(() => {});
 
       // sendResult() 内部会重写 result.txt，但 .sent 标记必须存在
-      const sentTxt = await fs.access(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt.sent')).then(() => true).catch(() => false);
+      const sentTxt = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'results', taskId, 'result.txt.sent')).then(() => true).catch(() => false);
       expect(sentTxt).toBe(true);     // .sent 标记存在，表示已投递
 
       const inboxAfterFirst = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
@@ -769,10 +769,10 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         parentClawId: 'parent-claw',
         createdAt: new Date().toISOString(),
       };
-      await fs.mkdir(path.join(testClawDir, 'tasks', 'results', taskId), { recursive: true });
-      await fs.writeFile(path.join(testClawDir, 'tasks', 'results', taskId, 'result.txt.sent'), 'task output');
+      await fs.mkdir(path.join(testClawDir, 'tasks', 'queues', 'results', taskId), { recursive: true });
+      await fs.writeFile(path.join(testClawDir, 'tasks', 'queues', 'results', taskId, 'result.txt.sent'), 'task output');
       await fs.writeFile(
-        path.join(testClawDir, 'tasks', 'running', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`),
         JSON.stringify(task)
       );
 
@@ -806,7 +806,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
       expect(inboxFiles).toHaveLength(0);
       // Task moved to done/
-      const inDone = await fs.access(path.join(testClawDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      const inDone = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(inDone).toBe(true);
     });
   });
@@ -863,7 +863,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
         write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
         writeAtomic: async (p: string, c: string) => {
-          if (p.includes('tasks/results')) throw new Error('Disk full');
+          if (p.includes('tasks/queues/results')) throw new Error('Disk full');
           return fs.writeFile(path.join(testClawDir, p), c);
         },
         append: (p: string, c: string) => fs.appendFile(path.join(testClawDir, p), c),
@@ -925,7 +925,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       // Task should be in done directory (via _startTask.finally -> executeToolTask.finally)
       // And running directory should not have the file (deleted only once)
-      const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
+      const runningExists = await fs.access(path.join(testClawDir, 'tasks', 'queues', 'running', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(runningExists).toBe(false);
       // No longer running or pending
       expect(taskSystem.listRunning()).not.toContain(taskId);
@@ -1020,7 +1020,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       // Task should be in failed directory (retries exhausted)
       const failedFile = await fs.readFile(
-        path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`),
+        path.join(testClawDir, 'tasks', 'queues', 'failed', `${taskId}.json`),
         'utf-8'
       );
       expect(JSON.parse(failedFile).retryCount).toBe(2);
@@ -1091,12 +1091,12 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const taskId = await scheduleToolCompat(taskSystem2, 'tool', failCallback, 'parent', { isIdempotent: false });
 
       await waitFor(async () => {
-        return await fs.access(path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`)).then(() => true).catch(() => false);
+        return await fs.access(path.join(testClawDir, 'tasks', 'queues', 'failed', `${taskId}.json`)).then(() => true).catch(() => false);
       });
 
       // Task should end up in failed (tool execution failed, retries exhausted)
       const failedExists = await fs.access(
-        path.join(testClawDir, 'tasks', 'failed', `${taskId}.json`)
+        path.join(testClawDir, 'tasks', 'queues', 'failed', `${taskId}.json`)
       ).then(() => true).catch(() => false);
       expect(failedExists).toBe(true);
 
@@ -1131,7 +1131,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const realMove = (taskSystem as any).fs.move.bind((taskSystem as any).fs);
       vi.spyOn((taskSystem as any).fs, 'move').mockImplementation(
         async (from: string, to: string) => {
-          if (from.includes(TASKS_RUNNING_DIR) && to.includes(TASKS_DONE_DIR)) {
+          if (from.includes(TASKS_QUEUES_RUNNING_DIR) && to.includes(TASKS_QUEUES_DONE_DIR)) {
             throw new Error('Disk full');
           }
           return realMove(from, to);
@@ -1159,17 +1159,17 @@ describe('AsyncTaskSystem Tool Tasks', () => {
     it('should recover ToolTask on daemon restart (fs-driven)', async () => {
       // phase432: ToolTask 改 fs-driven / args+parentClawDir 可恢复执行
       const freshDir = path.join(testDir, `callback-loss-${Date.now()}`);
-      await fs.mkdir(path.join(freshDir, 'tasks', 'pending'), { recursive: true });
-      await fs.mkdir(path.join(freshDir, 'tasks', 'running'), { recursive: true });
-      await fs.mkdir(path.join(freshDir, 'tasks', 'done'), { recursive: true });
-      await fs.mkdir(path.join(freshDir, 'tasks', 'failed'), { recursive: true });
-      await fs.mkdir(path.join(freshDir, 'tasks', 'results'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'queues', 'pending'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'queues', 'running'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'queues', 'done'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'queues', 'failed'), { recursive: true });
+      await fs.mkdir(path.join(freshDir, 'tasks', 'queues', 'results'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'inbox', 'pending'), { recursive: true });
       await fs.mkdir(path.join(freshDir, 'logs'), { recursive: true });
 
       const taskId = 'lost-callback-task';
       await fs.writeFile(
-        path.join(freshDir, 'tasks', 'pending', `${taskId}.json`),
+        path.join(freshDir, 'tasks', 'queues', 'pending', `${taskId}.json`),
         JSON.stringify({
           id: taskId, kind: 'tool', toolName: 'testTool',
           args: {}, parentClawDir: freshDir,
@@ -1217,11 +1217,11 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       // phase432: Tool task 被恢复执行并最终移到 done/
       await waitFor(async () => {
-        const doneExists = await fs.access(path.join(freshDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+        const doneExists = await fs.access(path.join(freshDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
         return doneExists;
       });
 
-      const doneExists = await fs.access(path.join(freshDir, 'tasks', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
+      const doneExists = await fs.access(path.join(freshDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(doneExists).toBe(true);
       expect(freshSystem.listPending()).not.toContain(taskId);
 

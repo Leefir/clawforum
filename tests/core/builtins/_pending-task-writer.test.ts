@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { writePendingSubagentTaskFile } from '../../../src/core/async-task-system/tools/_pending-task-writer.js';
-import { TASKS_PENDING_DIR } from '../../../src/types/paths.js';
+import { TASKS_QUEUES_PENDING_DIR } from '../../../src/types/paths.js';
 import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { AuditWriter } from '../../../src/foundation/audit/writer.js';
 
@@ -71,7 +71,7 @@ describe('writePendingSubagentTaskFile', () => {
     expect(mockFs.writeAtomic).toHaveBeenCalledTimes(1);
 
     const [filePath, fileContent] = (mockFs.writeAtomic as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(filePath).toBe(`${TASKS_PENDING_DIR}/${taskId}.json`);
+    expect(filePath).toBe(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`);
 
     const parsed = JSON.parse(fileContent as string);
     expect(parsed.id).toBe(taskId);

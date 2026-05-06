@@ -178,9 +178,9 @@ async function waitForTaskResult(
   pollIntervalMs = 30_000,
 ): Promise<string | null> {
   // .txt 由 AsyncTaskSystem.sendResult 在 subAgent.run() 完成后写入，是可靠的完成信号
-  const donePath = path.join('tasks', 'results', taskId, 'result.txt');
+  const donePath = path.join('tasks', 'queues', 'results', taskId, 'result.txt');
   // [DREAM_OUTPUT] 块由 appendToLog 写入 .log
-  const logPath  = path.join('tasks', 'results', taskId, 'daemon.log');
+  const logPath  = path.join('tasks', 'queues', 'results', taskId, 'daemon.log');
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {

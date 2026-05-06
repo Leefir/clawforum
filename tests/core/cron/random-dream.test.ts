@@ -45,9 +45,9 @@ function makeOpts(clawforumDir: string, motionDir: string): RandomDreamOptions {
   };
 }
 
-/** 在 motionDir 创建 tasks/results 目录并写入完成信号 */
+/** 在 motionDir 创建 tasks/queues/results 目录并写入完成信号 */
 async function writeTaskCompletion(motionDir: string, taskId: string, logContent: string) {
-  const taskResultDir = path.join(motionDir, 'tasks', 'results', taskId);
+  const taskResultDir = path.join(motionDir, 'tasks', 'queues', 'results', taskId);
   await fs.mkdir(taskResultDir, { recursive: true });
   await fs.writeFile(path.join(taskResultDir, 'result.txt'), 'done', 'utf-8');
   await fs.writeFile(path.join(taskResultDir, 'daemon.log'), logContent, 'utf-8');
@@ -160,7 +160,7 @@ Prompt: ...
       vi.useFakeTimers();
       try {
         // 创建 daemon.log（sub-agent 启动时就存在），但 result.txt 不存在
-        const taskResultDir = path.join(motionDir, 'tasks', 'results', taskId);
+        const taskResultDir = path.join(motionDir, 'tasks', 'queues', 'results', taskId);
         await fs.mkdir(taskResultDir, { recursive: true });
         fsSync.writeFileSync(
           path.join(taskResultDir, 'daemon.log'),
@@ -355,7 +355,7 @@ Prompt: ...
         path.join(clawforumDir, 'claws', 'claw-1', 'contract', 'archive', 'contract-timeout'),
         { recursive: true }
       );
-      const taskResultDir = path.join(motionDir, 'tasks', 'results', taskId);
+      const taskResultDir = path.join(motionDir, 'tasks', 'queues', 'results', taskId);
       await fs.mkdir(taskResultDir, { recursive: true });
       // 只有 daemon.log，没有 result.txt
       fsSync.writeFileSync(

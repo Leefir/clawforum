@@ -12,6 +12,7 @@ import { createSubAgent } from '../subagent/index.js';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
+import { TASKS_QUEUES_RESULTS_DIR } from '../../types/paths.js';
 import { sendResult, sendFallbackError } from './result-delivery.js';
 
 import type { PostProcessor } from './post-processors/types.js';
@@ -46,7 +47,7 @@ export async function executeSubAgentTask(
   let taskFailed = false;
 
   // Per-task stream writer setup（fd-less / appendSync 模式）
-  const taskResultDir = `tasks/results/${task.id}`;   // 相对 clawDir / fs baseDir
+  const taskResultDir = `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`;   // 相对 clawDir / fs baseDir
   fs.ensureDirSync(taskResultDir);
   const taskAuditWriter = createAuditWriter(fs, `${taskResultDir}/audit.tsv`);
   const taskStreamRelPath = `${taskResultDir}/${STREAM_FILE}`;
@@ -78,10 +79,10 @@ export async function executeSubAgentTask(
 
     const subAgent = createSubAgent({
       agentId: task.id,
-      resultDir: `tasks/results/${task.id}`,                      // phase443: AsyncTaskSystem own 字符串约定
+      resultDir: `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`,                      // phase443: AsyncTaskSystem own 字符串约定
       messageStore: createDialogStore(           // phase453: ephemeral DialogStore 装配 / 0 clawId / 0 archive 触发
         fs,
-        `tasks/results/${task.id}`,             // baseDir = resultDir
+        `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`,             // baseDir = resultDir
         taskAuditWriter,                         // per-task audit writer
         'messages.json',                         // filename 必填
         '',                                      // phase 470: systemPrompt 由 SubAgent 内部 DEFAULT_SUBAGENT_SYSTEM_PROMPT 提供

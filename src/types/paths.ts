@@ -21,14 +21,16 @@ export const STATUS_SUBDIR = 'status' as const; // 仅 subdir 域 / 与 STATUS_T
  * Claw directory structure - shared between createCommand and runtime.ensureDirectories
  * Modifying this requires updating all consumers.
  */
-/** tasks/pending 目录相对路径 */
-export const TASKS_PENDING_DIR = 'tasks/pending';
-/** tasks/running 目录相对路径 */
-export const TASKS_RUNNING_DIR = 'tasks/running';
-/** tasks/done 目录相对路径 */
-export const TASKS_DONE_DIR = 'tasks/done';
-/** tasks/results 目录相对路径 */
-export const TASKS_RESULTS_DIR = 'tasks/results';
+/** tasks/queues/pending — async task 队列 state（phase 510 加 queues/ 层）*/
+export const TASKS_QUEUES_PENDING_DIR = 'tasks/queues/pending';
+/** tasks/queues/running */
+export const TASKS_QUEUES_RUNNING_DIR = 'tasks/queues/running';
+/** tasks/queues/done */
+export const TASKS_QUEUES_DONE_DIR = 'tasks/queues/done';
+/** tasks/queues/failed (NEW const / 原硬编码 'tasks/failed') */
+export const TASKS_QUEUES_FAILED_DIR = 'tasks/queues/failed';
+/** tasks/queues/results — async subagent lifecycle dir / 子代理不可见 */
+export const TASKS_QUEUES_RESULTS_DIR = 'tasks/queues/results';
 
 /** inbox/pending 目录相对路径 */
 export const INBOX_PENDING_DIR = 'inbox/pending';
@@ -52,10 +54,11 @@ export const CLAW_SUBDIRS = [
   OUTBOX_PENDING_DIR,
   'outbox/done',
   'outbox/failed',
-  TASKS_PENDING_DIR,
-  TASKS_RUNNING_DIR,
-  TASKS_DONE_DIR,
-  TASKS_RESULTS_DIR,
+  TASKS_QUEUES_PENDING_DIR,
+  TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR,
+  TASKS_QUEUES_FAILED_DIR,
+  TASKS_QUEUES_RESULTS_DIR,
   'memory',                    // 不抽 const / 字面量保留 / B.p380-1 信号登记
   CONTRACT_DIR,                // 旧 'contract'
   'skills',                    // phase370 已立 / 非 NEW（SKILLS_DIR_DEFAULT 字面量 / 避免循环依赖 skill-paths.ts → paths.ts）

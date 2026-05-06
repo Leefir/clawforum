@@ -4,13 +4,13 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { InboxMessage } from '../../types/messaging.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
-import { INBOX_PENDING_DIR } from '../../types/paths.js';
+import { INBOX_PENDING_DIR, TASKS_QUEUES_RESULTS_DIR } from '../../types/paths.js';
 import type { SubAgentTask, ToolTask } from './system.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 
 /**
  * Send tool task result to parent claw's inbox
- * Large outputs are offloaded to tasks/results/{taskId}.txt
+ * Large outputs are offloaded to TASKS_QUEUES_RESULTS_DIR/{taskId}.txt
  * Writes directly to inbox/pending/ in .md format (standard inbox format)
  */
 export async function sendToolResult(
@@ -22,11 +22,11 @@ export async function sendToolResult(
 ): Promise<void> {
   const fullContent = typeof result === 'string' ? result : result.content;
 
-  // Try to write full result to tasks/results/
+  // Try to write full result to TASKS_QUEUES_RESULTS_DIR/
   let resultRef: string | undefined;
   try {
-    const resultPath = `tasks/results/${task.id}/result.txt`;
-    await fs.ensureDir(`tasks/results/${task.id}`);
+    const resultPath = `${TASKS_QUEUES_RESULTS_DIR}/${task.id}/result.txt`;
+    await fs.ensureDir(`${TASKS_QUEUES_RESULTS_DIR}/${task.id}`);
     await fs.writeAtomic(resultPath, fullContent);
     resultRef = resultPath;
   } catch (writeErr) {
@@ -91,7 +91,7 @@ export async function sendToolResult(
 
 /**
  * Send task result to parent claw's inbox
- * Large outputs are offloaded to tasks/results/{taskId}.txt
+ * Large outputs are offloaded to TASKS_QUEUES_RESULTS_DIR/{taskId}.txt
  */
 export async function sendResult(
   fs: FileSystem,
@@ -100,11 +100,11 @@ export async function sendResult(
   result: string,
   isError: boolean,
 ): Promise<void> {
-  // Try to write full result to tasks/results/
+  // Try to write full result to TASKS_QUEUES_RESULTS_DIR/
   let resultRef: string | undefined;
   try {
-    const resultPath = `tasks/results/${task.id}/result.txt`;
-    await fs.ensureDir(`tasks/results/${task.id}`);
+    const resultPath = `${TASKS_QUEUES_RESULTS_DIR}/${task.id}/result.txt`;
+    await fs.ensureDir(`${TASKS_QUEUES_RESULTS_DIR}/${task.id}`);
     await fs.writeAtomic(resultPath, result);
     resultRef = resultPath;
   } catch (writeErr) {

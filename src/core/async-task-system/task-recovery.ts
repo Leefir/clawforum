@@ -1,7 +1,13 @@
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { SubAgentTask, ToolTask } from './system.js';
-import { TASKS_PENDING_DIR, TASKS_RUNNING_DIR } from '../../types/paths.js';
+import {
+  TASKS_QUEUES_PENDING_DIR,
+  TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR,
+  TASKS_QUEUES_FAILED_DIR,
+  TASKS_QUEUES_RESULTS_DIR,
+} from '../../types/paths.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { sendFallbackError, sendResult } from './result-delivery.js';
 
@@ -22,7 +28,7 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
   try {
     let recoveredFromRunning = 0;
     // First, move any running tasks back to pending (they were interrupted)
-    const runningEntries = await fs.list(TASKS_RUNNING_DIR);
+    const runningEntries = await fs.list(TASKS_QUEUES_RUNNING_DIR);
     for (const entry of runningEntries) {
       if (entry.name.endsWith('.json')) {
         try {
@@ -30,21 +36,21 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
           const task = JSON.parse(content) as SubAgentTask | ToolTask;
           if (task.kind === 'tool') {
             // phase432: ToolTask 改为 fs-driven / args+parentClawDir 可恢复 / 移回 pending 重新执行
-            const pendingPath = `${TASKS_PENDING_DIR}/${task.id}.json`;
+            const pendingPath = `${TASKS_QUEUES_PENDING_DIR}/${task.id}.json`;
             await fs.move(entry.path, pendingPath);
             recoveredFromRunning++;
             auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, `kind=${task.kind}`, 'from=running', 'to=pending');
           } else {
             // subagent 任务：检测是否已写出结果
-            const resultPath  = `tasks/results/${task.id}/result.txt`;
-            const sentMarker  = `tasks/results/${task.id}/result.txt.sent`;
+            const resultPath  = `${TASKS_QUEUES_RESULTS_DIR}/${task.id}/result.txt`;
+            const sentMarker  = `${TASKS_QUEUES_RESULTS_DIR}/${task.id}/result.txt.sent`;
             // 先检查 .sent 标记（表示上次恢复已成功投递，只需清理）
             const alreadySent = await fs.exists(sentMarker);
             const resultExists = !alreadySent && await fs.exists(resultPath);
 
             if (alreadySent) {
               // 上次恢复已投递，仅清理 running/ 残留
-              await fs.move(entry.path, `tasks/done/${task.id}.json`).catch(() => {
+              await fs.move(entry.path, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(() => {
                 fs.delete(entry.path).catch(() => {});
               });
               auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=already_sent');
@@ -62,13 +68,13 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
               if (resultSent) {
                 await fs.writeAtomic(sentMarker, '1').catch(() => {});
               }
-              await fs.move(entry.path, `tasks/done/${task.id}.json`).catch(() => {
+              await fs.move(entry.path, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(() => {
                 fs.delete(entry.path).catch(() => {});
               });
               auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=result_file_exists');
             } else {
               // 结果未写出：移回 pending 重新执行（原有逻辑）
-              const pendingPath = `${TASKS_PENDING_DIR}/${task.id}.json`;
+              const pendingPath = `${TASKS_QUEUES_PENDING_DIR}/${task.id}.json`;
               await fs.move(entry.path, pendingPath);
               recoveredFromRunning++;
               auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, `kind=${task.kind}`, 'from=running', 'to=pending');
@@ -82,7 +88,7 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
     }
 
     // Load pending tasks
-    const pendingEntries = await fs.list(TASKS_PENDING_DIR);
+    const pendingEntries = await fs.list(TASKS_QUEUES_PENDING_DIR);
     for (const entry of pendingEntries) {
       if (entry.name.endsWith('.json')) {
         try {
@@ -101,7 +107,7 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
     }
 
     // 统计历史失败任务数（仅用于审计，不重新执行）
-    const failedEntries = await fs.list('tasks/failed').catch(() => []);
+    const failedEntries = await fs.list(TASKS_QUEUES_FAILED_DIR).catch(() => []);
     const failedCount = failedEntries.filter(e => e.name.endsWith('.json')).length;
 
     auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERY_COMPLETE, 'system', `pending=${pendingQueue.length}`, `recovered_running=${recoveredFromRunning}`, `failed=${failedCount}`);

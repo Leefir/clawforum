@@ -4,6 +4,7 @@ import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { ToolTask } from './system.js';
 import { sendToolResult, sendFallbackError } from './result-delivery.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
+import { TASKS_QUEUES_RUNNING_DIR } from '../../types/paths.js';
 
 export interface ToolExecutionDeps {
   fs: FileSystem;
@@ -64,7 +65,7 @@ export async function executeToolTask(
         task.retryCount = attempt + 1;
         try {
           await fs.writeAtomic(
-            `tasks/running/${task.id}.json`,
+            `${TASKS_QUEUES_RUNNING_DIR}/${task.id}.json`,
             JSON.stringify(task, null, 2)
           );
         } catch (writeErr) {

@@ -27,7 +27,7 @@ vi.mock('../../src/foundation/skill-system/registry.js', () => ({
 }));
 
 // ============================================================================
-// Mock: writePendingSubagentTaskFile（窄 mock 避免真写 tasks/pending）
+// Mock: writePendingSubagentTaskFile（窄 mock 避免真写 tasks/queues/pending）
 // ============================================================================
 const { mockWritePending } = vi.hoisted(() => ({
   mockWritePending: vi.fn().mockResolvedValue('mock-task-id'),
@@ -61,7 +61,7 @@ async function setupFixtures(): Promise<TestFixtures> {
   // 创建目录结构
   await fs.mkdir(path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract'), { recursive: true });
   await fs.mkdir(path.join(motionDir, 'clawspace', 'dispatch-skills'), { recursive: true });
-  await fs.mkdir(path.join(motionDir, 'tasks', 'results'), { recursive: true });
+  await fs.mkdir(path.join(motionDir, 'tasks', 'queues', 'results'), { recursive: true });
   await fs.mkdir(path.join(targetClawDir, 'contract', 'active', contractId), { recursive: true });
 
   // 写 by-contract index
@@ -309,8 +309,8 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
     await fs.writeFile(byContractPath, JSON.stringify({
       targetClaw: 'claw-a', mode: 'mining', miningTaskId: 'mining-123',
     }));
-    // 建目录结构：tasks/results/mining-123/messages.json 是一个目录
-    await fs.mkdir(path.join(motionDir, 'tasks', 'results', 'mining-123', 'messages.json'), { recursive: true });
+    // 建目录结构：tasks/queues/results/mining-123/messages.json 是一个目录
+    await fs.mkdir(path.join(motionDir, 'tasks', 'queues', 'results', 'mining-123', 'messages.json'), { recursive: true });
 
     result = await freshEvolutionSystem.runRetroForContract(contractId, ctx);
     expect(result.status).toBe('finished');

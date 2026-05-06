@@ -223,7 +223,7 @@ export class EvolutionSystem {
     // 2.3 加载 mining task messages（若 mining 模式，2 best-effort 退化）
     let baseMessages: Message[] = [];
     if (mode === 'mining' && miningTaskId) {
-      const messagesPath = path.join('tasks', 'results', miningTaskId, 'messages.json');
+      const messagesPath = path.join('tasks', 'queues', 'results', miningTaskId, 'messages.json');
       try {
         const rawMining = await ctx.motionFs.read(messagesPath);
         const parsed = JSON.parse(rawMining);
