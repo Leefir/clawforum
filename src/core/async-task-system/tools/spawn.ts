@@ -14,7 +14,7 @@ import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
  * Spawn tool implementation
  *
  * phase163: 直接写 tasks/pending/ 文件，由 watcher 异步调度。
- * 不再依赖 TaskSystem 实例。
+ * 不再依赖 AsyncTaskSystem 实例。
  */
 import { SPAWN_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 export { SPAWN_TOOL_NAME };

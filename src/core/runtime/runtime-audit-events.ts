@@ -1,6 +1,6 @@
 // src/core/runtime/runtime-audit-events.ts
 /**
- * Runtime audit event names (含 LLM Response anomalies + Session + TaskSystem + Snapshot + Inbox + Tool + Outbox).
+ * Runtime audit event names (含 LLM Response anomalies + Session + AsyncTaskSystem + Snapshot + Inbox + Tool + Outbox).
  *
  * Module-owned event namespace per H1 design (phase336 / r36 α 决策 / H1 收官).
  * 字符串值与起步态 events.ts RUNTIME_* + LLM_* 系列等价 / 0 漂移。

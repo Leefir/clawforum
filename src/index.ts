@@ -25,7 +25,7 @@ export type { ToolResult, ExecContext, Tool } from './foundation/tool-protocol/i
 export type { ToolRegistry, IToolExecutor } from './foundation/tools/executor.js';
 export { ToolRegistryImpl } from './foundation/tools/registry.js';
 export type { SkillMeta } from './foundation/skill-system/registry.js';
-export type { SubAgentTask } from './core/task/index.js';
+export type { SubAgentTask } from './core/async-task-system/index.js';
 export type { ProgressData, AcceptanceResult } from './core/contract/index.js';
 
 // Version

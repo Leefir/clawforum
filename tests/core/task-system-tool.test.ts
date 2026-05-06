@@ -1,7 +1,7 @@
 /**
- * TaskSystem Tool Task Tests
+ * AsyncTaskSystem Tool Task Tests
  * 
- * Tests for async tool execution via TaskSystem:
+ * Tests for async tool execution via AsyncTaskSystem:
  * - scheduleTool success/failure paths
  * - executor async routing
  * - pending queue with dispatcher pattern
@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { INBOX_PENDING_DIR, TASKS_RUNNING_DIR, TASKS_DONE_DIR } from '../../src/types/paths.js';
-import { TaskSystem, SubAgentTask, ToolTask } from '../../src/core/task/system.js';
+import { AsyncTaskSystem, SubAgentTask, ToolTask } from '../../src/core/async-task-system/system.js';
 import { ToolExecutorImpl, ExecuteOptions } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import type { Tool, ToolResult, ExecContext } from '../../src/foundation/tool-protocol/index.js';
@@ -25,12 +25,12 @@ import { lsTool } from '../../src/foundation/file-tool/ls.js';
 import { searchTool } from '../../src/foundation/file-tool/search.js';
 import { makeAudit } from '../helpers/audit.js';
 import { makeTaskSystemDeps } from '../helpers/task-system.js';
-import { writePendingToolTaskFile } from '../../src/core/task/tools/_pending-tool-task-writer.js';
+import { writePendingToolTaskFile } from '../../src/core/async-task-system/tools/_pending-tool-task-writer.js';
 import { TASKS_PENDING_DIR } from '../../src/types/paths.js';
 
 // Test helper: fs-driven async tool scheduling (replaces removed scheduleTool API)
 async function scheduleToolCompat(
-  taskSystem: TaskSystem,
+  taskSystem: AsyncTaskSystem,
   toolName: string,
   executeCallback: () => Promise<ToolResult>,
   parentClawId: string,
@@ -120,8 +120,8 @@ async function waitFor(
   throw new Error(`waitFor timed out after ${timeoutMs}ms`);
 }
 
-describe('TaskSystem Tool Tasks', () => {
-  let taskSystem: TaskSystem;
+describe('AsyncTaskSystem Tool Tasks', () => {
+  let taskSystem: AsyncTaskSystem;
   let mockFs: ReturnType<typeof createMockFs>;
   let testDir: string;
   let testClawDir: string;
@@ -139,7 +139,7 @@ describe('TaskSystem Tool Tasks', () => {
     await fs.mkdir(path.join(testClawDir, 'logs'), { recursive: true });
 
     // Use real fs for integration-like testing
-    taskSystem = new TaskSystem(
+    taskSystem = new AsyncTaskSystem(
       testClawDir,
       {
         read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
@@ -401,7 +401,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      const taskSystem2 = new AsyncTaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -515,7 +515,7 @@ describe('TaskSystem Tool Tasks', () => {
       );
 
       // Re-initialize (simulating restart)
-      const taskSystem2 = new TaskSystem(
+      const taskSystem2 = new AsyncTaskSystem(
         testClawDir,
         {
           read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
@@ -572,7 +572,7 @@ describe('TaskSystem Tool Tasks', () => {
         JSON.stringify(task)
       );
 
-      const taskSystem2 = new TaskSystem(
+      const taskSystem2 = new AsyncTaskSystem(
         testClawDir,
         {
           read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
@@ -643,7 +643,7 @@ describe('TaskSystem Tool Tasks', () => {
         JSON.stringify(task)
       );
 
-      const taskSystem2 = new TaskSystem(
+      const taskSystem2 = new AsyncTaskSystem(
         testClawDir,
         {
           read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
@@ -711,7 +711,7 @@ describe('TaskSystem Tool Tasks', () => {
         JSON.stringify(task)
       );
 
-      const makeTs = () => new TaskSystem(testClawDir, {
+      const makeTs = () => new AsyncTaskSystem(testClawDir, {
         read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
         write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
         writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
@@ -776,7 +776,7 @@ describe('TaskSystem Tool Tasks', () => {
         JSON.stringify(task)
       );
 
-      const ts = new TaskSystem(testClawDir, {
+      const ts = new AsyncTaskSystem(testClawDir, {
         read: (p: string) => fs.readFile(path.join(testClawDir, p), 'utf-8'),
         write: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
         writeAtomic: (p: string, c: string) => fs.writeFile(path.join(testClawDir, p), c),
@@ -883,7 +883,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any;
 
-      const taskSystem2 = new TaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      const taskSystem2 = new AsyncTaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -1083,7 +1083,7 @@ describe('TaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       };
 
-      const taskSystem2 = new TaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      const taskSystem2 = new AsyncTaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -1178,7 +1178,7 @@ describe('TaskSystem Tool Tasks', () => {
         }, null, 2),
       );
 
-      const freshSystem = new TaskSystem(
+      const freshSystem = new AsyncTaskSystem(
         freshDir,
         {
           read: (p: string) => fs.readFile(path.join(freshDir, p), 'utf-8'),

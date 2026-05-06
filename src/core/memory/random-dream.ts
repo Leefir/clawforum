@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { MEMORY_AUDIT_EVENTS } from './audit-events.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import type { TaskSystem } from '../task/system.js';
+import type { AsyncTaskSystem } from '../async-task-system/system.js';
 import { TOOL_PROFILES } from '../../foundation/tools/profiles.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
@@ -17,7 +17,7 @@ import {
 export interface RandomDreamOptions {
   clawforumDir: string;
   motionDir: string;
-  taskSystem: TaskSystem;
+  taskSystem: AsyncTaskSystem;
   fs: FileSystem;             // baseDir = clawforumDir
   motionFs: FileSystem;       // baseDir = motionDir / NEW
   audit: AuditLog;
@@ -177,7 +177,7 @@ async function waitForTaskResult(
   audit: AuditLog,
   pollIntervalMs = 30_000,
 ): Promise<string | null> {
-  // .txt 由 TaskSystem.sendResult 在 subAgent.run() 完成后写入，是可靠的完成信号
+  // .txt 由 AsyncTaskSystem.sendResult 在 subAgent.run() 完成后写入，是可靠的完成信号
   const donePath = path.join('tasks', 'results', taskId, 'result.txt');
   // [DREAM_OUTPUT] 块由 appendToLog 写入 .log
   const logPath  = path.join('tasks', 'results', taskId, 'daemon.log');

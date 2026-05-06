@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { TaskSystem } from '../../src/core/task/system.js';
+import { AsyncTaskSystem } from '../../src/core/async-task-system/system.js';
 import { SubAgent } from '../../src/core/subagent/agent.js';
 import { NoopStreamWriter, NoopAuditWriter } from '../../src/core/subagent/noop-writers.js';
 import { createDialogStore } from '../../src/foundation/dialog-store/index.js';
@@ -20,7 +20,7 @@ import type { StreamChunk } from '../../src/foundation/llm-orchestrator/types.js
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { makeAudit } from '../helpers/audit.js';
 import { createTestTaskSystem } from '../helpers/task-system.js';
-import { TASK_AUDIT_EVENTS } from '../../src/core/task/audit-events.js';
+import { TASK_AUDIT_EVENTS } from '../../src/core/async-task-system/audit-events.js';
 import { SUBAGENT_AUDIT_EVENTS } from '../../src/core/subagent/audit-events.js';
 
 /**
@@ -136,7 +136,7 @@ function createAbortableHangingMockLLM(): LLMOrchestrator {
 describe('Task System + SubAgent', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
-  let taskSystem: TaskSystem;
+  let taskSystem: AsyncTaskSystem;
   let registry: ToolRegistryImpl;
 
   beforeEach(async () => {
@@ -156,7 +156,7 @@ describe('Task System + SubAgent', () => {
     await cleanupTempDir(tempDir);
   });
 
-  describe('TaskSystem', () => {
+  describe('AsyncTaskSystem', () => {
     it('should schedule subagent and return taskId', async () => {
       // Recreate with hanging LLM so task stays in running state for verification
       await taskSystem.shutdown(100);

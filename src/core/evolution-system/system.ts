@@ -1,7 +1,7 @@
 // src/core/evolution-system/system.ts
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import type { TaskSystem } from '../task/index.js';
+import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import { ContractSystem } from '../contract/manager.js';
 import type { SkillSystem } from '../../foundation/skill-system/index.js';
 import { scheduleRetro } from './retro-scheduler.js';
@@ -17,7 +17,7 @@ import { FileNotFoundError } from '../../types/errors.js';
 export interface EvolutionSystemDeps {
   fs: FileSystem;
   audit: AuditLog;
-  taskSystem: TaskSystem;
+  taskSystem: AsyncTaskSystem;
   contractManager: ContractSystem;
   skillRegistry?: SkillSystem;   // for SkillSystem.reload coordination
   retroSubagentTimeoutMs?: number;   // default 600000ms (10 min)

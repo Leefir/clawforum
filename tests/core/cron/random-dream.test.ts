@@ -17,17 +17,17 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { runRandomDream, type RandomDreamOptions } from '../../../src/core/memory/random-dream.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
-import type { TaskSystem } from '../../../src/core/task/system.js';
+import type { AsyncTaskSystem } from '../../../src/core/async-task-system/system.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 
-// ─── TaskSystem mock ──────────────────────────────────────────
+// ─── AsyncTaskSystem mock ──────────────────────────────────────────
 
 const mockWritePendingSubAgentTask = vi.fn();
 
-function makeMockTaskSystem(): TaskSystem {
+function makeMockTaskSystem(): AsyncTaskSystem {
   return {
     writePendingSubAgentTask: mockWritePendingSubAgentTask,
-  } as unknown as TaskSystem;
+  } as unknown as AsyncTaskSystem;
 }
 
 // ─── 工具函数 ─────────────────────────────────────────────────

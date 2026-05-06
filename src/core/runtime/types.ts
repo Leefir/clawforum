@@ -14,7 +14,7 @@ import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { IToolExecutor } from '../../foundation/tools/executor.js';
 import type { ContextInjector } from '../dialog/injector.js';
 import type { ContractSystem } from '../contract/index.js';
-import type { TaskSystem } from '../task/index.js';
+import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import type { SkillSystem } from '../../foundation/skill-system/index.js';
 import type { ExecContext } from '../../foundation/tool-protocol/index.js';
 import type { InboxMessage } from '../../types/messaging.js';
@@ -39,7 +39,7 @@ export interface RuntimeDependencies {
   readonly toolExecutor: IToolExecutor;
   readonly skillRegistry: SkillSystem;
   readonly contractManager: ContractSystem;
-  readonly taskSystem: TaskSystem;
+  readonly taskSystem: AsyncTaskSystem;
   readonly contextInjector: ContextInjector;
   readonly execContext: ExecContext;
 

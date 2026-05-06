@@ -505,7 +505,7 @@ describe('Tools', () => {
 
       const mockTaskSystem = {
         scheduleTool: vi.fn().mockResolvedValue('task-id-123'),
-      } as unknown as import('../../src/core/task/system.js').TaskSystem;
+      } as unknown as import('../../src/core/async-task-system/system.js').AsyncTaskSystem;
       (executor as any).taskSystem = mockTaskSystem;
 
       const ctx = new ExecContextImpl({

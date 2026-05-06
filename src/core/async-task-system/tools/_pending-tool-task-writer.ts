@@ -2,7 +2,7 @@
  * Pending tool task file writer (phase432).
  *
  * Direct file-based scheduling primitive for async tool tasks.
- * Watcher (TaskSystem._ingestPendingFile) consumes the file asynchronously.
+ * Watcher (AsyncTaskSystem._ingestPendingFile) consumes the file asynchronously.
  */
 import { randomUUID } from 'crypto';
 import { TASKS_PENDING_DIR } from '../../../types/paths.js';

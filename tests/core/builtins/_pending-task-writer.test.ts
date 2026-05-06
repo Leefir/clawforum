@@ -6,7 +6,7 @@
  * fs failure propagation, and undefined audit safety.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { writePendingSubagentTaskFile } from '../../../src/core/task/tools/_pending-task-writer.js';
+import { writePendingSubagentTaskFile } from '../../../src/core/async-task-system/tools/_pending-task-writer.js';
 import { TASKS_PENDING_DIR } from '../../../src/types/paths.js';
 import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { AuditWriter } from '../../../src/foundation/audit/writer.js';

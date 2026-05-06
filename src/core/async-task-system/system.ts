@@ -1,5 +1,5 @@
 /**
- * TaskSystem - SubAgent task lifecycle management
+ * AsyncTaskSystem - SubAgent task lifecycle management
  * 
  * Manages subagent task queue and execution using directory-based persistence.
  * Uses a pending queue + dispatcher pattern for concurrency control.
@@ -35,7 +35,7 @@ import { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
 import { writePendingToolTaskFile } from './tools/_pending-tool-task-writer.js';
 import type { PostProcessor } from './post-processors/types.js';
 
-export interface TaskSystemOptions {
+export interface AsyncTaskSystemOptions {
   maxConcurrent?: number;
   auditWriter: AuditLog;
   retryBaseDelayMs?: number;
@@ -86,7 +86,7 @@ interface TaskState {
   promise: Promise<void>;
 }
 
-export class TaskSystem {
+export class AsyncTaskSystem {
   private runningTasks: Map<string, TaskState> = new Map();
   private maxConcurrent: number;
   private registry: ToolRegistry;
@@ -127,7 +127,7 @@ export class TaskSystem {
   constructor(
     private clawDir: string,
     private fs: FileSystem,
-    options: TaskSystemOptions,
+    options: AsyncTaskSystemOptions,
   ) {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_TASKS;
     this.auditWriter = options.auditWriter;

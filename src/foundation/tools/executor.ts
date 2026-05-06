@@ -66,7 +66,7 @@ export class ToolExecutorImpl implements IToolExecutor {
       throw new ToolInvalidInputError(toolName, validation.errors?.[0] ?? 'Invalid input');
     }
 
-    // Async path: tool lifecycle owned by TaskSystem, no signal merge here.
+    // Async path: tool lifecycle owned by AsyncTaskSystem, no signal merge here.
     // 4. Async path: write fs pending file, watcher will ingest and dispatch
     if (options.async) {
       if (ctx.callerType !== 'claw') {

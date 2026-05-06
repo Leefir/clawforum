@@ -4,7 +4,7 @@ import type { ContractSystem } from '../../src/core/contract/manager.js';
 import type { OutboxWriter } from '../../src/foundation/messaging/index.js';
 import type { AuditWriter } from '../../src/foundation/audit/writer.js';
 import type { FileSystem } from '../../src/foundation/fs/types.js';
-import { TaskSystem, type TaskSystemOptions } from '../../src/core/task/system.js';
+import { AsyncTaskSystem, type AsyncTaskSystemOptions } from '../../src/core/async-task-system/system.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 
 export function makeTestRegistry(): ToolRegistryImpl {
@@ -13,7 +13,7 @@ export function makeTestRegistry(): ToolRegistryImpl {
 
 export function makeTaskSystemDeps(
   llm?: LLMOrchestrator,
-): Pick<TaskSystemOptions, 'llm' | 'contractManager' | 'outboxWriter' | 'registry'> {
+): Pick<AsyncTaskSystemOptions, 'llm' | 'contractManager' | 'outboxWriter' | 'registry'> {
   return {
     llm: llm ?? ({} as unknown as LLMOrchestrator),
     contractManager: {
@@ -33,10 +33,10 @@ export function createTestTaskSystem(
   fs: FileSystem,
   auditWriter: AuditWriter,
   llm?: LLMOrchestrator,
-  overrides?: Partial<Omit<TaskSystemOptions, 'llm' | 'contractManager' | 'outboxWriter' | 'registry'>>,
-): TaskSystem {
+  overrides?: Partial<Omit<AsyncTaskSystemOptions, 'llm' | 'contractManager' | 'outboxWriter' | 'registry'>>,
+): AsyncTaskSystem {
   const deps = makeTaskSystemDeps(llm);
-  return new TaskSystem(clawDir, fs, {
+  return new AsyncTaskSystem(clawDir, fs, {
     auditWriter,
     ...deps,
     ...overrides,

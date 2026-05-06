@@ -78,7 +78,7 @@ export async function executeSubAgentTask(
 
     const subAgent = createSubAgent({
       agentId: task.id,
-      resultDir: `tasks/results/${task.id}`,                      // phase443: TaskSystem own 字符串约定
+      resultDir: `tasks/results/${task.id}`,                      // phase443: AsyncTaskSystem own 字符串约定
       messageStore: createDialogStore(           // phase453: ephemeral DialogStore 装配 / 0 clawId / 0 archive 触发
         fs,
         `tasks/results/${task.id}`,             // baseDir = resultDir

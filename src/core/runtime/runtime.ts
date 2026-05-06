@@ -20,7 +20,7 @@ import type { SessionData } from '../../foundation/dialog-store/index.js';
 import { InboxListFailed, InboxMoveFailed } from '../../foundation/messaging/index.js';
 
 import { DialogStore } from '../../foundation/dialog-store/index.js';
-import { DispatchTool } from '../task/tools/dispatch.js';
+import { DispatchTool } from '../async-task-system/tools/dispatch.js';
 import { runReact } from '../agent-executor/loop.js';
 import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../types/signals.js';
@@ -39,7 +39,7 @@ import type { ToolRegistry, IToolExecutor } from '../../foundation/tools/executo
 import type { ContextInjector } from '../dialog/injector.js';
 import type { ContractSystem } from '../contract/index.js';
 import type { SkillSystem } from '../../foundation/skill-system/index.js';
-import type { TaskSystem } from '../task/index.js';
+import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import {
   type RuntimeDependencies,
   type RuntimeOptions,
@@ -75,7 +75,7 @@ export class Runtime {
    */
   protected contextInjector!: ContextInjector;
   protected toolRegistry!: ToolRegistry;
-  private taskSystem!: TaskSystem;
+  private taskSystem!: AsyncTaskSystem;
   private skillRegistry!: SkillSystem;
   private contractManager!: ContractSystem;
   protected execContext!: ExecContext;
@@ -149,18 +149,18 @@ export class Runtime {
     // 5. Session repair（业务链路）
     await this.repairSessionIfNeeded();
 
-    // 6. TaskSystem 业务动作（原则 #2 归属消费者；Assembly 只构造不调）
+    // 6. AsyncTaskSystem 业务动作（原则 #2 归属消费者；Assembly 只构造不调）
     try {
       await this.taskSystem.initialize();
     } catch (e) {
       this.auditWriter.write(RUNTIME_AUDIT_EVENTS.TASK_SYSTEM_INIT_FAILED, `reason=${e instanceof Error ? e.message : String(e)}`);
-      throw new Error(`Runtime: TaskSystem.initialize failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      throw new Error(`Runtime: AsyncTaskSystem.initialize failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
     }
     try {
       this.taskSystem.startDispatch();
     } catch (e) {
       this.auditWriter.write(RUNTIME_AUDIT_EVENTS.TASK_SYSTEM_START_DISPATCH_FAILED, `reason=${e instanceof Error ? e.message : String(e)}`);
-      throw new Error(`Runtime: TaskSystem.startDispatch failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      throw new Error(`Runtime: AsyncTaskSystem.startDispatch failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
     }
 
     // 7. DispatchTool 注册（候选 γ：结构性循环依赖妥协）
@@ -790,9 +790,9 @@ export class Runtime {
   }
 
   /**
-   * Get TaskSystem instance (for retrospective scheduling)
+   * Get AsyncTaskSystem instance (for retrospective scheduling)
    */
-  getTaskSystem(): TaskSystem {
+  getTaskSystem(): AsyncTaskSystem {
     return this.taskSystem;
   }
 

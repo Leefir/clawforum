@@ -18,23 +18,23 @@ import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index.js';
 import { createToolExecutor } from '../foundation/tools/index.js';
 import type { IToolExecutor } from '../foundation/tools/types.js';
-import { writePendingToolTaskFile } from '../core/task/tools/_pending-tool-task-writer.js';
+import { writePendingToolTaskFile } from '../core/async-task-system/tools/_pending-tool-task-writer.js';
 import { createSkillSystem, SkillSystem } from '../foundation/skill-system/index.js';
 import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/skill-paths.js';
 import { ContractSystem, createContractSystem } from '../core/contract/index.js';
 import { createEvolutionSystem } from '../core/evolution-system/index.js';
 import type { EvolutionSystem } from '../core/evolution-system/index.js';
 
-import { createTaskSystem } from '../core/task/index.js';
-import type { TaskSystem } from '../core/task/system.js';
-import { dispatchContractExtractPostProcessor } from '../core/task/post-processors/dispatch-contract-extract.js';
+import { createAsyncTaskSystem } from '../core/async-task-system/index.js';
+import type { AsyncTaskSystem } from '../core/async-task-system/system.js';
+import { dispatchContractExtractPostProcessor } from '../core/async-task-system/post-processors/dispatch-contract-extract.js';
 import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
 import { ExecContextImpl } from '../foundation/tools/context.js';
 import type { ExecContext } from '../foundation/tool-protocol/index.js';
 import { createFileTools } from '../foundation/file-tool/index.js';
 import { createCommandTools } from '../foundation/command-tool/index.js';
 import { createClawPermissionChecker } from '../core/permissions/claw-permissions.js';
-import { spawnTool } from '../core/task/tools/spawn.js';
+import { spawnTool } from '../core/async-task-system/tools/spawn.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { createInboxReader, createOutboxWriter, notifyInbox } from '../foundation/messaging/index.js';
 import { doneTool } from '../core/contract/index.js';
@@ -232,24 +232,24 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   }
 
   // --- L3-L5: taskSystem（仅构造，不调 initialize / startDispatch；业务动作归 Runtime） ---
-  let taskSystem: TaskSystem;
+  let taskSystem: AsyncTaskSystem;
   try {
-    taskSystem = createTaskSystem(clawDir, systemFs, {
+    taskSystem = createAsyncTaskSystem(clawDir, systemFs, {
       maxConcurrent,
       auditWriter,
       llm,
       contractManager,
       outboxWriter,
-      registry: toolRegistry,     // NEW: 装配好的 registry 注入 TaskSystem / 子代理共用
+      registry: toolRegistry,     // NEW: 装配好的 registry 注入 AsyncTaskSystem / 子代理共用
     });
   } catch (e) {
     auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=task_system`, `phase=construct`, `reason=${errMsg(e)}`);
-    throw new Error(`Assembly: TaskSystem construct failed: ${errMsg(e)}`, { cause: e });
+    throw new Error(`Assembly: AsyncTaskSystem construct failed: ${errMsg(e)}`, { cause: e });
   }
   // phase438: 注册 PostProcessors（装配期）
   taskSystem.addPostProcessor('dispatch-contract-extract', dispatchContractExtractPostProcessor);
 
-  // NOTE: taskSystem.initialize() / startDispatch() 属 TaskSystem 业务语义，由 Runtime.initialize() 调用
+  // NOTE: taskSystem.initialize() / startDispatch() 属 AsyncTaskSystem 业务语义，由 Runtime.initialize() 调用
   //       参见 接口冻结.md §4 "业务动作归属" + 原则 #2
 
   // --- L3-L5: EvolutionSystem (motion only / phase411 Step B) ---

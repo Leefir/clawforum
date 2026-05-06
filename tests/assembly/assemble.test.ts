@@ -143,8 +143,8 @@ vi.mock('../../src/core/contract/manager.js', () => ({
   ContractSystem: trackCtor('ContractSystem', () => ({ setOnNotify: vi.fn(), loadPaused: vi.fn(), resume: vi.fn(), onContractCompleted: vi.fn(() => () => {}) })),
 }));
 
-vi.mock('../../src/core/task/system.js', () => ({
-  TaskSystem: trackCtor('TaskSystem', () => ({ initialize: vi.fn().mockResolvedValue(undefined), startDispatch: vi.fn(), shutdown: vi.fn(), addPostProcessor: vi.fn(), setMainDialogStore: vi.fn() })),
+vi.mock('../../src/core/async-task-system/system.js', () => ({
+  AsyncTaskSystem: trackCtor('AsyncTaskSystem', () => ({ initialize: vi.fn().mockResolvedValue(undefined), startDispatch: vi.fn(), shutdown: vi.fn(), addPostProcessor: vi.fn(), setMainDialogStore: vi.fn() })),
 }));
 
 vi.mock('../../src/core/dialog/injector.js', () => {
@@ -632,16 +632,16 @@ describe('assemble', () => {
       const required = [
         'LLMOrchestratorImpl', 'ToolRegistryImpl',
         'SkillSystem', 'ContractSystem',
-        'TaskSystem', 'ContextInjector', 'ExecContextImpl', 'ToolExecutorImpl',
+        'AsyncTaskSystem', 'ContextInjector', 'ExecContextImpl', 'ToolExecutorImpl',
       ];
       for (const name of required) {
         expect(callOrder, `missing ${name}`).toContain(name);
       }
 
       const idx = (name: string) => callOrder.indexOf(name);
-      expect(idx('LLMOrchestratorImpl')).toBeLessThan(idx('TaskSystem'));
-      expect(idx('SkillSystem')).toBeLessThan(idx('TaskSystem'));
-      expect(idx('ContractSystem')).toBeLessThan(idx('TaskSystem'));
+      expect(idx('LLMOrchestratorImpl')).toBeLessThan(idx('AsyncTaskSystem'));
+      expect(idx('SkillSystem')).toBeLessThan(idx('AsyncTaskSystem'));
+      expect(idx('ContractSystem')).toBeLessThan(idx('AsyncTaskSystem'));
       expect(idx('ToolRegistryImpl')).toBeLessThan(idx('ToolExecutorImpl'));
       expect(idx('ContractSystem')).toBeLessThan(idx('ContextInjector'));
       expect(idx('SkillSystem')).toBeLessThan(idx('ContextInjector'));
@@ -745,10 +745,10 @@ describe('assemble', () => {
 
     it('task_system construct failure → audit module=task_system phase=construct + throw', async () => {
       const { events, thrown } = await expectAssembleFailure(
-        '../../src/core/task/system.js', 'TaskSystem', 'ctor',
+        '../../src/core/async-task-system/system.js', 'AsyncTaskSystem', 'ctor',
       );
       expect(events.some(e => /^assemble_failed\tmodule=task_system\tphase=construct\treason=injected/.test(e))).toBe(true);
-      expect(thrown.message).toMatch(/TaskSystem construct failed/);
+      expect(thrown.message).toMatch(/AsyncTaskSystem construct failed/);
     });
 
     it('context_injector construct failure → audit module=context_injector phase=construct + throw', async () => {
@@ -777,7 +777,7 @@ describe('assemble', () => {
 
     it('audit write happens BEFORE throw (时机契约)', async () => {
       const { auditTs, throwTs } = await expectAssembleFailure(
-        '../../src/core/task/system.js', 'TaskSystem', 'ctor',
+        '../../src/core/async-task-system/system.js', 'AsyncTaskSystem', 'ctor',
       );
       expect(auditTs.length).toBeGreaterThan(0);
       expect(auditTs[auditTs.length - 1]).toBeLessThanOrEqual(throwTs);

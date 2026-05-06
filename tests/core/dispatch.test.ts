@@ -6,8 +6,8 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { DispatchTool } from '../../src/core/task/tools/dispatch.js';
-import { dispatchContractExtractPostProcessor } from '../../src/core/task/post-processors/dispatch-contract-extract.js';
+import { DispatchTool } from '../../src/core/async-task-system/tools/dispatch.js';
+import { dispatchContractExtractPostProcessor } from '../../src/core/async-task-system/post-processors/dispatch-contract-extract.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import type { Message } from '../../src/types/message.js';
@@ -16,7 +16,7 @@ const { mockWriteFile } = vi.hoisted(() => ({
   mockWriteFile: vi.fn(),
 }));
 
-vi.mock('../../src/core/task/tools/_pending-task-writer.js', () => ({
+vi.mock('../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
   writePendingSubagentTaskFile: mockWriteFile,
 }));
 

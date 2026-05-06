@@ -9,7 +9,7 @@
  */
 
 import { buildRetroPrompt } from '../../prompts/retrospective.js';
-import { writePendingSubagentTaskFile } from '../task/tools/_pending-task-writer.js';
+import { writePendingSubagentTaskFile } from '../async-task-system/tools/_pending-task-writer.js';
 import { createSkillSystem } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from './dispatch-skills-paths.js';
 import { DEFAULT_MAX_STEPS, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';

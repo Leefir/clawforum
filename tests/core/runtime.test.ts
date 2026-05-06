@@ -219,7 +219,7 @@ describe('Runtime', () => {
     });
   });
 
-  describe('Runtime TaskSystem business actions (phase155C)', () => {
+  describe('Runtime AsyncTaskSystem business actions (phase155C)', () => {
     it('taskSystem.initialize() 失败 → audit task_system_init_failed + throw', async () => {
       const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
       const runtime = trackRuntime(new Runtime({
@@ -234,7 +234,7 @@ describe('Runtime', () => {
         audit.push([type, ...args].join('\t'));
       });
 
-      await expect(runtime.initialize()).rejects.toThrow(/TaskSystem\.initialize failed/);
+      await expect(runtime.initialize()).rejects.toThrow(/AsyncTaskSystem\.initialize failed/);
       expect(audit.some(e => /^task_system_init_failed\treason=injected/.test(e))).toBe(true);
     });
 
@@ -254,7 +254,7 @@ describe('Runtime', () => {
         audit.push([type, ...args].join('\t'));
       });
 
-      await expect(runtime.initialize()).rejects.toThrow(/TaskSystem\.startDispatch failed/);
+      await expect(runtime.initialize()).rejects.toThrow(/AsyncTaskSystem\.startDispatch failed/);
       expect(audit.some(e => /^task_system_start_dispatch_failed\treason=injected/.test(e))).toBe(true);
     });
 
