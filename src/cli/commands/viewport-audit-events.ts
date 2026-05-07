@@ -12,4 +12,5 @@ export const VIEWPORT_AUDIT_EVENTS = {
   SHUTDOWN: 'viewport_shutdown',
   WATCHER_FAILED: 'chat_viewport_watcher_failed',
   WATCHER_CALLBACK_FAILED: 'chat_viewport_watcher_callback_failed',
+  UNKNOWN_EVENT: 'viewport_unknown_event',
 } as const;

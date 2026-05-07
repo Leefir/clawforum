@@ -387,6 +387,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         taskWatchMap.set(taskId, tw);
         break;
       }
+
+      default: {
+        // 未识别 event 防 silent drift / audit + console.warn dev-only
+        try {
+          options.audit.write(VIEWPORT_AUDIT_EVENTS.UNKNOWN_EVENT, `type=${event.type}`);
+        } catch { /* audit self-failure tolerated */ }
+        console.warn(`[chat-viewport] unknown event type: ${event.type}`);
+        break;
+      }
     }
   };
 
@@ -785,7 +794,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (cmd) {
         cmd.execute(args);
       } else {
-        appendOutput('\x1b[2m', `[unknown command: /${name}]  输入 /help 查看可用命令`);
+        appendOutput('\x1b[31m', `[unknown command: /${name}]  输入 /help 查看可用命令`);
       }
       editor.setText('');
       tui.requestRender();
@@ -798,7 +807,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     editor.addToHistory(trimmed);
 
     // 写入 inbox
-    writeUserChat(options.agentDir, trimmed);
+    try {
+      writeUserChat(options.agentDir, trimmed);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      appendOutput('\x1b[31m', `[error] 消息发送失败：${msg}（请重试或检查磁盘 / 权限）`, true);
+    }
     tui.requestRender();
   };
 
