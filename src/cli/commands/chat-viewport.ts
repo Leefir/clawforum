@@ -112,17 +112,28 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const observability = createViewportObservability({ audit: options.audit });
 
+  // body wrap cache：流式 setSuffix 期间 outputLines 不变 / 复用 cached body / 避免 5000 行 wrapLine 重算
+  // invalidate 时机：appendOutput（push 新行）+ outputLines splice (cap 触发) + cols 变
+  let bodyCache: string | null = null;
+  let bodyCacheCols = -1;
+  const invalidateBodyCache = () => { bodyCache = null; };
+
   const updateDisplay = () => {
     const startNow = performance.now();
     const cols = process.stdout.columns ?? 80;
-    const body = outputLines
-      .flatMap(({ color, text, wrap, hangIndent }) => {
-        const lines = wrap
-          ? text.split('\n').flatMap(line => wrapLine(line, cols, hangIndent))
-          : [fitLine(text, cols)];
-        return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
-      })
-      .join('\n');
+
+    // body 重算：cache miss 或 cols 变才重算
+    if (bodyCache === null || bodyCacheCols !== cols) {
+      bodyCache = outputLines
+        .flatMap(({ color, text, wrap, hangIndent }) => {
+          const lines = wrap
+            ? text.split('\n').flatMap(line => wrapLine(line, cols, hangIndent))
+            : [fitLine(text, cols)];
+          return lines.map(line => color ? `${color}${line}\x1b[0m` : line);
+        })
+        .join('\n');
+      bodyCacheCols = cols;
+    }
 
     // NOTE: mainUI 在本函数 ~100 行后才由 createMainTurnUI 赋值；本段仅在初始化期
     // 之后被调用。optional chaining 仅防 `mainUI` 已赋值但值为 undefined 的场景——
@@ -135,7 +146,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           .join('\n')
       : '';
 
-    const full = suffixBody ? body + '\n' + suffixBody : body;
+    const full = suffixBody ? bodyCache + '\n' + suffixBody : bodyCache;
     outputText.setText(full);
     tui.requestRender();
     const suffixLines = suffixBody ? suffixBody.split('\n').length : 0;
@@ -170,6 +181,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     if (outputLines.length > OUTPUT_LINES_CAP) {
       outputLines.splice(0, outputLines.length - OUTPUT_LINES_CAP);
     }
+    invalidateBodyCache();   // outputLines 变 / cache 失效 / 下次 updateDisplay 重算
     updateDisplay();
   };
 
