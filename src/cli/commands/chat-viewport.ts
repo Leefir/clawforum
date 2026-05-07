@@ -205,6 +205,37 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     observability,
   });
 
+  // 提前声明 — 因 streamReader.start(recentTurnOffset) 同步 replay 调 handleEvent
+  // 而 handleEvent 引用 taskWatchMap / pendingInterruptSource / handleTaskEvent
+  // 必在 handleEvent 声明前完成 init / 否则 let/const TDZ 命中
+
+  // Task stream watching (for dispatch/spawn subagent progress)
+  interface TaskWatch {
+    callerType: CallerType;
+    silent: boolean;
+    fileSize: number;
+    leftover: string;
+    streamReader: StreamReader | null;
+  }
+  const taskWatchMap = new Map<string, TaskWatch>();
+
+  // Interrupt source tracking (for turn_interrupted display)
+  let pendingInterruptSource: 'esc' | null = null;
+
+  const stopTaskWatch = async (taskId: string) => {
+    const tw = taskWatchMap.get(taskId);
+    if (!tw) return;
+    await tw.streamReader?.stop();
+    taskWatchMap.delete(taskId);
+  };
+
+  const handleTaskEvent = createTaskEventHandler({
+    getTaskWatch: (id) => taskWatchMap.get(id),
+    showRecapStream: () => showRecapStream,
+    appendOutput,
+    stopTaskWatch,
+  });
+
   // 处理一个 stream event
   const handleEvent = (event: { type: string; [key: string]: unknown }) => {
     observability.recordEvent(event.type);
@@ -412,33 +443,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const clawTrackMap = new Map<string, ClawTrack>();
   const clawWatchers = new Map<string, Watcher>();
   let lastClawRefreshTs = 0;
-
-  // Task stream watching (for dispatch/spawn subagent progress)
-  interface TaskWatch {
-    callerType: CallerType;
-    silent: boolean;
-    fileSize: number;
-    leftover: string;
-    streamReader: StreamReader | null;
-  }
-  const taskWatchMap = new Map<string, TaskWatch>();
-
-  // Interrupt source tracking (for turn_interrupted display)
-  let pendingInterruptSource: 'esc' | null = null;
-
-  const stopTaskWatch = async (taskId: string) => {
-    const tw = taskWatchMap.get(taskId);
-    if (!tw) return;
-    await tw.streamReader?.stop();
-    taskWatchMap.delete(taskId);
-  };
-
-  const handleTaskEvent = createTaskEventHandler({
-    getTaskWatch: (id) => taskWatchMap.get(id),
-    showRecapStream: () => showRecapStream,
-    appendOutput,
-    stopTaskWatch,
-  });
 
   const refreshClawStatus = (clawId: string) => {
     if (!isMotion) return;
@@ -743,6 +747,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     description: '清空输出区域',
     execute: () => {
       outputLines.length = 0;
+      invalidateBodyCache();
       mainUI.clearSuffix();
     },
   });
@@ -830,6 +835,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // Ctrl+L → 清屏
     if (data.includes('\x0c')) {
       outputLines.length = 0;
+      invalidateBodyCache();
       mainUI.clearSuffix();
       return { consume: true };
     }
