@@ -5,8 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { runAgent } from '../../src/core/agent-executor/agent-executor.js';
-import type { StepMeta } from '../../src/core/step-executor/step-executor.js';
+import { runReact } from '../../src/core/agent-executor/index.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../../src/types/errors.js';
 import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from '../../src/constants.js';
 import type { LLMOrchestrator } from '../../src/foundation/llm-orchestrator/index.js';
@@ -104,7 +103,7 @@ describe('AgentExecutor', () => {
       { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'tool_use' },
       { content: [{ type: 'text', text: 'done' }], stop_reason: 'end_turn' },
     ]);
-    const res = await runAgent({
+    const res = await runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({ foo: { success: true, content: 'ok' } }),
       registry: makeRegistry({ foo: { readonly: false } }),
@@ -115,29 +114,28 @@ describe('AgentExecutor', () => {
     expect(res.stepsUsed).toBe(1);
   });
 
-  it('onAfterStep：在 continue 步调、meta 正确、max_tokens_tool_use 不调', async () => {
-    const calls: StepMeta[] = [];
+  it('onStepComplete：在 continue 步调、max_tokens_tool_use 不调', async () => {
+    let callCount = 0;
     const llm = makeMockLLM([
       { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'max_tokens' },  // 不触发
       { content: [{ type: 'tool_use', id: 'b', name: 'foo', input: {} }], stop_reason: 'tool_use' },   // 触发
       { content: [{ type: 'text', text: 'end' }], stop_reason: 'end_turn' },                           // 不触发
     ]);
-    await runAgent({
+    await runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({ foo: { success: true, content: 'ok' } }),
       registry: makeRegistry({ foo: { readonly: false } }),
       ctx: makeCtx(),
-      onAfterStep: async (meta) => { calls.push(meta); },
+      onStepComplete: async () => { callCount++; },
     });
-    expect(calls).toHaveLength(1);
-    expect(calls[0].toolCallCount).toBe(1);
+    expect(callCount).toBe(1);
   });
 
   it('stepCount 达 maxSteps 抛 MaxStepsExceededError', async () => {
     const llm = makeMockLLM([
       { content: [{ type: 'tool_use', id: 'x', name: 'foo', input: {} }], stop_reason: 'tool_use' },
     ]);  // 永远 tool_use
-    await expect(runAgent({
+    await expect(runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({ foo: { success: true, content: 'ok' } }),
       registry: makeRegistry({ foo: { readonly: false } }),
@@ -146,12 +144,12 @@ describe('AgentExecutor', () => {
     })).rejects.toThrow(MaxStepsExceededError);
   });
 
-  it('max_tokens_tool_use：不 stepCount++、不 onAfterStep', async () => {
+  it('max_tokens_tool_use：不 stepCount++、不 onStepComplete', async () => {
     const llm = makeMockLLM([
       { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'max_tokens' },
       { content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' },
     ]);
-    const res = await runAgent({
+    const res = await runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({}),
       registry: makeRegistry({ foo: { readonly: false } }),
@@ -169,7 +167,7 @@ describe('runAgent circuit breaker thresholds (caller injection)', () => {
       stop_reason: 'tool_use' as const,
     }));
     const llm = makeMalformedSequenceLLM(responses);
-    await expect(runAgent({
+    await expect(runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({}),
       registry: makeRegistry({ foo: { readonly: false } }),
@@ -184,7 +182,7 @@ describe('runAgent circuit breaker thresholds (caller injection)', () => {
       stop_reason: 'tool_use' as const,
     }));
     const llm = makeMalformedSequenceLLM(responses);
-    await expect(runAgent({
+    await expect(runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({}),
       registry: makeRegistry({ foo: { readonly: false } }),
@@ -199,7 +197,7 @@ describe('runAgent circuit breaker thresholds (caller injection)', () => {
       stop_reason: 'max_tokens' as const,
     }));
     const llm = makeMockLLM(responses);
-    await expect(runAgent({
+    await expect(runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({}),
       registry: makeRegistry({ foo: { readonly: false } }),
@@ -214,7 +212,7 @@ describe('runAgent circuit breaker thresholds (caller injection)', () => {
       stop_reason: 'max_tokens' as const,
     }));
     const llm = makeMockLLM(responses);
-    await expect(runAgent({
+    await expect(runReact({
       messages: [], systemPrompt: '', llm, tools: [],
       executor: makeExecutor({}),
       registry: makeRegistry({ foo: { readonly: false } }),

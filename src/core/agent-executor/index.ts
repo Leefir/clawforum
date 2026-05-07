@@ -7,7 +7,7 @@
  * runReact 是 AgentExecutor 的便捷装配 entry（向后兼容 shim from phase183）
  */
 
-export { runAgent } from './agent-executor.js';
+// runAgent: agent-executor module internal core / 仅 loop.ts internal 调 / 不进 barrel（M#8 单 public API / phase 522 / ν）
 export type { AgentInput, AgentResult } from './agent-executor.js';
 
 // runReact shim（装配 StepExecutor + AgentExecutor 完整 React 循环）
