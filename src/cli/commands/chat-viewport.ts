@@ -22,7 +22,7 @@ import { createViewportObservability } from './chat-viewport-observability.js';
 import type { StreamReader } from '../../foundation/stream/index.js';
 import { LOGS_DIR } from '../../types/paths.js';
 
-import { writeUserChat, fmtDuration, findRecentTurnStartOffset } from './chat-viewport-utils.js';
+import { writeUserChat, findRecentTurnStartOffset } from './chat-viewport-utils.js';
 import { createChatViewportWatcher } from './chat-viewport-watcher.js';
 import { type ClawTrack, makeClawTrack, buildClawLine } from './chat-viewport-claw-line.js';
 import { createMainTurnUI, type MainTurnUIDeps, type MainTurnUIController } from './main-turn-ui.js';
@@ -111,6 +111,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const observability = createViewportObservability({ audit: options.audit });
 
+  // 提前声明 — 防 TDZ（updateDisplay 内引用 mainUI / 早期 appendOutput 触发 updateDisplay 时 mainUI 未 init）
+  let mainUI: MainTurnUIController;
+
   // body wrap cache：流式 setSuffix 期间 outputLines 不变 / 复用 cached body / 避免 5000 行 wrapLine 重算
   // invalidate 时机：appendOutput（push 新行）+ outputLines splice (cap 触发) + cols 变
   let bodyCache: string | null = null;
@@ -134,11 +137,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       bodyCacheCols = cols;
     }
 
-    // NOTE: mainUI 在本函数 ~100 行后才由 createMainTurnUI 赋值；本段仅在初始化期
-    // 之后被调用。optional chaining 仅防 `mainUI` 已赋值但值为 undefined 的场景——
-    // 真正的 TDZ 期（const 未初始化）访问 mainUI 会抛 ReferenceError，不被 `?.` 捕获。
-    // 若未来有代码在 createMainTurnUI 之前调用 updateDisplay()，需把 mainUI 声明提前。
-    const currentSuffix = mainUI?.getSuffix() ?? '';
+    // mainUI 提前 let 声明 / 早期 updateDisplay 时 mainUI === undefined（init 前）/ truthy check 安全
+    const currentSuffix = mainUI ? mainUI.getSuffix() : '';
     const suffixBody = currentSuffix
       ? currentSuffix.split('\n')
           .flatMap(line => wrapLine(line, cols))
@@ -196,7 +196,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     updateDisplay();
   };
 
-  const mainUI = createMainTurnUI({
+  mainUI = createMainTurnUI({
     appendOutput,
     updateDisplay,
     trimOutputNewlines,
