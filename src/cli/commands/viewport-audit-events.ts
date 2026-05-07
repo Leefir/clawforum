@@ -15,4 +15,5 @@ export const VIEWPORT_AUDIT_EVENTS = {
   UNKNOWN_EVENT: 'viewport_unknown_event',
   COMMAND_ERROR: 'viewport_command_error',
   CLAWSDIR_SCAN_FAILED: 'viewport_clawsdir_scan_failed',
+  TASK_STREAM_STALE_CLEANUP: 'viewport_task_stream_stale_cleanup',
 } as const;

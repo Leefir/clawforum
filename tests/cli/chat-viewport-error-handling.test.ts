@@ -3,7 +3,7 @@
  *
  * 验证 phase 523 + phase 524 加的 error handling 路径：
  * - Step A (phase 523): writeUserChat fs 失败 → 红色 error UX / chat 不崩
- * - Step B (phase 523): handleEvent unknown event → audit + console.warn
+ * - Step B (phase 523): handleEvent unknown event → audit-only
  * - Step B (phase 524): cmd.execute throw → audit + 红色 error
  */
 
@@ -41,11 +41,6 @@ describe('chat-viewport error handling (phase 523 + 524)', () => {
 
     it('viewport-audit-events.ts 含 UNKNOWN_EVENT const', () => {
       expect(auditEventsCode).toMatch(/UNKNOWN_EVENT:\s*'viewport_unknown_event'/);
-    });
-
-    it('default case 含 console.warn', () => {
-      const match = sourceCode.match(/default:\s*\{[\s\S]*?console\.warn\([^)]*chat-viewport[^)]*unknown event/);
-      expect(match).toBeTruthy();
     });
   });
 

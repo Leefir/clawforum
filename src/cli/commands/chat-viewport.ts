@@ -216,6 +216,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     fileSize: number;
     leftover: string;
     streamReader: StreamReader | null;
+    lastEventMs: number;
   }
   const taskWatchMap = new Map<string, TaskWatch>();
 
@@ -407,23 +408,27 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const taskId = event.taskId as string;
         const callerType = (event.callerType as string) ?? 'subagent';
         const { fs: taskFs } = createDirContext(path.join(options.agentDir, 'tasks', 'queues', 'results', taskId));
-        const taskReader = createStreamReader(taskFs, STREAM_FILE, (ev) => mainUI.withScope('task', () => handleTaskEvent(taskId, callerType, ev)), options.audit, { persistent: false });
+        const taskReader = createStreamReader(taskFs, STREAM_FILE, (ev) => {
+          const tw = taskWatchMap.get(taskId);
+          if (tw) tw.lastEventMs = Date.now();
+          mainUI.withScope('task', () => handleTaskEvent(taskId, callerType, ev));
+        }, options.audit, { persistent: false });
         taskReader.start();
         const tw: TaskWatch = {
           callerType: callerType as CallerType,
           silent: (event.silent as boolean) ?? false,
           fileSize: 0, leftover: '', streamReader: taskReader,
+          lastEventMs: Date.now(),
         };
         taskWatchMap.set(taskId, tw);
         break;
       }
 
       default: {
-        // 未识别 event 防 silent drift / audit + console.warn dev-only
+        // 未识别 event 防 silent drift / audit-only / 不 console.warn 防 TUI raw mode 渲染污染
         try {
           options.audit.write(VIEWPORT_AUDIT_EVENTS.UNKNOWN_EVENT, `type=${event.type}`);
         } catch { /* audit self-failure tolerated */ }
-        console.warn(`[chat-viewport] unknown event type: ${event.type}`);
         break;
       }
     }
@@ -443,7 +448,15 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const clawTrackMap = new Map<string, ClawTrack>();
   const clawWatchers = new Map<string, Watcher>();
   const clawWatcherVersions = new Map<string, number>();
-  let lastClawRefreshTs = 0;
+
+  const TEXT_BUFFER_CAP = 64 * 1024;
+  const TEXT_BUFFER_KEEP = 32 * 1024;
+  const appendCappedBuffer = (track: ClawTrack, delta: string) => {
+    track.textBuffer += delta;
+    if (track.textBuffer.length > TEXT_BUFFER_CAP) {
+      track.textBuffer = track.textBuffer.slice(-TEXT_BUFFER_KEEP);
+    }
+  };
 
   const attachClawWatcher = (clawId: string, streamFile: string) => {
     const ver = (clawWatcherVersions.get(clawId) ?? 0) + 1;
@@ -518,7 +531,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   track.bufferType = null;
                   track.clearOnNextDelta = false;
                 }
-                track.textBuffer += (ev.delta as string) ?? '';
+                appendCappedBuffer(track, (ev.delta as string) ?? '');
                 track.bufferType = 'thinking';
               } else if (ev.type === 'tool_call') {
                 track.currentTool = (ev.name as string) ?? null;
@@ -530,7 +543,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
                   track.bufferType = 'text';
                   track.clearOnNextDelta = false;
                 }
-                track.textBuffer += (ev.delta as string) ?? '';
+                appendCappedBuffer(track, (ev.delta as string) ?? '');
               }
             } else if (ev.type === 'tool_result') {
               track.toolSuccess = (ev.success as boolean) ?? null;
@@ -556,10 +569,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
               track.referenceMs = Date.now();
             }
 
-            updateClawPanel();
-            tui.requestRender();
           } catch { /* skip */ }
         }
+        updateClawPanel();
+        tui.requestRender();
       }
     } catch { /* ENOENT 等，跳过 */ }
   };
@@ -614,23 +627,19 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
 
-  // fallback 轮询（claw 刷新 + task poll）
-  const pollInterval = setInterval(() => {
-    if (isMotion) {
-      const now = Date.now();
-      if (now - lastClawRefreshTs >= 2000) {
-        lastClawRefreshTs = now;
-        refreshAllClawStatus();
-      }
-    }
-    // Task streams are handled by createStreamReader (started in task_started)
-    // Attach 不活跃计时：每 5 次 poll (≈1s) 刷新一次
+  // fallback 轮询（claw 刷新 + panel tick 拆独立 interval）
+  const clawRefreshInterval = setInterval(() => {
+    if (isMotion) refreshAllClawStatus();
+  }, 2000);
+  clawRefreshInterval.unref();
+
+  const clawPanelTickInterval = setInterval(() => {
     if (clawTrackMap.size > 0) {
       updateClawPanel();
       tui.requestRender();
     }
-  }, 200);  // fallback 200ms
-  pollInterval.unref();
+  }, 1000);
+  clawPanelTickInterval.unref();
 
   // Daemon 存活检测（每 3 秒一次）
   let daemonDead = false;
@@ -656,6 +665,26 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
   const daemonCheckInterval = setInterval(checkDaemonAlive, 3000);
   daemonCheckInterval.unref();
+
+  // Stale task stream sweep（5min 无 event → cleanup）
+  const TASK_STALE_TIMEOUT_MS = 5 * 60 * 1000;
+  const TASK_SWEEP_INTERVAL_MS = 60 * 1000;
+  const taskSweepInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [taskId, tw] of taskWatchMap) {
+      if (now - tw.lastEventMs > TASK_STALE_TIMEOUT_MS) {
+        void stopTaskWatch(taskId);
+        try {
+          options.audit.write(
+            VIEWPORT_AUDIT_EVENTS.TASK_STREAM_STALE_CLEANUP,
+            `taskId=${taskId}`,
+            `idleMs=${now - tw.lastEventMs}`,
+          );
+        } catch { /* audit self-failure tolerated */ }
+      }
+    }
+  }, TASK_SWEEP_INTERVAL_MS);
+  taskSweepInterval.unref();
 
   // --- 注册 slash 命令 ---
 
@@ -984,8 +1013,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   process.removeListener('unhandledRejection', uncaughtHandler);
   mainUI.stopSpinner();
   observability.recordShutdown(shutdownReason);
-  clearInterval(pollInterval);
+  clearInterval(clawRefreshInterval);
+  clearInterval(clawPanelTickInterval);
   clearInterval(daemonCheckInterval);
+  clearInterval(taskSweepInterval);
   await streamReader.stop();
   await Promise.all(Array.from(clawWatchers.values()).map(w => w.close()));
   clawWatchers.clear();
