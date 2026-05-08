@@ -78,11 +78,15 @@ describe('chat-viewport error handling (phase 523 + 524)', () => {
       expect(idx).toBeGreaterThan(-1);
       const endIdx = sourceCode.indexOf('case ', idx + 1);
       const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 1500);
-      // audit 事件名
-      expect(block).toContain('chat_viewport_invalid_task_id');
+      // audit 事件名（const 化 / phase 547）
+      expect(block).toContain('VIEWPORT_AUDIT_EVENTS.INVALID_TASK_ID');
       // break 跳过（task_started 内应有至少两个 break：if 内一个 + case 末尾一个）
       const breakCount = (block.match(/break;/g) || []).length;
       expect(breakCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('viewport-audit-events.ts 含 INVALID_TASK_ID const', () => {
+      expect(auditEventsCode).toMatch(/INVALID_TASK_ID:\s*'chat_viewport_invalid_task_id'/);
     });
   });
 });

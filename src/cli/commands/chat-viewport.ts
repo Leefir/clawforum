@@ -20,7 +20,7 @@ import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
 import { createViewportObservability } from './chat-viewport-observability.js';
 import type { StreamReader } from '../../foundation/stream/index.js';
-import { LOGS_DIR } from '../../types/paths.js';
+import { LOGS_DIR, TASKS_QUEUES_RESULTS_DIR } from '../../types/paths.js';
 
 import { writeUserChat, findRecentTurnStartOffset } from './chat-viewport-utils.js';
 import { createChatViewportWatcher } from './chat-viewport-watcher.js';
@@ -38,14 +38,6 @@ export interface ChatViewportOptions {
   trimOutputNewlines?: boolean;   // LLM 输出首尾换行清理，默认 true
   audit: AuditLog; // audit sink for createWatcher
 }
-
-
-
-
-
-
-
-
 
 export async function runChatViewport(options: ChatViewportOptions): Promise<void> {
   const pm = createProcessManagerForCLI();
@@ -412,10 +404,12 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           typeof taskId !== 'string' || taskId === '' || taskId === '.' || taskId.startsWith('.') ||
           taskId.includes('/') || taskId.includes('..')
         ) {
-          options.audit?.write?.('chat_viewport_invalid_task_id', `taskId=${JSON.stringify(taskId)}`);
+          try {
+            options.audit.write(VIEWPORT_AUDIT_EVENTS.INVALID_TASK_ID, `taskId=${JSON.stringify(taskId)}`);
+          } catch { /* audit self-failure tolerated */ }
           break;
         }
-        const { fs: taskFs } = createDirContext(path.join(options.agentDir, 'tasks', 'queues', 'results', taskId));
+        const { fs: taskFs } = createDirContext(path.join(options.agentDir, TASKS_QUEUES_RESULTS_DIR, taskId));
         const taskReader = createStreamReader(taskFs, STREAM_FILE, (ev) => {
           const tw = taskWatchMap.get(taskId);
           if (tw) tw.lastEventMs = Date.now();
@@ -496,7 +490,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     try {
       const stat = fs.statSync(streamFile);
       if (stat.size < track.fileSize) {
-        // 旧 watcher 追踪归档 inode，需要替换（Bug 2 修复）
+        // 文件 truncate（归档/rotate）/ 旧 watcher 监听 stale inode / 起新 watcher
         const stale = clawWatchers.get(clawId);
         if (stale) { void stale.close(); clawWatchers.delete(clawId); }
         attachClawWatcher(clawId, streamFile);
@@ -627,9 +621,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           track.isAlive = isAlive(pid);
         } else { track.isAlive = false; }
       } catch { track.isAlive = false; }
-      // Fix 2：刷新 hasContract（契约可能完成或新创建）
+      // 刷新 hasContract（契约可能完成或新创建）
       track.hasContract = getContractCreatedMs(fs, path.join(clawsDir, clawId)) !== null;
-      // 兜底：轮询时顺带读一次流（watcher 失效时的保障，Bug 3 修复）
+      // 兜底：轮询时顺带读一次流（watcher 失效时的保障）
       refreshClawStatus(clawId);
     }
   };
@@ -956,7 +950,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   initOwnStateFromHistory();
 
-  // Fix 1：若 inTurn=true 但 daemon 实际不存活，重置以防误触 ESC 中断
+  // 重连状态校正：若 inTurn=true 但 daemon 实际不存活，重置以防误触 ESC 中断
   if (inTurn) {
     try {
       const pid = await pm.readPid(options.label);
