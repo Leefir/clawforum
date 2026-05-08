@@ -59,19 +59,28 @@ describe('chat-viewport Phase 72', () => {
   // Step 6: daemon 死亡 flush
   // ==========================================================================
   describe('Step 6: daemon 死亡时 flush buffer', () => {
-    it('daemon 死亡处理应调用 flushStreaming 和 flushThinking', () => {
+    it('daemon 死亡处理应调用 turnTracker.abort()', () => {
       // 找到 daemon 死亡处理逻辑
       const daemonDeadSection = sourceCode.slice(
         sourceCode.indexOf('// 进程不存在'),
         sourceCode.indexOf("appendOutput('\\x1b[31m', '✗ Daemon 已停止')")
       );
       
-      expect(daemonDeadSection).toContain('mainUI.flushStreaming()');
-      expect(daemonDeadSection).toContain('mainUI.flushThinking()');
+      expect(daemonDeadSection).toContain('turnTracker.abort()');
+    });
 
-      // flush 应在清空 suffix 之前
-      const flushIndex = daemonDeadSection.indexOf('mainUI.flushStreaming()');
-      const suffixIndex = daemonDeadSection.indexOf('mainUI.clearSuffix()');
+    it('cleanupUI 应包含 flushStreaming 和 flushThinking，且 flush 在 clearSuffix 之前', () => {
+      const cleanupUIMatch = sourceCode.match(
+        /const cleanupUI = \(\) => \{[\s\S]{0,400}?\};/
+      );
+      expect(cleanupUIMatch).toBeTruthy();
+      const cleanupUIBlock = cleanupUIMatch![0];
+      
+      expect(cleanupUIBlock).toContain('mainUI.flushStreaming()');
+      expect(cleanupUIBlock).toContain('mainUI.flushThinking()');
+
+      const flushIndex = cleanupUIBlock.indexOf('mainUI.flushStreaming()');
+      const suffixIndex = cleanupUIBlock.indexOf('mainUI.clearSuffix()');
       expect(flushIndex).toBeGreaterThan(-1);
       expect(suffixIndex).toBeGreaterThan(-1);
       expect(flushIndex).toBeLessThan(suffixIndex);
@@ -82,7 +91,7 @@ describe('chat-viewport Phase 72', () => {
   // Step 6: ESC 超时 flush
   // ==========================================================================
   describe('Step 6: ESC 5s 超时 flush buffer', () => {
-    it('ESC 超时回调应调用 flushStreaming 和 flushThinking', () => {
+    it('ESC 超时回调应调用 cleanupUI', () => {
       // 找到 ESC 超时处理逻辑（5秒超时）
       const escTimeoutMatch = sourceCode.match(
         /escTimeoutId = setTimeout\(\(\) => \{[\s\S]{0,600}?\}, 5000\)/
@@ -91,8 +100,7 @@ describe('chat-viewport Phase 72', () => {
       
       const escTimeoutBlock = escTimeoutMatch![0];
       
-      expect(escTimeoutBlock).toContain('mainUI.flushStreaming()');
-      expect(escTimeoutBlock).toContain('mainUI.flushThinking()');
+      expect(escTimeoutBlock).toContain('cleanupUI()');
     });
   });
 

@@ -81,8 +81,21 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const outputLines: OutputLine[] = [
     { color: '', text: `[${options.label}] Watching daemon activity...` },
   ];
-  let inTurn = false;  // daemon 是否正在处理 turn（用于 ESC 中断判断）
-  let escTimeoutId: ReturnType<typeof setTimeout> | null = null;  // ESC 5秒超时定时器
+  // Turn lifecycle tracker（封装 inTurn + pendingInterruptSource + escTimeoutId）
+  type TurnPhase = 'idle' | 'active' | 'interrupting';
+  interface TurnTracker {
+    begin(): void;
+    end(): void;
+    abort(): void;
+    interrupted(): void;
+    requestInterrupt(source: 'esc'): void;
+    forceReset(): void;
+    isActive(): boolean;
+    getInterruptSource(): 'esc' | null;
+    destroy(): void;
+  }
+  let turnTracker: TurnTracker;
+
 
   // 状态栏追踪
 
@@ -197,8 +210,78 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     observability,
   });
 
+  const createTurnTracker = (deps: { mainUI: typeof mainUI }): TurnTracker => {
+    let phase: TurnPhase = 'idle';
+    let interruptSource: 'esc' | null = null;
+    let escTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanupUI = () => {
+      deps.mainUI.stopSpinner();
+      deps.mainUI.flushThinking();
+      deps.mainUI.flushStreaming();
+      deps.mainUI.clearSuffix();
+    };
+
+    const clearEscTimeout = () => {
+      if (escTimeoutId) {
+        clearTimeout(escTimeoutId);
+        escTimeoutId = null;
+      }
+    };
+
+    return {
+      begin() {
+        phase = 'active';
+        interruptSource = null;   // 防跨 turn leak
+      },
+      end() {
+        phase = 'idle';
+        interruptSource = null;
+        clearEscTimeout();
+        cleanupUI();
+      },
+      abort() {
+        phase = 'idle';
+        interruptSource = null;
+        clearEscTimeout();
+        cleanupUI();
+      },
+      interrupted() {
+        phase = 'idle';
+        clearEscTimeout();
+        cleanupUI();
+        interruptSource = null;
+      },
+      requestInterrupt(source) {
+        if (phase !== 'active') return;
+        phase = 'interrupting';
+        interruptSource = source;
+        deps.mainUI.startSpinner('Interrupting...');
+        clearEscTimeout();
+        escTimeoutId = setTimeout(() => {
+          escTimeoutId = null;
+          if (phase === 'interrupting') {
+            phase = 'idle';
+            interruptSource = null;
+            cleanupUI();
+          }
+        }, 5000);
+      },
+      forceReset() {
+        phase = 'idle';
+        interruptSource = null;
+        clearEscTimeout();
+      },
+      isActive() { return phase !== 'idle'; },
+      getInterruptSource() { return interruptSource; },
+      destroy() { clearEscTimeout(); },
+    };
+  };
+
+  turnTracker = createTurnTracker({ mainUI });
+
   // 提前声明 — 因 streamReader.start(recentTurnOffset) 同步 replay 调 handleEvent
-  // 而 handleEvent 引用 taskWatchMap / pendingInterruptSource / handleTaskEvent
+  // 而 handleEvent 引用 taskWatchMap / turnTracker / handleTaskEvent
   // 必在 handleEvent 声明前完成 init / 否则 let/const TDZ 命中
 
   // Task stream watching (for dispatch/spawn subagent progress)
@@ -212,8 +295,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   }
   const taskWatchMap = new Map<string, TaskWatch>();
 
-  // Interrupt source tracking (for turn_interrupted display)
-  let pendingInterruptSource: 'esc' | null = null;
+
 
   const stopTaskWatch = async (taskId: string) => {
     const tw = taskWatchMap.get(taskId);
@@ -234,7 +316,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     observability.recordEvent(event.type);
     switch (event.type) {
       case 'turn_start': {
-        inTurn = true;
+        turnTracker.begin();
         mainUI.flushThinking();
         mainUI.flushStreaming();
         const srcs = event.sources as Array<{ text: string; type: string }> | undefined;
@@ -249,7 +331,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
 
       case 'llm_start':
-        inTurn = true;
+        turnTracker.begin();
         mainUI.flushThinking();
         mainUI.flushStreaming();
         mainUI.startSpinner();
@@ -311,36 +393,22 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
 
       case 'turn_end':
-        inTurn = false;
-        mainUI.stopSpinner();
-        mainUI.flushThinking();
-        mainUI.flushStreaming();
-        mainUI.clearSuffix();
-        pendingInterruptSource = null;
+        turnTracker.end();
         // Cursor disappearance signals completion; no extra separator needed
         break;
 
       case 'turn_interrupted': {
-        inTurn = false;
-        mainUI.stopSpinner();
-        mainUI.flushThinking();
-        mainUI.flushStreaming();
-        mainUI.clearSuffix();
         const msg = (event as Record<string, unknown>).message;
+        const interruptSrc = turnTracker.getInterruptSource();
         const display = typeof msg === 'string' ? msg
-          : pendingInterruptSource === 'esc' ? 'Interrupted (Esc)' : 'Interrupted';
-        pendingInterruptSource = null;
+          : interruptSrc === 'esc' ? 'Interrupted (Esc)' : 'Interrupted';
+        turnTracker.interrupted();
         appendOutput('\x1b[33m', display);
         break;
       }
 
       case 'turn_error':
-        inTurn = false;
-        mainUI.stopSpinner();
-        mainUI.flushThinking();
-        mainUI.flushStreaming();
-        mainUI.clearSuffix();
-        pendingInterruptSource = null;
+        turnTracker.abort();
         appendOutput('\x1b[31m', `✗ Error: ${event.error as string}`);
         break;
 
@@ -653,11 +721,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       if (!isAlive(pid)) {
         // 进程不存在
         daemonDead = true;
-        inTurn = false;
-        mainUI.stopSpinner();
-        mainUI.flushStreaming();
-        mainUI.flushThinking();
-        mainUI.clearSuffix();
+        turnTracker.abort();
         appendOutput('\x1b[31m', '✗ Daemon 已停止');
         observability.recordShutdown('daemon_dead');
       }
@@ -868,31 +932,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // 快速连按时 data 可能是多个 \x1b，需检查是否包含 ESC 字节
     // 排除 CSI 序列（\x1b[ 开头的是方向键等）
     if (data.includes('\x1b') && !data.includes('\x1b[') && !data.includes('\r') && !data.includes('\n')) {
-      if (!inTurn) {
+      if (!turnTracker.isActive()) {
         // 防御性清理：如果 spinner 还在转，强制停止
         mainUI.stopSpinner();
         mainUI.clearSuffix();
         return { consume: true };
       }
       const interruptFile = path.join(options.agentDir, 'interrupt');
-      pendingInterruptSource = 'esc';
       try {
         fs.writeAtomicSync(interruptFile, '');
       } catch { /* best-effort */ }
-      mainUI.startSpinner('Interrupting...');
-      // 5 秒超时保护：如果 daemon 没响应，强制清理
-      if (escTimeoutId) clearTimeout(escTimeoutId);
-      escTimeoutId = setTimeout(() => {
-        escTimeoutId = null;
-        if (inTurn) {
-          inTurn = false;
-          pendingInterruptSource = null;
-          mainUI.stopSpinner();
-          mainUI.flushStreaming();
-          mainUI.flushThinking();
-          mainUI.clearSuffix();
-        }
-      }, 5000);
+      turnTracker.requestInterrupt('esc');
       return { consume: true };
     }
     return undefined;
@@ -939,9 +989,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         if (!line.trim()) continue;
         try {
           const ev = JSON.parse(line);
-          if (ev.type === 'turn_start')       { inTurn = true; }
+          if (ev.type === 'turn_start')       { turnTracker.begin(); }
           else if (ev.type === 'turn_end' || ev.type === 'turn_interrupted' || ev.type === 'turn_error') {
-            inTurn = false;
+            turnTracker.forceReset();
           }
         } catch { /* skip */ }
       }
@@ -950,16 +1000,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   initOwnStateFromHistory();
 
-  // 重连状态校正：若 inTurn=true 但 daemon 实际不存活，重置以防误触 ESC 中断
-  if (inTurn) {
+  // 重连状态校正：tracker 标 active 但 daemon 实际不存活 / forceReset 防误触 ESC 中断
+  if (turnTracker.isActive()) {
     try {
       const pid = await pm.readPid(options.label);
       if (pid === null) {
-        inTurn = false;
+        turnTracker.forceReset();
       } else {
-        if (!isAlive(pid)) { inTurn = false; }
+        if (!isAlive(pid)) { turnTracker.forceReset(); }
       }
-    } catch { inTurn = false; }
+    } catch { turnTracker.forceReset(); }
   }
 
   tui.start();
@@ -1008,7 +1058,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   await exitPromise;
 
   // 清理
-  if (escTimeoutId) clearTimeout(escTimeoutId);
+  turnTracker.destroy();
   process.stdout.off('resize', onResize);
   process.removeListener('SIGINT', sigintHandler);
   process.removeListener('uncaughtException', uncaughtHandler);
