@@ -15,6 +15,7 @@ import { createRuntime, buildMotionSystemPrompt } from '../core/runtime/index.js
 import { createLLMOrchestrator, type LLMOrchestrator } from '../foundation/llm-orchestrator/index.js';
 import { createLLMAuditSink } from './llm-audit-sink.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
+import { CLAWS_DIR } from '../types/paths.js';
 import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index.js';
 import { createToolExecutor } from '../foundation/tools/index.js';
 import type { IToolExecutor } from '../foundation/tools/types.js';
@@ -272,7 +273,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       motionFs: systemFs,
       motionBaseDir: clawDir,
       motionAudit: auditWriter,
-      clawsBaseDir: path.resolve(clawDir, '..', 'claws'),
+      clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
     };
     contractManager.onContractCompleted(async (contractId) => {
       await evolutionSystem!.runRetroForContract(contractId, motionReviewContext);

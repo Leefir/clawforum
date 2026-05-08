@@ -11,6 +11,7 @@ import type { FileSystem } from '../fs/types.js';
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import { getChecker } from './permission-context.js';
 import { resolveWorkspacePath } from './_resolve-path.js';
+import { CLAWS_DIR } from '../../types/paths.js';
 
 /**
  * Walk directory recursively and search for query in files.
@@ -121,7 +122,7 @@ export const searchTool: Tool = {
             content: 'Error: claw: "*" broadcast is Motion-only. Use claw: "<id>" for specific claw access.',
           };
         }
-        const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
+        const clawsDir = nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR);
         const clawforumFs = new NodeFileSystem({ baseDir: clawsDir });
         let clawIds: string[];
         try {
@@ -173,9 +174,9 @@ export const searchTool: Tool = {
       }
       // Resolve path to target claw's directory
       const rawSearchPath = nodePath.normalize(pathArg);
-      baseDir = nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam, rawSearchPath);
+      baseDir = nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR, clawParam, rawSearchPath);
       // Escape check: must be within the target claw's directory
-      const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
+      const clawsDir = nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR);
       const clawRoot = nodePath.join(clawsDir, clawParam);
       if (baseDir !== clawRoot && !baseDir.startsWith(clawRoot + nodePath.sep)) {
         return {
@@ -198,7 +199,7 @@ export const searchTool: Tool = {
       
       if (useNativeFs) {
         // Use walkNative for single claw search
-        const targetFs = new NodeFileSystem({ baseDir: nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam!) });
+        const targetFs = new NodeFileSystem({ baseDir: nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR, clawParam!) });
         await walkNative(
           targetFs,
           nodePath.normalize(pathArg),

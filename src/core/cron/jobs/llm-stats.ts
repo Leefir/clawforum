@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
-import { LOGS_DIR } from '../../../types/paths.js';
+import { LOGS_DIR, CLAWS_DIR } from '../../../types/paths.js';
 
 interface ParsedLlmRow {
   ts: string;        // ISO timestamp（audit.tsv col 0）
@@ -82,10 +82,10 @@ function collectEntries(opts: LlmStatsOptions, targetDate: string): ParsedLlmRow
   const candidates: Array<{ fs: FileSystem; file: string; clawId: string }> = [
     { fs: opts.motionFs, file: 'audit.tsv', clawId: 'motion' },
     ...(() => {
-      if (!opts.clawforumFs.existsSync('claws')) return [];
-      return opts.clawforumFs.listSync('claws', { includeDirs: true }).map(e => ({
+      if (!opts.clawforumFs.existsSync(CLAWS_DIR)) return [];
+      return opts.clawforumFs.listSync(CLAWS_DIR, { includeDirs: true }).map(e => ({
         fs: opts.clawforumFs,
-        file: path.join('claws', e.name, 'audit.tsv'),
+        file: path.join(CLAWS_DIR, e.name, 'audit.tsv'),
         clawId: e.name,
       }));
     })(),
