@@ -19,6 +19,7 @@ import * as lockOps from './lock.js';
 import { spawnProcess } from './spawn.js';
 import { stopProcess } from './stop.js';
 import { findProcesses } from './find.js';
+import { CLAWS_DIR } from '../../types/paths.js';
 import type { ProcessManagerContext, SpawnOptions } from './types.js';
 
 export { LockConflictError } from './types.js';
@@ -42,7 +43,7 @@ export class ProcessManager {
     this._ctx = {
       fs,
       audit,
-      resolveDir: dirResolver ?? ((id: string) => path.join(baseDir, 'claws', id)),
+      resolveDir: dirResolver ?? ((id: string) => path.join(baseDir, CLAWS_DIR, id)),
       isAlive: (clawId: string) => this.isAlive(clawId),
       readLockPid: (clawId: string) => this.readLockPid(clawId),
     };

@@ -18,16 +18,17 @@ import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { getMotionDir } from '../foundation/config/index.js';
 import { InboxWriter } from '../foundation/messaging/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
+import { CLAWS_DIR } from '../types/paths.js';
 
 // Check for claws with an active contract but no progress for a long time, and send a reminder
 /** 1:1 保 watchdog.ts:271-349 / 78 行 / inactivity timeout + backoff */
 export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLog): Promise<void> {
   const timeoutMs = getGlobalConfig().watchdog?.claw_inactivity_timeout_ms ?? 300000;
   const fs = getClawforumFs();
-  if (!fs.existsSync('claws')) return;
+  if (!fs.existsSync(CLAWS_DIR)) return;
 
   // 清理已不存在的 claw 的 Map 条目
-  const clawEntries = fs.listSync('claws', { includeDirs: true });
+  const clawEntries = fs.listSync(CLAWS_DIR, { includeDirs: true });
   const existingClawIds = new Set(clawEntries.filter(entry => entry.isDirectory).map(entry => entry.name));
   audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_SCAN, `ctx=inactivity present=${[...existingClawIds].join(',')}`);
   for (const id of lastInactivityNotified.keys()) {
@@ -40,7 +41,7 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
   const now = Date.now();
   for (const clawId of clawEntries.map(e => e.name)) {
     try {
-      const clawDir = path.join(getClawforumDir(), 'claws', clawId);
+      const clawDir = path.join(getClawforumDir(), CLAWS_DIR, clawId);
 
       // Has an active contract?
       if (!clawHasContract(clawDir)) continue;
@@ -103,10 +104,10 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
 /** 1:1 保 watchdog.ts:350-401 / 51 行 / crash 检测 */
 export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
   const fs = getClawforumFs();
-  if (!fs.existsSync('claws')) return;
+  if (!fs.existsSync(CLAWS_DIR)) return;
 
   // 清理已不存在的 claw 的 Map 条目
-  const clawEntries = fs.listSync('claws', { includeDirs: true });
+  const clawEntries = fs.listSync(CLAWS_DIR, { includeDirs: true });
   const existingClawIds = new Set(clawEntries.filter(entry => entry.isDirectory).map(entry => entry.name));
   audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_SCAN, `ctx=crash present=${[...existingClawIds].join(',')}`);
   for (const id of clawPreviouslyAlive.keys()) {
@@ -116,7 +117,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
   }
 
   for (const clawId of clawEntries.map(e => e.name)) {
-    const clawDir = path.join(getClawforumDir(), 'claws', clawId);
+    const clawDir = path.join(getClawforumDir(), CLAWS_DIR, clawId);
     const currentlyAlive = pm.isAlive(clawId);
     const wasAlive = clawPreviouslyAlive.get(clawId);
 

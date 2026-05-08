@@ -27,7 +27,7 @@ import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../cli/utils/factories.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
-import { LOGS_DIR } from '../types/paths.js';
+import { LOGS_DIR, CLAWS_DIR } from '../types/paths.js';
 
 import {
   getClawforumDir, getClawforumFs, getGlobalConfig, setAuditWriter,
@@ -118,8 +118,8 @@ export async function runWatchdogLoop(): Promise<void> {
     const presentClawIds: string[] = [];
     if (status.alive) aliveIds.push('motion');
     const fs = getClawforumFs();
-    if (fs.existsSync('claws')) {
-      for (const entry of fs.listSync('claws', { includeDirs: true })) {
+    if (fs.existsSync(CLAWS_DIR)) {
+      for (const entry of fs.listSync(CLAWS_DIR, { includeDirs: true })) {
         if (entry.isDirectory) {
           presentClawIds.push(entry.name);
           if (pm.isAlive(entry.name)) aliveIds.push(entry.name);

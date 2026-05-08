@@ -13,6 +13,7 @@ import { getChecker } from './permission-context.js';
 import { resolveWorkspacePath } from './_resolve-path.js';
 
 import { READ_TOOL_NAME } from '../tools/tool-names.js';
+import { CLAWS_DIR } from '../../types/paths.js';
 export { READ_TOOL_NAME };
 
 export const readTool: Tool = {
@@ -78,9 +79,9 @@ export const readTool: Tool = {
         };
       }
       // Resolve path to target claw's directory
-      const targetPath = nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam, nodePath.normalize(filePath));
+      const targetPath = nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR, clawParam, nodePath.normalize(filePath));
       // Escape check: must be within the target claw's directory
-      const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
+      const clawsDir = nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR);
       const clawRoot = nodePath.join(clawsDir, clawParam);
       if (targetPath !== clawRoot && !targetPath.startsWith(clawRoot + nodePath.sep)) {
         return {

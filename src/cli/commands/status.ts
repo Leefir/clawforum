@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getMotionDir } from '../../foundation/config/index.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
 import { createProcessManagerForCLI } from '../utils/factories.js';
+import { CLAWS_DIR } from '../../types/paths.js';
 import {
   getWatchdogPid,
   isWatchdogAlive,
@@ -30,7 +31,7 @@ export async function statusCommand(): Promise<void> {
   console.log(`motion:   ${motionStatus.alive ? `running (${motionStatus.reason})` : `stopped (${motionStatus.reason})`}`);
 
   // 3. Claws
-  const clawsDir = path.join(baseDir, 'claws');
+  const clawsDir = path.join(baseDir, CLAWS_DIR);
   const clawStatuses: { name: string; status: { alive: boolean; reason: string; pid?: number } }[] = [];
   if (fs.existsSync(clawsDir)) {
     const clawEntries = fs.readdirSync(clawsDir, { withFileTypes: true })

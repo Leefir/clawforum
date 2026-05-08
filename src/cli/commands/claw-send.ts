@@ -12,6 +12,7 @@ import { CliError } from '../errors.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
+import { CLAWS_DIR } from '../../types/paths.js';
 
 export async function sendCommand(
   name: string, 
@@ -26,7 +27,7 @@ export async function sendCommand(
 
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
-  const clawDir = path.join(baseDir, 'claws', name);
+  const clawDir = path.join(baseDir, CLAWS_DIR, name);
   const inboxPending = path.join(clawDir, 'inbox', 'pending');
   const fs = new NodeFileSystem({ baseDir: '/' });
   const audit = createSystemAudit(fs, clawDir);

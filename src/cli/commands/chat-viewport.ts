@@ -20,7 +20,7 @@ import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
 import { createViewportObservability } from './chat-viewport-observability.js';
 import type { StreamReader } from '../../foundation/stream/index.js';
-import { LOGS_DIR, TASKS_QUEUES_RESULTS_DIR } from '../../types/paths.js';
+import { LOGS_DIR, TASKS_QUEUES_RESULTS_DIR, CLAWS_DIR } from '../../types/paths.js';
 
 import { writeUserChat, findRecentTurnStartOffset } from './chat-viewport-utils.js';
 import { createChatViewportWatcher } from './chat-viewport-watcher.js';
@@ -446,7 +446,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // Motion viewport：各 claw 步数追踪
   const isMotion = options.label === 'motion';
-  const clawsDir = isMotion ? path.join(options.agentDir, '..', 'claws') : '';
+  const clawsDir = isMotion ? path.join(options.agentDir, '..', CLAWS_DIR) : '';
   const clawTrackMap = new Map<string, ClawTrack>();
   const clawWatchers = new Map<string, Watcher>();
   const clawWatcherVersions = new Map<string, number>();

@@ -21,7 +21,7 @@ import { CliError } from '../errors.js';
 import { Snapshot } from '../../foundation/snapshot/index.js';
 import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
-import { LOGS_DIR, STATUS_SUBDIR } from '../../types/paths.js';
+import { LOGS_DIR, STATUS_SUBDIR, CLAWS_DIR } from '../../types/paths.js';
 import { SKILLS_DIR_DEFAULT, BUNDLED_SKILLS_DIR_NAME } from '../../foundation/skill-system/skill-paths.js';
 
 // Get current file directory (ESM compatible)
@@ -132,7 +132,7 @@ export async function initCommand(silent = false): Promise<void> {
   await ensureDir(motionDir);
   await ensureDir(path.join(motionDir, LOGS_DIR));
   await ensureDir(path.join(motionDir, STATUS_SUBDIR));
-  await ensureDir(path.join(motionConfigDir, 'claws'));
+  await ensureDir(path.join(motionConfigDir, CLAWS_DIR));
   
   // Read and write template files
   const created: string[] = [];

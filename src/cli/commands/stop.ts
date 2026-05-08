@@ -11,6 +11,7 @@ import { stopCommand as motionStop } from './motion.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
 import { kill } from '../../foundation/process-exec/index.js';
 import { createProcessManagerForCLI } from '../utils/factories.js';
+import { CLAWS_DIR } from '../../types/paths.js';
 import { fileURLToPath } from 'url';
 
 export async function stopAllCommand(): Promise<void> {
@@ -24,7 +25,7 @@ export async function stopAllCommand(): Promise<void> {
 
   // 3. Stop all running claws
   const baseDir = path.dirname(getGlobalConfigPath());
-  const clawsDir = path.join(baseDir, 'claws');
+  const clawsDir = path.join(baseDir, CLAWS_DIR);
   const pm = createProcessManagerForCLI();
 
   let clawNames: string[] = [];

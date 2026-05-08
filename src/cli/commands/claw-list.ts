@@ -11,7 +11,7 @@ import {
 } from '../../foundation/config/index.js';
 import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
-import { CONTRACT_DIR } from '../../types/paths.js';
+import { CONTRACT_DIR, CLAWS_DIR } from '../../types/paths.js';
 import { formatRelativeTime, getLastActiveMs, LLM_OUTPUT_EVENTS } from './claw-shared.js';
 import { handleCliError } from '../errors.js';
 
@@ -23,7 +23,7 @@ export async function listCommand(): Promise<void> {
 
   const globalConfigPath = getGlobalConfigPath();
   const baseDir = path.dirname(globalConfigPath);
-  const clawsDir = path.join(baseDir, 'claws');
+  const clawsDir = path.join(baseDir, CLAWS_DIR);
 
   const processManager = createProcessManagerForCLI();
   const { audit: systemAudit } = createDirContext(baseDir);
