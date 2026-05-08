@@ -20,7 +20,7 @@ export {
   type ContractYaml,
 } from './types.js';
 
-export { doneTool, DONE_TOOL_NAME } from './tools/done.js';
+export { createDoneTool, DONE_TOOL_NAME } from './tools/done.js';
 
 export { getContractCreatedMs } from './utils.js';
 export { collectContractEvents } from './jobs/event-collector.js';

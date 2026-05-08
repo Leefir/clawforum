@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { doneTool } from '../../src/core/contract/index.js';
+import { createDoneTool } from '../../src/core/contract/index.js';
 import { ContractSystem } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import * as os from 'os';
@@ -27,6 +27,7 @@ function makeCtx() {
 describe('doneTool', () => {
   let manager: ContractSystem;
   let nodeFs: NodeFileSystem;
+  let doneTool: ReturnType<typeof createDoneTool>;
 
   beforeEach(async () => {
     testDir = path.join(
@@ -39,11 +40,7 @@ describe('doneTool', () => {
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = { write: vi.fn() };
     manager = new ContractSystem(clawDir, 'test-claw', nodeFs, mockAudit as any);
-    doneTool.contractManager = manager;
-  });
-
-  afterEach(() => {
-    doneTool.contractManager = undefined;
+    doneTool = createDoneTool(manager);
   });
 
   afterEach(async () => {
@@ -91,13 +88,6 @@ describe('doneTool', () => {
     // 剩余任务列表应包含 t2
     expect(result.content).toContain('t2');
     expect(result.content).toContain('Task Two');
-  });
-
-  it('should return error when doneTool.contractManager not injected', async () => {
-    doneTool.contractManager = undefined;
-    const result = await doneTool.execute({ subtask: 't1', evidence: 'done' }, {} as any);
-    expect(result.success).toBe(false);
-    expect(result.content).toContain('No contract manager');
   });
 
   it('should return error when no active contract', async () => {

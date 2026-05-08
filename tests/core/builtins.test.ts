@@ -8,8 +8,8 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { statusTool } from '../../src/core/status-service/index.js';
-import { sendTool } from '../../src/foundation/messaging/tools/send.js';
+import { createStatusTool } from '../../src/core/status-service/index.js';
+import { createSendTool } from '../../src/foundation/messaging/tools/send.js';
 import { readTool, writeTool, lsTool, searchTool, editTool, multiEditTool } from '../../src/foundation/file-tool/index.js';
 import { setPermissionCheckerFactory } from '../../src/foundation/file-tool/permission-context.js';
 import { createClawPermissionChecker } from '../../src/core/permissions/claw-permissions.js';
@@ -40,7 +40,6 @@ describe('Builtin Tools', () => {
   let mockFs: NodeFileSystem;
   let ctx: ExecContextImpl;
   let outboxWriter: OutboxWriter;
-  let executor: ToolExecutor;
 
   beforeEach(async () => {
     tempDir = await createTempDir();
@@ -55,20 +54,13 @@ describe('Builtin Tools', () => {
       profile: 'full',
       fs: mockFs,
     });
-    const registry = new ToolRegistryImpl();
-    registry.register(statusTool);
-    executor = new ToolExecutor({ registry, clawDir: tempDir, fs: mockFs });
     // phase445: inject PermissionChecker factory for direct tool.execute tests
     setPermissionCheckerFactory((clawDir) => createClawPermissionChecker({ clawDir, strict: true }));
   });
 
   afterEach(async () => {
     await cleanupTempDir(tempDir);
-  });
-
-  async function executeViaExecutor(toolName: string, args: Record<string, unknown>, ctx: ExecContextImpl) {
-    return executor.execute({ toolName, args, ctx });
-  }
+  })
 
   describe('read tool', () => {
     it('should read existing file', async () => {
@@ -705,8 +697,9 @@ describe('Builtin Tools', () => {
   });
 
   describe('status tool', () => {
+    let statusTool = createStatusTool({ loadActive: vi.fn().mockResolvedValue(null) } as any);
     it('should return status information', async () => {
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('Claw ID: test-claw');
@@ -715,20 +708,12 @@ describe('Builtin Tools', () => {
       expect(result.content).toContain('Elapsed:');
     });
 
-    // Phase 21 Step 3: full subtask list display in getContractStatus()
-    it('should show "Contract: N/A" when contractManager not injected', async () => {
-      // default ctx has no contractManager
-      const result = await executeViaExecutor('status', {}, ctx);
-      expect(result.success).toBe(true);
-      expect(result.content).toContain('Contract: N/A');
-    });
-
     it('should show "No active contract" when contractManager has no active contract', async () => {
       const mockAudit = { write: vi.fn() };
       const manager = new ContractSystem(tempDir, 'test-claw', mockFs, mockAudit as any);
-      statusTool.contractSystem = manager;
+      const statusTool = createStatusTool(manager);
 
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('No active contract');
@@ -749,9 +734,9 @@ describe('Builtin Tools', () => {
         acceptance: [],
         auth_level: 'auto' as const,
       });
-      statusTool.contractSystem = manager;
+      const statusTool = createStatusTool(manager);
 
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('Test Contract');
@@ -778,9 +763,9 @@ describe('Builtin Tools', () => {
       });
       // 完成第一个子任务（无 acceptance 脚本，直接通过）
       await manager.completeSubtask({ contractId, subtaskId: 'done-task', evidence: 'done' });
-      statusTool.contractSystem = manager;
+      const statusTool = createStatusTool(manager);
 
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('✓ done-task: Already done');
@@ -790,7 +775,7 @@ describe('Builtin Tools', () => {
 
     // MEMORY.md 不存在
     it('should show MEMORY.md Not found when file does not exist', async () => {
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.success).toBe(true);
       expect(result.content).toContain('MEMORY.md: Not found');
     });
@@ -801,7 +786,7 @@ describe('Builtin Tools', () => {
       const readSpy = vi.spyOn(mockFs, 'read').mockRejectedValueOnce(
         Object.assign(new Error('disk error'), { code: 'EIO' })
       );
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('MEMORY.md: Error');
       expect(result.content).toContain('disk error');
       readSpy.mockRestore();
@@ -810,7 +795,7 @@ describe('Builtin Tools', () => {
     // clawspace ENOENT → 0 files
     it('should show Clawspace 0 files when clawspace dir does not exist', async () => {
       // tempDir 内无 clawspace 目录，list 会抛 ENOENT
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('Clawspace: 0 files');
     });
 
@@ -823,7 +808,7 @@ describe('Builtin Tools', () => {
         }
         return [];
       });
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('Clawspace: Error');
       expect(result.content).toContain('permission denied');
       listSpy.mockRestore();
@@ -831,12 +816,11 @@ describe('Builtin Tools', () => {
 
     // contractManager.loadActive 抛异常
     it('should show Contract Error loading when loadActive throws', async () => {
-      statusTool.contractSystem = {
+      const statusTool = createStatusTool({
         loadActive: vi.fn().mockRejectedValue(new Error('corrupted yaml')),
-      } as any;
-      const result = await executeViaExecutor('status', {}, ctx);
+      } as any);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('Contract: Error loading');
-      statusTool.contractSystem = undefined;
     });
 
     // 先找文件顶部的 import 部分来加
@@ -862,11 +846,10 @@ describe('Builtin Tools', () => {
       progress.subtasks['fail-task'].status = 'failed';
       await fs.writeFile(progressPath, JSON.stringify(progress));
 
-      statusTool.contractSystem = manager;
-      const result = await executeViaExecutor('status', {}, ctx);
+      const statusTool = createStatusTool(manager);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('✗ fail-task');
       expect(result.content).toContain('○ ok-task');
-      statusTool.contractSystem = undefined;
     });
 
     // task running + pending
@@ -876,7 +859,7 @@ describe('Builtin Tools', () => {
       await mockFs.writeAtomic('tasks/queues/pending/t1.json', '{}');
       await mockFs.writeAtomic('tasks/queues/running/t2.json', '{}');
 
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('1 running, 1 pending');
     });
 
@@ -886,13 +869,13 @@ describe('Builtin Tools', () => {
       await mockFs.writeAtomic('tasks/queues/pending/t1.json', '{}');
       await mockFs.writeAtomic('tasks/queues/pending/t2.json', '{}');
 
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('2 pending');
     });
 
     // tasks/queues/pending 不存在 → silent (ENOENT is expected for fresh setup)
     it('should treat pending count as 0 when tasks/queues/pending does not exist', async () => {
-      const result = await executeViaExecutor('status', {}, ctx);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('Tasks: idle');
       // ENOENT is now silently ignored (expected for fresh setup)
     });
@@ -907,12 +890,11 @@ describe('Builtin Tools', () => {
         fs: mockFs,
         auditWriter: auditWriter as any,
       });
-      statusTool.contractSystem = {
+      const statusTool = createStatusTool({
         loadActive: vi.fn().mockRejectedValue(new Error('yaml parse error')),
-      } as any;
+      } as any);
 
-      await executeViaExecutor('status', {}, ctxWithAudit);
-      statusTool.contractSystem = undefined;
+      await statusTool.execute({}, ctxWithAudit);
 
       expect(auditWriter.write).toHaveBeenCalledWith(
         'status_contract_error',
@@ -932,7 +914,7 @@ describe('Builtin Tools', () => {
         fs: mockFs,
         auditWriter: auditWriter as any,
       });
-      await executeViaExecutor('status', {}, ctxWithAudit);
+      await statusTool.execute({}, ctxWithAudit);
 
       expect(auditWriter.write).toHaveBeenCalledWith(
         'status_task_pending_error',
@@ -960,7 +942,7 @@ describe('Builtin Tools', () => {
         fs: mockFs,
         auditWriter: auditWriter as any,
       });
-      await executeViaExecutor('status', {}, ctxWithAudit);
+      await statusTool.execute({}, ctxWithAudit);
 
       expect(auditWriter.write).toHaveBeenCalledWith(
         'status_task_running_error',
@@ -991,21 +973,20 @@ describe('Builtin Tools', () => {
       progress.subtasks['fail-task'].status = 'failed';
       await fs.writeFile(progressPath, JSON.stringify(progress));
 
-      statusTool.contractSystem = manager;
-      const result = await executeViaExecutor('status', {}, ctx);
+      const statusTool = createStatusTool(manager);
+      const result = await statusTool.execute({}, ctx);
       expect(result.content).toContain('✗ fail-task');
       expect(result.content).toContain('○ ok-task');
-      statusTool.contractSystem = undefined;
     });
   });
 
 
   describe('send tool', () => {
+    let sendTool: ReturnType<typeof createSendTool>;
     beforeEach(() => {
-      sendTool.outboxWriter = outboxWriter;
+      sendTool = createSendTool(outboxWriter);
     });
     afterEach(() => {
-      sendTool.outboxWriter = undefined;
     });
 
     it('should create message in outbox', async () => {

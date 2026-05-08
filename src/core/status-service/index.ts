@@ -12,5 +12,5 @@
  * Phase 446 物理立 / 业务工具归 owner module 第 5 实证。
  */
 
-export { statusTool, STATUS_TOOL_NAME } from './status-tool.js';
+export { createStatusTool, STATUS_TOOL_NAME } from './status-tool.js';
 export { STATUS_AUDIT_EVENTS } from './audit-events.js';

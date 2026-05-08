@@ -37,10 +37,10 @@ import { createClawPermissionChecker } from '../core/permissions/claw-permission
 import { spawnTool } from '../core/async-task-system/tools/spawn.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { createInboxReader, createOutboxWriter, notifyInbox } from '../foundation/messaging/index.js';
-import { doneTool } from '../core/contract/index.js';
-import { statusTool } from '../core/status-service/index.js';
-import { skillTool } from '../foundation/skill-system/tools/skill.js';
-import { sendTool } from '../foundation/messaging/tools/send.js';
+import { createDoneTool } from '../core/contract/index.js';
+import { createStatusTool } from '../core/status-service/index.js';
+import { createSkillTool } from '../foundation/skill-system/tools/skill.js';
+import { createSendTool } from '../foundation/messaging/tools/send.js';
 import { createDialogStore } from '../foundation/dialog-store/index.js';
 import type { InboxReader } from '../foundation/messaging/index.js';
 import type { OutboxWriter } from '../foundation/messaging/index.js';
@@ -311,18 +311,14 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
   // 注入工具属性（避免通过 ExecContext 传业务依赖）
   // done 注册：phase360 后 done 业务归 ContractSystem / 不再经 registerBuiltinTools / Assembly 显式注册
-  toolRegistry.register(doneTool);
-  doneTool.contractManager = contractManager;
-  statusTool.contractSystem = contractManager;
-  toolRegistry.register(statusTool);   // phase 446: builtins/index.ts 不再 register / Assembly 显式（同 phase 440 send + phase 442 skill 模板）
-  skillTool.skillRegistry = skillRegistry;
+  toolRegistry.register(createDoneTool(contractManager));
+  toolRegistry.register(createStatusTool(contractManager));   // phase 446: builtins/index.ts 不再 register / Assembly 显式（同 phase 440 send + phase 442 skill 模板）
 
   // skill 注册：phase442 后 skill 业务归 SkillSystem / 不再经 registerBuiltinTools / Assembly 显式注册
-  toolRegistry.register(skillTool);
+  toolRegistry.register(createSkillTool(skillRegistry));
 
   // send 注册：phase440 后 send 业务归 Messaging / 不再经 registerBuiltinTools / Assembly 显式注册
-  toolRegistry.register(sendTool);
-  sendTool.outboxWriter = outboxWriter;
+  toolRegistry.register(createSendTool(outboxWriter));
 
   // --- L3-L5: toolExecutor ---
   let toolExecutor: IToolExecutor;

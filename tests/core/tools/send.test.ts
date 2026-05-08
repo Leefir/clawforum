@@ -10,7 +10,7 @@
  * 不测 OutboxWriter 行为（归属 tests/foundation/outbox-writer.test.ts）
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sendTool } from '../../../src/foundation/messaging/tools/send.js';
+import { createSendTool } from '../../../src/foundation/messaging/tools/send.js';
 import type { ExecContext } from '../../../src/foundation/tool-protocol/index.js';
 import type { OutboxWriter } from '../../../src/foundation/messaging/index.js';
 
@@ -32,15 +32,12 @@ function createMockCtx(): ExecContext {
 describe('sendTool', () => {
   let writeMock: ReturnType<typeof vi.fn>;
   let ctx: ExecContext;
+  let sendTool: ReturnType<typeof createSendTool>;
 
   beforeEach(() => {
     writeMock = vi.fn().mockResolvedValue('/tmp/test-claw/outbox/pending/msg.md');
     ctx = createMockCtx();
-    sendTool.outboxWriter = { write: writeMock } as unknown as OutboxWriter;
-  });
-
-  afterEach(() => {
-    sendTool.outboxWriter = undefined;
+    sendTool = createSendTool({ write: writeMock } as unknown as OutboxWriter);
   });
 
   it('rejects invalid type with ToolResult success=false', async () => {
@@ -61,16 +58,6 @@ describe('sendTool', () => {
     expect(result.success).toBe(false);
     expect(result.content).toContain('Invalid priority');
     expect(writeMock).not.toHaveBeenCalled();
-  });
-
-  it('returns failure when sendTool.outboxWriter is undefined', async () => {
-    sendTool.outboxWriter = undefined;
-    const result = await sendTool.execute(
-      { type: 'report', priority: 'normal', content: 'test' },
-      ctx,
-    );
-    expect(result.success).toBe(false);
-    expect(result.content).toContain('Outbox writer not available');
   });
 
   it('calls outboxWriter.write with correct args on success', async () => {

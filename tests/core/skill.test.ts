@@ -6,7 +6,7 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { skillTool } from '../../src/foundation/skill-system/tools/skill.js';
+import { createSkillTool } from '../../src/foundation/skill-system/tools/skill.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 
@@ -52,6 +52,7 @@ Full content.
     );
 
     const ctx = makeCtx();
+    const skillTool = createSkillTool({} as any);
     const result = await skillTool.execute(
       { name: 'my-skill', skillsDir: 'clawspace/dispatch-skills' },
       ctx
@@ -65,6 +66,7 @@ Full content.
     await fs.mkdir(path.join(tempDir, 'clawspace', 'dispatch-skills'), { recursive: true });
 
     const ctx = makeCtx();
+    const skillTool = createSkillTool({} as any);
     const result = await skillTool.execute(
       { name: 'non-existent', skillsDir: 'clawspace/dispatch-skills' },
       ctx

@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ToolExecutor } from '../../src/foundation/tools/executor.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
-import { statusTool } from '../../src/core/status-service/index.js';
+import { createStatusTool } from '../../src/core/status-service/index.js';
 import { readTool, lsTool, searchTool } from '../../src/foundation/file-tool/index.js';
 import { setPermissionCheckerFactory } from '../../src/foundation/file-tool/permission-context.js';
 import { createClawPermissionChecker } from '../../src/core/permissions/claw-permissions.js';
@@ -30,7 +30,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
     tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'phase332-'));
     fs = new NodeFileSystem({ baseDir: tmpDir });
     registry = new ToolRegistryImpl();
-    registry.register(statusTool);
+    registry.register(createStatusTool({ loadActive: vi.fn().mockResolvedValue(null) } as any));
     registry.register(readTool);
     registry.register(lsTool);
     registry.register(searchTool);

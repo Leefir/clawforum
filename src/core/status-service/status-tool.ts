@@ -12,10 +12,7 @@ import type { ContractSystem } from '../contract/manager.js';
 import { TASKS_QUEUES_PENDING_DIR, TASKS_QUEUES_RUNNING_DIR } from '../../types/paths.js';
 import { STATUS_AUDIT_EVENTS } from './audit-events.js';
 
-async function getContractStatus(ctx: ExecContext): Promise<string> {
-  const contractSystem = statusTool.contractSystem;
-  if (!contractSystem) return 'Contract: N/A';
-
+async function getContractStatus(ctx: ExecContext, contractSystem: ContractSystem): Promise<string> {
   try {
     const contract = await contractSystem.loadActive();
     if (!contract) return 'Contract: No active contract';
@@ -110,44 +107,45 @@ import { STATUS_TOOL_NAME } from '../../foundation/tools/tool-names.js';
 import { CLAWSPACE_DIR } from '../../types/paths.js';
 export { STATUS_TOOL_NAME };
 
-export const statusTool: Tool & { contractSystem?: ContractSystem } = {
-  contractSystem: undefined,
-  name: STATUS_TOOL_NAME,
-  description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
-  schema: {
-    type: 'object',
-    properties: {
-      async: {
-        type: 'boolean',
-        description: 'If true, run in background. Result delivered to inbox when complete. Use for non-blocking status checks.',
+export function createStatusTool(contractSystem: ContractSystem): Tool {
+  return {
+    name: STATUS_TOOL_NAME,
+    description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
+    schema: {
+      type: 'object',
+      properties: {
+        async: {
+          type: 'boolean',
+          description: 'If true, run in background. Result delivered to inbox when complete. Use for non-blocking status checks.',
+        },
       },
+      required: [],
     },
-    required: [],
-  },
-  readonly: true,
-  idempotent: true,
-  supportsAsync: false,
+    readonly: true,
+    idempotent: true,
+    supportsAsync: false,
 
-  async execute(_args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const lines = [
-      `Claw ID: ${ctx.clawId}`,
-      `Profile: ${ctx.profile}`,
-      `Step: ${ctx.stepNumber}/${ctx.maxSteps}`,
-      `Elapsed: ${ctx.getElapsedMs()}ms`,
-    ];
-    
-    // Add contract status (MVP aligned)
-    lines.push(await getContractStatus(ctx));
-    
-    // Add task status (MVP aligned)
-    lines.push(await getTaskStatus(ctx));
-    
-    // Add storage status (MVP aligned)
-    lines.push(...await getStorageStatus(ctx));
+    async execute(_args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
+      const lines = [
+        `Claw ID: ${ctx.clawId}`,
+        `Profile: ${ctx.profile}`,
+        `Step: ${ctx.stepNumber}/${ctx.maxSteps}`,
+        `Elapsed: ${ctx.getElapsedMs()}ms`,
+      ];
+      
+      // Add contract status (MVP aligned)
+      lines.push(await getContractStatus(ctx, contractSystem));
+      
+      // Add task status (MVP aligned)
+      lines.push(await getTaskStatus(ctx));
+      
+      // Add storage status (MVP aligned)
+      lines.push(...await getStorageStatus(ctx));
 
-    return {
-      success: true,
-      content: lines.join('\n'),
-    };
-  },
-};
+      return {
+        success: true,
+        content: lines.join('\n'),
+      };
+    },
+  };
+}
