@@ -55,8 +55,22 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
 
             if (alreadySent) {
               // 上次恢复已投递，仅清理 running/ 残留
-              await fs.move(entry.path, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(() => {
-                fs.delete(entry.path).catch(() => {});
+              await fs.move(entry.path, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(async (moveErr) => {
+                auditWriter?.write(
+                  TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+                  task.id,
+                  'context=alreadysent_move_failed',
+                  `error=${moveErr instanceof Error ? moveErr.message : JSON.stringify(moveErr)}`,
+                );
+                // 降级：直接 delete 残留 / delete 也失败再 audit
+                await fs.delete(entry.path).catch((delErr) => {
+                  auditWriter?.write(
+                    TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+                    task.id,
+                    'context=alreadysent_delete_failed',
+                    `error=${delErr instanceof Error ? delErr.message : JSON.stringify(delErr)}`,
+                  );
+                });
               });
               auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=already_sent');
             } else if (resultExists) {

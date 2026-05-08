@@ -172,7 +172,14 @@ export class AsyncTaskSystem {
         (event) => {
           if (event.type !== 'add') return;
           if (!event.path.endsWith('.json')) return;
-          void this._ingestPendingFile(event.path);
+          this._ingestPendingFile(event.path).catch((err) => {
+            this.auditWriter?.write(
+              TASK_AUDIT_EVENTS.PENDING_INGEST_FAILED,
+              'context=watcher_async',
+              `path=${event.path}`,
+              `error=${err instanceof Error ? err.message : JSON.stringify(err)}`,
+            );
+          });
         },
         {
           stability: 'immediate',

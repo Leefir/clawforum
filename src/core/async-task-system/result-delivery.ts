@@ -78,8 +78,14 @@ export async function sendToolResult(
       try {
         await new InboxWriter(fs, INBOX_PENDING_DIR, auditWriter).write({ ...baseMsg, content: inlineContent });
         return;
-      } catch {
-        // 降级也失败，继续抛出原始错误
+      } catch (inlineErr) {
+        auditWriter?.write(
+          TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED,
+          task.id,
+          'context=inline_fallback_failed',
+          `error=${inlineErr instanceof Error ? inlineErr.message : JSON.stringify(inlineErr)}`,
+        );
+        // 降级也失败，继续抛出原始错误（保 caller fallback 链 / 既有 throw err 路径不动）
       }
     }
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -154,8 +160,14 @@ export async function sendResult(
       try {
         await new InboxWriter(fs, INBOX_PENDING_DIR, auditWriter).write({ ...baseMsg, content: inlineContent });
         return;
-      } catch {
-        // 降级也失败，继续抛出原始错误
+      } catch (inlineErr) {
+        auditWriter?.write(
+          TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED,
+          task.id,
+          'context=inline_fallback_failed',
+          `error=${inlineErr instanceof Error ? inlineErr.message : JSON.stringify(inlineErr)}`,
+        );
+        // 降级也失败，继续抛出原始错误（保 caller fallback 链 / 既有 throw err 路径不动）
       }
     }
     const errMsg = err instanceof Error ? err.message : String(err);
