@@ -11,6 +11,7 @@ import * as fsNative from 'fs';
 import { CLAWSPACE_DIR } from '../../types/paths.js';
 import { SKILLS_DIR_DEFAULT } from '../../foundation/skill-system/skill-paths.js';
 import { DISPATCH_SKILLS_SUBDIR } from '../../core/evolution-system/index.js';
+import { getClawDir } from '../../foundation/config/index.js';
 
 /**
  * Copy directory recursively
@@ -67,10 +68,24 @@ export async function skillInstallUserCommand(sourcePath: string): Promise<void>
  * - To clawDir/skills/{skillName}/
  */
 export async function skillInstallClawCommand(clawId: string, skillName: string): Promise<void> {
+  // Phase 537 — traversal guard for both identifier params
+  if (
+    typeof clawId !== 'string' || clawId === '' || clawId === '.' || clawId.startsWith('.') ||
+    clawId.includes('/') || clawId.includes('..')
+  ) {
+    throw new Error(`Invalid claw id: ${JSON.stringify(clawId)}`);
+  }
+  if (
+    typeof skillName !== 'string' || skillName === '' || skillName === '.' || skillName.startsWith('.') ||
+    skillName.includes('/') || skillName.includes('..')
+  ) {
+    throw new Error(`Invalid skill name: ${JSON.stringify(skillName)}`);
+  }
+
   const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
   const motionDir = path.join(root, '.clawforum', 'motion');
   const source = path.join(motionDir, CLAWSPACE_DIR, DISPATCH_SKILLS_SUBDIR, skillName);
-  const clawDir = path.join(root, '.clawforum', 'claws', clawId);
+  const clawDir = getClawDir(clawId);
   const dest = path.join(clawDir, SKILLS_DIR_DEFAULT, skillName);
 
   if (!fsNative.existsSync(source)) {

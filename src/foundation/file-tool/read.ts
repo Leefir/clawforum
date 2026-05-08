@@ -81,7 +81,8 @@ export const readTool: Tool = {
       const targetPath = nodePath.resolve(ctx.clawDir, '..', 'claws', clawParam, nodePath.normalize(filePath));
       // Escape check: must be within the target claw's directory
       const clawsDir = nodePath.resolve(ctx.clawDir, '..', 'claws');
-      if (!targetPath.startsWith(nodePath.join(clawsDir, clawParam))) {
+      const clawRoot = nodePath.join(clawsDir, clawParam);
+      if (targetPath !== clawRoot && !targetPath.startsWith(clawRoot + nodePath.sep)) {
         return {
           success: false,
           content: `Error: Path escapes target claw directory: "${filePath}"`,
@@ -138,8 +139,8 @@ export const readTool: Tool = {
         isTruncated = true;
       }
 
-      // fully-read 集合 add（未截断 / phase 487 G6 (a)）
-      if (!isTruncated) {
+      // fully-read 集合 add（未截断 / phase 487 G6 (a) / phase 537 cross-claw 不入同 claw 闸）
+      if (!isTruncated && clawParam === undefined) {
         ctx.fullyReadPaths.add(resolved);
       }
 

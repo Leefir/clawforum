@@ -18,7 +18,25 @@ export function getGlobalConfigPath(): string {
   return path.join(getWorkspaceRoot(), '.clawforum', 'config.yaml');
 }
 
+/**
+ * Validate identifier-class param (clawId / skillName / etc) against traversal.
+ * @throws Error if name contains '/', '..', is empty, '.' or starts with '.'.
+ */
+function assertSafeClawId(name: string): void {
+  if (
+    typeof name !== 'string' ||
+    name === '' ||
+    name === '.' ||
+    name.startsWith('.') ||
+    name.includes('/') ||
+    name.includes('..')
+  ) {
+    throw new Error(`Invalid claw id: ${JSON.stringify(name)}`);
+  }
+}
+
 export function getClawDir(name: string): string {
+  assertSafeClawId(name);
   return path.join(getWorkspaceRoot(), '.clawforum', 'claws', name);
 }
 

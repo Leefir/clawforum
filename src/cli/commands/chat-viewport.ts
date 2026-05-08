@@ -407,6 +407,14 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       case 'task_started': {
         const taskId = event.taskId as string;
         const callerType = (event.callerType as string) ?? 'subagent';
+        // Phase 537 — defensive guard against malformed stream events (D7+D11)
+        if (
+          typeof taskId !== 'string' || taskId === '' || taskId === '.' || taskId.startsWith('.') ||
+          taskId.includes('/') || taskId.includes('..')
+        ) {
+          options.audit?.write?.('chat_viewport_invalid_task_id', `taskId=${JSON.stringify(taskId)}`);
+          break;
+        }
         const { fs: taskFs } = createDirContext(path.join(options.agentDir, 'tasks', 'queues', 'results', taskId));
         const taskReader = createStreamReader(taskFs, STREAM_FILE, (ev) => {
           const tw = taskWatchMap.get(taskId);

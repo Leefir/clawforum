@@ -1419,6 +1419,87 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(false);
       expect(result.content).toContain('Invalid');
     });
+
+    // Phase 537: cross-claw 路径校验
+    it('rejects sibling-claw prefix traversal (claw="c1" + path="../c11/x")', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const c1Dir = path.join(tempDir, 'claws', 'c1', 'clawspace');
+      const c11Dir = path.join(tempDir, 'claws', 'c11', 'clawspace');
+      await fs.mkdir(c1Dir, { recursive: true });
+      await fs.mkdir(c11Dir, { recursive: true });
+      await fs.writeFile(path.join(c11Dir, 'secret.md'), 'secret content');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      });
+
+      const result = await readTool.execute({ path: '../c11/secret.md', claw: 'c1' }, motionCtx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toMatch(/Path escapes target claw directory/);
+    });
+
+    it('allows cross-claw read when targetPath equals clawRoot (path="")', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const c1Dir = path.join(tempDir, 'claws', 'c1', 'clawspace');
+      await fs.mkdir(c1Dir, { recursive: true });
+      await fs.writeFile(path.join(c1Dir, 'note.md'), 'note content');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      });
+
+      // path="" resolves to clawRoot; trailing-sep prefix must allow this
+      // actual read will fail because clawRoot is a directory, but guard must pass
+      const result = await readTool.execute({ path: '', claw: 'c1' }, motionCtx);
+      expect(result.content).not.toMatch(/Path escapes target claw directory/);
+    });
+
+    it('cross-claw read does NOT pollute caller fullyReadPaths (write gate intact)', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      });
+
+      // Create c1 with a file
+      const c1Dir = path.join(tempDir, 'claws', 'c1', 'clawspace');
+      await fs.mkdir(c1Dir, { recursive: true });
+      await fs.writeFile(path.join(c1Dir, 'foo.md'), 'c1 content');
+
+      // Cross-claw read c1/clawspace/foo.md from motion context
+      const readResult = await readTool.execute({ path: 'clawspace/foo.md', claw: 'c1' }, motionCtx);
+      expect(readResult.success).toBe(true);
+
+      // Create a local file that motion same-claw write 'clawspace/foo.md' resolves to
+      const localFile = path.join(motionDir, 'clawspace', 'clawspace', 'foo.md');
+      await fs.mkdir(path.dirname(localFile), { recursive: true });
+      await fs.writeFile(localFile, 'local content');
+
+      // Same-claw write to 'clawspace/foo.md' should still be rejected
+      // because cross-claw read must not add to same-claw write gate
+      const writeResult = await writeTool.execute({
+        path: 'clawspace/foo.md',
+        content: 'attack',
+      }, motionCtx);
+
+      expect(writeResult.success).toBe(false);
+      expect(writeResult.content).toMatch(/Use append=true, or read the file first/i);
+    });
   });
 
   describe('ls tool - claw parameter', () => {

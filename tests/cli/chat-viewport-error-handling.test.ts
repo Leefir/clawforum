@@ -59,4 +59,30 @@ describe('chat-viewport error handling (phase 523 + 524)', () => {
       expect(auditEventsCode).toMatch(/COMMAND_ERROR:\s*'viewport_command_error'/);
     });
   });
+
+  describe('phase 537: task_started taskId traversal guard', () => {
+    it('task_started case 包含 taskId traversal 校验', () => {
+      // 定位 task_started case 起始位置
+      const idx = sourceCode.indexOf("case 'task_started':");
+      expect(idx).toBeGreaterThan(-1);
+      // 取到下一个 case/default 之前的片段（约 1500 字符足够覆盖）
+      const endIdx = sourceCode.indexOf('case ', idx + 1);
+      const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 1500);
+      // 包含 traversal 校验条件
+      expect(block).toContain("taskId.includes('/')");
+      expect(block).toContain("taskId.includes('..')");
+    });
+
+    it('invalid taskId 时写入 audit 并 break', () => {
+      const idx = sourceCode.indexOf("case 'task_started':");
+      expect(idx).toBeGreaterThan(-1);
+      const endIdx = sourceCode.indexOf('case ', idx + 1);
+      const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 1500);
+      // audit 事件名
+      expect(block).toContain('chat_viewport_invalid_task_id');
+      // break 跳过（task_started 内应有至少两个 break：if 内一个 + case 末尾一个）
+      const breakCount = (block.match(/break;/g) || []).length;
+      expect(breakCount).toBeGreaterThanOrEqual(2);
+    });
+  });
 });
