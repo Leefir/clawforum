@@ -12,7 +12,7 @@ import { createSubAgent } from '../subagent/index.js';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
-import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from '../../types/paths.js';
+import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR, TASKS_SYNC_DIR } from '../../types/paths.js';
 import { buildSubagentSystemPromptPrefix, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { sendResult, sendFallbackError } from './result-delivery.js';
 
@@ -100,7 +100,7 @@ export async function executeSubAgentTask(
       ),
       prompt: task.intent,
       clawDir,
-      syncDir: path.join(clawDir, 'tasks', 'sync'),
+      syncDir: path.join(clawDir, TASKS_SYNC_DIR),
       llm,
       registry: effectiveRegistry,
       fs,

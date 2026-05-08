@@ -12,6 +12,10 @@ import {
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { sendFallbackError, sendResult } from './result-delivery.js';
 
+const RETRY_COUNT_PATH = (taskId: string) =>
+  `${TASKS_QUEUES_RESULTS_DIR}/${taskId}/result.txt.retry-count`;
+const MAX_RECOVERY_RETRIES = 3;
+
 /** M9: 闭包 ≥ 4 依赖 → deps interface */
 export interface RecoveryDeps {
   fs: FileSystem;
@@ -56,6 +60,13 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
               });
               auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=already_sent');
             } else if (resultExists) {
+              // 读取 retry count
+              let retryCount = 0;
+              const retryPath = RETRY_COUNT_PATH(task.id);
+              try {
+                retryCount = parseInt(await fs.read(retryPath), 10) || 0;
+              } catch { /* 首次无文件 */ }
+
               // 结果已写出，补发 inbox；成功后写 .sent 标记防止重复投递
               const resultContent = await fs.read(resultPath);
               const resultSent = await sendResult(fs, auditWriter, task, resultContent, false)
@@ -68,7 +79,24 @@ export async function recoverTasks(deps: RecoveryDeps): Promise<void> {
                 });
               if (resultSent) {
                 await fs.writeAtomic(sentMarker, '1').catch(() => {});
+                // 清理 retry count
+                await fs.delete(retryPath).catch(() => {});
+              } else {
+                // 累加 retry
+                retryCount++;
+                await fs.writeAtomic(retryPath, String(retryCount)).catch(() => {});
+                if (retryCount >= MAX_RECOVERY_RETRIES) {
+                  // dead-letter: 转 failed
+                  auditWriter?.write(TASK_AUDIT_EVENTS.RECOVERY_DEAD_LETTER, task.id,
+                    `retries=${retryCount}`, 'action=move_to_failed');
+                  await fs.move(entry.path, `${TASKS_QUEUES_FAILED_DIR}/${task.id}.json`).catch(() => {
+                    fs.delete(entry.path).catch(() => {});
+                  });
+                  return; // 不走后续 move to done
+                }
               }
+
+              // 正常路径: move running → done
               await fs.move(entry.path, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(() => {
                 fs.delete(entry.path).catch(() => {});
               });

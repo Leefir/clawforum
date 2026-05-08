@@ -25,6 +25,8 @@ import {
   TASKS_QUEUES_DONE_DIR,
   TASKS_QUEUES_FAILED_DIR,
   TASKS_QUEUES_RESULTS_DIR,
+  TASKS_SYNC_EXEC_DIR,
+  TASKS_SYNC_WRITE_DIR,
   TASKS_SYNC_SPAWN_DIR,
   TASKS_SUBAGENTS_DIR,
 } from '../../types/paths.js';
@@ -63,6 +65,9 @@ const WRITABLE_PATHS = [
   TASKS_QUEUES_FAILED_DIR,
   TASKS_QUEUES_RESULTS_DIR,
   TASKS_SUBAGENTS_DIR,            // phase 512 / 子代理 workspace（α 简化 / 所有 callerType 等价 / 升 β 推 r+1+）
+  TASKS_SYNC_EXEC_DIR,             // phase 536 / sync exec scratch
+  TASKS_SYNC_WRITE_DIR,            // phase 536 / sync write scratch
+  TASKS_SYNC_SPAWN_DIR,            // phase 536 / sync spawn lifecycle（已 import 但漏加）
   'logs',
 ];
 

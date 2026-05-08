@@ -39,6 +39,9 @@ export const TASKS_SYNC_WRITE_DIR = 'tasks/sync/write';
 /** tasks/sync/spawn — sync subagent lifecycle（sync caller own subdir / phase 511 加）*/
 export const TASKS_SYNC_SPAWN_DIR = 'tasks/sync/spawn';
 
+/** tasks/sync — sync 根目录（phase 536 / 替代硬编码 'tasks/sync'）*/
+export const TASKS_SYNC_DIR = 'tasks/sync';
+
 /** tasks/subagents — 子代理临时工作区集合（per-subagent dir / phase 512 加）*/
 export const TASKS_SUBAGENTS_DIR = 'tasks/subagents';
 

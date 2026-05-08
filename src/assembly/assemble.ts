@@ -61,7 +61,7 @@ import { createGateway } from '../core/gateway/gateway.js';
 import type { Gateway } from '../core/gateway/types.js';
 import { createAskUserTool } from '../core/gateway/ask-user-tool.js';
 import { createStreamReader, STREAM_FILE } from '../foundation/stream/index.js';
-import { DIALOG_DIR } from '../types/paths.js';
+import { DIALOG_DIR, TASKS_SYNC_DIR } from '../types/paths.js';
 
 // 内部 helper（从 daemon.ts L42-75 搬入）
 function detectUncleanExit(auditDir: string, auditWriter: AuditLog): void {
@@ -111,7 +111,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   const parentFs = new NodeFileSystem({ baseDir: path.join(clawDir, '..') });
 
   // syncDir = clawDir/tasks/sync (装配-level 共享 dir / 应然 §A.7)
-  const syncDir = path.join(clawDir, 'tasks', 'sync');
+  const syncDir = path.join(clawDir, TASKS_SYNC_DIR);
   await clawFs.ensureDir(syncDir);
 
   // --- 1. AuditWriter (daemon.ts L100-104) ---

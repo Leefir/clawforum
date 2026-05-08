@@ -11,7 +11,7 @@ import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { ReportResultTool } from '../../foundation/tools/report-result.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { ToolTimeoutError } from '../../types/errors.js';
-import { TASKS_SYNC_SPAWN_DIR, TASKS_SUBAGENTS_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SPAWN_DIR, TASKS_SUBAGENTS_DIR, TASKS_SYNC_DIR } from '../../types/paths.js';
 import { buildSubagentSystemPromptPrefix, CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import type { VerifierConfig, VerifierResult } from './types.js';
 
@@ -42,7 +42,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       ),
       prompt: config.prompt,
       clawDir: config.clawDir,
-      syncDir: path.join(config.clawDir, 'tasks', 'sync'),
+      syncDir: path.join(config.clawDir, TASKS_SYNC_DIR),
       llm: config.llm,
       registry,
       fs: config.fs as any,

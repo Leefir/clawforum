@@ -26,6 +26,7 @@ import {
   TASKS_QUEUES_DONE_DIR,
   TASKS_QUEUES_FAILED_DIR,
   TASKS_QUEUES_RESULTS_DIR,
+  TASKS_SYNC_DIR,
 } from '../../types/paths.js';
 import type { StreamLog } from '../../foundation/stream/types.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
@@ -103,6 +104,7 @@ export class AsyncTaskSystem {
   private mainDialogStore?: DialogStore;
 
   private postProcessors: Map<string, PostProcessor> = new Map();
+  private cancellingIds: Set<string> = new Set();
 
   /**
    * 装配期注册 PostProcessor / phase438
@@ -248,6 +250,7 @@ export class AsyncTaskSystem {
       const fileName = path.basename(filePath, '.json');
       taskId = fileName;
       if (this.runningTasks.has(taskId)) return;
+      if (this.cancellingIds.has(taskId)) return;
       if (this.pendingQueue.some(t => t.id === taskId)) return;
 
       const content = await this.fs.read(filePath);
@@ -431,45 +434,49 @@ export class AsyncTaskSystem {
     }
 
     // 2. 再检查 pending（内存队列 + 文件系统双源）
-    const fileExists = await this.fs.exists(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`);
-    const queueIdx = this.pendingQueue.findIndex(t => t.id === taskId);
+    this.cancellingIds.add(taskId);
+    try {
+      const fileExists = await this.fs.exists(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`);
+      const queueIdx = this.pendingQueue.findIndex(t => t.id === taskId);
 
-    if (queueIdx === -1 && !fileExists) {
-      throw new Error(`Task ${taskId} not found in running or pending`);
+      if (queueIdx === -1 && !fileExists) {
+        throw new Error(`Task ${taskId} not found in running or pending`);
+      }
+
+      let task: SubAgentTask | ToolTask | undefined =
+        queueIdx !== -1 ? this.pendingQueue[queueIdx] : undefined;
+      if (queueIdx !== -1) this.pendingQueue.splice(queueIdx, 1);
+
+      // 若仅文件存在（未入队或已 shift），尝试从盘读出以决定是否 sendFallbackError
+      if (!task && fileExists) {
+        try {
+          task = JSON.parse(
+            await this.fs.read(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`),
+          ) as SubAgentTask | ToolTask;
+        } catch { /* 无 task 仍可移文件 */ }
+      }
+
+      // 文件：pending → failed
+      if (fileExists) {
+        await this.fs.move(
+          `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
+          `${TASKS_QUEUES_FAILED_DIR}/${taskId}.json`
+        ).catch((e) => {
+          this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=cancel_pending_move', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
+        });
+      }
+
+      // tool 任务：通知 parent
+      if (task?.kind === 'tool') {
+        await sendFallbackError(this.fs, this.auditWriter, task, 'Task cancelled before execution').catch((e) => {
+          this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=cancel_sendFallbackError', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
+        });
+      }
+
+      this.auditWriter?.write(TASK_AUDIT_EVENTS.CANCELLED, taskId, 'from=pending');
+    } finally {
+      this.cancellingIds.delete(taskId);
     }
-
-    let task: SubAgentTask | ToolTask | undefined =
-      queueIdx !== -1 ? this.pendingQueue[queueIdx] : undefined;
-    if (queueIdx !== -1) this.pendingQueue.splice(queueIdx, 1);
-
-    // 若仅文件存在（未入队或已 shift），尝试从盘读出以决定是否 sendFallbackError
-    if (!task && fileExists) {
-      try {
-        task = JSON.parse(
-          await this.fs.read(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`),
-        ) as SubAgentTask | ToolTask;
-      } catch { /* 无 task 仍可移文件 */ }
-    }
-
-    // 文件：pending → failed
-    if (fileExists) {
-      await this.fs.move(
-        `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
-        `${TASKS_QUEUES_FAILED_DIR}/${taskId}.json`
-      ).catch((e) => {
-        this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=cancel_pending_move', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
-      });
-    }
-
-    // tool 任务：通知 parent
-    if (task?.kind === 'tool') {
-      await sendFallbackError(this.fs, this.auditWriter, task, 'Task cancelled before execution').catch((e) => {
-        this.auditWriter?.write(TASK_AUDIT_EVENTS.MOVE_FAILED, taskId, 'context=cancel_sendFallbackError', `error=${e instanceof Error ? e.message : JSON.stringify(e)}`);
-      });
-    }
-
-    this.auditWriter?.write(TASK_AUDIT_EVENTS.CANCELLED, taskId, 'from=pending');
-    return;
   }
 
   /**
@@ -487,7 +494,7 @@ export class AsyncTaskSystem {
       clawId: task.parentClawId,
       clawDir: task.parentClawDir,
       workspaceDir: path.join(task.parentClawDir, 'clawspace'),
-      syncDir: path.join(task.parentClawDir, 'tasks', 'sync'),
+      syncDir: path.join(task.parentClawDir, TASKS_SYNC_DIR),
       callerType: task.callerType ?? 'claw',
       fs: this.fs,
       profile: 'full',

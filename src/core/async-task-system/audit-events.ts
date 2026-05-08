@@ -12,6 +12,7 @@ export const TASK_AUDIT_EVENTS = {
   RECOVERED: 'task_recovered',
   RECOVERY_COMPLETE: 'task_recovery_complete',
   RECOVERY_FAILED: 'task_recovery_failed',
+  RECOVERY_DEAD_LETTER: 'task_recovery_dead_letter',
   START_FAILED: 'task_start_failed',
   STREAM_FAILED: 'task_stream_failed',
   HANDLER_FAILED: 'task_handler_failed',
