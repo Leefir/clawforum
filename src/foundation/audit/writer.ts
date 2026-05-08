@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { FileNotFoundError } from '../../types/errors.js';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from './index.js';
@@ -20,7 +21,7 @@ export class AuditWriter implements AuditLog {
 
   write(type: string, ...cols: (string | number)[]): void {
     const ts = new Date().toISOString();
-    const parts = [ts, type, ...cols.map(c => esc(String(c)))];
+    const parts = [esc(ts), esc(type), ...cols.map(c => esc(String(c)))];
     const line = parts.join('\t') + '\n';
     try {
       if (this.maxBytes) this.rotateIfNeeded();
@@ -35,7 +36,7 @@ export class AuditWriter implements AuditLog {
     try {
       const stats = this.fs.statSync(this.filePath);
       if (stats.size >= this.maxBytes!) {
-        this.fs.moveSync(this.filePath, `${this.filePath}.${Date.now()}.bak`);
+        this.fs.moveSync(this.filePath, `${this.filePath}.${randomUUID().slice(0, 8)}.bak`);
       }
     } catch (err) {
       // FileNotFoundError（首次写入文件不存在）静默跳过；其他错误 warn
@@ -48,5 +49,10 @@ export class AuditWriter implements AuditLog {
 }
 
 function esc(s: string): string {
-  return s.replace(/\t/g, '\\t').replace(/\n/g, '\\n');
+  return s
+    .replace(/\\/g, '\\\\')   // \\ 先转（防后续替换产生的 \\ 被二次转义）
+    .replace(/\t/g, '\\t')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\0/g, '\\0');
 }

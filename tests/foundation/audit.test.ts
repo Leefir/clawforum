@@ -53,7 +53,7 @@ describe('AuditWriter', () => {
 
     // Original should have been rotated to a .bak file
     const files = fs.readdirSync(tmpDir);
-    expect(files.some(f => f.match(/audit\.tsv\.\d+\.bak/))).toBe(true);
+    expect(files.some(f => f.match(/audit\.tsv\.[0-9a-f]{8}\.bak/))).toBe(true);
 
     // New audit.tsv should contain only the new write
     const newContent = fs.readFileSync(auditPath, 'utf-8');
@@ -141,5 +141,97 @@ describe('AuditWriter', () => {
     expect(content).toContain('second');
     expect(content).toContain('b');
     expect(content).not.toContain('first'); // first failed, not persisted
+  });
+
+  it('escapes backslash first to prevent ambiguity', () => {
+    const writer = new AuditWriter(nodeFs, 'audit.tsv');
+    writer.write('backslash_test', 'a\\tb');
+
+    const content = fs.readFileSync(path.join(tmpDir, 'audit.tsv'), 'utf-8');
+    // backslash 先转，所以 \\t 应该变成 \\\\\\t，而非 \\\\t
+    expect(content).toContain('a\\\\tb');
+    // 确保没有歧义：不是 a\\t（看起来像转义后的 tab）
+    const parts = content.trim().split('\t');
+    expect(parts[parts.length - 1]).toBe('a\\\\tb');
+  });
+
+  it('escapes CR in cols', () => {
+    const writer = new AuditWriter(nodeFs, 'audit.tsv');
+    writer.write('cr_test', 'a\rb');
+
+    const content = fs.readFileSync(path.join(tmpDir, 'audit.tsv'), 'utf-8');
+    expect(content).toContain('a\\rb');
+  });
+
+  it('escapes NUL in cols', () => {
+    const writer = new AuditWriter(nodeFs, 'audit.tsv');
+    writer.write('nul_test', 'a\0b');
+
+    const content = fs.readFileSync(path.join(tmpDir, 'audit.tsv'), 'utf-8');
+    expect(content).toContain('a\\0b');
+  });
+
+  it('escapes ts and type columns', () => {
+    const writer = new AuditWriter(nodeFs, 'audit.tsv');
+    // type 含 \t，如果不过 esc，TSV 会被拆成额外列
+    writer.write('type\twith\ttabs', 'col1');
+
+    const content = fs.readFileSync(path.join(tmpDir, 'audit.tsv'), 'utf-8');
+    const parts = content.trim().split('\t');
+    // ts, escaped-type, col1 = 3 列
+    expect(parts.length).toBe(3);
+    expect(parts[1]).toBe('type\\twith\\ttabs');
+  });
+
+  it('rotation uses UUID suffix not Date.now', () => {
+    const auditPath = path.join(tmpDir, 'audit.tsv');
+    fs.writeFileSync(auditPath, 'x'.repeat(20));
+
+    const writer = new AuditWriter(nodeFs, 'audit.tsv', 0.000001);
+    writer.write('rotate_event');
+
+    const files = fs.readdirSync(tmpDir);
+    const bakFiles = files.filter(f => f.match(/audit\.tsv\.[0-9a-f]{8}\.bak/));
+    expect(bakFiles.length).toBe(1);
+    // Date.now() 产生 13 位数字，不应匹配
+    expect(bakFiles[0]).not.toMatch(/audit\.tsv\.\d{13}\.bak/);
+  });
+
+  it('rotation filenames are unique', () => {
+    const auditPath = path.join(tmpDir, 'audit.tsv');
+    fs.writeFileSync(auditPath, 'x'.repeat(20));
+
+    const writer = new AuditWriter(nodeFs, 'audit.tsv', 0.000001);
+    writer.write('rotate1'); // first rotation
+
+    // Pre-seed new audit.tsv for second rotation
+    fs.writeFileSync(auditPath, 'y'.repeat(20));
+    writer.write('rotate2'); // second rotation
+
+    const files = fs.readdirSync(tmpDir);
+    const bakFiles = files.filter(f => f.endsWith('.bak'));
+    expect(bakFiles.length).toBe(2);
+    expect(bakFiles[0]).not.toBe(bakFiles[1]);
+  });
+
+  it('payload with CRLF produces single TSV row', () => {
+    const writer = new AuditWriter(nodeFs, 'audit.tsv');
+    writer.write('crlf_test', 'line1\r\nline2');
+
+    const content = fs.readFileSync(path.join(tmpDir, 'audit.tsv'), 'utf-8');
+    // 文件应只有一行（以 \n 结尾）
+    const lines = content.split('\n').filter(l => l.length > 0);
+    expect(lines.length).toBe(1);
+    // \r 和 \n 都被转义
+    expect(lines[0]).toContain('line1\\r\\nline2');
+  });
+
+  it('no regression on existing tab and newline escaping', () => {
+    const writer = new AuditWriter(nodeFs, 'audit.tsv');
+    writer.write('regression_test', 'a\tb', 'c\nd');
+
+    const content = fs.readFileSync(path.join(tmpDir, 'audit.tsv'), 'utf-8');
+    expect(content).toContain('a\\tb');
+    expect(content).toContain('c\\nd');
   });
 });
