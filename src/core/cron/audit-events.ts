@@ -14,4 +14,5 @@ export const CRON_AUDIT_EVENTS = {
   DISK_MONITOR_THRESHOLD_EXCEEDED: 'cron_disk_monitor_threshold_exceeded',
   PARSE_FALLBACK: 'cron_parse_fallback',
   JOB_ERROR: 'cron_job_error',
+  HANDLER_TIMEOUT: 'cron_handler_timeout',
 } as const;
