@@ -1,7 +1,7 @@
 import path from 'path';
 import * as fsNative from 'fs';
 
-import { createAuditWriter, type AuditLog } from '../foundation/audit/index.js';
+import { createAuditWriter, createSystemAudit, type AuditLog } from '../foundation/audit/index.js';
 import { SNAPSHOT_IGNORE_PATTERNS, createSnapshot } from '../foundation/snapshot/index.js';
 import type { Snapshot } from '../foundation/snapshot/index.js';
 import { createStreamWriter } from '../foundation/stream/index.js';
@@ -36,7 +36,7 @@ import { createCommandTools } from '../foundation/command-tool/index.js';
 import { createClawPermissionChecker } from '../core/permissions/claw-permissions.js';
 import { spawnTool } from '../core/async-task-system/tools/spawn.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
-import { createInboxReader, createOutboxWriter, notifyInbox } from '../foundation/messaging/index.js';
+import { createInboxReader, createOutboxWriter, notifyInbox, InboxWriter } from '../foundation/messaging/index.js';
 import { createDoneTool } from '../core/contract/index.js';
 import { createStatusTool } from '../core/status-service/index.js';
 import { createSkillTool } from '../foundation/skill-system/tools/skill.js';
@@ -543,6 +543,14 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       toolRegistry.register(memorySearchTool);
     }
 
+    // phase 542：cron jobs deps 装配方预 build（避免 handler 内 runtime instantiate）
+    const motionInboxAuditPath = path.join(motionInboxDir, '..', '..', 'audit.tsv');
+    const diskMonitorMotionAudit = createAuditWriter(clawforumFs, motionInboxAuditPath);
+    const diskMonitorInbox = new InboxWriter(clawforumFs, motionInboxDir, diskMonitorMotionAudit);
+
+    // contract-observer 用 system audit on motion/audit.tsv (per phase 542 design align contract-observer.ts 现行行为)
+    const contractObserverMotionAudit = createSystemAudit(clawforumFs, path.join(clawforumDir, 'motion'));
+
     try {
       cronRunner = createCronRunner([
         {
@@ -555,6 +563,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             limitMB: diskLimitMB,
             fs: clawforumFs,
             audit: auditWriter,
+            motionAudit: diskMonitorMotionAudit,
+            motionInbox: diskMonitorInbox,
           }),
         },
         {
@@ -585,6 +595,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           handler: () => runContractObserver({
             clawforumDir,
             motionInboxDir,
+            fs: clawforumFs,
+            motionAudit: contractObserverMotionAudit,
+            notifyInbox: (payload, audit) => notifyInbox(clawforumFs, payload, audit),
           }),
         },
       ], auditWriter);

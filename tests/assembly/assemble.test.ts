@@ -49,6 +49,7 @@ function trackCtor(name: string, factory: () => any) {
 // ============================================================================
 vi.mock('../../src/foundation/audit/writer.js', () => ({
   AuditWriter: vi.fn(() => ({ write: mockAuditWrite })),
+  AUDIT_FILE: 'audit.tsv',
 }));
 
 vi.mock('../../src/foundation/snapshot/index.js', () => ({

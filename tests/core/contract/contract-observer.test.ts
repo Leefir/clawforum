@@ -1,0 +1,100 @@
+import { describe, it, expect, vi } from 'vitest';
+import { runContractObserver } from '../../../src/core/contract/jobs/contract-observer.js';
+import type { FileSystem } from '../../../src/foundation/fs/types.js';
+import type { AuditLog } from '../../../src/foundation/audit/index.js';
+
+function makeFsMock(scenario: 'empty' | 'completed' | 'escalated'): FileSystem {
+  const now = Date.now();
+  const oldTs = now - 86400000;
+  const files = new Map<string, string>();
+
+  if (scenario === 'completed') {
+    files.set('/tmp/test/claws/claw1/contract/archive/contract-a/progress.json', JSON.stringify({
+      status: 'completed',
+      subtasks: {
+        st1: { completed_at: new Date(now).toISOString() },
+      },
+    }));
+  } else if (scenario === 'escalated') {
+    files.set('/tmp/test/claws/claw1/contract/active/contract-b/progress.json', JSON.stringify({
+      status: 'active',
+      subtasks: {
+        st1: { escalated_at: new Date(now).toISOString(), retry_count: 2 },
+      },
+    }));
+  }
+
+  const dirs = new Map<string, { name: string; isDirectory: boolean; size: number }[]>();
+  if (scenario === 'completed') {
+    dirs.set('/tmp/test/claws', [{ name: 'claw1', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1', [{ name: 'contract', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1/contract', [{ name: 'archive', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1/contract/archive', [{ name: 'contract-a', isDirectory: true, size: 0 }]);
+  } else if (scenario === 'escalated') {
+    dirs.set('/tmp/test/claws', [{ name: 'claw1', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1', [{ name: 'contract', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1/contract', [{ name: 'active', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1/contract/active', [{ name: 'contract-b', isDirectory: true, size: 0 }]);
+  } else {
+    dirs.set('/tmp/test/claws', [{ name: 'claw1', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1', [{ name: 'contract', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1/contract', [{ name: 'archive', isDirectory: true, size: 0 }]);
+    dirs.set('/tmp/test/claws/claw1/contract/archive', []);
+  }
+
+  return {
+    existsSync: (p: string) => dirs.has(p) || files.has(p),
+    listSync: (p: string) => dirs.get(p) ?? [],
+    readSync: (p: string) => {
+      if (files.has(p)) return files.get(p)!;
+      throw new Error('ENOENT');
+    },
+    ensureDirSync: () => {},
+    writeAtomicSync: () => {},
+  } as unknown as FileSystem;
+}
+
+function makeAuditMock(): AuditLog {
+  return { write: vi.fn() };
+}
+
+function makeOpts(overrides: Partial<{
+  fs: FileSystem;
+  motionAudit: AuditLog;
+  notifyInbox: ReturnType<typeof vi.fn>;
+}> = {}) {
+  return {
+    clawforumDir: '/tmp/test',
+    motionInboxDir: '/tmp/test/motion/inbox/pending',
+    fs: makeFsMock('empty'),
+    motionAudit: makeAuditMock(),
+    notifyInbox: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe('Phase 542 — contract-observer deps 装配方注入', () => {
+  it('completed contract events → notifyInbox called', async () => {
+    const opts = makeOpts({ fs: makeFsMock('completed') });
+    await runContractObserver(opts);
+    expect(opts.notifyInbox).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'contract_events' }),
+      opts.motionAudit
+    );
+  });
+
+  it('escalated contract events → notifyInbox called', async () => {
+    const opts = makeOpts({ fs: makeFsMock('escalated') });
+    await runContractObserver(opts);
+    expect(opts.notifyInbox).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'contract_events' }),
+      opts.motionAudit
+    );
+  });
+
+  it('no events → notifyInbox NOT called', async () => {
+    const opts = makeOpts({ fs: makeFsMock('empty') });
+    await runContractObserver(opts);
+    expect(opts.notifyInbox).not.toHaveBeenCalled();
+  });
+});

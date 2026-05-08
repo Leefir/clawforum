@@ -2,8 +2,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
-import { InboxWriter } from '../../../foundation/messaging/index.js';
-import { createAuditWriter } from '../../../foundation/audit/index.js';
+import type { InboxWriter } from '../../../foundation/messaging/index.js';
 import { CLAWSPACE_DIR } from '../../../types/paths.js';
 
 /** 递归计算目录大小（bytes） */
@@ -25,6 +24,8 @@ export interface DiskMonitorOptions {
   limitMB: number;        // 告警阈值
   fs: FileSystem;
   audit: AuditLog;
+  motionAudit: AuditLog;   // motion-side audit (装配方预 build)
+  motionInbox: InboxWriter; // motion inbox writer (装配方预 build)
 }
 
 export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
@@ -46,8 +47,7 @@ export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
   if (totalMB > opts.limitMB) {
     opts.audit.write(CRON_AUDIT_EVENTS.DISK_MONITOR_THRESHOLD_EXCEEDED, `totalMB=${totalMB}`, `limitMB=${opts.limitMB}`);
     console.warn(`[cron:disk-monitor] WARNING: usage ${totalMB}MB > limit ${opts.limitMB}MB`);
-    const motionAudit = createAuditWriter(opts.fs, path.join(opts.motionInboxDir, '..', '..', 'audit.tsv'));
-    new InboxWriter(opts.fs, opts.motionInboxDir, motionAudit).writeSync({
+    opts.motionInbox.writeSync({
       type: 'cron_disk_warning',
       source: 'cron',
       priority: 'high',
