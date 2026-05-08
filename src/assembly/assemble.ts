@@ -566,6 +566,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             motionAudit: diskMonitorMotionAudit,
             motionInbox: diskMonitorInbox,
           }),
+          timeoutMs: 60_000,
         },
         {
           name: 'llm-stats',
@@ -578,6 +579,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             motionFs: systemFs,
             audit: auditWriter,
           }),
+          timeoutMs: 60_000,
         },
         {
           name: 'dream-trigger',
@@ -587,6 +589,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             await memorySystem!.runDeepDream();
             await memorySystem!.runRandomDream();
           },
+          timeoutMs: 30 * 60_000,
         },
         {
           name: 'contract-observer',
@@ -599,6 +602,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             motionAudit: contractObserverMotionAudit,
             notifyInbox: (payload, audit) => notifyInbox(clawforumFs, payload, audit),
           }),
+          timeoutMs: 5 * 60_000,
         },
       ], auditWriter);
     } catch (e) {

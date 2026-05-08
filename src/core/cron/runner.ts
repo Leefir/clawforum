@@ -31,6 +31,8 @@ export interface CronJob {
   enabled: boolean;
   schedule: CronSchedule;
   handler: () => Promise<void>;
+  /** Per-job timeout: handler 超过此值后 audit + 强制清 running 让下 tick 重试 / undefined 不包 race / 兼容旧 jobs */
+  timeoutMs?: number;
 }
 
 export class CronRunner {
@@ -68,16 +70,59 @@ export class CronRunner {
       if (this.lastRunKey.get(job.name) === key) continue;
       this.lastRunKey.set(job.name, key);
       this.running.add(job.name);
-      job.handler()
-        .catch(err => {
-          this.audit.write(CRON_AUDIT_EVENTS.JOB_ERROR,
+
+      const handlerPromise = job.handler();
+
+      if (job.timeoutMs === undefined) {
+        // 无 timeout 配置：保持原行为（兼容旧 job）
+        handlerPromise
+          .catch(err => {
+            this.audit.write(CRON_AUDIT_EVENTS.JOB_ERROR,
+              `job=${job.name}`,
+              `run_key=${key}`,
+              `err=${err instanceof Error ? err.message : String(err)}`,
+            );
+            console.error(`[cron] ${job.name} error:`, err);
+          })
+          .finally(() => this.running.delete(job.name));
+        continue;
+      }
+
+      // 有 timeout 配置：Promise.race + 强制清 running
+      let timedOut = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          this.audit.write(CRON_AUDIT_EVENTS.HANDLER_TIMEOUT,
             `job=${job.name}`,
             `run_key=${key}`,
-            `err=${err instanceof Error ? err.message : String(err)}`,
+            `ms=${job.timeoutMs}`,
           );
-          console.error(`[cron] ${job.name} error:`, err);
-        })
-        .finally(() => this.running.delete(job.name));
+          // timeout 时强制清 running / 让下 tick 自然重试（D1c 中断可恢复 + handler 幂等假设）
+          this.running.delete(job.name);
+          resolve();
+        }, job.timeoutMs);
+      });
+
+      Promise.race([
+        handlerPromise.then(() => 'settled' as const, err => ({ err })),
+        timeoutPromise.then(() => 'timeout' as const),
+      ])
+        .then(result => {
+          if (timer !== undefined) clearTimeout(timer);
+          if (result === 'timeout') return; // running 已在 timeout 内清 / handler 仍跑（异步泄漏可接受 / 见 R2）
+          if (typeof result === 'object' && 'err' in result) {
+            this.audit.write(CRON_AUDIT_EVENTS.JOB_ERROR,
+              `job=${job.name}`,
+              `run_key=${key}`,
+              `err=${result.err instanceof Error ? result.err.message : String(result.err)}`,
+            );
+            console.error(`[cron] ${job.name} error:`, result.err);
+          }
+          // settled 或 err 路径：仅在未 timeout 时清 running
+          if (!timedOut) this.running.delete(job.name);
+        });
     }
   }
 
