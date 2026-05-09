@@ -86,6 +86,110 @@ describe('runDeepDream', () => {
       await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
     });
 
+    // ── Dream State I/O 错误处理（phase 561）────────────────────
+
+    describe('Dream State I/O 错误处理（phase 561）', () => {
+      it('loadDreamState parse 错时 audit DEEP_DREAM_ERROR step=load_state 并返空（A.dream-state-io-silent）', async () => {
+        // 写损坏的 state 文件
+        await fs.writeFile(path.join(clawDir, '.deep-dream-state.json'), 'corrupted{', 'utf-8');
+        const session = makeSessionJson([
+          { role: 'user', content: 'hello' },
+          { role: 'assistant', content: 'world' },
+        ]);
+        const filename = `1000000000000_abcd1234.json`;
+        await fs.writeFile(path.join(archiveDir, filename), session, 'utf-8');
+
+        mockLlmCall
+          .mockResolvedValueOnce(makeTextResponse('dream'))
+          .mockResolvedValueOnce(makeTextResponse('compressed'));
+
+        await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit });
+
+        // audit 记录了 load_state 错误
+        expect(mockAudit.write).toHaveBeenCalledWith(
+          'cron_deep_dream_error',
+          'step=load_state',
+          expect.stringMatching(/^clawId=/),
+          expect.stringMatching(/^reason=.*corrupted/),
+        );
+
+        // state 被重置后流程继续，archive 被处理
+        const statePath = path.join(clawDir, '.deep-dream-state.json');
+        const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
+        expect(state.processedArchives).toContain(filename);
+      });
+
+      it('loadDreamState FileNotFoundError 时 silent 返空（首启良性）', async () => {
+        const session = makeSessionJson([
+          { role: 'user', content: 'hello' },
+          { role: 'assistant', content: 'world' },
+        ]);
+        const filename = `1000000000001_abcd1234.json`;
+        await fs.writeFile(path.join(archiveDir, filename), session, 'utf-8');
+
+        mockLlmCall
+          .mockResolvedValueOnce(makeTextResponse('dream'))
+          .mockResolvedValueOnce(makeTextResponse('compressed'));
+
+        await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit });
+
+        // audit 没有记录 load_state 错误
+        expect(mockAudit.write).not.toHaveBeenCalledWith(
+          'cron_deep_dream_error',
+          'step=load_state',
+          expect.anything(),
+          expect.anything(),
+        );
+
+        // 流程正常完成
+        const statePath = path.join(clawDir, '.deep-dream-state.json');
+        const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
+        expect(state.processedArchives).toContain(filename);
+      });
+
+      it('saveDreamState writeAtomicSync 失败时 audit step=save_state 并 re-throw（A.dream-state-io-silent）', async () => {
+        const session = makeSessionJson([
+          { role: 'user', content: 'hello' },
+          { role: 'assistant', content: 'world' },
+        ]);
+        const filename = `1000000000002_abcd1234.json`;
+        await fs.writeFile(path.join(archiveDir, filename), session, 'utf-8');
+
+        mockLlmCall
+          .mockResolvedValueOnce(makeTextResponse('dream'))
+          .mockResolvedValueOnce(makeTextResponse('compressed'));
+
+        const originalWriteAtomicSync = NodeFileSystem.prototype.writeAtomicSync;
+        const writeSpy = vi.spyOn(NodeFileSystem.prototype, 'writeAtomicSync').mockImplementation(function (this: NodeFileSystem, p: string, content: string) {
+          if (p === '.deep-dream-state.json') {
+            throw Object.assign(new Error('EIO: i/o error'), { code: 'EIO' });
+          }
+          return originalWriteAtomicSync.call(this, p, content);
+        });
+
+        // 外层 catch 吞掉错误，runDeepDream resolves
+        await expect(runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit })).resolves.toBeUndefined();
+
+        // audit 记录了 save_state 错误
+        expect(mockAudit.write).toHaveBeenCalledWith(
+          'cron_deep_dream_error',
+          'step=save_state',
+          expect.stringMatching(/^clawId=/),
+          expect.stringMatching(/^reason=.*EIO/),
+        );
+
+        // outer catch 也记录了 unexpected
+        expect(mockAudit.write).toHaveBeenCalledWith(
+          'cron_deep_dream_error',
+          'step=unexpected',
+          expect.stringMatching(/^clawId=/),
+          expect.stringMatching(/^reason=.*EIO/),
+        );
+
+        writeSpy.mockRestore();
+      });
+    });
+
     it('无 session 文件时不调用 LLM', async () => {
       await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit });
       expect(mockLlmCall).not.toHaveBeenCalled();

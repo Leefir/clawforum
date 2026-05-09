@@ -66,11 +66,18 @@ export class UnixDomainSocketTransport implements Transport {
       });
       probe.once('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
-          fs.unlink(this.socketPath!)
-            .catch((err) => {
-              console.error(`[transport] failed to unlink stale socket ${this.socketPath}:`, err);
-            })
-            .then(() => resolve());
+          fs.unlink(this.socketPath!).then(
+            () => resolve(),
+            (unlinkErr: NodeJS.ErrnoException) => {
+              // ENOENT 例外 silent：文件已不在 = race 良性
+              if (unlinkErr.code === 'ENOENT') {
+                resolve();
+                return;
+              }
+              // 其他 IO 错 reject 透传 reason / caller 通过 listen() reject 链路 audit STARTUP_FAILED
+              reject(new Error(`unlink stale socket ${this.socketPath} failed: ${unlinkErr.message}`));
+            },
+          );
         } else {
           reject(err);
         }

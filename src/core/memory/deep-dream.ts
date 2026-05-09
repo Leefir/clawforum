@@ -70,16 +70,35 @@ function estimateTokens(text: string): number {
 
 const DEEP_DREAM_STATE_FILE = '.deep-dream-state.json';
 
-function loadDreamState(clawFs: FileSystem): DreamStateData {
+function loadDreamState(clawFs: FileSystem, audit: AuditLog, clawId: string): DreamStateData {
   try {
     return JSON.parse(clawFs.readSync(DEEP_DREAM_STATE_FILE)) as DreamStateData;
-  } catch {
+  } catch (err) {
+    // FileNotFoundError 首启良性 / silent
+    if (err instanceof Error && err.name === 'FileNotFoundError') {
+      return { processedArchives: [], currentSessionDreamedDate: '' };
+    }
+    // 其他 IO 错（parse 损坏 / 权限 / 等）必 audit + 返空 resilient
+    audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR,
+      `step=load_state`,
+      `clawId=${clawId}`,
+      `reason=${err instanceof Error ? err.message : String(err)}`,
+    );
     return { processedArchives: [], currentSessionDreamedDate: '' };
   }
 }
 
-function saveDreamState(clawFs: FileSystem, state: DreamStateData): void {
-  clawFs.writeAtomicSync(DEEP_DREAM_STATE_FILE, JSON.stringify(state, null, 2));
+function saveDreamState(clawFs: FileSystem, state: DreamStateData, audit: AuditLog, clawId: string): void {
+  try {
+    clawFs.writeAtomicSync(DEEP_DREAM_STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (err) {
+    audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR,
+      `step=save_state`,
+      `clawId=${clawId}`,
+      `reason=${err instanceof Error ? err.message : String(err)}`,
+    );
+    throw err;   // re-throw 保 caller 既有外层 catch 行为
+  }
 }
 
 // ─── 文件发现 ─────────────────────────────────────────────────
@@ -152,7 +171,7 @@ async function runDeepDreamForClaw(
   audit: AuditLog,
 ): Promise<void> {
   const today = new Date().toLocaleDateString('sv');   // ← 统一在此计算
-  const state = loadDreamState(clawFs);
+  const state = loadDreamState(clawFs, audit, clawId);
   const sessionFiles = discoverUnprocessed(clawFs, state, today);  // ← 传入 today
 
   if (sessionFiles.length === 0) {
@@ -236,7 +255,7 @@ async function runDeepDreamForClaw(
         ? today
         : state.currentSessionDreamedDate,
     };
-    saveDreamState(clawFs, updatedState);
+    saveDreamState(clawFs, updatedState, audit, clawId);
   }
 
   if (dreamOutputs.length === 0) return;
