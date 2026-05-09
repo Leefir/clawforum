@@ -920,7 +920,7 @@ describe('ContractSystem', () => {
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
 
       expect(moveSpy).toHaveBeenCalledWith(contractId);
-      expect(mockAudit.write).toHaveBeenCalledWith('contract_completed', contractId, 'title=Test', expect.stringContaining('claw='));
+      expect(mockAudit.write).toHaveBeenCalledWith(CONTRACT_AUDIT_EVENTS.COMPLETED, contractId, 'title=Test', expect.stringContaining('claw='));
 
       moveSpy.mockRestore();
     });
@@ -1482,7 +1482,7 @@ describe('ContractSystem', () => {
       expect(progress.subtasks['t1'].escalated_at).toBeDefined();
 
       const escalationCalls = mockAudit.write.mock.calls.filter(
-        (c: any[]) => c[0] === 'contract_escalation'
+        (c: any[]) => c[0] === CONTRACT_AUDIT_EVENTS.ESCALATED
       );
       expect(escalationCalls.length).toBeGreaterThan(0);
       expect(escalationCalls[0][1]).toContain(`${contractId}/t1`);

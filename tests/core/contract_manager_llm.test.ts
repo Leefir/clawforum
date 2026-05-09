@@ -672,7 +672,7 @@ describe('ContractSystem Acceptance Flow', () => {
 
       // auditWriter 应收到 acceptance_timeout 日志
       const auditWriter = (manager as any).audit;
-      const timeoutCalls = auditWriter.write.mock.calls.filter((c: any[]) => c[0] === 'acceptance_timeout');
+      const timeoutCalls = auditWriter.write.mock.calls.filter((c: any[]) => c[0] === CONTRACT_AUDIT_EVENTS.ACCEPTANCE_TIMEOUT);
       expect(timeoutCalls).toHaveLength(1);
       expect(timeoutCalls[0][1]).toContain('task-1');
     });
@@ -717,14 +717,14 @@ describe('ContractSystem Acceptance Flow', () => {
       // Escalation audit is written after inbox, so wait for the audit call
       const deadline = Date.now() + 5000;
       while (Date.now() < deadline) {
-        if (auditWriter.write.mock.calls.some((c: any[]) => c[0] === 'contract_escalation')) break;
+        if (auditWriter.write.mock.calls.some((c: any[]) => c[0] === CONTRACT_AUDIT_EVENTS.ESCALATED)) break;
         await new Promise(r => setTimeout(r, 10));
       }
 
       const progress = JSON.parse(await fs.readFile(progressPath, 'utf-8'));
       expect(progress.subtasks['task-1'].retry_count).toBe(2);
 
-      const escalationCalls = auditWriter.write.mock.calls.filter((c: any[]) => c[0] === 'contract_escalation');
+      const escalationCalls = auditWriter.write.mock.calls.filter((c: any[]) => c[0] === CONTRACT_AUDIT_EVENTS.ESCALATED);
       expect(escalationCalls.length).toBeGreaterThan(0);
       expect(escalationCalls[0][1]).toContain('task-1');
     });
@@ -770,6 +770,7 @@ describe('ContractSystem Acceptance Flow', () => {
         const auditWriter = (manager as any).audit;
         expect(auditWriter.write).toHaveBeenCalledWith(
           CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED,
+          expect.stringContaining('context=ContractSystem._writeAcceptanceError'),
           expect.stringContaining('inbox full'),
         );
       } finally {
@@ -787,6 +788,7 @@ describe('ContractSystem Acceptance Flow', () => {
         const auditWriter = (manager as any).audit;
         expect(auditWriter.write).toHaveBeenCalledWith(
           CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED,
+          expect.stringContaining('context=ContractSystem._writeAcceptanceError.resetStatus'),
           expect.stringContaining('lock busy'),
         );
       } finally {

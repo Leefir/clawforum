@@ -29,6 +29,11 @@ export const CONTRACT_AUDIT_EVENTS = {
   COMPLETED: 'contract_completed',
   PAUSED: 'contract_paused',
   RESUMED: 'contract_resumed',
+  // phase 569 const 化（acceptance.ts 7 处字面量收）
+  SUBTASK_COMPLETED: 'subtask_completed',
+  ACCEPTANCE_FAILED: 'acceptance_failed',
+  ESCALATED: 'contract_escalation',
+  ACCEPTANCE_TIMEOUT: 'acceptance_timeout',
   // phase350: A.8 observer 错误暴露
   OBSERVER_EVENT_FAILED: 'contract_observer_event_failed',
   CONTRACT_COMPLETED_HANDLER_FAILED: 'contract_completed_handler_failed',

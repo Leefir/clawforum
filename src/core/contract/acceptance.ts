@@ -98,13 +98,14 @@ export async function completeSubtaskSync(
     } catch (err) {
       ctx.audit.write(
         CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+        `notify_type=subtask_completed`,
         `err=${err instanceof Error ? err.message : String(err)}`,
       );
     }
     const subtaskTotal = contractYaml.subtasks.length;
     const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
     ctx.audit.write(
-      'subtask_completed',
+      CONTRACT_AUDIT_EVENTS.SUBTASK_COMPLETED,
       `${contractId}/${subtaskId}`,
       `progress=${completedCount}/${subtaskTotal}`,
       `claw=${ctx.clawId}`,
@@ -125,7 +126,7 @@ export async function completeSubtaskSync(
     try {
       await ctx.moveContractToArchive(contractId);
       ctx.audit.write(
-        'contract_completed',
+        CONTRACT_AUDIT_EVENTS.COMPLETED,
         contractId,
         `title=${title}`,
         `claw=${ctx.clawId}`,
@@ -253,13 +254,14 @@ export async function runAcceptanceInBackground(
       } catch (err) {
         ctx.audit.write(
           CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+          `notify_type=subtask_completed`,
           `err=${err instanceof Error ? err.message : String(err)}`,
         );
       }
       const subtaskTotal = contractYaml.subtasks.length;
       const completedCount = Object.values(progress.subtasks).filter(s => s.status === 'completed').length;
       ctx.audit.write(
-        'subtask_completed',
+        CONTRACT_AUDIT_EVENTS.SUBTASK_COMPLETED,
         `${contractId}/${subtaskId}`,
         `progress=${completedCount}/${subtaskTotal}`,
         `claw=${ctx.clawId}`,
@@ -278,7 +280,7 @@ export async function runAcceptanceInBackground(
         try {
           await ctx.moveContractToArchive(contractId);
           ctx.audit.write(
-            'contract_completed',
+            CONTRACT_AUDIT_EVENTS.COMPLETED,
             contractId,
             `title=${contractYaml.title}`,
             `claw=${ctx.clawId}`,
@@ -312,11 +314,12 @@ export async function runAcceptanceInBackground(
       } catch (err) {
         ctx.audit.write(
           CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+          `notify_type=acceptance_failed`,
           `err=${err instanceof Error ? err.message : String(err)}`,
         );
       }
       ctx.audit.write(
-        'acceptance_failed',
+        CONTRACT_AUDIT_EVENTS.ACCEPTANCE_FAILED,
         `${contractId}/${subtaskId}`,
         `feedback=${result.feedback}`,
       );
@@ -343,7 +346,7 @@ export async function runAcceptanceInBackground(
         subtask.escalated_at = new Date().toISOString();
         await ctx.saveProgress(contractId, progress);
         ctx.audit.write(
-          'contract_escalation',
+          CONTRACT_AUDIT_EVENTS.ESCALATED,
           `${contractId}/${subtaskId}`,
           `retry_count=${subtask.retry_count}`,
           `claw=${ctx.clawId}`,
@@ -423,7 +426,7 @@ export async function runLLMAcceptance(
       idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
       onIdleTimeout: () => {
         ctx.audit.write(
-          'acceptance_timeout',
+          CONTRACT_AUDIT_EVENTS.ACCEPTANCE_TIMEOUT,
           `${contractId}/${subtaskId}`,
           `claw=${ctx.clawId}`,
         );
@@ -516,9 +519,9 @@ export async function writeAcceptanceError(
   } catch (e) {
     ctx.audit.write(
       CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED,
-      `err=${e instanceof Error ? e.message : String(e)}`,
+      'context=ContractSystem._writeAcceptanceError',
+      `error=${e instanceof Error ? e.message : String(e)}`,
     );
-    ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_INBOX_FAILED, `context=${'ContractSystem._writeAcceptanceError'}`, `error=${e instanceof Error ? e.message : String(e)}`);
   }
 
   try {
@@ -545,6 +548,7 @@ export async function writeAcceptanceError(
         } catch (notifyErr) {
           ctx.audit.write(
             CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
+            `notify_type=acceptance_failed`,
             `err=${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
           );
         }
@@ -553,9 +557,9 @@ export async function writeAcceptanceError(
   } catch (e) {
     ctx.audit.write(
       CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED,
-      `err=${e instanceof Error ? e.message : String(e)}`,
+      'context=ContractSystem._writeAcceptanceError.resetStatus',
+      `error=${e instanceof Error ? e.message : String(e)}`,
     );
-    ctx.audit.write(CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED, `context=${'ContractSystem._writeAcceptanceError.resetStatus'}`, `error=${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
