@@ -57,8 +57,12 @@ export function createLLMAuditSink(audit: AuditLog): LLMEventSink {
             );
             break;
         }
-      } catch {
+      } catch (err) {
         // Error isolation: audit failure must not interrupt LLM path
+        // dev 可见性 fallback (phase 604 / 同 phase 586 [AUDIT CRITICAL] 模板 align)
+        console.error(
+          `[LLM AUDIT SINK CRITICAL] sink emit failed: type=${event.type} reason=${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   };
