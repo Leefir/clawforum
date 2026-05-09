@@ -7,7 +7,7 @@ import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr, auditError } from './_helpers.js';
 import { TASKS_QUEUES_RUNNING_DIR } from '../../types/paths.js';
 
-export interface ToolExecutionDeps {
+export interface ExecuteToolTaskDeps {
   fs: FileSystem;
   auditWriter: AuditLog;
   retryBaseDelayMs: number;
@@ -23,7 +23,7 @@ export async function executeToolTask(
   task: ToolTask,
   executeCallback: () => Promise<ToolResult>,
   signal: AbortSignal,
-  deps: ToolExecutionDeps,
+  deps: ExecuteToolTaskDeps,
 ): Promise<void> {
   const { fs, auditWriter, retryBaseDelayMs, moveTaskToDone, moveTaskToFailed } = deps;
   const taskStartTime = Date.now();

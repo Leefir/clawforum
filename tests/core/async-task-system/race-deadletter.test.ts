@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { recoverTasks, type RecoveryDeps } from '../../../src/core/async-task-system/task-recovery.js';
+import { recoverTasks, type RecoverTasksDeps } from '../../../src/core/async-task-system/task-recovery.js';
 import { sendResult } from '../../../src/core/async-task-system/result-delivery.js';
 import { AsyncTaskSystem } from '../../../src/core/async-task-system/system.js';
 import { TASK_AUDIT_EVENTS } from '../../../src/core/async-task-system/audit-events.js';
@@ -170,7 +170,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockRejectedValue(new Error('send failed'));
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoveryDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
 
       // retryPath 应该被 delete 调用过
       const deleteCalls = (mockFs.delete as any).mock.calls;
@@ -219,7 +219,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockRejectedValue(new Error('send failed'));
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoveryDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
 
       const moveFailedEvents = events.filter(
         (e) => e[0] === TASK_AUDIT_EVENTS.RECOVERY_FAILED && e.some((c) => typeof c === 'string' && c.includes('context=dead_letter_move_failed')),

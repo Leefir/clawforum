@@ -23,7 +23,7 @@ import type { DialogStore } from '../../foundation/dialog-store/index.js';
 
 
 /** M9: 闭包 ≥ 6 依赖 → deps interface */
-export interface SubAgentExecutionDeps {
+export interface ExecuteSubAgentTaskDeps {
   fs: FileSystem;
   auditWriter: AuditLog;
   llm: LLMOrchestrator;
@@ -42,7 +42,7 @@ export interface SubAgentExecutionDeps {
 export async function executeSubAgentTask(
   task: SubAgentTask,
   signal: AbortSignal,
-  deps: SubAgentExecutionDeps,
+  deps: ExecuteSubAgentTaskDeps,
 ): Promise<void> {
   const { fs, auditWriter, llm, registry, clawDir, parentStreamLog, postProcessors, mainDialogStore, moveTaskToDone, moveTaskToFailed } = deps;
   const taskStartTime = Date.now();
