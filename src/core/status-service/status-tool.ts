@@ -113,12 +113,7 @@ export function createStatusTool(contractSystem: ContractSystem): Tool {
     description: 'Get comprehensive status: Claw ID, profile, step count, active contract with full subtask list (id/description/status), tasks, storage (MEMORY.md, clawspace). Call at turn start to re-orient after restart.',
     schema: {
       type: 'object',
-      properties: {
-        async: {
-          type: 'boolean',
-          description: 'If true, run in background. Result delivered to inbox when complete. Use for non-blocking status checks.',
-        },
-      },
+      properties: {},
       required: [],
     },
     readonly: true,
