@@ -48,6 +48,19 @@ import {
 } from './types.js';
 import { formatTimeAgo } from './utils.js';
 
+function formatErr(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function auditError(
+  audit: AuditLog,
+  event: string,
+  err: unknown,
+  ...extras: string[]
+): void {
+  audit.write(event, ...extras, `reason=${formatErr(err)}`);
+}
+
 /**
  * Runtime - fully assembled Claw runtime instance
  */
@@ -131,7 +144,7 @@ export class Runtime {
     try {
       await this.inboxReader.init();
     } catch (e) {
-      this.auditWriter.write(RUNTIME_AUDIT_EVENTS.INBOX_INIT_FAILED, `reason=${e instanceof Error ? e.message : String(e)}`);
+      auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.INBOX_INIT_FAILED, e);
       throw e;
     }
     this.outboxWriter = deps.outboxWriter;
@@ -147,7 +160,7 @@ export class Runtime {
     await this.sessionManager.archive().catch((err) => {
       const code = (err as { code?: string })?.code;
       if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = formatErr(err);
         this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SESSION_ARCHIVE_FAILED, `reason=${msg}`);
       }
     });
@@ -159,14 +172,14 @@ export class Runtime {
     try {
       await this.taskSystem.initialize();
     } catch (e) {
-      this.auditWriter.write(RUNTIME_AUDIT_EVENTS.TASK_SYSTEM_INIT_FAILED, `reason=${e instanceof Error ? e.message : String(e)}`);
-      throw new Error(`Runtime: AsyncTaskSystem.initialize failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.TASK_SYSTEM_INIT_FAILED, e);
+      throw new Error(`Runtime: AsyncTaskSystem.initialize failed: ${formatErr(e)}`, { cause: e });
     }
     try {
       this.taskSystem.startDispatch();
     } catch (e) {
-      this.auditWriter.write(RUNTIME_AUDIT_EVENTS.TASK_SYSTEM_START_DISPATCH_FAILED, `reason=${e instanceof Error ? e.message : String(e)}`);
-      throw new Error(`Runtime: AsyncTaskSystem.startDispatch failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.TASK_SYSTEM_START_DISPATCH_FAILED, e);
+      throw new Error(`Runtime: AsyncTaskSystem.startDispatch failed: ${formatErr(e)}`, { cause: e });
     }
 
     // 7. DispatchTool 注册（候选 γ：结构性循环依赖妥协）
@@ -204,12 +217,12 @@ export class Runtime {
       try {
         await this.sessionManager.save(repaired);
       } catch (e) {
-        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SESSION_REPAIR_FAILED, `reason=${e instanceof Error ? e.message : String(e)}`);
+        auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.SESSION_REPAIR_FAILED, e);
         throw e;
       }
       this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SESSION_REPAIRED, `tools=${toolCount}`);
       const result = await this.snapshot.commit(`session-repair tools=${toolCount}`).catch((err: unknown): null => {
-        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=session-repair`, `reason=${err instanceof Error ? err.message : String(err)}`);
+        auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, err, `context=session-repair`);
         return null;
       });
       if (result && !result.ok && result.error.kind === 'uncategorized') {
@@ -478,7 +491,7 @@ export class Runtime {
     this.turnCount++;
     const commitResult = await this.snapshot.commit(`turn-${this.turnCount} ${new Date().toISOString()}`).catch((err: unknown): null => {
       // 不可预期失败：audit 已在 snapshot 内写；此处仅暴露给诊断
-      this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=turn-${this.turnCount}`, `reason=${err instanceof Error ? err.message : String(err)}`);
+      auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, err, `context=turn-${this.turnCount}`);
       return null;
     });
     if (commitResult && !commitResult.ok && commitResult.error.kind === 'uncategorized') {
@@ -506,7 +519,7 @@ export class Runtime {
       try {
         await callbacks.onInboxMessages(infos);
       } catch (e) {
-        const reason = e instanceof Error ? e.message : String(e);
+        const reason = formatErr(e);
         this.auditWriter.write(RUNTIME_AUDIT_EVENTS.INBOX_HANDLER_FAILED, 'handler=onInboxMessages', `reason=${reason}`);
       }
     }
@@ -549,7 +562,7 @@ export class Runtime {
         }
       } else if (!(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt || err instanceof IdleTimeoutSignal)) {
         // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
-        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorMsg = formatErr(err);
         for (const info of infos) {
           await this._writeErrorResponse(info, errorMsg, 'non_interrupt_error');
         }
@@ -559,7 +572,7 @@ export class Runtime {
         !(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt || err instanceof IdleTimeoutSignal) &&
         !(err instanceof MaxStepsExceededError)
       ) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorMsg = formatErr(err);
         this.auditWriter.write(
           RUNTIME_AUDIT_EVENTS.PROCESS_BATCH_FAILED,
           'context=Runtime.processBatch',
@@ -697,6 +710,7 @@ export class Runtime {
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
+    this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_START);
 
     let chatProviderInfoEmitted = false;
     const emitChatProviderInfoOnce = () => {
@@ -742,8 +756,13 @@ export class Runtime {
       // phase 521: turn 末 regime change 检测（chat() 也走 _runReact 等效路径）
       await this._checkRegimeSwitch(systemPrompt, identityHash);
 
+      this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_END);
+
       // Return the final text
       return result.finalText;
+    } catch (err) {
+      this._handleTurnInterrupt(err);
+      throw err;
     } finally {
       this.currentAbortController = null;
       this.execContext.signal = undefined;
@@ -772,7 +791,7 @@ export class Runtime {
       callbacks?.onTurnInterrupted?.('user_interrupt');  // 不传 message，让 viewport 自行决定显示
       this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=user_interrupt');
     } else {
-      const errorMsg = err instanceof Error ? err.message : String(err);
+      const errorMsg = formatErr(err);
       callbacks?.onTurnError?.(errorMsg);
       this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `err=${errorMsg}`);
     }
@@ -795,7 +814,7 @@ export class Runtime {
       content: `Error: ${errorMsg}`,
       contract_id: info.contract_id,
     }).catch(e => {
-      const reason = e instanceof Error ? e.message : String(e);
+      const reason = formatErr(e);
       this.auditWriter.write(
         RUNTIME_AUDIT_EVENTS.OUTBOX_WRITE_FAILED,
         'context=error_response',
@@ -878,10 +897,7 @@ export class Runtime {
         await this._performRegimeSwitch(newSystemPrompt);
         this.lastIdentityHash = identityHash;
       } catch (err) {
-        this.auditWriter.write(
-          RUNTIME_AUDIT_EVENTS.REGIME_SWITCH_FAILED,
-          `reason=${err instanceof Error ? err.message : String(err)}`,
-        );
+        auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.REGIME_SWITCH_FAILED, err);
         // lastIdentityHash 不更新 → 下 turn 重试自愈（D7）
       }
     } else {
