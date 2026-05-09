@@ -14,14 +14,24 @@
 export const LOGS_DIR = 'logs' as const;
 export const CONTRACT_DIR = 'contract' as const;
 export const DIALOG_DIR = 'dialog' as const;
-/** 顶层 claws 子目录 / 各 claw agent 目录的容器 */
+/**
+ * 顶层 claws 子目录 / 各 claw agent 目录的容器（容纳 <clawforumDir>/claws/<name>/）
+ *
+ * 与 CLAW_SUBDIRS 命名空间显式区隔：
+ * - CLAWS_DIR：顶层容器（每 clawforum 1 份）
+ * - CLAW_SUBDIRS：每 claw 内部 subdir 列表（mkdir 用 / 不含 CLAWS_DIR）
+ */
 export const CLAWS_DIR = 'claws' as const;
 export const CLAWSPACE_DIR = 'clawspace' as const;
 export const STATUS_SUBDIR = 'status' as const; // 仅 subdir 域 / 与 STATUS_TOOL_NAME / cli cmd 'status' / git arg 'status' 命名区隔
 
 /**
- * Claw directory structure - shared between createCommand and runtime.ensureDirectories
- * Modifying this requires updating all consumers.
+ * Per-claw 内子目录列表 — mkdir 创建用（claw-create + runtime.ensureDirectories 共享）
+ * 修改本 list 必更新全 consumer。
+ *
+ * 显式不含：
+ * - CLAWS_DIR（顶层容器 / 不属每 claw 内部）
+ * - 'AGENTS.md' 等文件（仅目录）
  */
 /** tasks/queues/pending — async task 队列 state（phase 510 加 queues/ 层）*/
 export const TASKS_QUEUES_PENDING_DIR = 'tasks/queues/pending';
@@ -82,7 +92,6 @@ export const CLAW_SUBDIRS = [
   CONTRACT_DIR,                // 旧 'contract'
   'skills',                    // phase370 已立 / 非 NEW（SKILLS_DIR_DEFAULT 字面量 / 避免循环依赖 skill-paths.ts → paths.ts）
   CLAWSPACE_DIR,               // 旧 'clawspace'
-  CLAWS_DIR,                   // NEW phase 544 / 旧 'claws'
   LOGS_DIR,                    // 旧 'logs'
   STATUS_SUBDIR,               // 旧 'status'
 ] as const;
