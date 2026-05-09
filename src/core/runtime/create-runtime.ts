@@ -16,18 +16,44 @@ import { Runtime } from './runtime.js';
 import type { RuntimeOptions } from './types.js';
 import type { ContextInjector } from '../dialog/injector.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import type { AuditLog } from '../../foundation/audit/index.js';
+import { RUNTIME_AUDIT_EVENTS } from './runtime-audit-events.js';
 
 export type CreateRuntimeOptions = RuntimeOptions & {
   identity: 'motion' | 'claw';
 };
 
+async function tryReadOptionalSection(
+  systemFs: FileSystem,
+  filePath: string,
+  audit: AuditLog | undefined,
+): Promise<string | undefined> {
+  try {
+    const content = (await systemFs.read(filePath)).trim();
+    return content || undefined;
+  } catch (err) {
+    const errCode = (err as { code?: string }).code;
+    if (errCode === 'ENOENT' || errCode === 'FS_NOT_FOUND') return undefined; // silent skip 合规
+    audit?.write(
+      RUNTIME_AUDIT_EVENTS.OPTIONAL_SECTION_READ_FAILED,
+      `path=${filePath}`,
+      `reason=${err instanceof Error ? err.message : String(err)}`,
+    );
+    return undefined;
+  }
+}
+
+export { tryReadOptionalSection };
+
 // 1:1 从 MotionRuntime.buildSystemPrompt() 提取（phase266 消除 MotionRuntime subclass）
 async function buildMotionSystemPrompt({
   contextInjector,
   systemFs,
+  audit,
 }: {
   contextInjector: ContextInjector;
   systemFs: FileSystem;
+  audit?: AuditLog;
 }): Promise<string> {
   const parts = await contextInjector.buildParts();
   const sections: string[] = [];
@@ -38,22 +64,16 @@ async function buildMotionSystemPrompt({
   }
 
   // 2. USER.md
-  try {
-    const user = (await systemFs.read('USER.md')).trim();
-    if (user) sections.push(user);
-  } catch { /* USER.md 不存在，跳过 */ }
+  const user = await tryReadOptionalSection(systemFs, 'USER.md', audit);
+  if (user) sections.push(user);
 
   // 3. IDENTITY.md
-  try {
-    const identity = (await systemFs.read('IDENTITY.md')).trim();
-    if (identity) sections.push(identity);
-  } catch { /* 跳过 */ }
+  const identity = await tryReadOptionalSection(systemFs, 'IDENTITY.md', audit);
+  if (identity) sections.push(identity);
 
   // 4. SOUL.md
-  try {
-    const soul = (await systemFs.read('SOUL.md')).trim();
-    if (soul) sections.push(soul);
-  } catch { /* 跳过 */ }
+  const soul = await tryReadOptionalSection(systemFs, 'SOUL.md', audit);
+  if (soul) sections.push(soul);
 
   // 5. MEMORY.md
   if (parts.memory) {
@@ -71,10 +91,8 @@ async function buildMotionSystemPrompt({
   }
 
   // 8. AUTH_POLICY.md
-  try {
-    const authPolicy = (await systemFs.read('AUTH_POLICY.md')).trim();
-    if (authPolicy) sections.push(authPolicy);
-  } catch { /* 跳过 */ }
+  const authPolicy = await tryReadOptionalSection(systemFs, 'AUTH_POLICY.md', audit);
+  if (authPolicy) sections.push(authPolicy);
 
   return sections.join('\n\n');
 }

@@ -6,17 +6,15 @@
 
 import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { HEARTBEAT_AUDIT_EVENTS } from './heartbeat-audit-events.js';
-import { createSystemAudit } from '../../foundation/audit/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 
 export interface HeartbeatOptions {
   /** 心跳间隔（秒），默认 300（5分钟） */
   interval?: number;
-  fs?: FileSystem;
-  audit?: AuditLog;
+  fs: FileSystem;
+  audit: AuditLog;
 }
 
 /**
@@ -26,10 +24,10 @@ export class Heartbeat {
   private readonly baseDir: string;
   private readonly interval: number;
   private lastRun: number;
-  private readonly fs?: FileSystem;
-  private readonly audit?: AuditLog;
+  private readonly fs: FileSystem;
+  private readonly audit: AuditLog;
 
-  constructor(baseDir: string, options: HeartbeatOptions = {}) {
+  constructor(baseDir: string, options: HeartbeatOptions) {
     this.baseDir = baseDir;
     this.interval = (options.interval ?? 300) * 1000;
     this.lastRun = Date.now();  // 启动后等满一个 interval 再首次触发
@@ -50,7 +48,7 @@ export class Heartbeat {
    */
   fire(): void {
     try {
-      const fs = this.fs ?? new NodeFileSystem({ baseDir: this.baseDir });
+      const fs = this.fs;
       const inboxDir = path.join(this.baseDir, 'motion', 'inbox', 'pending');
       fs.ensureDirSync(inboxDir);
 
@@ -65,7 +63,7 @@ export class Heartbeat {
         }
       }
 
-      const audit = this.audit ?? createSystemAudit(fs, this.baseDir);
+      const audit = this.audit;
       new InboxWriter(fs, inboxDir, audit).writeSync({
         type: 'heartbeat',
         source: 'system',
@@ -76,7 +74,7 @@ export class Heartbeat {
       this.lastRun = Date.now();  // 只在成功写入后更新
     } catch (error) {
       // lastRun 未更新 → 下次 isDue() 立即可重试
-      this.audit?.write(
+      this.audit.write(
         HEARTBEAT_AUDIT_EVENTS.FIRE_FAILED,
         'context=Heartbeat.fire',
         `error=${String(error)}`,

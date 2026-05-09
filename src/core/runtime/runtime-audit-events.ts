@@ -38,6 +38,8 @@ export const RUNTIME_AUDIT_EVENTS = {
   REGIME_SWITCH: 'regime_switch',
   // phase 539: regime switch failed audit event
   REGIME_SWITCH_FAILED: 'regime_switch_failed',
+  // phase 598: optional section read failed audit event
+  OPTIONAL_SECTION_READ_FAILED: 'runtime_optional_section_read_failed',
 } as const;
 
 /**

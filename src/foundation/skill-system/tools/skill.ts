@@ -44,7 +44,7 @@ export function createSkillTool(skillRegistry: SkillSystem): Tool {
       // Load from custom skills directory if specified (e.g., dispatch templates)
       if (args.skillsDir) {
         try {
-          const tempRegistry = createSkillSystem(ctx.fs, String(args.skillsDir));
+          const tempRegistry = createSkillSystem(ctx.fs, String(args.skillsDir), ctx.auditWriter);
           await tempRegistry.loadAll();
           const content = await tempRegistry.loadFull(name);
           return { success: true, content, metadata: { name: name } };

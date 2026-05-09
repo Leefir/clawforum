@@ -71,6 +71,7 @@ export interface RuntimeOptions {
   systemPromptBuilder?: (params: {
     contextInjector: ContextInjector;
     systemFs: FileSystem;
+    audit?: AuditLog;
   }) => Promise<string>;
   identityToolFilter?: (registry: ToolRegistry) => void;
 

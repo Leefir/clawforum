@@ -66,7 +66,7 @@ export class DispatchTool implements Tool {
     // 扫描 clawspace/dispatch-skills/ 生成简介（结构同普通 skill：子目录 + SKILL.md）
     let skillsSummary = '';
     try {
-      const dispatchSkillRegistry = createSkillSystem(ctx.fs, DISPATCH_SKILLS_DIR);
+      const dispatchSkillRegistry = createSkillSystem(ctx.fs, DISPATCH_SKILLS_DIR, ctx.auditWriter);
       await dispatchSkillRegistry.loadAll();
       const formatted = dispatchSkillRegistry.formatForContext();
       if (!formatted.includes('No skills loaded')) {

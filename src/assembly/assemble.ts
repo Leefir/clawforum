@@ -343,6 +343,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   const initialSystemPrompt = await buildMotionSystemPrompt({
     contextInjector,
     systemFs,
+    audit: auditWriter,
   });
 
   let sessionManager: DialogStore;

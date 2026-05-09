@@ -876,6 +876,7 @@ export class Runtime {
       return this.options.systemPromptBuilder({
         contextInjector: this.contextInjector,
         systemFs: this.systemFs,
+        audit: this.auditWriter,
       });
     }
     return this.contextInjector.buildSystemPrompt();

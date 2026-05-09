@@ -175,7 +175,6 @@ async function waitForTaskResult(
   motionFs: FileSystem,
   taskId: string,
   timeoutMs: number,
-  audit: AuditLog,
   pollIntervalMs = 30_000,
 ): Promise<string | null> {
   // .txt 由 AsyncTaskSystem.sendResult 在 subAgent.run() 完成后写入，是可靠的完成信号
@@ -251,7 +250,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=subagent_started`, `taskId=${taskId}`);
 
   // 等待完成（最长 1h，每 30s 轮询）
-  const log = await waitForTaskResult(opts.motionFs, taskId, 3_600_000, opts.audit);
+  const log = await waitForTaskResult(opts.motionFs, taskId, 3_600_000);
   if (!log) {
     opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WARNING, `reason=subagent_timeout`);
     console.warn('[cron:random-dream] sub-agent did not complete within timeout');

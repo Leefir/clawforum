@@ -41,7 +41,7 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
   // 加载 dispatch-skills（A.5 / best-effort）
   let skillsSummary = '';
   try {
-    const reg = createSkillSystem(config.motionFs, DISPATCH_SKILLS_DIR);
+    const reg = createSkillSystem(config.motionFs, DISPATCH_SKILLS_DIR, config.audit);
     await reg.loadAll();
     const formatted = reg.formatForContext();
     if (!formatted.includes('No skills loaded')) {

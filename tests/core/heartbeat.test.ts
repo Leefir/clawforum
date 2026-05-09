@@ -10,7 +10,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Heartbeat } from '../../src/core/runtime/index.js';
+import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import { createSystemAudit } from '../../src/foundation/audit/index.js';
 import { createTempDir, cleanupTempDirSync } from '../utils/temp.js';
+
+function createTestHeartbeat(tempDir: string, intervalSec: number = 1): Heartbeat {
+  const nodeFs = new NodeFileSystem({ baseDir: tempDir });
+  const audit = createSystemAudit(nodeFs, tempDir);
+  return new Heartbeat(tempDir, { interval: intervalSec, fs: nodeFs, audit });
+}
 
 describe('Heartbeat', () => {
   let tempDir: string;
@@ -28,19 +36,19 @@ describe('Heartbeat', () => {
 
   describe('isDue', () => {
     it('should return false on first call (initialized to now)', () => {
-      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(tempDir, 1);
       expect(heartbeat.isDue()).toBe(false);  // 启动后等满 interval 才触发
     });
 
     it('should return false immediately after fire', () => {
-      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(tempDir, 1);
       heartbeat.fire();
       expect(heartbeat.isDue()).toBe(false);
     });
 
     it('should return true after interval elapsed', () => {
       vi.useFakeTimers();
-      heartbeat = new Heartbeat(tempDir, { interval: 1 }); // 1秒间隔
+      heartbeat = createTestHeartbeat(tempDir, 1); // 1秒间隔
       heartbeat.fire();
       expect(heartbeat.isDue()).toBe(false);
 
@@ -51,7 +59,7 @@ describe('Heartbeat', () => {
 
     it('should respect custom interval', () => {
       vi.useFakeTimers();
-      heartbeat = new Heartbeat(tempDir, { interval: 5 }); // 5秒间隔
+      heartbeat = createTestHeartbeat(tempDir, 5); // 5秒间隔
       heartbeat.fire();
       expect(heartbeat.isDue()).toBe(false);
 
@@ -63,7 +71,7 @@ describe('Heartbeat', () => {
 
   describe('fire', () => {
     it('should write heartbeat message to motion inbox', () => {
-      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(tempDir, 1);
       heartbeat.fire();
 
       const inboxDir = path.join(tempDir, 'motion', 'inbox', 'pending');
@@ -80,7 +88,7 @@ describe('Heartbeat', () => {
 
     it('should update lastRun after fire', () => {
       vi.useFakeTimers();
-      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(tempDir, 1);
       expect(heartbeat.isDue()).toBe(false);  // 首次不 due
 
       vi.advanceTimersByTime(1100);
@@ -95,7 +103,7 @@ describe('Heartbeat', () => {
     });
 
     it('should generate unique filenames for multiple fires', async () => {
-      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(tempDir, 1);
 
       heartbeat.fire();
       await new Promise(resolve => setTimeout(resolve, 50)); // 确保不同时间戳
@@ -109,7 +117,7 @@ describe('Heartbeat', () => {
     });
 
     it('should generate new file after previous heartbeat is consumed', async () => {
-      heartbeat = new Heartbeat(tempDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(tempDir, 1);
 
       // 第一次 fire
       heartbeat.fire();
@@ -132,7 +140,7 @@ describe('Heartbeat', () => {
       const newBaseDir = path.join(tempDir, 'newbase');
       fs.mkdirSync(newBaseDir, { recursive: true });
 
-      heartbeat = new Heartbeat(newBaseDir, { interval: 1 });
+      heartbeat = createTestHeartbeat(newBaseDir, 1);
       heartbeat.fire();
 
       const inboxDir = path.join(newBaseDir, 'motion', 'inbox', 'pending');
@@ -145,7 +153,7 @@ describe('Heartbeat', () => {
 
   describe('default interval', () => {
     it('should default to 300 seconds (5 minutes)', () => {
-      heartbeat = new Heartbeat(tempDir); // 不传 interval
+      heartbeat = createTestHeartbeat(tempDir); // 不传 interval
       heartbeat.fire();
       expect(heartbeat.isDue()).toBe(false);
 
