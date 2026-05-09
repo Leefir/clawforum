@@ -15,4 +15,5 @@ export const CRON_AUDIT_EVENTS = {
   PARSE_FALLBACK: 'cron_parse_fallback',
   JOB_ERROR: 'cron_job_error',
   HANDLER_TIMEOUT: 'cron_handler_timeout',
+  HANDLER_STUCK: 'cron_handler_stuck',
 } as const;

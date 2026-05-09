@@ -35,11 +35,14 @@ export interface CronJob {
   timeoutMs?: number;
 }
 
+const CANCELLING_STUCK_TICKS = 10; // timeout 后 N ticks 仍 cancelling 视为 handler 永挂
+
 export class CronRunner {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastRunKey = new Map<string, string>(); // jobName → runKey
   private running = new Set<string>();            // 防止同一 job 重叠执行
   private cancelling = new Set<string>();         // timeout 已发但 handler 真 settle 前的二态
+  private cancellingTicks = new Map<string, number>(); // job → tick 计数（cancelling 期间）
 
   constructor(
     private readonly jobs: CronJob[],
@@ -64,6 +67,20 @@ export class CronRunner {
   /** 供测试用：手动触发一次检查 */
   tick(): void {
     const now = new Date();
+    // P1.14 stuck watchdog：cancelling 中 job tick 计数 / 阈值后 audit + 强清 cancelling 让下 tick 自然重试（D1c 中断可恢复 + handler 幂等假设）
+    for (const name of this.cancelling) {
+      const ticks = (this.cancellingTicks.get(name) ?? 0) + 1;
+      if (ticks >= CANCELLING_STUCK_TICKS) {
+        this.audit.write(CRON_AUDIT_EVENTS.HANDLER_STUCK,
+          `job=${name}`,
+          `ticks=${ticks}`,
+        );
+        this.cancelling.delete(name);
+        this.cancellingTicks.delete(name);
+      } else {
+        this.cancellingTicks.set(name, ticks);
+      }
+    }
     for (const job of this.jobs) {
       if (!job.enabled) continue;
       if (this.running.has(job.name) || this.cancelling.has(job.name)) continue; // 上次还没跑完 或 cancelling 中，跳过
@@ -108,6 +125,7 @@ export class CronRunner {
           // timeout 时强制清 running + 置 cancelling / 让下 tick 自然重试（D1c 中断可恢复 + handler 幂等假设）
           this.running.delete(job.name);
           this.cancelling.add(job.name);
+          this.cancellingTicks.set(job.name, 0);
           resolve();
         }, job.timeoutMs);
       });
@@ -115,7 +133,10 @@ export class CronRunner {
       // 独立钩子：late settle 清 cancelling / late error 必 audit（context=late_after_timeout / ζ 复用 JOB_ERROR）
       handlerPromise.then(
         () => {
-          if (timedOut) this.cancelling.delete(job.name);
+          if (timedOut) {
+            this.cancelling.delete(job.name);
+            this.cancellingTicks.delete(job.name);
+          }
         },
         err => {
           if (timedOut) {
@@ -126,6 +147,7 @@ export class CronRunner {
               'context=late_after_timeout',
             );
             this.cancelling.delete(job.name);
+            this.cancellingTicks.delete(job.name);
           }
           // 非 timedOut 时 race chain 路径已 audit JOB_ERROR / 此处不重 audit
         }

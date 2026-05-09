@@ -6,7 +6,11 @@ import type { AuditLog } from './index.js';
 
 const FALLBACK_BUFFER_CAP = 1000;
 const FALLBACK_DIR = '/tmp';
-const pendingFallback: string[] = [];
+interface FallbackEntry {
+  origin: string;
+  line: string;
+}
+const pendingFallback: FallbackEntry[] = [];
 let exitHandlerInstalled = false;
 let overflowMetaEmitted = false;
 
@@ -16,7 +20,7 @@ function ensureExitHandler(): void {
   process.on('exit', dumpFallback);
 }
 
-function pushFallback(line: string): void {
+function pushFallback(line: string, origin: string): void {
   if (pendingFallback.length >= FALLBACK_BUFFER_CAP) {
     pendingFallback.shift();   // FIFO drop-oldest
     if (!overflowMetaEmitted) {
@@ -26,7 +30,7 @@ function pushFallback(line: string): void {
       );
     }
   }
-  pendingFallback.push(line);
+  pendingFallback.push({ origin, line });
   ensureExitHandler();
 }
 
@@ -34,7 +38,11 @@ function dumpFallback(): void {
   if (pendingFallback.length === 0) return;
   try {
     const fallbackPath = `${FALLBACK_DIR}/clawforum-audit-fallback-${process.pid}-${Date.now()}.tsv`;
-    nodeFs.writeFileSync(fallbackPath, pendingFallback.join(''));
+    // origin 作 synthetic col 0 prepend / esc(origin) 防 tab 污染
+    const body = pendingFallback
+      .map(e => `${esc(e.origin)}\t${e.line}`)
+      .join('');
+    nodeFs.writeFileSync(fallbackPath, body);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     console.error(
@@ -68,8 +76,8 @@ export class AuditWriter implements AuditLog {
       this.fs.appendSync(this.filePath, line);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      console.error(`[AUDIT CRITICAL] write failed: type=${type} reason=${reason}`);
-      pushFallback(line);
+      console.error(`[AUDIT CRITICAL] write failed: type=${type} path=${this.filePath} reason=${reason}`);
+      pushFallback(line, this.filePath);
     }
   }
 
