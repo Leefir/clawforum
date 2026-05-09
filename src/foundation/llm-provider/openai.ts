@@ -378,6 +378,16 @@ export class OpenAIAdapter implements ProviderAdapter {
           }
         }
       }
+      // Stream-end check: 任 buffer 未 emit 但部分 id/name 存在 → upstream malformed tool_call
+      for (const buf of toolCallBuffers.values()) {
+        if (!buf.started && (buf.id !== '' || buf.name !== '')) {
+          this.onStreamParseError?.({
+            provider: this.name,
+            raw: JSON.stringify({ id: buf.id, name: buf.name }).slice(0, 200),
+            error: 'tool_use buffer incomplete (missing id or name at stream end)',
+          });
+        }
+      }
     } finally {
       clearTimeout(idleTimer);
       try {

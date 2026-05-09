@@ -207,8 +207,19 @@ export class CustomAnthropicAdapter extends BaseAnthropicAdapter {
           if (event.type === 'content_block_start') {
             const block = event.content_block as Record<string, unknown>;
             if (block.type === 'tool_use') {
-              currentToolId = block.id as string ?? '';
-              currentToolName = block.name as string ?? '';
+              const id = block.id as string | undefined;
+              const name = block.name as string | undefined;
+              if (!id || !name) {
+                // tool_use 缺 id 或 name = upstream malformed / 不发 malformed yield / 走观测通道
+                this.onStreamParseError?.({
+                  provider: this.name,
+                  raw: JSON.stringify(block).slice(0, 200),
+                  error: 'tool_use missing id or name',
+                });
+                continue;
+              }
+              currentToolId = id;
+              currentToolName = name;
               yield {
                 type: 'tool_use_start',
                 toolUse: {
