@@ -242,7 +242,7 @@ describe('Gateway', () => {
     transport._message(conn, JSON.stringify({ type: 'unknown_thing' }));
 
     expect(transport.broadcast).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'connection_dropped', connectionId: 'c1', reason: 'unknown message type' }),
+      JSON.stringify({ type: 'connection_dropped', connectionId: 'c1', reason: 'unknown message type: unknown_thing' }),
     );
   });
 

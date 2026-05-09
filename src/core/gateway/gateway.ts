@@ -51,6 +51,7 @@ export function createGateway(input: GatewayInput): Gateway {
   const pending = new Map<string, AskUserEntry>();
   let streamReader: StreamReader | null = null;
   let lastInterruptTs = 0;
+  let debouncedAuditedInWindow = false;
   let started = false;
   let askCounter = 0;
 
@@ -106,10 +107,15 @@ export function createGateway(input: GatewayInput): Gateway {
       case 'interrupt': {
         const now = Date.now();
         if (now - lastInterruptTs < GATEWAY_INTERRUPT_DEBOUNCE_MS) {
-          audit.write(GATEWAY_AUDIT_EVENTS.INTERRUPT_DEBOUNCED, `connId=${conn.id}`);
+          // sampling：window 内仅首次 audit / 防 client spam flood audit log
+          if (!debouncedAuditedInWindow) {
+            audit.write(GATEWAY_AUDIT_EVENTS.INTERRUPT_DEBOUNCED, `connId=${conn.id}`);
+            debouncedAuditedInWindow = true;
+          }
           return;
         }
         lastInterruptTs = now;
+        debouncedAuditedInWindow = false;
         interrupt('user');
         audit.write(GATEWAY_AUDIT_EVENTS.INTERRUPT_TRIGGERED, `connId=${conn.id}`);
         return;
@@ -128,7 +134,7 @@ export function createGateway(input: GatewayInput): Gateway {
         return;
       }
       default:
-        dropConnection(conn.id, 'unknown message type');
+        dropConnection(conn.id, `unknown message type: ${String((msg as { type?: unknown }).type)}`);
         return;
     }
   };
@@ -139,20 +145,22 @@ export function createGateway(input: GatewayInput): Gateway {
       started = true;
       if (!isOnlineMode) return;
 
+      const t = transport!;
       try {
-        transport!.onConnect((c) => {
+        t.onConnect((c) => {
           connections.set(c.id, c);
+          audit.write(GATEWAY_AUDIT_EVENTS.CONNECTION_ACCEPTED, `connId=${c.id}`);
         });
-        transport!.onDisconnect((c, _reason) => {
+        t.onDisconnect((c, reason) => {
           connections.delete(c.id);
-          // _reason 留给 Gateway A.3 audit phase 使用
+          audit.write(GATEWAY_AUDIT_EVENTS.CONNECTION_DISCONNECTED, `connId=${c.id}`, `reason=${String(reason)}`);
         });
-        transport!.onMessage((c, data) => {
+        t.onMessage((c, data) => {
           handleClientMessage(c, data);
           // 抛错由 Transport safeFire 捕获 → fireTransportError({ kind: 'callback_error', callbackName: 'onMessage', error })
           // → Gateway 的 onTransportError 处理器接收（见下方）
         });
-        transport!.onTransportError((evt) => {
+        t.onTransportError((evt) => {
           audit.write(
             GATEWAY_AUDIT_EVENTS.TRANSPORT_ERROR,
             `kind=${evt.kind}`,
@@ -177,7 +185,10 @@ export function createGateway(input: GatewayInput): Gateway {
     },
 
     async stop() {
-      if (!started) return;
+      if (!started) {
+        audit.write(GATEWAY_AUDIT_EVENTS.STOP_NOOP);
+        return;
+      }
       started = false;
       if (!isOnlineMode) return;
 
