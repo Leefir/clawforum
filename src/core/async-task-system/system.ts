@@ -48,11 +48,10 @@ export interface AsyncTaskSystemOptions {
   retryBaseDelayMs?: number;
   parentStreamLog?: StreamLog;
 
-  // phase155C 新增（4 个原 setter 合入 ctor）
   llm: LLMOrchestrator;
   contractManager: ContractSystem;
   outboxWriter: OutboxWriter;
-  // phase470: main dialog store ref for ask_caller
+  // main dialog store ref for ask_caller
   mainDialogStore?: DialogStore;
   registry: ToolRegistry;     // NEW: caller 注入填充好的 registry / Assembly own 装配
 }
@@ -69,7 +68,7 @@ export interface SubAgentTask {
   callerType?: CallerType;
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
   extraTools?: Tool[];                    // per-task 额外工具，不污染全局 registry
-  postProcessor?: string;            // phase438: 声明式 post-processor 名称（registry lookup）
+  postProcessor?: string;            // 声明式 post-processor 名称（registry lookup）
   mainContextSnapshot?: { clawId: string; toolUseId: string };  // NEW marker mode
   systemPrompt?: string;                 // phase 546 internal field：caller-side specialized system prompt（agent 不可见 / 与 phase 470 砍 agent-facing spawn schema 不冲突 / fall-back DEFAULT_SUBAGENT_SYSTEM_PROMPT）
 }
@@ -96,8 +95,8 @@ interface TaskState {
 
 export class AsyncTaskSystem {
   private runningTasks: Map<string, TaskState> = new Map();
-  private maxConcurrent: number;
-  private registry: ToolRegistry;
+  private readonly maxConcurrent: number;
+  private readonly registry: ToolRegistry;
   private readonly llm: LLMOrchestrator;
   private readonly contractManager: ContractSystem;
   private readonly outboxWriter: OutboxWriter;
@@ -110,7 +109,7 @@ export class AsyncTaskSystem {
   private cancellingIds: Set<string> = new Set();
 
   /**
-   * 装配期注册 PostProcessor / phase438
+   * 装配期注册 PostProcessor
    * 应然：name 唯一 / handler 是 standalone function / 0 closure / 0 跨 task state
    */
   addPostProcessor(name: string, handler: PostProcessor): void {
@@ -121,7 +120,7 @@ export class AsyncTaskSystem {
   }
 
   /**
-   * phase470: inject mainDialogStore after construction (sessionManager is created later in Assembly)
+   * inject mainDialogStore after construction (sessionManager is created later in Assembly)
    */
   setMainDialogStore(store: DialogStore): void {
     this.mainDialogStore = store;
@@ -131,11 +130,11 @@ export class AsyncTaskSystem {
   // tool tasks still use this as entry point
   private pendingQueue: Array<SubAgentTask | ToolTask> = [];
 
-  private retryBaseDelayMs: number;
+  private readonly retryBaseDelayMs: number;
 
   constructor(
-    private clawDir: string,
-    private fs: FileSystem,
+    private readonly clawDir: string,
+    private readonly fs: FileSystem,
     options: AsyncTaskSystemOptions,
   ) {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_TASKS;
@@ -461,7 +460,7 @@ export class AsyncTaskSystem {
   /**
    * List pending task IDs.
    *
-   * phase163 后语义：仅返回内存中等调度的任务（pendingQueue）；
+   * 语义：仅返回内存中等调度的任务（pendingQueue）；
    * subagent 文件未被 watcher / startDispatch 拾起前不可见。
    * 欲看完整 pending 状态请直读 TASKS_QUEUES_PENDING_DIR/ 目录。
    */

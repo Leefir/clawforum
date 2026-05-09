@@ -91,8 +91,8 @@ export async function executeSubAgentTask(
 
     const subAgent = createSubAgent({
       agentId: task.id,
-      resultDir: `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`,                      // phase443: AsyncTaskSystem own 字符串约定
-      messageStore: createDialogStore(           // phase453: ephemeral DialogStore 装配 / 0 clawId / 0 archive 触发
+      resultDir: `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`,
+      messageStore: createDialogStore(           // ephemeral DialogStore / 0 clawId / 0 archive 触发
         fs,
         `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`,             // baseDir = resultDir
         taskAuditWriter,                         // per-task audit writer

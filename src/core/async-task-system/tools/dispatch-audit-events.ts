@@ -1,7 +1,7 @@
 /**
  * Dispatch audit event names.
  *
- * Module-owned event namespace per H1 design (phase338 / r36 α 决策).
+ * Module-owned event namespace per H1 design.
  * 字符串值与起步态 events.ts DISPATCH_ 系列等价 / 0 漂移。
  */
 export const DISPATCH_AUDIT_EVENTS = {

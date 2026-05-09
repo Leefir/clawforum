@@ -248,6 +248,6 @@ export async function recoverTasks(deps: RecoverTasksDeps): Promise<void> {
     auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_FAILED, 'system', 'context=recovery_top', `error=${errMsg}`);
   }
 
-  // phase 515 / startup orphan subagent workspace cleanup
+  // startup orphan subagent workspace cleanup
   await _cleanupOrphanSubagentWorkspaces(deps);
 }

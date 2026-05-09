@@ -1,5 +1,5 @@
 /**
- * Pending subagent task file writer (phase163 Step 4).
+ * Pending subagent task file writer.
  *
  * Direct file-based scheduling primitive used by spawn / dispatch tools.
  * Eliminates SubagentSystem→AsyncTaskSystem runtime business semantic call.

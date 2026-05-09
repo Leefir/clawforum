@@ -1,5 +1,5 @@
 /**
- * Pending tool task file writer (phase432).
+ * Pending tool task file writer.
  *
  * Direct file-based scheduling primitive for async tool tasks.
  * Watcher (AsyncTaskSystem._ingestPendingFile) consumes the file asynchronously.

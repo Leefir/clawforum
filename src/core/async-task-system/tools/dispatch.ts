@@ -182,7 +182,7 @@ export class DispatchTool implements Tool {
         originClawId: ctx.originClawId ?? ctx.clawId,
         callerType,                    // 'describer' 或 'miner'
         extraTools: askMotionInstance ? [askMotionInstance] : undefined,
-        postProcessor: 'dispatch-contract-extract',  // phase438: 声明式 post-processor
+        postProcessor: 'dispatch-contract-extract',  // 声明式 post-processor
         mainContextSnapshot,
         systemPrompt,                            // phase 546: 透传 caller-side specialized prompt（mining: buildMinerSystemPrompt / describing: this.getSystemPrompt()）
       });

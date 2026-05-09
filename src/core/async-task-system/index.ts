@@ -14,7 +14,7 @@ export type SubAgentTaskInfo = Omit<SubAgentTask, 'id' | 'createdAt'>;
 /**
  * AsyncTaskSystem 工厂函数。签名与 constructor 1:1；纯透传不加工。
  *
- * 调用方：Assembly（phase158 Step 4 起）。
+ * 调用方：Assembly。
  * 不调 initialize / startDispatch——业务动作归 Runtime（见 l4_task_system.md §2 "#2 归属辨析"）。
  */
 export function createAsyncTaskSystem(
