@@ -72,7 +72,12 @@ export class CronRunner {
       this.lastRunKey.set(job.name, key);
       this.running.add(job.name);
 
-      const handlerPromise = job.handler();
+      let handlerPromise: Promise<void>;
+      try {
+        handlerPromise = job.handler();
+      } catch (syncErr) {
+        handlerPromise = Promise.reject(syncErr);
+      }
 
       if (job.timeoutMs === undefined) {
         // 无 timeout 配置：保持原行为（兼容旧 job）

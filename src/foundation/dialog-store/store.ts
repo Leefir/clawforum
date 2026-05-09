@@ -23,6 +23,7 @@ export class DialogStore {
   private readonly currentPath: string;
   private readonly archiveDir: string;
   private createdAt: string | null = null;
+  private corruptedPoisoned: boolean = false;
   readonly systemPrompt: string;     // phase 466: lifetime 锁定 / 暴露给 caller (Runtime ContextInjector 等) 比对
 
   constructor(
@@ -46,6 +47,15 @@ export class DialogStore {
    * - Returns empty session if nothing found
    */
   async load(): Promise<LoadResult> {
+    if (this.corruptedPoisoned) {
+      const archived = await this.loadLatestArchive();
+      if (archived) {
+        this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
+        return { session: archived.session, source: 'archive' };
+      }
+      return this.coldStart();
+    }
+
     // Try current.json first
     try {
       const content = await this.fs.read(this.currentPath);
@@ -72,6 +82,7 @@ export class DialogStore {
             `path=${this.currentPath}`,
             `reason=${renameErr instanceof Error ? renameErr.message : String(renameErr)}`,
           );
+          this.corruptedPoisoned = true;
         }
       }
     }
@@ -83,7 +94,10 @@ export class DialogStore {
       return { session: archived.session, source: 'archive' };
     }
 
-    // Return empty session
+    return this.coldStart();
+  }
+
+  private coldStart(): LoadResult {
     const now = new Date().toISOString();
     const emptySession: SessionData = {
       version: 1,
@@ -275,6 +289,15 @@ export class DialogStore {
         };
       }
     } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
+        this.audit.write(
+          DIALOG_AUDIT_EVENTS.CORRUPTED,
+          'file=current.json',
+          'context=restore_prefix',
+          `reason=${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       // current 不存在或损坏 / 走 archive
     }
 
