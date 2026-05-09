@@ -144,10 +144,11 @@ export class Runtime {
     this.execContext = deps.execContext;
 
     // 3. 归档上一次 session（first-run ENOENT 允许）
-    await this.sessionManager.archive().catch((err: any) => {
-      if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
-        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SESSION_ARCHIVE_FAILED, `reason=${err?.message}`);
-        console.warn('[runtime] Failed to archive session on startup:', err?.message);
+    await this.sessionManager.archive().catch((err) => {
+      const code = (err as { code?: string })?.code;
+      if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SESSION_ARCHIVE_FAILED, `reason=${msg}`);
       }
     });
 
@@ -323,23 +324,31 @@ export class Runtime {
       );
     }
 
-    for (const { filePath } of [...addressed, ...unaddressed]) {
+    const allEntries = [...addressed, ...unaddressed];
+    let processedCount = 0;
+    for (const { filePath } of allEntries) {
       try {
         await this.inboxReader.markDone(filePath);
+        processedCount++;
       } catch (err) {
         if (err instanceof InboxMoveFailed) {
-          // markDone 失败：该消息本轮结束、保留在 pending；下次 drainInbox 会再拉到
-          // audit 已在 markDone 内写
+          // markDone 失败：该消息 + 之后未处理消息留 pending / 下次 drainInbox 重拉
+          // audit 已在 markDone 内写 / 截断 returned addressed 防重复 inject
           break;
         }
         throw err;
       }
     }
 
+    // 截断：只对 successfully markDone 的 addressed 消息 inject 给 LLM
+    // unaddressed 消息不进 LLM（仅 audit）/ 失败 unaddressed 重拉 unaffected
+    const addressedProcessed = Math.min(processedCount, addressed.length);
+    const truncatedAddressed = addressed.slice(0, addressedProcessed);
+
     const systemParts: string[] = [];
     const userChatParts: string[] = [];
     const sources: Array<{ text: string; type: string }> = [];
-    for (const { message } of addressed) {
+    for (const { message } of truncatedAddressed) {
       const formatted = await this.formatInboxMessage(
         message.type,
         message.from,
@@ -365,8 +374,8 @@ export class Runtime {
     return {
       injected,
       sources,
-      count: addressed.length,
-      infos: addressed.map(e => e.message),
+      count: truncatedAddressed.length,
+      infos: truncatedAddressed.map(e => e.message),
     };
   }
 
@@ -499,7 +508,6 @@ export class Runtime {
       } catch (e) {
         const reason = e instanceof Error ? e.message : String(e);
         this.auditWriter.write(RUNTIME_AUDIT_EVENTS.INBOX_HANDLER_FAILED, 'handler=onInboxMessages', `reason=${reason}`);
-        console.warn('[runtime] onInboxMessages handler failed:', reason);
       }
     }
 
@@ -794,7 +802,6 @@ export class Runtime {
         `scenario=${scenario}`,
         `reason=${reason}`,
       );
-      console.error('[runtime] Failed to write error response:', e);
     });
   }
 

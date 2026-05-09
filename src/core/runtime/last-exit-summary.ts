@@ -48,9 +48,11 @@ export function readLastExitEvent(fs: FileSystem, auditPath: string): RawEvent |
         lines = fs.readSync(auditPath).split('\n').filter(Boolean);
       }
     }
-  } catch (err: any) {
-    if (err?.code !== 'ENOENT') {
-      console.warn('[last-exit-summary] Failed to read audit:', err?.code || err?.message || err);
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code !== 'ENOENT') {
+      // last-exit-summary 是 pure helper / 0 audit writer / 失败 silent 接受
+      // 影响仅 = interruptionMessage null / DialogStore.repair 仍 OK / startup-only
     }
     return null;
   }
