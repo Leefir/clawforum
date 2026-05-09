@@ -56,16 +56,24 @@ export async function initCommand(silent = false): Promise<void> {
       const fullPrompt = `${prompt} (b = back): `;
       let muted = false;
       const original = (rl as any)._writeToOutput?.bind(rl);
-      (rl as any)._writeToOutput = (str: string) => {
-        if (!muted) original?.(str);
+      const restore = () => {
+        try { (rl as any)._writeToOutput = original; } catch { /* private API gone */ }
       };
-      rl.question(fullPrompt, (answer) => {
-        muted = false;
-        (rl as any)._writeToOutput = original;
-        process.stdout.write('\n');
-        resolve(answer.trim());
-      });
-      muted = true;
+      try {
+        (rl as any)._writeToOutput = (str: string) => {
+          if (!muted) original?.(str);
+        };
+        rl.question(fullPrompt, (answer) => {
+          muted = false;
+          restore();
+          process.stdout.write('\n');
+          resolve(answer.trim());
+        });
+        muted = true;
+      } catch (err) {
+        restore();
+        throw err;
+      }
     });
   };
 

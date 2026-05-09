@@ -89,10 +89,10 @@ export async function daemonCommand(name: string): Promise<void> {
   // 清理残留心跳（上次 daemon 的遗留，重启后无需立即巡查）
   try {
     const pendingDir = path.join(dir, 'inbox', 'pending');
-    const files = fsNative.readdirSync(pendingDir);
+    const files = await fsAsync.readdir(pendingDir);
     for (const f of files) {
       if (f.includes('_heartbeat_')) {
-        fsNative.unlinkSync(path.join(pendingDir, f));
+        await fsAsync.unlink(path.join(pendingDir, f));
       }
     }
   } catch (e: any) {

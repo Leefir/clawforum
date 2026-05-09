@@ -203,14 +203,22 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
     new Promise(resolve => {
       let muted = false;
       const original = (rl as any)._writeToOutput?.bind(rl);
-      (rl as any)._writeToOutput = (str: string) => { if (!muted) original?.(str); };
-      rl.question(`${prompt}: `, ans => {
-        muted = false;
-        (rl as any)._writeToOutput = original;
-        process.stdout.write('\n');
-        resolve(ans.trim());
-      });
-      muted = true;
+      const restore = () => {
+        try { (rl as any)._writeToOutput = original; } catch { /* private API gone */ }
+      };
+      try {
+        (rl as any)._writeToOutput = (str: string) => { if (!muted) original?.(str); };
+        rl.question(`${prompt}: `, ans => {
+          muted = false;
+          restore();
+          process.stdout.write('\n');
+          resolve(ans.trim());
+        });
+        muted = true;
+      } catch (err) {
+        restore();
+        throw err;
+      }
     });
 
   // 已知 provider 列表：在函数体内计算一次，option 3 子流程复用
