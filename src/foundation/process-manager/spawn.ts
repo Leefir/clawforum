@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { spawnDetached, kill } from '../process-exec/index.js';
-import { PROCESS_SPAWN_CONFIRM_MS, SIGTERM_GRACE_MS, SPAWN_POLL_INTERVAL_MS } from './constants.js';
+import { PROCESS_SPAWN_CONFIRM_MS, DAEMON_SHUTDOWN_GRACE_MS, SPAWN_POLL_INTERVAL_MS } from './constants.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { ProcessListUnavailable } from './errors.js';
 import { ensureStatusDir, getLockFile, getPidFile } from './paths.js';
@@ -47,7 +47,7 @@ export async function spawnProcess(
     }
   }
   if (sentAny) {
-    await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
+    await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
   }
 
   const lockFile = getLockFile(ctx, clawId);
@@ -57,7 +57,7 @@ export async function spawnProcess(
       if (l1IsAlive(lockPid)) {
         try {
           kill(lockPid, 'TERM');
-          await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
+          await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
         } catch (err: any) {
           ctx.audit.write(
             PROCESS_MANAGER_AUDIT_EVENTS.LOCKFILE_CLEANUP_FAILED,

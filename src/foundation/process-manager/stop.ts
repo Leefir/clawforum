@@ -1,5 +1,5 @@
 import { kill, isAlive as l1IsAlive } from '../process-exec/index.js';
-import { SIGTERM_GRACE_MS } from './constants.js';
+import { DAEMON_SHUTDOWN_GRACE_MS } from './constants.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { isAliveByPidFile as checkAlive } from './alive.js';
 import { readPid, removePid } from './pid.js';
@@ -36,7 +36,7 @@ export async function stopProcess(ctx: ProcessManagerContext, clawId: string): P
   let via = 'sigterm';
   try {
     kill(pid, 'TERM');
-    await new Promise(resolve => setTimeout(resolve, SIGTERM_GRACE_MS));
+    await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
 
     if (isAliveByPidFile(clawId)) {
       kill(pid, 'KILL');

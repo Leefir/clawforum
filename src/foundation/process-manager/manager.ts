@@ -24,7 +24,7 @@ import type { ProcessManagerContext, SpawnOptions } from './types.js';
 
 export { LockConflictError } from './types.js';
 export type { SpawnOptions } from './types.js';
-export { PROCESS_SPAWN_CONFIRM_MS, SIGTERM_GRACE_MS } from './constants.js';
+export { PROCESS_SPAWN_CONFIRM_MS, DAEMON_SHUTDOWN_GRACE_MS } from './constants.js';
 
 export class ProcessManager {
   private readonly _ctx: ProcessManagerContext;

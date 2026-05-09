@@ -17,7 +17,7 @@ import {
 } from './types.js';
 
 const PROCESS_EXEC_MAX_BUFFER = 1024 * 1024; // 1MB; internal
-const GRACE_PERIOD_MS = 1000; // SIGTERM→SIGKILL grace period
+const EXEC_SIGKILL_GRACE_MS = 1000; // SIGTERM→SIGKILL escalation grace
 import type { ExecOptions, ExecResult } from './types.js';
 import { ProcessExecError } from './types.js';
 
@@ -83,7 +83,7 @@ async function runProcess(
       if (totalSize > PROCESS_EXEC_MAX_BUFFER && !maxBufferExceeded) {
         maxBufferExceeded = true;
         proc.kill(); // SIGTERM
-        killTimerId = setTimeout(escalateToKill, GRACE_PERIOD_MS);
+        killTimerId = setTimeout(escalateToKill, EXEC_SIGKILL_GRACE_MS);
       }
     }
 
@@ -93,7 +93,7 @@ async function runProcess(
     const timeoutId = setTimeout(() => {
       timedOut = true;
       proc.kill(); // SIGTERM (default)
-      killTimerId = setTimeout(escalateToKill, GRACE_PERIOD_MS);
+      killTimerId = setTimeout(escalateToKill, EXEC_SIGKILL_GRACE_MS);
     }, timeout);
 
     proc.on('error', (err) => {

@@ -9,4 +9,4 @@
 export { ProcessManager, LockConflictError } from './manager.js';
 export type { SpawnOptions } from './manager.js';
 export { ProcessListUnavailable } from './errors.js';
-export { PROCESS_SPAWN_CONFIRM_MS, SIGTERM_GRACE_MS } from './manager.js';
+export { PROCESS_SPAWN_CONFIRM_MS, DAEMON_SHUTDOWN_GRACE_MS } from './manager.js';
