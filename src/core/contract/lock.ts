@@ -33,7 +33,20 @@ export async function acquireLock(ctx: LockContext, lockPath: string): Promise<v
 
       try {
         const raw = await ctx.fs.read(lockPath);
-        const { pid, time } = JSON.parse(raw) as { pid: number; time: number };
+        const parsed = JSON.parse(raw) as { pid?: unknown; time?: unknown };
+        // schema 校验：pid + time 必为有限数 / 非法视同 corrupt
+        if (
+          typeof parsed.pid !== 'number' || !Number.isFinite(parsed.pid) ||
+          typeof parsed.time !== 'number' || !Number.isFinite(parsed.time)
+        ) {
+          ctx.audit.write(
+            CONTRACT_AUDIT_EVENTS.LOCK_SCHEMA_INVALID,
+            `lockPath=${lockPath}`,
+            `raw=${raw.slice(0, 100)}`,
+          );
+          throw new Error('lock schema invalid');
+        }
+        const { pid, time } = parsed as { pid: number; time: number };
         if (!isAlive(pid)) {
           lastReason = `holder PID ${pid} is dead (stale lock)`;
           if (await unlinkStaleLock(ctx, lockPath, `stale_pid_${pid}`)) continue;
