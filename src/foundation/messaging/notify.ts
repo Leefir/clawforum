@@ -17,14 +17,14 @@ export function notifyInbox(
   fs: FileSystem,
   opts: InboxMessageOptionsBase & { inboxDir: string },
   audit: AuditLog,
-  context?: string,
+  context?: string,   // @deprecated since phase 575 / 不再用 / 保接口稳定 / r+1+ 评估删
 ): void {
   try {
     const { inboxDir, ...rest } = opts;
     new InboxWriter(fs, inboxDir, audit).writeSync(rest);
-  } catch (e) {
-    const prefix = context ? `[${context}] ` : '';
-    console.warn(`${prefix}Failed to send inbox notification:`, e instanceof Error ? e.message : String(e));
+  } catch {
+    // InboxWriter.writeSync 已 audit INBOX_WRITE_FAILED / 此处 catch 静默 best-effort
+    // 不 console.warn 防 TUI raw mode 渲染污染（phase 529 Step E 同型 fix / silent X cluster N+1 实证）
   }
 }
 

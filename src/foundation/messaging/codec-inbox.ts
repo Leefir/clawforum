@@ -3,10 +3,10 @@ import type { InboxMessage } from '../../types/messaging.js';
 import { validatePriority, validateType } from './codec-validation.js';
 
 /**
- * Parse YAML frontmatter (industry standard syntax / per practices.md §DRY reflex 反例落地 / phase 461)
- * 1:1 inline copy from deleted src/foundation/frontmatter/ / 各 caller 自治 / format schema 业务归 caller。
+ * Parse YAML frontmatter — module-level helper / shared by encodeInbox/decodeInbox + InboxWriter.readMeta.
+ * Returns meta + body. Throws if frontmatter is malformed.
  */
-function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
+export function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
   // Normalize CRLF to LF for consistent parsing
   const normalized = raw.replace(/\r\n/g, '\n');
 
@@ -123,11 +123,11 @@ export function decodeInbox(raw: string): InboxMessage {
     extraMeta.__original_priority = rawPriority;
   }
 
-  // A.3: type 违规原值保存
+  // type loose validation（M9 phase 575）/ 任意 string 直通 / 非 string fallback 'message'
   const rawType = meta.type;
   const type = validateType(rawType);
-  if (rawType !== undefined && type !== rawType) {
-    extraMeta.__original_type = rawType;
+  if (rawType !== undefined && typeof rawType !== 'string') {
+    extraMeta.__original_type = String(rawType);   // 非 string 输入仍记原值
   }
 
   return {
