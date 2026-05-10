@@ -253,11 +253,12 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       c[0] === RUNTIME_AUDIT_EVENTS.REGIME_SWITCH_FAILED && c[1] === 'phase=save_and_dump'
     );
     expect(failedCall).toBeDefined();
-    expect(failedCall![2]).toMatch(/^save_reason=/);
-    expect(failedCall![2]).toContain('save-fail');
-    expect(failedCall![3]).toMatch(/^dump_reason=/);
-    expect(failedCall![3]).toContain('dump-fail');
-    expect(failedCall![4]).toMatch(/^inherited_count=/);
+    expect(failedCall![2]).toMatch(/^recovery_path=/);
+    expect(failedCall![3]).toMatch(/^save_reason=/);
+    expect(failedCall![3]).toContain('save-fail');
+    expect(failedCall![4]).toMatch(/^dump_reason=/);
+    expect(failedCall![4]).toContain('dump-fail');
+    expect(failedCall![5]).toMatch(/^inherited_count=/);
   });
 
   it('happy path：save 成功 → commit this.sessionManager + audit REGIME_SWITCH', async () => {

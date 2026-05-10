@@ -294,7 +294,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     // --- L3-L5: contextInjector ---
     let contextInjector: ContextInjector;
     try {
-      contextInjector = createContextInjector({ fs: systemFs, skillRegistry, contractManager });
+      contextInjector = createContextInjector({ fs: systemFs, skillRegistry, contractManager, audit: auditWriter });
     } catch (e) {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=context_injector`, `phase=construct`, `reason=${errMsg(e)}`);
       throw new Error(`Assembly: ContextInjector construct failed: ${errMsg(e)}`, { cause: e });

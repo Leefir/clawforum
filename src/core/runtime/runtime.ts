@@ -969,8 +969,8 @@ export class Runtime {
       await newSessionManager.save(repaired);
     } catch (saveErr) {
       // catch recovery dump (D1+D5 兜底 / 类 phase 586 audit fallback dump 模板)
+      const recoveryPath = path.join(this.options.clawDir, DIALOG_DIR, `regime-switch-recovery-${Date.now()}.json`);
       try {
-        const recoveryPath = path.join(this.options.clawDir, DIALOG_DIR, `regime-switch-recovery-${Date.now()}.json`);
         const recoveryData = JSON.stringify({
           systemPrompt: newSystemPrompt,
           repaired,
@@ -992,6 +992,7 @@ export class Runtime {
         this.auditWriter.write(
           RUNTIME_AUDIT_EVENTS.REGIME_SWITCH_FAILED,
           `phase=save_and_dump`,
+          `recovery_path=${recoveryPath}`,
           `save_reason=${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
           `dump_reason=${dumpErr instanceof Error ? dumpErr.message : String(dumpErr)}`,
           `inherited_count=${repaired.length}`,

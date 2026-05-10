@@ -5,6 +5,7 @@
 
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ContractStatus, SubtaskStatus, LastFailedFeedback } from '../../types/contract.js';
 
 // YAML contract file structure (exported for CLI use)
@@ -67,6 +68,8 @@ export interface VerifierConfig {
   maxSteps: number;
   idleTimeoutMs: number;
   onIdleTimeout?: () => void;
+  /** Optional audit writer / phase 646 ⚓ verifier cleanup audit / per `feedback_audit_injection_alpha_template` */
+  audit?: AuditLog;
 }
 
 export interface VerifierResult {

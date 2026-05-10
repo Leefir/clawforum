@@ -507,6 +507,7 @@ export async function runLLMAcceptance(
       clawId: ctx.clawId,        // phase 514
       llm: ctx.llm,
       fs: ctx.fs,
+      audit: ctx.audit,                                         // phase 646 ⚓ verifier cleanup audit injection
       maxSteps: DEFAULT_MAX_STEPS,
       idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
       onIdleTimeout: () => {

@@ -15,6 +15,9 @@ import type { Contract } from '../../types/contract.js';
 import type { SessionData } from '../../foundation/dialog-store/index.js';
 import type { SkillSystem } from '../../foundation/skill-system/registry.js';
 import type { ContractSystem } from '../contract/manager.js';
+import { FileNotFoundError } from '../../types/errors.js';
+import { DIALOG_AUDIT_EVENTS } from '../../foundation/dialog-store/audit-events.js';
+import type { AuditLog } from '../../foundation/audit/index.js';
 
 /**
  * Context injector configuration
@@ -26,6 +29,8 @@ export interface ContextInjectorOptions {
   skillRegistry?: SkillSystem;
   /** Contract manager for active contract injection */
   contractManager?: ContractSystem;
+  /** Optional audit writer / phase 646 ⚓ context load failure audit (FNF silent / else audit) */
+  audit?: AuditLog;
 }
 
 /**
@@ -56,11 +61,13 @@ export class ContextInjector {
   private fs: FileSystem;
   private skillRegistry?: SkillSystem;
   private contractManager?: ContractSystem;
+  private audit?: AuditLog;
 
   constructor(options: ContextInjectorOptions) {
     this.fs = options.fs;
     this.skillRegistry = options.skillRegistry;
     this.contractManager = options.contractManager;
+    this.audit = options.audit;
   }
 
   /**
@@ -84,8 +91,11 @@ export class ContextInjector {
       if (content.trim()) {
         agents = content.trim();
       }
-    } catch {
-      // AGENTS.md doesn't exist, skip silently
+    } catch (err) {
+      // FNF silent OK / else audit (phase 646 D2 align)
+      if (!(err instanceof FileNotFoundError)) {
+        this.audit?.write(DIALOG_AUDIT_EVENTS.LOAD_FAILED, 'file=AGENTS.md', `reason=${err instanceof Error ? err.message : String(err)}`);
+      }
     }
 
     // Try to read MEMORY.md
@@ -94,8 +104,11 @@ export class ContextInjector {
       if (content.trim()) {
         memory = '## Memory\n' + content.trim();
       }
-    } catch {
-      // MEMORY.md doesn't exist, skip
+    } catch (err) {
+      // FNF silent OK / else audit (phase 646 D2 align)
+      if (!(err instanceof FileNotFoundError)) {
+        this.audit?.write(DIALOG_AUDIT_EVENTS.LOAD_FAILED, 'file=MEMORY.md', `reason=${err instanceof Error ? err.message : String(err)}`);
+      }
     }
 
     // Inject skill metadata if available
@@ -113,8 +126,11 @@ export class ContextInjector {
         if (contractData) {
           contract = formatContractForPrompt(contractData);
         }
-      } catch {
-        // No active contract or error loading, skip
+      } catch (err) {
+        // FNF silent OK / else audit (phase 646 D2 align)
+        if (!(err instanceof FileNotFoundError)) {
+          this.audit?.write(DIALOG_AUDIT_EVENTS.LOAD_FAILED, 'file=contract', `reason=${err instanceof Error ? err.message : String(err)}`);
+        }
       }
     }
 
