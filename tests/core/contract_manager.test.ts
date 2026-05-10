@@ -16,6 +16,7 @@ import * as path from 'path';
 import { ContractSystem } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../src/core/contract/audit-events.js';
+import { waitFor } from '../helpers/wait-for.js';
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
@@ -33,6 +34,10 @@ vi.mock('../../src/constants.js', async (importOriginal) => {
 
 let testDir: string;
 let clawDir: string;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('ContractSystem', () => {
   let manager: ContractSystem;
@@ -482,7 +487,7 @@ describe('ContractSystem', () => {
       const cleanupCalls = mockAudit.write.mock.calls.filter(
         (c: any[]) => c[0] === 'contract_lock_cleanup_failed'
       );
-      expect(cleanupCalls.length).toBeGreaterThan(0);
+      expect(cleanupCalls.length).toBeGreaterThan(0); // at least 1; exact count is retry-dependent
       // 参数：type, reason, code, message
       expect(cleanupCalls[0][1]).toBe(`stale_pid_${deadPid}`);
       expect(cleanupCalls[0][2]).toBe('EACCES');
@@ -964,12 +969,11 @@ describe('ContractSystem', () => {
       expect(result.async).toBe(true);
 
       // Wait for background processing to complete
-      const deadline = Date.now() + 5000;
-      while (Date.now() < deadline) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
 
       runLLMSpy.mockRestore();
 
@@ -1023,21 +1027,19 @@ describe('ContractSystem', () => {
       for (let i = 0; i < 3; i++) {
         await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: `attempt ${i + 1}` });
         // Wait for background acceptance to complete (subtask leaves in_progress)
-        const dl = Date.now() + 5000;
-        while (Date.now() < dl) {
-          const p = await testManager.getProgress(contractId);
-          if (p.subtasks['t1'].status !== 'in_progress') break;
-          await new Promise(r => setTimeout(r, 10));
-        }
+        await waitFor(
+          async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+          5000,
+          10,
+        );
       }
 
       // Escalation saveProgress runs after inbox write; poll for escalated_at
-      const dl2 = Date.now() + 5000;
-      while (Date.now() < dl2) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].escalated_at) break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => Boolean((await testManager.getProgress(contractId)).subtasks['t1'].escalated_at),
+        5000,
+        10,
+      );
 
       scriptSpy.mockRestore();
 
@@ -1075,12 +1077,11 @@ describe('ContractSystem', () => {
       // Only 2 failures — below maxRetries (3)
       for (let i = 0; i < 2; i++) {
         await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: `attempt ${i + 1}` });
-        const dl = Date.now() + 5000;
-        while (Date.now() < dl) {
-          const p = await testManager.getProgress(contractId);
-          if (p.subtasks['t1'].status !== 'in_progress') break;
-          await new Promise(r => setTimeout(r, 10));
-        }
+        await waitFor(
+          async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+          5000,
+          10,
+        );
       }
 
       scriptSpy.mockRestore();
@@ -1278,12 +1279,11 @@ describe('ContractSystem', () => {
       const result = await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
       expect(result.async).toBe(true);
 
-      const dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
 
       const progress = await testManager.getProgress(contractId);
       expect(progress.subtasks['t1'].status).toBe('todo');
@@ -1320,12 +1320,11 @@ describe('ContractSystem', () => {
 
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
 
-      const dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
 
       const progress = await testManager.getProgress(contractId);
       expect(progress.subtasks['t1'].status).toBe('todo');
@@ -1335,7 +1334,7 @@ describe('ContractSystem', () => {
       const unexpectedThrowCalls = mockAudit.write.mock.calls.filter(
         (c: any[]) => c[0] === CONTRACT_AUDIT_EVENTS.UNEXPECTED_ASYNC_THROW
       );
-      expect(unexpectedThrowCalls.length).toBeGreaterThan(0);
+      expect(unexpectedThrowCalls.length).toBeGreaterThan(0); // at least 1; exact count is retry-dependent
       expect(unexpectedThrowCalls[0][4]).toContain('TypeError');
     });
 
@@ -1366,12 +1365,11 @@ describe('ContractSystem', () => {
 
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
 
-      const dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
 
       const progress = await testManager.getProgress(contractId);
       expect(progress.subtasks['t1'].status).toBe('todo');
@@ -1408,12 +1406,11 @@ describe('ContractSystem', () => {
 
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done' });
 
-      const dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
 
       const notifyCall = onNotifySpy.mock.calls.find(
         (call: any[]) => call[0] === 'acceptance_failed'
@@ -1459,21 +1456,19 @@ describe('ContractSystem', () => {
 
       for (let i = 0; i < 3; i++) {
         await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: `attempt ${i + 1}` });
-        const dl = Date.now() + 5000;
-        while (Date.now() < dl) {
-          const p = await testManager.getProgress(contractId);
-          if (p.subtasks['t1'].status !== 'in_progress') break;
-          await new Promise(r => setTimeout(r, 10));
-        }
+        await waitFor(
+          async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+          5000,
+          10,
+        );
       }
 
       // Escalation saveProgress runs after inbox write; poll for escalated_at
-      const dl2 = Date.now() + 5000;
-      while (Date.now() < dl2) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].escalated_at) break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => Boolean((await testManager.getProgress(contractId)).subtasks['t1'].escalated_at),
+        5000,
+        10,
+      );
 
       const progress = await testManager.getProgress(contractId);
       expect(progress.subtasks['t1'].status).toBe('todo');
@@ -1484,7 +1479,7 @@ describe('ContractSystem', () => {
       const escalationCalls = mockAudit.write.mock.calls.filter(
         (c: any[]) => c[0] === CONTRACT_AUDIT_EVENTS.ESCALATED
       );
-      expect(escalationCalls.length).toBeGreaterThan(0);
+      expect(escalationCalls.length).toBeGreaterThan(0); // at least 1; exact count is retry-dependent
       expect(escalationCalls[0][1]).toContain(`${contractId}/t1`);
     });
 
@@ -1514,36 +1509,33 @@ describe('ContractSystem', () => {
         feedback: 'first reject',
       });
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done1' });
-      let dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
       spy.mockRestore();
 
       spy = vi.spyOn(testManager as any, 'runLLMAcceptance').mockRejectedValueOnce(
         new Error('bug')
       );
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done2' });
-      dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
       spy.mockRestore();
 
       spy = vi.spyOn(testManager as any, 'runLLMAcceptance').mockRejectedValueOnce(
         new ToolTimeoutError('verifier', 3000)
       );
       await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done3' });
-      dl = Date.now() + 5000;
-      while (Date.now() < dl) {
-        const p = await testManager.getProgress(contractId);
-        if (p.subtasks['t1'].status !== 'in_progress') break;
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await waitFor(
+        async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
+        5000,
+        10,
+      );
       spy.mockRestore();
 
       const progress = await testManager.getProgress(contractId);
