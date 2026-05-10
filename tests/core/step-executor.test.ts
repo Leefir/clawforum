@@ -687,7 +687,7 @@ describe('StepExecutor', () => {
     expect(messages).toHaveLength(2);
   });
 
-  it('readonly+async tools run sequentially before sync parallel batch', async () => {
+  it('readonly+async tools go through executeParallel in their own batch before sync parallel batch', async () => {
     const ctx = await makeRealCtx();
     const registry = new ToolRegistryImpl();
     const order: string[] = [];
@@ -715,7 +715,12 @@ describe('StepExecutor', () => {
       messages: [], systemPrompt: '', llm, tools: [],
       executor, registry, ctx,
     });
-    expect(order.indexOf('asyncA')).toBeLessThan(order.indexOf('parallel-start'));
+    // asyncA now goes through executeParallel (readonlyAsync batch)
+    // async batch runs before sync batch
+    expect(order).toEqual([
+      'parallel-start', 'asyncA', 'parallel-end',
+      'parallel-start', 'syncB', 'parallel-end',
+    ]);
   });
 
   it('readonly+sync clean calls go through executeParallel', async () => {
@@ -790,7 +795,7 @@ describe('StepExecutor', () => {
     expect(order).toEqual(['writeA', 'writeB']);
   });
 
-  it('mixed three categories execute in order: async → sync → write', async () => {
+  it('mixed three categories execute in order: async parallel → sync parallel → write', async () => {
     const ctx = await makeRealCtx();
     const registry = new ToolRegistryImpl();
     const order: string[] = [];
@@ -818,9 +823,9 @@ describe('StepExecutor', () => {
       messages: [], systemPrompt: '', llm, tools: [],
       executor, registry, ctx,
     });
-    // asyncA runs before parallel; parallel runs before writeC
-    expect(order.indexOf('asyncA')).toBeLessThan(order.indexOf('parallel'));
-    expect(order.indexOf('parallel')).toBeLessThan(order.indexOf('writeC'));
+    // asyncA runs in first parallel batch; syncB runs in second parallel batch; writeC runs sequentially last
+    expect(order.indexOf('asyncA')).toBeLessThan(order.indexOf('syncB'));
+    expect(order.indexOf('syncB')).toBeLessThan(order.indexOf('writeC'));
   });
 
   it('results map preserves original toolCalls index order', async () => {
@@ -927,8 +932,9 @@ describe('StepExecutor', () => {
       messages: [], systemPrompt: '', llm, tools: [],
       executor, registry, ctx,
     });
-    // roSync goes through parallel (1 call with 1 item)
-    expect(parallelSpy).toHaveBeenCalledTimes(1);
-    expect(parallelSpy.mock.calls[0][0]).toHaveLength(1);
+    // roAsync and roSync each go through parallel in separate batches
+    expect(parallelSpy).toHaveBeenCalledTimes(2);
+    expect(parallelSpy.mock.calls[0][0]).toHaveLength(1); // roAsync batch
+    expect(parallelSpy.mock.calls[1][0]).toHaveLength(1); // roSync batch
   });
 });

@@ -116,11 +116,26 @@ async function _recoverWithResult(
     });
 
   if (resultSent) {
-    await fs.writeAtomic(SENT_MARKER(task.id), '1').catch(() => {});
+    await fs.writeAtomic(SENT_MARKER(task.id), '1').catch((e) => {
+      auditWriter.write(
+        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+        task.id,
+        'context=sent_marker_persist_failed',
+        `error=${formatErr(e)}`,
+      );
+    });
+    // retryPath delete 失败无害（残文件下次 startup 覆盖 / 不影响 dead-letter promotion）
     await fs.delete(retryPath).catch(() => {});
   } else {
     retryCount++;
-    await fs.writeAtomic(retryPath, String(retryCount)).catch(() => {});
+    await fs.writeAtomic(retryPath, String(retryCount)).catch((e) => {
+      auditWriter.write(
+        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+        task.id,
+        'context=retry_counter_persist_failed',
+        `error=${formatErr(e)}`,
+      );
+    });
     if (retryCount >= MAX_RECOVERY_RETRIES) {
       await _moveToDeadLetter(deps, filePath, task, retryCount, retryPath);
       return 0;

@@ -204,7 +204,14 @@ export class AsyncTaskSystem {
       );
     }
     // 启动扫描：把 pending/ 中既有 subagent 文件入队（_ingestPendingFile 内含 _dispatch 触发）
-    void this._initialScanPending();
+    void this._initialScanPending().catch((err) => {
+      this.auditWriter.write(
+        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+        'system',
+        'context=initial_scan_pending_failed',
+        `error=${formatErr(err)}`,
+      );
+    });
     this._dispatch();
   }
 
