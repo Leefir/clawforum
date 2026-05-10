@@ -515,6 +515,13 @@ describe('LLMOrchestratorImpl - stream failover', () => {
 
 // Phase 20: Circuit Breaker
 describe('LLMOrchestratorImpl - circuit breaker', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('should skip primary after threshold failures (circuit opens)', async () => {
     // threshold=2: primary fails twice → breaker opens → 3rd call skips primary entirely
     let primaryCallCount = 0;
@@ -583,7 +590,7 @@ describe('LLMOrchestratorImpl - circuit breaker', () => {
     expect(primaryFailCount).toBe(2);
 
     // Wait past resetTimeoutMs → transitions to half-open on next isOpen() check
-    await new Promise(r => setTimeout(r, 60));
+    await vi.advanceTimersByTimeAsync(60);
     primaryShouldFail = false;
 
     // Half-open probe: primary should be attempted and succeed → breaker closes
@@ -624,7 +631,7 @@ describe('LLMOrchestratorImpl - circuit breaker', () => {
     await service.call({ messages: [] });
 
     // Wait past resetTimeoutMs
-    await new Promise(r => setTimeout(r, 60));
+    await vi.advanceTimersByTimeAsync(60);
 
     // Next call triggers isOpen() → half-open transition
     await service.call({ messages: [] });
@@ -666,7 +673,7 @@ describe('LLMOrchestratorImpl - circuit breaker', () => {
     await service.call({ messages: [] });
 
     // Wait past resetTimeoutMs → half-open
-    await new Promise(r => setTimeout(r, 60));
+    await vi.advanceTimersByTimeAsync(60);
     primaryShouldFail = false;
 
     // Probe succeeds → half-open → closed
