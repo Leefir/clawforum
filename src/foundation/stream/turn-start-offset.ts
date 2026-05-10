@@ -1,5 +1,7 @@
 import type { FileSystem } from '../fs/types.js';
 
+const TURN_START_SCAN_BYTES_DEFAULT = 64 * 1024;   // 64KB
+
 /**
  * 启动期 backward scan stream.jsonl 找最近 turn_start byte offset。
  *
@@ -14,7 +16,7 @@ import type { FileSystem } from '../fs/types.js';
 export function findRecentTurnStartOffset(
   fs: FileSystem,
   streamPath: string,
-  scanBytes = 64 * 1024,
+  scanBytes = TURN_START_SCAN_BYTES_DEFAULT,
 ): number {
   if (!fs.existsSync(streamPath)) return 0;
   const size = fs.statSync(streamPath).size;

@@ -45,6 +45,8 @@ import {
   maybeCronClawInactivity, maybeCronClawCrash,
 } from './watchdog-cron.js';
 
+const WATCHDOG_BACKOFF_MAX_MS = 5 * 60 * 1000;   // 5 minutes
+
 // === Shutdown (21 行) ===
 
 /** Module-level guard: prevent reentrant shutdown when SIGTERM + SIGINT both fire */
@@ -191,7 +193,7 @@ export async function runWatchdogLoop(): Promise<void> {
     // 3. Sleep with backoff on consecutive failures (max 5 minutes)
     const intervalMs = getGlobalConfig().watchdog?.interval_ms ?? 30000;
     const backoffMs = motionRestartFailures > 0
-      ? Math.min(intervalMs * Math.pow(2, motionRestartFailures - 1), 5 * 60 * 1000)
+      ? Math.min(intervalMs * Math.pow(2, motionRestartFailures - 1), WATCHDOG_BACKOFF_MAX_MS)
       : intervalMs;
     await setTimeout(backoffMs);
   }

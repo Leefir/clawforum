@@ -10,6 +10,8 @@ import { AskMotionTool } from './ask-motion.js';
 import { writePendingSubagentTaskFile } from './_pending-task-writer.js';
 import { DISPATCH_AUDIT_EVENTS } from './dispatch-audit-events.js';
 
+const DISPATCH_SUBAGENT_TIMEOUT_MS = 3600 * 1000;   // 1 hour
+
 import { DISPATCH_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 export { DISPATCH_TOOL_NAME };
 
@@ -176,7 +178,7 @@ export class DispatchTool implements Tool {
       const taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
         kind: 'subagent',
         intent: userMessage,
-        timeoutMs: 3600 * 1000,        // 总超时 1 小时
+        timeoutMs: DISPATCH_SUBAGENT_TIMEOUT_MS,
         maxSteps: (args.maxSteps as number) ?? ctx.subagentMaxSteps ?? ctx.maxSteps ?? DEFAULT_MAX_STEPS,
         parentClawId: ctx.clawId,
         originClawId: ctx.originClawId ?? ctx.clawId,
