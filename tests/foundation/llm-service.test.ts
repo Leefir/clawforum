@@ -957,7 +957,7 @@ describe('LLMOrchestratorImpl - idle failover', () => {
     (svc as any).fallbacks = [p2];
 
     const chunks: StreamChunk[] = [];
-    for await (const chunk of svc.stream({ messages: [], idleTimeoutMs: 50 })) {
+    for await (const chunk of svc.stream({ messages: [], streamIdleTimeoutMs: 50 })) {
       chunks.push(chunk);
     }
 
@@ -984,7 +984,7 @@ describe('LLMOrchestratorImpl - idle failover', () => {
     (svc as any).fallbacks = [p2];
 
     await expect(async () => {
-      for await (const _ of svc.stream({ messages: [], idleTimeoutMs: 50 })) {}
+      for await (const _ of svc.stream({ messages: [], streamIdleTimeoutMs: 50 })) {}
     }).rejects.toThrow(LLMAllProvidersFailedError);
 
     expect(emitted.filter(e => e.type === 'idle_failover_triggered').length).toBe(2);
@@ -1015,7 +1015,7 @@ describe('LLMOrchestratorImpl - idle failover', () => {
     setTimeout(() => userCtrl.abort(), 20);
 
     await expect(async () => {
-      for await (const _ of svc.stream({ messages: [], signal: userCtrl.signal, idleTimeoutMs: 200 })) {}
+      for await (const _ of svc.stream({ messages: [], signal: userCtrl.signal, streamIdleTimeoutMs: 200 })) {}
     }).rejects.toThrow();
 
     expect(p2Called).toBe(false);

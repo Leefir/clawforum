@@ -169,33 +169,5 @@ describe('LLMOrchestratorImpl timeout distinction (Phase 538)', () => {
     expect(textChunks.map((c) => (c as any).delta)).toEqual(['a', 'b', 'c']);
   });
 
-  it('idleTimeoutMs alias 兼容 → call() 当 hard / stream() 当 idle', async () => {
-    const primary = createMockProvider('primary');
-    primary.call = vi.fn(async (opts: { signal?: AbortSignal }) => {
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          resolve({ content: [{ type: 'text', text: 'late' }], stop_reason: 'end_turn' });
-        }, 500);
-        opts.signal?.addEventListener('abort', () => {
-          clearTimeout(timer);
-          reject(new Error('AbortError'));
-        });
-      });
-    });
 
-    const service = new LLMOrchestratorImpl({
-      primary: { name: 'primary', apiKey: 'test', model: 'test' },
-      maxAttempts: 1,
-      retryDelayMs: 0,
-      events: noopSink,
-    });
-    (service as any).primary = primary;
-
-    // 只传 idleTimeoutMs（旧字段）/ call() 路径应把它当 hard timeout
-    await expect(
-      service.call({ messages: [], idleTimeoutMs: 50 }),
-    ).rejects.toThrow();
-
-    expect(primary.call).toHaveBeenCalledTimes(1);
-  });
 });

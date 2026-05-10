@@ -123,9 +123,6 @@ export interface LLMCallOptions {
 
   /** Signal for cancellation (user abort + step_yield only; idle timeout is service-internal) */
   signal?: AbortSignal;
-  /** Per-attempt idle timeout (ms); service.ts creates internal AbortController per provider attempt.
-   *  0 / undefined = disabled. */
-  idleTimeoutMs?: number;
 }
 
 /**

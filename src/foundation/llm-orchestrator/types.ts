@@ -157,11 +157,6 @@ export interface LLMCallOptions {
   /** Idle timeout for stream() — reset on each chunk / 仅 stream 路径 */
   streamIdleTimeoutMs?: number;
 
-  /** @deprecated phase 538 / use hardTimeoutMs (call) or streamIdleTimeoutMs (stream)
-   *  call() 路径解析为 hardTimeoutMs / stream() 路径解析为 streamIdleTimeoutMs
-   *  兼容期 1 r / 推 r66+ 删 */
-  idleTimeoutMs?: number;
-
   /** ⚓4 ε probe timeout after stream idle, default 5000ms */
   streamIdleProbeTimeoutMs?: number;
 }

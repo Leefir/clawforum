@@ -146,11 +146,11 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       for (let attempt = 0; attempt < this.config.maxAttempts; attempt++) {
         if (options.signal?.aborted) throw makeExternalAbortError(options.signal.reason as AbortReason | undefined);
 
-        const hardTimeoutMs = options.hardTimeoutMs ?? options.idleTimeoutMs;
+        const hardTimeoutMs = options.hardTimeoutMs;
         const hardCtrl = hardTimeoutMs ? new AbortController() : null;
         const hardTimer = hardCtrl ? setTimeout(() => hardCtrl!.abort(), hardTimeoutMs) : undefined;
         const { signal: providerSignal, cleanup: cleanupSignal } = mergeSignals(options.signal, hardCtrl?.signal);
-        const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined, idleTimeoutMs: undefined };
+        const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined };
 
         try {
           const response = await this.primary.call(providerOptions);
@@ -220,11 +220,11 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
       const fb = this.fallbacks[i];
 
-      const hardTimeoutMs = options.hardTimeoutMs ?? options.idleTimeoutMs;
+      const hardTimeoutMs = options.hardTimeoutMs;
       const hardCtrl = hardTimeoutMs ? new AbortController() : null;
       const hardTimer = hardCtrl ? setTimeout(() => hardCtrl!.abort(), hardTimeoutMs) : undefined;
       const { signal: providerSignal, cleanup: cleanupSignal } = mergeSignals(options.signal, hardCtrl?.signal);
-      const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined, idleTimeoutMs: undefined };
+      const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined };
 
       try {
         const response = await fb.call(providerOptions);
@@ -310,7 +310,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         idleCtrl = null;
         cleanupSignal = undefined;
         try {
-          const idleMs = options.streamIdleTimeoutMs ?? options.idleTimeoutMs;
+          const idleMs = options.streamIdleTimeoutMs;
           idleCtrl = idleMs ? new AbortController() : null;
           const resetIdleTimer = () => {
             if (!idleCtrl || !idleMs) return;
@@ -320,7 +320,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
           const merged = mergeSignals(options.signal, idleCtrl?.signal);
           cleanupSignal = merged.cleanup;
-          const providerOptions: LLMCallOptions = { ...options, signal: merged.signal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined, idleTimeoutMs: undefined };
+          const providerOptions: LLMCallOptions = { ...options, signal: merged.signal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined };
 
           resetIdleTimer();
           for await (const chunk of adapter.stream(providerOptions)) {
@@ -389,10 +389,10 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
             this.events.emit({
               type: 'idle_failover_triggered',
               provider: adapter.name,
-              ms: options.idleTimeoutMs!,
+              ms: options.streamIdleTimeoutMs!,
             });
             lastError = new Error(
-              `Idle timeout after ${options.idleTimeoutMs}ms (probe failed: ${probe.error.message})`,
+              `Idle timeout after ${options.streamIdleTimeoutMs}ms (probe failed: ${probe.error.message})`,
             );
             break; // exit retry loop → outer loop continues to next provider
           }
