@@ -73,6 +73,7 @@ export function handleMaxTokensStop(
       kind: 'max_tokens_tool_use',
       meta: {
         toolCallCount: toolCalls.length,
+        // parseErrorCount=0 by design: max_tokens_tool_use path 不走 parse error counting（continue 路径 own）
         parseErrorCount: 0,
         allParseErrors: false,
         llm: llmInfo,

@@ -275,6 +275,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
     const failures: Array<{ provider: string; error: Error }> = [];
 
+    // contextExceededCount race 边界：single-threaded async loop / per-attempt increment / race 极小
     let contextExceededCount = 0;
 
     for (let pi = 0; pi < providers.length; pi++) {
