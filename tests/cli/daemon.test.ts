@@ -3,20 +3,20 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fsNative from 'fs';
 import { randomUUID } from 'crypto';
-import { ProcessManager } from '../../src/foundation/process-manager/index.js';
+import { TestProcessManager } from '../helpers/test-process-manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 
 describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () => {
   let tmpDir: string;
-  let pm: ProcessManager;
+  let pm: TestProcessManager;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `daemon-fix4-${randomUUID()}`);
     fsNative.mkdirSync(tmpDir, { recursive: true });
     const fs = new NodeFileSystem({ baseDir: tmpDir });
     const audit = new AuditWriter(fs, 'audit.tsv');
-    pm = new ProcessManager(fs, tmpDir, audit);
+    pm = new TestProcessManager(fs, tmpDir, audit);
   });
 
   afterEach(() => {
@@ -28,14 +28,14 @@ describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () =>
 
   it('throws when another daemon acquires the lock during retry', () => {
     // 模拟 readLockPid 返回一个已死进程的 PID
-    vi.spyOn(pm as any, 'readLockPid').mockReturnValue(12345);
+    vi.spyOn(pm, 'readLockPid').mockReturnValue(12345);
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err: any = new Error('ESRCH');
       err.code = 'ESRCH';
       throw err;
     });
     // 模拟重试时又被抢占：deleteSync 成功，writeExclusiveSync 抛 EEXIST
-    const fs = (pm as any).fs;
+    const fs = pm.testGetFs();
     const origWriteExclusive = fs.writeExclusiveSync.bind(fs);
     let callCount = 0;
     vi.spyOn(fs, 'writeExclusiveSync').mockImplementation((p: string, c: string) => {
@@ -65,13 +65,13 @@ describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () =>
   });
 
   it('throws on EPERM (holder alive but no permission to signal)', () => {
-    const fs = (pm as any).fs;
+    const fs = pm.testGetFs();
     vi.spyOn(fs, 'writeExclusiveSync').mockImplementation(() => {
       const err: any = new Error('EEXIST');
       err.code = 'EEXIST';
       throw err;
     });
-    vi.spyOn(pm as any, 'readLockPid').mockReturnValue(12345);
+    vi.spyOn(pm, 'readLockPid').mockReturnValue(12345);
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err: any = new Error('EPERM');
       err.code = 'EPERM';
@@ -85,13 +85,13 @@ describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () =>
   });
 
   it('unknown kill errno → stale cleanup + retry (no longer conservative steal)', () => {
-    const fs = (pm as any).fs;
+    const fs = pm.testGetFs();
     vi.spyOn(fs, 'writeExclusiveSync').mockImplementation(() => {
       const err: any = new Error('EEXIST');
       err.code = 'EEXIST';
       throw err;
     });
-    vi.spyOn(pm as any, 'readLockPid').mockReturnValue(12345);
+    vi.spyOn(pm, 'readLockPid').mockReturnValue(12345);
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err: any = new Error('EINVAL');
       err.code = 'EINVAL';

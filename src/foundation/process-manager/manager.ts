@@ -28,8 +28,7 @@ export { PROCESS_SPAWN_CONFIRM_MS, DAEMON_SHUTDOWN_GRACE_MS } from './constants.
 
 export class ProcessManager {
   private readonly _ctx: ProcessManagerContext;
-  // Preserved for test back-compat (tests spy on pm.fs via (pm as any).fs)
-  private readonly fs: FileSystem;
+  protected readonly fs: FileSystem;
   private readonly audit: AuditLog;
 
   constructor(
