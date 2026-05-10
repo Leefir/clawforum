@@ -1,36 +1,67 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import path from 'path';
-import { mkdtempSync, readFileSync } from 'fs';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { AuditWriter, createSystemAudit, AUDIT_FILE } from '../../src/foundation/audit/index.js';
 import { createAgentProcessManager } from '../../src/foundation/process-manager/agent-factory.js';
 import { createProcessManagerForCLI, createDirContext } from '../../src/cli/utils/factories.js';
 
+// Track all temp dirs created via freshDir() for cleanup
+const tempDirs: string[] = [];
+// Track env state for restore (per-test capture)
+let envSnapshot: { CLAWFORUM_ROOT: string | undefined } | null = null;
+
+afterEach(() => {
+  // Cleanup tempDirs (assertion fail 也保 cleanup)
+  while (tempDirs.length) {
+    const d = tempDirs.pop();
+    if (d) {
+      try { rmSync(d, { recursive: true, force: true }); } catch {}
+    }
+  }
+  // Restore env (assertion fail 也保 restore)
+  if (envSnapshot) {
+    if (envSnapshot.CLAWFORUM_ROOT === undefined) {
+      delete process.env.CLAWFORUM_ROOT;
+    } else {
+      process.env.CLAWFORUM_ROOT = envSnapshot.CLAWFORUM_ROOT;
+    }
+    envSnapshot = null;
+  }
+});
+
 function freshDir(): string {
-  return mkdtempSync(path.join(tmpdir(), 'shared-'));
+  const d = mkdtempSync(path.join(tmpdir(), 'shared-'));
+  tempDirs.push(d);
+  return d;
+}
+
+// Snapshot env before mutation (call once per it before mutating)
+function captureEnv(): void {
+  if (!envSnapshot) {
+    envSnapshot = { CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT };
+  }
 }
 
 describe('createProcessManagerForCLI', () => {
   it('返回值实现 ProcessManager 接口', () => {
-    const prevRoot = process.env.CLAWFORUM_ROOT;
+    captureEnv();
     process.env.CLAWFORUM_ROOT = freshDir();
     const pm = createProcessManagerForCLI();
     expect(typeof pm.isAlive).toBe('function');
     expect(typeof pm.acquireLock).toBe('function');
-    process.env.CLAWFORUM_ROOT = prevRoot;
   });
 
   it('每次调用返回新实例（无缓存）', () => {
-    const prevRoot = process.env.CLAWFORUM_ROOT;
+    captureEnv();
     process.env.CLAWFORUM_ROOT = freshDir();
     expect(createProcessManagerForCLI()).not.toBe(createProcessManagerForCLI());
-    process.env.CLAWFORUM_ROOT = prevRoot;
   });
 
   it('等价性：与手动 createAgentProcessManager(createSystemAudit(...)) 行为一致', () => {
     const dir = freshDir();
-    const prevRoot = process.env.CLAWFORUM_ROOT;
+    captureEnv();
     process.env.CLAWFORUM_ROOT = dir;
     // 手动路径
     const fs = new NodeFileSystem({ baseDir: dir });
@@ -39,7 +70,6 @@ describe('createProcessManagerForCLI', () => {
     const factory = createProcessManagerForCLI();
     // 接口等价：同一 clawId 查询同一 PID（均为不存在）
     expect(manual.isAlive('nonexistent')).toBe(factory.isAlive('nonexistent'));
-    process.env.CLAWFORUM_ROOT = prevRoot;
   });
 });
 

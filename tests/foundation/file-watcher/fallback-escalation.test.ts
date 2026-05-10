@@ -18,6 +18,10 @@ describe('fallback poller escalation (macOS only)', () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  // skipIf rationale: chokidar fallback poller is only enabled on macOS FSEvents path
+  // when stability === 'immediate' (per src/foundation/file-watcher/watcher.ts comment).
+  // Linux inotify + Windows ReadDirectoryChangesW do not use the fallback poller,
+  // so escalation cannot be exercised on those platforms by design — not a coverage gap.
   it.skipIf(process.platform !== 'darwin')(
     'disables poller after 5 consecutive callback failures',
     async () => {
@@ -52,6 +56,7 @@ describe('fallback poller escalation (macOS only)', () => {
     },
   );
 
+  // (Same darwin-only rationale as above)
   it.skipIf(process.platform !== 'darwin')(
     'resets counter on successful callback',
     async () => {

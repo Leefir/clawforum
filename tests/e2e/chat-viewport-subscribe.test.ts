@@ -14,9 +14,20 @@ const TIMEOUT_MS = 10000;
 function waitFor(condition: () => boolean, timeoutMs = TIMEOUT_MS): Promise<void> {
   return new Promise((resolve, reject) => {
     const start = Date.now();
+    let lastError: unknown = null;
     const tick = () => {
-      try { if (condition()) { resolve(); return; } } catch {}
-      if (Date.now() - start > timeoutMs) { reject(new Error('waitFor timed out')); return; }
+      try {
+        if (condition()) { resolve(); return; }
+      } catch (err) {
+        lastError = err;       // 捕获 / 不吞
+      }
+      if (Date.now() - start > timeoutMs) {
+        const errMsg = lastError instanceof Error
+          ? `waitFor timed out (last predicate error: ${lastError.message})`
+          : 'waitFor timed out';
+        reject(new Error(errMsg));
+        return;
+      }
       setTimeout(tick, 20);
     };
     tick();
