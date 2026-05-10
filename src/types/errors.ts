@@ -21,13 +21,7 @@ export type ErrorCode =
   | 'LLM_TIMEOUT'
   | 'LLM_ALL_PROVIDERS_FAILED'
   
-  // Contract errors (4xx)
-  | 'CONTRACT_NOT_FOUND'
-  | 'CONTRACT_INVALID_STATE'
-  
   // File system errors (5xx)
-  | 'FS_READ_ERROR'
-  | 'FS_WRITE_ERROR'
   | 'FS_NOT_FOUND'
   
   // General errors (9xx)
@@ -191,30 +185,10 @@ export class LLMAllProvidersFailedError extends LLMError {
 }
 
 // ============================================================================
-// Contract Errors
-// ============================================================================
-
-export class ContractError extends ClawError {
-  readonly code: ErrorCode = 'CONTRACT_INVALID_STATE';
-}
-
-export class ContractNotFoundError extends ContractError {
-  readonly code: ErrorCode = 'CONTRACT_NOT_FOUND';
-  
-  constructor(contractId: string) {
-    super(`Contract "${contractId}" not found`, { contractId });
-  }
-}
-
-// ============================================================================
 // File System Errors
 // ============================================================================
 
-export class FileSystemError extends ClawError {
-  readonly code: ErrorCode = 'FS_READ_ERROR';
-}
-
-export class FileNotFoundError extends FileSystemError {
+export class FileNotFoundError extends ClawError {
   readonly code: ErrorCode = 'FS_NOT_FOUND';
   
   constructor(path: string) {
