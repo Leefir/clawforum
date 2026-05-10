@@ -167,9 +167,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       ? (globalConfig.motion?.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS)
       : (clawConfig!.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS);
     const toolProfile = isMotion ? 'full' : clawConfig!.tool_profile;
-    const subagentMaxSteps = isMotion
-      ? globalConfig.motion?.subagent_max_steps
-      : clawConfig!.subagent_max_steps;
     const toolTimeoutMs = globalConfig.tool_timeout_ms;
     const idleTimeoutMs = globalConfig.motion?.llm_idle_timeout_ms;
 
@@ -313,7 +310,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         fs: clawFs,
         llm,
         maxSteps,
-        subagentMaxSteps,
         auditWriter,
       });
     } catch (e) {
@@ -466,8 +462,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         maxSteps,
         toolProfile,
         toolTimeoutMs,
-        subagentMaxSteps,
-        maxConcurrentTasks: maxConcurrent,
         idleTimeoutMs,
         dependencies,
       });

@@ -57,8 +57,6 @@ export interface RuntimeOptions {
   maxSteps?: number;
   toolProfile?: ToolProfile;
   toolTimeoutMs?: number;
-  subagentMaxSteps?: number;
-  maxConcurrentTasks?: number;
   maxConsecutiveParseErrors?: number;
   maxConsecutiveMaxTokensToolUse?: number;
   idleTimeoutMs?: number;  // 覆盖 DEFAULT_LLM_IDLE_TIMEOUT_MS（0 = 禁用）

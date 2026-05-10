@@ -581,13 +581,20 @@ export class AsyncTaskSystem {
     // Wait for all tasks with timeout
     if (this.runningTasks.size > 0) {
       const promises = Array.from(this.runningTasks.values()).map(s => s.promise);
-      await Promise.race([
-        Promise.allSettled(promises),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Shutdown timeout')), timeoutMs)),
-      ]).catch(() => {
-        // Timeout is acceptable
-        this.auditWriter.write(TASK_AUDIT_EVENTS.SHUTDOWN_TIMEOUT);
-      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.allSettled(promises),
+          new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('Shutdown timeout')), timeoutMs);
+          }),
+        ]).catch(() => {
+          // Timeout is acceptable
+          this.auditWriter.write(TASK_AUDIT_EVENTS.SHUTDOWN_TIMEOUT);
+        });
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
     }
 
     this.runningTasks.clear();

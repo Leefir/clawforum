@@ -23,7 +23,13 @@ export { AnthropicAdapter } from './anthropic.js';
 export { CustomAnthropicAdapter } from './custom-anthropic.js';
 export { OpenAIAdapter } from './openai.js';
 export { GeminiAdapter } from './gemini.js';
-export { withCombinedAbortSignal, type CombinedAbortHandle } from './abort-helper.js';
+export {
+  withCombinedAbortSignal,
+  type CombinedAbortHandle,
+  type AbortReason,
+  makeExternalAbortError,
+  classifyFetchAbortError,
+} from './abort-helper.js';
 export type { ApiFormat, ProviderPreset } from './presets.js';
 export { PRESETS, resolvePreset } from './presets.js';
 

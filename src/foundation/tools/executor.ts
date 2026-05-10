@@ -315,7 +315,6 @@ export class ToolExecutor extends ToolExecutorImpl {
   private callerClawId?: string;
   private fs: FileSystem;
   private llm?: LLMOrchestrator;
-  private profile: ToolProfile;
   private subagentMaxSteps?: number;
   private auditWriter?: AuditLog;
   private mainDialogStore?: DialogStore;
@@ -329,7 +328,6 @@ export class ToolExecutor extends ToolExecutorImpl {
     this.callerClawId = options.callerClawId;
     this.fs = options.fs;
     this.llm = options.llm;
-    this.profile = options.profile ?? 'full';
     this.subagentMaxSteps = options.subagentMaxSteps;
     this.auditWriter = options.auditWriter;
     this.mainDialogStore = options.mainDialogStore;

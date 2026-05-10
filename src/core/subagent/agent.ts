@@ -192,7 +192,6 @@ export class SubAgent {
         fs: this.fs,
         llm: this.llm,
         subagentMaxSteps: this.subagentMaxSteps ?? this.maxSteps,
-        profile: executorProfile,
         auditWriter: this.auditWriter,
         mainDialogStore: this.mainDialogStore,
         mainContextSnapshot: this.mainContextSnapshot,

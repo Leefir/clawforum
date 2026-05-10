@@ -69,7 +69,6 @@ export interface ToolExecutorOptions {
   callerClawId?: string;        // phase 514 / subagent caller's clawId
   fs: FileSystem;
   llm?: LLMOrchestrator;
-  profile?: ToolProfile;
   subagentMaxSteps?: number;
   auditWriter?: AuditLog;
   scheduleAsyncTool?: ScheduleAsyncTool;

@@ -175,7 +175,14 @@ export async function spawnProcess(
 
     return pid;
   } catch (err) {
-    await removePid(ctx, clawId).catch(() => {});
+    await removePid(ctx, clawId).catch((removeErr) => {
+      ctx.audit.write(
+        PROCESS_MANAGER_AUDIT_EVENTS.PID_REMOVE_FAILED,
+        `claw=${clawId}`,
+        `context=spawn_cleanup`,
+        `reason=${removeErr instanceof Error ? removeErr.message : String(removeErr)}`,
+      );
+    });
     ctx.audit.write(
       PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_SPAWN_FAILED,
       `claw=${clawId}`,

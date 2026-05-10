@@ -8,6 +8,7 @@
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import type { ExecContext } from '../tool-protocol/index.js';
+import { FILE_TOOL_AUDIT_EVENTS } from './audit-events.js';
 
 export type BackupSource = 'file_backup' | 'edit_backup' | 'multi_edit_backup' | 'exec_overflow';
 
@@ -26,7 +27,16 @@ export async function backupToSync(
     const frontmatter = `---\nsource: ${source}\noriginal_path: ${filePath}\ncontent_length: ${content.length}\ncreated_at: ${new Date().toISOString()}\n---\n`;
     await ctx.fs.writeAtomic(fullPath, frontmatter + content);
     return path.relative(ctx.clawDir, fullPath);
-  } catch {
+  } catch (err) {
+    const errorType = err instanceof Error ? err.constructor.name : 'Error';
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    ctx.auditWriter?.write(
+      FILE_TOOL_AUDIT_EVENTS.SYNC_BACKUP_FAILED,
+      `source=${source}`,
+      `filePath=${filePath}`,
+      `errorType=${errorType}`,
+      `errorMsg=${errorMsg.slice(0, 200)}`,
+    );
     return null;
   }
 }
