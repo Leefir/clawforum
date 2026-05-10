@@ -36,18 +36,28 @@ export function loadWatchdogState(): void {
       // 首次启动 — 从空状态开始
       return;
     }
-    // 文件损坏（SyntaxError / 字段类型错等）
+
+    // corrupt path: Maps reset to empty (mirror ENOENT) / partial populate from broken state must not leak / per phase 636
+    lastInactivityNotified.clear();
+    inactivityNotifyCount.clear();
+
     const fs = getClawforumFs();
     const backupPath = `watchdog-state.json.corrupt-${Date.now()}`;
+    let moveOk = true;
+    let moveErr: unknown = undefined;
     try {
       fs.moveSync('watchdog-state.json', backupPath);
-    } catch {
-      // move 失败不重试
+    } catch (mErr) {
+      moveOk = false;
+      moveErr = mErr;
     }
     const auditWriter = getAuditWriter();
     auditWriter?.write(
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
-      `backup=${backupPath} err=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
+      `backup=${backupPath}`,
+      `move_ok=${moveOk}`,
+      ...(moveOk ? [] : [`move_err=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, 200)}`]),
+      `err=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
     );
   }
 }

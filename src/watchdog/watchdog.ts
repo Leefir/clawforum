@@ -143,7 +143,11 @@ export async function runWatchdogLoop(): Promise<void> {
       auditWriter.write('watchdog_restart_triggered', 'motion');
       log(`[watchdog] motion down (${status.reason}), restarting...`);
       try {
-        // First clean up any stale PID file that may exist
+        // best-effort cleanup before respawn / per phase 636 ratify:
+        //   - cleanup failure 可能源:
+        //     (a) 真 stale PID 文件 → safe to ignore (audit captures)
+        //     (b) motion 仍活（race / 另 watchdog instance spawn 中）→ spawn 端 line 168 'already running' explicit handle
+        //   - cleanup 失败不阻塞 respawn / spawn 自身判 race / failure 仅 audit observability
         await pm.stop('motion').catch((e) => {
           const msg = `[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`;
           logWithAudit(msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, 200));

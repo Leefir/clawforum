@@ -83,6 +83,7 @@ import {
 } from '../../src/watchdog/watchdog.js';
 import { getMotionDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { clawHasContract, gatherClawSnapshot } from '../../src/watchdog/watchdog-utils.js';
+import { lastInactivityNotified, inactivityNotifyCount, getClawforumFs } from '../../src/watchdog/watchdog-context.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
 import { spawnDetached } from '../../src/foundation/process-exec/spawn-detached.js';
 import { setTimeout as setTimeoutP } from 'timers/promises';
@@ -790,10 +791,58 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
     expect(mockAudit.write).toHaveBeenCalledWith(
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
       expect.stringContaining('backup='),
+      'move_ok=true',
+      expect.stringContaining('err='),
     );
     expect(fs.existsSync(stateFile)).toBe(false);
     const files = fs.readdirSync(clawforumDir);
     expect(files.some(f => f.includes('.corrupt-'))).toBe(true);
+  });
+
+  it('loadWatchdogState clears Maps on corrupt JSON (no partial leak)', () => {
+    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+
+    // 先 populate Maps with stale data
+    lastInactivityNotified.set('stale-claw', 12345);
+    inactivityNotifyCount.set('stale-claw', 7);
+
+    // 写真正 corrupt 的 JSON
+    fs.writeFileSync(stateFile, '{ not valid json');
+
+    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    setAuditWriter(mockAudit);
+
+    loadWatchdogState();
+
+    // corrupt 路径 catch 内应清空 Maps，防止 partial populate 泄漏
+    expect(lastInactivityNotified.size).toBe(0);
+    expect(inactivityNotifyCount.size).toBe(0);
+  });
+
+  it('loadWatchdogState audits move failure separately', () => {
+    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    fs.writeFileSync(stateFile, 'NOT_VALID_JSON{{{{');
+
+    // 让 moveSync 抛错（spyOn getClawforumFs 返回的实例）
+    const clawforumFs = getClawforumFs();
+    const moveSpy = vi.spyOn(clawforumFs, 'moveSync').mockImplementation(() => {
+      throw new Error('mock move failure');
+    });
+
+    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    setAuditWriter(mockAudit);
+
+    loadWatchdogState();
+
+    moveSpy.mockRestore();
+
+    expect(mockAudit.write).toHaveBeenCalledWith(
+      WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
+      expect.stringContaining('backup='),
+      'move_ok=false',
+      expect.stringContaining('move_err=mock move failure'),
+      expect.stringContaining('err='),
+    );
   });
 
   it('saveWatchdogState uses atomic write (new inode)', () => {

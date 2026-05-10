@@ -52,7 +52,8 @@ export async function getClawActivityInfo(
       if (event.type === 'turn_end') {
         lastError = null;         // turn properly completed, clear error
       } else if (event.type === 'turn_error') {
-        lastError = (event.error as string) ?? 'unknown error';
+        // String() 防御 / 任何 truthy 转 string / null → 'null' / undefined → 'undefined' / Error → message ('Error: xxx')
+        lastError = event.error != null ? String(event.error) : 'unknown error';
       }
       // turn_interrupted: neither clear nor set error
     }

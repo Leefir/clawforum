@@ -112,6 +112,50 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
     await expect(snapshot.init()).rejects.toThrow();
   });
 
+  it('init returns Result.err even when cleanup itself fails (best-effort cleanup)', async () => {
+    const { exec: processExec } = await import('../../src/foundation/process-exec/index.js');
+    const execSpy = vi.spyOn(await import('../../src/foundation/process-exec/index.js'), 'exec');
+    let initCalled = false;
+    execSpy.mockImplementation(async (cmd: string, args: string[], opts: any) => {
+      const fullCmd = `${cmd} ${args.join(' ')}`;
+      if (fullCmd.includes('git') && fullCmd.includes('init') && !initCalled) {
+        initCalled = true;
+        return processExec(cmd, args, opts);
+      }
+      if (fullCmd.includes('config')) {
+        const err = new Error('mock config failure') as any;
+        err.exitCode = 1;
+        err.stderr = '';
+        throw err;
+      }
+      return processExec(cmd, args, opts);
+    });
+
+    // 注入一个 fs 实现 / removeDir 抛
+    const baseFs = new NodeFileSystem({ baseDir: tmpDir });
+    const fs = Object.create(baseFs);
+    fs.removeDir = vi.fn().mockRejectedValue(new Error('mock cleanup failure'));
+
+    const audit = { write: vi.fn() };
+    const snapshot = new Snapshot(tmpDir, fs, audit, []);
+
+    // 关键：init 不抛 / 仍返 Result.err
+    const result = await snapshot.init();
+    expect(result.ok).toBe(false);
+
+    // audit 含 cleanup failure + init failed
+    expect(audit.write).toHaveBeenCalledWith(
+      SNAPSHOT_AUDIT_EVENTS.INIT_CLEANUP_FAILED,
+      expect.stringContaining('dir='),
+      expect.stringContaining('reason=mock cleanup failure'),
+    );
+    expect(audit.write).toHaveBeenCalledWith(
+      SNAPSHOT_AUDIT_EVENTS.INIT_FAILED,
+      expect.stringContaining('dir='),
+      expect.stringContaining('kind='),
+    );
+  });
+
   // ========================================================================
   // .gitignore content (ignorePatterns behavior)
   // ========================================================================

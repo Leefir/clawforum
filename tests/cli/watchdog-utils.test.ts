@@ -8,6 +8,7 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
+import * as streamModule from '../../src/foundation/stream/index.js';
 import {
   clawHasContract,
   getClawActivityInfo,
@@ -163,6 +164,29 @@ describe('getClawActivityInfo', () => {
     const result = await getClawActivityInfo(clawFs, audit);
     expect(result.lastEventMs).toBeNull();
     expect(result.lastError).toBeNull();
+  });
+
+  it('handles non-string error field defensively (Error object)', async () => {
+    const errObj = new Error('mock err');
+    const readAllSpy = vi.spyOn(streamModule, 'readAll').mockResolvedValue([
+      { type: 'turn_error', ts: 2000, error: errObj } as any,
+    ]);
+    const { clawFs, audit } = makeFsAudit(testDir);
+    const result = await getClawActivityInfo(clawFs, audit);
+    readAllSpy.mockRestore();
+    // String(Error) → 'Error: mock err' / 至少是个 string，不是 Error 实例
+    expect(typeof result.lastError).toBe('string');
+    expect(result.lastError).toContain('mock err');
+  });
+
+  it('falls back to "unknown error" for null event.error', async () => {
+    const lines = [
+      JSON.stringify({ type: 'turn_error', ts: 2000, error: null }),
+    ].join('\n');
+    fs.writeFileSync(path.join(testDir, 'stream.jsonl'), lines);
+    const { clawFs, audit } = makeFsAudit(testDir);
+    const result = await getClawActivityInfo(clawFs, audit);
+    expect(result.lastError).toBe('unknown error');
   });
 });
 

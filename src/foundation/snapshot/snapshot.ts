@@ -108,7 +108,8 @@ export class Snapshot {
         `dir=${this.dir}`,
         `reason=${reason}`,
       );
-      throw cleanupErr;
+      // best-effort cleanup / audit-only / 不 throw / mirror commit() syncDir cleanup / per phase 636
+      // init() Result API 契约保 / cleanup 失败不升级为 throw / failure 仍走 errResult 路径
     }
   }
 
