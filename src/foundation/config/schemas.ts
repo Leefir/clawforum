@@ -5,6 +5,21 @@
  */
 
 import { z } from 'zod';
+import {
+  DEFAULT_LLM_TIMEOUT_MS,
+  DEFAULT_RESET_TIMEOUT_MS,
+  DEFAULT_RETRY_DELAY_MS,
+  DEFAULT_LLM_RETRY_ATTEMPTS,
+  DEFAULT_TOOL_TIMEOUT_MS,
+  DEFAULT_LLM_IDLE_TIMEOUT_MS,
+  WATCHDOG_INTERVAL_MS,
+  DEFAULT_DISK_WARNING_MB,
+  CLAW_INACTIVITY_TIMEOUT_MS,
+  CRON_TICK_INTERVAL_MS,
+  REACT_DEFAULT_MAX_TOKENS,
+  DEFAULT_MAX_STEPS,
+  DEFAULT_MAX_CONCURRENT_TASKS,
+} from '../../constants.js';
 
 // API format code → preset id (for manual entry)
 export const FORMAT_MAP: Record<string, string> = {
@@ -20,9 +35,9 @@ export const LLMProviderSchema = z.object({
   api_key: z.string(),
   base_url: z.string().optional(),
   model: z.string().optional(),
-  max_tokens: z.number().min(1).max(128000).default(4096),
+  max_tokens: z.number().min(1).max(128000).default(REACT_DEFAULT_MAX_TOKENS),
   temperature: z.number().min(0).max(2).default(0.7),
-  timeout_ms: z.number().min(1000).max(600000).default(60000),
+  timeout_ms: z.number().min(1000).max(600000).default(DEFAULT_LLM_TIMEOUT_MS),
   thinking: z.boolean().optional(),
   thinking_budget_tokens: z.number().min(1).optional(),
   thinking_mode: z.enum(['adaptive', 'enabled']).optional(),
@@ -34,7 +49,7 @@ export const LLMProviderSchema = z.object({
 
 export const CircuitBreakerSchema = z.object({
   failure_threshold: z.number().min(1).max(20).default(3),
-  reset_timeout_ms: z.number().min(1000).max(3600000).default(60000),
+  reset_timeout_ms: z.number().min(1000).max(3600000).default(DEFAULT_RESET_TIMEOUT_MS),
 });
 
 export const ClawGlobalConfigSchema = z.object({
@@ -43,26 +58,26 @@ export const ClawGlobalConfigSchema = z.object({
   llm: z.object({
     primary: LLMProviderSchema,
     fallbacks: z.array(LLMProviderSchema).optional(),
-    retry_attempts: z.number().min(0).max(10).default(3),
-    retry_delay_ms: z.number().min(0).max(60000).default(1000),
+    retry_attempts: z.number().min(0).max(10).default(DEFAULT_LLM_RETRY_ATTEMPTS),
+    retry_delay_ms: z.number().min(0).max(60000).default(DEFAULT_RETRY_DELAY_MS),
     circuit_breaker: CircuitBreakerSchema.optional(),
   }),
   motion: z.object({
     heartbeat_interval_ms: z.number().min(0).default(0),
-    max_steps: z.number().min(1).max(1000).default(100),
+    max_steps: z.number().min(1).max(1000).default(DEFAULT_MAX_STEPS),
     subagent_max_steps: z.number().min(1).max(200).optional(),
-    max_concurrent_tasks: z.number().min(1).max(20).default(3),
-    llm_idle_timeout_ms: z.number().min(0).max(600000).default(60000),
+    max_concurrent_tasks: z.number().min(1).max(20).default(DEFAULT_MAX_CONCURRENT_TASKS),
+    llm_idle_timeout_ms: z.number().min(0).max(600000).default(DEFAULT_LLM_IDLE_TIMEOUT_MS),
   }).optional(),
-  tool_timeout_ms: z.number().min(1000).max(600000).default(60000),
+  tool_timeout_ms: z.number().min(1000).max(600000).default(DEFAULT_TOOL_TIMEOUT_MS),
   watchdog: z.object({
-    interval_ms: z.number().min(5000).default(30000),
-    disk_warning_mb: z.number().min(10).default(500),
-    claw_inactivity_timeout_ms: z.number().min(60000).default(300000),
+    interval_ms: z.number().min(5000).default(WATCHDOG_INTERVAL_MS),
+    disk_warning_mb: z.number().min(10).default(DEFAULT_DISK_WARNING_MB),
+    claw_inactivity_timeout_ms: z.number().min(60000).default(CLAW_INACTIVITY_TIMEOUT_MS),
   }).optional(),
   cron: z.object({
     enabled: z.boolean().default(true),
-    tick_interval_ms: z.number().min(100).max(60000).default(1000),
+    tick_interval_ms: z.number().min(100).max(60000).default(CRON_TICK_INTERVAL_MS),
     jobs: z.object({
       disk_monitor: z.object({
         enabled: z.boolean().default(true),

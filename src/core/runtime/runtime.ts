@@ -28,7 +28,7 @@ import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-e
 import { CLAW_SUBDIRS, DIALOG_DIR } from '../../types/paths.js';
 import { oneLine } from '../../types/utils.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
+import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_TOOL_TIMEOUT_MS } from '../../constants.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { InboxReader, InboxEntry } from '../../foundation/messaging/inbox-reader.js';
@@ -112,7 +112,7 @@ export class Runtime {
     this.options = {
       maxSteps: DEFAULT_MAX_STEPS,
       toolProfile: 'full',
-      toolTimeoutMs: 60000,
+      toolTimeoutMs: DEFAULT_TOOL_TIMEOUT_MS,
       maxConcurrentTasks: DEFAULT_MAX_CONCURRENT_TASKS,
       ...options,
     };

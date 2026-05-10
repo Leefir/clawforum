@@ -15,6 +15,10 @@ import { PRESETS } from '../../foundation/llm-provider/presets.js';
 import { createProcessManagerForCLI } from '../utils/factories.js';
 import { z } from 'zod';
 import { CliError } from '../errors.js';
+import {
+  REACT_DEFAULT_MAX_TOKENS,
+  DEFAULT_LLM_TIMEOUT_MS,
+} from '../../constants.js';
 
 /**
  * If motion daemon is running, ask user whether to restart it so config changes take effect.
@@ -147,7 +151,7 @@ async function providerAdd(): Promise<void> {
     
     // Max tokens
     const maxTokensStr = await question(rl, 'Max tokens', '4096');
-    const max_tokens = parseInt(maxTokensStr, 10) || 4096;
+    const max_tokens = parseInt(maxTokensStr, 10) || REACT_DEFAULT_MAX_TOKENS;
     
     // Role selection
     console.log('\nRole:');
@@ -164,7 +168,7 @@ async function providerAdd(): Promise<void> {
       model,
       max_tokens,
       temperature: 0.7,
-      timeout_ms: 60000,
+      timeout_ms: DEFAULT_LLM_TIMEOUT_MS,
     };
     if (baseUrl) {
       providerConfig.base_url = baseUrl;

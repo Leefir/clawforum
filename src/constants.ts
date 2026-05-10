@@ -49,7 +49,18 @@ export const SPAWN_DEFAULT_TIMEOUT_S = 300;
  * Default idle timeout for LLM calls: abort if no token output for this duration (ms)
  * User configurable via .clawforum/config.yaml: motion.llm_idle_timeout_ms (default: 60000)
  */
+/**
+ * Default idle timeout for LLM calls when value missing in user config (ms)
+ * - Schema fallback (when user config不写)
+ */
 export const DEFAULT_LLM_IDLE_TIMEOUT_MS = 60000;
+
+/**
+ * Initial idle timeout written to user config by `init` command (ms)
+ * - More lenient default for new users (vs schema 60s fallback)
+ * - User can edit later to tighter value
+ */
+export const INIT_LLM_IDLE_TIMEOUT_MS = 120000;
 
 // ----------------------------------------------------------------------------
 // Communication
@@ -147,6 +158,49 @@ export const GATEWAY_ASK_USER_TIMEOUT_MS = 30 * 60 * 1000;
 
 /** 契约脚本验收超时 (ms) */
 export const CONTRACT_SCRIPT_TIMEOUT_MS = 60_000;
+
+// ----------------------------------------------------------------------------
+// LLM Provider Defaults
+// ----------------------------------------------------------------------------
+
+/** Default LLM API call timeout (ms) */
+export const DEFAULT_LLM_TIMEOUT_MS = 60_000;
+
+/** Default circuit breaker reset timeout (ms) */
+export const DEFAULT_RESET_TIMEOUT_MS = 60_000;
+
+/** Default LLM retry delay between attempts (ms) */
+export const DEFAULT_RETRY_DELAY_MS = 1_000;
+
+/** Default LLM retry attempts before failing */
+export const DEFAULT_LLM_RETRY_ATTEMPTS = 3;
+
+// ----------------------------------------------------------------------------
+// Tool / Runtime Defaults
+// ----------------------------------------------------------------------------
+
+/** Default tool execution timeout (ms) */
+export const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
+
+// ----------------------------------------------------------------------------
+// Watchdog Defaults
+// ----------------------------------------------------------------------------
+
+/** Watchdog liveness check interval (ms) */
+export const WATCHDOG_INTERVAL_MS = 30_000;
+
+/** Disk warning threshold (MB) */
+export const DEFAULT_DISK_WARNING_MB = 500;
+
+/** Claw inactivity timeout - kill claw if no activity (ms) — 5 minutes */
+export const CLAW_INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+
+// ----------------------------------------------------------------------------
+// Cron Defaults
+// ----------------------------------------------------------------------------
+
+/** Cron tick interval (ms) */
+export const CRON_TICK_INTERVAL_MS = 1_000;
 
 // ----------------------------------------------------------------------------
 // LLM Retry / Error Handling

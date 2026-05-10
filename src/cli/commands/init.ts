@@ -8,7 +8,19 @@ import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '../../foundation/config/index.js';
 import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm-provider/presets.js';
-import { DEFAULT_MAX_STEPS } from '../../constants.js';
+import {
+  REACT_DEFAULT_MAX_TOKENS,
+  DEFAULT_LLM_TIMEOUT_MS,
+  DEFAULT_LLM_RETRY_ATTEMPTS,
+  DEFAULT_RETRY_DELAY_MS,
+  DEFAULT_TOOL_TIMEOUT_MS,
+  WATCHDOG_INTERVAL_MS,
+  DEFAULT_DISK_WARNING_MB,
+  CLAW_INACTIVITY_TIMEOUT_MS,
+  DEFAULT_MAX_STEPS,
+  DEFAULT_MAX_CONCURRENT_TASKS,
+  INIT_LLM_IDLE_TIMEOUT_MS,
+} from '../../constants.js';
 import { LOGS_DIR } from '../../types/paths.js';
 
 // Known providers shown in "Select provider" list (excludes generic custom-* entries)
@@ -291,26 +303,26 @@ export async function initCommand(silent = false): Promise<void> {
           preset: presetId,
           api_key: apiKey,
           model: model,
-          max_tokens: 4096,
+          max_tokens: REACT_DEFAULT_MAX_TOKENS,
           temperature: 0.7,
-          timeout_ms: 60000,
+          timeout_ms: DEFAULT_LLM_TIMEOUT_MS,
           ...(baseUrl && { base_url: baseUrl }),
         },
-        retry_attempts: 3,
-        retry_delay_ms: 1000,
+        retry_attempts: DEFAULT_LLM_RETRY_ATTEMPTS,
+        retry_delay_ms: DEFAULT_RETRY_DELAY_MS,
       },
-      tool_timeout_ms: 60000,
+      tool_timeout_ms: DEFAULT_TOOL_TIMEOUT_MS,
       watchdog: {
-        interval_ms: 30000,
-        disk_warning_mb: 500,
+        interval_ms: WATCHDOG_INTERVAL_MS,
+        disk_warning_mb: DEFAULT_DISK_WARNING_MB,
         log_archive_days: 30,
-        claw_inactivity_timeout_ms: 300000,
+        claw_inactivity_timeout_ms: CLAW_INACTIVITY_TIMEOUT_MS,
       },
       motion: {
         heartbeat_interval_ms: 0,
         max_steps: DEFAULT_MAX_STEPS,
-        max_concurrent_tasks: 3,
-        llm_idle_timeout_ms: 120000,
+        max_concurrent_tasks: DEFAULT_MAX_CONCURRENT_TASKS,
+        llm_idle_timeout_ms: INIT_LLM_IDLE_TIMEOUT_MS,
       },
     };
 
