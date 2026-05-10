@@ -14,7 +14,7 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { Runtime } from '../../src/core/runtime/index.js';
+import { TestRuntime } from '../helpers/test-runtime.js';
 import { makeRuntimeDeps } from '../helpers/runtime-deps.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import type { LLMOrchestratorConfig } from '../../src/foundation/llm-orchestrator/types.js';
@@ -85,7 +85,7 @@ function createMockLLM(responses: LLMResponse[]) {
 describe('Runtime regime switch (phase 521)', () => {
   let tempDir: string;
   let clawDir: string;
-  const runtimesToStop: Runtime[] = [];
+  const runtimesToStop: TestRuntime[] = [];
 
   beforeEach(async () => {
     tempDir = await createTempDir();
@@ -101,7 +101,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
   it('test 1: 首 turn lastIdentityHash undefined / 不触发 archive', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -117,7 +117,7 @@ describe('Runtime regime switch (phase 521)', () => {
     await runtime.initialize();
     // Spy AFTER initialize to exclude startup archive
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Mock buildSystemPromptForRegime so _runReact gets a consistent value
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'prompt-A', identityHash: 'identity-A' });
@@ -129,7 +129,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
   it('test 2: turn 2 identityHash 不变 / 不触发 archive', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -145,7 +145,7 @@ describe('Runtime regime switch (phase 521)', () => {
     await runtime.initialize();
     // Spy AFTER initialize to exclude startup archive
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'same-prompt', identityHash: 'same-identity' });
 
@@ -160,7 +160,7 @@ describe('Runtime regime switch (phase 521)', () => {
     // factorySpy BEFORE Runtime construction so the closure captures the spy
     const factorySpy = vi.spyOn(deps, 'dialogStoreFactory');
 
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -176,7 +176,7 @@ describe('Runtime regime switch (phase 521)', () => {
     await runtime.initialize();
     // archiveSpy AFTER initialize to exclude startup archive
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Turn 1: identity A; Turn 2: identity B (regime change)
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
@@ -195,7 +195,7 @@ describe('Runtime regime switch (phase 521)', () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
     const factorySpy = vi.spyOn(deps, 'dialogStoreFactory');
 
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -212,7 +212,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ]);
 
     await runtime.initialize();
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })
@@ -229,7 +229,7 @@ describe('Runtime regime switch (phase 521)', () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
     const factorySpy = vi.spyOn(deps, 'dialogStoreFactory');
 
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -246,7 +246,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ]);
 
     await runtime.initialize();
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Manually seed messages to simulate multi-turn history
     // [user A, assistant A, user B, assistant B]
@@ -273,7 +273,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
   it('test 6: tool_use 悬空 / DialogStore.repair 被调用', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -290,7 +290,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ]);
 
     await runtime.initialize();
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Seed messages with an incomplete tool_use at the end
     const seededMessages: Message[] = [
@@ -316,7 +316,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
   it('test 7: regime_switch audit event 载荷完整', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -335,7 +335,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ]);
 
     await runtime.initialize();
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Seed 5 messages: [user, assistant, user, assistant, user]
     // last-turn should inherit from last user = 1 message (just the last user)
@@ -383,7 +383,7 @@ describe('phase 539: identity-only diff', () => {
 
   it('MEMORY.md edit does NOT trigger regime switch', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -398,7 +398,7 @@ describe('phase 539: identity-only diff', () => {
 
     await runtime.initialize();
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Turn 1: full includes memory-v1, identityHash = agents+skills (no memory)
     // Turn 2: full includes memory-v2, identityHash same = agents+skills
@@ -414,7 +414,7 @@ describe('phase 539: identity-only diff', () => {
 
   it('contract subtask checkbox does NOT trigger regime switch', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -429,7 +429,7 @@ describe('phase 539: identity-only diff', () => {
 
     await runtime.initialize();
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Turn 1: contract with subtask unchecked
     // Turn 2: contract with subtask checked
@@ -446,7 +446,7 @@ describe('phase 539: identity-only diff', () => {
 
   it('contract title/goal change does NOT trigger regime switch', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -461,7 +461,7 @@ describe('phase 539: identity-only diff', () => {
 
     await runtime.initialize();
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Turn 1: contract title='A' goal='X'
     // Turn 2: contract title='B' goal='Y'
@@ -480,7 +480,7 @@ describe('phase 539: identity-only diff', () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
     const factorySpy = vi.spyOn(deps, 'dialogStoreFactory');
 
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -495,7 +495,7 @@ describe('phase 539: identity-only diff', () => {
 
     await runtime.initialize();
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Turn 1: AGENTS.md = "v1"
     // Turn 2: AGENTS.md = "v2"
@@ -513,7 +513,7 @@ describe('phase 539: identity-only diff', () => {
 
   it('skill register/unregister DOES trigger regime switch', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -528,7 +528,7 @@ describe('phase 539: identity-only diff', () => {
 
     await runtime.initialize();
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Turn 1: skills = "S1"
     // Turn 2: skills = "S1\nS2"
@@ -552,7 +552,7 @@ describe('phase 539: identity-only diff', () => {
       throw new Error('fac');
     });
 
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -566,7 +566,7 @@ describe('phase 539: identity-only diff', () => {
     ]);
 
     await runtime.initialize();
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })
@@ -597,7 +597,7 @@ describe('phase 539: identity-only diff', () => {
       return originalFactory(systemPrompt);
     });
 
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -614,7 +614,7 @@ describe('phase 539: identity-only diff', () => {
     ]);
 
     await runtime.initialize();
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })
@@ -646,7 +646,7 @@ describe('phase 539: identity-only diff', () => {
 
   it('custom systemPromptBuilder falls back to full-prompt diff', async () => {
     const deps = await makeRuntimeDeps({ clawDir, clawId: 'test-claw' });
-    const runtime = new Runtime({
+    const runtime = new TestRuntime({
       clawId: 'test-claw',
       clawDir,
       llmConfig: createMockLLMConfig(),
@@ -662,7 +662,7 @@ describe('phase 539: identity-only diff', () => {
 
     await runtime.initialize();
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
-    (runtime as any).llm = mockLLM;
+    runtime.testSetLLM(mockLLM);
 
     // Mock buildSystemPrompt so the fallback path gets different prompts
     vi.spyOn(runtime as any, 'buildSystemPrompt')

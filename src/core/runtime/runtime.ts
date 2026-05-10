@@ -104,7 +104,7 @@ export class Runtime {
 
   // phase 521: regime switch coordination
   private dialogStoreFactory!: (systemPrompt: string) => DialogStore;
-  private lastIdentityHash?: string;
+  protected lastIdentityHash?: string;  // protected: TestRuntime subclass needs read access for regime switch tests
 
   constructor(options: RuntimeOptions) {
     this.options = {
