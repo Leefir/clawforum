@@ -4,8 +4,26 @@
  * External process execution interface.
  */
 
+/**
+ * Minimum allowed exec timeout (ms) - clamp lower bound.
+ *
+ * Value: 1000 (1s) = empirical floor / < 1s 任何 real exec 都不充分
+ * （Node.js cold-start ~50-200ms + user logic 需余量）.
+ */
 export const PROCESS_EXEC_TIMEOUT_MIN_MS = 1000;
+/**
+ * Maximum allowed exec timeout (ms) - clamp upper bound.
+ *
+ * Value: 120_000 (2 min) = empirical ceiling / 防 user 配置极端值阻塞
+ * 主流程 / 真长任务应用 subagent / cron / 不走 exec.
+ */
 export const PROCESS_EXEC_TIMEOUT_MAX_MS = 120_000;
+/**
+ * Default exec timeout if not specified (ms).
+ *
+ * Value: 30_000 (30s) = empirical balance / 覆盖 git / ls / grep / build
+ * 等大多数 exec / 不命中 user 配置覆盖.
+ */
 export const PROCESS_EXEC_DEFAULT_TIMEOUT_MS = 30_000;
 export interface ExecOptions {
   /** Working directory (required) */

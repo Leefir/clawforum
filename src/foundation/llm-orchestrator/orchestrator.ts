@@ -28,6 +28,16 @@ import { CircuitBreaker } from './circuit-breaker.js';
 import { createLLMProvider, type LLMProvider } from '../llm-provider/index.js';
 import { makeExternalAbortError, type AbortReason } from '../llm-provider/abort-helper.js';
 
+/**
+ * Maximum exponential backoff delay (ms).
+ *
+ * Used as cap in `Math.min(retryDelayMs * 2^attempt, MAX_BACKOFF_MS)`
+ * across LLM call() / stream() retry paths (line 170, 407).
+ *
+ * Value: 30_000 (30s) = empirical / 业界 HTTP retry cap 通常 20-60s 区间
+ * （AWS SDK BaseRetryStrategy / GCP backoff cap 一般 32s）/ 平衡 server
+ * recovery 等 vs user-perceived hang 上限.
+ */
 const MAX_BACKOFF_MS = 30_000;
 
 const CONTEXT_EXCEEDED_STOP_REASONS = new Set<string>([
