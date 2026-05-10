@@ -150,10 +150,11 @@ export class SubAgent {
     resetIdle?.();
 
     // Combine with external signal if provided
+    const onExternalAbort = () => {
+      timeoutController.abort(this.signal!.reason);
+    };
     if (this.signal) {
-      this.signal.addEventListener('abort', () => {
-        timeoutController.abort(this.signal!.reason);
-      }, { once: true });
+      this.signal.addEventListener('abort', onExternalAbort, { once: true });
     }
 
     let turnEnded = false;
@@ -412,6 +413,8 @@ export class SubAgent {
       // 统一清理所有 timer，避免内存泄漏
       clearTimeout(timeoutId);
       clearTimeout(idleTimerId);
+      // Cleanup external signal listener (if signal never fired, removeEventListener prevents leak)
+      this.signal?.removeEventListener('abort', onExternalAbort);
       // Safety net: write turn_end only if no specific turn end event was already written
       if (!turnEnded) {
         safeSwWrite({ ts: Date.now(), type: 'turn_end' });
