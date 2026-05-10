@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   withCombinedAbortSignal,
   classifyFetchAbortError,
@@ -6,10 +6,18 @@ import {
 } from '../../../src/foundation/llm-provider/abort-helper.js';
 import { LLMTimeoutError } from '../../../src/types/errors.js';
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('withCombinedAbortSignal', () => {
   it('aborts when timeout elapses', async () => {
     const [handle, cleanup] = withCombinedAbortSignal(undefined, 10);
-    await new Promise(r => setTimeout(r, 20));
+    await vi.advanceTimersByTimeAsync(20);
     expect(handle.signal.aborted).toBe(true);
     cleanup();
   });
@@ -41,7 +49,7 @@ describe('withCombinedAbortSignal', () => {
   it('cleanup clears timeout (no abort after cleanup)', async () => {
     const [handle, cleanup] = withCombinedAbortSignal(undefined, 10);
     cleanup();
-    await new Promise(r => setTimeout(r, 20));
+    await vi.advanceTimersByTimeAsync(20);
     expect(handle.signal.aborted).toBe(false);
   });
 
@@ -56,10 +64,10 @@ describe('withCombinedAbortSignal', () => {
     const [handle, cleanup] = withCombinedAbortSignal(undefined, 10);
     handle.enterStreamPhase(50);
     // 25ms later — initial timeout (10ms) would have fired but was cleared
-    await new Promise(r => setTimeout(r, 25));
+    await vi.advanceTimersByTimeAsync(25);
     expect(handle.signal.aborted).toBe(false);
     // 30ms more (55ms total) — stream maxTimer (50ms) fires
-    await new Promise(r => setTimeout(r, 30));
+    await vi.advanceTimersByTimeAsync(30);
     expect(handle.signal.aborted).toBe(true);
     cleanup();
   });
@@ -77,8 +85,36 @@ describe('withCombinedAbortSignal', () => {
     const [handle, cleanup] = withCombinedAbortSignal(undefined, 10_000);
     handle.enterStreamPhase(10);
     cleanup();
-    await new Promise(r => setTimeout(r, 20));
+    await vi.advanceTimersByTimeAsync(20);
     expect(handle.signal.aborted).toBe(false);
+  });
+
+  it('handle signal is already aborted when external signal was pre-aborted', () => {
+    const external = new AbortController();
+    external.abort();
+    const [handle, cleanup] = withCombinedAbortSignal(external.signal, 10_000);
+    expect(handle.signal.aborted).toBe(true);
+    cleanup();
+  });
+
+  it('does not leak listener on pre-aborted external signal', () => {
+    const external = new AbortController();
+    external.abort();
+    const addSpy = vi.spyOn(external.signal, 'addEventListener');
+    const [, cleanup] = withCombinedAbortSignal(external.signal, 10_000);
+    expect(addSpy).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it('enterStreamPhase called twice uses second timer, clears first', async () => {
+    const [handle, cleanup] = withCombinedAbortSignal(undefined, 10_000);
+    handle.enterStreamPhase(10);    // 第一次：10ms
+    handle.enterStreamPhase(50);    // 第二次：50ms，应该替换第一次
+    await vi.advanceTimersByTimeAsync(25);
+    expect(handle.signal.aborted).toBe(false);   // 第一次若未被清，此时已 abort
+    await vi.advanceTimersByTimeAsync(30);
+    expect(handle.signal.aborted).toBe(true);    // 第二次 timer 此时触发
+    cleanup();
   });
 });
 
@@ -152,33 +188,3 @@ describe('makeExternalAbortError', () => {
     expect(err.message).toBe('Execution aborted (cause=step_yield)');
   });
 });
-
-
-  it('handle signal is already aborted when external signal was pre-aborted', () => {
-    const external = new AbortController();
-    external.abort();
-    const [handle, cleanup] = withCombinedAbortSignal(external.signal, 10_000);
-    expect(handle.signal.aborted).toBe(true);
-    cleanup();
-  });
-
-  it('does not leak listener on pre-aborted external signal', () => {
-    const external = new AbortController();
-    external.abort();
-    const addSpy = vi.spyOn(external.signal, 'addEventListener');
-    const [, cleanup] = withCombinedAbortSignal(external.signal, 10_000);
-    expect(addSpy).not.toHaveBeenCalled();
-    cleanup();
-  });
-
-
-  it('enterStreamPhase called twice uses second timer, clears first', async () => {
-    const [handle, cleanup] = withCombinedAbortSignal(undefined, 10_000);
-    handle.enterStreamPhase(10);    // 第一次：10ms
-    handle.enterStreamPhase(50);    // 第二次：50ms，应该替换第一次
-    await new Promise(r => setTimeout(r, 25));
-    expect(handle.signal.aborted).toBe(false);   // 第一次若未被清，此时已 abort
-    await new Promise(r => setTimeout(r, 30));
-    expect(handle.signal.aborted).toBe(true);    // 第二次 timer 此时触发
-    cleanup();
-  });
