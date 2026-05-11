@@ -267,7 +267,14 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('error='),
     );
     // writePending 仍被调（退化继续，不 skip）
-    expect(mockWritePending).toHaveBeenCalled();
+    expect(mockWritePending).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        kind: 'subagent',
+        parentClawId: 'motion',
+      }),
+    );
   });
 
   // ============================================================================
@@ -294,7 +301,14 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('taskId='),
       'reason=ENOENT',
     );
-    expect(mockWritePending).toHaveBeenCalled();
+    expect(mockWritePending).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        kind: 'subagent',
+        parentClawId: 'motion',
+      }),
+    );
 
     // sub-case B: 非 ENOENT（目录当文件读触发 EISDIR）
     vi.clearAllMocks();

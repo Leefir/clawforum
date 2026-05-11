@@ -312,7 +312,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
     await runtime.chat('Message 2');
 
-    expect(repairSpy).toHaveBeenCalled();
+    expect(repairSpy).toHaveBeenCalledTimes(1);
   });
 
   it('regime_switch audit event 载荷完整', async () => {
