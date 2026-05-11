@@ -553,13 +553,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         toolRegistry.register(memorySearchTool);
       }
 
-      // phase 542：cron jobs deps 装配方预 build（避免 handler 内 runtime instantiate）
-      const motionInboxAuditPath = path.join(motionInboxDir, '..', '..', 'audit.tsv');
-      const diskMonitorMotionAudit = createAuditWriter(clawforumFs, motionInboxAuditPath);
-      const diskMonitorInbox = new InboxWriter(clawforumFs, motionInboxDir, diskMonitorMotionAudit);
-
-      // contract-observer 用 system audit on motion/audit.tsv (per phase 542 design align contract-observer.ts 现行行为)
-      const contractObserverMotionAudit = createSystemAudit(clawforumFs, path.join(clawforumDir, 'motion'));
+      // phase 724 α single audit pipe：cron handler 复用主 auditWriter / 删冗余 instance
+      // （ML M#3 资源唯一归属 / motion/audit.tsv 单一 owner = L126 主 auditWriter）
+      const diskMonitorInbox = new InboxWriter(clawforumFs, motionInboxDir, auditWriter);
 
       try {
         cronRunner = createCronRunner([
@@ -572,7 +568,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               limitMB: diskLimitMB,
               fs: clawforumFs,
               audit: auditWriter,
-              motionAudit: diskMonitorMotionAudit,
+              motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
               motionInbox: diskMonitorInbox,
             }),
             timeoutMs: 60_000,
@@ -609,7 +605,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               clawforumDir,
               motionInboxDir,
               fs: clawforumFs,
-              motionAudit: contractObserverMotionAudit,
+              motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
               notifyInbox: (payload, audit) => notifyInbox(clawforumFs, payload, audit),
             }),
             timeoutMs: 5 * 60_000,
