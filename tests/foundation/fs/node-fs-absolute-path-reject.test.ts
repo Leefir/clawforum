@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import * as os from 'os';
+import { randomUUID } from 'crypto';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { PermissionError } from '../../../src/types/errors.js';
 
 describe('NodeFileSystem — absolute path reject (P0.1 phase 611)', () => {
-  const fs = new NodeFileSystem({ baseDir: os.tmpdir() });
+  // baseDir 用唯一子目录、保所有平台 /tmp/escape /etc/passwd /nonexistent/sensitive 都在 baseDir 外
+  // 修前 baseDir = os.tmpdir() / Linux CI 上 = '/tmp' / 致 /tmp/escape 误在 baseDir 内
+  // (phase 739 step B fix)
+  const baseDir = path.join(os.tmpdir(), `nodefs-abs-reject-${randomUUID()}`);
+  const fs = new NodeFileSystem({ baseDir });
 
   it('throws PermissionError for absolute POSIX path /etc/passwd', async () => {
     await expect(fs.read('/etc/passwd')).rejects.toThrow(PermissionError);
