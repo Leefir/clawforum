@@ -75,7 +75,8 @@ export class OutboxWriter {
         `to=${options.to}`,
         `type=${options.type}`,
         `id=${message.id}`,
-        ...(options.contract_id ? [`contract_id=${options.contract_id}`] : []),
+        // phase 706 L2-P1.3：内部 audit key camelCase 解耦 protocol field name
+        ...(options.contract_id ? [`contractId=${options.contract_id}`] : []),
       );
       return filePath;
     } catch (err) {
