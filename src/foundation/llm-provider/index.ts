@@ -19,10 +19,6 @@ export type {
   ProviderAdapter,
 } from './types.js';
 
-export { AnthropicAdapter } from './anthropic.js';
-export { CustomAnthropicAdapter } from './custom-anthropic.js';
-export { OpenAIAdapter } from './openai.js';
-export { GeminiAdapter } from './gemini.js';
 export {
   withCombinedAbortSignal,
   type CombinedAbortHandle,

@@ -18,7 +18,6 @@ import { setPermissionCheckerFactory } from './permission-context.js';
 
 // Re-export tool objects（让 caller 可单独 import 任一）
 export { readTool, writeTool, searchTool, lsTool, editTool, multiEditTool };
-export { READ_TOOL_NAME } from './read.js';
 
 /**
  * FileTool 装配选项
