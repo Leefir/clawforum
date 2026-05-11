@@ -42,7 +42,7 @@ function auditError(
   audit.write(event, ...extras, `error=${formatErr(err)}`);
 }
 
-type NotifyType = 'subtask_completed' | 'acceptance_failed';
+type NotifyType = 'subtask_completed' | 'acceptance_failed' | 'contract_completed';
 
 function safeNotify(
   ctx: AcceptanceContext,
@@ -76,6 +76,7 @@ async function archiveAndEmit(
       `claw=${ctx.clawId}`,
     );
     await ctx.emitContractCompleted(contractId);
+    safeNotify(ctx, 'contract_completed', { contractId, title });
   } catch (err) {
     auditError(
       ctx.audit,
