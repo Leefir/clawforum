@@ -182,7 +182,7 @@ export class EvolutionSystem {
         this.deps.audit.write(
           RETRO_AUDIT_EVENTS.INDEX_FAILED,
           `contractId=${contractId}`,
-          `err=${e instanceof Error ? e.message : String(e)}`,
+          `error=${e instanceof Error ? e.message : String(e)}`,
         );
         return { status: 'error', detail: (e as NodeJS.ErrnoException).code };
       }
@@ -203,7 +203,7 @@ export class EvolutionSystem {
       this.deps.audit.write(
         RETRO_AUDIT_EVENTS.YAML_FAILED,
         `contractId=${contractId}`,
-        `err=${e instanceof Error ? e.message : String(e)}`,
+        `error=${e instanceof Error ? e.message : String(e)}`,
       );
       return { status: 'error', detail: 'yaml_failed' };
     }
@@ -232,7 +232,7 @@ export class EvolutionSystem {
           this.deps.audit.write(
             RETRO_AUDIT_EVENTS.MINING_FAILED,
             `taskId=${miningTaskId}`,
-            `err=${e instanceof Error ? e.message : String(e)}`,
+            `error=${e instanceof Error ? e.message : String(e)}`,
           );
         }
         // best-effort：加载失败退化为空上下文
@@ -255,7 +255,7 @@ export class EvolutionSystem {
     } catch (e) {
       this.deps.audit.write(
         RETRO_AUDIT_EVENTS.SCHEDULE_FAILED,
-        `err=${e instanceof Error ? e.message : String(e)}`,
+        `error=${e instanceof Error ? e.message : String(e)}`,
       );
       return { status: 'error', detail: 'schedule_failed' };
     }
@@ -274,7 +274,7 @@ export class EvolutionSystem {
       }
       this.deps.audit.write(
         RETRO_AUDIT_EVENTS.CLEANUP_FAILED,
-        `err=${e instanceof Error ? e.message : String(e)}`,
+        `error=${e instanceof Error ? e.message : String(e)}`,
       );
     });
 

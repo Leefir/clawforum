@@ -106,7 +106,7 @@ describe('SkillSystem', () => {
       const loadFailedCall = (mockAudit.write as any).mock.calls.find((c: any[]) => c[0] === 'skill_load_failed');
       expect(loadFailedCall[1]).toMatch(/^skill_dir=skills\/skill-b/);
       expect(loadFailedCall[2]).toBe('skills_dir=skills');
-      expect(loadFailedCall[3]).toMatch(/^err=/);
+      expect(loadFailedCall[3]).toMatch(/^error=/);
 
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();

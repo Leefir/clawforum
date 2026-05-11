@@ -93,7 +93,7 @@ export async function unlinkStaleLock(ctx: LockContext, lockPath: string, reason
     ctx.audit.write(
       CONTRACT_AUDIT_EVENTS.LOCK_UNLINK_FAILED,
       `reason=${reason}`,
-      `err=${err?.message ?? String(err)}`,
+      `error=${err?.message ?? String(err)}`,
     );
     return false;
   }

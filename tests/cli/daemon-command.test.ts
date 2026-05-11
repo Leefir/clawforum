@@ -379,7 +379,7 @@ describe('daemonCommand - A4d crash handler', () => {
 
     expect(mockState.mockAuditWrite).toHaveBeenCalledWith(
       'daemon_crash',
-      expect.stringMatching(/^err=test uncaught\nmock-stack/),
+      expect.stringMatching(/^error=test uncaught\nmock-stack/),
     );
 
     if (mockState.stopFn) mockState.stopFn();
@@ -397,7 +397,7 @@ describe('daemonCommand - A4d crash handler', () => {
 
     expect(mockState.mockAuditWrite).toHaveBeenCalledWith(
       'daemon_crash',
-      'err=reject reason string',
+      'error=reject reason string',
     );
 
     if (mockState.stopFn) mockState.stopFn();

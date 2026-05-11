@@ -40,7 +40,7 @@ describe('CronRunner handler sync throw', () => {
       CRON_AUDIT_EVENTS.JOB_ERROR,
       'job=sync-throw',
       expect.stringContaining('run_key='),
-      'err=sync',
+      'error=sync',
     );
 
     expect((runner as unknown as { running: Set<string> }).running.has('sync-throw')).toBe(false);

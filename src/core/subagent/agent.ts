@@ -303,7 +303,7 @@ export class SubAgent {
           tools,                    // Enable native tool_use
           onLLMResult: (info) => {
             if (info.error) {
-              this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `err=${info.error}`, `ms=${info.latencyMs}`);
+              this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `ms=${info.latencyMs}`);
             } else {
               this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_CALL, info.model, `in=${info.inputTokens}`, `out=${info.outputTokens}`, `ms=${info.latencyMs}`);
             }
@@ -401,7 +401,7 @@ export class SubAgent {
         );
       } else {
         safeSwWrite({ ts: Date.now(), type: 'turn_error', error: errMsg });
-        this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `err=${errMsg}`);
+        this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `error=${errMsg}`);
       }
       turnEnded = true;
       closeSw();

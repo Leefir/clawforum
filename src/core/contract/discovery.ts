@@ -61,7 +61,7 @@ async function findLatestContract(
         ctx.audit.write(
           CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED,
           `file=${entry.name}`,
-          `err=${error instanceof Error ? error.message : String(error)}`,
+          `error=${error instanceof Error ? error.message : String(error)}`,
         );
         ctx.audit.write(
           CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED,

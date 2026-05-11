@@ -93,7 +93,7 @@ describe('daemon-entry shim audit', () => {
     expect(() => handler!(testErr)).toThrow('process.exit(1)');
     expect(mockAuditWrite).toHaveBeenCalledWith(
       'daemon_uncaught_exception',
-      expect.stringContaining('err=test shim uncaught'),
+      expect.stringContaining('error=test shim uncaught'),
     );
     expect(errorSpy).toHaveBeenCalledWith('[daemon] Uncaught exception:', testErr);
   });
@@ -128,7 +128,7 @@ describe('daemon-entry shim audit', () => {
     expect(() => handler!(reason)).toThrow('process.exit(1)');
     expect(mockAuditWrite).toHaveBeenCalledWith(
       'daemon_unhandled_rejection',
-      expect.stringContaining('err=test rejection'),
+      expect.stringContaining('error=test rejection'),
     );
     expect(errorSpy).toHaveBeenCalledWith('[daemon] Unhandled rejection:', reason);
   });

@@ -105,7 +105,7 @@ export class CronRunner {
             this.audit.write(CRON_AUDIT_EVENTS.JOB_ERROR,
               `job=${job.name}`,
               `run_key=${key}`,
-              `err=${err instanceof Error ? err.message : String(err)}`,
+              `error=${err instanceof Error ? err.message : String(err)}`,
             );
             console.error(`[cron] ${job.name} error:`, err);
           })
@@ -145,7 +145,7 @@ export class CronRunner {
             this.audit.write(CRON_AUDIT_EVENTS.JOB_ERROR,
               `job=${job.name}`,
               `run_key=${key}`,
-              `err=${err instanceof Error ? err.message : String(err)}`,
+              `error=${err instanceof Error ? err.message : String(err)}`,
               'context=late_after_timeout',
             );
             this.cancelling.delete(job.name);
@@ -166,7 +166,7 @@ export class CronRunner {
             this.audit.write(CRON_AUDIT_EVENTS.JOB_ERROR,
               `job=${job.name}`,
               `run_key=${key}`,
-              `err=${result.err instanceof Error ? result.err.message : String(result.err)}`,
+              `error=${result.err instanceof Error ? result.err.message : String(result.err)}`,
             );
             console.error(`[cron] ${job.name} error:`, result.err);
           }

@@ -251,7 +251,7 @@ export class ContractSystem {
         this.audit.write(
           CONTRACT_AUDIT_EVENTS.CONTRACT_COMPLETED_HANDLER_FAILED,
           `contractId=${contractId}`,
-          `err=${e instanceof Error ? e.message : String(e)}`,
+          `error=${e instanceof Error ? e.message : String(e)}`,
         );
       }
     }
@@ -355,7 +355,7 @@ export class ContractSystem {
         this.audit.write(
           CONTRACT_AUDIT_EVENTS.ROLLBACK_FAILED,
           `contractId=${contractId}`,
-          `err=${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`,
+          `error=${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`,
         );
       });
       throw err;
@@ -366,7 +366,7 @@ export class ContractSystem {
     } catch (err) {
       this.audit.write(
         CONTRACT_AUDIT_EVENTS.NOTIFY_FAILED,
-        `err=${err instanceof Error ? err.message : String(err)}`,
+        `error=${err instanceof Error ? err.message : String(err)}`,
       );
     }
     this.audit.write(CONTRACT_AUDIT_EVENTS.CREATED, contractId, `subtasks=${contractYaml.subtasks.length}`, `title=${contractYaml.title}`);

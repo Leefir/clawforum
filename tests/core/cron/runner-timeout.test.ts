@@ -96,7 +96,7 @@ describe('CronRunner timeout escalation', () => {
       CRON_AUDIT_EVENTS.JOB_ERROR,
       'job=thrower',
       expect.stringContaining('run_key='),
-      'err=test',
+      'error=test',
     );
     const timeoutCalls = audit.write.mock.calls.filter(
       (c: unknown[]) => c[0] === 'cron_handler_timeout'

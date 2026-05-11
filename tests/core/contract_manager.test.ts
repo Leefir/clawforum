@@ -718,7 +718,7 @@ describe('ContractSystem', () => {
       expect(mockAudit.write).toHaveBeenCalledWith(
         CONTRACT_AUDIT_EVENTS.ROLLBACK_FAILED,
         expect.stringContaining('contractId='),
-        expect.stringContaining('err='),
+        expect.stringContaining('error='),
       );
     });
 

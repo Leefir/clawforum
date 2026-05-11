@@ -87,7 +87,7 @@ export class SkillSystem {
         this.audit?.write(SKILL_AUDIT_EVENTS.LOAD_FAILED,
           `skill_dir=${skillDir}`,
           `skills_dir=${this.skillsDir}`,
-          `err=${err instanceof Error ? err.message : String(err)}`,
+          `error=${err instanceof Error ? err.message : String(err)}`,
         );
         console.warn(`[skill] Failed to load skill from ${skillDir}:`, err);
         continue;

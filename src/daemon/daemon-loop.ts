@@ -422,7 +422,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           // Transient LLM failure — schedule retry via llmRetryPending flag
           llmRetryCount++;
           const delaySec = Math.round(llmRetryDelayMs / 1000);
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_LLM_RETRY, `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `err=${err.message}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_LLM_RETRY, `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `error=${err.message}`);
           console.warn(`${label} LLM error, retrying in ${delaySec}s (${llmRetryCount}/${LLM_MAX_RETRIES}): ${err.message}`);
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
           llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, LLM_RETRY_MAX_DELAY_MS);
@@ -434,7 +434,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryCount = 0;
           llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
           saveLlmRetryState();
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `err=${err instanceof Error ? err.message : String(err)}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `error=${err instanceof Error ? err.message : String(err)}`);
           console.error(`${label} processBatch error:`, err);
           if (isLLMMaxRetry) {
             console.error(`${label} LLM max retries (${LLM_MAX_RETRIES}) exhausted: ${err instanceof Error ? err.message : String(err)}`);

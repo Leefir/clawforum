@@ -1389,7 +1389,7 @@ Test message`;
       (runtime as unknown as RuntimeTestInternals)._handleTurnInterrupt(new Error('LLM failure'), { onTurnInterrupted, onTurnError });
       expect(onTurnError).toHaveBeenCalledWith('LLM failure');
       expect(onTurnInterrupted).not.toHaveBeenCalled();
-      expect(auditSpy).toHaveBeenCalledWith('turn_error', 'err=LLM failure');
+      expect(auditSpy).toHaveBeenCalledWith('turn_error', 'error=LLM failure');
       auditSpy.mockRestore();
     });
 
@@ -1874,7 +1874,7 @@ Test message
 
       const auditSpy = vi.spyOn((runtime as unknown as RuntimeTestInternals).auditWriter, 'write');
       await expect(runtime.processBatch()).rejects.toThrow('LLM network error');
-      expect(auditSpy).toHaveBeenCalledWith('llm_error', 'failing-model', expect.stringContaining('err='), expect.stringContaining('ms='));
+      expect(auditSpy).toHaveBeenCalledWith('llm_error', 'failing-model', expect.stringContaining('error='), expect.stringContaining('ms='));
       auditSpy.mockRestore();
     });
   });

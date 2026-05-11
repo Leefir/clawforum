@@ -49,7 +49,7 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
     }
   } catch (e) {
     config.audit.write(RETRO_AUDIT_EVENTS.SKILL_FAILED,
-      `err=${e instanceof Error ? e.message : String(e)}`);
+      `error=${e instanceof Error ? e.message : String(e)}`);
   }
 
   // 构建 retroPrompt（A.3）

@@ -328,7 +328,7 @@ auth_level: auto
       expect(mockAudit.write).toHaveBeenCalledWith(
         CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED,
         expect.stringContaining('file='),
-        expect.stringContaining('err='),
+        expect.stringContaining('error='),
       );
     });
   });

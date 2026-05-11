@@ -151,7 +151,7 @@ describe('startDaemonLoop - LLM retry', () => {
       'attempt=1',
       'max=3',
       'delay_ms=30000',
-      expect.stringContaining('err=All providers failed'),
+      expect.stringContaining('error=All providers failed'),
     );
 
     stop();
@@ -204,26 +204,26 @@ describe('startDaemonLoop - LLM retry', () => {
       'attempt=1',
       'max=3',
       'delay_ms=30000',
-      expect.stringContaining('err=All providers failed'),
+      expect.stringContaining('error=All providers failed'),
     );
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_llm_retry',
       'attempt=2',
       'max=3',
       'delay_ms=60000',
-      expect.stringContaining('err=All providers failed on retry'),
+      expect.stringContaining('error=All providers failed on retry'),
     );
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_llm_retry',
       'attempt=3',
       'max=3',
       'delay_ms=120000',
-      expect.stringContaining('err=All providers failed on retry'),
+      expect.stringContaining('error=All providers failed on retry'),
     );
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_fatal',
       'reason=max_retries_exhausted',
-      expect.stringContaining('err=All providers failed on retry'),
+      expect.stringContaining('error=All providers failed on retry'),
     );
 
     stop();
@@ -267,7 +267,7 @@ describe('startDaemonLoop - LLM retry', () => {
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_fatal',
       'reason=non_llm_error',
-      expect.stringContaining('err=Unexpected disk I/O failure'),
+      expect.stringContaining('error=Unexpected disk I/O failure'),
     );
 
     stop();

@@ -792,7 +792,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
       expect.stringContaining('backup='),
       'move_ok=true',
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
     expect(fs.existsSync(stateFile)).toBe(false);
     const files = fs.readdirSync(clawforumDir);
@@ -841,7 +841,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
       expect.stringContaining('backup='),
       'move_ok=false',
       expect.stringContaining('move_err=mock move failure'),
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
   });
 

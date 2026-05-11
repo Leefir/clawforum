@@ -468,7 +468,7 @@ export class Runtime {
         idleTimeoutMs: this.options.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
         onLLMResult: (info) => {
           if (info.error) {
-            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `err=${info.error}`, `ms=${info.latencyMs}`);
+            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `ms=${info.latencyMs}`);
           } else {
             this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_CALL, info.model, `in=${info.inputTokens}`, `out=${info.outputTokens}`, `ms=${info.latencyMs}`);
           }
@@ -746,7 +746,7 @@ export class Runtime {
         maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
         onLLMResult: (info) => {
           if (info.error) {
-            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `err=${info.error}`, `ms=${info.latencyMs}`);
+            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `ms=${info.latencyMs}`);
           } else {
             this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_CALL, info.model, `in=${info.inputTokens}`, `out=${info.outputTokens}`, `ms=${info.latencyMs}`);
           }
@@ -808,7 +808,7 @@ export class Runtime {
     } else {
       const errorMsg = formatErr(err);
       callbacks?.onTurnError?.(errorMsg);
-      this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `err=${errorMsg}`);
+      this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `error=${errorMsg}`);
     }
   }
 

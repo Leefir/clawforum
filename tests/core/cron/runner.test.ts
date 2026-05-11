@@ -160,7 +160,7 @@ describe('CronRunner', () => {
       CRON_AUDIT_EVENTS.JOB_ERROR,
       'job=failing',
       expect.stringContaining('run_key='),
-      'err=boom',
+      'error=boom',
     );
     expect(errSpy).toHaveBeenCalled();
   });

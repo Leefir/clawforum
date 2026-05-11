@@ -225,7 +225,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.INDEX_FAILED,
       expect.stringContaining('contractId='),
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
     expect(mockWritePending).not.toHaveBeenCalled();
   });
@@ -245,7 +245,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.YAML_FAILED,
       expect.stringContaining('contractId='),
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
     expect(mockWritePending).not.toHaveBeenCalled();
   });
@@ -264,7 +264,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
 
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.SKILL_FAILED,
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
     // writePending 仍被调（退化继续，不 skip）
     expect(mockWritePending).toHaveBeenCalled();
@@ -320,7 +320,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.MINING_FAILED,
       expect.stringContaining('taskId='),
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
   });
 
@@ -340,7 +340,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
 
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.SCHEDULE_FAILED,
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
     // by-contract 未删
     await expect(fs.access(byContractPath)).resolves.toBeUndefined();
@@ -363,7 +363,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
 
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.CLEANUP_FAILED,
-      expect.stringContaining('err='),
+      expect.stringContaining('error='),
     );
   });
 });

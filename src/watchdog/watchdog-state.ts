@@ -57,7 +57,7 @@ export function loadWatchdogState(): void {
       `backup=${backupPath}`,
       `move_ok=${moveOk}`,
       ...(moveOk ? [] : [`move_err=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, 200)}`]),
-      `err=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
+      `error=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
     );
   }
 }
@@ -77,6 +77,6 @@ export function saveWatchdogState(): void {
 export function writeWatchdogCrash(err: Error): void {
   try {
     const auditWriter = getAuditWriter();
-    auditWriter?.write(WATCHDOG_AUDIT_EVENTS.CRASH, `err=${err.message?.slice(0, 200) ?? String(err)}`);
+    auditWriter?.write(WATCHDOG_AUDIT_EVENTS.CRASH, `error=${err.message?.slice(0, 200) ?? String(err)}`);
   } catch { /* ignore: crash handler 不抛 */ }
 }

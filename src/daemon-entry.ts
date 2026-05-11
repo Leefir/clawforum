@@ -20,7 +20,7 @@ const errMsg = (reason: unknown): string =>
 process.on('unhandledRejection', (reason) => {
   const msg = errMsg(reason);
   try {
-    shimAudit?.write('daemon_unhandled_rejection', `err=${msg}`);
+    shimAudit?.write('daemon_unhandled_rejection', `error=${msg}`);
   } catch { /* audit 写入失败静默，fallback console 保运维可见 */ }
   console.error('[daemon] Unhandled rejection:', reason);
   process.exit(1);
@@ -29,7 +29,7 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
   const msg = errMsg(err);
   try {
-    shimAudit?.write('daemon_uncaught_exception', `err=${msg}`);
+    shimAudit?.write('daemon_uncaught_exception', `error=${msg}`);
   } catch { /* 同上 */ }
   console.error('[daemon] Uncaught exception:', err);
   process.exit(1);

@@ -177,7 +177,7 @@ export async function runWatchdogLoop(): Promise<void> {
           motionRestartFailures = 0;
         } else {
           motionRestartFailures++;
-          auditWriter.write('process_spawn_failed', 'motion', `err=${err instanceof Error ? err.message : String(err)}`);
+          auditWriter.write('process_spawn_failed', 'motion', `error=${err instanceof Error ? err.message : String(err)}`);
           log(`[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
         }
       }

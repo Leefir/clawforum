@@ -145,7 +145,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
           filenameTag: 'claw_crash',
         });
       } catch (err) {
-        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DROPPED, `claw=${clawId}`, `err=${err instanceof Error ? err.message : String(err)}`);
+        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DROPPED, `claw=${clawId}`, `error=${err instanceof Error ? err.message : String(err)}`);
       }
     }
 

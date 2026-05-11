@@ -130,7 +130,7 @@ export async function daemonCommand(name: string): Promise<void> {
     const msg = reason instanceof Error
       ? `${reason.message}\n${reason.stack ?? ''}`
       : String(reason);
-    auditWriter.write(ASSEMBLY_AUDIT_EVENTS.DAEMON_CRASH, `err=${msg}`);
+    auditWriter.write(ASSEMBLY_AUDIT_EVENTS.DAEMON_CRASH, `error=${msg}`);
   };
 
   process.on('uncaughtException', (err) => {
