@@ -90,8 +90,8 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
     );
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_interrupt_poller_disabled',
-      expect.stringContaining('err_count='),
-      expect.stringContaining('last_err='),
+      expect.stringContaining('error_count='),
+      expect.stringContaining('last_error='),
     );
 
     stop();

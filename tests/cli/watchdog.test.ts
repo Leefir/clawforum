@@ -840,7 +840,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
       expect.stringContaining('backup='),
       'move_ok=false',
-      expect.stringContaining('move_err=mock move failure'),
+      expect.stringContaining('move_error=mock move failure'),
       expect.stringContaining('error='),
     );
   });

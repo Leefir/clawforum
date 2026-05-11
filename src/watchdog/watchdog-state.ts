@@ -56,7 +56,7 @@ export function loadWatchdogState(): void {
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
       `backup=${backupPath}`,
       `move_ok=${moveOk}`,
-      ...(moveOk ? [] : [`move_err=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, 200)}`]),
+      ...(moveOk ? [] : [`move_error=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, 200)}`]),
       `error=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
     );
   }

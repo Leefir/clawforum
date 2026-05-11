@@ -344,7 +344,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               console.warn(`${label} interrupt poll error: ${err instanceof Error ? err.message : String(err)}`);
             }
             if (interruptErrCount >= INTERRUPT_POLL_MAX_ERRORS) {
-              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT_POLLER_DISABLED, `err_count=${interruptErrCount}`, `last_err=${err instanceof Error ? err.message : String(err)}`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT_POLLER_DISABLED, `error_count=${interruptErrCount}`, `last_error=${err instanceof Error ? err.message : String(err)}`);
               console.error(`${label} interrupt poll failed ${interruptErrCount} times, disabling`);
               clearInterval(interruptPoller!);
               interruptPoller = null;
