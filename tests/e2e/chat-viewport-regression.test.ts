@@ -90,19 +90,20 @@ async function setupFixture(options?: { agentDirPrefix?: string }): Promise<Regr
 
   const ec = createEventCollector<StreamEvent>();
   const deliveryTimestamps: Array<{ type: string; ts: number }> = [];
-  const reader = createStreamReader(
-    fs,
-    STREAM_FILE,
-    (ev) => {
-      deliveryTimestamps.push({ type: ev.type, ts: Date.now() });
-      ec.onEvent(ev);
-      handleEventShim(ev, mainUI, observability);
-    },
-    audit.writer,
-    { persistent: false },
-  );
-  reader.start();
-  await new Promise(r => setTimeout(r, 300));
+  const reader = await new Promise<StreamReader>((resolve) => {
+    const r = createStreamReader(
+      fs,
+      STREAM_FILE,
+      (ev) => {
+        deliveryTimestamps.push({ type: ev.type, ts: Date.now() });
+        ec.onEvent(ev);
+        handleEventShim(ev, mainUI, observability);
+      },
+      audit.writer,
+      { persistent: false, onReady: () => resolve(r) },
+    );
+    r.start();
+  });
 
   return {
     agentDir,
