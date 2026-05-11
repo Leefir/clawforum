@@ -13,25 +13,16 @@ import { FileNotFoundError, PermissionError } from '../../../src/types/errors.js
 import { DIALOG_AUDIT_EVENTS } from '../../../src/foundation/dialog-store/audit-events.js';
 
 describe('ContextInjector — context load audit (phase 646 P1.3)', () => {
-  it('FNF silent: AGENTS.md not found → 0 audit', async () => {
-    const mockAudit = { write: vi.fn() };
-    const mockFs = {
-      read: vi.fn().mockRejectedValue(new FileNotFoundError('AGENTS.md')),
-    };
-    const injector = new ContextInjector({ fs: mockFs as any, audit: mockAudit as any });
-
-    const parts = await injector.buildParts();
-
-    expect(mockAudit.write).not.toHaveBeenCalled();
-    expect(parts.agents).toBe('');
-  });
-
-  it('non-FNF audit: AGENTS.md read throws PermissionError → audit LOAD_FAILED', async () => {
+  it.each([
+    { name: 'FNF silent: AGENTS.md not found → 0 audit', file: 'AGENTS.md', err: () => new FileNotFoundError('AGENTS.md'), auditCalls: 0, partsKey: 'agents' as const },
+    { name: 'non-FNF audit: AGENTS.md read throws PermissionError → audit LOAD_FAILED', file: 'AGENTS.md', err: () => new PermissionError('denied'), auditCalls: 1, partsKey: 'agents' as const },
+    { name: 'FNF silent: MEMORY.md not found → 0 audit', file: 'MEMORY.md', err: () => new FileNotFoundError('MEMORY.md'), auditCalls: 0, partsKey: 'memory' as const },
+    { name: 'non-FNF audit: MEMORY.md read throws PermissionError → audit LOAD_FAILED', file: 'MEMORY.md', err: () => new PermissionError('denied'), auditCalls: 1, partsKey: 'memory' as const },
+  ])('$name', async ({ file, err, auditCalls, partsKey }) => {
     const mockAudit = { write: vi.fn() };
     const mockFs = {
       read: vi.fn().mockImplementation(async (path: string) => {
-        if (path === 'AGENTS.md') throw new PermissionError('denied');
-        if (path === 'MEMORY.md') throw new FileNotFoundError('MEMORY.md');
+        if (path === file) throw err();
         return '';
       }),
     };
@@ -39,52 +30,15 @@ describe('ContextInjector — context load audit (phase 646 P1.3)', () => {
 
     const parts = await injector.buildParts();
 
-    expect(mockAudit.write).toHaveBeenCalledTimes(1);
-    expect(mockAudit.write).toHaveBeenCalledWith(
-      DIALOG_AUDIT_EVENTS.LOAD_FAILED,
-      'file=AGENTS.md',
-      expect.stringContaining('reason='),
-    );
-    expect(parts.agents).toBe('');
-  });
-
-  it('FNF silent: MEMORY.md not found → 0 audit', async () => {
-    const mockAudit = { write: vi.fn() };
-    const mockFs = {
-      read: vi.fn().mockImplementation(async (path: string) => {
-        if (path === 'AGENTS.md') return '';
-        if (path === 'MEMORY.md') throw new FileNotFoundError('MEMORY.md');
-        return '';
-      }),
-    };
-    const injector = new ContextInjector({ fs: mockFs as any, audit: mockAudit as any });
-
-    const parts = await injector.buildParts();
-
-    expect(mockAudit.write).not.toHaveBeenCalled();
-    expect(parts.memory).toBe('');
-  });
-
-  it('non-FNF audit: MEMORY.md read throws PermissionError → audit LOAD_FAILED', async () => {
-    const mockAudit = { write: vi.fn() };
-    const mockFs = {
-      read: vi.fn().mockImplementation(async (path: string) => {
-        if (path === 'AGENTS.md') return '';
-        if (path === 'MEMORY.md') throw new PermissionError('denied');
-        return '';
-      }),
-    };
-    const injector = new ContextInjector({ fs: mockFs as any, audit: mockAudit as any });
-
-    const parts = await injector.buildParts();
-
-    expect(mockAudit.write).toHaveBeenCalledTimes(1);
-    expect(mockAudit.write).toHaveBeenCalledWith(
-      DIALOG_AUDIT_EVENTS.LOAD_FAILED,
-      'file=MEMORY.md',
-      expect.stringContaining('reason='),
-    );
-    expect(parts.memory).toBe('');
+    expect(mockAudit.write).toHaveBeenCalledTimes(auditCalls);
+    if (auditCalls > 0) {
+      expect(mockAudit.write).toHaveBeenCalledWith(
+        DIALOG_AUDIT_EVENTS.LOAD_FAILED,
+        `file=${file}`,
+        expect.stringContaining('reason='),
+      );
+    }
+    expect(parts[partsKey]).toBe('');
   });
 
   it('contractManager.loadActive throws non-FNF → audit LOAD_FAILED file=contract', async () => {
