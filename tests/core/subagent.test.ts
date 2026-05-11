@@ -2,7 +2,7 @@
  * SubAgent tests — fix 1 (onStepComplete error handling) + fix 8 (timeout cleanup)
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
 import { SubAgent } from '../../src/core/subagent/agent.js';
 import { NoopStreamWriter, NoopAuditWriter } from '../../src/core/subagent/noop-writers.js';
@@ -18,21 +18,24 @@ vi.mock('../../src/core/agent-executor/loop.js', () => ({
 }));
 
 // Mock ToolExecutor so SubAgent.run() doesn't need real FS / LLM
-vi.mock('../../src/foundation/tools/executor.js', () => ({
-  ToolExecutor: vi.fn().mockImplementation(() => ({
-    getExecContext: vi.fn().mockReturnValue({
-      clawId: 'test-agent',
-      clawDir: '/tmp/test',
-      workspaceDir: path.join('/tmp/test', 'clawspace'),
-      profile: 'subagent',
-      fs: {},
-      stepNumber: 0,
-      maxSteps: 20,
-      getElapsedMs: () => 0,
-      incrementStep: vi.fn(),
-    }),
-  })),
-}));
+vi.mock('../../src/foundation/tools/executor.js', () => {
+  function MockToolExecutor() {
+    return {
+      getExecContext: () => ({
+        clawId: 'test-agent',
+        clawDir: '/tmp/test',
+        workspaceDir: path.join('/tmp/test', 'clawspace'),
+        profile: 'subagent',
+        fs: {},
+        stepNumber: 0,
+        maxSteps: 20,
+        getElapsedMs: () => 0,
+        incrementStep: vi.fn(),
+      }),
+    };
+  }
+  return { ToolExecutor: MockToolExecutor };
+});
 
 import { runReact } from '../../src/core/agent-executor/loop.js';
 
@@ -99,6 +102,10 @@ function makeSubAgent(
 describe('SubAgent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // ─── fix 1: onStepComplete fs.append failure is caught ──────────────────────
