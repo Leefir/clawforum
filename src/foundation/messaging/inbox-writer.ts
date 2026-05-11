@@ -13,6 +13,7 @@ import { encodeInbox, parseFrontmatter } from './codec-inbox.js';
 import type { AuditLog } from '../audit/index.js';
 
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
+import { UUID_SHORT_LEN } from '../../constants.js';
 import { ok, err as errResult, type Result } from '../../types/result.js';
 import type { InboxMetaError } from './errors.js';
 
@@ -42,7 +43,7 @@ export class InboxWriter {
     await this.fs.ensureDir(this.inboxDir);
     const timestamp = String(Date.now()).padStart(15, '0');
     const priority = msg.priority ?? 'normal';
-    const filename = `${timestamp}_${priority}_${randomUUID().slice(0, 8)}.md`;
+    const filename = `${timestamp}_${priority}_${randomUUID().slice(0, UUID_SHORT_LEN)}.md`;
     const filePath = path.join(this.inboxDir, filename);
     try {
       await this.fs.writeAtomic(filePath, encodeInbox(msg, extraFields));
@@ -59,7 +60,7 @@ export class InboxWriter {
     const now = new Date();
     const priority = opts.priority ?? 'normal';
     const timestamp = String(now.getTime()).padStart(15, '0');
-    const uuid8 = randomUUID().slice(0, 8);
+    const uuid8 = randomUUID().slice(0, UUID_SHORT_LEN);
     const idPrefix = opts.idPrefix ?? opts.type;
 
     const message: InboxMessage = {

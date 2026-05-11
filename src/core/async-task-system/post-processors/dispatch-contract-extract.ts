@@ -1,6 +1,7 @@
 import type { PostProcessor } from './types.js';
 import { DISPATCH_AUDIT_EVENTS } from '../tools/dispatch-audit-events.js';
 import { formatErr } from '../_helpers.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../../../constants.js';
 
 /**
  * dispatch-contract-extract PostProcessor
@@ -30,7 +31,7 @@ export const dispatchContractExtractPostProcessor: PostProcessor = async (
   try {
     parsed = JSON.parse(blockMatch[1]);
   } catch {
-    audit.write(DISPATCH_AUDIT_EVENTS.CONTRACT_DONE_PARSE_FAILED, `raw=${blockMatch[1].slice(0, 200)}`);
+    audit.write(DISPATCH_AUDIT_EVENTS.CONTRACT_DONE_PARSE_FAILED, `raw=${blockMatch[1].slice(0, AUDIT_MESSAGE_MAX_CHARS)}`);
     return result;
   }
 

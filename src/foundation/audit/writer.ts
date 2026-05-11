@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import * as nodeFs from 'node:fs';
+import { UUID_SHORT_LEN } from '../../constants.js';
 import { FileNotFoundError } from '../../types/errors.js';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from './index.js';
@@ -85,7 +86,7 @@ export class AuditWriter implements AuditLog {
     try {
       const stats = this.fs.statSync(this.filePath);
       if (stats.size >= this.maxBytes!) {
-        this.fs.moveSync(this.filePath, `${this.filePath}.${randomUUID().slice(0, 8)}.bak`);
+        this.fs.moveSync(this.filePath, `${this.filePath}.${randomUUID().slice(0, UUID_SHORT_LEN)}.bak`);
       }
     } catch (err) {
       // FileNotFoundError（首次写入文件不存在）静默跳过；其他错误 warn

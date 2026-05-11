@@ -13,6 +13,12 @@
 // - `BUNDLED_*`：源码树 bundled 资源目录（非运行期 agent subdir）
 export const LOGS_DIR = 'logs' as const;
 export const CONTRACT_DIR = 'contract' as const;
+
+// NEW (phase 740) / mirror INBOX_PENDING_DIR / TASKS_QUEUES_PENDING_DIR pattern
+export const CONTRACT_ACTIVE_DIR = 'contract/active' as const;
+export const CONTRACT_PAUSED_DIR = 'contract/paused' as const;
+export const CONTRACT_ARCHIVE_DIR = 'contract/archive' as const;
+
 export const DIALOG_DIR = 'dialog' as const;
 /**
  * 顶层 claws 子目录 / 各 claw agent 目录的容器（容纳 <clawforumDir>/claws/<name>/）

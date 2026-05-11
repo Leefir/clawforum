@@ -7,6 +7,7 @@
 import type { StreamChunk } from './types.js';
 import type { CombinedAbortHandle } from './abort-helper.js';
 import { LLMError, LLMRateLimitError } from '../../types/errors.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../../constants.js';
 
 export type StreamParseErrorCallback = (event: {
   provider: string;
@@ -71,7 +72,7 @@ export async function* parseAnthropicSSEStream(
               // tool_use 缺 id 或 name = upstream malformed / 不发 malformed yield / 走观测通道
               onStreamParseError?.({
                 provider: providerName,
-                raw: JSON.stringify(block).slice(0, 200),
+                raw: JSON.stringify(block).slice(0, AUDIT_MESSAGE_MAX_CHARS),
                 error: 'tool_use missing id or name',
               });
               continue;

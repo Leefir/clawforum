@@ -11,6 +11,7 @@ import type { OutboxMessage } from '../../types/messaging.js';
 import type { AuditLog } from '../audit/index.js';
 import { encodeOutbox } from './codec-outbox.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
+import { UUID_SHORT_LEN } from '../../constants.js';
 
 /**
  * Outbox writer options
@@ -58,7 +59,7 @@ export class OutboxWriter {
     // Generate filename: {timestamp}_{type}_{uuid}.md
     const timestamp = Date.now();
     const typeSlug = options.type.toLowerCase();
-    const filename = `${timestamp}_${typeSlug}_${message.id.slice(0, 8)}.md`;
+    const filename = `${timestamp}_${typeSlug}_${message.id.slice(0, UUID_SHORT_LEN)}.md`;
     const filePath = path.join(this.outboxDir, filename);
 
     // Format content as markdown

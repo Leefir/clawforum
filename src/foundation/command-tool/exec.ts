@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import {
   EXEC_MAX_OUTPUT,
+  UUID_SHORT_LEN,
 } from '../../constants.js';
 import { exec } from '../process-exec/index.js';
 import { ProcessExecError } from '../process-exec/index.js';
@@ -37,7 +38,7 @@ async function persistOverflow(
   output: string,
 ): Promise<string | null> {
   try {
-    const id = randomUUID().slice(0, 8);
+    const id = randomUUID().slice(0, UUID_SHORT_LEN);
     // exec_overflow scratch 写到 tasks/sync/exec/ 子目录（phase 511）
     const fullPath = `${ctx.syncDir}/exec/${id}.md`;
     const frontmatter = `---\nsource: exec_overflow\ncontent_length: ${output.length}\ncreated_at: ${new Date().toISOString()}\n---\n`;

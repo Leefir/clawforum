@@ -212,4 +212,14 @@ export const LLM_RETRY_INITIAL_DELAY_MS = 30_000;
 /** Maximum retry delay for LLM failures (ms) — caps exponential backoff */
 export const LLM_RETRY_MAX_DELAY_MS = 300_000;
 
+// ----------------------------------------------------------------------------
+// Truncation Limits (phase 740)
+// ----------------------------------------------------------------------------
+
+/** Short UUID prefix length for human-readable IDs (`randomUUID().slice(0, 8)` pattern) */
+export const UUID_SHORT_LEN = 8;
+
+/** Maximum chars for audit log message truncation (防 long stack trace / payload 撑爆 audit 行) */
+export const AUDIT_MESSAGE_MAX_CHARS = 200;
+
 

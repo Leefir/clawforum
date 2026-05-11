@@ -15,6 +15,7 @@ import type { SessionData, LoadResult, DialogMarker, RestoreResult } from './typ
 import type { AuditLog } from '../audit/index.js';
 import { DIALOG_AUDIT_EVENTS } from './audit-events.js';
 import { randomUUID } from 'crypto';
+import { UUID_SHORT_LEN } from '../../constants.js';
 
 /**
  * Manages a Claw's dialog session
@@ -204,7 +205,7 @@ export class DialogStore {
 
       // Generate archive filename with timestamp and UUID suffix to avoid collisions
       const timestamp = Date.now();
-      const archivePath = path.join(this.archiveDir, `${timestamp}_${randomUUID().slice(0, 8)}.json`);
+      const archivePath = path.join(this.archiveDir, `${timestamp}_${randomUUID().slice(0, UUID_SHORT_LEN)}.json`);
 
       // Move current.json to archive
       await this.fs.move(this.currentPath, archivePath);

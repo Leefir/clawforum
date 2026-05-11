@@ -17,6 +17,7 @@ import { decodeInbox } from './codec-inbox.js';
 import type { AuditLog } from '../audit/index.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 import { InboxWriter, type InboxMessageMeta } from './inbox-writer.js';
+import { UUID_SHORT_LEN } from '../../constants.js';
 import { InboxListFailed, InboxMoveFailed } from './errors.js';
 
 export interface InboxEntry {
@@ -112,7 +113,7 @@ export class InboxReader {
   /** Move processed file to done/ */
   async markDone(filePath: string): Promise<void> {
     const fileName = path.basename(filePath);
-    const uuid8 = randomUUID().slice(0, 8);
+    const uuid8 = randomUUID().slice(0, UUID_SHORT_LEN);
     const targetPath = path.join(this.doneDir, `${Date.now()}_${uuid8}_${fileName}`);
     try {
       await this.fs.move(filePath, targetPath);
@@ -173,7 +174,7 @@ export class InboxReader {
   /** Move failed file to failed/ */
   async markFailed(filePath: string): Promise<void> {
     const fileName = path.basename(filePath);
-    const uuid8 = randomUUID().slice(0, 8);
+    const uuid8 = randomUUID().slice(0, UUID_SHORT_LEN);
     const targetPath = path.join(this.failedDir, `${Date.now()}_${uuid8}_${fileName}`);
     try {
       await this.fs.move(filePath, targetPath);

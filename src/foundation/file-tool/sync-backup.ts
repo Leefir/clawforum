@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import type { ExecContext } from '../tool-protocol/index.js';
 import { FILE_TOOL_AUDIT_EVENTS } from './audit-events.js';
+import { UUID_SHORT_LEN } from '../../constants.js';
 
 export type BackupSource = 'file_backup' | 'edit_backup' | 'multi_edit_backup' | 'exec_overflow';
 
@@ -21,7 +22,7 @@ export async function backupToSync(
     const exists = await ctx.fs.exists(filePath);
     if (!exists) return null;
     const content = await ctx.fs.read(filePath);
-    const id = randomUUID().slice(0, 8);
+    const id = randomUUID().slice(0, UUID_SHORT_LEN);
     // file_backup scratch 写到 tasks/sync/write/ 子目录（phase 511）
     const fullPath = `${ctx.syncDir}/write/${id}.md`;
     const frontmatter = `---\nsource: ${source}\noriginal_path: ${filePath}\ncontent_length: ${content.length}\ncreated_at: ${new Date().toISOString()}\n---\n`;
