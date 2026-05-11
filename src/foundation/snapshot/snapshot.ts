@@ -17,6 +17,7 @@ import type { AuditLog } from '../audit/index.js';
 import { SNAPSHOT_AUDIT_EVENTS } from './audit-events.js';
 import { ok, err as errResult, type Result } from '../../types/result.js';
 import { classifyGitError, type ExpectedGitFailure } from './git-errors.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../../constants.js';
 
 const DEFAULT_IGNORES = ['logs/', '*.tmp'];
 
@@ -135,7 +136,7 @@ export class Snapshot {
       this.audit.write(
         SNAPSHOT_AUDIT_EVENTS.COMMITTED,
         `dir=${this.dir}`,
-        `message=${message.slice(0, 200)}`,
+        `message=${message.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
       );
 
       // generic clean syncDir on commit success (turn-scoped lifecycle / 应然 §A.7)

@@ -28,6 +28,7 @@ import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../cli/utils/factories.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { LOGS_DIR, CLAWS_DIR } from '../types/paths.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../constants.js';
 
 import {
   getClawforumDir, getClawforumFs, getGlobalConfig, setAuditWriter,
@@ -74,7 +75,7 @@ export function shutdownWatchdog(
   }
   removeWatchdogPid();
   if (saveFailed) {
-    auditWriter.write(WATCHDOG_AUDIT_EVENTS.STOP, `signal=${signal}`, `save_failed=${saveFailed.slice(0, 200)}`);
+    auditWriter.write(WATCHDOG_AUDIT_EVENTS.STOP, `signal=${signal}`, `save_failed=${saveFailed.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`);
   } else {
     auditWriter.write(WATCHDOG_AUDIT_EVENTS.STOP, `signal=${signal}`);
   }
@@ -152,7 +153,7 @@ export async function runWatchdogLoop(): Promise<void> {
         //   - cleanup 失败不阻塞 respawn / spawn 自身判 race / failure 仅 audit observability
         await pm.stop('motion').catch((e) => {
           const msg = `[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`;
-          logWithAudit(msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, 200));
+          logWithAudit(msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, AUDIT_MESSAGE_MAX_CHARS));
         });
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
         const bundleEntry = path.join(thisDir, 'daemon-entry.js');

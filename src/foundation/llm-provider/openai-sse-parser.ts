@@ -7,6 +7,7 @@
 import type { StreamChunk } from './types.js';
 import type { CombinedAbortHandle } from './abort-helper.js';
 import { LLMError, LLMRateLimitError } from '../../types/errors.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../../constants.js';
 
 export type StreamParseErrorCallback = (event: {
   provider: string;
@@ -182,7 +183,7 @@ export async function* parseSSEStream(
       if (!buf.started && (buf.id !== '' || buf.name !== '')) {
         onStreamParseError?.({
           provider: providerName,
-          raw: JSON.stringify({ id: buf.id, name: buf.name }).slice(0, 200),
+          raw: JSON.stringify({ id: buf.id, name: buf.name }).slice(0, AUDIT_MESSAGE_MAX_CHARS),
           error: 'tool_use buffer incomplete (missing id or name at stream end)',
         });
       }

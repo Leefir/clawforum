@@ -6,6 +6,7 @@
 import * as path from 'path';
 import { getClawforumDir, getClawforumFs, getAuditWriter, lastInactivityNotified, inactivityNotifyCount } from './watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../constants.js';
 
 interface WatchdogState {
   version?: number;  // v0 = absent (legacy), v1 = current
@@ -56,8 +57,8 @@ export function loadWatchdogState(): void {
       WATCHDOG_AUDIT_EVENTS.STATE_LOAD_FAILED,
       `backup=${backupPath}`,
       `move_ok=${moveOk}`,
-      ...(moveOk ? [] : [`move_error=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, 200)}`]),
-      `error=${(err as Error).message?.slice(0, 200) ?? String(err)}`,
+      ...(moveOk ? [] : [`move_error=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`]),
+      `error=${(err as Error).message?.slice(0, AUDIT_MESSAGE_MAX_CHARS) ?? String(err)}`,
     );
   }
 }
@@ -77,6 +78,6 @@ export function saveWatchdogState(): void {
 export function writeWatchdogCrash(err: Error): void {
   try {
     const auditWriter = getAuditWriter();
-    auditWriter?.write(WATCHDOG_AUDIT_EVENTS.CRASH, `error=${err.message?.slice(0, 200) ?? String(err)}`);
+    auditWriter?.write(WATCHDOG_AUDIT_EVENTS.CRASH, `error=${err.message?.slice(0, AUDIT_MESSAGE_MAX_CHARS) ?? String(err)}`);
   } catch { /* ignore: crash handler 不抛 */ }
 }

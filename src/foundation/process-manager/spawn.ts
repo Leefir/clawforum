@@ -9,6 +9,7 @@ import { isAliveByPidFile as checkAlive } from './alive.js';
 import { readLockPid } from './lock.js';
 import { removePid } from './pid.js';
 import { findProcesses } from './find.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../../constants.js';
 import { isAlive as l1IsAlive } from '../process-exec/index.js';
 import type { ProcessManagerContext, SpawnOptions } from './types.js';
 
@@ -170,7 +171,7 @@ export async function spawnProcess(
       `claw=${clawId}`,
       `pid=${pid}`,
       `command=${options.command}`,
-      `args=${options.args.join(' ').slice(0, 200)}`,
+      `args=${options.args.join(' ').slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
     );
 
     return pid;
