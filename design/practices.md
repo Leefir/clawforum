@@ -3190,3 +3190,30 @@ r98 dispatch §B claim 「12+5 ClawError vs 裸 Error / 4 含义 code / 无 Resu
 - **test 弱断言 silent X cluster phase**：mirror phase 706 audit key 决策树模板 / dominant N=5+ site
 - **test 弱断言 batch phase**：3 file-level cluster + phase 680 同型扩 ~15 site
 - **D2-P2.1**（r97 留）snapshot consecutiveFailures row 状态语义复核（推 r99+ 主会话核 src + design intent）
+
+## phase 721 — r99 C fork tests/ 弱断言 cluster 4-state 分类（dispatch §C 框架数字精度核）
+
+### 4-state 分类决策树（per feedback_test_oracle_quality）
+
+1. 单独 weak（无后续 content verify）→ C1 真 weak / strengthen 必做
+2. weak gate + 后续 content verify → C2 partial / user binary
+3. weak gate + 后续 mock fabricated content（per phase 689 mock 4 维 audit）→ C2-(b)
+
+### dispatch §C 数字精度核
+
+- 框架 "50+ site" → 实测 36 site（round-up overstate）
+- 框架 "16 cluster" → 实测大致 4 cluster
+- 「dispatch 起草自审 §3.a 数字精度 stale」N+1 实证累（phase 705 + 714 + 721）
+
+### Tier 1 真 strengthen 3 site
+
+- contract-review-request.test.ts L270+L297（mockWritePending 单独 toHaveBeenCalled 无 payload）
+- runtime-regime-switch.test.ts L315（repairSpy 单独 toHaveBeenCalled）
+
+### Tier 2 partial 33 site（user binary）
+
+- α 全 strengthen / β inline comment / δ minimal
+- 主会话推 δ：oracle 已 followed by content verify / 33 site batch ROI 低
+- 拍板状态：δ minimal（0 改 / 跳过 Step G）
+
+> 关联：phase 689 mock 4 维 audit / phase 706 audit key 决策树 / phase 719 Step A 已 land 7 sites / `feedback_test_oracle_quality` 决策树
