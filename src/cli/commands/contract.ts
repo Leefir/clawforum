@@ -16,6 +16,7 @@ import { notifySystem } from '../../foundation/messaging/index.js';
 import { STREAM_AUDIT_EVENTS } from '../../foundation/stream/audit-events.js';
 import { createSystemAudit, type AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
+import { createToolRegistry } from '../../foundation/tools/index.js';
 import { STREAM_FILE } from '../../foundation/stream/index.js';
 import { CONTRACT_DIR } from '../../types/paths.js';
 
@@ -84,7 +85,7 @@ export async function contractCreateCommand(clawId: string, filePath: string, de
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir });
-  const manager = new ContractSystem(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir));
+  const manager = new ContractSystem(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir), undefined, createToolRegistry());
 
   const contractId = await manager.create(contract);
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=file`);
@@ -105,7 +106,7 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
 
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir });
-  const manager = new ContractSystem(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir));
+  const manager = new ContractSystem(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir), undefined, createToolRegistry());
 
   const contractId = await manager.create(contract);
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=dir`);
@@ -147,7 +148,7 @@ export async function contractEventsCommand(clawId: string, sinceTs: number): Pr
 export async function contractLogCommand(clawId: string, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = new NodeFileSystem({ baseDir: clawDir });
-  const manager = new ContractSystem(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir));
+  const manager = new ContractSystem(clawDir, clawId, clawFs, createSystemAudit(clawFs, clawDir), undefined, createToolRegistry());
 
   // 若未指定 contractId，用 active 契约
   let resolvedId = contractId;

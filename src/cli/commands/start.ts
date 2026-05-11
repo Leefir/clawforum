@@ -21,6 +21,7 @@ import {
 } from './motion.js';
 import { createProcessManagerForCLI } from '../utils/factories.js';
 import { ContractSystem } from '../../core/contract/index.js';
+import { createToolRegistry } from '../../foundation/tools/index.js';
 import { createDirContext } from '../utils/factories.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
@@ -409,7 +410,7 @@ async function _start(audit?: AuditLog): Promise<void> {
     await daemonReady;
     if (!isWatchdogAlive()) await watchdogStart();
 
-    const manager = new ContractSystem(motionDir, MOTION_CLAW_ID, notifyFs, notifyAudit);
+    const manager = new ContractSystem(motionDir, MOTION_CLAW_ID, notifyFs, notifyAudit, undefined, createToolRegistry());
     const contractId = await manager.create({
       title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
@@ -438,7 +439,7 @@ async function _start(audit?: AuditLog): Promise<void> {
 
     
     if (onboarding.state === 'not_found') {
-      const manager = new ContractSystem(motionDir, MOTION_CLAW_ID, notifyFs, notifyAudit);
+      const manager = new ContractSystem(motionDir, MOTION_CLAW_ID, notifyFs, notifyAudit, undefined, createToolRegistry());
       const contractId = await manager.create({
         title: 'Onboarding',
         goal: 'Get to know the user and establish your identity before anything else.',
