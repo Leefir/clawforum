@@ -32,6 +32,7 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { type AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+import { CONTRACT_ACTIVE_DIR, CONTRACT_PAUSED_DIR, CONTRACT_ARCHIVE_DIR } from '../../types/paths.js';
 
 import type {
   ContractYaml, ProgressData, AcceptanceResult, VerifierConfig, VerifierResult,
@@ -83,9 +84,9 @@ export class ContractSystem {
   private llm?: LLMOrchestrator;
   private toolRegistry: ToolRegistry;
 
-  private activeDir = 'contract/active';
-  private pausedDir = 'contract/paused';
-  private archiveDir = 'contract/archive';
+  private activeDir = CONTRACT_ACTIVE_DIR;
+  private pausedDir = CONTRACT_PAUSED_DIR;
+  private archiveDir = CONTRACT_ARCHIVE_DIR;
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
   private contractCompletedCallbacks: Set<(contractId: string) => Promise<void>> = new Set();

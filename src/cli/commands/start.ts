@@ -32,7 +32,7 @@ import { getWorkspaceRoot } from '../../foundation/config/paths.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { startCommand as watchdogStart, isWatchdogAlive } from '../../watchdog/watchdog.js';
-import { LOGS_DIR } from '../../types/paths.js';
+import { LOGS_DIR, CONTRACT_ACTIVE_DIR, CONTRACT_PAUSED_DIR, CONTRACT_ARCHIVE_DIR } from '../../types/paths.js';
 
 export function buildOnboardingSubtasks(language: string): Array<{ id: string; description: string }> {
   let langInstruction: string;
@@ -96,7 +96,7 @@ type OnboardingStatus =
  * Find the Onboarding contract and determine its completion state.
  */
 export function getOnboardingStatus(motionDir: string): OnboardingStatus {
-  const dirs = ['contract/active', 'contract/paused', 'contract/archive'];
+  const dirs = [CONTRACT_ACTIVE_DIR, CONTRACT_PAUSED_DIR, CONTRACT_ARCHIVE_DIR];
 
   for (const dir of dirs) {
     const contractsDir = path.join(motionDir, dir);
@@ -133,7 +133,7 @@ export function getOnboardingStatus(motionDir: string): OnboardingStatus {
         .filter(([, v]) => v.status !== 'completed')
         .map(([k]) => k);
 
-      if (dir === 'contract/archive' && pending.length === 0) {
+      if (dir === CONTRACT_ARCHIVE_DIR && pending.length === 0) {
         return { state: 'complete' };
       }
       return { state: 'in_progress', contractId, pending };
