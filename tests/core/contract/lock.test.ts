@@ -11,6 +11,7 @@ import * as path from 'path';
 import { acquireLock, releaseLock } from '../../../src/core/contract/lock.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../../src/core/contract/audit-events.js';
+import { DEAD_PID } from '../../helpers/dead-pid.js';
 
 vi.mock('../../../src/constants.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/constants.js')>();
@@ -70,7 +71,7 @@ describe('acquireLock', () => {
     await fs.mkdir(path.dirname(absLockPath), { recursive: true });
 
     // 写入合法但 dead pid 的 lock 文件
-    await fs.writeFile(absLockPath, JSON.stringify({ pid: 999999, time: Date.now() }), 'utf-8');
+    await fs.writeFile(absLockPath, JSON.stringify({ pid: DEAD_PID, time: Date.now() }), 'utf-8');
 
     await acquireLock({ fs: nodeFs, audit: mockAudit as any }, lockPath);
 

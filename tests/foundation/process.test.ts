@@ -12,6 +12,7 @@ import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { ProcessManager } from '../../src/foundation/process-manager/index.js';
 import { createSystemAudit } from '../../src/foundation/audit/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import { DEAD_PID } from '../helpers/dead-pid.js';
 
 describe('ProcessManager', () => {
   let tempDir: string;
@@ -80,7 +81,7 @@ describe('ProcessManager', () => {
       const pidFile = path.join(statusDir, 'pid');
       
       // 使用一个不可能存在的 PID（Linux 的 PID 上限通常是 2^22，macOS 更低）
-      const fakePid = 999999;
+      const fakePid = DEAD_PID;
       fs.writeFileSync(pidFile, String(fakePid));
 
       // isAlive 应该返回 false（因为进程不存在）

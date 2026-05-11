@@ -28,6 +28,7 @@ import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { makeAudit } from '../helpers/audit.js';
 import { waitFor } from '../helpers/wait-for.js';
+import { DEAD_PID_STRING } from '../helpers/dead-pid.js';
 
 describe('ProcessManager', () => {
   let tempDir: string;
@@ -83,7 +84,7 @@ describe('ProcessManager', () => {
       // claw PID 文件在 claws/{id}/status/pid
       const clawPidFile = path.join(tempDir, 'claws', 'test-claw', 'status', 'pid');
       await fs.mkdir(path.dirname(clawPidFile), { recursive: true });
-      await fs.writeFile(clawPidFile, '999999', 'utf-8');
+      await fs.writeFile(clawPidFile, DEAD_PID_STRING, 'utf-8');
 
       expect(pm.isAlive('motion')).toBe(true);
       expect(pm.isAlive('test-claw')).toBe(false); // 死进程
@@ -106,7 +107,7 @@ describe('ProcessManager', () => {
       const pm = new ProcessManager(nodeFs, tempDir, audit);
       const pidFile = path.join(tempDir, 'claws', 'dead-claw', 'status', 'pid');
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
-      await fs.writeFile(pidFile, '999999', 'utf-8'); // 不存在的进程
+      await fs.writeFile(pidFile, DEAD_PID_STRING, 'utf-8'); // 不存在的进程
 
       expect(pm.isAlive('dead-claw')).toBe(false);
 

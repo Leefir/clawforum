@@ -15,6 +15,7 @@ import { spawn } from 'child_process';
 
 import { exec, kill, isAlive, findByPattern } from '../../src/foundation/process-exec/index.js';
 import { ProcessExecError, ProcessListUnavailable } from '../../src/foundation/process-exec/index.js';
+import { DEAD_PID } from '../helpers/dead-pid.js';
 
 describe('ProcessExec exec', () => {
   const workDir = tmpdir();
@@ -214,7 +215,7 @@ describe('ProcessExec exec', () => {
 
 describe('kill', () => {
   it('silently ignores ESRCH (already gone)', () => {
-    expect(() => kill(999999999, 'TERM')).not.toThrow();
+    expect(() => kill(DEAD_PID, 'TERM')).not.toThrow();
   });
   it('sends SIGTERM to live process', async () => {
     const child = spawn('sleep', ['10']);
@@ -230,7 +231,7 @@ describe('isAlive', () => {
     expect(isAlive(process.pid)).toBe(true);
   });
   it('returns false for nonexistent pid', () => {
-    expect(isAlive(999999999)).toBe(false);
+    expect(isAlive(DEAD_PID)).toBe(false);
   });
 });
 

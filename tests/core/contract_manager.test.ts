@@ -18,6 +18,7 @@ import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../src/core/contract/audit-events.js';
 import { waitFor } from '../helpers/wait-for.js';
 import { makeContractYaml } from '../helpers/contract-yaml.js';
+import { DEAD_PID } from '../helpers/dead-pid.js';
 import { createToolRegistry } from '../../src/foundation/tools/index.js';
 
 vi.mock('child_process', async (importOriginal) => {
@@ -398,7 +399,7 @@ describe('ContractSystem', () => {
     }));
 
     // 写 stale lock：持有者 PID 不存在（process.kill(deadPid, 0) 会 ESRCH）
-    const deadPid = 999999;
+    const deadPid = DEAD_PID;
     const lockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
     await fs.writeFile(lockPath, JSON.stringify({ pid: deadPid, time: Date.now() }), 'utf-8');
 
@@ -446,7 +447,7 @@ describe('ContractSystem', () => {
       acceptance: [],
     }));
 
-    const deadPid = 999999;
+    const deadPid = DEAD_PID;
     const lockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
     await fs.writeFile(lockPath, JSON.stringify({ pid: deadPid, time: Date.now() }), 'utf-8');
 

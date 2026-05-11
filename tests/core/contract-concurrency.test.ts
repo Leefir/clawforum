@@ -19,6 +19,7 @@ import { ContractSystem } from '../../src/core/contract/manager.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../src/core/contract/audit-events.js';
 import { createToolRegistry } from '../../src/foundation/tools/index.js';
+import { DEAD_PID } from '../helpers/dead-pid.js';
 
 // 无验收配置（completeSubtask 同步完成，锁定时间极短，适合并发测试）
 const BASE_YAML = makeContractYaml({
@@ -145,7 +146,7 @@ describe('ContractSystem — 并发幂等与锁', () => {
     const lockPath = path.join(lockDir, 'progress.lock');
 
     // 写入一个不存在的 PID，模拟持有者已死
-    const deadPid = 99999999;
+    const deadPid = DEAD_PID;
     await fs.writeFile(lockPath, JSON.stringify({ pid: deadPid, time: Date.now() }));
 
     // completeSubtask 应能检测到 stale lock，清理后正常完成
