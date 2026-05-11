@@ -676,6 +676,7 @@ describe('maybeCronClawCrash — crash audit', () => {
     expect(mockAudit.write).toHaveBeenCalledWith(
       WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED,
       expect.stringContaining(clawId),
+      'has_contract=true',
     );
   });
 

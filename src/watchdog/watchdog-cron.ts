@@ -125,11 +125,12 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
       // Only notify motion when there is an active/paused contract (no notification needed if claw stops without a contract)
       if (!clawHasContract(clawDir)) {
         log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification)`);
+        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=false');
         clawPreviouslyAlive.set(clawId, currentlyAlive);
         continue;
       }
       log(`[watchdog] Claw ${clawId} crashed (was alive, now stopped)`);
-      audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`);
+      audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=true');
 
       // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
