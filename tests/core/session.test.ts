@@ -264,7 +264,7 @@ describe('DialogStore unit tests', () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sm-test-'));
     nodeFs = new NodeFileSystem({ baseDir: tmpDir });
     auditMock = { write: vi.fn() };
-    sm = new DialogStore(nodeFs, 'dialog', auditMock, 'current.json', 'test-system-prompt', 'test-claw');
+    sm = new DialogStore(nodeFs, 'dialog', auditMock, 'current.json', 'test-claw');
   });
 
   afterEach(async () => {
@@ -275,7 +275,7 @@ describe('DialogStore unit tests', () => {
 
   it('archive: moves current.json to archive dir', async () => {
     const msg: Message = { role: 'user', content: 'hello' };
-    await sm.save([msg]);
+    await sm.save({ systemPrompt: 'test-system-prompt', messages: [msg], toolsForLLM: [] });
 
     // Verify current.json exists before archive
     const currentPath = path.join(tmpDir, 'dialog', 'current.json');
@@ -300,7 +300,7 @@ describe('DialogStore unit tests', () => {
 
   it('archive: resets createdAt so next save() gets a fresh timestamp', async () => {
     // First session
-    await sm.save([{ role: 'user', content: 'old' }]);
+    await sm.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'old' }], toolsForLLM: [] });
     const { session: first } = await sm.load();
     const oldCreatedAt = first.createdAt;
 
@@ -310,7 +310,7 @@ describe('DialogStore unit tests', () => {
     await new Promise(r => setTimeout(r, 5));
 
     // New session after archive
-    await sm.save([{ role: 'user', content: 'new' }]);
+    await sm.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'new' }], toolsForLLM: [] });
     const { session: second } = await sm.load();
 
     // createdAt must be later than the archived session's createdAt
@@ -322,11 +322,11 @@ describe('DialogStore unit tests', () => {
 
   it('load: recovers from archive when current.json is gone', async () => {
     const msg: Message = { role: 'user', content: 'remembered' };
-    await sm.save([msg]);
+    await sm.save({ systemPrompt: 'test-system-prompt', messages: [msg], toolsForLLM: [] });
     await sm.archive(); // moves current.json → archive/
 
     // Fresh DialogStore (simulate restart)
-    const sm2 = new DialogStore(nodeFs, 'dialog', auditMock, 'current.json', 'test-system-prompt', 'test-claw');
+    const sm2 = new DialogStore(nodeFs, 'dialog', auditMock, 'current.json', 'test-claw');
     const { session: session } = await sm2.load();
 
     expect(session.messages).toHaveLength(1);
@@ -337,16 +337,16 @@ describe('DialogStore unit tests', () => {
 
   it('load() returns source current when current.json exists', async () => {
     const audit = { write: vi.fn() };
-    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
-    await smAudit.save([{ role: 'user', content: 'hi' }]);
+    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
+    await smAudit.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'hi' }], toolsForLLM: [] });
     const result = await smAudit.load();
     expect(result.source).toBe('current');
   });
 
   it('load() returns source archive when recovering from archive', async () => {
     const audit = { write: vi.fn() };
-    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
-    await smAudit.save([{ role: 'user', content: 'hi' }]);
+    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
+    await smAudit.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'hi' }], toolsForLLM: [] });
     await smAudit.archive();
     const result = await smAudit.load();
     expect(result.source).toBe('archive');
@@ -354,14 +354,14 @@ describe('DialogStore unit tests', () => {
 
   it('load() returns source empty when nothing exists', async () => {
     const audit = { write: vi.fn() };
-    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     const result = await smAudit.load();
     expect(result.source).toBe('empty');
   });
 
   it('load() writes session_corrupted audit when current.json is corrupted', async () => {
     const audit = { write: vi.fn() };
-    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     const dialogDir = path.join(tmpDir, 'dialog');
     await fs.mkdir(dialogDir, { recursive: true });
     const currentPath = path.join(dialogDir, 'current.json');
@@ -376,8 +376,8 @@ describe('DialogStore unit tests', () => {
 
   it('load() writes session_recovered audit when recovering from archive', async () => {
     const audit = { write: vi.fn() };
-    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
-    await smAudit.save([{ role: 'user', content: 'hi' }]);
+    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
+    await smAudit.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'hi' }], toolsForLLM: [] });
     await smAudit.archive();
     audit.write.mockClear();
     const result = await smAudit.load();
@@ -390,7 +390,7 @@ describe('DialogStore unit tests', () => {
 
   it('load() writes session_corrupted for corrupted archive and falls back', async () => {
     const audit = { write: vi.fn() };
-    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     const archiveDir = path.join(tmpDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
 
@@ -423,7 +423,7 @@ describe('DialogStore unit tests', () => {
       writeAtomic: vi.fn(() => Promise.reject(new Error('disk full'))),
     } as unknown as NodeFileSystem;
     const audit = { write: vi.fn() };
-    const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-claw');
     await expect(smFail.save([{ role: 'user', content: 'hi' }])).rejects.toThrow('disk full');
     expect(audit.write).toHaveBeenCalledWith(
       DIALOG_AUDIT_EVENTS.SAVE_FAILED,
@@ -434,7 +434,7 @@ describe('DialogStore unit tests', () => {
 
   it('archive: writes session_archive_failed and still throws on move failure', async () => {
     const audit = { write: vi.fn() };
-    const smArc = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smArc = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     // no current.json exists → move will throw FileNotFoundError (FS_NOT_FOUND)
     await expect(smArc.archive()).rejects.toMatchObject({ code: 'FS_NOT_FOUND' });
     expect(audit.write).toHaveBeenCalledWith(
@@ -450,7 +450,7 @@ describe('DialogStore unit tests', () => {
       list: vi.fn(() => Promise.reject(new Error('permission denied'))),
     } as unknown as NodeFileSystem;
     const audit = { write: vi.fn() };
-    const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-claw');
     const result = await smFail.load();
     expect(result.source).toBe('empty');
     expect(audit.write).toHaveBeenCalledWith(
@@ -467,7 +467,7 @@ describe('DialogStore unit tests', () => {
       move: vi.fn(() => Promise.reject(new Error('rename failed'))),
     } as unknown as NodeFileSystem;
     const audit = { write: vi.fn() };
-    const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-system-prompt', 'test-claw');
+    const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-claw');
     await smFail.load();
     expect(audit.write).toHaveBeenCalledWith(
       DIALOG_AUDIT_EVENTS.CORRUPTED,

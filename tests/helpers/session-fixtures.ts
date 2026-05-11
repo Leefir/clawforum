@@ -16,12 +16,13 @@ export function makeSession(
 ): SessionData {
   const now = new Date().toISOString();
   return {
-    version: 1,
+    version: 2,
     clawId: 'test-claw',
     createdAt: now,
     updatedAt: now,
-    systemPrompt: '',  // phase 466: 必字段 / test default 空 / 业务 lifetime 锁不影响 fixture
+    systemPrompt: '',  // phase 713: per-turn snapshot / test default 空
     messages: [] as Message[],
+    toolsForLLM: [],   // phase 713 NEW
     ...overrides,
   };
 }

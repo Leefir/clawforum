@@ -101,8 +101,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     const originalFactory = deps.dialogStoreFactory;
 
     // Mock factory BEFORE Runtime construction so the closure captures it
-    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation((systemPrompt: string) => {
-      const newSm = originalFactory(systemPrompt);
+    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation(() => {
+      const newSm = originalFactory();
       vi.spyOn(newSm, 'save').mockRejectedValue(new Error('save-fail'));
       return newSm;
     });
@@ -145,8 +145,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     const originalFactory = deps.dialogStoreFactory;
 
     // Mock factory BEFORE Runtime construction
-    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation((systemPrompt: string) => {
-      const newSm = originalFactory(systemPrompt);
+    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation(() => {
+      const newSm = originalFactory();
       vi.spyOn(newSm, 'save').mockRejectedValue(new Error('save-fail'));
       return newSm;
     });
@@ -173,7 +173,7 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       { role: 'user', content: 'user-A' },
       { role: 'assistant', content: 'assistant-A' },
     ];
-    await deps.sessionManager.save(seededMessages);
+    await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })
@@ -208,8 +208,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     const originalFactory = deps.dialogStoreFactory;
 
     // Mock factory BEFORE Runtime construction
-    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation((systemPrompt: string) => {
-      const newSm = originalFactory(systemPrompt);
+    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation(() => {
+      const newSm = originalFactory();
       vi.spyOn(newSm, 'save').mockRejectedValue(new Error('save-fail'));
       return newSm;
     });
@@ -268,8 +268,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     let capturedNewSessionManager: unknown;
 
     // Mock factory BEFORE Runtime construction to capture new instance
-    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation((systemPrompt: string) => {
-      const newSm = originalFactory(systemPrompt);
+    vi.spyOn(deps, 'dialogStoreFactory').mockImplementation(() => {
+      const newSm = originalFactory();
       capturedNewSessionManager = newSm;
       return newSm;
     });
@@ -298,7 +298,7 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       { role: 'user', content: 'user-A' },
       { role: 'assistant', content: 'assistant-A' },
     ];
-    await deps.sessionManager.save(seededMessages);
+    await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })

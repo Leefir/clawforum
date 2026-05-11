@@ -102,7 +102,7 @@ export class Runtime {
   private snapshot!: Snapshot;
 
   // phase 521: regime switch coordination
-  private dialogStoreFactory!: (systemPrompt: string) => DialogStore;
+  private dialogStoreFactory!: () => DialogStore;
   protected lastIdentityHash?: string;  // protected: TestRuntime subclass needs read access for regime switch tests
 
   constructor(options: RuntimeOptions) {
@@ -222,7 +222,14 @@ export class Runtime {
     );
     if (toolCount > 0) {
       try {
-        await this.sessionManager.save(repaired);
+        const repairTools = this.toolRegistry.formatForLLM(
+          this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+        );
+        await this.sessionManager.save({
+          systemPrompt: session.systemPrompt,
+          messages: repaired,
+          toolsForLLM: repairTools,
+        });
       } catch (e) {
         auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.SESSION_REPAIR_FAILED, e);
         throw e;
@@ -474,7 +481,7 @@ export class Runtime {
           }
         },
         onStepComplete: async () => {
-          await this.sessionManager.save(messages);
+          await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
           // 步间检查：高优先级消息到达时提前结束本轮
           if (await this._hasHighPriorityInbox()) {
             this.currentAbortController?.abort({ type: 'step_yield' });
@@ -503,7 +510,7 @@ export class Runtime {
           this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNPARSEABLE_TOOL_USE, `stop_reason=${stopReason}`);
         },
       });
-    await this.sessionManager.save(messages);
+    await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
 
     // turn auto-commit
     this.turnCount++;
@@ -546,7 +553,14 @@ export class Runtime {
     const messages = [...session.messages, ...injected];
 
     // Save injected messages immediately so interrupt doesn't lose them
-    await this.sessionManager.save(messages);
+    const injectTools = this.toolRegistry.formatForLLM(
+      this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+    );
+    await this.sessionManager.save({
+      systemPrompt: session.systemPrompt,
+      messages,
+      toolsForLLM: injectTools,
+    });
 
     // Turn start: inbox drained and persisted, processing about to begin
     callbacks?.onTurnStart?.(sources);
@@ -614,7 +628,14 @@ export class Runtime {
     }
     const { session } = await this.sessionManager.load();
     const messages = [...session.messages, msg];
-    await this.sessionManager.save(messages);
+    const procTools = this.toolRegistry.formatForLLM(
+      this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+    );
+    await this.sessionManager.save({
+      systemPrompt: session.systemPrompt,
+      messages,
+      toolsForLLM: procTools,
+    });
     callbacks?.onTurnStart?.([]);
     this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_START);
 
@@ -659,7 +680,14 @@ export class Runtime {
       // Messages have assistant/tool content after the last user message.
       // Truncate so the retry starts from a clean user turn boundary.
       retryMessages = session.messages.slice(0, lastUserIdx + 1);
-      await this.sessionManager.save(retryMessages);
+      const retryTools = this.toolRegistry.formatForLLM(
+        this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+      );
+      await this.sessionManager.save({
+        systemPrompt: session.systemPrompt,
+        messages: retryMessages,
+        toolsForLLM: retryTools,
+      });
     }
 
     // Retry is also a turn (tag it so stream consumers know it's a retry)
@@ -758,7 +786,7 @@ export class Runtime {
         onThinkingDelta: (d) => { emitChatProviderInfoOnce(); options?.onThinkingDelta?.(d); },
         onStepComplete: async () => {
           // Incremental session save
-          await this.sessionManager.save(messages);
+          await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
         },
         onUnparseableToolUse: (stopReason) => {
           this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNPARSEABLE_TOOL_USE, `stop_reason=${stopReason}`);
@@ -766,7 +794,7 @@ export class Runtime {
       });
 
       // Save the final session
-      await this.sessionManager.save(messages);
+      await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
 
       // phase 521: turn 末 regime change 检测（chat() 也走 _runReact 等效路径）
       await this._checkRegimeSwitch(systemPrompt, identityHash);
@@ -961,10 +989,17 @@ export class Runtime {
     // 4. tool_use 悬空 repair（per L5.G4）
     const { repaired } = DialogStore.repair(inherited, { interruptionMessage: 'Regime switch: tools may have changed.' });
     // 5. prepare newSessionManager（0 fs mutate / verified store.ts:29-41）
-    const newSessionManager = this.dialogStoreFactory(newSystemPrompt);
+    const newSessionManager = this.dialogStoreFactory();
     // 6. save inherited 到 newSessionManager (atomic critical)
+    const regimeTools = this.toolRegistry.formatForLLM(
+      this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+    );
     try {
-      await newSessionManager.save(repaired);
+      await newSessionManager.save({
+        systemPrompt: newSystemPrompt,
+        messages: repaired,
+        toolsForLLM: regimeTools,
+      });
     } catch (saveErr) {
       // catch recovery dump (D1+D5 兜底 / 类 phase 586 audit fallback dump 模板)
       const recoveryPath = path.join(this.options.clawDir, DIALOG_DIR, `regime-switch-recovery-${Date.now()}.json`);

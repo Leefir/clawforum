@@ -16,7 +16,7 @@ import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 
 import type { ToolResult, Tool } from '../../foundation/tool-protocol/index.js';
-import type { Message, ToolDefinition } from '../../types/message.js';
+import type { Message } from '../../types/message.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractSystem } from '../contract/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
@@ -69,14 +69,12 @@ export interface SubAgentTask {
   callerType?: CallerType;
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
   /**
-   * AskMotionTool 重建上下文（仅 mining mode dispatch / phase 699）
-   * 跨 fs/进程 boundary 必为纯数据 / 同 phase 432+438 fs-driven schema 模板
+   * Motion clawDir（仅 mining dispatch / phase 713 reframe）
+   * subagent-executor 据此构造 motionDialogStore 注入 AskMotionTool
+   * ask_motion.execute 内部 read motionDialogStore.load() 拿 dispatch 时刻 dialog snapshot
+   * 全然一致性 reuse Motion runtime 实然 dialog snapshot（per phase 709 design）
    */
-  askMotionContext?: {
-    motionSystemPrompt: string;
-    motionToolsForLLM: ToolDefinition[];
-    motionMessages: Message[];
-  };
+  motionClawDir?: string;
   postProcessor?: string;            // 声明式 post-processor 名称（registry lookup）
   mainContextSnapshot?: { clawId: string; toolUseId: string };  // NEW marker mode
   systemPrompt?: string;                 // phase 546 internal field：caller-side specialized system prompt（agent 不可见 / 与 phase 470 砍 agent-facing spawn schema 不冲突 / fall-back DEFAULT_SUBAGENT_SYSTEM_PROMPT）

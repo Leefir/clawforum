@@ -18,9 +18,8 @@ export function createDialogStore(
   dialogDir: string,
   audit: AuditLog,
   filename: string,                       // phase 450: 必填
-  systemPrompt: string,                   // phase 466: 必填 / 一次性锁定
   clawId?: string,                        // phase 450: 可选
   archiveDir?: string,                    // phase 450: 可选
 ): DialogStore {
-  return new DialogStore(fs, dialogDir, audit, filename, systemPrompt, clawId, archiveDir);
+  return new DialogStore(fs, dialogDir, audit, filename, clawId, archiveDir);
 }

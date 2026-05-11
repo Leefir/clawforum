@@ -169,7 +169,7 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
 
 vi.mock('../../src/foundation/dialog-store/index.js', () => ({
   DialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), systemPrompt: '' })),
-  createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), restorePrefix: vi.fn(), systemPrompt: '' })),
+  createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), restorePrefix: vi.fn() })),
 }));
 
 vi.mock('../../src/foundation/config/index.js', () => ({

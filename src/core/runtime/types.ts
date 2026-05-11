@@ -46,7 +46,7 @@ export interface RuntimeDependencies {
   readonly contractNotifyCallback?: (type: string, data: Record<string, unknown>) => void;
 
   /** phase 521: regime 切换协调装配 / Assembly own factory / per L5.G1-G4 closure 2026-05-07 */
-  readonly dialogStoreFactory: (systemPrompt: string) => DialogStore;
+  readonly dialogStoreFactory: () => DialogStore;
 }
 
 /** 1:1 保 runtime.ts:74-101 body */

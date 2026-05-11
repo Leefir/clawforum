@@ -189,7 +189,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
     expect(archiveSpy).toHaveBeenCalledTimes(1);
     expect(factorySpy).toHaveBeenCalledTimes(1);
-    expect(factorySpy).toHaveBeenCalledWith('system-prompt-B');
+    expect(factorySpy).toHaveBeenCalledWith();
   });
 
   it('strategy "none" / inherited 0 messages', async () => {
@@ -223,7 +223,7 @@ describe('Runtime regime switch (phase 521)', () => {
     await runtime.chat('Message 2');
 
     expect(factorySpy).toHaveBeenCalledTimes(1);
-    expect(factorySpy).toHaveBeenCalledWith('system-prompt-B');
+    expect(factorySpy).toHaveBeenCalledWith();
   });
 
   it('strategy "last-turn" / inherited 最近 user msg 起切片', async () => {
@@ -257,7 +257,7 @@ describe('Runtime regime switch (phase 521)', () => {
       { role: 'user', content: 'user-B' },
       { role: 'assistant', content: 'assistant-B' },
     ];
-    await deps.sessionManager.save(seededMessages);
+    await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })
@@ -269,7 +269,7 @@ describe('Runtime regime switch (phase 521)', () => {
 
     // factory should create new DialogStore with 'system-prompt-B'
     expect(factorySpy).toHaveBeenCalledTimes(1);
-    expect(factorySpy).toHaveBeenCalledWith('system-prompt-B');
+    expect(factorySpy).toHaveBeenCalledWith();
   });
 
   it('tool_use 悬空 / DialogStore.repair 被调用', async () => {
@@ -304,7 +304,7 @@ describe('Runtime regime switch (phase 521)', () => {
         ] as any,
       },
     ];
-    await deps.sessionManager.save(seededMessages);
+    await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })
@@ -347,7 +347,7 @@ describe('Runtime regime switch (phase 521)', () => {
       { role: 'assistant', content: 'a2' },
       { role: 'user', content: 'u3' },
     ];
-    await deps.sessionManager.save(seededMessages);
+    await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
     vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityHash: 'identity-A' })

@@ -84,7 +84,7 @@ describe('DialogStore re-entry storm', () => {
         },
       ],
     });
-    const store = new DialogStore(fs, 'dialog', audit as unknown as AuditLog, 'current.json', 'sp', 'c1');
+    const store = new DialogStore(fs, 'dialog', audit as unknown as AuditLog, 'current.json', 'c1');
 
     // act 1: 首次 load → audit CORRUPTED + CORRUPTED_ISOLATE_FAILED + 走 archive
     const r1 = await store.load();

@@ -359,7 +359,7 @@ export class SubAgent {
 
       // 持久化 messages 供复盘子代理继承（best-effort，不影响主流程）
       try {
-        await this.messageStore.save(messages);     // phase453: A.r60+1 落地 / 经 L2 DialogStore / SubAgent 0 知 fs / 0 知 SessionData wrapper schema
+        await this.messageStore.save({ systemPrompt, messages, toolsForLLM: tools });     // phase713: 扩 snapshot 参
       } catch (e) {
         this.auditWriter.write(
           SUBAGENT_AUDIT_EVENTS.PERSIST_FAILED,

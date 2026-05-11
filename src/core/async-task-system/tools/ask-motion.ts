@@ -1,7 +1,8 @@
 import type { Tool, ToolResult } from '../../../foundation/tool-protocol/index.js';
 import type { LLMOrchestrator } from '../../../foundation/llm-orchestrator/index.js';
-import type { Message, ToolDefinition } from '../../../types/message.js';
+import type { Message } from '../../../types/message.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
+import { DialogStore } from '../../../foundation/dialog-store/index.js';
 
 import { ASK_MOTION_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 import { formatErr } from '../_helpers.js';
@@ -32,11 +33,10 @@ export class AskMotionTool implements Tool {
 
   private readonly cloneHistory: Message[] = [];
 
+  // phase 713: ctor 4 → 2 dep（llm + motionDialogStore）
   constructor(
     private readonly llm: LLMOrchestrator,
-    private readonly getSystemPrompt: () => Promise<string>,
-    private readonly getToolsForLLM: () => ToolDefinition[],
-    private readonly motionContext: Message[],  // dispatch 时快照，保持不变
+    private readonly motionDialogStore: DialogStore,
   ) {}
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
@@ -49,15 +49,13 @@ export class AskMotionTool implements Tool {
 
     let answer: string;
     try {
-      const [systemPrompt, tools] = await Promise.all([
-        this.getSystemPrompt(),
-        Promise.resolve(this.getToolsForLLM()),
-      ]);
+      // phase 713: 全然一致性 reuse Motion DialogStore latest dialog snapshot
+      const { session } = await this.motionDialogStore.load();
 
       const response = await this.llm.call({
-        system: systemPrompt,
-        messages: [...this.motionContext, ...this.cloneHistory],
-        tools,
+        system: session.systemPrompt,                          // 全然一致性 / Motion 用啥 / 这里用啥
+        messages: [...session.messages, ...this.cloneHistory],
+        tools: session.toolsForLLM,                            // 全然一致性
       });
 
       const textBlocks = response.content.filter(b => b.type === 'text');

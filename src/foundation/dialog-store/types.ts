@@ -4,15 +4,16 @@
  * Session data structure for current.json persistence.
  */
 
-import type { Message } from '../../types/message.js';
+import type { Message, ToolDefinition } from '../../types/message.js';
 
 export interface SessionData {
-  version: number;
+  version: number;          // bump to 2 (phase 713)
   clawId?: string;          // phase 450: 可选 / subagent ephemeral 用例 0 clawId
   createdAt: string;
   updatedAt: string;
-  systemPrompt: string;     // phase 466: 必字段 / 与 instance.systemPrompt 同 / writeAtomic 时同步落盘
+  systemPrompt: string;     // phase 713: per-turn latest snapshot
   messages: Message[];
+  toolsForLLM: ToolDefinition[];  // phase 713 NEW
 }
 
 export interface LoadResult {
@@ -29,6 +30,7 @@ export interface DialogMarker {
 /** phase 466: restorePrefix 返完整前缀 */
 export interface RestoreResult {
   messages: Message[];                              // marker 时刻 messages 切片（含 marker 那条 assistant message）
-  systemPrompt: string;                             // 该 SessionData 的 systemPrompt（regime lifetime 锁定值）
+  systemPrompt: string;                             // 该 SessionData 的 systemPrompt（phase 713: per-turn snapshot）
+  toolsForLLM: ToolDefinition[];                    // phase 713 NEW
   meta: { foundIn: 'current' | 'archive'; foundFile?: string };
 }

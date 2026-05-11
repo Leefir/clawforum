@@ -32,7 +32,7 @@ describe('Dialog', () => {
       tempDir = await createTempDir();
       nodeFs = new NodeFileSystem({ baseDir: tempDir });
       await nodeFs.ensureDir('dialog');
-      sessionManager = new DialogStore(nodeFs, 'dialog', { write: () => {} }, 'current.json', 'test-system-prompt', 'test-claw');
+      sessionManager = new DialogStore(nodeFs, 'dialog', { write: () => {} }, 'current.json', 'test-claw');
     });
 
     afterEach(async () => {
@@ -52,7 +52,7 @@ describe('Dialog', () => {
         { role: 'assistant', content: 'Hi there!' },
       ];
 
-      await sessionManager.save(messages);
+      await sessionManager.save({ systemPrompt: 'test-system-prompt', messages, toolsForLLM: [] });
       const { session: loaded } = await sessionManager.load();
 
       expect(loaded.messages).toHaveLength(2);
@@ -62,7 +62,7 @@ describe('Dialog', () => {
 
     it('should archive current.json to archive directory', async () => {
       const messages: Message[] = [{ role: 'user', content: 'Test' }];
-      await sessionManager.save(messages);
+      await sessionManager.save({ systemPrompt: 'test-system-prompt', messages, toolsForLLM: [] });
 
       // Verify current.json exists
       expect(await nodeFs.exists('dialog/current.json')).toBe(true);
@@ -84,7 +84,7 @@ describe('Dialog', () => {
       const messages: Message[] = [
         { role: 'user', content: 'Archived message' },
       ];
-      await sessionManager.save(messages);
+      await sessionManager.save({ systemPrompt: 'test-system-prompt', messages, toolsForLLM: [] });
       await sessionManager.archive();
 
       // Verify current.json doesn't exist
@@ -99,7 +99,7 @@ describe('Dialog', () => {
     it('should save and load messages', async () => {
       const msg: Message = { role: 'user', content: 'New message' };
       
-      await sessionManager.save([msg]);
+      await sessionManager.save({ systemPrompt: 'test-system-prompt', messages: [msg], toolsForLLM: [] });
       
       const { session: loaded } = await sessionManager.load();
       expect(loaded.messages).toHaveLength(1);
@@ -108,11 +108,11 @@ describe('Dialog', () => {
 
     it('should track session metadata', async () => {
       const messages: Message[] = [{ role: 'user', content: 'Test' }];
-      await sessionManager.save(messages);
+      await sessionManager.save({ systemPrompt: 'test-system-prompt', messages, toolsForLLM: [] });
 
       const { session: loaded } = await sessionManager.load();
       
-      expect(loaded.version).toBe(1);
+      expect(loaded.version).toBe(2);
       expect(loaded.clawId).toBeDefined();
       expect(loaded.createdAt).toBeDefined();
       expect(loaded.updatedAt).toBeDefined();
@@ -172,7 +172,7 @@ describe('Dialog', () => {
         const { session: loaded } = await sessionManager.load();
 
         expect(loaded.messages).toHaveLength(0);
-        expect(loaded.version).toBe(1);
+        expect(loaded.version).toBe(2);
         expect(loaded.clawId).toBeDefined();
         expect(loaded.createdAt).toBeDefined();
       });

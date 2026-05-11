@@ -153,13 +153,7 @@ export class DispatchTool implements Tool {
     }
 
     // miner 使用专属工具列表（miner profile + ask_motion）；describer 用 Motion 完整列表确保 KV cache 命中
-    const askMotionContext = isMining
-      ? {
-          motionSystemPrompt: await this.getSystemPrompt(),    // await 早绑定 / pure string
-          motionToolsForLLM: this.getToolsForLLM(),            // pure array snapshot
-          motionMessages: [...dispatcherMessages],             // pure array snapshot
-        }
-      : undefined;
+    const motionClawDir = isMining ? ctx.clawDir : undefined;
     const toolsForLLM = isMining
       ? [
           ...this.getToolsForProfile('miner'),
@@ -182,7 +176,7 @@ export class DispatchTool implements Tool {
         parentClawId: ctx.clawId,
         originClawId: ctx.originClawId ?? ctx.clawId,
         callerType,                    // 'describer' 或 'miner'
-        askMotionContext,
+        motionClawDir,
         postProcessor: 'dispatch-contract-extract',  // 声明式 post-processor
         mainContextSnapshot,
         systemPrompt,                            // phase 546: 透传 caller-side specialized prompt（mining: buildMinerSystemPrompt / describing: this.getSystemPrompt()）

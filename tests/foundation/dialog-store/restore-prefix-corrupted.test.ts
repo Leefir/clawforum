@@ -76,7 +76,7 @@ describe('DialogStore restorePrefix corrupted', () => {
         },
       ],
     });
-    const store = new DialogStore(fs, 'dialog', audit as unknown as AuditLog, 'current.json', 'sp', 'c1');
+    const store = new DialogStore(fs, 'dialog', audit as unknown as AuditLog, 'current.json', 'c1');
 
     await expect(
       store.restorePrefix({ clawId: 'c1', toolUseId: 'nonexistent' }),

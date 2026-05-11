@@ -47,7 +47,6 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
         `${TASKS_SYNC_SPAWN_DIR}/${config.agentId}`,
         new NoopAuditWriter(),
         'messages.json',
-        CONTRACT_VERIFIER_SYSTEM_PROMPT,
       ),
       prompt: config.prompt,
       clawDir: config.clawDir,

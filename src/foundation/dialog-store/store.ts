@@ -10,7 +10,7 @@
 import * as path from 'path';
 import type { FileSystem } from '../fs/types.js';
 
-import type { Message, ToolUseBlock, ToolResultBlock } from '../../types/message.js';
+import type { Message, ToolUseBlock, ToolResultBlock, ToolDefinition } from '../../types/message.js';
 import type { SessionData, LoadResult, DialogMarker, RestoreResult } from './types.js';
 import type { AuditLog } from '../audit/index.js';
 import { DIALOG_AUDIT_EVENTS } from './audit-events.js';
@@ -24,20 +24,17 @@ export class DialogStore {
   private readonly archiveDir: string;
   private createdAt: string | null = null;
   private corruptedPoisoned: boolean = false;
-  readonly systemPrompt: string;     // phase 466: lifetime 锁定 / 暴露给 caller (Runtime ContextInjector 等) 比对
 
   constructor(
     private readonly fs: FileSystem,
     dialogDir: string,
     private readonly audit: AuditLog,
     filename: string,                                 // phase 450: 必填 / caller 注入
-    systemPrompt: string,                             // phase 466: 必填 / 一次性锁定
     private readonly clawId?: string,                 // phase 450: 可选 / subagent ephemeral 用例 0 clawId
     archiveDir?: string,                              // phase 450: 可选 / 默认 'archive' subdir 保兼容
   ) {
     this.currentPath = path.join(dialogDir, filename);
     this.archiveDir = path.join(dialogDir, archiveDir ?? 'archive');
-    this.systemPrompt = systemPrompt;
   }
 
   /**
@@ -60,10 +57,12 @@ export class DialogStore {
     try {
       const content = await this.fs.read(this.currentPath);
       const parsed = JSON.parse(content) as Partial<SessionData>;
-      const data = this.validateSession({
-        ...parsed,
-        systemPrompt: parsed.systemPrompt ?? this.systemPrompt,  // phase 466: 兼容老 / 回填 ctor 锁定值
-      } as SessionData);
+      // v1 → v2 schema 兼容 read（phase 713）
+      if (!parsed.toolsForLLM) {
+        (parsed as SessionData).toolsForLLM = [];
+        (parsed as SessionData).version = 2;
+      }
+      const data = this.validateSession(parsed as SessionData);
       // Cache createdAt for subsequent saves
       this.createdAt = data.createdAt;
       return { session: data, source: 'current' };
@@ -100,12 +99,13 @@ export class DialogStore {
   private coldStart(): LoadResult {
     const now = new Date().toISOString();
     const emptySession: SessionData = {
-      version: 1,
+      version: 2,
       ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
       createdAt: now,
       updatedAt: now,
-      systemPrompt: this.systemPrompt,  // phase 466: empty session 也含锁定 systemPrompt
+      systemPrompt: '',                 // phase 713: empty session / 首次 save 时覆盖
       messages: [],
+      toolsForLLM: [],                  // phase 713
     };
     return { session: emptySession, source: 'empty' };
   }
@@ -158,8 +158,13 @@ export class DialogStore {
 
   /**
    * Save session to current.json
+   * phase 713: 扩 snapshot 参 / atomic write systemPrompt + messages + toolsForLLM 3 件
    */
-  async save(messages: Message[]): Promise<void> {
+  async save(snapshot: {
+    systemPrompt: string;
+    messages: Message[];
+    toolsForLLM: ToolDefinition[];
+  }): Promise<void> {
     const now = new Date().toISOString();
     
     // Use cached createdAt if available, otherwise use now
@@ -168,12 +173,13 @@ export class DialogStore {
     }
 
     const data: SessionData = {
-      version: 1,
+      version: 2,
       ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
       createdAt: this.createdAt,
       updatedAt: now,
-      systemPrompt: this.systemPrompt,          // phase 466: 锁定值同步落盘
-      messages,
+      systemPrompt: snapshot.systemPrompt,
+      messages: snapshot.messages,
+      toolsForLLM: snapshot.toolsForLLM,
     };
 
     try {
@@ -239,10 +245,12 @@ export class DialogStore {
         try {
           const content = await this.fs.read(entryPath);
           const parsed = JSON.parse(content) as Partial<SessionData>;
-          const data = this.validateSession({
-            ...parsed,
-            systemPrompt: parsed.systemPrompt ?? this.systemPrompt,  // phase 466: 兼容老 archive
-          } as SessionData);
+          // v1 → v2 schema 兼容 read（phase 713）
+          if (!parsed.toolsForLLM) {
+            (parsed as SessionData).toolsForLLM = [];
+            (parsed as SessionData).version = 2;
+          }
+          const data = this.validateSession(parsed as SessionData);
           return { session: data, name: entry.name };
         } catch (parseErr) {
           this.audit.write(
@@ -276,15 +284,18 @@ export class DialogStore {
     try {
       const content = await this.fs.read(this.currentPath);
       const parsed = JSON.parse(content) as Partial<SessionData>;
-      const data = this.validateSession({
-        ...parsed,
-        systemPrompt: parsed.systemPrompt ?? this.systemPrompt,
-      } as SessionData);
+      // v1 → v2 schema 兼容 read（phase 713）
+      if (!parsed.toolsForLLM) {
+        (parsed as SessionData).toolsForLLM = [];
+        (parsed as SessionData).version = 2;
+      }
+      const data = this.validateSession(parsed as SessionData);
       const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId);
       if (sliced !== null) {
         return {
           messages: sliced,
           systemPrompt: data.systemPrompt,
+          toolsForLLM: data.toolsForLLM,
           meta: { foundIn: 'current' },
         };
       }
@@ -317,15 +328,18 @@ export class DialogStore {
         try {
           const content = await this.fs.read(path.join(this.archiveDir, entry.name));
           const parsed = JSON.parse(content) as Partial<SessionData>;
-          const data = this.validateSession({
-            ...parsed,
-            systemPrompt: parsed.systemPrompt ?? this.systemPrompt,
-          } as SessionData);
+          // v1 → v2 schema 兼容 read（phase 713）
+          if (!parsed.toolsForLLM) {
+            (parsed as SessionData).toolsForLLM = [];
+            (parsed as SessionData).version = 2;
+          }
+          const data = this.validateSession(parsed as SessionData);
           const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId);
           if (sliced !== null) {
             return {
               messages: sliced,
               systemPrompt: data.systemPrompt,
+              toolsForLLM: data.toolsForLLM,
               meta: { foundIn: 'archive', foundFile: entry.name },
             };
           }
@@ -355,12 +369,13 @@ export class DialogStore {
    */
   private validateSession(data: SessionData): SessionData {
     return {
-      version: data.version ?? 1,
+      version: data.version ?? 2,
       clawId: data.clawId ?? this.clawId,
       createdAt: data.createdAt ?? new Date().toISOString(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
-      systemPrompt: data.systemPrompt ?? this.systemPrompt,  // phase 466: 兜底 ctor 锁定值
+      systemPrompt: data.systemPrompt ?? '',
       messages: Array.isArray(data.messages) ? data.messages : [],
+      toolsForLLM: Array.isArray(data.toolsForLLM) ? data.toolsForLLM : [],
     };
   }
 }

@@ -6,7 +6,7 @@ import { type StreamLog, STREAM_FILE } from '../../foundation/stream/index.js';
 import { type CallerType, callerTypeToProfile } from '../../foundation/tool-protocol/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
-import { createSubAgent } from '../subagent/index.js';
+import { createSubAgent, NoopAuditWriter } from '../subagent/index.js';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
@@ -69,20 +69,21 @@ export async function executeSubAgentTask(
   try {
     // LLM is guaranteed by constructor (readonly non-null field)
 
-    // Build per-task registry filtered by caller profile + askMotionContext 重建
+    // Build per-task registry filtered by caller profile + motionClawDir 重建
     const subagentProfile = callerTypeToProfile(task.callerType ?? 'subagent');
     const effectiveRegistry = (() => {
       const r = createToolRegistry();
       for (const t of registry.getForProfile(subagentProfile)) r.register(t);
 
-      // phase 699: askMotionContext 重建 AskMotionTool 实例（cross-process schema / 同 phase 432+438 fs-driven 模板）
-      if (task.askMotionContext) {
-        const askMotion = new AskMotionTool(
-          llm,
-          () => Promise.resolve(task.askMotionContext!.motionSystemPrompt),
-          () => task.askMotionContext!.motionToolsForLLM,
-          task.askMotionContext!.motionMessages,
+      // phase 713: motionClawDir 构造 motionDialogStore + AskMotionTool（全然一致性 reuse）
+      if (task.motionClawDir) {
+        const motionDialogStore = createDialogStore(
+          fs,
+          task.motionClawDir,
+          new NoopAuditWriter(),  // ask_motion 不 own motion audit
+          'current.json',
         );
+        const askMotion = new AskMotionTool(llm, motionDialogStore);
         r.register(askMotion);
       }
 
@@ -108,7 +109,6 @@ export async function executeSubAgentTask(
         `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`,             // baseDir = resultDir
         taskAuditWriter,                         // per-task audit writer
         'messages.json',                         // filename 必填
-        '',                                      // phase 470: systemPrompt 由 SubAgent 内部 DEFAULT_SUBAGENT_SYSTEM_PROMPT 提供
       ),
       prompt: task.intent,
       clawDir,

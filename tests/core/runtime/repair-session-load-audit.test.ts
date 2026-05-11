@@ -33,7 +33,7 @@ describe('Runtime — repairSessionIfNeeded load failure observability (R72-P1-2
     vi.spyOn(snapshot, 'init').mockResolvedValue({ ok: true } as any);
     vi.spyOn(snapshot, 'commit').mockResolvedValue({ ok: true } as any);
 
-    const sessionManager = new DialogStore(systemFs, 'dialog', auditWriter, 'current.json', 'test-system-prompt', 'test-claw');
+    const sessionManager = new DialogStore(systemFs, 'dialog', auditWriter, 'current.json', 'test-claw');
     const inboxReader = new InboxReader(INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, systemFs, auditWriter);
     const outboxWriter = new OutboxWriter('test-claw', clawDir, systemFs, auditWriter);
 
