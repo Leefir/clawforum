@@ -16,6 +16,7 @@ import {
   LLMAuthError,
   LLMModelNotFoundError,
   classifyLLMError,
+  getUserActionHint,
 } from '../../types/errors.js';
 
 import type {
@@ -473,7 +474,14 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           this.events.emit({ type: 'breaker_opened', provider: adapter.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
         }
         const err = new Error('Stream completed with 0 chunks');
-        this.events.emit({ type: 'provider_attempt_failed', provider: adapter.name, attempt: 0, error: err.message });
+        this.events.emit({
+          type: 'provider_attempt_failed',
+          provider: adapter.name,
+          attempt: 0,
+          error: err.message,
+          errorClass: 'unknown',
+          userActionHint: null,
+        });
         failures.push({ provider: adapter.name, error: err });
         yield { type: 'provider_failed' as const, provider: adapter.name, model: adapter.model, error: err.message };
         // Continue to next provider
@@ -485,7 +493,14 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           this.events.emit({ type: 'breaker_opened', provider: adapter.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
         }
         const err = lastError ?? new Error('Unknown stream error');
-        this.events.emit({ type: 'provider_attempt_failed', provider: adapter.name, attempt: 0, error: err.message });
+        this.events.emit({
+          type: 'provider_attempt_failed',
+          provider: adapter.name,
+          attempt: 0,
+          error: err.message,
+          errorClass: classifyLLMError(err),
+          userActionHint: getUserActionHint(err),
+        });
         failures.push({ provider: adapter.name, error: err });
         yield { type: 'provider_failed' as const, provider: adapter.name, model: adapter.model, error: err.message };
         // Continue to next provider

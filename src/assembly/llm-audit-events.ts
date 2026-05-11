@@ -22,4 +22,7 @@ export const LLM_AUDIT_EVENTS = {
   IDLE_FAILOVER_TRIGGERED: 'llm_idle_failover_triggered',
   STREAM_IDLE_PROBE_ATTEMPTED: 'llm_stream_idle_probe_attempted',
   STREAM_IDLE_PROBE_SUCCEEDED: 'llm_stream_idle_probe_succeeded',
+  HEDGE_STARTED: 'llm.hedge.started',
+  HEDGE_PRIMARY_RECOVERED: 'llm.hedge.primary_recovered',
+  HEDGE_FALLBACK_COMMITTED: 'llm.hedge.fallback_committed',
 } as const;

@@ -5,6 +5,7 @@
 
 import type { Message, ToolDefinition, LLMResponse } from '../../types/message.js';
 import type { ApiFormat } from '../llm-provider/presets.js';
+import type { LLMErrorClass, UserActionHint } from '../../types/errors.js';
 
 /**
  * Single provider configuration
@@ -193,7 +194,7 @@ export interface ProviderAdapter {
  * LLM event payload union — emitted by LLMOrchestrator, consumed by fan-out adapter
  */
 export type LLMEvent =
-  | { type: 'provider_attempt_failed'; provider: string; attempt: number; error: string }
+  | { type: 'provider_attempt_failed'; provider: string; attempt: number; error: string; errorClass: LLMErrorClass; userActionHint: UserActionHint }
   | { type: 'retry_scheduled'; provider: string; attempt: number; backoffMs: number }
   | { type: 'provider_exhausted'; provider: string; error: string }
   | { type: 'fallback_switched'; from: string; to: string; reason: string }
@@ -208,7 +209,10 @@ export type LLMEvent =
   | { type: 'stream_idle_probe_attempted'; provider: string; timeoutMs: number }
   | { type: 'stream_idle_probe_succeeded'; provider: string }
   | { type: 'context_exceeded_failover'; provider: string; stopReason: string }
-  | { type: 'permanent_skip_retry'; provider: string; attempt: number; errorClass: 'permanent' };
+  | { type: 'permanent_skip_retry'; provider: string; attempt: number; errorClass: 'permanent' }
+  | { type: 'hedge_started'; primary: string; fallbackChain: string[]; triggerErrorClass: LLMErrorClass }
+  | { type: 'hedge_primary_recovered'; provider: string }
+  | { type: 'hedge_fallback_committed'; winnerProvider: string; primaryProvider: string; primaryError: string; primaryErrorClass: LLMErrorClass };
 
 /**
  * LLM event sink protocol — defined here (L1), implemented by assembly layer (L6+)

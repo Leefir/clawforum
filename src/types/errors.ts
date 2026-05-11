@@ -295,6 +295,26 @@ export function classifyLLMError(err: unknown): LLMErrorClass {
   return 'unknown';
 }
 
+export type UserActionHint =
+  | 'rotate_api_key'      // LLMAuthError (401/403 non-quota)
+  | 'switch_primary'      // LLMModelNotFoundError (404 / model deprecated)
+  | 'wait_retry_after'    // LLMRateLimitError (429)
+  | 'check_quota'         // LLMAuthError + message contains quota/credit/insufficient
+  | null;                 // transient / unknown — no hint shown
+
+export function getUserActionHint(err: unknown): UserActionHint {
+  if (err instanceof LLMAuthError) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes('quota') || msg.includes('credit') || msg.includes('insufficient')) {
+      return 'check_quota';
+    }
+    return 'rotate_api_key';
+  }
+  if (err instanceof LLMModelNotFoundError) return 'switch_primary';
+  if (err instanceof LLMRateLimitError) return 'wait_retry_after';
+  return null;
+}
+
 export function isProgrammingBug(err: unknown): boolean {
   return PROGRAMMING_BUG_TYPES.some(T => err instanceof T);
 }

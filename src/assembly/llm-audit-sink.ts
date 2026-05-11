@@ -9,7 +9,9 @@ export function createLLMAuditSink(audit: AuditLog): LLMEventSink {
         switch (event.type) {
           case 'provider_attempt_failed':
             audit.write(LLM_AUDIT_EVENTS.PROVIDER_ATTEMPT_FAILED,
-              `provider=${event.provider}`, `attempt=${event.attempt}`, `error=${event.error}`);
+              `provider=${event.provider}`, `attempt=${event.attempt}`,
+              `errorClass=${event.errorClass}`, `hint=${event.userActionHint ?? 'none'}`,
+              `error=${event.error}`);
             break;
           case 'retry_scheduled':
             audit.write(LLM_AUDIT_EVENTS.RETRY_SCHEDULED,
@@ -63,6 +65,19 @@ export function createLLMAuditSink(audit: AuditLog): LLMEventSink {
           case 'stream_idle_probe_succeeded':
             audit.write(LLM_AUDIT_EVENTS.STREAM_IDLE_PROBE_SUCCEEDED,
               `provider=${event.provider}`);
+            break;
+          case 'hedge_started':
+            audit.write(LLM_AUDIT_EVENTS.HEDGE_STARTED,
+              `primary=${event.primary}`, `fallbackChain=${event.fallbackChain.join(',')}`,
+              `triggerErrorClass=${event.triggerErrorClass}`);
+            break;
+          case 'hedge_primary_recovered':
+            audit.write(LLM_AUDIT_EVENTS.HEDGE_PRIMARY_RECOVERED, `provider=${event.provider}`);
+            break;
+          case 'hedge_fallback_committed':
+            audit.write(LLM_AUDIT_EVENTS.HEDGE_FALLBACK_COMMITTED,
+              `winner=${event.winnerProvider}`, `primary=${event.primaryProvider}`,
+              `primaryErrorClass=${event.primaryErrorClass}`, `primaryError=${event.primaryError}`);
             break;
         }
       } catch (err) {
