@@ -27,6 +27,7 @@ import { ProcessManager, ProcessListUnavailable } from '../../src/foundation/pro
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { makeAudit } from '../helpers/audit.js';
+import { waitFor } from '../helpers/wait-for.js';
 
 describe('ProcessManager', () => {
   let tempDir: string;
@@ -110,7 +111,7 @@ describe('ProcessManager', () => {
       expect(pm.isAlive('dead-claw')).toBe(false);
 
       // 等待异步清理完成
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await waitFor(() => !fsSync.existsSync(pidFile), 2000, 10);
 
       // PID 文件应被清理
       expect(fsSync.existsSync(pidFile)).toBe(false);

@@ -38,8 +38,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
-    // give chokidar watcher time to initialize before writing
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     const ev: StreamEvent = { ts: Date.now(), type: 'test', value: 42 };
     writer.write(ev);
@@ -54,16 +56,15 @@ describe('StreamReader', () => {
     writer.write({ ts: 2, type: 'old2' });
     writer.write({ ts: 3, type: 'old3' });
 
-    // wait a tick so file is fully written and watcher settled
-    await new Promise(r => setTimeout(r, 150));
-
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
-    // give watcher time to initialize
-    await new Promise(r => setTimeout(r, 150));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 150ms)
+    writer.write({ ts: 4, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
-    writer.write({ ts: 4, type: 'new' });
+    writer.write({ ts: 5, type: 'new' });
 
     await waitFor(() => events.length === 1, 10000);
     expect(events[0].type).toBe('new');
@@ -74,8 +75,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), makeAudit().audit);
     reader.start();
 
-    // give chokidar watcher time to initialize before writing
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     for (let i = 0; i < 5; i++) {
       writer.write({ ts: i, type: 'batch', idx: i });
@@ -91,8 +94,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), audit);
     reader.start();
 
-    // give chokidar watcher time to initialize before writing
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     // write a valid event first
     writer.write({ ts: 1, type: 'before' });
@@ -118,6 +123,7 @@ describe('StreamReader', () => {
     }, audit);
     reader.start();
 
+    // probe-pattern would consume the first-throw / keep blind for this test
     await new Promise(r => setTimeout(r, 300));
 
     writer.write({ ts: 1, type: 'first' });
@@ -152,7 +158,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), auditRec.audit);
     reader.start();
 
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     writer.write({ ts: 1, type: 'msg', text: '你好世界' });
     writer.write({ ts: 2, type: 'msg', text: '测试中文增量读取' });
@@ -174,7 +183,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), auditRec.audit);
     reader.start();
 
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     const prefix = Buffer.from('{"ts":1,"type":"t","text":"', 'utf-8');
     const charFirstByte = Buffer.from([0xe4]);
@@ -185,6 +197,7 @@ describe('StreamReader', () => {
 
     nativeAppend(streamAbs, Buffer.concat([prefix, charFirstByte]));
 
+    // inverse waitFor: assert no event emitted within 200ms (partial UTF-8 boundary)
     await new Promise(r => setTimeout(r, 200));
     expect(events.length).toBe(0);
     const partial_parseFailed = auditRec.events.filter(([t]) => t === STREAM_AUDIT_EVENTS.READER_PARSE_FAILED);
@@ -205,7 +218,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), auditRec.audit);
     reader.start();
 
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     const prefix = Buffer.from('{"ts":1,"type":"t","text":"', 'utf-8');
     const emojiHalf1 = Buffer.from([0xf0, 0x9f]);
@@ -215,6 +231,7 @@ describe('StreamReader', () => {
     const streamAbs = nativePath.join(tempDir, STREAM_FILE);
 
     nativeAppend(streamAbs, Buffer.concat([prefix, emojiHalf1]));
+    // inverse waitFor: assert no event emitted within 200ms (emoji boundary)
     await new Promise(r => setTimeout(r, 200));
     expect(events.length).toBe(0);
 
@@ -232,11 +249,15 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), auditRec.audit);
     reader.start();
 
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     const streamAbs = nativePath.join(tempDir, STREAM_FILE);
     for (let i = 0; i < 5; i++) {
       nativeAppend(streamAbs, Buffer.from(`{broken_line_${i}\n`, 'utf-8'));
+      // chokidar batch boundary: 50ms gap so appends fire as separate events (not coalesced)
       await new Promise(r => setTimeout(r, 50));
     }
 
@@ -259,6 +280,7 @@ describe('StreamReader', () => {
     expect(reader.isActive()).toBe(false);
 
     writer.write({ ts: 999, type: 'post_corrupt', text: 'should_not_arrive' });
+    // inverse waitFor: assert no event emitted within 200ms (post-corrupt stop)
     await new Promise(r => setTimeout(r, 200));
     expect(events.find(e => (e as any).type === 'post_corrupt')).toBeUndefined();
   });
@@ -269,7 +291,10 @@ describe('StreamReader', () => {
     reader = createStreamReader(fs, STREAM_FILE, (ev) => events.push(ev), auditRec.audit);
     reader.start();
 
-    await new Promise(r => setTimeout(r, 300));
+    // chokidar ready probe: write sentinel + waitFor arrival + reset (replaces blind 300ms)
+    writer.write({ ts: -1, type: '__sentinel__' });
+    await waitFor(() => events.length >= 1, 5000);
+    events.length = 0;
 
     const streamAbs = nativePath.join(tempDir, STREAM_FILE);
 
@@ -279,6 +304,7 @@ describe('StreamReader', () => {
     const pattern: ('ok' | 'bad')[] = ['ok','bad','ok','bad','ok','bad','ok','bad','bad','bad'];
     for (let i = 0; i < 10; i++) {
       nativeAppend(streamAbs, pattern[i] === 'ok' ? okLine(i) : badLine(i));
+      // chokidar batch boundary: 50ms gap so appends fire as separate events (not coalesced)
       await new Promise(r => setTimeout(r, 50));
     }
 
