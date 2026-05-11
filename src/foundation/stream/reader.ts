@@ -88,7 +88,7 @@ export function createStreamReader(
   streamPath: string,
   onEvent: (event: StreamEvent) => void,
   audit: AuditLog,
-  options?: { persistent?: boolean },
+  options?: { persistent?: boolean; onReady?: () => void },
 ): StreamReader {
   let watcher: Watcher | null = null;
   let offset = 0;
@@ -234,6 +234,7 @@ export function createStreamReader(
         {
           stability: 'immediate',
           persistent: options?.persistent,
+          onReady: options?.onReady,
           onError: (err, context) => {
             if (context === 'callback') {
               audit.write(
