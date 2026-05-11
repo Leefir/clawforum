@@ -7,7 +7,7 @@
  */
 
 
-import type { LLMResponse } from '../../types/message.js';
+import type { LLMResponse, TextBlock, ThinkingBlock, ToolUseBlock } from '../../types/message.js';
 import {
   LLMError,
   LLMAllProvidersFailedError,
@@ -297,6 +297,14 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
    *         mid-stream errors will fail over without retry
    */
   async* stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
+    // Hedge gate (phase 737): breaker open + transient cause + fallbacks available → 2-track hedge
+    const primaryBreakerOpen = this.breakers[0]?.isOpen() ?? false;
+    const openCause = this.breakers[0]?.getOpenCause() ?? null;
+    if (primaryBreakerOpen && openCause === 'transient' && this.fallbacks.length > 0 && this.primary.stream) {
+      yield* this._streamHedge(options);
+      return;
+    }
+
     const providers: Array<{ adapter: LLMProvider; breakerIndex: number }> = [
       { adapter: this.primary, breakerIndex: 0 },
       ...this.fallbacks.map((fb, i) => ({ adapter: fb, breakerIndex: i + 1 })),
@@ -592,11 +600,231 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
   }
   
   /**
+   * 2-track hedge on breaker open (phase 737).
+   * Track A: primary stream — wait for first content chunk (real recovery evidence).
+   * Track B: fallback chain sequential call() — first success wins.
+   * Winner-takes-all via Promise.race; loser aborted to avoid resource waste.
+   */
+  private async* _streamHedge(options: LLMCallOptions): AsyncIterableIterator<StreamChunk> {
+    const fallbackNames = this.fallbacks.map(f => f.name);
+    this.events.emit({
+      type: 'hedge_started',
+      primary: this.primary.name,
+      fallbackChain: fallbackNames,
+      triggerErrorClass: 'transient',
+    });
+
+    const primaryCtrl = new AbortController();
+    const trackBCtrl = new AbortController();
+
+    const primaryMerged = mergeSignals(options.signal, primaryCtrl.signal);
+    const trackBMergedBase = mergeSignals(options.signal, trackBCtrl.signal);
+    const cleanupSignals = () => { primaryMerged.cleanup(); trackBMergedBase.cleanup(); };
+
+    // Track A: primary.stream() iter, wait for first content chunk
+    const primaryProviderOpts: LLMCallOptions = {
+      ...options,
+      signal: primaryMerged.signal,
+      hardTimeoutMs: undefined,
+      streamIdleTimeoutMs: undefined,
+    };
+    const primaryIter = this.primary.stream!(primaryProviderOpts);
+
+    type AResult =
+      | { winner: 'A'; chunk: StreamChunk }
+      | { winner: 'A-error'; error: Error };
+
+    const trackAPromise: Promise<AResult> = (async () => {
+      try {
+        for await (const chunk of primaryIter) {
+          if (isContentChunk(chunk)) return { winner: 'A', chunk };
+          // skip metadata chunks (done/reset/thinking_signature/etc.)
+        }
+        return { winner: 'A-error', error: new Error('primary stream ended without content chunk') };
+      } catch (e) {
+        return { winner: 'A-error', error: e as Error };
+      }
+    })();
+
+    // Track B: fallback chain sequential call()
+    type BResult =
+      | { winner: 'B'; provider: LLMProvider; providerIndex: number; response: LLMResponse }
+      | { winner: 'B-error'; failures: Array<{ provider: string; error: Error }> };
+
+    const trackBPromise: Promise<BResult> = (async () => {
+      const failures: Array<{ provider: string; error: Error }> = [];
+      for (let i = 0; i < this.fallbacks.length; i++) {
+        if (trackBCtrl.signal.aborted) return { winner: 'B-error', failures };
+        const fb = this.fallbacks[i];
+        if (this.breakers[i + 1]?.isOpen()) {
+          failures.push({ provider: fb.name, error: new Error('Circuit breaker open') });
+          continue;
+        }
+        const fbMerged = mergeSignals(options.signal, trackBCtrl.signal);
+        const fbOpts: LLMCallOptions = {
+          ...options,
+          signal: fbMerged.signal,
+          hardTimeoutMs: undefined,
+          streamIdleTimeoutMs: undefined,
+        };
+        try {
+          const response = await fb.call(fbOpts);
+          fbMerged.cleanup();
+          this.breakers[i + 1]?.onSuccess();
+          return { winner: 'B', provider: fb, providerIndex: i, response };
+        } catch (err) {
+          fbMerged.cleanup();
+          if (trackBCtrl.signal.aborted) return { winner: 'B-error', failures };
+          const e = err as Error;
+          const errClass = classifyLLMError(e);
+          this.breakers[i + 1]?.onFailure(errClass);
+          this.events.emit({
+            type: 'provider_attempt_failed',
+            provider: fb.name,
+            attempt: 0,
+            error: e.message,
+            errorClass: errClass,
+            userActionHint: getUserActionHint(e),
+          });
+          failures.push({ provider: fb.name, error: e });
+        }
+      }
+      return { winner: 'B-error', failures };
+    })();
+
+    // Race
+    const winner = await Promise.race([trackAPromise, trackBPromise]);
+
+    // A 胜（first content chunk）
+    if (winner.winner === 'A') {
+      trackBCtrl.abort();
+      this.breakers[0]?.onSuccess(); // breaker auto-close (first chunk = real recovery)
+      this.events.emit({ type: 'hedge_primary_recovered', provider: this.primary.name });
+      this.currentProviderIndex = -1;
+      this.updateLastSuccess(this.primary, false);
+      yield winner.chunk;
+      try {
+        for await (const chunk of primaryIter) yield chunk; // drain rest
+      } finally {
+        cleanupSignals();
+      }
+      return;
+    }
+
+    // B 胜（fallback call success）
+    if (winner.winner === 'B') {
+      primaryCtrl.abort();
+      const aResult = await trackAPromise.catch(() => null);
+      const primaryErr = aResult?.winner === 'A-error' ? aResult.error : new Error('primary stream cancelled');
+      const primaryErrClass = classifyLLMError(primaryErr);
+      this.events.emit({
+        type: 'hedge_fallback_committed',
+        winnerProvider: winner.provider.name,
+        primaryProvider: this.primary.name,
+        primaryError: primaryErr.message,
+        primaryErrorClass: primaryErrClass,
+      });
+      this.currentProviderIndex = winner.providerIndex;
+      this.updateLastSuccess(winner.provider, true);
+      cleanupSignals();
+      yield* wrapResponseAsStream(winner.response, winner.provider);
+      return;
+    }
+
+    // A-error 胜（A 早失败）→ 等 B
+    if (winner.winner === 'A-error') {
+      const bResult = await trackBPromise;
+      if (bResult.winner === 'B') {
+        primaryCtrl.abort();
+        this.events.emit({
+          type: 'hedge_fallback_committed',
+          winnerProvider: bResult.provider.name,
+          primaryProvider: this.primary.name,
+          primaryError: winner.error.message,
+          primaryErrorClass: classifyLLMError(winner.error),
+        });
+        this.currentProviderIndex = bResult.providerIndex;
+        this.updateLastSuccess(bResult.provider, true);
+        cleanupSignals();
+        yield* wrapResponseAsStream(bResult.response, bResult.provider);
+        return;
+      }
+      // 双失败
+      cleanupSignals();
+      throw new LLMAllProvidersFailedError([
+        { provider: this.primary.name, error: winner.error },
+        ...bResult.failures,
+      ]);
+    }
+
+    // B-error 胜（B 全失败）→ 等 A
+    const aResult = await trackAPromise;
+    if (aResult.winner === 'A') {
+      trackBCtrl.abort();
+      this.breakers[0]?.onSuccess();
+      this.events.emit({ type: 'hedge_primary_recovered', provider: this.primary.name });
+      this.currentProviderIndex = -1;
+      this.updateLastSuccess(this.primary, false);
+      yield aResult.chunk;
+      try {
+        for await (const chunk of primaryIter) yield chunk;
+      } finally {
+        cleanupSignals();
+      }
+      return;
+    }
+    // 双失败
+    cleanupSignals();
+    throw new LLMAllProvidersFailedError([
+      { provider: this.primary.name, error: aResult.error },
+      ...winner.failures,
+    ]);
+  }
+
+  /**
    * Close/cleanup - no-op for fetch-based implementation
    */
   async close(): Promise<void> {
     // No persistent connections to close
   }
+}
+
+function isContentChunk(chunk: StreamChunk): boolean {
+  return chunk.type === 'text_delta'
+    || chunk.type === 'thinking_delta'
+    || chunk.type === 'tool_use_start'
+    || chunk.type === 'tool_use_delta';
+}
+
+async function* wrapResponseAsStream(
+  response: LLMResponse,
+  provider: LLMProvider,
+): AsyncIterableIterator<StreamChunk> {
+  for (const block of response.content) {
+    if (block.type === 'text') {
+      const b = block as TextBlock;
+      yield { type: 'text_delta', delta: b.text };
+    } else if (block.type === 'thinking') {
+      const b = block as ThinkingBlock;
+      yield { type: 'thinking_delta', delta: b.thinking };
+      if (b.signature) yield { type: 'thinking_signature', signature: b.signature };
+    } else if (block.type === 'tool_use') {
+      const b = block as ToolUseBlock;
+      yield { type: 'tool_use_start', toolUse: { id: b.id, name: b.name } };
+      yield {
+        type: 'tool_use_delta',
+        toolUse: { id: b.id, name: b.name, partialInput: JSON.stringify(b.input) },
+      };
+    }
+    // ignore tool_result / unknown blocks (assistant response shouldn't have these)
+  }
+  yield {
+    type: 'done',
+    stopReason: typeof response.stop_reason === 'string' ? response.stop_reason : 'end_turn',
+    usage: response.usage
+      ? { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+      : undefined,
+  };
 }
 
 function mergeSignals(
