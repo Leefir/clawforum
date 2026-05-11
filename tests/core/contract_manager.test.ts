@@ -204,7 +204,9 @@ describe('ContractSystem', () => {
     });
     
     // 稍微等待确保时间戳不同
-    await new Promise(r => setTimeout(r, 50));
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(50);
+    vi.useRealTimers();
     
     // 创建第二个契约（会自动归档第一个）
     const contract2 = await manager.create({

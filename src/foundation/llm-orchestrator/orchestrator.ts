@@ -26,7 +26,7 @@ import type {
 import type { LLMOrchestrator } from './index.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { createLLMProvider, type LLMProvider } from '../llm-provider/index.js';
-import { makeExternalAbortError, type AbortReason } from '../llm-provider/abort-helper.js';
+import { makeExternalAbortError, withCombinedAbortSignal, type AbortReason } from '../llm-provider/abort-helper.js';
 
 /**
  * Maximum exponential backoff delay (ms).
@@ -147,14 +147,21 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         if (options.signal?.aborted) throw makeExternalAbortError(options.signal.reason as AbortReason | undefined);
 
         const hardTimeoutMs = options.hardTimeoutMs;
-        const hardCtrl = hardTimeoutMs ? new AbortController() : null;
-        const hardTimer = hardCtrl ? setTimeout(() => hardCtrl!.abort(), hardTimeoutMs) : undefined;
-        const { signal: providerSignal, cleanup: cleanupSignal } = mergeSignals(options.signal, hardCtrl?.signal);
+        let providerSignal: AbortSignal | undefined;
+        let cleanupSignal: () => void = () => {};
+        let hardSignal: AbortSignal | undefined;
+        if (hardTimeoutMs) {
+          const [handle, cleanup] = withCombinedAbortSignal(options.signal, hardTimeoutMs);
+          providerSignal = handle.signal;
+          cleanupSignal = cleanup;
+          hardSignal = handle.signal;
+        } else {
+          providerSignal = options.signal;
+        }
         const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined };
 
         try {
           const response = await this.primary.call(providerOptions);
-          clearTimeout(hardTimer);
           cleanupSignal();
 
           // Circuit breaker: record success
@@ -166,14 +173,13 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           return response;
 
         } catch (error) {
-          clearTimeout(hardTimer);
           cleanupSignal();
           lastError = error as Error;
 
           // Don't retry on user abort (would add multi-second delay)
           if (options.signal?.aborted) throw lastError;
           // Provider self-thrown AbortError when hard signal did not fire
-          if (lastError.name === 'AbortError' && !hardCtrl?.signal.aborted) throw lastError;
+          if (lastError.name === 'AbortError' && !hardSignal?.aborted) throw lastError;
 
           // Wait before retry (exponential backoff with 30s max)
           if (attempt < this.config.maxAttempts - 1) {
@@ -221,14 +227,21 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       const fb = this.fallbacks[i];
 
       const hardTimeoutMs = options.hardTimeoutMs;
-      const hardCtrl = hardTimeoutMs ? new AbortController() : null;
-      const hardTimer = hardCtrl ? setTimeout(() => hardCtrl!.abort(), hardTimeoutMs) : undefined;
-      const { signal: providerSignal, cleanup: cleanupSignal } = mergeSignals(options.signal, hardCtrl?.signal);
+      let providerSignal: AbortSignal | undefined;
+      let cleanupSignal: () => void = () => {};
+      let hardSignal: AbortSignal | undefined;
+      if (hardTimeoutMs) {
+        const [handle, cleanup] = withCombinedAbortSignal(options.signal, hardTimeoutMs);
+        providerSignal = handle.signal;
+        cleanupSignal = cleanup;
+        hardSignal = handle.signal;
+      } else {
+        providerSignal = options.signal;
+      }
       const providerOptions: LLMCallOptions = { ...options, signal: providerSignal, hardTimeoutMs: undefined, streamIdleTimeoutMs: undefined };
 
       try {
         const response = await fb.call(providerOptions);
-        clearTimeout(hardTimer);
         cleanupSignal();
 
         // Circuit breaker: record success
@@ -239,12 +252,11 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         return response;
 
       } catch (fallbackError) {
-        clearTimeout(hardTimer);
         cleanupSignal();
         const err = fallbackError as Error;
         if (options.signal?.aborted) throw err;
         // Provider self-thrown AbortError when hard signal did not fire
-        if (err.name === 'AbortError' && !hardCtrl?.signal.aborted) throw err;
+        if (err.name === 'AbortError' && !hardSignal?.aborted) throw err;
         this.events.emit({ type: 'provider_exhausted', provider: fb.name, error: err.message });
         const wasOpen = this.breakers[i + 1]?.isOpen();
         this.breakers[i + 1]?.onFailure();

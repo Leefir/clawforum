@@ -4,7 +4,7 @@
  * Tests for read-only tools parallel execution + write tools sequential execution
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runReact } from '../../src/core/agent-executor/loop.js';
 import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
@@ -42,6 +42,7 @@ describe('ReAct Loop Parallel Execution', () => {
   let mockCtx: ExecContext;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     registry = new ToolRegistryImpl();
     executor = new ToolExecutorImpl(registry);
     
@@ -58,6 +59,10 @@ describe('ReAct Loop Parallel Execution', () => {
     };
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('should execute read-only tools in parallel when registry is provided', async () => {
     const executionOrder: string[] = [];
     const executionStartTimes: Record<string, number> = {};
@@ -72,7 +77,7 @@ describe('ReAct Loop Parallel Execution', () => {
       async execute(): Promise<ToolResult> {
         executionStartTimes['readA'] = Date.now();
         executionOrder.push('readA-start');
-        await new Promise(r => setTimeout(r, 50));
+        await vi.advanceTimersByTimeAsync(50);
         executionOrder.push('readA-end');
         return { success: true, content: 'readA-result' };
       },
@@ -88,7 +93,7 @@ describe('ReAct Loop Parallel Execution', () => {
       async execute(): Promise<ToolResult> {
         executionStartTimes['readB'] = Date.now();
         executionOrder.push('readB-start');
-        await new Promise(r => setTimeout(r, 50));
+        await vi.advanceTimersByTimeAsync(50);
         executionOrder.push('readB-end');
         return { success: true, content: 'readB-result' };
       },
@@ -140,7 +145,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: false,
       async execute(): Promise<ToolResult> {
         executionOrder.push('writeA-start');
-        await new Promise(r => setTimeout(r, 30));
+        await vi.advanceTimersByTimeAsync(30);
         executionOrder.push('writeA-end');
         return { success: true, content: 'writeA-result' };
       },
@@ -155,7 +160,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: false,
       async execute(): Promise<ToolResult> {
         executionOrder.push('writeB-start');
-        await new Promise(r => setTimeout(r, 30));
+        await vi.advanceTimersByTimeAsync(30);
         executionOrder.push('writeB-end');
         return { success: true, content: 'writeB-result' };
       },
@@ -208,7 +213,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: true,
       async execute(): Promise<ToolResult> {
         executionOrder.push('readX');
-        await new Promise(r => setTimeout(r, 30));
+        await vi.advanceTimersByTimeAsync(30);
         return { success: true, content: 'readX-result' };
       },
     });
@@ -222,7 +227,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: false,
       async execute(): Promise<ToolResult> {
         executionOrder.push('writeY');
-        await new Promise(r => setTimeout(r, 30));
+        await vi.advanceTimersByTimeAsync(30);
         return { success: true, content: 'writeY-result' };
       },
     });
@@ -236,7 +241,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: true,
       async execute(): Promise<ToolResult> {
         executionOrder.push('readZ');
-        await new Promise(r => setTimeout(r, 30));
+        await vi.advanceTimersByTimeAsync(30);
         return { success: true, content: 'readZ-result' };
       },
     });
@@ -291,7 +296,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: true,
       async execute(): Promise<ToolResult> {
         executionOrder.push('toolA-start');
-        await new Promise(r => setTimeout(r, 20));
+        await vi.advanceTimersByTimeAsync(20);
         executionOrder.push('toolA-end');
         return { success: true, content: 'toolA-result' };
       },
@@ -306,7 +311,7 @@ describe('ReAct Loop Parallel Execution', () => {
       idempotent: true,
       async execute(): Promise<ToolResult> {
         executionOrder.push('toolB-start');
-        await new Promise(r => setTimeout(r, 20));
+        await vi.advanceTimersByTimeAsync(20);
         executionOrder.push('toolB-end');
         return { success: true, content: 'toolB-result' };
       },
@@ -351,7 +356,7 @@ describe('ReAct Loop Parallel Execution', () => {
       readonly: true,
       idempotent: true,
       async execute(): Promise<ToolResult> {
-        await new Promise(r => setTimeout(r, 50));
+        await vi.advanceTimersByTimeAsync(50);
         return { success: true, content: 'slow-result' };
       },
     });
@@ -364,7 +369,7 @@ describe('ReAct Loop Parallel Execution', () => {
       readonly: false,
       idempotent: false,
       async execute(): Promise<ToolResult> {
-        await new Promise(r => setTimeout(r, 10));
+        await vi.advanceTimersByTimeAsync(10);
         return { success: true, content: 'fast-result' };
       },
     });

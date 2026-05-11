@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { waitFor } from '../helpers/wait-for.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
@@ -86,7 +87,7 @@ describe('ProcessManager', () => {
       expect(processManager.isAlive('test-claw')).toBe(false);
 
       // 等待 isAlive 触发的异步清理完成
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await waitFor(() => !fs.existsSync(pidFile), 1000, 10);
 
       // pid 文件应该被 isAlive 清理
       expect(fs.existsSync(pidFile)).toBe(false);
