@@ -19,6 +19,9 @@ export type ErrorCode =
   | 'LLM_CALL_FAILED'
   | 'LLM_RATE_LIMITED'
   | 'LLM_TIMEOUT'
+  | 'LLM_AUTH_FAILED'
+  | 'LLM_NETWORK_FAILED'
+  | 'LLM_MODEL_NOT_FOUND'
   | 'LLM_ALL_PROVIDERS_FAILED'
   
   // File system errors (5xx)
@@ -168,6 +171,37 @@ export class LLMTimeoutError extends LLMError {
   }
 }
 
+export class LLMAuthError extends LLMError {
+  readonly code: ErrorCode = 'LLM_AUTH_FAILED';
+  constructor(provider: string, statusCode: number, message?: string) {
+    super(
+      message ?? `LLM auth failed for ${provider} (HTTP ${statusCode})`,
+      { provider, statusCode },
+    );
+  }
+}
+
+export class LLMNetworkError extends LLMError {
+  readonly code: ErrorCode = 'LLM_NETWORK_FAILED';
+  constructor(provider: string, cause?: Error) {
+    super(
+      `LLM network failure for ${provider}${cause ? `: ${cause.message}` : ''}`,
+      { provider },
+      cause,
+    );
+  }
+}
+
+export class LLMModelNotFoundError extends LLMError {
+  readonly code: ErrorCode = 'LLM_MODEL_NOT_FOUND';
+  constructor(provider: string, model: string) {
+    super(
+      `LLM model not found: ${provider}/${model} (HTTP 404)`,
+      { provider, model },
+    );
+  }
+}
+
 export class LLMAllProvidersFailedError extends LLMError {
   readonly code: ErrorCode = 'LLM_ALL_PROVIDERS_FAILED';
   readonly failures: Array<{ provider: string; error: Error }>;
@@ -240,6 +274,26 @@ export class ConsecutiveMaxTokensToolUseError extends ClawError {
 // ============================================================================
 
 export const PROGRAMMING_BUG_TYPES = [TypeError, ReferenceError, SyntaxError, RangeError] as const;
+
+export type LLMErrorClass = 'permanent' | 'transient' | 'rate_limit' | 'abort' | 'unknown';
+
+/**
+ * Classify an LLM error into retry policy category (per phase 730 design).
+ *
+ * - permanent: 401/403/404 → 0 retry / direct failover
+ * - transient: 5xx + network → exponential backoff retry
+ * - rate_limit: 429 → Retry-After wait
+ * - abort: user signal → immediate throw / 0 retry
+ * - unknown: fallback to transient retry
+ */
+export function classifyLLMError(err: unknown): LLMErrorClass {
+  if (err instanceof LLMAuthError || err instanceof LLMModelNotFoundError) return 'permanent';
+  if (err instanceof LLMRateLimitError) return 'rate_limit';
+  if (err instanceof LLMNetworkError || err instanceof LLMTimeoutError) return 'transient';
+  if (err instanceof Error && err.name === 'AbortError') return 'abort';
+  if (err instanceof LLMError) return 'transient';  // fallback for unclassified LLMError (5xx etc)
+  return 'unknown';
+}
 
 export function isProgrammingBug(err: unknown): boolean {
   return PROGRAMMING_BUG_TYPES.some(T => err instanceof T);
