@@ -26,7 +26,7 @@ import type {
 import type { LLMOrchestrator } from './index.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { createLLMProvider, type LLMProvider } from '../llm-provider/index.js';
-import { makeExternalAbortError, withCombinedAbortSignal, type AbortReason } from '../llm-provider/abort-helper.js';
+import { makeExternalAbortError, withCombinedAbortSignal, type AbortReason } from '../llm-provider/index.js';
 
 /**
  * Maximum exponential backoff delay (ms).

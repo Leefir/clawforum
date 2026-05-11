@@ -21,10 +21,8 @@ export type {
 
 export {
   withCombinedAbortSignal,
-  type CombinedAbortHandle,
   type AbortReason,
   makeExternalAbortError,
-  classifyFetchAbortError,
 } from './abort-helper.js';
 export type { ApiFormat, ProviderPreset } from './presets.js';
 export { PRESETS, resolvePreset } from './presets.js';
