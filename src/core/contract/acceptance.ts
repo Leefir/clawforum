@@ -9,7 +9,7 @@ import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Contract, AcceptanceFailedNotification, LastFailedFeedback } from '../../types/contract.js';
 import { ToolError, ToolTimeoutError, isProgrammingBug } from '../../types/errors.js';
-import type { ToolRegistry } from '../../foundation/tools/types.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { exec } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';
 import { CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';

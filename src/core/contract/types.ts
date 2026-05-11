@@ -6,7 +6,7 @@
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import type { ToolRegistry } from '../../foundation/tools/types.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { ContractStatus, SubtaskStatus, LastFailedFeedback } from '../../types/contract.js';
 
 // YAML contract file structure (exported for CLI use)

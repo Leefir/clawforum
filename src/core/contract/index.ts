@@ -7,7 +7,7 @@ import { ContractSystem } from './manager.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import type { ToolRegistry } from '../../foundation/tools/types.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 
 export {
   ContractSystem,

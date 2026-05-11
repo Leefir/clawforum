@@ -36,8 +36,8 @@ export interface StepInput {
   systemPrompt: string;
   llm: LLMOrchestrator;
   tools: ToolDefinition[];
-  executor: import('../../foundation/tools/executor.js').IToolExecutor;
-  registry?: import('../../foundation/tools/executor.js').ToolRegistry;
+  executor: import('../../foundation/tools/index.js').IToolExecutor;
+  registry?: import('../../foundation/tools/index.js').ToolRegistry;
   ctx: ExecContext;
   maxTokens?: number;
   idleTimeoutMs?: number;

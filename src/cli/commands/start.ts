@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../../foundation/config/index.js';
 import { createLLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import { PRESETS } from '../../foundation/llm-provider/presets.js';
+import { PRESETS } from '../../foundation/llm-provider/index.js';
 import { initCommand } from './init.js';
 import {
   initCommand as motionInitCommand,

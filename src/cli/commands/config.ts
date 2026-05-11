@@ -11,7 +11,7 @@ import {
   type ClawGlobalConfig,
   LLMProviderSchema,
 } from '../../foundation/config/index.js';
-import { PRESETS } from '../../foundation/llm-provider/presets.js';
+import { PRESETS } from '../../foundation/llm-provider/index.js';
 import { createProcessManagerForCLI } from '../utils/factories.js';
 import { z } from 'zod';
 import { CliError } from '../errors.js';
