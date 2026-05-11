@@ -212,7 +212,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       
       // Circuit breaker: record failure
       const wasOpen0 = this.breakers[0]?.isOpen();
-      this.breakers[0]?.onFailure();
+      this.breakers[0]?.onFailure(classifyLLMError(lastError!));
       if (!wasOpen0 && this.breakers[0]?.isOpen()) {
         this.events.emit({ type: 'breaker_opened', provider: this.primary.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
       }
@@ -276,7 +276,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         if (err.name === 'AbortError' && !hardSignal?.aborted) throw err;
         this.events.emit({ type: 'provider_exhausted', provider: fb.name, error: err.message });
         const wasOpen = this.breakers[i + 1]?.isOpen();
-        this.breakers[i + 1]?.onFailure();
+        this.breakers[i + 1]?.onFailure(classifyLLMError(err));
         if (!wasOpen && this.breakers[i + 1]?.isOpen()) {
           this.events.emit({ type: 'breaker_opened', provider: fb.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
         }
@@ -488,7 +488,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       } else if (!midStreamReset) {
         // Circuit breaker: record failure
         const wasOpen = breaker?.isOpen();
-        breaker?.onFailure();
+        breaker?.onFailure(classifyLLMError(lastError ?? new Error('Unknown stream error')));
         if (!wasOpen && breaker?.isOpen()) {
           this.events.emit({ type: 'breaker_opened', provider: adapter.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
         }

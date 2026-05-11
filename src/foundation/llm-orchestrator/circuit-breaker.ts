@@ -11,10 +11,13 @@
  *   └────────(探测成功)──────────┘
  *             (探测失败) → 回 open
  */
+import type { LLMErrorClass } from '../../types/errors.js';
+
 export class CircuitBreaker {
   private state: 'closed' | 'open' | 'half-open' = 'closed';
   private failures = 0;
   private openedAt?: number;
+  private lastFailureClass: LLMErrorClass | null = null;
   private onTransition?: (transition: 'breaker_half_open' | 'breaker_closed') => void;
 
   constructor(
@@ -40,17 +43,31 @@ export class CircuitBreaker {
   onSuccess(): void {
     const was = this.state;
     this.failures = 0;
+    this.lastFailureClass = null;
     this.state = 'closed';
     if (was !== 'closed') {
       this.onTransition?.('breaker_closed');
     }
   }
 
-  onFailure(): void {
+  onFailure(errClass?: LLMErrorClass): void {
     this.failures++;
+    if (errClass) this.lastFailureClass = errClass;
     if (this.state === 'half-open' || this.failures >= this.threshold) {
       this.state = 'open';
       this.openedAt = Date.now();
     }
+  }
+
+  /**
+   * Returns the error class that caused the breaker to enter 'open' state.
+   * Returns null if breaker is not open, or class not recorded.
+   *
+   * Used by LLMOrchestrator hedge gate (phase 737):
+   * - 'transient' → enable hedge mode (parallel A track stream + B track sequential)
+   * - 'permanent' / 'rate_limit' → skip hedge (avoid abuse detection / rate limiter trigger)
+   */
+  getOpenCause(): LLMErrorClass | null {
+    return this.state === 'open' ? this.lastFailureClass : null;
   }
 }
