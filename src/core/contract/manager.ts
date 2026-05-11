@@ -30,7 +30,7 @@ import type { Contract, ContractStatus, SubtaskStatus, LastFailedFeedback, Accep
 import { ToolError, ToolTimeoutError, isProgrammingBug } from '../../types/errors.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { type AuditLog } from '../../foundation/audit/index.js';
-import type { ToolRegistry } from '../../foundation/tools/types.js';
+import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 
 import type {
