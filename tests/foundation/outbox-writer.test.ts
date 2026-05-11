@@ -55,7 +55,7 @@ describe('OutboxWriter', () => {
     });
 
     const sent = events.find(e => e[0] === MESSAGING_AUDIT_EVENTS.OUTBOX_SENT)!;
-    expect(sent.some((c: any) => String(c).includes('contract_id=contract-123'))).toBe(true);
+    expect(sent.some((c: any) => String(c).includes('contractId=contract-123'))).toBe(true);
   });
 
   it('write failure audits OUTBOX_SEND_FAILED and throws', async () => {
