@@ -19,6 +19,7 @@ import {
 import { createViewportObservability } from '../../src/cli/commands/chat-viewport-observability.js';
 import type { AuditWriter } from '../../src/foundation/audit/writer.js';
 import type { FileSystem } from '../../src/foundation/fs/index.js';
+import { createEventCollector } from '../helpers/event-collector.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,8 +42,10 @@ interface RegressionFixture {
   reader: StreamReader;
   mainUI: MainTurnUIController;
   observability: ReturnType<typeof createViewportObservability>;
-  receivedEvents: StreamEvent[];
+  receivedEvents: readonly StreamEvent[];
   deliveryTimestamps: Array<{ type: string; ts: number }>;
+  whenCount: (n: number) => Promise<void>;
+  whenPredicate: (p: (events: readonly StreamEvent[]) => boolean) => Promise<void>;
   teardown: () => Promise<void>;
 }
 
@@ -85,14 +88,14 @@ async function setupFixture(options?: { agentDirPrefix?: string }): Promise<Regr
     observability,
   });
 
-  const receivedEvents: StreamEvent[] = [];
+  const ec = createEventCollector<StreamEvent>();
   const deliveryTimestamps: Array<{ type: string; ts: number }> = [];
   const reader = createStreamReader(
     fs,
     STREAM_FILE,
     (ev) => {
       deliveryTimestamps.push({ type: ev.type, ts: Date.now() });
-      receivedEvents.push(ev);
+      ec.onEvent(ev);
       handleEventShim(ev, mainUI, observability);
     },
     audit.writer,
@@ -110,8 +113,10 @@ async function setupFixture(options?: { agentDirPrefix?: string }): Promise<Regr
     reader,
     mainUI,
     observability,
-    receivedEvents,
+    receivedEvents: ec.events,
     deliveryTimestamps,
+    whenCount: ec.whenCount.bind(ec),
+    whenPredicate: ec.whenPredicate.bind(ec),
     teardown: async () => {
       try { await reader.stop(); } catch {}
       await cleanupTempDir(agentDir);
@@ -183,15 +188,6 @@ async function waitForAudit(
   throw new Error(`waitForAudit timeout: type=${type} count=${count}; got ${fx.audit.filter(type).length}`);
 }
 
-async function waitForEvents(fx: RegressionFixture, count: number, timeoutMs = 10000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (fx.receivedEvents.length >= count) return;
-    await new Promise(r => setTimeout(r, 20));
-  }
-  throw new Error(`waitForEvents timeout: expected ${count}, got ${fx.receivedEvents.length}`);
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -219,7 +215,7 @@ describe('chat-viewport regression baseline', () => {
     expect(fx.reader.isActive()).toBe(true);
 
     await appendStreamEvent(fx, { type: 'turn_start' });
-    await waitForEvents(fx, 1);
+    await fx.whenCount(1);
     expect(fx.receivedEvents[0].type).toBe('turn_start');
   });
 
@@ -245,12 +241,12 @@ describe('chat-viewport regression baseline', () => {
     const chunkC = all.subarray(splitB);
 
     appendStreamRaw(fx, chunkA);
-    await waitForEvents(fx, 1);
+    await fx.whenCount(1);
     appendStreamRaw(fx, chunkB);
-    await waitForEvents(fx, 2);
+    await fx.whenCount(2);
     appendStreamRaw(fx, chunkC);
 
-    await waitForEvents(fx, 3);
+    await fx.whenCount(3);
 
     expect(fx.receivedEvents[0]).toMatchObject({ type: 'msg', text: '你好世界' });
     expect(fx.receivedEvents[1]).toMatchObject({ type: 'msg', text: '测试中文分 chunk' });
@@ -263,30 +259,30 @@ describe('chat-viewport regression baseline', () => {
     expect(corrupt.length).toBe(0);
   });
 
-  it('基线 2：完整 turn 序列触发 Thinking + tool_name Spinner lifecycle + VIEWPORT_EVENT_INGEST histogram', async () => {
+  it('基线 2：完整 turn 序列触发 Thinking + tool_name Spinner 生命周期 + VIEWPORT_EVENT_INGEST histogram', async () => {
     const fx = await bootstrapFixture();
 
     await appendStreamEvent(fx, { type: 'turn_start' });
-    await waitForEvents(fx, 1);
+    await fx.whenCount(1);
 
     await appendStreamEvent(fx, { type: 'llm_start' });
-    await waitForEvents(fx, 2);
+    await fx.whenCount(2);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 1);
 
     await appendStreamEvent(fx, { type: 'text_delta', delta: '你好世界' });
-    await waitForEvents(fx, 3);
+    await fx.whenCount(3);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 2);
 
     await appendStreamEvent(fx, { type: 'tool_call', name: 'exec' });
-    await waitForEvents(fx, 4);
+    await fx.whenCount(4);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 3);
 
     await appendStreamEvent(fx, { type: 'tool_result', name: 'exec', success: true });
-    await waitForEvents(fx, 5);
+    await fx.whenCount(5);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 4);
 
     await appendStreamEvent(fx, { type: 'turn_end' });
-    await waitForEvents(fx, 6);
+    await fx.whenCount(6);
 
     fx.observability.recordShutdown('stream_end');
 
@@ -362,7 +358,7 @@ describe('chat-viewport regression baseline', () => {
     await appendStreamEvent(fx, { type: 'turn_end' });
     await new Promise(r => setTimeout(r, 200));
 
-    await waitForEvents(fx, 1 + N * 2 + 1);
+    await fx.whenCount(1 + N * 2 + 1);
 
     const toolCalls = fx.receivedEvents.filter(e => e.type === 'tool_call');
     const toolResults = fx.receivedEvents.filter(e => e.type === 'tool_result');
@@ -482,30 +478,30 @@ describe('chat-viewport regression baseline', () => {
     const fx = await bootstrapFixture();
 
     await appendStreamEvent(fx, { type: 'turn_start' });
-    await waitForEvents(fx, 1);
+    await fx.whenCount(1);
 
     const tLlmStart = Date.now(); // sanity: 测试线程 wall clock（不再参与断言）
     await appendStreamEvent(fx, { type: 'llm_start' });
-    await waitForEvents(fx, 2);
+    await fx.whenCount(2);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 1);
 
     const tTextDelta = Date.now(); // sanity
     await appendStreamEvent(fx, { type: 'text_delta', delta: '你好' });
-    await waitForEvents(fx, 3);
+    await fx.whenCount(3);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 2);
 
     const tToolCall = Date.now(); // sanity
     await appendStreamEvent(fx, { type: 'tool_call', name: 'exec' });
-    await waitForEvents(fx, 4);
+    await fx.whenCount(4);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 3);
 
     const tToolResult = Date.now(); // sanity
     await appendStreamEvent(fx, { type: 'tool_result', name: 'exec', success: true });
-    await waitForEvents(fx, 5);
+    await fx.whenCount(5);
     await waitForAudit(fx, VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE, 4);
 
     await appendStreamEvent(fx, { type: 'turn_end' });
-    await waitForEvents(fx, 6);
+    await fx.whenCount(6);
 
     const spinnerEvents = fx.audit.filter(VIEWPORT_AUDIT_EVENTS.SPINNER_LIFECYCLE);
 
