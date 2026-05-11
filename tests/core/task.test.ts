@@ -592,9 +592,20 @@ describe('Task System + SubAgent', () => {
         await taskSystem.shutdown(100);
         const { audit, events } = makeAudit();
         const mockProcessor = vi.fn().mockResolvedValue('error-transformed');
+
+        // Deferred Promise for postProcessor invocation (replaces polling waitFor)
+        let resolvePostProcessor!: (isError: boolean) => void;
+        const postProcessorCalled = new Promise<boolean>((resolve) => {
+          resolvePostProcessor = resolve;
+        });
+        const capturingProcessor = vi.fn().mockImplementation((...args: any[]) => {
+          resolvePostProcessor(args[2]); // isError is the 3rd argument
+          return mockProcessor(...args);
+        });
+
         // Use empty-object LLM so subagent.run() throws immediately (call is undefined)
         taskSystem = createTestTaskSystem(tempDir, mockFs, audit);
-        taskSystem.addPostProcessor('test-proc-err', mockProcessor as any);
+        taskSystem.addPostProcessor('test-proc-err', capturingProcessor as any);
         await taskSystem.initialize();
         taskSystem.startDispatch();
 
@@ -607,9 +618,9 @@ describe('Task System + SubAgent', () => {
           postProcessor: 'test-proc-err',
         });
 
-        // Wait for task to enter running then complete
-        await waitFor(() => taskSystem.listRunning().includes(taskId), 5000);
-        await waitFor(() => !taskSystem.listRunning().includes(taskId), 5000);
+        // Wait for postProcessor to be called via Deferred Promise
+        const isError = await postProcessorCalled;
+        expect(isError).toBe(true);
 
         expect(mockProcessor).toHaveBeenCalledTimes(1);
         const callArgs = mockProcessor.mock.calls[0];
