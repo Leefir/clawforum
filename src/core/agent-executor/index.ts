@@ -13,3 +13,4 @@ export type { AgentInput, AgentResult } from './agent-executor.js';
 // runReact shim（装配 StepExecutor + AgentExecutor 完整 React 循环）
 export { runReact } from './loop.js';
 export type { ReactOptions, ReactResult } from './loop.js';
+export { DEFAULT_MAX_STEPS } from './defaults.js';
