@@ -19,6 +19,7 @@ import { oneLine } from '../../types/utils.js';
 import type { Message } from '../../types/message.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUBAGENT_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './audit-events.js';
+import { AGENT_STREAM_EVENTS } from '../agent-executor/index.js';
 import type { StreamLog } from '../../foundation/stream/index.js';
 import { type CallerType, callerTypeToProfile } from '../../foundation/tool-protocol/index.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
@@ -176,7 +177,7 @@ export class SubAgent {
     };
 
     // Turn start: written before any potentially-throwing init so catch always pairs it
-    safeSwWrite({ ts: Date.now(), type: 'turn_start' });
+    safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_START });
     this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_START);
 
     try {
@@ -251,24 +252,24 @@ export class SubAgent {
       // Stream writer callbacks for per-task stream.jsonl
       const streamCallbacks = {
         onBeforeLLMCall: () => {
-          safeSwWrite({ ts: Date.now(), type: 'llm_start' });
+          safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.LLM_START });
         },
         onTextDelta: (delta: string) => {
-          safeSwWrite({ ts: Date.now(), type: 'text_delta', delta });
+          safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TEXT_DELTA, delta });
         },
         onThinkingDelta: (delta: string) => {
-          safeSwWrite({ ts: Date.now(), type: 'thinking_delta', delta });
+          safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.THINKING_DELTA, delta });
         },
         onTextEnd: () => {
-          safeSwWrite({ ts: Date.now(), type: 'text_end' });
+          safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TEXT_END });
         },
         onToolCall: (name: string, toolUseId: string) => {
-          safeSwWrite({ ts: Date.now(), type: 'tool_call', name, tool_use_id: toolUseId });
+          safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TOOL_CALL, name, tool_use_id: toolUseId });
         },
         onToolResult: (name: string, toolUseId: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           safeSwWrite({
             ts: Date.now(),
-            type: 'tool_result',
+            type: AGENT_STREAM_EVENTS.TOOL_RESULT,
             name,
             tool_use_id: toolUseId,
             success: result.success,
@@ -369,7 +370,7 @@ export class SubAgent {
         );
       }
 
-      safeSwWrite({ ts: Date.now(), type: 'turn_end' });
+      safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_END });
       this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_END);
       turnEnded = true;
 
@@ -381,27 +382,27 @@ export class SubAgent {
       await this.appendToLog(`=== Error: ${errMsg} ===\n`);
 
       if (error instanceof ToolTimeoutError) {
-        safeSwWrite({ ts: Date.now(), type: 'turn_interrupted', message: `Timeout after ${this.timeoutMs}ms` });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_INTERRUPTED, message: `Timeout after ${this.timeoutMs}ms` });
         this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=turn_timeout', `turn_timeout_ms=${this.timeoutMs}`);
       } else if (error instanceof IdleTimeoutSignal) {
-        safeSwWrite({ ts: Date.now(), type: 'turn_interrupted', message: `Idle timeout after ${error.timeoutMs}ms` });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_INTERRUPTED, message: `Idle timeout after ${error.timeoutMs}ms` });
         this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=idle_timeout', `idle_timeout_ms=${error.timeoutMs}`);
       } else if (error instanceof UserInterrupt) {
-        safeSwWrite({ ts: Date.now(), type: 'turn_interrupted', message: 'User interrupt' });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_INTERRUPTED, message: 'User interrupt' });
         this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=user_interrupt');
       } else if (error instanceof PriorityInboxInterrupt) {
-        safeSwWrite({ ts: Date.now(), type: 'turn_interrupted', message: 'Priority inbox' });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_INTERRUPTED, message: 'Priority inbox' });
         this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=priority_inbox');
       } else if ((error as Error)?.name === 'AbortError') {
         const cause = (error as Error & { cause?: AbortReason }).cause;
-        safeSwWrite({ ts: Date.now(), type: 'turn_interrupted', message: errMsg });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_INTERRUPTED, message: errMsg });
         this.auditWriter.write(
           REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED,
           'cause=external',
           ...(cause ? [`type=${cause.type}`] : []),
         );
       } else {
-        safeSwWrite({ ts: Date.now(), type: 'turn_error', error: errMsg });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_ERROR, error: errMsg });
         this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `error=${errMsg}`);
       }
       turnEnded = true;
@@ -416,7 +417,7 @@ export class SubAgent {
       this.signal?.removeEventListener('abort', onExternalAbort);
       // Safety net: write turn_end only if no specific turn end event was already written
       if (!turnEnded) {
-        safeSwWrite({ ts: Date.now(), type: 'turn_end' });
+        safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_END });
         this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_END);
       }
       closeSw();

@@ -25,6 +25,7 @@ import type { Watcher } from '../foundation/file-watcher/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import { MESSAGING_AUDIT_EVENTS } from '../foundation/messaging/audit-events.js';
 import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES, LOOP_INTERRUPT_CAUSES } from './audit-events.js';
+import { AGENT_STREAM_EVENTS } from '../core/agent-executor/index.js';
 import { oneLine } from '../types/utils.js';
 
 import type { Heartbeat } from '../core/runtime/index.js';
@@ -55,25 +56,25 @@ const INTERRUPT_POLL_MAX_ERRORS = 20;
 function createStreamCallbacks(sink: StreamLog): StreamCallbacks {
   return {
     onBeforeLLMCall: () => {
-      sink.write({ ts: Date.now(), type: 'llm_start' });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.LLM_START });
     },
     onThinkingDelta: (delta: string) => {
-      sink.write({ ts: Date.now(), type: 'thinking_delta', delta });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.THINKING_DELTA, delta });
     },
     onTextDelta: (delta: string) => {
-      sink.write({ ts: Date.now(), type: 'text_delta', delta });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TEXT_DELTA, delta });
     },
     onTextEnd: () => {
-      sink.write({ ts: Date.now(), type: 'text_end' });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TEXT_END });
     },
     onToolCall: (name: string, toolUseId: string) => {
-      sink.write({ ts: Date.now(), type: 'tool_call', name, tool_use_id: toolUseId });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TOOL_CALL, name, tool_use_id: toolUseId });
     },
     onToolResult: (name: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
       const summary = oneLine(result.content);
       sink.write({
         ts: Date.now(),
-        type: 'tool_result',
+        type: AGENT_STREAM_EVENTS.TOOL_RESULT,
         name,
         tool_use_id: toolUseId,
         success: result.success,
@@ -85,18 +86,18 @@ function createStreamCallbacks(sink: StreamLog): StreamCallbacks {
     onTurnStart: (sources: Array<{ text: string; type: string }>) => {
       sink.write({
         ts: Date.now(),
-        type: 'turn_start',
+        type: AGENT_STREAM_EVENTS.TURN_START,
         sources: sources.length > 0 ? sources : undefined,
       });
     },
     onTurnEnd: () => {
-      sink.write({ ts: Date.now(), type: 'turn_end' });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_END });
     },
     onTurnError: (error: string) => {
-      sink.write({ ts: Date.now(), type: 'turn_error', error });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_ERROR, error });
     },
     onTurnInterrupted: (cause: string, message?: string) => {
-      sink.write({ ts: Date.now(), type: 'turn_interrupted', cause, ...(message ? { message } : {}) });
+      sink.write({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TURN_INTERRUPTED, cause, ...(message ? { message } : {}) });
     },
     onProviderInfo: (info: { name: string; model: string; isFallback: boolean }) => {
       sink.write({ ts: Date.now(), type: 'provider_info', ...info });
