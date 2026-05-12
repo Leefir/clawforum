@@ -12,7 +12,8 @@ import { ToolError, ToolTimeoutError, isProgrammingBug } from '../../types/error
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { exec } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';
-import { CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS } from '../../constants.js';
+import { CONTRACT_SCRIPT_TIMEOUT_MS, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../constants.js';
+import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractYaml, ProgressData, AcceptanceResult } from './types.js';
 import { withProgressLock, type LockContext } from './lock.js';

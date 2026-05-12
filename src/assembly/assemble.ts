@@ -55,7 +55,8 @@ import { createMemorySystem, memorySearchTool } from '../core/memory/index.js';
 import type { MemorySystem } from '../core/memory/index.js';
 import { runContractObserver } from '../core/contract/jobs/contract-observer.js';
 import { buildLLMConfig } from '../foundation/config/index.js';
-import { DEFAULT_MAX_STEPS, DEFAULT_MAX_CONCURRENT_TASKS } from '../constants.js';
+import { DEFAULT_MAX_CONCURRENT_TASKS } from '../constants.js';
+import { DEFAULT_MAX_STEPS } from '../core/agent-executor/index.js';
 
 import type { AssembleConfig, Instances } from './index.js';
 import { createGateway } from '../core/gateway/index.js';

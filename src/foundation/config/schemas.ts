@@ -17,9 +17,9 @@ import {
   CLAW_INACTIVITY_TIMEOUT_MS,
   CRON_TICK_INTERVAL_MS,
   REACT_DEFAULT_MAX_TOKENS,
-  DEFAULT_MAX_STEPS,
   DEFAULT_MAX_CONCURRENT_TASKS,
 } from '../../constants.js';
+import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
 
 // API format code → preset id (for manual entry)
 export const FORMAT_MAP: Record<string, string> = {

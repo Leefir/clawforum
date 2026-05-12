@@ -17,10 +17,10 @@ import {
   WATCHDOG_INTERVAL_MS,
   DEFAULT_DISK_WARNING_MB,
   CLAW_INACTIVITY_TIMEOUT_MS,
-  DEFAULT_MAX_STEPS,
   DEFAULT_MAX_CONCURRENT_TASKS,
   INIT_LLM_IDLE_TIMEOUT_MS,
 } from '../../constants.js';
+import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
 import { LOGS_DIR } from '../../types/paths.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';

@@ -28,7 +28,8 @@ import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-e
 import { CLAW_SUBDIRS, DIALOG_DIR } from '../../types/paths.js';
 import { oneLine } from '../../types/utils.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_MAX_STEPS, DEFAULT_TOOL_TIMEOUT_MS } from '../../constants.js';
+import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_TOOL_TIMEOUT_MS } from '../../constants.js';
+import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { InboxReader, InboxEntry, OutboxWriter } from '../../foundation/messaging/index.js';
