@@ -5,6 +5,8 @@
 
 export { SubAgent, type SubAgentOptions } from './agent.js';
 export { NoopStreamWriter, NoopAuditWriter } from './noop-writers.js';
+export { runSubagent } from './run.js';
+export type { RunSubagentOptions, RunSubagentResult, MainContextSnapshot } from './run.js';
 
 import { SubAgent } from './agent.js';
 import type { SubAgentOptions } from './agent.js';
