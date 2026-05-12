@@ -20,6 +20,16 @@ import { InboxWriter, type InboxMessageMeta } from './inbox-writer.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { InboxListFailed, InboxMoveFailed } from './errors.js';
 
+function classifyErrno(err: unknown): 'ENOSPC' | 'EACCES' | 'EIO' | 'EMFILE' | 'ENOENT' | 'OTHER' {
+  if (err && typeof err === 'object' && 'code' in err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOSPC' || code === 'EACCES' || code === 'EIO' || code === 'EMFILE' || code === 'ENOENT') {
+      return code;
+    }
+  }
+  return 'OTHER';
+}
+
 export interface InboxEntry {
   message: InboxMessage;
   filePath: string;
@@ -59,6 +69,7 @@ export class InboxReader {
       this.audit.write(
         MESSAGING_AUDIT_EVENTS.INBOX_LIST_FAILED,
         `dir=${this.pendingDir}`,
+        `error_code=${classifyErrno(err)}`,
         `reason=${reason}`,
       );
       throw new InboxListFailed(this.pendingDir, err);
@@ -87,6 +98,7 @@ export class InboxReader {
         this.audit.write(
           MESSAGING_AUDIT_EVENTS.INBOX_FAILED,
           `file=${entry.name}`,
+          `error_code=${classifyErrno(err)}`,
           `reason=${reason}`,
         );
         try {
@@ -123,6 +135,7 @@ export class InboxReader {
         MESSAGING_AUDIT_EVENTS.INBOX_MOVE_FAILED,
         `file=${fileName}`,
         `op=done`,
+        `error_code=${classifyErrno(err)}`,
         `reason=${reason}`,
       );
       throw new InboxMoveFailed(filePath, 'done', err);
@@ -184,6 +197,7 @@ export class InboxReader {
         MESSAGING_AUDIT_EVENTS.INBOX_MOVE_FAILED,
         `file=${fileName}`,
         `op=failed`,
+        `error_code=${classifyErrno(err)}`,
         `reason=${reason}`,
       );
       throw new InboxMoveFailed(filePath, 'failed', err);
