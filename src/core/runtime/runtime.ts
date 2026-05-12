@@ -28,7 +28,7 @@ import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-e
 import { CLAW_SUBDIRS, DIALOG_DIR } from '../../types/paths.js';
 import { oneLine } from '../../types/utils.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS, DEFAULT_TOOL_TIMEOUT_MS } from '../../constants.js';
+import { DEFAULT_TOOL_TIMEOUT_MS } from '../../constants.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
@@ -473,7 +473,7 @@ export class Runtime {
         maxSteps: this.options.maxSteps,
         maxConsecutiveParseErrors: this.options.maxConsecutiveParseErrors,
         maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
-        idleTimeoutMs: this.options.idleTimeoutMs ?? DEFAULT_LLM_IDLE_TIMEOUT_MS,
+        idleTimeoutMs: this.options.idleTimeoutMs,
         onLLMResult: (info) => {
           if (info.error) {
             this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `latency_ms=${info.latencyMs}`);

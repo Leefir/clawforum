@@ -59,7 +59,7 @@ export interface RuntimeOptions {
   toolTimeoutMs?: number;
   maxConsecutiveParseErrors?: number;
   maxConsecutiveMaxTokensToolUse?: number;
-  idleTimeoutMs?: number;  // 覆盖 DEFAULT_LLM_IDLE_TIMEOUT_MS（0 = 禁用）
+  idleTimeoutMs: number;   // LLM stream idle timeout（0 = 禁用、由 config boundary resolve）
 
   dependencies: RuntimeDependencies;  // 必传（phase155B 起，字段随 phase155C 扩展）
 

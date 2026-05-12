@@ -12,7 +12,7 @@ import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { createAgentProcessManager } from '../foundation/process-manager/agent-factory.js';
 import { type Runtime, type RuntimeDependencies } from '../core/runtime/index.js';
 import { createRuntime, buildMotionSystemPrompt } from '../core/runtime/index.js';
-import { createLLMOrchestrator, type LLMOrchestrator } from '../foundation/llm-orchestrator/index.js';
+import { createLLMOrchestrator, type LLMOrchestrator, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../foundation/llm-orchestrator/index.js';
 import { createLLMAuditSink } from './llm-audit-sink.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 import { CLAWS_DIR } from '../types/paths.js';
@@ -169,7 +169,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       : (clawConfig!.max_concurrent_tasks ?? DEFAULT_MAX_CONCURRENT_TASKS);
     const toolProfile = isMotion ? 'full' : clawConfig!.tool_profile;
     const toolTimeoutMs = globalConfig.tool_timeout_ms;
-    const idleTimeoutMs = globalConfig.motion?.llm_idle_timeout_ms;
+    const idleTimeoutMs = globalConfig.motion?.llm_idle_timeout_ms ?? DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     // --- L3-L5: llm ---
     let llm: LLMOrchestrator;
