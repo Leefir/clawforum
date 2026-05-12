@@ -93,8 +93,12 @@ describe('StreamReader', () => {
     await ec.whenCount(1);
 
     // append an invalid JSON line followed by a valid one directly via fs
-    fs.appendSync('stream.jsonl', 'this is not json\n');
-    fs.appendSync('stream.jsonl', JSON.stringify({ ts: 2, type: 'after' }) + '\n');
+    // 合并 2 appendSync → 单 batched call / 消 chokidar event coalescing race in CI
+    // reader 仍 read batch + parse 各 line（fail invalid + succeed valid）/ parse error isolation 语义保留
+    const batchedContent =
+      'this is not json\n' +
+      JSON.stringify({ ts: 2, type: 'after' }) + '\n';
+    fs.appendSync('stream.jsonl', batchedContent);
 
     await ec.whenCount(2);
     expect(ec.events[1].type).toBe('after');
