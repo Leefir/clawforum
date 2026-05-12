@@ -18,7 +18,8 @@ import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
 import { createViewportObservability } from './chat-viewport-observability.js';
 import type { StreamReader } from '../../foundation/stream/index.js';
-import { LOGS_DIR, TASKS_QUEUES_RESULTS_DIR, CLAWS_DIR } from '../../types/paths.js';
+import { LOGS_DIR, CLAWS_DIR } from '../../types/paths.js';
+import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/index.js';
 
 import { writeUserChat } from './chat-viewport-utils.js';
 import { findRecentTurnStartOffset } from '../../foundation/stream/index.js';

@@ -12,7 +12,8 @@ import { ReportResultTool } from '../../foundation/tools/report-result.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
-import { TASKS_SYNC_SPAWN_DIR, TASKS_SUBAGENTS_DIR, TASKS_SYNC_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SPAWN_DIR, TASKS_SYNC_DIR } from '../../types/paths.js';
+import { TASKS_SUBAGENTS_DIR } from '../../core/async-task-system/index.js';
 import { buildSubagentSystemPromptPrefix, CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import type { VerifierConfig, VerifierResult } from './types.js';
 

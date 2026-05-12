@@ -24,12 +24,11 @@ import {
   TASKS_QUEUES_RUNNING_DIR,
   TASKS_QUEUES_DONE_DIR,
   TASKS_QUEUES_FAILED_DIR,
-  TASKS_QUEUES_RESULTS_DIR,
   TASKS_SYNC_EXEC_DIR,
   TASKS_SYNC_WRITE_DIR,
   TASKS_SYNC_SPAWN_DIR,
-  TASKS_SUBAGENTS_DIR,
 } from '../../types/paths.js';
+import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from '../../core/async-task-system/index.js';
 import type { PermissionChecker } from '../../types/permission.js';
 export type { PermissionChecker } from '../../types/permission.js';
 

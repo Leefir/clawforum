@@ -18,7 +18,7 @@ Instructions:
 
 Do NOT attempt to fix issues, execute tasks, or make assumptions about missing evidence.`;
 
-import { TASKS_SUBAGENTS_DIR } from '../types/paths.js';
+import { TASKS_SUBAGENTS_DIR } from '../core/async-task-system/index.js';
 
 /**
  * 构造 subagent 系统 prompt 的 workspace + caller context prefix
