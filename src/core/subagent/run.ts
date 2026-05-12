@@ -47,10 +47,12 @@ export interface RunSubagentOptions {
 
   // 行为参数（per phase 747 ctor required 模板）
   maxSteps: number;
-  idleTimeoutMs: number;
+  idleTimeoutMs?: number;
 
   // optional
   signal?: AbortSignal;
+  timeoutMs?: number;           // whole-task timeout（async caller 用、verifier 用 idleTimeoutMs only）
+  originClawId?: string;        // dispatch chain trace（async caller 用）
   mainDialogStore?: DialogStore;
   mainContextSnapshot?: MainContextSnapshot;
   toolsForLLM?: ToolDefinition[];
@@ -104,9 +106,11 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
       maxSteps: opts.maxSteps,
       idleTimeoutMs: opts.idleTimeoutMs,
       signal: opts.signal,
+      timeoutMs: opts.timeoutMs,
       toolsForLLM,
       callerType: opts.callerType,
       callerClawId: opts.callerClawId,
+      originClawId: opts.originClawId,
       mainDialogStore: opts.mainDialogStore,
       mainContextSnapshot: opts.mainContextSnapshot,
       onIdleTimeout: opts.onIdleTimeout,
