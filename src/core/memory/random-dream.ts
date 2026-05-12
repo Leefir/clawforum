@@ -338,12 +338,25 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   };
   saveRandomDreamState(opts.fs, updatedState, opts.audit);
 
+  const dreamOutput = outputs.join('\n\n---\n\n');
+  const dreamOutputPath = `memory/dream-outputs/${taskId}.txt`;
+
+  // NEW: disk snapshot（motion 域）
+  await opts.motionFs.ensureDir('memory/dream-outputs');
+  await opts.motionFs.writeAtomic(dreamOutputPath, dreamOutput);
+  opts.audit.write(
+    MEMORY_AUDIT_EVENTS.DREAM_OUTPUT_PERSISTED,
+    `dreamId=${taskId}`,
+    `path=${dreamOutputPath}`,
+    `bytes=${dreamOutput.length}`,
+  );
+
   // 投递到 motion inbox（motionAudit 已在调度前实例化，直接复用）
   new InboxWriter(opts.fs, path.join(opts.motionDir, 'inbox', 'pending'), motionAudit).writeSync({
     type: 'random_dream',
     source: 'cron:dream',
     priority: 'low',
-    body: outputs.join('\n\n---\n\n'),
+    body: dreamOutput,
     idPrefix: `${Date.now()}_random_dream`,
     filenameTag: 'random_dream',
     extraFields: { dream_count: String(outputs.length) },

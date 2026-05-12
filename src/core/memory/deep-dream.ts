@@ -25,6 +25,8 @@ interface DreamStateData {
 
 export interface DeepDreamOptions {
   clawforumDir: string;                  // .clawforum/ 根目录
+  motionDir?: string;                    // motion 域 / dream-outputs 归属
+  motionFs?: FileSystem;                 // baseDir = motionDir
   llmConfig: LLMOrchestratorConfig;
   llmService: LLMOrchestrator;                // ← 注入的 LLM 实例（修 N1）
   maxCompressionTokens?: number;         // 压缩上限（token 估算），默认 4000
@@ -167,7 +169,8 @@ async function maybeMergeCompressions(
 async function runDeepDreamForClaw(
   clawId: string,
   clawDir: string,
-  clawFs: FileSystem,           // NEW
+  clawFs: FileSystem,
+  motionFs: FileSystem | undefined,
   llm: LLMOrchestrator,
   maxCompressionTokens: number,
   audit: AuditLog,
@@ -270,13 +273,29 @@ async function runDeepDreamForClaw(
 
   if (dreamOutputs.length === 0) return;
 
+  const dreamOutput = dreamOutputs.join('\n\n---\n\n');
+
+  // NEW: disk snapshot（motion 域）
+  if (motionFs) {
+    const dreamId = `${Date.now()}_${clawId}`;
+    const dreamOutputPath = `memory/dream-outputs/${dreamId}.txt`;
+    await motionFs.ensureDir('memory/dream-outputs');
+    await motionFs.writeAtomic(dreamOutputPath, dreamOutput);
+    audit.write(
+      MEMORY_AUDIT_EVENTS.DREAM_OUTPUT_PERSISTED,
+      `dreamId=${dreamId}`,
+      `path=${dreamOutputPath}`,
+      `bytes=${dreamOutput.length}`,
+    );
+  }
+
   // 投递到 claw inbox
   const clawAudit = createSystemAudit(clawFs, clawDir);
   new InboxWriter(clawFs, path.join('inbox', 'pending'), clawAudit).writeSync({
     type: 'deep_dream',
     source: 'cron:dream',
     priority: 'low',
-    body: dreamOutputs.join('\n\n---\n\n'),
+    body: dreamOutput,
     idPrefix: `${Date.now()}_deep_dream`,
     filenameTag: 'deep_dream',
     extraFields: { session_count: String(dreamOutputs.length) },
@@ -304,7 +323,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
     const clawDir = path.join(opts.clawforumDir, CLAWS_DIR, clawId);
     try {
       const clawFs = opts.clawFsFactory(clawDir);
-      await runDeepDreamForClaw(clawId, clawDir, clawFs, llm, maxCompressionTokens, opts.audit);
+      await runDeepDreamForClaw(clawId, clawDir, clawFs, opts.motionFs, llm, maxCompressionTokens, opts.audit);
     } catch (err) {
       opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR, `step=unexpected`, `clawId=${clawId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
       console.error(`[cron:deep-dream] ${clawId}: unexpected error:`, err);

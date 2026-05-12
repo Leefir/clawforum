@@ -26,6 +26,8 @@ export class MemorySystem {
   async runDeepDream(maxCompressionTokens?: number): Promise<void> {
     return runDeepDream({
       clawforumDir: this.opts.clawforumDir,
+      motionDir: this.opts.motionDir,
+      motionFs: this.opts.motionFs,
       llmConfig: this.opts.llmConfig,
       llmService: this.opts.llmService,   // 传入注入的 LLM
       maxCompressionTokens: maxCompressionTokens ?? this.opts.maxCompressionTokens,
