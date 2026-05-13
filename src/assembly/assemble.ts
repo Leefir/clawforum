@@ -19,7 +19,7 @@ import { CLAWS_DIR } from '../types/paths.js';
 import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index.js';
 import { createToolExecutor } from '../foundation/tools/index.js';
 import type { IToolExecutor } from '../foundation/tools/index.js';
-import { writePendingToolTaskFile } from '../core/async-task-system/tools/_pending-tool-task-writer.js';
+import { writePendingToolTaskFile } from '../core/async-task-system/index.js';
 import { createSkillSystem, SkillSystem } from '../foundation/skill-system/index.js';
 import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/skill-paths.js';
 import { ContractSystem, createContractSystem } from '../core/contract/index.js';

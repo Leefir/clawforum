@@ -4,12 +4,12 @@
  *
  * 内化 A.3+A.4+A.5（phase364）：
  * - buildRetroPrompt（A.3 / from prompts/retrospective）
- * - writePendingSubagentTaskFile（A.4 / from task/tools/_pending-task-writer）
+ * - writePendingSubagentTaskFile（A.4 / from async-task-system 公开 API / phase 763 升级）
  * - createSkillSystem（A.5 / from core/skill）
  */
 
 import { buildRetroPrompt } from '../../prompts/retrospective.js';
-import { writePendingSubagentTaskFile } from '../async-task-system/tools/_pending-task-writer.js';
+import { writePendingSubagentTaskFile } from '../async-task-system/index.js';
 import { createSkillSystem } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from './dispatch-skills-paths.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
