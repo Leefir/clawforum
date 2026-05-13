@@ -42,7 +42,7 @@ export type {
  */
 export class ToolExecutorImpl implements IToolExecutor {
   constructor(
-    private registry: ToolRegistry,
+    protected registry: ToolRegistry,
     private defaultTimeoutMs = 60000,
     private scheduleAsyncTool?: ScheduleAsyncTool,
   ) {}
@@ -358,6 +358,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       auditWriter: this.auditWriter,
       mainDialogStore: this.mainDialogStore,
       mainContextSnapshot: this.mainContextSnapshot,
+      registry: this.registry,
     });
   }
 }

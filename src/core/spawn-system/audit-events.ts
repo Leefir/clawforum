@@ -6,4 +6,8 @@
  * 该 const 仍归 async-task-system own / spawn-system 不重复定义。
  */
 
-export const SPAWN_AUDIT_EVENTS = {} as const;
+export const SPAWN_AUDIT_EVENTS = {
+  SYNC_STARTED: 'spawn_sync_started',
+  SYNC_FINISHED: 'spawn_sync_finished',
+  SYNC_FAILED: 'spawn_sync_failed',
+} as const;

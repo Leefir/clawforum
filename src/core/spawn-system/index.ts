@@ -10,3 +10,5 @@
 
 export { spawnTool, SPAWN_TOOL_NAME } from './tools/spawn.js';
 export { SPAWN_AUDIT_EVENTS } from './audit-events.js';
+export { runSpawnSync } from './system.js';
+export type { RunSpawnSyncOptions } from './system.js';

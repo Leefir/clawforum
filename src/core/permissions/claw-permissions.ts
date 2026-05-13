@@ -6,7 +6,7 @@
  * - System space (read-only): AGENTS.md, dialog/, config.yaml, .clawforum/, system/
  * - Claw writable space: MEMORY.md, memory/, USER.md, IDENTITY.md, SOUL.md,
  *   clawspace/, prompts/, skills/, inbox/, outbox/, tasks/queues/{pending,running,done,failed}, logs/
- * - Claw readable space: + contract/, tasks/queues/results/, tasks/sync/subagent/, tasks/subagents/
+ * - Claw readable space: + contract/, tasks/queues/results/, tasks/sync/subagent/, tasks/sync/spawn/, tasks/subagents/
  * - Outside clawDir: denied (PathNotInClawSpaceError)
  *
  * Phase430: PermissionChecker interface + createClawPermissionChecker 完全归 L4。
@@ -27,6 +27,7 @@ import {
   TASKS_SYNC_EXEC_DIR,
   TASKS_SYNC_WRITE_DIR,
   TASKS_SYNC_SUBAGENT_DIR,
+  TASKS_SYNC_SPAWN_DIR,
 } from '../../types/paths.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from '../../core/async-task-system/index.js';
 import type { PermissionChecker } from '../../types/permission.js';
@@ -67,6 +68,7 @@ const WRITABLE_PATHS = [
   TASKS_SYNC_EXEC_DIR,             // phase 536 / sync exec scratch
   TASKS_SYNC_WRITE_DIR,            // phase 536 / sync write scratch
   TASKS_SYNC_SUBAGENT_DIR,         // phase 536 + 764 / sync L4 直调 L3 lifecycle
+  TASKS_SYNC_SPAWN_DIR,            // phase 766 spawn 工具自身 sync 路径
   'logs',
 ];
 

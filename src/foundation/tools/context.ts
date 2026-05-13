@@ -20,6 +20,7 @@ import type { Message } from '../../types/message.js';
 import type { AuditLog } from '../audit/index.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
 import type { DialogStore } from '../dialog-store/index.js';
+import type { ToolRegistry } from './types.js';
 
 /**
  * Options for creating execution context
@@ -78,6 +79,10 @@ export interface ExecContextImplOptions {
   currentToolUseId?: string;
   /** Session-scoped fully-read paths（read 未截断时 add / overwrite gate / phase 487 G6） */
   fullyReadPaths?: Set<string>;
+  /** Tool registry reference for sync spawn path (phase 766) */
+  registry?: ToolRegistry;
+  /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
+  isShadow?: boolean;
 }
 
 /**
@@ -124,6 +129,8 @@ export class ExecContextImpl implements ExecContext {
   mainContextSnapshot?: { clawId: string; toolUseId: string };
   currentToolUseId?: string;
   fullyReadPaths: Set<string>;
+  registry?: ToolRegistry;
+  isShadow?: boolean;
   
   private startTime: number;
 
@@ -147,6 +154,8 @@ export class ExecContextImpl implements ExecContext {
     this.mainContextSnapshot = options.mainContextSnapshot;
     this.currentToolUseId = options.currentToolUseId;
     this.fullyReadPaths = options.fullyReadPaths ?? new Set();
+    this.registry = options.registry;
+    this.isShadow = options.isShadow;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

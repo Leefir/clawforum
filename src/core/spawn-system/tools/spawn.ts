@@ -9,6 +9,7 @@ import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-pro
 
 import { SPAWN_DEFAULT_TIMEOUT_S } from '../../../constants.js';
 import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
+import { runSpawnSync } from '../system.js';
 
 /**
  * Spawn tool implementation
@@ -22,7 +23,9 @@ export { SPAWN_TOOL_NAME };
 
 export const spawnTool: Tool = {
   name: SPAWN_TOOL_NAME,
-  description: 'Create a subagent to handle a delegated task. The subagent will execute independently and return results via inbox when complete.',
+  description: 'Create a subagent to handle a delegated task. ' +
+    'By default the subagent executes asynchronously and results arrive via inbox. ' +
+    'Set async=false for synchronous execution that blocks until the subagent completes and returns the result inline.',
   schema: {
     type: 'object',
     properties: {
@@ -38,6 +41,10 @@ export const spawnTool: Tool = {
         type: 'number',
         description: 'Maximum number of ReAct steps the subagent can take (default: 100). Increase for complex multi-file tasks; decrease for simple lookups.',
       },
+      async: {
+        type: 'boolean',
+        description: 'true (default): async execution, returns immediately, result via inbox. false: sync execution, blocks until result is available inline.',
+      },
     },
     required: ['intent'],
   },
@@ -50,36 +57,46 @@ export const spawnTool: Tool = {
     const maxSteps = typeof args.maxSteps === 'number'
       ? args.maxSteps
       : (ctx.subagentMaxSteps ?? ctx.maxSteps);
+    const asyncMode = args.async === undefined ? true : Boolean(args.async);
 
-    // 装配 mainContextSnapshot from ctx.currentToolUseId
-    const mainContextSnapshot = ctx.clawId && ctx.currentToolUseId
-      ? { clawId: ctx.clawId, toolUseId: ctx.currentToolUseId }
-      : undefined;
-
-    try {
-      const taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
-        kind: 'subagent',
-        intent,
-        timeoutMs,
-        maxSteps,
-        parentClawId: ctx.clawId,
-        originClawId: ctx.originClawId ?? ctx.clawId,
-        callerType: 'subagent',
-        mainContextSnapshot,
-      });
-
-      return {
-        success: true,
-        content: `Subagent created. Task ID: ${taskId}. Results will be delivered to inbox when complete.`,
-        metadata: { taskId },
-      };
-    } catch (error) {
-      const errorMsg = formatErr(error);
+    // shadow 防御（per shadow D6 A ratify）
+    if (ctx.isShadow && asyncMode) {
       return {
         success: false,
-        content: `Failed to create subagent: ${errorMsg}`,
-        error: errorMsg,
+        content: 'spawn from within shadow must use async=false. shadow has no async machinery — async-scheduled tasks would orphan to main inbox after shadow exits, unreachable from within shadow.',
+        error: 'shadow_async_spawn_rejected',
       };
     }
+
+    if (asyncMode) {
+      // 既有 async 路径，0 改
+      const mainContextSnapshot = ctx.clawId && ctx.currentToolUseId
+        ? { clawId: ctx.clawId, toolUseId: ctx.currentToolUseId }
+        : undefined;
+      try {
+        const taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
+          kind: 'subagent',
+          intent,
+          timeoutMs,
+          maxSteps,
+          parentClawId: ctx.clawId,
+          originClawId: ctx.originClawId ?? ctx.clawId,
+          callerType: 'subagent',
+          mainContextSnapshot,
+        });
+
+        return {
+          success: true,
+          content: `Subagent created. Task ID: ${taskId}. Results will be delivered to inbox when complete.`,
+          metadata: { taskId },
+        };
+      } catch (error) {
+        const errorMsg = formatErr(error);
+        return { success: false, content: `Failed to create subagent: ${errorMsg}`, error: errorMsg };
+      }
+    }
+
+    // NEW sync 路径
+    return runSpawnSync({ intent, timeoutMs, maxSteps, ctx });
   },
 };

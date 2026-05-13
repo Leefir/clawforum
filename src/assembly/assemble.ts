@@ -332,6 +332,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     // send 注册：phase440 后 send 业务归 Messaging / 不再经 registerBuiltinTools / Assembly 显式注册
     toolRegistry.register(createSendTool(outboxWriter));
 
+    // phase 766: inject registry into execContext for sync spawn path
+    (execContext as { registry?: unknown }).registry = toolRegistry;
+
     // --- L3-L5: toolExecutor ---
     let toolExecutor: IToolExecutor;
     try {

@@ -15,6 +15,7 @@ import type { Message } from '../../types/message.js';
 import type { CallerType } from './caller-type.js';
 import type { AuditLog } from '../audit/index.js';
 import type { DialogStore } from '../dialog-store/index.js';
+import type { ToolRegistry } from '../tools/types.js';
 
 export type { JSONSchema7, ToolProfile, CallerType };
 export { callerTypeToProfile } from './caller-type.js';
@@ -74,6 +75,10 @@ export interface ExecContext {
   currentToolUseId?: string;
   /** Session-scoped fully-read paths（read 未截断时 add / overwrite gate / phase 487 G6） */
   fullyReadPaths: Set<string>;
+  /** Tool registry reference for sync spawn path (phase 766) */
+  registry?: ToolRegistry;
+  /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
+  isShadow?: boolean;
 }
 
 /**
