@@ -10,7 +10,7 @@ import { handleCliError, CliError } from '../errors.js';
 import type { Message, ContentBlock, TextBlock, ToolUseBlock, ToolResultBlock, ThinkingBlock } from '../../types/message.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from '../../core/async-task-system/dirs.js';
-import { TASKS_SYNC_SPAWN_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../../types/paths.js';
 
 // ─── Turn model ──────────────────────────────────────────────
 
@@ -273,7 +273,7 @@ function resolveResultDir(clawDir: string, id: string): string {
   if (fs.existsSync(asyncDir)) return asyncDir;
 
   // Try sync path (verifier)
-  const syncDir = path.join(clawDir, TASKS_SYNC_SPAWN_DIR, id);
+  const syncDir = path.join(clawDir, TASKS_SYNC_SUBAGENT_DIR, id);
   if (fs.existsSync(syncDir)) return syncDir;
 
   // Try tasks/subagents (legacy / fallback)

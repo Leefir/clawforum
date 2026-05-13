@@ -48,8 +48,8 @@ export const TASKS_QUEUES_FAILED_DIR = 'tasks/queues/failed';
 export const TASKS_SYNC_EXEC_DIR = 'tasks/sync/exec';
 /** tasks/sync/write — file_backup scratch（FileTool own subdir / phase 511 加）*/
 export const TASKS_SYNC_WRITE_DIR = 'tasks/sync/write';
-/** tasks/sync/spawn — sync subagent lifecycle（sync caller own subdir / phase 511 加）*/
-export const TASKS_SYNC_SPAWN_DIR = 'tasks/sync/spawn';
+/** tasks/sync/subagent — 通用 sync L4 直调 L3 SubAgent dir（phase 511 立、phase 764 rename）/ verifier-job + 未来 memory sync / agent-facing 工具不入此 dir（spawn/shadow 各自 dir） */
+export const TASKS_SYNC_SUBAGENT_DIR = 'tasks/sync/subagent';
 
 /** tasks/sync — sync 根目录（phase 536 / 替代硬编码 'tasks/sync'）*/
 export const TASKS_SYNC_DIR = 'tasks/sync';
@@ -83,7 +83,7 @@ export const CLAW_SUBDIRS = [
   'tasks/queues/results',
   TASKS_SYNC_EXEC_DIR,
   TASKS_SYNC_WRITE_DIR,
-  TASKS_SYNC_SPAWN_DIR,
+  TASKS_SYNC_SUBAGENT_DIR,
   'tasks/subagents',
   'memory',                    // 不抽 const / 字面量保留 / B.p380-1 信号登记
   'contract',                  // CONTRACT_DIR phase 746 物理迁 src/core/contract/dirs.ts

@@ -10,7 +10,7 @@ import { runSubagent } from '../subagent/index.js';
 import { ReportResultTool } from '../../foundation/tools/report-result.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { ToolTimeoutError } from '../../types/errors.js';
-import { TASKS_SYNC_SPAWN_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../../types/paths.js';
 import { buildSubagentSystemPromptPrefix, CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import type { VerifierConfig, VerifierResult } from './types.js';
 
@@ -44,7 +44,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       registry,
       prompt: config.prompt,
       systemPrompt: `${promptPrefix}\n\n${CONTRACT_VERIFIER_SYSTEM_PROMPT}`,
-      resultDir: `${TASKS_SYNC_SPAWN_DIR}/${config.agentId}`,
+      resultDir: `${TASKS_SYNC_SUBAGENT_DIR}/${config.agentId}`,
       maxSteps: config.maxSteps,
       idleTimeoutMs: config.idleTimeoutMs,
       onIdleTimeout: config.onIdleTimeout,

@@ -42,7 +42,7 @@ export interface RunSubagentOptions {
   prompt: string;
   systemPrompt: string;
 
-  // 持久化位置（caller own resource path、如 'tasks/sync/spawn/<id>'）
+  // 持久化位置（caller own resource path、如 'tasks/sync/subagent/<id>'）
   resultDir: string;
 
   // 行为参数（per phase 747 ctor required 模板）

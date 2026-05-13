@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getClawDir, getMotionDir } from '../../foundation/config/paths.js';
 import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/dirs.js';
-import { TASKS_SYNC_SPAWN_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../../types/paths.js';
 
 export type SubagentKind = 'dispatch' | 'spawn' | 'verifier' | 'random_dream' | 'cron';
 export type SubagentStatus = 'completed' | 'running' | 'failed';
@@ -160,8 +160,8 @@ export function scanSubagentResults(clawDir: string): SubagentEntry[] {
     }
   }
 
-  // Scan sync path: tasks/sync/spawn/<agentId>/
-  const syncDir = path.join(clawDir, TASKS_SYNC_SPAWN_DIR);
+  // Scan sync path: tasks/sync/subagent/<agentId>/
+  const syncDir = path.join(clawDir, TASKS_SYNC_SUBAGENT_DIR);
   if (fs.existsSync(syncDir)) {
     const ids = fs.readdirSync(syncDir);
     for (const id of ids) {
