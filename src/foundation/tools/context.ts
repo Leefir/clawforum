@@ -106,6 +106,15 @@ export function cloneExecContext(
   const proto = Object.getPrototypeOf(ctx) ?? Object.prototype;
   const clone = Object.create(proto);
   Object.assign(clone, ctx, overrides);
+  // phase 778: stopRequested 加 requestStop 委托回 parent ctx。
+  // 否则 Object.assign 复制 primitive false 到 clone / mutator 写 clone storage /
+  // runAgent 读原 ctx 仍 false / loop 不退。
+  Object.defineProperty(clone, 'stopRequested', {
+    get() { return ctx.stopRequested; },
+    set(v) { (ctx as { stopRequested: boolean }).stopRequested = v; },
+    configurable: true,
+  });
+  clone.requestStop = () => ctx.requestStop();
   return clone;
 }
 
