@@ -18,7 +18,7 @@ export { READ_TOOL_NAME };
 
 export const readTool: Tool = {
   name: READ_TOOL_NAME,
-  description: 'Read a file. Default base: agent workspace dir (clawspace/ for main / tasks/subagents/<id>/ for subagent). Use cwd: "<rel|abs>" to override (e.g., cwd: ".." for claw root files like MEMORY.md, cwd: "memory" for memory/ subdir). Use claw: "<id>" for cross-claw read.',
+  description: 'Read a file in your agent workspace. Path is relative to your workspace root — do NOT prefix with "clawspace/". Use cwd: ".." to access files in your claw root (e.g., MEMORY.md). Use cwd: "memory" for subdirs. Use claw: "<id>" for cross-claw read (Motion only).',
   schema: {
     type: 'object',
     properties: {
@@ -28,7 +28,7 @@ export const readTool: Tool = {
       },
       cwd: {
         type: 'string',
-        description: 'Override base for path resolution (relative to claw root, or absolute). Default: agent workspace dir (clawspace/ for main / tasks/subagents/<id>/ for subagent). Use cwd: ".." to access claw root files like MEMORY.md.',
+        description: 'Override base for path resolution (relative to claw root, or absolute). Default: your workspace root. Use cwd: ".." to access claw root files like MEMORY.md.',
       },
       offset: {
         type: 'number',

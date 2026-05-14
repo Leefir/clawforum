@@ -226,6 +226,9 @@ export const searchTool: Tool = {
         entries = await ctx.fs.list(baseDir, { recursive: true, includeDirs: false });
       }
 
+      // workspace dir relative to clawDir, e.g. "clawspace" for main, "tasks/subagents/<id>" for subagent
+      const workspaceClawDirRel = nodePath.relative(ctx.clawDir, ctx.workspaceDir);
+
       for (const entry of entries) {
         if (results.length >= maxResults) break;
 
@@ -233,12 +236,16 @@ export const searchTool: Tool = {
           let content: string;
           content = await ctx.fs.read(entry.path);
           const lines = content.split('\n');
+          // entry.path is clawDir-relative; display converts to workspace-relative for same-claw scenario
+          const displayPath = entry.path.startsWith(workspaceClawDirRel + nodePath.sep)
+            ? entry.path.slice(workspaceClawDirRel.length + 1)
+            : entry.path;
 
           for (let i = 0; i < lines.length; i++) {
             if (results.length >= maxResults) break;
 
             if (lines[i].toLowerCase().includes(query)) {
-              results.push(`${entry.path}:${i + 1}: ${lines[i].trim()}`);
+              results.push(`${displayPath}:${i + 1}: ${lines[i].trim()}`);
             }
           }
         } catch {

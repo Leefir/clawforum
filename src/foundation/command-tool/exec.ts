@@ -55,17 +55,17 @@ export { EXEC_TOOL_NAME };
 
 export const execTool: Tool = {
   name: EXEC_TOOL_NAME,
-  description: 'Execute a shell command in the agent workspace directory (clawspace/ for main agent, tasks/subagents/<task-id>/ for subagent). Runs via `sh -c`, so shell features (pipes, redirects, quotes) work normally.',
+  description: 'Execute a shell command in your agent workspace. Runs via `sh -c`, so shell features (pipes, redirects, quotes) work normally. Relative paths resolve against your workspace root.',
   schema: {
     type: 'object',
     properties: {
       command: {
         type: 'string',
-        description: 'Shell command string to execute, e.g. "ls -la" or "grep -r foo ./clawspace | head -20"',
+        description: 'Shell command string to execute, e.g. "ls -la" or "grep -r foo . | head -20"',
       },
       cwd: {
         type: 'string',
-        description: 'Working directory (relative path resolved against claw root, or absolute). Default: agent workspace dir (clawspace/ or tasks/subagents/<task-id>/).',
+        description: 'Working directory (relative path resolved against claw root, or absolute). Default: your workspace root.',
       },
       timeoutMs: {
         type: 'number',
