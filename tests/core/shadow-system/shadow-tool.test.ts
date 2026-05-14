@@ -24,6 +24,7 @@ import { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
 import type { DialogStore } from '../../../src/foundation/dialog-store/index.js';
 import { SHADOW_AUDIT_EVENTS } from '../../../src/core/shadow-system/audit-events.js';
+import { DONE_TOOL_NAME } from '../../../src/foundation/tools/tool-names.js';
 
 const { mockRunSubagent } = vi.hoisted(() => ({
   mockRunSubagent: vi.fn(),
@@ -323,6 +324,34 @@ describe('shadow tool (phase 767)', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('shadow_dispatch_rejected');
       expect(result.content).toContain('not callable from within shadow');
+    });
+  });
+
+  describe('done capturedResult isolation (phase 780)', () => {
+    it('uses fresh done instance, isolated from main registry capturedResult', async () => {
+      // 1. pre-set main registry done with stale capturedResult
+      const mainDone = baseCtx.registry?.get(DONE_TOOL_NAME) as { capturedResult?: { result: string } } | undefined;
+      if (!mainDone) throw new Error('test setup: main registry should have done tool');
+      mainDone.capturedResult = { result: 'STALE_RESULT_FROM_PREVIOUS_SHADOW' };
+
+      // 2. mock runSubagent to not write capturedResult (simulates LLM not calling done)
+      mockRunSubagent.mockResolvedValue({ text: 'fresh shadow text result' });
+
+      // 3. run shadow; internal shadowRegistry should have fresh done, not read main stale
+      const result = await shadowTool.execute({ task: 'isolation test' }, baseCtx);
+
+      // 4. assert text fallback, not stale result
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('fresh shadow text result');
+      expect(result.content).not.toContain('STALE_RESULT_FROM_PREVIOUS_SHADOW');
+      expect(result.metadata?.source).toBe('text');
+
+      // 5. assert runSubagent received shadowRegistry with done as fresh instance
+      const callArgs = mockRunSubagent.mock.calls[0][0];
+      const shadowDone = callArgs.registry.get(DONE_TOOL_NAME);
+      expect(shadowDone).toBeDefined();
+      expect(shadowDone).not.toBe(mainDone); // fresh instance !== main instance
+      expect((shadowDone as { capturedResult?: unknown }).capturedResult).toBeUndefined(); // fresh, no stale state
     });
   });
 });

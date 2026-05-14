@@ -16,6 +16,7 @@ import { SHADOW_AUDIT_EVENTS } from './audit-events.js';
 import { synthesizeFormB, formatErr } from './_helpers.js';
 import type { BuildShadowInstructionArgs } from '../../prompts/shadow.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
+import { createDoneTool, DONE_TOOL_NAME } from '../subagent/index.js';
 
 export interface RunShadowOptions {
   task: string;
@@ -105,8 +106,10 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
 
     const shadowRegistry = createToolRegistry();
     for (const tool of opts.ctx.registry.getForProfile('full')) {
+      if (tool.name === DONE_TOOL_NAME) continue; // skip main shared done instance to avoid capturedResult state leak
       shadowRegistry.register(tool);
     }
+    shadowRegistry.register(createDoneTool()); // fresh done instance per shadow run (mirror verifier-job pattern)
 
     const { text, capturedResult } = await runSubagent({
       agentId: shadowId,
