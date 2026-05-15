@@ -54,7 +54,7 @@ dispatch: {
 
 读写文件优先用 `read` / `write` 工具，比 `exec` 更安全：
 
-- `write`：自动备份到 `.versions/`，有大小限制保护
+- `write`：自动备份到 `tasks/sync/write/`（turn-scoped，Snapshot commit 后清），有大小限制保护
 - `read`：路径白名单 + 行数/字符上限，防止超大文件灌满上下文
 - `exec` 用于 CLI 命令、shell 脚本、进程管理
 
