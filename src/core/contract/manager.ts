@@ -46,7 +46,7 @@ import { loadActiveContract, loadPausedContract, type DiscoveryContext } from '.
 import {
   loadContractYaml as loadYaml, readContractYamlRaw as readYaml,
   loadContract as loadCt, saveProgress as saveProg,
-  updateContractStatus as updateStatus, checkAllSubtasksCompleted,
+  checkAllSubtasksCompleted,
   type PersistenceContext,
 } from './persistence.js';
 import { runContractVerifier } from './verifier-job.js';
@@ -181,7 +181,6 @@ export class ContractSystem {
       loadContractYaml: (id) => this.loadContractYaml(id),
       getProgress: (id) => this.getProgress(id),
       saveProgress: (id, p) => this.saveProgress(id, p),
-      updateContractStatus: (id, s) => this.updateContractStatus(id, s),
       checkAllSubtasksCompleted: (id, p) => this.checkAllCompleted(id, p),
       moveContractToArchive: (id) => this.moveToArchive(id),
       emitContractCompleted: (id) => this._emitContractCompleted(id),
@@ -427,10 +426,6 @@ export class ContractSystem {
 
   private async saveProgress(contractId: string, progress: ProgressData): Promise<void> {
     return saveProg(this._persistenceCtx(), contractId, progress);
-  }
-
-  private async updateContractStatus(contractId: string, status: ContractStatus): Promise<void> {
-    return updateStatus(this._persistenceCtx(), contractId, status);
   }
 
   private async checkAllCompleted(contractId: string, progress: ProgressData): Promise<boolean> {

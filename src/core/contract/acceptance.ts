@@ -144,6 +144,20 @@ async function applyAcceptanceOutcome(
 ): Promise<{ allCompleted: boolean; passed: boolean } | null> {
   return ctx.withProgressLock(contractId, async () => {
     const progress = await ctx.getProgress(contractId);
+
+    // phase 791 (P0.18): cancellation guard
+    // cancel 后 async pipeline 完成时不该覆盖 cancelled status
+    if (progress.status === 'cancelled') {
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED,
+        contractId,
+        `subtaskId=${subtaskId}`,
+        `context=applyAcceptanceOutcome`,
+        `message=contract already cancelled, skip acceptance outcome write`,
+      );
+      return null;
+    }
+
     const subtask = progress.subtasks[subtaskId];
     if (!subtask) {
       ctx.audit.write(
@@ -173,7 +187,7 @@ async function applyAcceptanceOutcome(
       const allCompleted = await ctx.checkAllSubtasksCompleted(contractId, progress);
       if (allCompleted) {
         progress.status = 'completed';
-        await ctx.updateContractStatus(contractId, 'completed');
+        // phase 791 (P0.17): COMPLETED audit single-source via archiveAndEmit, not here
       }
       await ctx.saveProgress(contractId, progress);
       writeAcceptanceInbox(ctx, contractId, subtaskId, 'passed', allCompleted);
@@ -243,7 +257,6 @@ export interface AcceptanceContext extends LockContext {
   loadContractYaml: (contractId: string) => Promise<ContractYaml>;
   getProgress: (contractId: string) => Promise<ProgressData>;
   saveProgress: (contractId: string, progress: ProgressData) => Promise<void>;
-  updateContractStatus: (contractId: string, status: 'completed') => Promise<void>;
   checkAllSubtasksCompleted: (contractId: string, progress: ProgressData) => Promise<boolean>;
   moveContractToArchive: (contractId: string) => Promise<void>;
   emitContractCompleted: (contractId: string) => Promise<void>;
@@ -276,6 +289,19 @@ export async function completeSubtaskSync(
 
   await ctx.withProgressLock(contractId, async () => {
     const progress = await ctx.getProgress(contractId);
+
+    // phase 791 (P0.18): cancellation guard
+    if (progress.status === 'cancelled') {
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.ACCEPTANCE_RESET_FAILED,
+        contractId,
+        `subtaskId=${subtaskId}`,
+        `context=completeSubtaskSync`,
+        `message=contract already cancelled, skip subtask completion write`,
+      );
+      return;
+    }
+
     if (!progress.subtasks[subtaskId]) {
       result = { passed: false, feedback: `Unknown subtask "${subtaskId}". Valid subtask IDs: ${formatValidIds(progress)}` };
       ctx.audit.write(CONTRACT_AUDIT_EVENTS.PROGRESS_CORRUPTED, `context=ContractSystem._completeSubtaskSync`, `contractId=${contractId}`, `subtaskId=${subtaskId}`, `message=Unknown subtaskId`);
@@ -322,7 +348,7 @@ export async function completeSubtaskSync(
     allCompleted = await ctx.checkAllSubtasksCompleted(contractId, progress);
     if (allCompleted) {
       progress.status = 'completed';
-      await ctx.updateContractStatus(contractId, 'completed');
+      // phase 791 (P0.17): COMPLETED audit single-source via archiveAndEmit, not here
     }
 
     await ctx.saveProgress(contractId, progress);

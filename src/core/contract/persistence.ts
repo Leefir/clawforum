@@ -92,15 +92,9 @@ export async function saveProgress(
   await ctx.fs.writeAtomic(progressPath, JSON.stringify(progress, null, 2));
 }
 
-export async function updateContractStatus(
-  ctx: PersistenceContext,
-  contractId: string,
-  status: ContractStatus,
-): Promise<void> {
-  if (status === 'completed') {
-    ctx.audit.write(CONTRACT_AUDIT_EVENTS.COMPLETED, contractId);
-  }
-}
+// phase 791 (P0.17): updateContractStatus deleted.
+// Function promised persistence but only wrote audit; naming illusion violated M#11.
+// COMPLETED audit single-source via archiveAndEmit (acceptance.ts:75).
 
 export async function checkAllSubtasksCompleted(
   ctx: PersistenceContext,
