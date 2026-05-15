@@ -17,10 +17,10 @@ export async function disassemble(instances: Instances, signal: string): Promise
     }
   }
 
-  // Step 2: cronRunner?.stop()（sync；motion + cron.enabled 才装）
+  // Step 2: cronRunner?.stop()（phase 793: async with drain；motion + cron.enabled 才装）
   if (cronRunner) {
     try {
-      cronRunner.stop();
+      await cronRunner.stop();
     } catch (e) {
       auditWriter.write(
         ASSEMBLY_AUDIT_EVENTS.DISASSEMBLE_STEP_FAILED,

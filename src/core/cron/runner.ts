@@ -43,6 +43,9 @@ export class CronRunner {
   private running = new Set<string>();            // 防止同一 job 重叠执行
   private cancelling = new Set<string>();         // timeout 已发但 handler 真 settle 前的二态
   private cancellingTicks = new Map<string, number>(); // job → tick 计数（cancelling 期间）
+  // phase 793 (audit-2026-05-14 P0.22): inflight Promise tracking 加 stop 时 drain
+  // 防 cronRunner.stop 后 dream-trigger 30min handler 撞 runtime.stop 的 llm.close
+  private inflightPromises = new Set<Promise<unknown>>();
 
   constructor(
     private readonly jobs: CronJob[],
@@ -56,12 +59,31 @@ export class CronRunner {
     this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STARTED, `jobs=${this.jobs.length}`);
   }
 
-  stop(): void {
+  // phase 793: sync → async + drain inflight handlers with cap timeout 30s
+  // mirror runtime.stop 的 taskSystem.shutdown(30_000) cap 一致
+  async stop(drainTimeoutMs = 30_000): Promise<void> {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
-      this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STOPPED, `jobs=${this.jobs.length}`);
     }
+
+    // drain inflight handlers
+    if (this.inflightPromises.size > 0) {
+      const drainPromise = Promise.allSettled([...this.inflightPromises]);
+      const timeoutPromise = new Promise<'timeout'>(resolve =>
+        setTimeout(() => resolve('timeout'), drainTimeoutMs)
+      );
+      const winner = await Promise.race([drainPromise, timeoutPromise]);
+      if (winner === 'timeout') {
+        this.audit.write(
+          CRON_AUDIT_EVENTS.RUNNER_DRAIN_TIMEOUT,
+          `running=${[...this.running].join(',')}`,
+          `timeout_ms=${drainTimeoutMs}`,
+        );
+      }
+    }
+
+    this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STOPPED, `jobs=${this.jobs.length}`);
   }
 
   /** 供测试用：手动触发一次检查 */
@@ -97,6 +119,13 @@ export class CronRunner {
       } catch (syncErr) {
         handlerPromise = Promise.reject(syncErr);
       }
+
+      // phase 793 (P0.22): track inflight for stop drain
+      this.inflightPromises.add(handlerPromise);
+      handlerPromise.then(
+        () => { this.inflightPromises.delete(handlerPromise); },
+        () => { this.inflightPromises.delete(handlerPromise); },
+      );
 
       if (job.timeoutMs === undefined) {
         // 无 timeout 配置：保持原行为（兼容旧 job）

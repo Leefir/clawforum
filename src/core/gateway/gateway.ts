@@ -53,10 +53,14 @@ export function createGateway(input: GatewayInput): Gateway {
   let lastInterruptTs = 0;
   let debouncedAuditedInWindow = false;
   let started = false;
+  let transportOpen = true;   // phase 793 (P0.21): transport.close 后 set false，防 broadcast 写到 closed transport
   let askCounter = 0;
 
   const broadcast = (msg: ServerMessage): void => {
-    if (!transport) return;
+    // phase 793 (audit-2026-05-14 P0.21): transport closed → silent return
+    // stop 期间 internal cancel/dropConnection 仍可调（transportOpen 仍 true 直到 transport.close）
+    // transport.close 后任何 stream event 或 late broadcast 静默
+    if (!transport || !transportOpen) return;
     const { failed } = transport.broadcast(JSON.stringify(msg));
     for (const { connectionId } of failed) {
       dropConnection(connectionId, 'broadcast write failed');
@@ -230,6 +234,7 @@ export function createGateway(input: GatewayInput): Gateway {
       }
 
       // 4. 关闭 transport
+      transportOpen = false;       // phase 793: 先 set false，broadcast 静默
       await transport!.close();
       audit.write(GATEWAY_AUDIT_EVENTS.STOPPED);
     },
