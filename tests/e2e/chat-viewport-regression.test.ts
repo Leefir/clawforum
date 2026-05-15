@@ -146,23 +146,25 @@ function handleEventShim(
     case 'llm_start':
       mainUI.flushThinking();
       mainUI.flushStreaming();
-      mainUI.startSpinner();
+      mainUI.enterPhase('waiting_llm');
       break;
     case 'text_delta':
-      mainUI.stopSpinner();
+      mainUI.flushThinking();
+      mainUI.enterPhase('streaming_text');
       mainUI.appendToBuffer(((ev as unknown) as { delta?: string }).delta ?? '');
       break;
     case 'tool_call': {
-      mainUI.stopSpinner();
+      mainUI.flushThinking();
+      mainUI.flushStreaming();
       const name = ((ev as unknown) as { name?: string }).name ?? 'tool';
-      mainUI.startSpinner(name);
+      mainUI.enterPhase('running_tool', name);
       break;
     }
     case 'tool_result':
-      mainUI.stopSpinner();
+      mainUI.enterPhase('idle');
       break;
     case 'turn_end':
-      mainUI.stopSpinner();
+      mainUI.enterPhase('idle');
       mainUI.flushStreaming();
       break;
     default:
@@ -313,13 +315,13 @@ describe('chat-viewport regression baseline', () => {
 
     const hasStartExec = spinnerEvents.some(row => {
       const cols = row.slice(1) as string[];
-      return cols.includes('action=start') && cols.includes('text=exec');
+      return cols.includes('action=start') && cols.includes('text=exec...');
     });
     expect(hasStartExec).toBe(true);
 
     const hasStopExec = spinnerEvents.some(row => {
       const cols = row.slice(1) as string[];
-      return cols.includes('action=stop') && cols.includes('text=exec')
+      return cols.includes('action=stop') && cols.includes('text=exec...')
         && cols.some(c => c.startsWith('elapsed_ms='))
         && Number(cols.find(c => c.startsWith('elapsed_ms='))!.split('=')[1]) > 0;
     });
@@ -447,11 +449,12 @@ describe('chat-viewport regression baseline', () => {
   it('基线 5：VIEWPORT_* 事件写 agentDir/audit.tsv，非父目录或其他路径（防 baseDir 归属漂回）', async () => {
     const fx = await bootstrapFixture();
 
-    fx.mainUI.startSpinner();
-    fx.mainUI.stopSpinner();
+    fx.mainUI.enterPhase('waiting_llm');
+    await new Promise(r => setTimeout(r, 250)); // 推过 MIN_DWELL_MS 确保 stop 同步触发
+    fx.mainUI.enterPhase('idle');
 
     fx.mainUI.withScope('task', () => {
-      fx.mainUI.clearSuffix();
+      fx.mainUI.clearPreview();
     });
 
     await new Promise(r => setTimeout(r, 50));
@@ -473,12 +476,12 @@ describe('chat-viewport regression baseline', () => {
     }
     if (parentAuditContent) {
       const parentCrossPollution = parentAuditContent.split('\n').filter(l =>
-        l.includes('viewport_ui_cross_pollution') && l.includes('method=clearSuffix')
+        l.includes('viewport_ui_cross_pollution') && l.includes('method=clearPreview')
       );
       expect(parentCrossPollution.length).toBe(0);
     }
 
-    expect(auditContent).toContain('method=clearSuffix');
+    expect(auditContent).toContain('method=clearPreview');
     expect(auditContent).toContain('source=task');
   });
 
@@ -543,7 +546,7 @@ describe('chat-viewport regression baseline', () => {
       (stopThinking!.slice(1) as string[])
         .find(c => c.startsWith('elapsed_ms='))!.split('=')[1]
     );
-    expect(Math.abs(elapsedThinking - expectedThinking)).toBeLessThanOrEqual(10);
+    expect(Math.abs(elapsedThinking - expectedThinking)).toBeLessThanOrEqual(250);
 
     const tcToolCallEntry = fx.deliveryTimestamps.find(d => d.type === 'tool_call');
     const tcToolResultEntry = fx.deliveryTimestamps.find(d => d.type === 'tool_result');
@@ -555,14 +558,14 @@ describe('chat-viewport regression baseline', () => {
 
     const stopExec = stopRows.find(row => {
       const cols = row.slice(1) as string[];
-      return cols.includes('text=exec');
+      return cols.includes('text=exec...');
     });
     expect(stopExec).toBeDefined();
     const elapsedExec = Number(
       (stopExec!.slice(1) as string[])
         .find(c => c.startsWith('elapsed_ms='))!.split('=')[1]
     );
-    expect(Math.abs(elapsedExec - expectedExec)).toBeLessThanOrEqual(10);
+    expect(Math.abs(elapsedExec - expectedExec)).toBeLessThanOrEqual(250);
 
     expect(fx.audit.filter(STREAM_AUDIT_EVENTS.READER_PARSE_FAILED).length).toBe(0);
     expect(fx.audit.filter(STREAM_AUDIT_EVENTS.READER_CORRUPT).length).toBe(0);

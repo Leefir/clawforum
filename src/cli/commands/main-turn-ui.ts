@@ -1,14 +1,33 @@
 /**
  * @module L6.CLI.ChatViewport.MainTurnUI
- * Main turn UI controller — spinner + streaming buffer + thinking buffer
+ * Main turn UI controller — phase-driven status + content preview，min-dwell spinner。
  *
- * Migrated from chat-viewport.ts:101-235 (phase 484 Step B)
- * 0 闭包依赖 / 接受 MainTurnUIDeps 参 / 已是 phase 72 后的独立工厂模式
+ * 双槽架构（vs 旧版单 suffix 槽）：
+ * - status slot：spinner 动画 + label（waiting_llm / running_tool / interrupting）
+ * - preview slot：流式内容预览（thinking dim 或 text + cursor）
+ * Renderer 组合两槽（status 行在 preview 上方），互不覆盖。
+ *
+ * Phase 状态机：idle / waiting_llm / streaming_text / running_tool / interrupting
+ * 事件 handler 用 enterPhase() 单入口切换，preview 用 setPreview/clearPreview 独立管。
+ *
+ * Min-dwell：spinner 进 phase 后保证至少 MIN_DWELL_MS 可见。dwell 内的 clear 推迟兑现。
+ * 防 StreamReader 同步 while 批读 + tui.requestRender nextTick 批 → spinner 0 帧塌缩。
  */
 
 import stringWidth from 'string-width';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
+
+export type TurnUIPhase =
+  | 'idle'
+  | 'waiting_llm'
+  | 'streaming_text'
+  | 'running_tool'
+  | 'interrupting';
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_INTERVAL_MS = 80;
+const MIN_DWELL_MS = 200;
 
 export interface MainTurnUIDeps {
   appendOutput: (color: string, text: string, wrap?: boolean, hangIndent?: string) => void;
@@ -20,11 +39,12 @@ export interface MainTurnUIDeps {
 }
 
 export interface MainTurnUIController {
-  setSuffix(text: string): void;
-  clearSuffix(): void;
-  getSuffix(): string;
-  startSpinner(text?: string): void;
-  stopSpinner(): void;
+  enterPhase(phase: TurnUIPhase, label?: string): void;
+  getPhase(): TurnUIPhase;
+  setPreview(text: string): void;
+  clearPreview(): void;
+  getStatus(): string;
+  getPreview(): string;
   appendToBuffer(delta: string): string;
   flushStreaming(): void;
   appendToThinking(delta: string): string;
@@ -32,16 +52,18 @@ export interface MainTurnUIController {
   withScope<T>(scope: 'main' | 'task' | 'system', fn: () => T): T;
 }
 
-// Braille spinner 动画
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-
 export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
-  let suffix = '';
+  let phase: TurnUIPhase = 'idle';
+  let statusLabel = '';
+  let statusText = '';
+  let preview = '';
   let streamingBuffer = '';
   let thinkingBuffer = '';
   let spinnerTimer: ReturnType<typeof setInterval> | null = null;
+  let spinnerFrame = 0;
+  let spinnerStartTs = 0;
+  let pendingClearTimer: ReturnType<typeof setTimeout> | null = null;
   let currentScope: 'main' | 'task' | 'system' | null = null;
-  let currentSpinnerText = 'Thinking...';
 
   const guardWrite = (method: string) => {
     if (currentScope === 'task') {
@@ -51,7 +73,7 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
           `method=${method}`,
           'source=task',
         );
-      } catch { /* audit self-failure is tolerated */ }
+      } catch { /* audit self-failure tolerated */ }
     }
   };
 
@@ -62,42 +84,105 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
     finally { currentScope = prev; }
   };
 
-  const setSuffix = (text: string) => {
-    guardWrite('setSuffix');
-    suffix = text ?? '';
-    deps.updateDisplay();
-  };
-  const clearSuffix = () => {
-    guardWrite('clearSuffix');
-    suffix = '';
-    deps.updateDisplay();
-  };
-  const getSuffix = () => suffix;
-
-  const stopSpinner = () => {
-    guardWrite('stopSpinner');
+  const renderStatusFrame = () => {
     if (spinnerTimer == null) return;
-    
-    if (spinnerTimer) {
-      clearInterval(spinnerTimer);
-      spinnerTimer = null;
-    }
-    deps.observability?.recordSpinner('stop', currentSpinnerText);
+    statusText = `${SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length]} ${statusLabel}`;
+    spinnerFrame++;
+    deps.updateDisplay();
   };
-  const startSpinner = (text = 'Thinking...') => {
-    guardWrite('startSpinner');
-    stopSpinner();
-    currentSpinnerText = text;
-    deps.observability?.recordSpinner('start', text);
-    let frame = 0;
-    spinnerTimer = setInterval(() => {
-      suffix = `${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${text}`;
-      deps.updateDisplay();
-      frame++;
-    }, 80);
+
+  const cancelPendingClear = () => {
+    if (pendingClearTimer) {
+      clearTimeout(pendingClearTimer);
+      pendingClearTimer = null;
+    }
+  };
+
+  const stopSpinnerNow = () => {
+    if (spinnerTimer == null) {
+      statusText = '';
+      statusLabel = '';
+      return;
+    }
+    clearInterval(spinnerTimer);
+    spinnerTimer = null;
+    deps.observability?.recordSpinner('stop', statusLabel);
+    statusText = '';
+    statusLabel = '';
+  };
+
+  const startSpinner = (label: string) => {
+    cancelPendingClear();
+    if (spinnerTimer != null) {
+      // 已在转：仅切 label、保 timer + dwell 起点（无缝切换 waiting_llm → running_tool）
+      if (statusLabel !== label) {
+        statusLabel = label;
+        renderStatusFrame();
+      }
+      return;
+    }
+    statusLabel = label;
+    spinnerFrame = 0;
+    spinnerStartTs = Date.now();
+    deps.observability?.recordSpinner('start', label);
+    spinnerTimer = setInterval(renderStatusFrame, SPINNER_INTERVAL_MS);
     spinnerTimer.unref();
-    // 立即显示第一帧
-    setSuffix(`${SPINNER_FRAMES[0]} ${text}`);
+    renderStatusFrame();   // 首帧立绘
+  };
+
+  const stopSpinnerWithDwell = () => {
+    if (spinnerTimer == null) {
+      statusText = '';
+      statusLabel = '';
+      return;
+    }
+    const elapsed = Date.now() - spinnerStartTs;
+    if (elapsed >= MIN_DWELL_MS) {
+      stopSpinnerNow();
+      deps.updateDisplay();
+      return;
+    }
+    cancelPendingClear();
+    pendingClearTimer = setTimeout(() => {
+      pendingClearTimer = null;
+      // 仅当未切回 spinner 类 phase 才真清
+      if (phase === 'idle' || phase === 'streaming_text') {
+        stopSpinnerNow();
+        deps.updateDisplay();
+      }
+    }, MIN_DWELL_MS - elapsed);
+  };
+
+  const enterPhase = (next: TurnUIPhase, label?: string) => {
+    guardWrite(`enterPhase:${next}`);
+    phase = next;
+    switch (next) {
+      case 'idle':
+      case 'streaming_text':
+        stopSpinnerWithDwell();
+        break;
+      case 'waiting_llm':
+        startSpinner('Thinking...');
+        break;
+      case 'running_tool':
+        startSpinner(`${label ?? 'tool'}...`);
+        break;
+      case 'interrupting':
+        startSpinner(label ?? 'Interrupting...');
+        break;
+    }
+    deps.updateDisplay();
+  };
+
+  const setPreview = (text: string) => {
+    guardWrite('setPreview');
+    preview = text ?? '';
+    deps.updateDisplay();
+  };
+  const clearPreview = () => {
+    guardWrite('clearPreview');
+    preview = '';
+    deps.updateDisplay();
   };
 
   const appendToBuffer = (delta: string) => {
@@ -107,7 +192,10 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
   };
   const flushStreaming = () => {
     guardWrite('flushStreaming');
-    if (!streamingBuffer) return;
+    if (!streamingBuffer) {
+      preview = '';
+      return;
+    }
     const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
     const indent = '  ';
     const content = deps.trimOutputNewlines ? streamingBuffer.trim() : streamingBuffer;
@@ -116,7 +204,7 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
       .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
       .join('\n');
     streamingBuffer = '';
-    suffix = '';
+    preview = '';
     deps.appendOutput('', formatted, true, indent);
     deps.updateDisplay();
   };
@@ -141,8 +229,11 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
   };
 
   return {
-    setSuffix, clearSuffix, getSuffix,
-    startSpinner, stopSpinner,
+    enterPhase,
+    getPhase: () => phase,
+    setPreview, clearPreview,
+    getStatus: () => statusText,
+    getPreview: () => preview,
     appendToBuffer, flushStreaming,
     appendToThinking, flushThinking,
     withScope,

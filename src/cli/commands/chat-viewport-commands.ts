@@ -113,7 +113,7 @@ export const createViewportCommands = (deps: CommandsDeps): ViewportCommand[] =>
     execute: () => {
       deps.clearOutputLines();
       deps.invalidateBodyCache();
-      deps.mainUI.clearSuffix();
+      deps.mainUI.clearPreview();
     },
   });
 

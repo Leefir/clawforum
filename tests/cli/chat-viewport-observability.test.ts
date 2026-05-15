@@ -138,7 +138,7 @@ describe('chat-viewport-observability', () => {
     observability.recordSpinner('start', 'Thinking...');
     advance(100);
     observability.recordShutdown('user_quit');
-    // 模拟 cleanup 外部误调 stopSpinner（本 Step 杜绝但留回归测试兜底）
+    // 模拟 cleanup 外部误调 enterPhase('idle')（本 Step 杜绝但留回归测试兜底）
     observability.recordSpinner('stop', 'Thinking...');
 
     const types = log.map(([t]) => t);

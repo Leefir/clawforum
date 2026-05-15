@@ -16,8 +16,8 @@ describe('MainTurnUIController', () => {
     const mainUI = createMainTurnUI(deps);
 
     mainUI.withScope('main', () => {
-      mainUI.setSuffix('hello');
-      mainUI.startSpinner();
+      mainUI.setPreview('hello');
+      mainUI.enterPhase('waiting_llm');
       mainUI.appendToBuffer('world');
     });
 
@@ -30,13 +30,13 @@ describe('MainTurnUIController', () => {
     const mainUI = createMainTurnUI(deps);
 
     mainUI.withScope('task', () => {
-      mainUI.setSuffix('polluted');
+      mainUI.setPreview('polluted');
     });
 
     expect(deps.audit.write).toHaveBeenCalledTimes(1);
     expect(deps.audit.write).toHaveBeenCalledWith(
       VIEWPORT_AUDIT_EVENTS.UI_CROSS_POLLUTION,
-      'method=setSuffix',
+      'method=setPreview',
       'source=task',
     );
   });
@@ -46,24 +46,22 @@ describe('MainTurnUIController', () => {
     const mainUI = createMainTurnUI(deps);
 
     mainUI.withScope('task', () => {
-      mainUI.setSuffix('a');
-      mainUI.clearSuffix();
-      mainUI.startSpinner();
-      mainUI.stopSpinner();
+      mainUI.setPreview('a');
+      mainUI.clearPreview();
+      mainUI.enterPhase('waiting_llm');
+      mainUI.enterPhase('idle');
       mainUI.appendToBuffer('b');
       mainUI.flushStreaming();
       mainUI.appendToThinking('c');
       mainUI.flushThinking();
     });
 
-    // startSpinner 内部调用 stopSpinner + setSuffix，所以实际触发次数 > 8
     expect(deps.audit.write.mock.calls.length).toBeGreaterThanOrEqual(8);
-    // 验证关键方法都被 audit 了（载荷格式为 method=xxx）
-    const methods = deps.audit.write.mock.calls.map((c: any[]) => c[1]);
-    expect(methods).toContain('method=setSuffix');
-    expect(methods).toContain('method=clearSuffix');
-    expect(methods).toContain('method=startSpinner');
-    expect(methods).toContain('method=stopSpinner');
+    const methods = deps.audit.write.mock.calls.map((c: unknown[]) => c[1]);
+    expect(methods).toContain('method=setPreview');
+    expect(methods).toContain('method=clearPreview');
+    expect(methods).toContain('method=enterPhase:waiting_llm');
+    expect(methods).toContain('method=enterPhase:idle');
     expect(methods).toContain('method=appendToBuffer');
     expect(methods).toContain('method=flushStreaming');
     expect(methods).toContain('method=appendToThinking');
@@ -75,7 +73,7 @@ describe('MainTurnUIController', () => {
     const mainUI = createMainTurnUI(deps);
 
     mainUI.withScope('system', () => {
-      mainUI.setSuffix('system');
+      mainUI.setPreview('system');
     });
 
     expect(deps.audit.write).not.toHaveBeenCalled();
@@ -86,16 +84,15 @@ describe('MainTurnUIController', () => {
     const mainUI = createMainTurnUI(deps);
 
     mainUI.withScope('main', () => {
-      mainUI.setSuffix('outer');
+      mainUI.setPreview('outer');
       expect(deps.audit.write).not.toHaveBeenCalled();
 
       mainUI.withScope('task', () => {
-        mainUI.setSuffix('inner');
+        mainUI.setPreview('inner');
         expect(deps.audit.write).toHaveBeenCalledTimes(1);
       });
 
-      // 恢复 main scope
-      mainUI.setSuffix('outer-again');
+      mainUI.setPreview('outer-again');
       expect(deps.audit.write).toHaveBeenCalledTimes(1);
     });
   });
@@ -110,9 +107,8 @@ describe('MainTurnUIController', () => {
       });
     }).toThrow('boom');
 
-    // 异常后 scope 应恢复，后续 main scope 操作不触发 audit
     mainUI.withScope('main', () => {
-      mainUI.setSuffix('safe');
+      mainUI.setPreview('safe');
     });
     expect(deps.audit.write).not.toHaveBeenCalled();
   });
@@ -121,21 +117,103 @@ describe('MainTurnUIController', () => {
     const deps = makeDeps();
     const mainUI = createMainTurnUI(deps);
 
-    const buf1 = mainUI.appendToBuffer('hello');
-    expect(buf1).toBe('hello');
-
-    const buf2 = mainUI.appendToBuffer(' world');
-    expect(buf2).toBe('hello world');
+    expect(mainUI.appendToBuffer('hello')).toBe('hello');
+    expect(mainUI.appendToBuffer(' world')).toBe('hello world');
   });
 
   it('appendToThinking 返回更新后的 buffer', () => {
     const deps = makeDeps();
     const mainUI = createMainTurnUI(deps);
 
-    const buf1 = mainUI.appendToThinking('think');
-    expect(buf1).toBe('think');
+    expect(mainUI.appendToThinking('think')).toBe('think');
+    expect(mainUI.appendToThinking('ing')).toBe('thinking');
+  });
 
-    const buf2 = mainUI.appendToThinking('ing');
-    expect(buf2).toBe('thinking');
+  // —— 新增：双槽独立 ——
+  it('status 与 preview 双槽独立、互不覆盖', () => {
+    const deps = makeDeps();
+    const mainUI = createMainTurnUI(deps);
+
+    mainUI.enterPhase('waiting_llm');
+    mainUI.setPreview('preview text');
+
+    expect(mainUI.getStatus()).toMatch(/Thinking/);
+    expect(mainUI.getPreview()).toBe('preview text');
+  });
+
+  // —— 新增：min-dwell 反向防同 tick 塌缩 ——
+  it('同 tick enterPhase waiting_llm → streaming_text，status slot 仍保留 spinner（dwell 内推迟 clear）', async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = makeDeps();
+      const mainUI = createMainTurnUI(deps);
+
+      mainUI.enterPhase('waiting_llm');
+      const statusAfterEnter = mainUI.getStatus();
+      expect(statusAfterEnter).toMatch(/Thinking/);
+
+      mainUI.enterPhase('streaming_text');
+      // dwell 内未到期、status slot 仍有 spinner（pendingClear 已 schedule 但未 fire）
+      expect(mainUI.getStatus()).toMatch(/Thinking/);
+      expect(mainUI.getPhase()).toBe('streaming_text');
+
+      // 推过 dwell + 一帧
+      await vi.advanceTimersByTimeAsync(250);
+      expect(mainUI.getStatus()).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // —— 新增：dwell 内切回 spinner 类 phase 取消 pendingClear ——
+  it('dwell 内切回 waiting_llm，spinner 不被 pendingClear 误清', async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = makeDeps();
+      const mainUI = createMainTurnUI(deps);
+
+      mainUI.enterPhase('waiting_llm');
+      mainUI.enterPhase('streaming_text');         // schedule pendingClear
+      mainUI.enterPhase('waiting_llm');            // 应 cancel pendingClear
+
+      await vi.advanceTimersByTimeAsync(300);
+      expect(mainUI.getStatus()).toMatch(/Thinking/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // —— 新增：tool spinner label 切换无缝 ——
+  it('waiting_llm → running_tool 切换 label 不重置 dwell 起点', async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = makeDeps();
+      const calls: Array<[string, string]> = [];
+      const mainUI2 = createMainTurnUI({
+        ...deps,
+        observability: { recordSpinner: (a, t) => calls.push([a, t]) },
+      });
+
+      mainUI2.enterPhase('waiting_llm');
+      mainUI2.enterPhase('running_tool', 'exec');
+
+      // 仅 1 次 start（waiting_llm），label 切换不再产 start
+      expect(calls.filter(c => c[0] === 'start')).toHaveLength(1);
+      expect(mainUI2.getStatus()).toMatch(/exec\.\.\./);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // —— 新增：getPhase 返回当前 phase ——
+  it('getPhase 反映 enterPhase 的最新值', () => {
+    const deps = makeDeps();
+    const mainUI = createMainTurnUI(deps);
+
+    expect(mainUI.getPhase()).toBe('idle');
+    mainUI.enterPhase('waiting_llm');
+    expect(mainUI.getPhase()).toBe('waiting_llm');
+    mainUI.enterPhase('running_tool', 'foo');
+    expect(mainUI.getPhase()).toBe('running_tool');
   });
 });

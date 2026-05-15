@@ -121,7 +121,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 提前声明 — 防 TDZ（updateDisplay 内引用 mainUI / 早期 appendOutput 触发 updateDisplay 时 mainUI 未 init）
   let mainUI: MainTurnUIController;
 
-  // body wrap cache：流式 setSuffix 期间 outputLines 不变 / 复用 cached body / 避免 5000 行 wrapLine 重算
+  // body wrap cache：流式 preview 期间 outputLines 不变 / 复用 cached body / 避免 5000 行 wrapLine 重算
   // invalidate 时机：appendOutput（push 新行）+ outputLines splice (cap 触发) + cols 变
   let bodyCache: string | null = null;
   let bodyCacheCols = -1;
@@ -144,12 +144,11 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       bodyCacheCols = cols;
     }
 
-    // mainUI 提前 let 声明 / 早期 updateDisplay 时 mainUI === undefined（init 前）/ truthy check 安全
-    const currentSuffix = mainUI ? mainUI.getSuffix() : '';
-    const suffixBody = currentSuffix
-      ? currentSuffix.split('\n')
-          .flatMap(line => wrapLine(line, cols))
-          .join('\n')
+    const currentStatus = mainUI ? mainUI.getStatus() : '';
+    const currentPreview = mainUI ? mainUI.getPreview() : '';
+    const composed = [currentStatus, currentPreview].filter(Boolean).join('\n');
+    const suffixBody = composed
+      ? composed.split('\n').flatMap(line => wrapLine(line, cols)).join('\n')
       : '';
 
     const full = suffixBody ? bodyCache + '\n' + suffixBody : bodyCache;
@@ -218,10 +217,10 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     let escTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const cleanupUI = () => {
-      deps.mainUI.stopSpinner();
+      deps.mainUI.enterPhase('idle');
       deps.mainUI.flushThinking();
       deps.mainUI.flushStreaming();
-      deps.mainUI.clearSuffix();
+      deps.mainUI.clearPreview();
     };
 
     const clearEscTimeout = () => {
@@ -258,7 +257,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         if (phase !== 'active') return;
         phase = 'interrupting';
         interruptSource = source;
-        deps.mainUI.startSpinner('Interrupting...');
+        deps.mainUI.enterPhase('interrupting', 'Interrupting...');
         clearEscTimeout();
         escTimeoutId = setTimeout(() => {
           escTimeoutId = null;
@@ -337,39 +336,39 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         turnTracker.begin();
         mainUI.flushThinking();
         mainUI.flushStreaming();
-        mainUI.startSpinner();
+        mainUI.enterPhase('waiting_llm');
+        mainUI.clearPreview();
         break;
 
       case 'thinking_delta': {
-        mainUI.stopSpinner();
+        mainUI.enterPhase('waiting_llm');   // idempotent — spinner 继续转
         const thinkingBuf = mainUI.appendToThinking(event.delta as string);
         if (thinkingMode === 'full') {
           const prefix = '⏺ ';
           const indent = ' '.repeat(stringWidth(prefix));
-          const preview = thinkingBuf
+          const previewText = thinkingBuf
             .split('\n')
             .map((line: string, i: number) => (i === 0 ? prefix : indent) + line)
             .join('\n');
-          mainUI.setSuffix('\x1b[2m' + preview + '\x1b[0m');
+          mainUI.setPreview('\x1b[2m' + previewText + '\x1b[0m');
         } else if (thinkingMode === 'compact') {
           const snippet = thinkingBuf.replace(/\s+/g, ' ').trim().slice(-60);
-          mainUI.setSuffix('\x1b[2m(' + snippet + ')\x1b[0m');
+          mainUI.setPreview('\x1b[2m(' + snippet + ')\x1b[0m');
         }
-        // 'off': 不更新 suffix
         break;
       }
 
       case 'text_delta': {
-        mainUI.stopSpinner();
         mainUI.flushThinking();
+        mainUI.enterPhase('streaming_text');
         const streamBuf = mainUI.appendToBuffer(event.delta as string);
         const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
         const indent = '  ';
-        const preview = (streamBuf + '▋')
+        const previewText = (streamBuf + '▋')
           .split('\n')
           .map((line: string, i: number) => (i === 0 ? dotPrefix : indent) + line)
           .join('\n');
-        mainUI.setSuffix(preview);
+        mainUI.setPreview(previewText);
         break;
       }
 
@@ -378,19 +377,19 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         break;
 
       case 'tool_call':
-        mainUI.stopSpinner();
         mainUI.flushThinking();
         mainUI.flushStreaming();
         appendOutput('\x1b[36m', `⚙ ${event.name}`);
-        mainUI.startSpinner(`${event.name}...`);
+        mainUI.enterPhase('running_tool', event.name as string);
+        mainUI.clearPreview();
         break;
 
       case 'tool_result': {
-        mainUI.stopSpinner();
+        mainUI.enterPhase('idle');
         const icon = event.success ? '✓' : '✗';
         const step = event.step ?? '?';
         const maxSteps = event.maxSteps ?? '?';
-        mainUI.clearSuffix();
+        mainUI.clearPreview();
         appendOutput('\x1b[2m', `  ${icon} [${step}/${maxSteps}] ${event.summary as string}`);
         break;
       }
@@ -457,8 +456,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       }
 
       case 'user_notify': {
-        mainUI.stopSpinner();   // 防止 spinner 在通知输出时继续转
-        mainUI.clearSuffix();   // 清除游标/spinner 残留
+        mainUI.enterPhase('idle');
+        mainUI.clearPreview();
         const sub = event.subtype as string;
         const subtaskId = event.subtaskId as string;
         if (sub === 'contract_created') {
@@ -828,7 +827,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     process.removeListener('SIGTERM', sigtermHandler);
     process.removeListener('uncaughtException', uncaughtHandler);
     process.removeListener('unhandledRejection', uncaughtHandler);
-    mainUI.stopSpinner();
+    mainUI.enterPhase('idle');
     observability.recordShutdown(shutdownReason);
     clearInterval(clawRefreshInterval);
     clearInterval(clawPanelTickInterval);

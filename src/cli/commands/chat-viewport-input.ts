@@ -26,13 +26,13 @@ export const createTuiInputHandler = (deps: InputHandlerDeps) =>
     if (data.includes('\x0c')) {
       deps.clearOutputLines();
       deps.invalidateBodyCache();
-      deps.mainUI.clearSuffix();
+      deps.mainUI.clearPreview();
       return { consume: true };
     }
     if (data.includes('\x1b') && !data.includes('\x1b[') && !data.includes('\r') && !data.includes('\n')) {
       if (!deps.turnTracker.isActive()) {
-        deps.mainUI.stopSpinner();
-        deps.mainUI.clearSuffix();
+        deps.mainUI.enterPhase('idle');
+        deps.mainUI.clearPreview();
         return { consume: true };
       }
       const interruptFile = path.join(deps.agentDir, 'interrupt');

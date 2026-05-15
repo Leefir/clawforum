@@ -20,9 +20,12 @@ function dispatchMainEvent(ev: StreamEvent, mainUI: MainTurnUIController) {
     case 'llm_start':
       mainUI.flushThinking();
       mainUI.flushStreaming();
+      mainUI.enterPhase('waiting_llm');
+      mainUI.clearPreview();
       break;
     case 'text_delta': {
-      mainUI.stopSpinner();
+      mainUI.flushThinking();
+      mainUI.enterPhase('streaming_text');
       const buf = mainUI.appendToBuffer((ev as Record<string, unknown>).delta as string);
       const dotPrefix = '\x1b[38;5;232m⏺\x1b[0m ';
       const indent = '  ';
@@ -30,13 +33,13 @@ function dispatchMainEvent(ev: StreamEvent, mainUI: MainTurnUIController) {
         .split('\n')
         .map((line, i) => (i === 0 ? dotPrefix : indent) + line)
         .join('\n');
-      mainUI.setSuffix(preview);
+      mainUI.setPreview(preview);
       break;
     }
     case 'turn_end':
-      mainUI.stopSpinner();
+      mainUI.enterPhase('idle');
       mainUI.flushStreaming();
-      mainUI.clearSuffix();
+      mainUI.clearPreview();
       break;
   }
 }
@@ -102,8 +105,8 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       dispatchMainEvent({ type: 'llm_start' }, mainUI);
       dispatchMainEvent({ type: 'text_delta', delta: 'hello' }, mainUI);
     });
-    const suffixBefore = mainUI.getSuffix();
-    expect(suffixBefore).toContain('hello');
+    const previewBefore = mainUI.getPreview();
+    expect(previewBefore).toContain('hello');
 
     // task stream 发 tool_call/tool_result/turn_end（subagent 活动）
     mainUI.withScope('task', () => {
@@ -112,8 +115,8 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       taskHandler('task-x', 'subagent', { type: 'turn_end' });
     });
 
-    // 关键断言：task 事件过后主 suffix 不被清空
-    expect(mainUI.getSuffix()).toContain('hello');
+    // 关键断言：task 事件过后主 preview 不被清空
+    expect(mainUI.getPreview()).toContain('hello');
 
     // 主 stream 继续
     mainUI.withScope('main', () => {
@@ -121,8 +124,8 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       dispatchMainEvent({ type: 'turn_end' }, mainUI);
     });
 
-    // turn_end 后 suffix 清空（正常）
-    expect(mainUI.getSuffix()).toBe('');
+    // turn_end 后 preview 清空（正常）
+    expect(mainUI.getPreview()).toBe('');
   });
 
   it('并发场景 audit 无 viewport_ui_cross_pollution', async () => {
@@ -194,10 +197,10 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       audit,
     });
 
-    mainUI.withScope('task', () => mainUI.setSuffix('leaked'));
+    mainUI.withScope('task', () => mainUI.setPreview('leaked'));
     const crossPollution = events.filter(e => e[0] === VIEWPORT_AUDIT_EVENTS.UI_CROSS_POLLUTION);
     expect(crossPollution).toHaveLength(1);
-    expect(crossPollution[0][1]).toBe('method=setSuffix');
+    expect(crossPollution[0][1]).toBe('method=setPreview');
     expect(crossPollution[0][2]).toBe('source=task');
   });
 
@@ -266,9 +269,10 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
       mainFs, STREAM_FILE,
       (ev) => {
         if (ev.type === 'text_delta') {
-          mainUI.stopSpinner();
+          mainUI.flushThinking();
+          mainUI.enterPhase('streaming_text');
           const buf = mainUI.appendToBuffer((ev as Record<string, unknown>).delta as string);
-          mainUI.setSuffix(buf);
+          mainUI.setPreview(buf);
         }
       },
       audit,
@@ -298,8 +302,8 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
     await appendJsonl(mainStreamPath, { type: 'turn_start' });
     await appendJsonl(mainStreamPath, { type: 'llm_start' });
     await appendJsonl(mainStreamPath, { type: 'text_delta', delta: 'hello' });
-    await waitFor(() => mainUI.getSuffix().includes('hello'), 10000);
-    expect(mainUI.getSuffix()).toContain('hello');
+    await waitFor(() => mainUI.getPreview().includes('hello'), 10000);
+    expect(mainUI.getPreview()).toContain('hello');
 
     // task stream：tool_call → tool_result → turn_end（subagent 活动）
     await appendJsonl(taskStreamPath, { type: 'tool_call', name: 'read_file' });
@@ -307,8 +311,8 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
     await appendJsonl(taskStreamPath, { type: 'turn_end' });
     await waitFor(() => taskAppended.length >= 2, 10000);
 
-    // 关键断言：task 事件过后主 suffix 不被清空
-    expect(mainUI.getSuffix()).toContain('hello');
+    // 关键断言：task 事件过后主 preview 不被清空
+    expect(mainUI.getPreview()).toContain('hello');
 
     // 正常路径不触发 cross_pollution audit
     const crossPollution = events.filter(e => e[0] === VIEWPORT_AUDIT_EVENTS.UI_CROSS_POLLUTION);

@@ -73,7 +73,7 @@ describe('chat-viewport Phase 72', () => {
       expect(daemonDeadSection).toContain('turnTracker.abort()');
     });
 
-    it('cleanupUI 应包含 flushStreaming 和 flushThinking，且 flush 在 clearSuffix 之前', () => {
+    it('cleanupUI 应包含 flushStreaming 和 flushThinking，且 flush 在 clearPreview 之前', () => {
       const cleanupUIMatch = sourceCode.match(
         /const cleanupUI = \(\) => \{[\s\S]{0,400}?\};/
       );
@@ -84,10 +84,10 @@ describe('chat-viewport Phase 72', () => {
       expect(cleanupUIBlock).toContain('mainUI.flushThinking()');
 
       const flushIndex = cleanupUIBlock.indexOf('mainUI.flushStreaming()');
-      const suffixIndex = cleanupUIBlock.indexOf('mainUI.clearSuffix()');
+      const clearIdx = cleanupUIBlock.indexOf('mainUI.clearPreview()');
       expect(flushIndex).toBeGreaterThan(-1);
-      expect(suffixIndex).toBeGreaterThan(-1);
-      expect(flushIndex).toBeLessThan(suffixIndex);
+      expect(clearIdx).toBeGreaterThan(-1);
+      expect(flushIndex).toBeLessThan(clearIdx);
     });
   });
 
@@ -290,11 +290,11 @@ describe('chat-viewport Phase 72', () => {
   });
 
   describe('Phase 164 Step 8: cleanup 时序', () => {
-    it('cleanup 块内 mainUI.stopSpinner() 在 observability.recordShutdown 之前', () => {
+    it('cleanup 块内 mainUI.enterPhase(idle) 在 observability.recordShutdown 之前', () => {
       const cleanupStart = sourceCode.indexOf('await exitPromise;');
       expect(cleanupStart).toBeGreaterThan(-1);
       const cleanupBlock = sourceCode.slice(cleanupStart, cleanupStart + 1500);
-      const stopIdx = cleanupBlock.indexOf('mainUI.stopSpinner()');
+      const stopIdx = cleanupBlock.indexOf("mainUI.enterPhase('idle')");
       const shutIdx = cleanupBlock.indexOf('observability.recordShutdown(shutdownReason)');
       expect(stopIdx).toBeGreaterThan(-1);
       expect(shutIdx).toBeGreaterThan(-1);
@@ -308,39 +308,27 @@ describe('chat-viewport Phase 72', () => {
     });
   });
 
-  describe('Phase 164 Step 9: stopSpinner 空守卫', () => {
-    it('stopSpinner 在无 spinnerTimer 时早退，不产 recordSpinner audit', () => {
-      const audit = { write: () => {} };
+  describe('Phase 798: enterPhase idempotency + min-dwell', () => {
+    it('idle 无 spinner 下连续 enterPhase idle 不产 recordSpinner audit', () => {
       const calls: Array<[string, string]> = [];
-      const observability = {
-        recordSpinner: (action: 'start' | 'stop', text: string) => calls.push([action, text]),
-      };
       const mainUI = createMainTurnUI({
         appendOutput: () => {},
         updateDisplay: () => {},
         trimOutputNewlines: true,
         getThinkingMode: () => 'off',
-        audit,
-        observability,
+        audit: { write: () => {} },
+        observability: { recordSpinner: (a, t) => calls.push([a, t]) },
       });
-      // 无 start，直接连续 stop × 3
-      mainUI.stopSpinner();
-      mainUI.stopSpinner();
-      mainUI.stopSpinner();
+      mainUI.enterPhase('idle');
+      mainUI.enterPhase('idle');
+      mainUI.enterPhase('idle');
       expect(calls).toHaveLength(0);
 
-      // 正常路径：start → stop
-      mainUI.startSpinner('test');
-      mainUI.stopSpinner();
-      // startSpinner 内先 stopSpinner（无 timer，守卫跳过）→ 1 条 start + 1 条 stop
-      expect(calls).toEqual([
-        ['start', 'test'],
-        ['stop', 'test'],
-      ]);
-
-      // stop 之后再 stop：应早退
-      mainUI.stopSpinner();
-      expect(calls).toHaveLength(2); // 未变化
+      mainUI.enterPhase('waiting_llm');
+      mainUI.enterPhase('idle');
+      // start 1 次 + stop 1 次（dwell 同步路径 if elapsed >= dwell）或 stop 0 次（推迟）
+      // 至少 start 已 emit
+      expect(calls.filter(c => c[0] === 'start')).toHaveLength(1);
     });
   });
 });
