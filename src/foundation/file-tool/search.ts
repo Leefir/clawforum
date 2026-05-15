@@ -69,7 +69,7 @@ export const searchTool: Tool = {
       },
       cwd: {
         type: 'string',
-        description: 'Override base for path resolution (relative to claw root, or absolute). Default: agent workspace dir.',
+        description: 'Override base for path resolution (relative to workspace root, or absolute, with ".." to escape workspace to claw root). Default: agent workspace dir.',
       },
       max_results: {
         type: 'number',

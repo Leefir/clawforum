@@ -28,7 +28,7 @@ export const readTool: Tool = {
       },
       cwd: {
         type: 'string',
-        description: 'Override base for path resolution (relative to claw root, or absolute). Default: your workspace root. Use cwd: ".." to access claw root files like MEMORY.md.',
+        description: 'Override base for path resolution (relative to workspace root, or absolute, with ".." to escape workspace to claw root files like MEMORY.md). Default: workspace root.',
       },
       offset: {
         type: 'number',

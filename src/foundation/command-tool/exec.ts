@@ -65,7 +65,7 @@ export const execTool: Tool = {
       },
       cwd: {
         type: 'string',
-        description: 'Working directory (relative path resolved against claw root, or absolute). Default: your workspace root.',
+        description: 'Working directory (relative path resolved against workspace root, or absolute, with ".." to escape workspace). Default: workspace root.',
       },
       timeoutMs: {
         type: 'number',
