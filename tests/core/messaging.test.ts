@@ -239,20 +239,29 @@ describe('Messaging', () => {
 
         const metas = await reader.peekMetas();
         expect(metas).toHaveLength(0);
-        expect(auditEvents.some(e => e[0] === 'inbox_meta_failed')).toBe(true);
+        expect(auditEvents).toEqual(
+          expect.arrayContaining([
+            expect.arrayContaining(['inbox_meta_failed', 'file=bad.md', 'kind=parse_failed']),
+          ]),
+        );
       });
 
       it('audit on list failure (non-ENOENT) + returns empty', async () => {
         const throwingFs = {
           ...mockFs,
-          list: vi.fn().mockRejectedValue({ code: 'EACCES', message: 'Permission denied' }),
+          list: vi.fn().mockRejectedValue(Object.assign(new Error('Permission denied'), { code: 'EACCES' })),
         } as unknown as NodeFileSystem;
         const { audit, events } = makeAudit();
         const throwingReader = new InboxReader(INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, throwingFs, audit);
 
         const metas = await throwingReader.peekMetas();
         expect(metas).toEqual([]);
-        expect(events.some(e => e[0] === 'inbox_list_failed' && e.includes('op=peek'))).toBe(true);
+        const listFailEvent = events.find(e => e[0] === 'inbox_list_failed');
+        expect(listFailEvent).toBeDefined();
+        expect(listFailEvent).toEqual(
+          expect.arrayContaining(['inbox_list_failed', 'op=peek', 'error_code=EACCES']),
+        );
+        expect(listFailEvent!.some((col: string) => col.startsWith('reason=Permission denied'))).toBe(true);
       });
     });
   });

@@ -360,8 +360,9 @@ describe('Runtime regime switch (phase 521)', () => {
     const regimeSwitchCall = auditSpy.mock.calls.find(c => c[0] === 'regime_switch');
     expect(regimeSwitchCall).toBeDefined();
     expect(regimeSwitchCall![1]).toBe('strategy=last-turn');
-    expect(regimeSwitchCall![2]).toMatch(/^inherited=/);
-    expect(regimeSwitchCall![3]).toMatch(/^discarded=/);
+    // seed 5 条 + turn1 2 条 + turn2 2 条 = 9 条；last-turn 策略保留最后一条 user 及其后的 assistant
+    expect(regimeSwitchCall![2]).toBe('inherited=2');
+    expect(regimeSwitchCall![3]).toBe('discarded=7');
   });
 });
 

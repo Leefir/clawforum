@@ -163,6 +163,7 @@ export class InboxReader {
         MESSAGING_AUDIT_EVENTS.INBOX_LIST_FAILED,
         `dir=${this.pendingDir}`,
         `op=peek`,
+        `error_code=${classifyErrno(err)}`,
         `reason=${reason}`,
       );
       return [];
