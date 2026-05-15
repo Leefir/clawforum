@@ -60,6 +60,7 @@ export async function runSpawnSync(opts: RunSpawnSyncOptions): Promise<ToolResul
       resultDir,
       maxSteps: opts.maxSteps ?? opts.ctx.subagentMaxSteps ?? opts.ctx.maxSteps,
       timeoutMs: opts.timeoutMs,
+      isShadow: opts.ctx.isShadow,
     });
 
     opts.ctx.auditWriter?.write(SPAWN_AUDIT_EVENTS.SYNC_FINISHED, id);
