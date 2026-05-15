@@ -430,6 +430,9 @@ export class Runtime {
    * @protected available for reuse by subclass MotionRuntime
    */
   protected async _runReact(messages: Message[], callbacks?: StreamCallbacks): Promise<void> {
+    // phase 786: stopRequested 是 per-turn flag，每 turn 起首 reset
+    // 防 P0.14 跨 turn sticky bug（done 工具误调后下 turn silent empty）
+    this.execContext.stopRequested = false;
     this.execContext.dialogMessages = messages;
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')

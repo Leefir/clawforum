@@ -6,14 +6,16 @@
  * - execute 失败时（missing result）不存 capturedResult
  * - 工厂函数每次返回新实例（不共享 state）
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createDoneTool, DONE_TOOL_NAME } from '../../src/core/subagent/tools/done.js';
 
 function makeCtx() {
+  const requestStopSpy = vi.fn();
   return {
     clawId: 'test-claw',
     clawDir: '/tmp/test',
-    requestStop: () => { /* no-op */ },
+    requestStop: requestStopSpy,
+    requestStopSpy,
   } as any;
 }
 
@@ -27,6 +29,7 @@ describe('subagent doneTool (generic)', () => {
     expect(result.success).toBe(true);
     expect(result.content).toContain('Result captured');
     expect(doneTool.capturedResult).toEqual({ result: 'hello world' });
+    expect(ctx.requestStopSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should fail when result is missing', async () => {
