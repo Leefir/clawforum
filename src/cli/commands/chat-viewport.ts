@@ -26,6 +26,7 @@ import { findRecentTurnStartOffset } from '../../foundation/stream/index.js';
 import { type ClawTrack, makeClawTrack, buildClawLine } from './chat-viewport-claw-line.js';
 import { createMainTurnUI, type MainTurnUIDeps, type MainTurnUIController } from './main-turn-ui.js';
 import { createTaskEventHandler, type TaskEventHandlerDeps, type TaskEvent } from './chat-viewport-task-events.js';
+import { createTaskStatusBar, type TaskStatusBarController } from './chat-viewport-task-status-bar.js';
 import { createClawManager, type ClawManager } from './chat-viewport-claw-manager.js';
 import { createViewportCommands, type ViewportCommand, type ThinkingMode } from './chat-viewport-commands.js';
 import { createTuiInputHandler, type ShutdownReason } from './chat-viewport-input.js';
@@ -162,8 +163,25 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     });
   };
 
+  const spawnText = new Text('', 0, 0);
+  const shadowText = new Text('', 0, 0);
   const attachedClawBar = new Text('', 0, 0);
 
+  // task-status-bar wiring
+  let taskBarUpdateScheduled = false;
+  const taskStatusBar = createTaskStatusBar({
+    updateRender: () => {
+      if (taskBarUpdateScheduled) return;
+      taskBarUpdateScheduled = true;
+      process.nextTick(() => {
+        taskBarUpdateScheduled = false;
+        const cols = process.stdout.columns ?? 80;
+        spawnText.setText(taskStatusBar.renderSpawn(cols));
+        shadowText.setText(taskStatusBar.renderShadow(cols));
+        tui.requestRender();
+      });
+    },
+  });
 
   // attachedClawBar 渲染：motion viewport 监听 N 个 claw stream / 高频 delta 同 sync block 多次 trigger updateClawPanel /
   // 每次遍历 clawTrackMap × buildClawLine 重复浪费。
@@ -307,9 +325,8 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   const handleTaskEvent = createTaskEventHandler({
     getTaskWatch: (id) => taskWatchMap.get(id),
-    showRecapStream: () => showRecapStream,
-    appendOutput,
     stopTaskWatch,
+    taskStatusBar,
     audit: options.audit,
   });
 
@@ -376,13 +393,16 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         // no-op: keep cursor (▋) visible until tool_call/turn_end flushes
         break;
 
-      case 'tool_call':
+      case 'tool_call': {
         mainUI.flushThinking();
         mainUI.flushStreaming();
-        appendOutput('\x1b[36m', `⚙ ${event.name}`);
+        const toolName = String(event.name ?? '');
+        const displayName = (toolName === 'spawn' || toolName === 'shadow') ? `${toolName}:` : toolName;
+        appendOutput('\x1b[36m', `⚙ ${displayName}`);
         mainUI.enterPhase('running_tool', event.name as string);
         mainUI.clearPreview();
         break;
+      }
 
       case 'tool_result': {
         mainUI.enterPhase('idle');
@@ -515,6 +535,9 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           lastEventMs: Date.now(),
         };
         taskWatchMap.set(taskId, tw);
+        if (!tw.silent) {
+          taskStatusBar.addTrack(taskId, callerType);
+        }
         break;
       }
 
@@ -687,12 +710,17 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // RESIZE 监听：终端尺寸变化时重渲染
   const onResize = () => {
     updateClawPanel();
+    const cols = process.stdout.columns ?? 80;
+    spawnText.setText(taskStatusBar.renderSpawn(cols));
+    shadowText.setText(taskStatusBar.renderShadow(cols));
     updateDisplay();
   };
   process.stdout.on('resize', onResize);
 
   tui.addChild(outputText);
-  tui.addChild(attachedClawBar);  // 默认空字符串 = 零高度
+  tui.addChild(spawnText);       // 顶层
+  tui.addChild(shadowText);      // 中层
+  tui.addChild(attachedClawBar); // 下层
   tui.addChild(editor);
   tui.setFocus(editor);
 

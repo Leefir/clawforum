@@ -8,12 +8,12 @@
 
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
+import type { TaskStatusBarController } from './chat-viewport-task-status-bar.js';
 
 export interface TaskEventHandlerDeps {
   getTaskWatch: (taskId: string) => { silent: boolean } | undefined;
-  showRecapStream: () => boolean;
-  appendOutput: (color: string, text: string, wrap?: boolean, hangIndent?: string) => void;
   stopTaskWatch: (taskId: string) => void;
+  taskStatusBar: TaskStatusBarController;
   audit?: AuditLog;
 }
 
@@ -24,27 +24,23 @@ export type TaskEvent = {
   step?: unknown;
   maxSteps?: unknown;
   summary?: unknown;
+  delta?: unknown;
   [key: string]: unknown;
 };
 
 export function createTaskEventHandler(deps: TaskEventHandlerDeps) {
   return (taskId: string, callerType: string, event: TaskEvent) => {
-    const tw = deps.getTaskWatch(taskId);
-    const prefix = callerType;
     switch (event.type) {
       case 'tool_call':
-        if (tw?.silent && !deps.showRecapStream()) break;
-        deps.appendOutput('\x1b[36m', `⚙ ${prefix}:${event.name}`);
+      case 'tool_result':
+      case 'thinking_delta':
+      case 'text_delta':
+        deps.taskStatusBar.updateTrack(taskId, event);
         break;
-      case 'tool_result': {
-        if (tw?.silent && !deps.showRecapStream()) break;
-        const icon = event.success ? '✓' : '✗';
-        deps.appendOutput('\x1b[2m', `  ${icon} [${event.step}/${event.maxSteps}] ${event.summary as string}`);
-        break;
-      }
       case 'turn_end':
       case 'turn_error':
       case 'turn_interrupted':
+        deps.taskStatusBar.updateTrack(taskId, event);   // 内部 removeTrack
         deps.stopTaskWatch(taskId);
         break;
       default:

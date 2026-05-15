@@ -92,11 +92,11 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       audit,
     });
 
+    const mockTaskStatusBar = { updateTrack: () => {}, removeTrack: () => {} };
     const taskHandler = createTaskEventHandler({
       getTaskWatch: () => ({ silent: false }),
-      showRecapStream: () => true,
-      appendOutput: () => {},
       stopTaskWatch: () => {},
+      taskStatusBar: mockTaskStatusBar as any,
     });
 
     // 主 stream 发 turn_start/llm_start/text_delta "hello"
@@ -153,11 +153,11 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       audit,
     });
 
+    const mockTaskStatusBar2 = { updateTrack: () => {}, removeTrack: () => {} };
     const taskHandler = createTaskEventHandler({
       getTaskWatch: () => ({ silent: false }),
-      showRecapStream: () => true,
-      appendOutput: () => {},
       stopTaskWatch: () => {},
+      taskStatusBar: mockTaskStatusBar2 as any,
     });
 
     const mainReader = createStreamReader(mainFs, STREAM_FILE,
@@ -257,12 +257,15 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
       audit,
     });
 
-    const taskAppended: string[] = [];
+    const taskStatusBarCalls: Array<{ taskId: string; event: unknown }> = [];
+    const mockTaskStatusBar3 = {
+      updateTrack: (tid: string, ev: unknown) => { taskStatusBarCalls.push({ taskId: tid, event: ev }); },
+      removeTrack: () => {},
+    };
     const taskHandler = createTaskEventHandler({
       getTaskWatch: () => ({ silent: false }),
-      showRecapStream: () => true,
-      appendOutput: (_color, text) => { taskAppended.push(text); },
       stopTaskWatch: () => {},
+      taskStatusBar: mockTaskStatusBar3 as any,
     });
 
     const mainReader = createStreamReader(
@@ -309,7 +312,7 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
     await appendJsonl(taskStreamPath, { type: 'tool_call', name: 'read_file' });
     await appendJsonl(taskStreamPath, { type: 'tool_result', success: true, step: 1, maxSteps: 3, summary: 'ok' });
     await appendJsonl(taskStreamPath, { type: 'turn_end' });
-    await waitFor(() => taskAppended.length >= 2, 10000);
+    await waitFor(() => taskStatusBarCalls.length >= 2, 10000);
 
     // 关键断言：task 事件过后主 preview 不被清空
     expect(mainUI.getPreview()).toContain('hello');
