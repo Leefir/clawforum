@@ -49,6 +49,8 @@ const mockState = vi.hoisted(() => {
 // EventEmitter for deterministic mock call detection (phase 779 Step C/D)
 // Created at module level (after imports) to avoid vi.hoisted TDZ issues.
 const mockStartDaemonLoopCallEvent = new EventEmitter();
+const mockProcessOnEvent = new EventEmitter();       // NEW (phase 790)
+const mockAuditEvent = new EventEmitter();           // NEW (phase 790)
 
 // ============================================================================
 // Module mocks（Step 1 D3 6 层映射）
@@ -117,6 +119,7 @@ function installProcessSpies(): void {
   vi.spyOn(process, 'on').mockImplementation(((event: string, handler: Function) => {
     if (!mockState.processHandlers[event]) mockState.processHandlers[event] = [];
     mockState.processHandlers[event].push(handler);
+    mockProcessOnEvent.emit('register', event);          // NEW (phase 790)
     return process;
   }) as any);
 
@@ -131,6 +134,11 @@ function installProcessSpies(): void {
     mockState.stopFn = () => resolve();
     mockStartDaemonLoopCallEvent.emit('call', options);
     return { promise, stop: mockState.stopFn };
+  });
+
+  // NEW (phase 790): mockAuditWrite emit 副 channel
+  mockState.mockAuditWrite.mockImplementation((firstArg: string, ...rest: unknown[]) => {
+    mockAuditEvent.emit('write', firstArg, ...rest);
   });
 }
 
@@ -158,6 +166,44 @@ async function flushMicrotasks(n = 10) {
   await new Promise(resolve => setTimeout(resolve, 50));
 }
 
+async function waitForProcessOn(event: string, timeoutMs = 10_000): Promise<Function> {
+  const existing = mockState.processHandlers[event]?.[0];
+  if (existing) return existing;
+  return new Promise<Function>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      mockProcessOnEvent.off('register', onRegister);
+      reject(new Error(`waitForProcessOn timeout: ${event}`));
+    }, timeoutMs);
+    const onRegister = (registeredEvent: string) => {
+      if (registeredEvent === event) {
+        clearTimeout(timer);
+        mockProcessOnEvent.off('register', onRegister);
+        resolve(mockState.processHandlers[event][0]);
+      }
+    };
+    mockProcessOnEvent.on('register', onRegister);
+  });
+}
+
+async function waitForAuditCall(eventName: string, timeoutMs = 10_000): Promise<readonly unknown[]> {
+  const existing = mockState.mockAuditWrite.mock.calls.find((c: unknown[]) => c[0] === eventName);
+  if (existing) return existing;
+  return new Promise<readonly unknown[]>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      mockAuditEvent.off('write', onWrite);
+      reject(new Error(`waitForAuditCall timeout: ${eventName}`));
+    }, timeoutMs);
+    const onWrite = (firstArg: string, ...rest: unknown[]) => {
+      if (firstArg === eventName) {
+        clearTimeout(timer);
+        mockAuditEvent.off('write', onWrite);
+        resolve([firstArg, ...rest]);
+      }
+    };
+    mockAuditEvent.on('write', onWrite);
+  });
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -165,6 +211,8 @@ import { daemonCommand } from '../../src/daemon/daemon.js';
 
 describe('daemonCommand - A4a startup success', () => {
   beforeEach(() => {
+    mockProcessOnEvent.removeAllListeners();
+    mockAuditEvent.removeAllListeners();
     vi.clearAllMocks();
     Object.keys(mockState.processHandlers).forEach(k => delete mockState.processHandlers[k]);
     installProcessSpies();
@@ -225,6 +273,8 @@ describe('daemonCommand - A4a startup success', () => {
 
 describe('daemonCommand - A4a startup failure', () => {
   beforeEach(() => {
+    mockProcessOnEvent.removeAllListeners();
+    mockAuditEvent.removeAllListeners();
     vi.clearAllMocks();
     Object.keys(mockState.processHandlers).forEach(k => delete mockState.processHandlers[k]);
     installProcessSpies();
@@ -299,7 +349,7 @@ describe('daemonCommand - A4a startup failure', () => {
     });
 
     const cmdPromise = daemonCommand('test-claw');
-    await flushMicrotasks(20);  // 等 .then 链跑完
+    await waitForAuditCall('snapshot_commit_uncategorized');
     if (mockState.stopFn) mockState.stopFn();
     await cmdPromise.catch(() => {});
 
@@ -315,7 +365,7 @@ describe('daemonCommand - A4a startup failure', () => {
     mockState.mockSnapshotCommit.mockRejectedValue(new Error('git not found'));
 
     const cmdPromise = daemonCommand('test-claw');
-    await flushMicrotasks(20);
+    await waitForAuditCall('snapshot_commit_failed');
     if (mockState.stopFn) mockState.stopFn();
     await cmdPromise.catch(() => {});
 
@@ -330,6 +380,8 @@ describe('daemonCommand - A4a startup failure', () => {
 
 describe('daemonCommand - A4d shutdown signal', () => {
   beforeEach(() => {
+    mockProcessOnEvent.removeAllListeners();
+    mockAuditEvent.removeAllListeners();
     vi.clearAllMocks();
     Object.keys(mockState.processHandlers).forEach(k => delete mockState.processHandlers[k]);
     installProcessSpies();
@@ -348,11 +400,7 @@ describe('daemonCommand - A4d shutdown signal', () => {
     const selfRemovePidSpy = vi.spyOn(ProcessManager.prototype, 'selfRemovePid').mockResolvedValue(undefined);
 
     const cmdPromise = daemonCommand('test-claw');
-    await flushMicrotasks();
-
-    // 触发 SIGTERM handler
-    const sigtermHandler = mockState.processHandlers['SIGTERM']?.[0];
-    expect(sigtermHandler).toBeDefined();
+    const sigtermHandler = await waitForProcessOn('SIGTERM');
 
     await expect(async () => {
       await sigtermHandler!();
@@ -370,10 +418,7 @@ describe('daemonCommand - A4d shutdown signal', () => {
 
   it('it #9: SIGINT → shutdown → disassemble + exit 0', async () => {
     const cmdPromise = daemonCommand('test-claw');
-    await flushMicrotasks();
-
-    const sigintHandler = mockState.processHandlers['SIGINT']?.[0];
-    expect(sigintHandler).toBeDefined();
+    const sigintHandler = await waitForProcessOn('SIGINT');
 
     await expect(async () => {
       await sigintHandler!();
@@ -391,6 +436,8 @@ describe('daemonCommand - A4d shutdown signal', () => {
 
 describe('daemonCommand - A4d crash handler', () => {
   beforeEach(() => {
+    mockProcessOnEvent.removeAllListeners();
+    mockAuditEvent.removeAllListeners();
     vi.clearAllMocks();
     Object.keys(mockState.processHandlers).forEach(k => delete mockState.processHandlers[k]);
     installProcessSpies();
@@ -406,10 +453,7 @@ describe('daemonCommand - A4d crash handler', () => {
 
   it('it #10: uncaughtException → daemon_crash audit + exit 1', async () => {
     const cmdPromise = daemonCommand('test-claw');
-    await flushMicrotasks();
-
-    const handler = mockState.processHandlers['uncaughtException']?.[0];
-    expect(handler).toBeDefined();
+    const handler = await waitForProcessOn('uncaughtException');
 
     const testErr = new Error('test uncaught');
     testErr.stack = 'mock-stack';
@@ -427,10 +471,7 @@ describe('daemonCommand - A4d crash handler', () => {
 
   it('it #11: unhandledRejection → daemon_crash audit + exit 1', async () => {
     const cmdPromise = daemonCommand('test-claw');
-    await flushMicrotasks();
-
-    const handler = mockState.processHandlers['unhandledRejection']?.[0];
-    expect(handler).toBeDefined();
+    const handler = await waitForProcessOn('unhandledRejection');
 
     expect(() => handler!('reject reason string')).toThrow('process.exit(1)');
 
@@ -447,6 +488,8 @@ describe('daemonCommand - A4d crash handler', () => {
 
 describe('daemonCommand - review_request dispatch (phase184)', () => {
   beforeEach(() => {
+    mockProcessOnEvent.removeAllListeners();
+    mockAuditEvent.removeAllListeners();
     vi.clearAllMocks();
     Object.keys(mockState.processHandlers).forEach(k => delete mockState.processHandlers[k]);
     installProcessSpies();
