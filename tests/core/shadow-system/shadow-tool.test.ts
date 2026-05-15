@@ -327,6 +327,17 @@ describe('shadow tool (phase 767)', () => {
     });
   });
 
+  describe('callerType and profile alignment (phase 782)', () => {
+    it('passes callerType=shadow to runSubagent so executorProfile derives to full', async () => {
+      mockRunSubagent.mockResolvedValue({ text: 'shadow ok' });
+
+      await shadowTool.execute({ task: 'profile alignment' }, baseCtx);
+
+      const callArgs = mockRunSubagent.mock.calls[0][0];
+      expect(callArgs.callerType).toBe('shadow');
+    });
+  });
+
   describe('done capturedResult isolation (phase 780)', () => {
     it('uses fresh done instance, isolated from main registry capturedResult', async () => {
       // 1. pre-set main registry done with stale capturedResult
