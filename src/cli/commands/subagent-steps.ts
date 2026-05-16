@@ -14,7 +14,7 @@ import {
   renderStepFull,
 } from './_message-renderer.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from '../../core/async-task-system/dirs.js';
-import { TASKS_SYNC_SUBAGENT_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/constants.js';
 
 // ─── Resolve result dir ──────────────────────────────────────
 

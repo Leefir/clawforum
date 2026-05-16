@@ -18,6 +18,7 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { runDeepDream } from '../../../src/core/memory/deep-dream.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
+import { MEMORY_AUDIT_EVENTS } from '../../../src/core/memory/audit-events.js';
 import type { LLMOrchestratorConfig } from '../../../src/foundation/llm-orchestrator/types.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 import type { FileSystem } from '../../../src/foundation/fs/types.js';
@@ -440,6 +441,45 @@ describe('runDeepDream', () => {
 
       expect(mockLlmCall).not.toHaveBeenCalled();
     });
+
+  it('传入 motionFs 时 disk snapshot 后 emit DREAM_OUTPUT_PERSISTED 含 dreamId + path + bytes', async () => {
+    const motionDir = path.join(clawforumDir, 'motion');
+    await fs.mkdir(path.join(motionDir, 'inbox', 'pending'), { recursive: true });
+    const session = makeSessionJson([
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'world' },
+    ]);
+    const filename = `1000000000000_abcd1234.json`;
+    await fs.writeFile(path.join(archiveDir, filename), session, 'utf-8');
+
+    mockLlmCall
+      .mockResolvedValueOnce(makeTextResponse('dream'))
+      .mockResolvedValueOnce(makeTextResponse('compressed'));
+
+    const motionFs = new NodeFileSystem({ baseDir: motionDir });
+    await runDeepDream({
+      clawforumDir,
+      llmConfig: fakeLlmConfig,
+      llmService: mockLlmService as any,
+      fs: new NodeFileSystem({ baseDir: clawforumDir }),
+      motionFs,
+      audit: mockAudit,
+      clawFsFactory,
+    });
+
+    const persistedCall = mockAudit.write.mock.calls.find((c: any[]) =>
+      c[0] === MEMORY_AUDIT_EVENTS.DREAM_OUTPUT_PERSISTED
+    );
+    expect(persistedCall).toBeTruthy();
+    expect(persistedCall![1]).toMatch(/^dreamId=/);
+    expect(persistedCall![2]).toMatch(/^path=memory\/dream-outputs\/.*\.txt$/);
+    expect(persistedCall![3]).toMatch(/^bytes=\d+$/);
+
+    // 反向：文件实际落盘
+    const outputFiles = fsSync.readdirSync(path.join(motionDir, 'memory', 'dream-outputs'));
+    expect(outputFiles.length).toBe(1);
+    expect(outputFiles[0]).toMatch(/\.txt$/);
+  });
   });
 
   // ── 多 claw 隔离 ────────────────────────────────────────────
@@ -544,4 +584,5 @@ describe('runDeepDream', () => {
     // 第 1 个文件处理后，compressions 有内容，第 2 个文件的 buildDreamInput 会包含"前序会话压缩摘要"
     expect(typeof call3Content === 'string' ? call3Content : '').toContain('前序会话');
   });
+
 });

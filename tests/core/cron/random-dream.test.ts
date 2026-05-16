@@ -17,6 +17,7 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { runRandomDream, type RandomDreamOptions } from '../../../src/core/memory/random-dream.js';
 import { RANDOM_DREAM_SYSTEM_PROMPT } from '../../../src/core/memory/prompts/random-dream.js';
+import { MEMORY_AUDIT_EVENTS } from '../../../src/core/memory/audit-events.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import type { AsyncTaskSystem } from '../../../src/core/async-task-system/system.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
@@ -119,6 +120,15 @@ Prompt: ...
       const inboxFiles = fsSync.readdirSync(path.join(motionDir, 'inbox', 'pending'));
       const hasRandomDream = inboxFiles.some(f => fsSync.readFileSync(path.join(motionDir, 'inbox', 'pending', f), 'utf8').includes('type: random_dream'));
       expect(hasRandomDream).toBe(true);
+
+      // DREAM_OUTPUT_PERSISTED audit emit（phase 814 Step C / P1.40）
+      const persistedCall = mockAudit.write.mock.calls.find((c: any[]) =>
+        c[0] === MEMORY_AUDIT_EVENTS.DREAM_OUTPUT_PERSISTED
+      );
+      expect(persistedCall).toBeTruthy();
+      expect(persistedCall![1]).toMatch(/^dreamId=/);
+      expect(persistedCall![2]).toMatch(/^path=memory\/dream-outputs\/.*\.txt$/);
+      expect(persistedCall![3]).toMatch(/^bytes=\d+$/);
     });
 
     it('多个 [DREAM_OUTPUT] 块全部提取', async () => {

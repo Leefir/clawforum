@@ -23,7 +23,7 @@ import type { LLMOrchestrator, LLMCallOptions } from '../../foundation/llm-orche
 import type { StepInput, StepResult, LLMCallInfo } from './types.js';
 export type { LLMCallInfo, StepCallbacks, StepInput, StepMeta, StepResult } from './types.js';
 import type { StepCallbacks } from './types.js';
-import { REACT_DEFAULT_MAX_TOKENS } from '../../constants.js';
+import { REACT_DEFAULT_MAX_TOKENS } from '../agent-executor/constants.js';
 import { throwAbortError } from './abort-helpers.js';
 import { safeCallback, extractText, appendAssistantMessage } from './utils.js';
 import { collectStreamResponse } from './stream.js';

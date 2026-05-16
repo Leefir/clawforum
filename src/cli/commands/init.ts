@@ -8,18 +8,20 @@ import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '../../foundation/config/index.js';
 import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm-provider/index.js';
+import { REACT_DEFAULT_MAX_TOKENS } from '../../core/agent-executor/constants.js';
 import {
-  REACT_DEFAULT_MAX_TOKENS,
   DEFAULT_LLM_TIMEOUT_MS,
   DEFAULT_LLM_RETRY_ATTEMPTS,
   DEFAULT_RETRY_DELAY_MS,
-  DEFAULT_TOOL_TIMEOUT_MS,
+  INIT_LLM_IDLE_TIMEOUT_MS,
+} from '../../foundation/llm-orchestrator/defaults.js';
+import { DEFAULT_TOOL_TIMEOUT_MS } from '../../core/runtime/constants.js';
+import {
   WATCHDOG_INTERVAL_MS,
   DEFAULT_DISK_WARNING_MB,
   CLAW_INACTIVITY_TIMEOUT_MS,
-  DEFAULT_MAX_CONCURRENT_TASKS,
-  INIT_LLM_IDLE_TIMEOUT_MS,
-} from '../../constants.js';
+} from '../../watchdog/constants.js';
+import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../core/async-task-system/constants.js';
 import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
 import { LOGS_DIR } from '../../types/paths.js';
 import type { AuditLog } from '../../foundation/audit/index.js';

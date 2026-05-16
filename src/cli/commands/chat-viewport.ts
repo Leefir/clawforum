@@ -11,7 +11,7 @@ import { isAlive } from '../../foundation/process-exec/index.js';
 import { getContractCreatedMs } from '../../core/contract/index.js';
 import stringWidth from 'string-width';
 import { wrapLine, fitLine } from '../utils/string.js';
-import { OUTPUT_LINES_CAP } from '../../constants.js';
+import { OUTPUT_LINES_CAP } from './constants.js';
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';

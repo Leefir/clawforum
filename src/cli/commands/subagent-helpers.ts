@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getClawDir, getMotionDir } from '../../foundation/config/paths.js';
 import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/dirs.js';
-import { TASKS_SYNC_SUBAGENT_DIR } from '../../types/paths.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/constants.js';
 
 export type SubagentKind = 'dispatch' | 'spawn' | 'verifier' | 'random_dream' | 'cron';
 export type SubagentStatus = 'completed' | 'running' | 'failed';

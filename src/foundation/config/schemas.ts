@@ -5,21 +5,23 @@
  */
 
 import { z } from 'zod';
+import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
 import {
+  DEFAULT_LLM_IDLE_TIMEOUT_MS,
   DEFAULT_LLM_TIMEOUT_MS,
   DEFAULT_RESET_TIMEOUT_MS,
   DEFAULT_RETRY_DELAY_MS,
   DEFAULT_LLM_RETRY_ATTEMPTS,
-  DEFAULT_TOOL_TIMEOUT_MS,
+} from '../llm-orchestrator/defaults.js';
+import { DEFAULT_TOOL_TIMEOUT_MS } from '../../core/runtime/constants.js';
+import {
   WATCHDOG_INTERVAL_MS,
   DEFAULT_DISK_WARNING_MB,
   CLAW_INACTIVITY_TIMEOUT_MS,
-  CRON_TICK_INTERVAL_MS,
-  REACT_DEFAULT_MAX_TOKENS,
-  DEFAULT_MAX_CONCURRENT_TASKS,
-} from '../../constants.js';
-import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../llm-orchestrator/index.js';
+} from '../../watchdog/constants.js';
+import { CRON_TICK_INTERVAL_MS } from '../../core/cron/constants.js';
+import { REACT_DEFAULT_MAX_TOKENS } from '../../core/agent-executor/constants.js';
+import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../core/async-task-system/constants.js';
 
 // API format code → preset id (for manual entry)
 export const FORMAT_MAP: Record<string, string> = {

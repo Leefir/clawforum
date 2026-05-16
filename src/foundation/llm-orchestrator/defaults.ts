@@ -8,3 +8,22 @@
  * 由 config boundary（zod schema + cli/init）resolve、其他 caller ctor required
  */
 export const DEFAULT_LLM_IDLE_TIMEOUT_MS = 60000;
+
+/**
+ * Initial idle timeout written to user config by `init` command (ms)
+ * - More lenient default for new users (vs schema 60s fallback)
+ * - User can edit later to tighter value
+ */
+export const INIT_LLM_IDLE_TIMEOUT_MS = 120000;
+
+/** Default LLM API call timeout (ms) */
+export const DEFAULT_LLM_TIMEOUT_MS = 60_000;
+
+/** Default circuit breaker reset timeout (ms) */
+export const DEFAULT_RESET_TIMEOUT_MS = 60_000;
+
+/** Default LLM retry delay between attempts (ms) */
+export const DEFAULT_RETRY_DELAY_MS = 1_000;
+
+/** Default LLM retry attempts before failing */
+export const DEFAULT_LLM_RETRY_ATTEMPTS = 3;

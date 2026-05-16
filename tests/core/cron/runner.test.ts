@@ -207,4 +207,54 @@ describe('CronRunner', () => {
     runner.tick();
     expect(handler).toHaveBeenCalledTimes(2);
   });
+
+  it('handler timeout 后 background settle → emit JOB_LATE_SETTLED 含 job + run_key + late_settle_ms', async () => {
+    let resolveHandler: () => void;
+    const handler = vi.fn(() => new Promise<void>((r) => { resolveHandler = r; }));
+    const job: CronJob = { name: 'slow', enabled: true, schedule: { type: 'hourly' }, handler, timeoutMs: 100 };
+    const runner = new CronRunner([job], audit as unknown as AuditLog);
+    runner.tick();
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    // advance  past timeout → HANDLER_TIMEOUT
+    vi.advanceTimersByTime(101);
+    expect(audit.write).toHaveBeenCalledWith(
+      CRON_AUDIT_EVENTS.HANDLER_TIMEOUT,
+      'job=slow',
+      expect.stringContaining('run_key='),
+      'timeout_ms=100',
+    );
+
+    // background settle → JOB_LATE_SETTLED
+    resolveHandler!();
+    await vi.runAllTicks();
+
+    const lateSettledCall = audit.write.mock.calls.find((c: any[]) =>
+      c[0] === CRON_AUDIT_EVENTS.JOB_LATE_SETTLED
+    );
+    expect(lateSettledCall).toBeTruthy();
+    expect(lateSettledCall![1]).toBe('job=slow');
+    expect(lateSettledCall![2]).toMatch(/^run_key=/);
+    expect(lateSettledCall![3]).toMatch(/^late_settle_ms=\d+$/);
+  });
+
+  it('handler timeout 后 background error → emit JOB_ERROR context=late_after_timeout', async () => {
+    let rejectHandler: (e: Error) => void;
+    const handler = vi.fn(() => new Promise<void>((_, r) => { rejectHandler = r; }));
+    const job: CronJob = { name: 'failing-late', enabled: true, schedule: { type: 'hourly' }, handler, timeoutMs: 100 };
+    const runner = new CronRunner([job], audit as unknown as AuditLog);
+    runner.tick();
+
+    vi.advanceTimersByTime(101);
+    rejectHandler!(new Error('late boom'));
+    await vi.runAllTicks();
+
+    expect(audit.write).toHaveBeenCalledWith(
+      CRON_AUDIT_EVENTS.JOB_ERROR,
+      'job=failing-late',
+      expect.stringContaining('run_key='),
+      'error=late boom',
+      'context=late_after_timeout',
+    );
+  });
 });

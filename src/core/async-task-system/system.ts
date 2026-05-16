@@ -10,7 +10,7 @@ import * as path from 'path';
 
 import type { FileSystem } from '../../foundation/fs/types.js';
 
-import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../constants.js';
+import { DEFAULT_MAX_CONCURRENT_TASKS } from './constants.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';

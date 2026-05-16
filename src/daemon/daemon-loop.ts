@@ -33,12 +33,11 @@ import type { Heartbeat } from '../core/runtime/index.js';
 import {
   DAEMON_FALLBACK_TIMEOUT_MS,
   INTERRUPT_RECOVERY_DELAY_MS,
-
   STARTUP_CHECK_COOLDOWN_MS,
   LLM_MAX_RETRIES,
   LLM_RETRY_INITIAL_DELAY_MS,
   LLM_RETRY_MAX_DELAY_MS,
-} from '../constants.js';
+} from './constants.js';
 import { notifyInbox } from '../foundation/messaging/index.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../types/signals.js';
 import { CONTRACT_DIR } from '../core/contract/index.js';

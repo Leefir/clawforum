@@ -27,7 +27,7 @@ import type {
   ProviderAdapter,
   StreamChunk,
 } from './types.js';
-import { STREAM_MAX_DURATION_MS } from '../../constants.js';
+import { STREAM_MAX_DURATION_MS } from '../llm-orchestrator/constants.js';
 import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 // NEW imports（sub-file）
 import { formatMessages, formatTools } from './openai-message-formatter.js';
