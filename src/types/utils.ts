@@ -5,3 +5,7 @@ export function oneLine(s: string): string {
   if (content.length <= SUMMARY_MAX_CHARS) return content;
   return content.slice(0, SUMMARY_MAX_CHARS) + '…';
 }
+
+export function formatErr(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}

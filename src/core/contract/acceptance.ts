@@ -20,16 +20,13 @@ import type { ContractYaml, ProgressData, AcceptanceResult } from './types.js';
 import { withProgressLock, type LockContext } from './lock.js';
 import { runContractVerifier } from './verifier-job.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+import { formatErr } from '../../types/utils.js';
 
 // ───── module-level helpers ─────
 
 type AcceptanceConfig =
   | { subtask_id: string; type: 'script'; script_file?: string }
   | { subtask_id: string; type: 'llm'; prompt_file?: string };
-
-function formatErr(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 function formatValidIds(progress: ProgressData): string {
   return Object.keys(progress.subtasks).join(', ');

@@ -7,10 +7,8 @@
  */
 
 import type { AuditLog } from '../../foundation/audit/index.js';
-
-export function formatErr(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { formatErr } from '../../types/utils.js';
+export { formatErr };
 
 export function auditError(
   audit: AuditLog,
