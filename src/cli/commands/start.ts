@@ -333,7 +333,7 @@ async function _start(audit?: AuditLog): Promise<void> {
         try {
           const fixed = await promptReconfigure(rl, connResult.errorType);
           if (!fixed) {
-            throw new Error('LLM not configured. Run "clawforum init" or fix your config.');
+            throw new CliError('LLM not configured. Run "clawforum init" or fix your config.');
           }
         } finally {
           rl.close();
