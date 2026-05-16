@@ -35,8 +35,10 @@ export async function pauseContract(
   await ctx.fs.ensureDir(ctx.pausedDir);
 
   // phase 791 (P0.16): acquire lock at SOURCE, do status update, move, release at TARGET.
+  // phase 871 (new.P1.5 r113 G fork): catch fs.move throw + 显式释放 source 防 orphan
   // 防 fs.move 跨边界 lock 失效 race（lock + 数据同 dir / dir move 时 lock 跟着移动）。
   const sourceLockPath = `${ctx.activeDir}/${contractId}/progress.lock`;
+  const targetLockPath = `${ctx.pausedDir}/${contractId}/progress.lock`;
   await acquireLock(ctx, sourceLockPath);
   try {
     // status update in SOURCE dir before move
@@ -47,9 +49,15 @@ export async function pauseContract(
 
     // move whole dir (lock + progress.json) → target
     await ctx.fs.move(`${ctx.activeDir}/${contractId}`, `${ctx.pausedDir}/${contractId}`);
+  } catch (err) {
+    // fs.move 抛 → source dir 仍含 lock + target dir 未创 → 显式释放 source 防 orphan
+    // per feedback_latent_defensive_fix (N=5 累) + feedback_audit_cluster_multi_phase_coordination
+    try { await releaseLock(ctx, sourceLockPath); } catch { /* releaseLock 自身 audit emit + 不阻断 throw chain */ }
+    throw err;
   } finally {
     // release at TARGET (lock file moved with dir)
-    const targetLockPath = `${ctx.pausedDir}/${contractId}/progress.lock`;
+    // 正常 path: target lock = source lock moved with dir → release target ✓
+    // exception path (catch 已执行): source 已 release / target 不存在 / releaseLock emit LOCK_UNLINK_FAILED audit
     await releaseLock(ctx, targetLockPath);
   }
 
@@ -66,7 +74,9 @@ export async function resumeContract(
   }
 
   // phase 791 (P0.16): acquire lock at SOURCE, do status update, move, release at TARGET.
+  // phase 871 (new.P1.5 r113 G fork): catch fs.move throw + 显式释放 source 防 orphan
   const sourceLockPath = `${ctx.pausedDir}/${contractId}/progress.lock`;
+  const targetLockPath = `${ctx.activeDir}/${contractId}/progress.lock`;
   await acquireLock(ctx, sourceLockPath);
   try {
     const progress = await ctx.getProgress(contractId);
@@ -75,8 +85,10 @@ export async function resumeContract(
     await ctx.saveProgress(contractId, progress);
 
     await ctx.fs.move(`${ctx.pausedDir}/${contractId}`, `${ctx.activeDir}/${contractId}`);
+  } catch (err) {
+    try { await releaseLock(ctx, sourceLockPath); } catch { /* audit emit + 不阻断 throw chain */ }
+    throw err;
   } finally {
-    const targetLockPath = `${ctx.activeDir}/${contractId}/progress.lock`;
     await releaseLock(ctx, targetLockPath);
   }
 
@@ -96,7 +108,9 @@ export async function cancelContract(
   await ctx.fs.ensureDir(ctx.archiveDir);
 
   // phase 791 (P0.16): acquire lock at SOURCE, do status update, move, release at TARGET.
+  // phase 871 (new.P1.5 r113 G fork): catch fs.move throw + 显式释放 source 防 orphan
   const sourceLockPath = `${dir}/${contractId}/progress.lock`;
+  const targetLockPath = `${ctx.archiveDir}/${contractId}/progress.lock`;
   await acquireLock(ctx, sourceLockPath);
   try {
     const progress = await ctx.getProgress(contractId);
@@ -105,8 +119,10 @@ export async function cancelContract(
     await ctx.saveProgress(contractId, progress);
 
     await ctx.fs.move(`${dir}/${contractId}`, `${ctx.archiveDir}/${contractId}`);
+  } catch (err) {
+    try { await releaseLock(ctx, sourceLockPath); } catch { /* audit emit + 不阻断 throw chain */ }
+    throw err;
   } finally {
-    const targetLockPath = `${ctx.archiveDir}/${contractId}/progress.lock`;
     await releaseLock(ctx, targetLockPath);
   }
 
@@ -131,13 +147,18 @@ export async function moveContractToArchive(
   await ctx.fs.ensureDir(ctx.archiveDir);
 
   // phase 860 (P0-B): acquire lock at SOURCE / move dir / release@TARGET
+  // phase 871 (new.P1.5 r113 G fork): catch fs.move throw + 显式释放 source 防 orphan
   // mirror phase 791 P0.16 template (pause/resume/cancel sister)
   const sourceLockPath = `${dir}/${contractId}/progress.lock`;
+  const targetLockPath = `${dst}/progress.lock`;
   await acquireLock(ctx, sourceLockPath);
   try {
     await ctx.fs.move(`${dir}/${contractId}`, dst);
+  } catch (err) {
+    try { await releaseLock(ctx, sourceLockPath); } catch { /* audit emit + 不阻断 throw chain */ }
+    throw err;
   } finally {
     // release at TARGET (lock file moved with dir)
-    await releaseLock(ctx, `${dst}/progress.lock`);
+    await releaseLock(ctx, targetLockPath);
   }
 }
