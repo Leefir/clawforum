@@ -22,7 +22,8 @@ export function getAliveStatus(
       if (l1IsAlive(pid)) {
         return { alive: true, reason: `PID ${pid}`, pid };
       }
-      try { ctx.fs.deleteSync(pidFile); } catch { /* ignore */ }
+      // M#1 probe ≠ delete：probe 不 mutate state、stale pidfile 清理归 stop/recovery 显式路径
+      // 历史 deleteSync 引发 stop.ts isAliveByPidFile race（new4.P1.1 + new4.P2.1-C 同根 cluster phase 879）
       return { alive: false, reason: `PID ${pid} not alive` };
     } catch (err: any) {
       return { alive: false, reason: `isAlive error: ${err.message ?? String(err)}` };

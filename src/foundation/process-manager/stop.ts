@@ -1,34 +1,23 @@
 import { kill, isAlive as l1IsAlive } from '../process-exec/index.js';
 import { DAEMON_SHUTDOWN_GRACE_MS } from './constants.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
-import { isAliveByPidFile as checkAlive } from './alive.js';
 import { readPid, removePid } from './pid.js';
 import type { ProcessManagerContext } from './types.js';
 
 export async function stopProcess(ctx: ProcessManagerContext, clawId: string): Promise<boolean> {
-  const isAliveByPidFile = ctx.isAlive ?? ((id: string) => checkAlive(ctx, id));
   const pid = await readPid(ctx, clawId);
   if (!pid) {
     return false;
   }
 
-  if (!isAliveByPidFile(clawId)) {
-    await removePid(ctx, clawId);
-    ctx.audit.write(
-      PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_STOP_STALE,
-      `claw=${clawId}`,
-      `pid=${pid}`,
-    );
-    return true;
-  }
-
+  // phase 879：直接 l1IsAlive(pid) authoritative check（pid 已 line 10 拿、不依赖 pidfile probe）
+  // 消除 isAliveByPidFile 经 getAliveStatus.readSync(pidFile) → 并发 caller race window
   if (!l1IsAlive(pid)) {
     await removePid(ctx, clawId);
     ctx.audit.write(
       PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_STOP_STALE,
       `claw=${clawId}`,
       `pid=${pid}`,
-      `via=esrch`,
     );
     return true;
   }
@@ -38,7 +27,7 @@ export async function stopProcess(ctx: ProcessManagerContext, clawId: string): P
     kill(pid, 'TERM');
     await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
 
-    if (isAliveByPidFile(clawId)) {
+    if (l1IsAlive(pid)) {
       kill(pid, 'KILL');
       via = 'sigkill';
       ctx.audit.write(

@@ -74,7 +74,7 @@ describe('ProcessManager', () => {
       expect(result).toBe(false);
     });
 
-    it('should clean up stale pid file after detecting dead process', async () => {
+    it('probe 不删 stale pidfile（phase 879 M#1 单一职责）', async () => {
       // 创建一个指向不存在进程的 pid 文件
       const statusDir = path.join(tempDir, 'claws', 'test-claw', 'status');
       fs.mkdirSync(statusDir, { recursive: true });
@@ -87,14 +87,11 @@ describe('ProcessManager', () => {
       // isAlive 应该返回 false（因为进程不存在）
       expect(processManager.isAlive('test-claw')).toBe(false);
 
-      // 等待 isAlive 触发的异步清理完成
-      await waitFor(() => !fs.existsSync(pidFile), 1000, 10);
-
-      // pid 文件应该被 isAlive 清理
-      expect(fs.existsSync(pidFile)).toBe(false);
+      // pid 文件不应被 probe 清理（M#1 probe ≠ delete）
+      expect(fs.existsSync(pidFile)).toBe(true);
     });
 
-    it('should return true when stopping already-cleaned process', async () => {
+    it('stop 直读 l1IsAlive 清理 stale pidfile 并返回 true（phase 879）', async () => {
       // 创建一个指向不存在进程的 pid 文件
       const statusDir = path.join(tempDir, 'claws', 'test-claw-2', 'status');
       fs.mkdirSync(statusDir, { recursive: true });
@@ -104,11 +101,11 @@ describe('ProcessManager', () => {
       fs.writeFileSync(pidFile, String(fakePid));
 
       // 直接调用 stop（不先调用 isAlive）
-      // stop 应该检测到进程不存在，清理 pid 文件，返回 true
+      // stop 经 l1IsAlive(pid) 直读检测到进程不存在，清理 pid 文件，返回 true
       const result = await processManager.stop('test-claw-2');
       expect(result).toBe(true);
       
-      // pid 文件应该被清理
+      // pid 文件应该被 stop 清理
       expect(fs.existsSync(pidFile)).toBe(false);
     });
   });

@@ -102,7 +102,7 @@ describe('ProcessManager', () => {
       expect(pm.isAlive('live-claw')).toBe(true);
     });
 
-    it('should return false and clean stale PID for dead process', async () => {
+    it('should return false and not clean stale PID for dead process (phase 879 M#1)', async () => {
       const { audit } = makeAudit();
       const pm = new ProcessManager(nodeFs, tempDir, audit);
       const pidFile = path.join(tempDir, 'claws', 'dead-claw', 'status', 'pid');
@@ -111,11 +111,8 @@ describe('ProcessManager', () => {
 
       expect(pm.isAlive('dead-claw')).toBe(false);
 
-      // 等待异步清理完成
-      await waitFor(() => !fsSync.existsSync(pidFile), 2000, 10);
-
-      // PID 文件应被清理
-      expect(fsSync.existsSync(pidFile)).toBe(false);
+      // M#1 probe ≠ delete：isAlive 不清理 stale pidfile、留到 stop/recovery 显式路径
+      expect(fsSync.existsSync(pidFile)).toBe(true);
     });
 
     it('should return false for invalid PID content', async () => {
