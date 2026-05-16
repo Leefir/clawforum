@@ -142,7 +142,7 @@ describe('ProcessManager', () => {
       const pm = new ProcessManager(nodeFs, tempDir, audit);
       const pidFile = path.join(tempDir, 'claws', 'stale-claw', 'status', 'pid');
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
-      await fs.writeFile(pidFile, '999998', 'utf-8');
+      await fs.writeFile(pidFile, DEAD_PID_STRING, 'utf-8');
 
       const result = await pm.stop('stale-claw');
       expect(result).toBe(true);
