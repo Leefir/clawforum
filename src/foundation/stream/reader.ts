@@ -98,6 +98,8 @@ export function createStreamReader(
   let active = false;
   let consecutiveParseFails = 0;
   const recentOutcomes: boolean[] = [];
+  let readingInFlight = false;
+  let pendingNotify = false;
 
   const recordOutcome = (ok: boolean): void => {
     recentOutcomes.push(ok);
@@ -138,59 +140,73 @@ export function createStreamReader(
 
   const readIncrement = async (): Promise<void> => {
     if (!active) return;
+
+    // α-in-flight-guard + drain loop (phase 876 / new.P1.4)
+    if (readingInFlight) {
+      pendingNotify = true;
+      return;
+    }
+    readingInFlight = true;
     try {
-      if (!fs.existsSync(streamPath)) return;
-      const size = fs.statSync(streamPath).size;
-      if (size < offset) {
-        // File truncated / replaced — reset
-        offset = 0;
-        pending = '';
-        decoder = new StringDecoder('utf-8');
-      }
-      if (size === offset) return;
-
-      // 字节安全范围读 + StringDecoder 缓冲跨 chunk 的多字节字符边界
-      const buf = fs.readBytesSync(streamPath, offset, size);
-      offset += buf.length;
-      pending += decoder.write(buf);
-
-      let nl = pending.indexOf('\n');
-      while (nl >= 0) {
-        const line = pending.slice(0, nl);
-        pending = pending.slice(nl + 1);
-        if (line) {
-          try {
-            const ev = JSON.parse(line) as StreamEvent;
-            consecutiveParseFails = 0;
-            recordOutcome(true);
-            try {
-              onEvent(ev);
-            } catch (cbErr) {
-              audit.write(
-                STREAM_AUDIT_EVENTS.READER_CALLBACK_FAILED,
-                `reason=${cbErr instanceof Error ? cbErr.message : String(cbErr)}`,
-              );
-            }
-          } catch (err) {
-            consecutiveParseFails++;
-            recordOutcome(false);
-            audit.write(
-              STREAM_AUDIT_EVENTS.READER_PARSE_FAILED,
-              `line_prefix=${line.slice(0, 80)}`,
-              `reason=${err instanceof Error ? err.message : String(err)}`,
-            );
-            if (await checkEscalation()) {
-              return;
-            }
+      do {
+        pendingNotify = false;
+        try {
+          if (!fs.existsSync(streamPath)) return;
+          const size = fs.statSync(streamPath).size;
+          if (size < offset) {
+            // File truncated / replaced — reset
+            offset = 0;
+            pending = '';
+            decoder = new StringDecoder('utf-8');
           }
+          if (size === offset) continue;
+
+          // 字节安全范围读 + StringDecoder 缓冲跨 chunk 的多字节字符边界
+          const buf = fs.readBytesSync(streamPath, offset, size);
+          offset += buf.length;
+          pending += decoder.write(buf);
+
+          let nl = pending.indexOf('\n');
+          while (nl >= 0) {
+            const line = pending.slice(0, nl);
+            pending = pending.slice(nl + 1);
+            if (line) {
+              try {
+                const ev = JSON.parse(line) as StreamEvent;
+                consecutiveParseFails = 0;
+                recordOutcome(true);
+                try {
+                  onEvent(ev);
+                } catch (cbErr) {
+                  audit.write(
+                    STREAM_AUDIT_EVENTS.READER_CALLBACK_FAILED,
+                    `reason=${cbErr instanceof Error ? cbErr.message : String(cbErr)}`,
+                  );
+                }
+              } catch (err) {
+                consecutiveParseFails++;
+                recordOutcome(false);
+                audit.write(
+                  STREAM_AUDIT_EVENTS.READER_PARSE_FAILED,
+                  `line_prefix=${line.slice(0, 80)}`,
+                  `reason=${err instanceof Error ? err.message : String(err)}`,
+                );
+                if (await checkEscalation()) {
+                  return;
+                }
+              }
+            }
+            nl = pending.indexOf('\n');
+          }
+        } catch (err) {
+          audit.write(
+            STREAM_AUDIT_EVENTS.READER_READ_FAILED,
+            `reason=${err instanceof Error ? err.message : String(err)}`,
+          );
         }
-        nl = pending.indexOf('\n');
-      }
-    } catch (err) {
-      audit.write(
-        STREAM_AUDIT_EVENTS.READER_READ_FAILED,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
-      );
+      } while (pendingNotify && active);
+    } finally {
+      readingInFlight = false;
     }
   };
 
