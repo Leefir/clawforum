@@ -200,7 +200,11 @@ clawCmd
     try {
       loadGlobalConfig();
       const { audit } = createDirContext(getClawDir(name));
-      await outboxCommand(name, { limit: parseInt(opts.limit, 10) }, { audit });
+      const limit = parseInt(opts.limit, 10);
+      if (Number.isNaN(limit)) {
+        throw new CliError(`--limit must be a non-negative integer, got: ${opts.limit}`);
+      }
+      await outboxCommand(name, { limit }, { audit });
     } catch (error) {
       process.exitCode = handleCliError(error);
     }
@@ -439,7 +443,11 @@ contractCmd
   .requiredOption('--since <timestamp>', 'Unix timestamp in milliseconds')
   .action(async (claw: string, opts: { since: string }) => {
     try {
-      await contractEventsCommand(claw, parseInt(opts.since, 10));
+      const since = parseInt(opts.since, 10);
+      if (Number.isNaN(since)) {
+        throw new CliError(`--since must be a Unix timestamp in milliseconds, got: ${opts.since}`);
+      }
+      await contractEventsCommand(claw, since);
     } catch (error) {
       process.exitCode = handleCliError(error);
     }
