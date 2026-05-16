@@ -8,7 +8,7 @@
 import * as nodePath from 'path';
 import { NodeFileSystem } from '../fs/node-fs.js';
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
-import { READ_MAX_LINES, READ_MAX_CHARS } from '../../constants.js';
+import { READ_MAX_LINES, READ_MAX_CHARS } from './constants.js';
 import { getChecker } from './permission-context.js';
 import { resolveWorkspacePath } from './_resolve-path.js';
 

@@ -24,7 +24,7 @@ import { GATEWAY_AUDIT_EVENTS } from './audit-events.js';
 import {
   GATEWAY_INTERRUPT_DEBOUNCE_MS,
   GATEWAY_ASK_USER_TIMEOUT_MS,
-} from '../../constants.js';
+} from './constants.js';
 
 interface AskUserEntry {
   id: string;

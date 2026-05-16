@@ -8,8 +8,9 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import type { ToolResult, ExecContext } from '../../foundation/tool-protocol/index.js';
 import type { Message } from '../../types/message.js';
-import { TASKS_SYNC_SHADOW_DIR } from '../../types/paths.js';
+
 import { UUID_SHORT_LEN } from '../../constants.js';
+import { TASKS_SYNC_SHADOW_DIR } from './constants.js';
 import { runSubagent } from '../subagent/index.js';
 import { SHADOW_AUDIT_EVENTS } from './audit-events.js';
 import { synthesizeFormB, formatErr } from './_helpers.js';

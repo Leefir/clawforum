@@ -13,7 +13,7 @@ import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.j
 import { executeStep, type StepCallbacks, type StepMeta } from '../step-executor/step-executor.js';
 import { throwAbortError } from '../step-executor/abort-helpers.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../../types/errors.js';
-import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from '../../constants.js';
+import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from './constants.js';
 
 export interface AgentInput {
   messages: Message[];

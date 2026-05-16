@@ -19,7 +19,7 @@ import type {
   LLMCallOptions,
   StreamChunk,
 } from './types.js';
-import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS } from '../../constants.js';
+import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS } from '../llm-orchestrator/constants.js';
 import { BaseAnthropicAdapter, type AnthropicRequestBody } from './base-anthropic.js';
 import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 import { parseAnthropicSSEStream } from './custom-anthropic-sse-parser.js';

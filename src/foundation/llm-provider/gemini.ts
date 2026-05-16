@@ -20,7 +20,7 @@ import type {
   ProviderAdapter,
   StreamChunk,
 } from './types.js';
-import { STREAM_MAX_DURATION_MS } from '../../constants.js';
+import { STREAM_MAX_DURATION_MS } from '../llm-orchestrator/constants.js';
 import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 import { formatGeminiMessages } from './gemini-message-formatter.js';
 import { parseGeminiSSEStream } from './gemini-sse-parser.js';

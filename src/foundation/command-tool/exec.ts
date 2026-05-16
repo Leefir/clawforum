@@ -8,10 +8,8 @@
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
-import {
-  EXEC_MAX_OUTPUT,
-  UUID_SHORT_LEN,
-} from '../../constants.js';
+import { UUID_SHORT_LEN } from '../../constants.js';
+import { EXEC_MAX_OUTPUT } from './constants.js';
 import { TASKS_SYNC_EXEC_DIR } from './index.js';
 import { exec } from '../process-exec/index.js';
 import { ProcessExecError } from '../process-exec/index.js';

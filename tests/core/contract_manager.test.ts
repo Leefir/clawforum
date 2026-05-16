@@ -26,8 +26,8 @@ vi.mock('child_process', async (importOriginal) => {
   return { ...actual };
 });
 
-vi.mock('../../src/constants.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/constants.js')>();
+vi.mock('../../src/core/contract/constants.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/core/contract/constants.js')>();
   return {
     ...actual,
     LOCK_MAX_RETRIES: 3,        // 从 20 降到 3
