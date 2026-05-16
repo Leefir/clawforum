@@ -46,6 +46,8 @@ export class CronRunner {
   // phase 793 (audit-2026-05-14 P0.22): inflight Promise tracking 加 stop 时 drain
   // 防 cronRunner.stop 后 dream-trigger 30min handler 撞 runtime.stop 的 llm.close
   private inflightPromises = new Set<Promise<unknown>>();
+  // phase 867 (r111 E fork): runner-level flag — drain timeout 后 set、future extension scope
+  private drainTimedOut = false;
 
   constructor(
     private readonly jobs: CronJob[],
@@ -75,11 +77,33 @@ export class CronRunner {
       );
       const winner = await Promise.race([drainPromise, timeoutPromise]);
       if (winner === 'timeout') {
+        this.drainTimedOut = true;
         this.audit.write(
           CRON_AUDIT_EVENTS.RUNNER_DRAIN_TIMEOUT,
           `running=${[...this.running].join(',')}`,
           `timeout_ms=${drainTimeoutMs}`,
         );
+        // Attach per-Promise late-settle audit on each remaining inflight
+        // (phase 867 r111 E fork: Sc.1 post-drain late-settle observability)
+        // Snapshot once — avoid concurrent delete from existing .then(_, _) cleanup
+        const stuckSnapshot = new Set(this.inflightPromises);
+        for (const p of stuckSnapshot) {
+          p.then(
+            () => {
+              this.audit.write(
+                CRON_AUDIT_EVENTS.RUNNER_DRAIN_LATE_SETTLE,
+                `outcome=settled`,
+              );
+            },
+            err => {
+              this.audit.write(
+                CRON_AUDIT_EVENTS.RUNNER_DRAIN_LATE_SETTLE,
+                `outcome=err`,
+                `error=${err instanceof Error ? err.message : String(err)}`,
+              );
+            },
+          );
+        }
       }
     }
 

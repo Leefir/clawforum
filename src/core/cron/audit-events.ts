@@ -18,4 +18,5 @@ export const CRON_AUDIT_EVENTS = {
   HANDLER_STUCK: 'cron_handler_stuck',
   JOB_LATE_SETTLED: 'cron_job_late_settled',  // NEW phase 758
   RUNNER_DRAIN_TIMEOUT: 'cron_drain_timeout',   // phase 793 (P0.22): stop drain cap timeout
+  RUNNER_DRAIN_LATE_SETTLE: 'cron_drain_late_settle',  // NEW phase 867 (r111 E fork): post-drain late settle observability
 } as const;
