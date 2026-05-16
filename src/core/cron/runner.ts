@@ -72,10 +72,12 @@ export class CronRunner {
     // drain inflight handlers
     if (this.inflightPromises.size > 0) {
       const drainPromise = Promise.allSettled([...this.inflightPromises]);
+      let drainTimer: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<'timeout'>(resolve =>
-        setTimeout(() => resolve('timeout'), drainTimeoutMs)
+        drainTimer = setTimeout(() => resolve('timeout'), drainTimeoutMs)
       );
       const winner = await Promise.race([drainPromise, timeoutPromise]);
+      if (drainTimer !== undefined) clearTimeout(drainTimer);
       if (winner === 'timeout') {
         this.drainTimedOut = true;
         this.audit.write(
