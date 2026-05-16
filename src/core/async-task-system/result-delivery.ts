@@ -227,7 +227,20 @@ export async function sendFallbackError(
   // ToolTask 不写（无 SENT_MARKER 语义 / _recoverToolTask 仅 re-queue）
   if (task.kind === 'subagent') {
     const resultsDir = `${TASKS_QUEUES_RESULTS_DIR}/${task.id}`;
-    await fs.ensureDir(resultsDir).catch(() => { /* dir 可能已存 / 无害 */ });
+    await fs.ensureDir(resultsDir).catch((err: unknown) => {
+      const code = (err as { code?: string })?.code;
+      // EEXIST 路径 idempotent 安全，silent 合规；非 EEXIST 是真 fs 故障，audit 留痕
+      if (code !== 'EEXIST') {
+        const msg = err instanceof Error ? err.message : String(err);
+        auditWriter.write(
+          TASK_AUDIT_EVENTS.RESULT_DELIVERY_ENSURE_DIR_FAILED,
+          `taskId=${task.id}`,
+          `dir=${resultsDir}`,
+          `code=${code ?? 'UNKNOWN'}`,
+          `error=${msg}`,
+        );
+      }
+    });
     await writeSentMarker(fs, auditWriter, task.id);
   }
 }

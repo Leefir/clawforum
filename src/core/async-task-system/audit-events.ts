@@ -30,4 +30,5 @@ export const TASK_AUDIT_EVENTS = {
   SHUTDOWN_PENDING_CLEANUPS_DRAINED: 'task_shutdown_pending_cleanups_drained',
   TASK_CORRUPT: 'task_corrupt',                            // ← NEW (phase 852 / r110 F fork)
   CANCEL_PROMISE_REJECTED: 'task_cancel_promise_rejected', // ← NEW (phase 859 / r111 H fork Sa.2)
+  RESULT_DELIVERY_ENSURE_DIR_FAILED: 'result_delivery_ensure_dir_failed',  // ← NEW (phase 878 / B-β2)
 } as const;
