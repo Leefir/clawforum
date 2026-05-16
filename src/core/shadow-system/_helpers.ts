@@ -25,6 +25,4 @@ export function synthesizeFormB(args: {
   ];
 }
 
-export function formatErr(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+export { formatErr } from '../../types/utils.js';

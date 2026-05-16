@@ -26,7 +26,7 @@ import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-events.js';
 import { CLAW_SUBDIRS, DIALOG_DIR } from '../../types/paths.js';
-import { oneLine } from '../../types/utils.js';
+import { oneLine, formatErr } from '../../types/utils.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
 import { DEFAULT_TOOL_TIMEOUT_MS } from './constants.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
@@ -46,10 +46,6 @@ import {
   type DaemonStreamCallbacks,
 } from './types.js';
 import { formatTimeAgo } from './utils.js';
-
-function formatErr(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 function auditError(
   audit: AuditLog,
