@@ -233,7 +233,11 @@ clawCmd
   .command('steps <name>')
   .description('Show main agent turn steps (name = "motion" or claw name)')
   .action(async (name: string) => {
-    await clawStepsCommand(name);
+    try {
+      await clawStepsCommand(name);
+    } catch (error) {
+      process.exitCode = handleCliError(error);
+    }
   });
 
 // claw step
@@ -241,7 +245,11 @@ clawCmd
   .command('step <n> <name>')
   .description('Show full detail of a single turn (n = "N" for whole turn, "N.x" for slot x)')
   .action(async (n: string, name: string) => {
-    await clawStepCommand(n, name);
+    try {
+      await clawStepCommand(n, name);
+    } catch (error) {
+      process.exitCode = handleCliError(error);
+    }
   });
 
 // claw daemon (auto-backgrounds)
@@ -257,7 +265,7 @@ clawCmd
       const { createAgentProcessManager } = await import('../foundation/process-manager/agent-factory.js');
       loadGlobalConfig();
       if (!clawExists(name)) {
-        throw new CliError(`Claw "${name}" does not exist`);
+        throw new CliError(`Claw "${name}" does not exist. Try \`clawforum claw list\` to see existing claws.`);
       }
       const clawDir = getClawDir(name);
       const baseDir = path.dirname(getGlobalConfigPath());
@@ -413,7 +421,7 @@ contractCmd
       loadGlobalConfig();
       const { audit } = createDirContext(getClawDir(opts.claw));
       if (opts.file && opts.dir) {
-        throw new CliError('--file and --dir are mutually exclusive');
+        throw new CliError('--file and --dir are mutually exclusive. Use one of --file or --dir, not both.');
       } else if (opts.file) {
         await contractCreateCommand(opts.claw, opts.file, { audit });
       } else if (opts.dir) {

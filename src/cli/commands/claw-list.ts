@@ -176,7 +176,6 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
     console.log('─'.repeat(112));
     console.log(`\nTotal: ${claws.length} claws (${claws.filter(c => c.status === 'running').length} running)\n`);
   } catch (error) {
-    console.error('Failed to list claws:', error instanceof Error ? error.message : String(error));
     process.exitCode = handleCliError(error);
   }
 }

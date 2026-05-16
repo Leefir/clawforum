@@ -55,23 +55,17 @@ describe('claw-steps', () => {
     });
 
     it('不存在 claw → CliError「Claw ... does not exist」', async () => {
-      await clawStepsCommand('no-such');
-      expect(process.exitCode).toBe(1);
-      process.exitCode = undefined;
+      await expect(clawStepsCommand('no-such')).rejects.toThrow('Claw "no-such" does not exist');
     });
 
     it('motion dir 缺失 → CliError「Motion directory not found」', async () => {
-      await clawStepsCommand('motion');
-      expect(process.exitCode).toBe(1);
-      process.exitCode = undefined;
+      await expect(clawStepsCommand('motion')).rejects.toThrow('Motion directory not found');
     });
 
     it('dialog/current.json 缺失 → CliError「dialog session not found」', async () => {
       const dir = path.join(tmpDir, '.clawforum', 'claws', 'empty-claw', 'dialog');
       fs.mkdirSync(dir, { recursive: true });
-      await clawStepsCommand('empty-claw');
-      expect(process.exitCode).toBe(1);
-      process.exitCode = undefined;
+      await expect(clawStepsCommand('empty-claw')).rejects.toThrow('dialog session not found');
     });
 
     it('空 turns → No turns found.', async () => {
@@ -119,16 +113,12 @@ describe('claw-steps', () => {
           { role: 'assistant', content: [{ type: 'text', text: 'only' }] },
         ],
       });
-      await clawStepCommand('99', 'motion');
-      expect(process.exitCode).toBe(1);
-      process.exitCode = undefined;
+      await expect(clawStepCommand('99', 'motion')).rejects.toThrow('Turn 99 not found');
     });
 
     it('step 格式非法 → CliError「Invalid step number」', async () => {
       writeCurrentJson('motion', { messages: [] });
-      await clawStepCommand('abc', 'motion');
-      expect(process.exitCode).toBe(1);
-      process.exitCode = undefined;
+      await expect(clawStepCommand('abc', 'motion')).rejects.toThrow('Invalid step number: abc');
     });
   });
 });
