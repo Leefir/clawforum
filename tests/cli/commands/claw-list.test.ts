@@ -155,4 +155,43 @@ describe('claw-list', () => {
     expect(output).toMatch(/active/);
     expect(output).toMatch(/3\s+5m/); // outbox count 3, last active ~5m
   });
+
+  it('outputs JSON when --json flag is passed', async () => {
+    const { createProcessManagerForCLI } = await import('../../../src/cli/utils/factories.js');
+    vi.mocked(createProcessManagerForCLI).mockReturnValue({
+      isAlive: vi.fn((name: string) => name === 'claw-a'),
+      readPid: vi.fn().mockResolvedValue(12345),
+    } as any);
+
+    vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => {
+      const sp = String(p);
+      if (sp.endsWith('config.yaml')) return true;
+      if (sp.includes('contract/active') || sp.includes('contract/paused')) return false;
+      return true;
+    });
+
+    vi.mocked(fs.readdirSync).mockImplementation((p: fs.PathLike) => {
+      const sp = String(p);
+      if (sp.endsWith('claws')) return ['claw-a', 'claw-b'] as any;
+      if (sp.endsWith('outbox/pending')) return [] as any;
+      if (sp.includes('contract')) return [] as any;
+      throw new Error(`Unexpected readdirSync: ${sp}`);
+    });
+
+    await listCommand({ json: true });
+
+    const output = consoleLogSpy.mock.calls.flat().join('\n');
+    const parsed = JSON.parse(output);
+    expect(Array.isArray(parsed.claws)).toBe(true);
+    expect(parsed.claws).toHaveLength(2);
+    expect(parsed.claws[0].name).toBe('claw-a');
+    expect(parsed.claws[0].status).toBe('running');
+    expect(parsed.claws[0].pid).toBe('12345');
+    expect(parsed.claws[1].name).toBe('claw-b');
+    expect(parsed.claws[1].status).toBe('stopped');
+    expect(parsed.claws[1].pid).toBeNull();
+    expect(parsed.total).toBe(2);
+    expect(parsed.running_count).toBe(1);
+    expect(typeof parsed.as_of).toBe('string');
+  });
 });

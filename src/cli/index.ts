@@ -153,9 +153,10 @@ clawCmd
 clawCmd
   .command('list')
   .description('List all Claws and their status')
-  .action(async () => {
+  .option('--json', 'Output as JSON (machine-readable)')
+  .action(async (opts: { json?: boolean }) => {
     try {
-      await listCommand();
+      await listCommand(opts);
     } catch (error) {
       process.exitCode = handleCliError(error);
     }
@@ -165,9 +166,10 @@ clawCmd
 clawCmd
   .command('health <name>')
   .description('Show Claw health status')
-  .action(async (name: string) => {
+  .option('--json', 'Output as JSON (machine-readable)')
+  .action(async (name: string, opts: { json?: boolean }) => {
     try {
-      await healthCommand(name);
+      await healthCommand(name, opts);
     } catch (error) {
       process.exitCode = handleCliError(error);
     }

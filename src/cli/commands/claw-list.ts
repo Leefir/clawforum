@@ -19,7 +19,7 @@ import { handleCliError } from '../errors.js';
 /**
  * List all Claws and their status
  */
-export async function listCommand(): Promise<void> {
+export async function listCommand(opts?: { json?: boolean }): Promise<void> {
   loadGlobalConfig();
 
   const globalConfigPath = getGlobalConfigPath();
@@ -135,6 +135,25 @@ export async function listCommand(): Promise<void> {
           lastContract: getLatestContractTitle(clawPath),
         });
       }
+    }
+
+    if (opts?.json) {
+      const payload = {
+        claws: claws.map(c => ({
+          name: c.name,
+          status: c.status as 'running' | 'stopped',
+          pid: c.pid ?? null,
+          contract: c.contract,
+          outbox: c.outbox,
+          last_active: c.lastActive,
+          last_contract: c.lastContract,
+        })),
+        total: claws.length,
+        running_count: claws.filter(c => c.status === 'running').length,
+        as_of: new Date().toISOString(),
+      };
+      console.log(JSON.stringify(payload, null, 2));
+      return;
     }
 
     if (claws.length === 0) {

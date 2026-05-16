@@ -115,4 +115,32 @@ describe('claw-health', () => {
     const output = consoleLogSpy.mock.calls.flat().join('\n');
     expect(output).toMatch(/contract: active/);
   });
+
+  it('outputs JSON when --json flag is passed', async () => {
+    const { createProcessManagerForCLI } = await import('../../../src/cli/utils/factories.js');
+    vi.mocked(createProcessManagerForCLI).mockReturnValue({
+      isAlive: vi.fn().mockReturnValue(true),
+    } as any);
+
+    vi.mocked(fs.readdirSync).mockImplementation((p: fs.PathLike) => {
+      const sp = String(p);
+      if (sp.includes('inbox/pending')) return ['a.md'] as any;
+      if (sp.includes('outbox/pending')) return ['x.md'] as any;
+      if (sp.includes('contract/active')) return [] as any;
+      if (sp.includes('contract/paused')) return [] as any;
+      throw new Error(`Unexpected readdirSync: ${sp}`);
+    });
+
+    await healthCommand('test-claw', { json: true });
+
+    const output = consoleLogSpy.mock.calls.flat().join('\n');
+    const parsed = JSON.parse(output);
+    expect(parsed.name).toBe('test-claw');
+    expect(parsed.status).toBe('running');
+    expect(parsed.inbox_pending).toBe(1);
+    expect(parsed.outbox_pending).toBe(1);
+    expect(parsed.contract).toBe('none');
+    expect(parsed.last_active).toBe('-');
+    expect(typeof parsed.as_of).toBe('string');
+  });
 });

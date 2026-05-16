@@ -15,6 +15,7 @@ interface ListOptions {
   limit?: string;
   from?: string;
   to?: string;
+  json?: boolean;
 }
 
 export async function subagentListCommand(options: ListOptions): Promise<void> {
@@ -68,6 +69,32 @@ export async function subagentListCommand(options: ListOptions): Promise<void> {
       }
     }
     entries = entries.slice(0, limit);
+
+    if (options.json) {
+      const payload = {
+        entries: entries.map(e => ({
+          id: e.id,
+          kind: e.kind,
+          status: e.status,
+          started_at: e.startedAt ? e.startedAt.toISOString() : null,
+          duration_ms: e.durationMs ?? null,
+          contract_id: e.contractId,
+        })),
+        total: entries.length,
+        filters: {
+          claw: options.claw,
+          status: options.status as SubagentStatus | undefined,
+          kind: options.kind as SubagentKind | undefined,
+          contract: options.contract,
+          from: options.from,
+          to: options.to,
+          limit,
+        },
+        as_of: new Date().toISOString(),
+      };
+      console.log(JSON.stringify(payload, null, 2));
+      return;
+    }
 
     if (entries.length === 0) {
       console.log('No subagent entries found.');

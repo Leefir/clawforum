@@ -21,6 +21,7 @@ export function createSubagentCommand(): Command {
     .option('--limit <n>', 'Max rows (default: 20)')
     .option('--from <ts>', 'Filter started_at >= ts')
     .option('--to <ts>', 'Filter started_at <= ts')
+    .option('--json', 'Output as JSON (machine-readable)')
     .action(async (opts) => {
       await subagentListCommand(opts);
     });

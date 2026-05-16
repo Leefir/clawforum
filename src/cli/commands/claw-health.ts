@@ -17,7 +17,7 @@ import { formatRelativeTime, getLastActiveMs } from './claw-shared.js';
 /**
  * Display Claw health status (reads directory in real time)
  */
-export async function healthCommand(name: string): Promise<void> {
+export async function healthCommand(name: string, opts?: { json?: boolean }): Promise<void> {
   loadGlobalConfig();
 
   if (!clawExists(name)) {
@@ -65,6 +65,20 @@ export async function healthCommand(name: string): Promise<void> {
   const lastMs = await getLastActiveMs(clawFs, systemAudit);
   if (lastMs !== undefined) {
     lastActive = formatRelativeTime(Date.now() - lastMs);
+  }
+
+  if (opts?.json) {
+    const payload = {
+      name,
+      status: isRunning ? 'running' : 'stopped',
+      inbox_pending: inboxPending,
+      outbox_pending: outboxPending,
+      contract: contractStatus as 'active' | 'paused' | 'none',
+      last_active: lastActive,
+      as_of: new Date().toISOString(),
+    };
+    console.log(JSON.stringify(payload, null, 2));
+    return;
   }
 
   console.log(`\nHealth Check: ${name}`);
