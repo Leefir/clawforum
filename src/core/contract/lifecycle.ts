@@ -129,5 +129,15 @@ export async function moveContractToArchive(
   if (dir === ctx.archiveDir) return;
   const dst = `${ctx.archiveDir}/${contractId}`;
   await ctx.fs.ensureDir(ctx.archiveDir);
-  await ctx.fs.move(`${dir}/${contractId}`, dst);
+
+  // phase 860 (P0-B): acquire lock at SOURCE / move dir / release@TARGET
+  // mirror phase 791 P0.16 template (pause/resume/cancel sister)
+  const sourceLockPath = `${dir}/${contractId}/progress.lock`;
+  await acquireLock(ctx, sourceLockPath);
+  try {
+    await ctx.fs.move(`${dir}/${contractId}`, dst);
+  } finally {
+    // release at TARGET (lock file moved with dir)
+    await releaseLock(ctx, `${dst}/progress.lock`);
+  }
 }
