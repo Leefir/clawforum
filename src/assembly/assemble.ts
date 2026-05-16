@@ -378,7 +378,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     taskSystem.setMainDialogStore(sessionManager);
 
     // phase 768: inject mainDialogStore into main agent execContext for shadow tool
-    // shadow tool 用 ctx.mainDialogStore.restorePrefix / restoreBefore 切前缀
+    // shadow tool 用 ctx.mainDialogStore.restorePrefix 切前缀
     // mirror phase 766 registry lazy 注入 pattern（line 338）
     (execContext as { mainDialogStore?: DialogStore }).mainDialogStore = sessionManager;
 

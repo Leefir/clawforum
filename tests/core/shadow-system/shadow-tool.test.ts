@@ -86,12 +86,6 @@ describe('shadow tool (phase 767)', () => {
         toolsForLLM: [],
         meta: { foundIn: 'current' },
       }),
-      restoreBefore: vi.fn().mockResolvedValue({
-        messages: [{ role: 'user', content: 'hi' }],
-        systemPrompt: 'sp',
-        toolsForLLM: [],
-        meta: { foundIn: 'current' },
-      }),
     } as unknown as DialogStore;
   }
 

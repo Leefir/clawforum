@@ -12,7 +12,7 @@ import { buildShadowInstruction, type BuildShadowInstructionArgs } from '../../p
  * shadow 视角 prefix = 主会话 messages（excluding marker）加新 user message
  */
 export function synthesizeFormB(args: {
-  mainMessagesBeforeMarker: Message[];   // already sliced by DialogStore.restoreBefore
+  mainMessagesBeforeMarker: Message[];   // already sliced from ctx.dialogMessages
   instructionArgs: BuildShadowInstructionArgs;
 }): Message[] {
   const instruction = buildShadowInstruction({ ...args.instructionArgs });

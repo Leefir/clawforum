@@ -18,7 +18,6 @@ Instructions:
 
 Do NOT attempt to fix issues, execute tasks, or make assumptions about missing evidence.`;
 
-import { TASKS_SUBAGENTS_DIR } from '../core/async-task-system/index.js';
 
 /**
  * 构造 subagent 系统 prompt 的 workspace + caller context prefix
@@ -28,18 +27,19 @@ import { TASKS_SUBAGENTS_DIR } from '../core/async-task-system/index.js';
 export function buildSubagentSystemPromptPrefix(args: {
   taskId: string;              // subagent task id
   callerClawId: string;        // caller's clawId
+  subagentsDir: string;        // e.g. 'tasks/subagents' — caller 装配期注入
 }): string {
   return `## Workspace Context
 
 Your default cwd is the clawspace of your caller "${args.callerClawId}".
-Your dedicated temp dir: \`../${TASKS_SUBAGENTS_DIR}/${args.taskId}/\` (recommended for working files. persists for post-hoc audit)
-Use \`cwd: '../${TASKS_SUBAGENTS_DIR}/${args.taskId}'\` to write here (cwd is workspace-relative, '..' escapes clawspace to claw root)
+Your dedicated temp dir: \`../${args.subagentsDir}/${args.taskId}/\` (recommended for working files. persists for post-hoc audit)
+Use \`cwd: '../${args.subagentsDir}/${args.taskId}'\` to write here (cwd is workspace-relative, '..' escapes clawspace to claw root)
 
 Tool defaults:
 - exec / read / write / search / ls / edit / multi_edit 默认在 clawspace 目录 (与 caller 共享)
 - **优先用 dedicated temp dir** 创建临时文件，避免在 caller 的 clawspace 散落
-  - 例 \`exec: { "command": "date > foo.md", "cwd": "../${TASKS_SUBAGENTS_DIR}/${args.taskId}" }\`
-  - 例 \`write: { "path": "foo.md", "cwd": "../${TASKS_SUBAGENTS_DIR}/${args.taskId}", "content": "..." }\`
+  - 例 \`exec: { "command": "date > foo.md", "cwd": "../${args.subagentsDir}/${args.taskId}" }\`
+  - 例 \`write: { "path": "foo.md", "cwd": "../${args.subagentsDir}/${args.taskId}", "content": "..." }\`
 - 访问其他 claw 用 read tools 的 \`claw: "<id>"\` 参数（read-only / write 隔离）
 `;
 }

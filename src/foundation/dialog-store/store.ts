@@ -370,15 +370,6 @@ export class DialogStore {
     return this._restore(marker, true);
   }
 
-  /**
-   * Restore message prefix BEFORE the marker assistant message (excluding it).
-   * phase 767 NEW for Form B shadow synthesis.
-   * Scans current.json then archive/*.json (newest first).
-   * 与 restorePrefix 差别：restoreBefore 返切片不含 marker assistant message。
-   */
-  async restoreBefore(marker: DialogMarker): Promise<RestoreResult> {
-    return this._restore(marker, false);
-  }
 
   /**
    * Validate and normalize session data

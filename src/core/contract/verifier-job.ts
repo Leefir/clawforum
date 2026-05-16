@@ -11,6 +11,7 @@ import { ReportResultTool } from './tools/report-result.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { TASKS_SYNC_SUBAGENT_DIR } from '../subagent/constants.js';
+import { TASKS_SUBAGENTS_DIR } from '../async-task-system/index.js';
 import { buildSubagentSystemPromptPrefix, CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import type { VerifierConfig, VerifierResult } from './types.js';
 
@@ -31,6 +32,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
     const promptPrefix = buildSubagentSystemPromptPrefix({
       taskId: config.agentId,
       callerClawId: config.clawId,
+      subagentsDir: TASKS_SUBAGENTS_DIR,
     });
 
     // 调 runSubagent helper（替代 createSubAgent + 自治 audit/stream/workspace）

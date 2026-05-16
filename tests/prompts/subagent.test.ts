@@ -6,6 +6,7 @@ describe('buildSubagentSystemPromptPrefix', () => {
     const result = buildSubagentSystemPromptPrefix({
       taskId: 'abc123',
       callerClawId: 'main-claw',
+      subagentsDir: 'tasks/subagents',
     });
     expect(result).toContain('Your default cwd is the clawspace of your caller "main-claw"');
     expect(result).toContain('Your dedicated temp dir: `../tasks/subagents/abc123/`');
@@ -16,6 +17,7 @@ describe('buildSubagentSystemPromptPrefix', () => {
     const result = buildSubagentSystemPromptPrefix({
       taskId: 'x',
       callerClawId: 'caller',
+      subagentsDir: 'tasks/subagents',
     });
     expect(result).toContain('exec / read / write / search / ls');
     expect(result).toContain('默认在 clawspace 目录');
