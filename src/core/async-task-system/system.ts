@@ -503,7 +503,19 @@ export class AsyncTaskSystem {
     const state = this.runningTasks.get(taskId);
     if (state) {
       state.abortController.abort();
-      try { await state.promise; } catch {}
+      try {
+        await state.promise;
+      } catch (err) {
+        // abort 设计意是同步 cancel 不等 settle，但 reject content forensics 留痕
+        // per feedback_silent_x_audit_kit (silent catch swallow → audit 注入)
+        try {
+          this.auditWriter.write(
+            TASK_AUDIT_EVENTS.CANCEL_PROMISE_REJECTED,
+            taskId,
+            `error=${formatErr(err)}`,
+          );
+        } catch { /* nested try 防 audit 自身异常 nested throw */ }
+      }
       this.auditWriter.write(TASK_AUDIT_EVENTS.CANCELLED, taskId, 'from=running');
       return;
     }
