@@ -11,7 +11,7 @@ import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/constants.js';
 import { TASKS_SYNC_SPAWN_DIR } from '../../core/spawn-system/constants.js';
 import { TASKS_SYNC_SHADOW_DIR } from '../../core/shadow-system/constants.js';
 
-export type SubagentKind = 'dispatch' | 'spawn' | 'verifier' | 'random_dream' | 'cron';
+export type SubagentKind = 'dispatch' | 'spawn' | 'shadow' | 'verifier' | 'random_dream' | 'cron';
 export type SubagentStatus = 'completed' | 'running' | 'failed';
 
 export function resolveClawDir(clawId: string): string {
@@ -164,8 +164,8 @@ export function scanSubagentResults(clawDir: string): SubagentEntry[] {
 
   // Scan sync paths: tasks/sync/subagent/ + tasks/sync/spawn/ + tasks/sync/shadow/
   entries.push(...scanSyncDir(clawDir, TASKS_SYNC_SUBAGENT_DIR, 'verifier-'));
-  entries.push(...scanSyncDir(clawDir, TASKS_SYNC_SPAWN_DIR));
-  entries.push(...scanSyncDir(clawDir, TASKS_SYNC_SHADOW_DIR));
+  entries.push(...scanSyncDir(clawDir, TASKS_SYNC_SPAWN_DIR, undefined, 'spawn'));
+  entries.push(...scanSyncDir(clawDir, TASKS_SYNC_SHADOW_DIR, undefined, 'shadow'));
 
   return entries;
 }
@@ -174,6 +174,7 @@ function scanSyncDir(
   clawDir: string,
   syncSubDir: string,
   filterPrefix?: string,
+  defaultKind?: SubagentKind,
 ): SubagentEntry[] {
   const dirPath = path.join(clawDir, syncSubDir);
   if (!fs.existsSync(dirPath)) return [];
@@ -184,7 +185,7 @@ function scanSyncDir(
     const stat = fs.statSync(resultDir);
     if (!stat.isDirectory()) continue;
     if (filterPrefix && !id.startsWith(filterPrefix)) continue;
-    const kind = inferKind(id, clawDir);
+    const kind = defaultKind ?? inferKind(id, clawDir);
     const status = inferStatus(resultDir);
     const startedAt = getStartedAt(resultDir, id, clawDir);
     let durationMs: number | undefined;
