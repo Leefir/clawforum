@@ -203,7 +203,11 @@ export async function executeSingleTool(
 
     // Input JSON failed to parse — return error immediately without calling the tool
     if (__parseError) {
-      callbacks?.onToolInputParseError?.(toolCall.name, toolCall.id, String(__raw || ''));
+      safeCallback(
+        'onToolInputParseError',
+        () => callbacks?.onToolInputParseError?.(toolCall.name, toolCall.id, String(__raw || '')),
+        callbacks,
+      );
       return {
         success: false,
         content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '')}`,
@@ -221,7 +225,11 @@ export async function executeSingleTool(
   } catch (err) {
     const errorType = err instanceof Error ? err.constructor.name : 'Error';
     const errorMsg = err instanceof Error ? err.message : String(err);
-    callbacks?.onToolExecutionFailed?.(toolCall.name, toolCall.id, errorType, errorMsg);
+    safeCallback(
+      'onToolExecutionFailed',
+      () => callbacks?.onToolExecutionFailed?.(toolCall.name, toolCall.id, errorType, errorMsg),
+      callbacks,
+    );
     console.error(`[step-executor] Tool ${toolCall.name} execution failed:`, errorMsg);
     return {
       success: false,
