@@ -243,7 +243,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       // Parse frontmatter + content
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       expect(match![1]).toContain('from: "task_system"');
       expect(match![1]).toContain('to: "parent-claw"');
       expect(match![1]).toContain('priority: normal');
@@ -290,7 +290,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       );
       
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       const content = JSON.parse(match![2]);
       // Summary should be truncated preview (500 chars) when resultRef exists
       expect(content.summary.length).toBeLessThanOrEqual(500);
@@ -319,7 +319,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       // Parse frontmatter + content
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       expect(match![1]).toContain('priority: high'); // Errors are high priority
       
       const content = JSON.parse(match![2]);
@@ -859,7 +859,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       );
       
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       const content = JSON.parse(match![2]);
 
       // Summary should start with 'output-xxx...', not contain '{"success":true'
@@ -930,7 +930,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const inboxFile = await waitForCompleteFile(inboxPath, /^---[\s\S]+---\n\n/);
 
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       const content = JSON.parse(match![2]);
 
       // Fallback: no resultRef, has result field
@@ -1006,7 +1006,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       );
       
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       const content = JSON.parse(match![2]);
       expect(content.is_error).toBe(false);
       expect(content.summary).toContain('recovered');
@@ -1038,7 +1038,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       );
       
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       expect(match![1]).toContain('priority: high');
       const content = JSON.parse(match![2]);
       expect(content.is_error).toBe(true);
@@ -1086,7 +1086,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       );
       
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
-      expect(match).toBeTruthy();
+      expect(match).not.toBeNull();
       const content = JSON.parse(match![2]);
       expect(content.is_error).toBe(true);
       // No "retries" mention in error message

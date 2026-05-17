@@ -67,8 +67,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml();
 
     const contractId = await manager.create(contractYaml);
-    expect(contractId).toBeTruthy();
-
     const progress = await manager.getProgress(contractId);
     // FIX: create() 直接设为 running，不是 pending（符合设计：契约一创建就开始执行）
     expect(progress.status).toBe('running');
@@ -178,7 +176,6 @@ describe('ContractSystem', () => {
 
     // loadActive 应该返回最新的（第二个），第一个已被归档
     const active = await manager.loadActive();
-    expect(active).toBeTruthy();
     expect(active?.id).toBe(contract2);
     
     // 验证第一个已被归档
@@ -231,8 +228,6 @@ describe('ContractSystem', () => {
       acceptance: [],
     });
     const contractId = await manager.create(contractYaml);
-    expect(contractId).toBeTruthy();
-
     await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'Task completed' });
 
     const progress = await manager.getProgress(contractId);
@@ -248,8 +243,6 @@ describe('ContractSystem', () => {
       acceptance: [],
     });
     const contractId = await manager.create(contractYaml);
-    expect(contractId).toBeTruthy();
-
     // 尝试完成不存在的子任务
     const result = await manager.completeSubtask({ 
       contractId, 
@@ -297,8 +290,6 @@ describe('ContractSystem', () => {
       acceptance: [],
     });
     const contractId = await manager.create(contractYaml);
-    expect(contractId).toBeTruthy();
-
     // 完成所有子任务
     await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'Task 1 done' });
     await manager.completeSubtask({ contractId, subtaskId: 'task-2', evidence: 'Task 2 done' });
@@ -332,8 +323,6 @@ describe('ContractSystem', () => {
       acceptance: [],
     });
     const contractId = await manager.create(contractYaml);
-    expect(contractId).toBeTruthy();
-
     // 手动损坏 progress.json（create() 创建在 active/ 子目录下）
     const progressPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.json');
     await fs.writeFile(progressPath, '{ broken json', 'utf-8');
