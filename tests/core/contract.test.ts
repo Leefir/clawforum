@@ -115,7 +115,6 @@ describe('Contract System', () => {
       const manager = new ContractSystem(tempDir, 'test-claw', mockFs, mockAudit as any, undefined, createToolRegistry());
       const active = await manager.loadActive();
 
-      expect(active).toBeDefined();
       expect(active?.id).toBe('contract-001');
       expect(active?.title).toBe('Test Contract');
     });
@@ -145,7 +144,7 @@ describe('Contract System', () => {
 
       expect(progress.contract_id).toBe('contract-001');
       expect(progress.status).toBe('running');
-      expect(progress.subtasks['st-001']).toBeDefined();
+      expect(progress.subtasks['st-001']).toMatchObject({ status: 'todo' });
     });
 
     it('should complete subtask without acceptance (auto-pass)', async () => {
