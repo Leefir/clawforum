@@ -67,7 +67,7 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
   const statsFile = path.join(LOGS_DIR, 'llm-stats.jsonl');
   opts.clawforumFs.appendSync(statsFile, JSON.stringify(summary) + '\n');
 
-  opts.audit.write(CRON_AUDIT_EVENTS.LLM_STATS, `step=report`, `date=${targetDate}`, `totalCalls=${summary.totalCalls}`, `successCalls=${summary.successCalls}`, `failedCalls=${summary.failedCalls}`, `totalInputTokens=${summary.totalInputTokens}`, `totalOutputTokens=${summary.totalOutputTokens}`, `avgLatencyMs=${summary.avgLatencyMs}`);
+  opts.audit.write(CRON_AUDIT_EVENTS.LLM_STATS, `step=report`, `date=${targetDate}`, `totalCalls=${summary.totalCalls}`, `successCalls=${summary.successCalls}`, `failedCalls=${summary.failedCalls}`, `totalInputTokens=${summary.totalInputTokens}`, `totalOutputTokens=${summary.totalOutputTokens}`, `avg_latency_ms=${summary.avgLatencyMs}`);
   console.log(
     `[cron:llm-stats] ${targetDate}: ${summary.totalCalls} calls, ` +
     `${summary.totalInputTokens}/${summary.totalOutputTokens} tokens in/out, ` +
