@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import os from 'node:os';
 
-const maxThreads = Math.max(2, Math.min(4, os.cpus().length - 1));
+const maxThreads = Math.max(2, Math.min(6, os.cpus().length - 1));
 
 export default defineConfig({
   test: {
