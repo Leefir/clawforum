@@ -14,4 +14,5 @@ export const WATCHDOG_AUDIT_EVENTS = {
   STATE_LOAD_FAILED: 'watchdog_state_load_failed',
   PID_CORRUPT: 'watchdog_pid_corrupt',
   STOP: 'watchdog_stop',
+  CLAW_HAS_CONTRACT_CHECK_FAILED: 'claw_has_contract_check_failed',
 } as const;

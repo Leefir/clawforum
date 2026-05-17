@@ -200,6 +200,9 @@ describe('Gateway askUser', () => {
     gateway = createGateway(createInput());
     await gateway.start();
 
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    transport._connect(conn);
+
     const promise = gateway.askUser('hello?', mockCtx());
 
     vi.advanceTimersByTime(60);
@@ -218,6 +221,9 @@ describe('Gateway askUser', () => {
   it('abort mid-flight returns failure and broadcasts cancelled', async () => {
     gateway = createGateway(createInput());
     await gateway.start();
+
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    transport._connect(conn);
 
     const controller = new AbortController();
     const promise = gateway.askUser('hello?', mockCtx(controller.signal));
@@ -267,6 +273,9 @@ describe('Gateway askUser', () => {
   it('stop() cancels pending askUser with abort reason', async () => {
     gateway = createGateway(createInput());
     await gateway.start();
+
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    transport._connect(conn);
 
     const promise = gateway.askUser('hello?', mockCtx());
 
@@ -357,6 +366,9 @@ describe('Gateway askUser', () => {
     const audit = mockAudit();
     gateway = createGateway(createInput({ audit, askUserTimeoutMs: 1 }));
     await gateway.start();
+
+    const conn: Connection = { id: 'c1', connectedAt: Date.now() };
+    transport._connect(conn);
 
     const result = await gateway.askUser('Q?', mockCtx());
     expect(result.success).toBe(false);

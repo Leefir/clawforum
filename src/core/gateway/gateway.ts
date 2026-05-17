@@ -244,7 +244,7 @@ export function createGateway(input: GatewayInput): Gateway {
 
     async askUser(question: string, ctx: ExecContext): Promise<ToolResult> {
       if (!started) {
-        throw new Error('Gateway not started');
+        return failureResult('Gateway not started');
       }
       if (!isOnlineMode) {
         return failureResult('未启用实时交互通道，跳过 ask_user');
@@ -284,6 +284,13 @@ export function createGateway(input: GatewayInput): Gateway {
           cleanup(id);
           audit.write(GATEWAY_AUDIT_EVENTS.ASK_USER_BROADCAST_FAILED, `id=${id}`, `error=${String(err)}`);
           resolve(failureResult(`ask_user broadcast 失败：${String(err)}`));
+          return;
+        }
+        // 0-listener short-circuit: broadcast 后无连接 → 立即 fail-loud
+        if (connections.size === 0) {
+          cleanup(id);
+          audit.write(GATEWAY_AUDIT_EVENTS.ASK_USER_NO_LISTENER, `id=${id}`);
+          resolve(failureResult('ask_user 无活动连接'));
           return;
         }
       });

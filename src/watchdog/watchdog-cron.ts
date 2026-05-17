@@ -44,7 +44,7 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
       const clawDir = path.join(getClawforumDir(), CLAWS_DIR, clawId);
 
       // Has an active contract?
-      if (!clawHasContract(clawDir)) continue;
+      if (!clawHasContract(clawDir, audit)) continue;
 
       // Parse stream.jsonl to get real progress
       const clawFs = new NodeFileSystem({ baseDir: clawDir });
@@ -123,7 +123,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
 
     if (wasAlive === true && !currentlyAlive) {
       // Only notify motion when there is an active/paused contract (no notification needed if claw stops without a contract)
-      if (!clawHasContract(clawDir)) {
+      if (!clawHasContract(clawDir, audit)) {
         log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification)`);
         audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=false');
         clawPreviouslyAlive.set(clawId, currentlyAlive);

@@ -19,6 +19,7 @@ import type { AuditLog } from '../foundation/audit/index.js';
 import { readAll, STREAM_FILE } from '../foundation/stream/index.js';
 import { LLM_OUTPUT_EVENTS } from '../foundation/stream/index.js';
 import { CONTRACT_DIR } from '../core/contract/index.js';
+import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 
 // Parse stream.jsonl, return the timestamp of the last event and the last error message
 export interface ClawActivityInfo {
@@ -65,13 +66,22 @@ export async function getClawActivityInfo(
 }
 
 // Check if a claw has an active or paused contract
-export function clawHasContract(clawDir: string): boolean {
+export function clawHasContract(clawDir: string, audit?: AuditLog): boolean {
   const fs = new NodeFileSystem({ baseDir: clawDir });
   for (const sub of ['active', 'paused']) {
     try {
       const entries = fs.listSync(path.join(CONTRACT_DIR, sub), { includeDirs: true });
       if (entries.some(e => e.isDirectory)) return true;
-    } catch { /* skip */ }
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') continue; // legitimate: contract dir not created yet
+      audit?.write(
+        WATCHDOG_AUDIT_EVENTS.CLAW_HAS_CONTRACT_CHECK_FAILED,
+        `clawDir=${clawDir}`,
+        `sub=${sub}`,
+        `error=${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
   return false;
 }
