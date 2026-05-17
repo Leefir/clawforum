@@ -138,7 +138,9 @@ describe('SkillSystem', () => {
       expect(dupCall[1]).toBe('name=delta');
       expect(dupCall[2]).toBe('existing_skill_dir=skills/delta');
       expect(dupCall[3]).toBe('attempted_skill_dir=skills/delta-dup');
-      expect(dupCall[4]).toBe('skills_dir=skills');
+      expect(dupCall[4]).toBe('existing_name_source=frontmatter');
+      expect(dupCall[5]).toBe('attempted_name_source=frontmatter');
+      expect(dupCall[6]).toBe('skills_dir=skills');
 
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();

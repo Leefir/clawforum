@@ -21,9 +21,22 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
 
   if (!normalized.startsWith('---\n')) return { meta: {}, body: raw };
   const afterOpen = normalized.slice(4);
-  const closeIdx = afterOpen.indexOf('\n---\n');
+
+  // Try strict close pattern first: '\n---\n' followed by body
+  let closeIdx = afterOpen.indexOf('\n---\n');
+  let bodySliceOffset = 5; // length of '\n---\n'
+  let useEofClose = false;
+
   if (closeIdx < 0) {
-    throw new Error('Malformed frontmatter: missing closing ---');
+    // phase 953 (r118 H fork): tolerate EOF without trailing newline
+    // '---\nname: foo\n---' (some editors save without final newline) is valid frontmatter with empty body
+    if (afterOpen.endsWith('\n---')) {
+      closeIdx = afterOpen.length - 4; // offset of '\n' before '---'
+      bodySliceOffset = 4; // '\n---' (no trailing \n)
+      useEofClose = true;
+    } else {
+      throw new Error('Malformed frontmatter: missing closing ---');
+    }
   }
 
   const meta: Record<string, string> = {};
@@ -35,8 +48,8 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
     meta[key] = value;
   }
 
-  // Everything after the closing --- is the body
-  return { meta, body: afterOpen.slice(closeIdx + 5).trim() };
+  const body = useEofClose ? '' : afterOpen.slice(closeIdx + bodySliceOffset).trim();
+  return { meta, body };
 }
 
 export interface SkillMeta {
@@ -50,6 +63,8 @@ export class SkillSystem {
   private fs: FileSystem;
   private skillsDir: string;
   private metaMap: Map<string, SkillMeta> = new Map();
+  // phase 953 (r118 H fork): track name source for duplicate diagnostics
+  private nameSourceMap: Map<string, 'frontmatter' | 'fallback_dirname'> = new Map();
   private audit?: AuditLog;
 
   constructor(fs: FileSystem, skillsDir: string, audit?: AuditLog) {
@@ -113,6 +128,9 @@ export class SkillSystem {
     
     // 从路径提取技能名（作为 fallback）
     const dirName = skillDir.split('/').pop() || 'unknown';
+
+    // phase 953: track whether name came from frontmatter or fallback dirName
+    const nameSource: 'frontmatter' | 'fallback_dirname' = frontmatter.name ? 'frontmatter' : 'fallback_dirname';
     
     const meta: SkillMeta = {
       name: frontmatter.name || dirName,
@@ -124,16 +142,20 @@ export class SkillSystem {
     // Duplicate check: preserve first registration, skip later ones
     if (this.metaMap.has(meta.name)) {
       const existing = this.metaMap.get(meta.name)!;
+      const existingNameSource = this.nameSourceMap.get(meta.name) || 'unknown';
       this.audit?.write(SKILL_AUDIT_EVENTS.DUPLICATE_SKIPPED,
         `name=${meta.name}`,
         `existing_skill_dir=${existing.skillDir}`,
         `attempted_skill_dir=${skillDir}`,
+        `existing_name_source=${existingNameSource}`,
+        `attempted_name_source=${nameSource}`,
         `skills_dir=${this.skillsDir}`,
       );
-      console.warn(`[skill] Duplicate skill "${meta.name}" skipped: ${skillDir} (existing: ${existing.skillDir})`);
+      console.warn(`[skill] Duplicate skill "${meta.name}" skipped: ${skillDir} (existing: ${existing.skillDir}, sources: existing=${existingNameSource} attempted=${nameSource})`);
       return existing;
     }
     this.metaMap.set(meta.name, meta);
+    this.nameSourceMap.set(meta.name, nameSource);
     return meta;
   }
 
