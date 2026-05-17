@@ -146,7 +146,11 @@ export class Snapshot {
 
       // whitelist cleanup of specified sync scratch subdirs on commit success
       // (turn-scoped lifecycle / 应然 §A.7 / phase772: 从整 syncDir 清改白名单)
-      for (const cleanupDir of (this.syncCleanupDirs ?? [])) {
+      // H.2 α-sort-by-depth: deepest first to avoid nested wipe (phase 998)
+      const sortedCleanupDirs = [...(this.syncCleanupDirs ?? [])].sort(
+        (a, b) => b.split(path.sep).length - a.split(path.sep).length
+      );
+      for (const cleanupDir of sortedCleanupDirs) {
         const relDir = path.relative(this.dir, cleanupDir);
         if (relDir === '' || relDir.startsWith('..')) {
           this.audit.write(
