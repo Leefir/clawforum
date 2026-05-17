@@ -455,7 +455,8 @@ describe('Task System + SubAgent', () => {
         return originalMove(from, to);
       };
 
-      const failSystem = createTestTaskSystem(tempDir, patchedFs, makeAudit().audit, createMockLLM([{
+      const { audit } = makeAudit();
+      const failSystem = createTestTaskSystem(tempDir, patchedFs, audit, createMockLLM([{
         content: [{ type: 'text', text: 'done' }],
         stop_reason: 'end_turn',
       }]));
@@ -470,14 +471,23 @@ describe('Task System + SubAgent', () => {
         parentClawId: 'test-claw',
       });
 
-      await waitFor(async () => {
-        const files = await fs.readdir(path.join(tempDir, 'inbox', 'pending')).catch(() => []);
-        return (files as string[]).filter(f => f.endsWith('.md')).length > 0;
-      });
+      const inboxDir = path.join(tempDir, 'inbox', 'pending');
+      await waitFor(
+        async () => {
+          const files = await fs.readdir(inboxDir).catch(() => [] as string[]);
+          const mdFiles = (files as string[]).filter(f => f.endsWith('.md'));
+          if (mdFiles.length === 0) return false;
+          const content = await fs
+            .readFile(path.join(inboxDir, mdFiles[0]), 'utf-8')
+            .catch(() => '');
+          return content.includes('is_error') && content.includes(taskId);
+        },
+        10000,
+        20,
+      );
       await failSystem.shutdown(1000);
 
       // _startTask catch 应该发了 fallback 通知
-      const inboxDir = path.join(tempDir, 'inbox', 'pending');
       const files = await fs.readdir(inboxDir).catch(() => [] as string[]);
       const mdFiles = (files as string[]).filter(f => f.endsWith('.md'));
       expect(mdFiles.length).toBeGreaterThan(0);
@@ -509,7 +519,7 @@ describe('Task System + SubAgent', () => {
       await taskSystem.shutdown(1);
 
       // Wait for cleanups to drain before asserting audit events (phase 779 Step B/C)
-      await waitForAuditEvent(emitter, events, TASK_AUDIT_EVENTS.SHUTDOWN_PENDING_CLEANUPS_DRAINED);
+      await waitForAuditEvent(emitter, events, TASK_AUDIT_EVENTS.SHUTDOWN_TIMEOUT);
 
       expect(events).toEqual(
         expect.arrayContaining([
@@ -631,7 +641,7 @@ describe('Task System + SubAgent', () => {
 
       it('should audit when postProcessor name not found in registry', async () => {
         await taskSystem.shutdown(100);
-        const { audit, events } = makeAudit();
+        const { audit, events, emitter } = makeAudit();
         taskSystem = createTestTaskSystem(tempDir, mockFs, audit, createMockLLM([{
           content: [{ type: 'text', text: 'raw result' }],
           stop_reason: 'end_turn',
@@ -648,12 +658,7 @@ describe('Task System + SubAgent', () => {
           postProcessor: 'non-existent-proc',
         });
 
-        // Wait for inbox file
-        const inboxDir = path.join(tempDir, 'inbox', 'pending');
-        await waitFor(async () => {
-          const files = await fs.readdir(inboxDir).catch(() => [] as string[]);
-          return (files as string[]).some(f => f.endsWith('.md'));
-        });
+        await waitForAuditEvent(emitter, events, TASK_AUDIT_EVENTS.HANDLER_FAILED);
 
         expect(events).toEqual(
           expect.arrayContaining([

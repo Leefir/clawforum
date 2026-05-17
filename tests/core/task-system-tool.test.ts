@@ -481,7 +481,11 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         taskIds.push(id);
       }
 
-      await waitFor(() => ts.listRunning().length <= 3 && ts.listPending().length >= 2);
+      await waitFor(
+        () => ts.listRunning().length <= 3 && ts.listPending().length >= 2,
+        10000,
+        20,
+      );
 
       // Wait for 5 TASK_COMPLETED events instead of polling executionOrder (phase 779 Step C)
       let completed = 0;
@@ -555,13 +559,21 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       await taskSystem2.initialize();
-      // phase163: recover 仅复原 running→pending 文件回搬，不动队列；
-      // 断言必须在 startDispatch 之前 —— 之后 _initialScanPending 会异步把文件 ingest + 移到 running/。
-      expect(
-        await fs.access(path.join(testClawDir, 'tasks', 'queues', 'pending', `${taskId}.json`))
+
+      const exists = async () =>
+        fs
+          .access(path.join(testClawDir, 'tasks', 'queues', 'pending', `${taskId}.json`))
           .then(() => true)
-          .catch(() => false)
-      ).toBe(true);
+          .catch(() => false);
+
+      // 第 1 检：initialize 返回后必须存在（recover 不应搬走 pending）
+      expect(await exists()).toBe(true);
+
+      // 第 2 检：50ms 后仍存在（确认 startDispatch 之前 0 async 搬移）
+      // 注：此处为负向稳定窗口断言，无正向状态可 poll。
+      await new Promise(r => setTimeout(r, 50));
+      expect(await exists()).toBe(true);
+
       taskSystem2.startDispatch();
 
       await taskSystem2.shutdown(100).catch(() => {});
@@ -1033,6 +1045,16 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(content.summary).toContain('retries');
 
       // Task should be in failed directory (retries exhausted)
+      await waitFor(
+        async () =>
+          fs
+            .access(path.join(testClawDir, 'tasks', 'queues', 'failed', `${taskId}.json`))
+            .then(() => true)
+            .catch(() => false),
+        10000,
+        20,
+      );
+
       const failedFile = await fs.readFile(
         path.join(testClawDir, 'tasks', 'queues', 'failed', `${taskId}.json`),
         'utf-8'
