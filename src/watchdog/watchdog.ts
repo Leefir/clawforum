@@ -52,10 +52,20 @@ const WATCHDOG_BACKOFF_MAX_MS = 5 * 60 * 1000;   // 5 minutes
 
 /** Module-level guard: prevent reentrant shutdown when SIGTERM + SIGINT both fire */
 let shuttingDown = false;
+let sigtermHandler: (() => void) | null = null;
+let sigintHandler: (() => void) | null = null;
 
 /** Test-only: reset shutdown guard between tests */
 export function _resetShutdownGuard(): void {
   shuttingDown = false;
+  if (sigtermHandler) {
+    process.removeListener('SIGTERM', sigtermHandler);
+    sigtermHandler = null;
+  }
+  if (sigintHandler) {
+    process.removeListener('SIGINT', sigintHandler);
+    sigintHandler = null;
+  }
 }
 
 /** 1:1 保 watchdog.ts:100-120 */
@@ -109,15 +119,16 @@ export async function runWatchdogLoop(): Promise<void> {
   // Create Motion ProcessManager (reused across loop iterations)
   const pm = createProcessManagerForCLI();
   
-  process.on('SIGTERM', () => {
+  sigtermHandler = () => {
     stopped = true;
     shutdownWatchdog(auditWriter, 'SIGTERM');
-  });
-
-  process.on('SIGINT', () => {
+  };
+  sigintHandler = () => {
     stopped = true;
     shutdownWatchdog(auditWriter, 'SIGINT');
-  });
+  };
+  process.on('SIGTERM', sigtermHandler);
+  process.on('SIGINT', sigintHandler);
   
   // Motion restart failure tracking for backoff
   let motionRestartFailures = 0;
