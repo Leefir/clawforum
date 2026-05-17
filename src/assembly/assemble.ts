@@ -194,10 +194,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       toolRegistry = createToolRegistry();
 
       // phase428 FileTool 抽出 → foundation/file-tool/ / Assembly 显式注册
-      // phase445: PermissionChecker factory inject (消除 L2→L4 反向 dep)
-      for (const tool of createFileTools({
-        permissionCheckerFactory: (clawDir) => createClawPermissionChecker({ clawDir, strict: true }),
-      })) {
+      // phase1006: permissionChecker 改由 ExecContext 注入，createFileTools 无需 factory
+      for (const tool of createFileTools()) {
         toolRegistry.register(tool);
       }
 
@@ -322,6 +320,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         llm,
         maxSteps,
         auditWriter,
+        permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
       });
     } catch (e) {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=exec_context`, `phase=construct`, `reason=${errMsg(e)}`);

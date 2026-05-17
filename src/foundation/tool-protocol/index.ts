@@ -16,6 +16,7 @@ import type { CallerType } from './caller-type.js';
 import type { AuditLog } from '../audit/index.js';
 import type { DialogStore } from '../dialog-store/index.js';
 import type { ToolRegistry } from '../tools/types.js';
+import type { PermissionChecker } from '../../types/permission.js';
 
 export type { JSONSchema7, ToolProfile, CallerType };
 export { callerTypeToProfile } from './caller-type.js';
@@ -87,6 +88,8 @@ export interface ExecContext {
   stopRequested: boolean;
   /** phase 777: mutator called by result-capture tools after storing capturedResult */
   requestStop(): void;
+  /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
+  permissionChecker?: PermissionChecker;
 }
 
 /**

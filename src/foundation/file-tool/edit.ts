@@ -11,7 +11,7 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
-import { getChecker } from './permission-context.js';
+
 import { backupToSync } from './sync-backup.js';
 import { resolveWorkspacePath } from './_resolve-path.js';
 import { EDIT_TOOL_NAME } from '../tools/tool-names.js';
@@ -76,7 +76,10 @@ export const editTool: Tool = {
     }
 
     // Phase430: claw-space boundary check — caller autonomy
-    const checker = getChecker(ctx.clawDir);
+    const checker = ctx.permissionChecker;
+    if (!checker) {
+      throw new Error('FileTool.edit: ctx.permissionChecker not injected (Assembly should inject via createClawPermissionChecker)');
+    }
     checker.resolveAndCheck(resolved, 'write');
 
     // File must exist

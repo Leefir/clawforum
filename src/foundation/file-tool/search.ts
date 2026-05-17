@@ -9,7 +9,7 @@ import * as nodePath from 'path';
 import { NodeFileSystem } from '../fs/node-fs.js';
 import type { FileSystem } from '../fs/types.js';
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
-import { getChecker } from './permission-context.js';
+
 import { resolveWorkspacePath } from './_resolve-path.js';
 import { CLAWS_DIR } from '../../types/paths.js';
 
@@ -105,7 +105,10 @@ export const searchTool: Tool = {
     const clawParam = args.claw as string | undefined;
 
     // Phase430: claw-space boundary check — caller autonomy
-    const checker = getChecker(ctx.clawDir);
+    const checker = ctx.permissionChecker;
+    if (!checker) {
+      throw new Error('FileTool.search: ctx.permissionChecker not injected (Assembly should inject via createClawPermissionChecker)');
+    }
     checker.resolveAndCheck(searchPath, 'read');
 
     // Motion-only: search files in another claw

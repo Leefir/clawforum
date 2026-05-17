@@ -7,7 +7,6 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 
 import { multiEditTool } from '../../../src/foundation/file-tool/multi_edit.js';
-import { setPermissionCheckerFactory } from '../../../src/foundation/file-tool/permission-context.js';
 import { createClawPermissionChecker } from '../../../src/core/permissions/claw-permissions.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
@@ -28,8 +27,9 @@ describe('multi_edit tool', () => {
       syncDir: path.join(tempDir, 'tasks', 'sync'),
       profile: 'subagent',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
     });
-    setPermissionCheckerFactory((clawDir) => createClawPermissionChecker({ clawDir, strict: true }));
+
   });
 
   afterEach(async () => {

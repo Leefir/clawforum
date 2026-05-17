@@ -11,7 +11,6 @@ import { promises as fs } from 'fs';
 import { searchTool } from '../../../src/foundation/file-tool/index.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
-import { setPermissionCheckerFactory } from '../../../src/foundation/file-tool/permission-context.js';
 import { createClawPermissionChecker } from '../../../src/core/permissions/claw-permissions.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 
@@ -20,7 +19,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
 
   beforeEach(async () => {
     tempDir = await createTempDir();
-    setPermissionCheckerFactory((clawDir) => createClawPermissionChecker({ clawDir, strict: true }));
+
   });
 
   afterEach(async () => {
@@ -39,6 +38,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
       syncDir: path.join(clawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
     const result = await searchTool.execute({ query: 'needle' }, ctx);
@@ -60,6 +60,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
       syncDir: path.join(clawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
     const result = await searchTool.execute({ query: 'needle', cwd: '..' }, ctx);
@@ -81,6 +82,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
       syncDir: path.join(clawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
     const result = await searchTool.execute({ query: 'needle' }, ctx);
@@ -104,6 +106,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
       syncDir: path.join(clawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
     const result = await searchTool.execute({ query: 'needle' }, ctx);
@@ -127,6 +130,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
     });
 
     const result = await searchTool.execute({ query: 'needle', path: 'clawspace', claw: 'other-claw' }, ctx);

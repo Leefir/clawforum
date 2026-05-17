@@ -9,7 +9,7 @@ import * as nodePath from 'path';
 import { NodeFileSystem } from '../fs/node-fs.js';
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from './constants.js';
-import { getChecker } from './permission-context.js';
+
 import { resolveWorkspacePath } from './_resolve-path.js';
 
 import { READ_TOOL_NAME } from '../tools/tool-names.js';
@@ -65,7 +65,10 @@ export const readTool: Tool = {
     }
 
     // Phase430: claw-space boundary check — caller autonomy
-    const checker = getChecker(ctx.clawDir);
+    const checker = ctx.permissionChecker;
+    if (!checker) {
+      throw new Error('FileTool.read: ctx.permissionChecker not injected (Assembly should inject via createClawPermissionChecker)');
+    }
     checker.resolveAndCheck(resolved, 'read');
 
     // Cross-claw read: specific target / 任意 callerType OK（D11 inter-claw 互访 align）

@@ -9,7 +9,7 @@ import * as nodePath from 'path';
 import { NodeFileSystem } from '../fs/node-fs.js';
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
 import { LS_MAX_ENTRIES } from './constants.js';
-import { getChecker } from './permission-context.js';
+
 import { resolveWorkspacePath } from './_resolve-path.js';
 
 import { LS_TOOL_NAME } from '../tools/tool-names.js';
@@ -60,7 +60,10 @@ export const lsTool: Tool = {
     }
 
     // Phase430: claw-space boundary check — caller autonomy
-    const checker = getChecker(ctx.clawDir);
+    const checker = ctx.permissionChecker;
+    if (!checker) {
+      throw new Error('FileTool.ls: ctx.permissionChecker not injected (Assembly should inject via createClawPermissionChecker)');
+    }
     checker.resolveAndCheck(resolved, 'read');
 
     if (clawParam !== undefined) {
