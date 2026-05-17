@@ -221,7 +221,7 @@ describe('kill', () => {
     const child = spawn('sleep', ['10']);
     expect(child.pid).toBeDefined();
     kill(child.pid!, 'TERM');
-    await new Promise(r => setTimeout(r, 100));
+    await vi.waitFor(() => expect(isAlive(child.pid!)).toBe(false), { interval: 10, timeout: 5000 });
     expect(isAlive(child.pid!)).toBe(false);
   });
 });

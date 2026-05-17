@@ -31,8 +31,8 @@ describe('phase 946: cron handler AbortSignal propagation', () => {
     const runner = new CronRunner([job], audit as unknown as AuditLog);
     runner.start(10);
 
-    // 等 handler 起跑
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // 等 handler 起跑 (event-driven signal: observed.aborted set inside handler)
+    await vi.waitFor(() => expect(observed.aborted).not.toBeNull());
     expect(observed.aborted).toBe(false);
 
     // stop → abort signal 应触发
@@ -42,11 +42,13 @@ describe('phase 946: cron handler AbortSignal propagation', () => {
 
   it('stop() drain 实际 < cap timeout（signal aborted → handler early settle）', async () => {
     // mock handler that respects signal early abort
+    let started = false;
     const job: CronJob = {
       name: 'test-early',
       enabled: true,
       schedule: { type: 'interval', minutes: 1 },
       handler: async (signal) => {
+        started = true;
         await new Promise<void>((resolve, reject) => {
           signal?.addEventListener('abort', () => reject(new Error('aborted')));
           setTimeout(resolve, 30_000);  // would block 30s
@@ -56,7 +58,7 @@ describe('phase 946: cron handler AbortSignal propagation', () => {
     const audit = makeMockAudit();
     const runner = new CronRunner([job], audit as unknown as AuditLog);
     runner.start(10);
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await vi.waitFor(() => expect(started).toBe(true));
     const start = Date.now();
     await runner.stop(30_000);  // cap 30s
     const elapsed = Date.now() - start;
@@ -74,7 +76,7 @@ describe('phase 946: cron handler AbortSignal propagation', () => {
     const audit = makeMockAudit();
     const runner = new CronRunner([job], audit as unknown as AuditLog);
     runner.start(10);
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await vi.waitFor(() => expect(ran).toBe(true));
     await runner.stop(100);
     expect(ran).toBe(true);
   });
