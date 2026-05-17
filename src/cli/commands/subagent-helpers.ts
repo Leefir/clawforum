@@ -13,9 +13,9 @@ import {
   TASKS_QUEUES_PENDING_DIR,
   TASKS_QUEUES_RUNNING_DIR,
 } from '../../types/paths.js';
-import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/constants.js';
-import { TASKS_SYNC_SPAWN_DIR } from '../../core/spawn-system/constants.js';
-import { TASKS_SYNC_SHADOW_DIR } from '../../core/shadow-system/constants.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/index.js';
+import { TASKS_SYNC_SPAWN_DIR } from '../../core/spawn-system/index.js';
+import { TASKS_SYNC_SHADOW_DIR } from '../../core/shadow-system/index.js';
 
 export type SubagentKind = 'dispatch' | 'spawn' | 'shadow' | 'verifier' | 'random_dream' | 'cron';
 export type SubagentStatus = 'completed' | 'running' | 'failed';
