@@ -14,6 +14,7 @@ import type { ToolProfile } from '../../types/config.js';
 import type { ExecContext } from '../tool-protocol/index.js';
 import path from 'path';
 import { MOTION_CLAW_ID } from '../../constants.js';
+import { CLAWSPACE_DIR } from '../../types/paths.js';
 
 
 import type { Message, ToolDefinition } from '../../types/message.js';
@@ -32,7 +33,7 @@ export interface ExecContextImplOptions {
   /** Claw workspace directory */
   clawDir: string;
   
-  /** phase 509 / 可选 / 默认 fallback = path.join(clawDir, 'clawspace') */
+  /** phase 509 / 可选 / 默认 fallback = path.join(clawDir, CLAWSPACE_DIR) */
   workspaceDir?: string;
 
   /** phase 514 / subagent caller's clawId / 装配方注入 */
@@ -158,7 +159,7 @@ export class ExecContextImpl implements ExecContext {
   constructor(options: ExecContextImplOptions) {
     this.clawId = options.clawId;
     this.clawDir = options.clawDir;
-    this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, 'clawspace');
+    this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.callerClawId = options.callerClawId;
     this.syncDir = options.syncDir;
     this.profile = options.profile;
