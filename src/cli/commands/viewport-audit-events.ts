@@ -17,4 +17,5 @@ export const VIEWPORT_AUDIT_EVENTS = {
   CLAWSDIR_SCAN_FAILED: 'viewport_clawsdir_scan_failed',
   TASK_STREAM_STALE_CLEANUP: 'viewport_task_stream_stale_cleanup',
   INVALID_TASK_ID: 'chat_viewport_invalid_task_id',
+  HISTORY_REPLAY_FAILED: 'chat_viewport_history_replay_failed',
 } as const;

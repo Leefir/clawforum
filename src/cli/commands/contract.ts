@@ -167,8 +167,9 @@ export async function contractLogCommand(clawId: string, contractId?: string): P
   try {
     const raw = await manager.readContractYamlRaw(resolvedId);
     contractYaml = yaml.load(raw) as ContractYaml;
-  } catch {
-    throw new CliError(`Contract "${resolvedId}" not found for claw ${clawId}`);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(`Contract "${resolvedId}" not found or unreadable for claw ${clawId}: ${reason}`);
   }
 
   // 读 progress（active/paused/archive 均可）

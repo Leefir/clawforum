@@ -89,4 +89,23 @@ describe('chat-viewport error handling (phase 523 + 524)', () => {
       expect(auditEventsCode).toMatch(/INVALID_TASK_ID:\s*'chat_viewport_invalid_task_id'/);
     });
   });
+
+  describe('phase 904 site 2: history replay catch err 分流', () => {
+    it('含 HISTORY_REPLAY_FAILED audit const', () => {
+      expect(auditEventsCode).toMatch(/HISTORY_REPLAY_FAILED:\s*'chat_viewport_history_replay_failed'/);
+    });
+
+    it('initOwnStateFromHistory 外层 catch 分流 ENOENT silent vs 非 ENOENT audit emit', () => {
+      // 定位 initOwnStateFromHistory 中外层 catch 段
+      const idx = sourceCode.indexOf('initOwnStateFromHistory');
+      expect(idx).toBeGreaterThan(-1);
+      const block = sourceCode.slice(idx, idx + 1500);
+      // 外层 catch (err) 存在
+      expect(block).toMatch(/catch\s*\(err\)\s*\{/);
+      // ENOENT 分流
+      expect(block).toContain("code !== 'ENOENT'");
+      // 非 ENOENT 时 audit emit HISTORY_REPLAY_FAILED
+      expect(block).toContain('VIEWPORT_AUDIT_EVENTS.HISTORY_REPLAY_FAILED');
+    });
+  });
 });

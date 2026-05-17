@@ -143,4 +143,86 @@ describe('claw-health', () => {
     expect(parsed.last_active).toBeNull();
     expect(typeof parsed.as_of).toBe('string');
   });
+
+  describe('phase 904 site 4: silent vs stderr 分流 3 catch', () => {
+    let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('inbox ENOENT silent — 0 stderr', async () => {
+      const { createProcessManagerForCLI } = await import('../../../src/cli/utils/factories.js');
+      vi.mocked(createProcessManagerForCLI).mockReturnValue({
+        isAlive: vi.fn().mockReturnValue(false),
+      } as any);
+
+      vi.mocked(fs.readdirSync).mockImplementation(() => {
+        const err = new Error('ENOENT') as NodeJS.ErrnoException;
+        err.code = 'ENOENT';
+        throw err;
+      });
+
+      await healthCommand('test-claw');
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('inbox EACCES → console.error stderr', async () => {
+      const { createProcessManagerForCLI } = await import('../../../src/cli/utils/factories.js');
+      vi.mocked(createProcessManagerForCLI).mockReturnValue({
+        isAlive: vi.fn().mockReturnValue(false),
+      } as any);
+
+      let callCount = 0;
+      vi.mocked(fs.readdirSync).mockImplementation((p: fs.PathLike) => {
+        const sp = String(p);
+        if (sp.includes('inbox/pending')) {
+          const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+          err.code = 'EACCES';
+          throw err;
+        }
+        if (sp.includes('outbox/pending')) {
+          callCount++;
+          const err = new Error('ENOENT') as NodeJS.ErrnoException;
+          err.code = 'ENOENT';
+          throw err;
+        }
+        if (sp.includes('contract/active')) return [] as any;
+        if (sp.includes('contract/paused')) return [] as any;
+        throw new Error(`Unexpected readdirSync: ${sp}`);
+      });
+
+      await healthCommand('test-claw');
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      const args = consoleErrorSpy.mock.calls[0].flat().join(' ');
+      expect(args).toMatch(/Warning.*failed to read inbox\/pending/);
+      expect(args).toMatch(/EACCES/);
+    });
+
+    it('contract scan ENOENT silent — 0 stderr', async () => {
+      const { createProcessManagerForCLI } = await import('../../../src/cli/utils/factories.js');
+      vi.mocked(createProcessManagerForCLI).mockReturnValue({
+        isAlive: vi.fn().mockReturnValue(false),
+      } as any);
+
+      vi.mocked(fs.readdirSync).mockImplementation((p: fs.PathLike, options?: any) => {
+        const sp = String(p);
+        if (sp.includes('inbox/pending')) return [] as any;
+        if (sp.includes('outbox/pending')) return [] as any;
+        if (sp.includes('contract/active') || sp.includes('contract/paused')) {
+          const err = new Error('ENOENT') as NodeJS.ErrnoException;
+          err.code = 'ENOENT';
+          throw err;
+        }
+        throw new Error(`Unexpected readdirSync: ${sp}`);
+      });
+
+      await healthCommand('test-claw');
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
 });

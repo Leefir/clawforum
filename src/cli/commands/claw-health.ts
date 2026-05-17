@@ -39,11 +39,19 @@ export async function healthCommand(name: string, opts?: { json?: boolean }): Pr
   try {
     const entries = fs.readdirSync(path.join(clawDir, 'inbox', 'pending'));
     inboxPending = entries.length;
-  } catch { /* directory does not exist */ }
+  } catch (err) {
+    if ((err as { code?: string })?.code !== 'ENOENT') {
+      console.error(`Warning: failed to read inbox/pending for ${name}: ${(err as Error).message}`);
+    }
+  }
   try {
     const entries = fs.readdirSync(path.join(clawDir, 'outbox', 'pending'));
     outboxPending = entries.length;
-  } catch { /* directory does not exist */ }
+  } catch (err) {
+    if ((err as { code?: string })?.code !== 'ENOENT') {
+      console.error(`Warning: failed to read outbox/pending for ${name}: ${(err as Error).message}`);
+    }
+  }
 
   // Check contract status
   let contractStatus = 'none';
@@ -56,7 +64,11 @@ export async function healthCommand(name: string, opts?: { json?: boolean }): Pr
         contractStatus = sub;
         break;
       }
-    } catch { /* skip */ }
+    } catch (err) {
+      if ((err as { code?: string })?.code !== 'ENOENT') {
+        console.error(`Warning: failed to scan ${CONTRACT_DIR}/${sub} for ${name}: ${(err as Error).message}`);
+      }
+    }
   }
 
   // Last active time（统一使用 stream.jsonl 指标）

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 
 vi.mock('../../src/cli/utils/factories.js', () => ({
   createDirContext: vi.fn(() => ({
@@ -40,5 +42,21 @@ describe('notifyContractCreated audit observability', () => {
       'contractId=test-contract-001',
       expect.stringMatching(/reason=disk full/),
     );
+  });
+});
+
+describe('phase 904 site 3: contract show catch err 含原因', () => {
+  it('contractLogCommand catch 块将原 err.message 拼入 CliError message', () => {
+    const contractPath = path.join(__dirname, '../../src/cli/commands/contract.ts');
+    const sourceCode = fs.readFileSync(contractPath, 'utf-8');
+    // 定位 readContractYamlRaw 段
+    const idx = sourceCode.indexOf('readContractYamlRaw');
+    expect(idx).toBeGreaterThan(-1);
+    const block = sourceCode.slice(idx, idx + 800);
+    // catch (err) 存在
+    expect(block).toMatch(/catch\s*\(err\)\s*\{/);
+    // err.message 被提取并拼入 CliError
+    expect(block).toContain('err instanceof Error ? err.message : String(err)');
+    expect(block).toContain('not found or unreadable');
   });
 });

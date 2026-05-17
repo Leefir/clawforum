@@ -778,7 +778,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           }
         } catch { /* skip */ }
       }
-    } catch { /* ENOENT 等 */ }
+    } catch (err) {
+      // phase 904 / audit-2026-05-16 P2 site 2: 分流 ENOENT silent vs 其他 audit emit
+      const code = (err as { code?: string })?.code;
+      if (code !== 'ENOENT') {
+        options.audit.write(VIEWPORT_AUDIT_EVENTS.HISTORY_REPLAY_FAILED, `error=${String(err)}`, `code=${code ?? 'unknown'}`);
+      }
+    }
   };
 
   initOwnStateFromHistory();
