@@ -100,11 +100,13 @@ async function _recoverAlreadySent(
       deps.auditWriter.write(
         TASK_AUDIT_EVENTS.RECOVERY_FAILED,
         task.id,
-        'context=alreadysent_delete_failed',
+      'context=alreadysent_delete_failed',
         `error=${formatErr(delErr)}`,
       );
     });
   });
+  // C.3 (phase 989): mirror _recoverWithResult line 166 cleanup / D5 hygiene / retry-count file 不 accumulate
+  await deps.fs.delete(RETRY_COUNT_PATH(task.id)).catch(() => {});
   deps.auditWriter.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=already_sent');
 }
 
@@ -115,8 +117,21 @@ async function _recoverWithResult(
   const retryPath = RETRY_COUNT_PATH(task.id);
 
   let retryCount = 0;
+  let counterCorrupt = false;
   try {
-    retryCount = parseInt(await fs.read(retryPath), 10) || 0;
+    const raw = await fs.read(retryPath);
+    const parsed = parseInt(raw, 10);
+    if (Number.isNaN(parsed)) {
+      counterCorrupt = true;
+      auditWriter.write(
+        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+        task.id,
+        'context=retry_counter_corrupt',
+        `raw=${raw.slice(0, 80)}`,
+      );
+    } else {
+      retryCount = parsed;
+    }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     // first-run / file 不存在 silent OK；其他 IO 错 audit（防 silent retry counter reset）
@@ -128,6 +143,11 @@ async function _recoverWithResult(
         `error=${formatErr(err)}`,
       );
     }
+  }
+
+  // counterCorrupt → force dead-letter promotion 防永循环 retry
+  if (counterCorrupt) {
+    retryCount = MAX_RECOVERY_RETRIES;
   }
 
   const resultContent = await fs.read(resultPath);
