@@ -275,4 +275,60 @@ describe('MainTurnUIController', () => {
       expect(recordSpinner.mock.calls.filter(c => c[0] === 'stop').length).toBe(2);   // cycle 2 stop after dwell
     });
   });
+
+  // —— phase 899: 3-cycle + MIN_DWELL_MS boundary ——
+  describe('phase 899: 3-cycle + MIN_DWELL_MS boundary', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('3-cycle rapid-restart 内 spinnerStartTs 非累加（反 audit sub-1 claim）', () => {
+      const recordSpinner = vi.fn();
+      const deps = makeDeps();
+      const ui = createMainTurnUI({ ...deps, observability: { recordSpinner } });
+      const T0 = Date.now();
+
+      // cycle 1: start → 50ms → stop with dwell defer → pendingClear fires at +200
+      ui.enterPhase('waiting_llm');
+      vi.advanceTimersByTime(50);
+      ui.enterPhase('streaming_text');
+      vi.advanceTimersByTime(150);   // pendingClearTimer fires, stopSpinnerNow ran
+      // 此时 spinnerStopTs ≈ T0+200, spinnerTimer = null
+
+      // cycle 2: start at T0+205（within MIN_DWELL_MS from stop）→ continuity 分支
+      vi.advanceTimersByTime(5);
+      ui.enterPhase('waiting_llm');
+      // continuity 触发：spinnerStartTs ≈ T0+6（virtual T0+205-199）
+      vi.advanceTimersByTime(20);   // T0+225
+      ui.enterPhase('streaming_text');
+      // elapsed (T0+225 - T0+6) = 219 ≥ MIN_DWELL → immediate stop
+      // spinnerStopTs ≈ T0+225
+
+      // cycle 3: start at T0+230（within MIN_DWELL_MS from T0+225）→ continuity 再触发
+      vi.advanceTimersByTime(5);
+      ui.enterPhase('waiting_llm');
+      // continuity 触发：spinnerStartTs ≈ T0+31（virtual T0+230-199）
+      // 关键反证 audit sub-1：spinnerStartTs 是从 *current* now 算（T0+31）、
+      // 不是 cycle 2 的 virtual T0+6 + 某偏移；virtual offset 不累加
+      vi.advanceTimersByTime(20);   // T0+250
+      ui.enterPhase('streaming_text');
+      // elapsed (T0+250 - T0+31) = 219 ≥ MIN_DWELL → immediate stop
+      // spinnerStopTs ≈ T0+250
+
+      // 反证：3 stop 都即时（每次 elapsed 都 ~219、由 current now 算）
+      const stops = recordSpinner.mock.calls.filter(c => c[0] === 'stop').length;
+      expect(stops).toBe(3);   // cycle 1+2+3 全 stop（cycle 1 by pendingClearTimer，2+3 by continuity 立 stop）
+
+      // 真新 cycle 4: 等 > MIN_DWELL_MS
+      vi.advanceTimersByTime(500);   // T0+750
+      ui.enterPhase('waiting_llm');
+      // T0+750 - T0+250 = 500 > MIN_DWELL → fresh 分支真新 cycle
+      // spinnerStartTs ≈ T0+750
+      vi.advanceTimersByTime(20);   // T0+770
+      ui.enterPhase('streaming_text');
+      // elapsed (T0+770 - T0+750) = 20 < MIN_DWELL → schedule pendingClearTimer 180ms
+      expect(recordSpinner.mock.calls.filter(c => c[0] === 'stop').length).toBe(3);   // pendingClear 未 fire
+      vi.advanceTimersByTime(180);
+      expect(recordSpinner.mock.calls.filter(c => c[0] === 'stop').length).toBe(4);   // cycle 4 stop after dwell
+    });
+  });
 });

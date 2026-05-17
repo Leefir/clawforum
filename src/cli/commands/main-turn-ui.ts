@@ -127,7 +127,11 @@ export function createMainTurnUI(deps: MainTurnUIDeps): MainTurnUIController {
     // 若距上次 stopSpinnerNow < MIN_DWELL_MS（连续 phase 切换路径）→ continuity 保
     // 用虚拟 spinnerStartTs 让下次 stopWithDwell 仍 defer，避免 fresh dwell counter 重启
     const now = Date.now();
-    if (spinnerStopTs !== 0 && now - spinnerStopTs < MIN_DWELL_MS) {
+    // phase 899 / NEW.P1.5 sub-3: MIN_DWELL_MS≤1 boundary guard（const invariant 显式表达）
+    // 触发时 `now - (MIN_DWELL_MS - 1)` 退化为 `now`（=1）或 `now+1`（<1），破 elapsed 不变量 → 早出真新 cycle
+    if (MIN_DWELL_MS <= 1) {
+      spinnerStartTs = now;
+    } else if (spinnerStopTs !== 0 && now - spinnerStopTs < MIN_DWELL_MS) {
       // continuity 保：spinnerStartTs 不重置为 now，用虚拟 elapsed 接续上次 dwell 进度
       spinnerStartTs = now - (MIN_DWELL_MS - 1);
     } else {
