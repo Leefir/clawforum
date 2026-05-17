@@ -990,7 +990,6 @@ describe('ReAct Loop', () => {
       const userMsgWithToolResult = secondCallMessages.find((m: Message) => 
         m.role === 'user' && Array.isArray(m.content) && m.content.some((b: any) => b.type === 'tool_result')
       );
-      expect(userMsgWithToolResult).toBeTruthy();
       const toolResult = (userMsgWithToolResult!.content as any[]).find((b: any) => b.type === 'tool_result');
       expect(toolResult?.is_error).toBe(true);
       expect(toolResult?.content).toContain('TRUNCATED');

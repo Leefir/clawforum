@@ -319,7 +319,6 @@ describe('ToolExecutor', () => {
       const auditPath = path.join(tempDir, 'audit.tsv');
       const auditContent = await fs.readFile(auditPath, 'utf-8').catch(() => '');
       
-      expect(auditContent).toBeTruthy();
       const parts = auditContent.trim().split('\t');
       expect(parts[1]).toBe('tool_exec');
       expect(parts[2]).toBe('failing-tool');
