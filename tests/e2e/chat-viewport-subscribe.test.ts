@@ -94,7 +94,6 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
 
     const mockTaskStatusBar = { updateTrack: () => {}, removeTrack: () => {} };
     const taskHandler = createTaskEventHandler({
-      getTaskWatch: () => ({ silent: false }),
       stopTaskWatch: () => {},
       taskStatusBar: mockTaskStatusBar as any,
     });
@@ -110,9 +109,9 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
 
     // task stream 发 tool_call/tool_result/turn_end（subagent 活动）
     mainUI.withScope('task', () => {
-      taskHandler('task-x', 'subagent', { type: 'tool_call', name: 'read_file' });
-      taskHandler('task-x', 'subagent', { type: 'tool_result', success: true, step: 1, maxSteps: 3, summary: 'ok' });
-      taskHandler('task-x', 'subagent', { type: 'turn_end' });
+      taskHandler('task-x', { type: 'tool_call', name: 'read_file' });
+      taskHandler('task-x', { type: 'tool_result', success: true, step: 1, maxSteps: 3, summary: 'ok' });
+      taskHandler('task-x', { type: 'turn_end' });
     });
 
     // 关键断言：task 事件过后主 preview 不被清空
@@ -155,7 +154,6 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
 
     const mockTaskStatusBar2 = { updateTrack: () => {}, removeTrack: () => {} };
     const taskHandler = createTaskEventHandler({
-      getTaskWatch: () => ({ silent: false }),
       stopTaskWatch: () => {},
       taskStatusBar: mockTaskStatusBar2 as any,
     });
@@ -164,7 +162,7 @@ describe('chat-viewport 主 UI 隔离（phase162）', () => {
       (ev) => mainUI.withScope('main', () => dispatchMainEvent(ev, mainUI)),
       audit);
     const taskReader = createStreamReader(taskFs, STREAM_FILE,
-      (ev) => mainUI.withScope('task', () => taskHandler(taskId, 'subagent', ev)),
+      (ev) => mainUI.withScope('task', () => taskHandler(taskId, ev)),
       audit);
     cleanups.push(() => mainReader.stop());
     cleanups.push(() => taskReader.stop());
@@ -263,7 +261,6 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
       removeTrack: () => {},
     };
     const taskHandler = createTaskEventHandler({
-      getTaskWatch: () => ({ silent: false }),
       stopTaskWatch: () => {},
       taskStatusBar: mockTaskStatusBar3 as any,
     });
@@ -283,7 +280,7 @@ describe('chat-viewport 主 UI 并发隔离（phase162 streamReader）', () => {
     const taskReader = createStreamReader(
       taskFs, STREAM_FILE,
       (ev) => {
-        taskHandler(taskId, 'subagent', ev);
+        taskHandler(taskId, ev);
       },
       audit,
     );

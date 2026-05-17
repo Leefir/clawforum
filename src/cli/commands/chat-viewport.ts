@@ -327,7 +327,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   };
 
   const handleTaskEvent = createTaskEventHandler({
-    getTaskWatch: (id) => taskWatchMap.get(id),
     stopTaskWatch,
     taskStatusBar,
     audit: options.audit,
@@ -528,7 +527,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         const taskReader = createStreamReader(taskFs, STREAM_FILE, (ev) => {
           const tw = taskWatchMap.get(taskId);
           if (tw) tw.lastEventMs = Date.now();
-          mainUI.withScope('task', () => handleTaskEvent(taskId, callerType, ev));
+          mainUI.withScope('task', () => handleTaskEvent(taskId, ev));
         }, options.audit, { persistent: false });
         taskReader.start();
         const tw: TaskWatch = {
