@@ -36,8 +36,11 @@ vi.mock('../../src/foundation/audit/writer.js', () => ({
 
 vi.mock('../../src/foundation/snapshot/index.js', () => ({
   Snapshot: vi.fn(() => mockSnapshot),
-  SNAPSHOT_IGNORE_PATTERNS: ['.git', 'node_modules'],
   createSnapshot: vi.fn(() => mockSnapshot),
+}));
+
+vi.mock('../../src/assembly/snapshot-patterns.js', () => ({
+  SNAPSHOT_IGNORE_PATTERNS: ['.git', 'node_modules'],
 }));
 
 vi.mock('../../src/foundation/stream/writer.js', () => ({

@@ -4,7 +4,6 @@
  */
 
 export { Snapshot } from './snapshot.js';
-export { SNAPSHOT_IGNORE_PATTERNS } from './ignore-patterns.js';
 
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
