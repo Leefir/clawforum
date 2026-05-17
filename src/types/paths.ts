@@ -74,8 +74,11 @@ export const CLAW_SUBDIRS = [
   TASKS_QUEUES_DONE_DIR,
   TASKS_QUEUES_FAILED_DIR,
   'tasks/queues/results',
-  'tasks/sync/exec',    // CommandTool own / 抽 const 归 owner module (phase772)
-  'tasks/sync/write',   // FileTool own / 抽 const 归 owner module (phase772)
+  'tasks/sync/exec',     // CommandTool own / 抽 const 归 owner module (phase772)
+  'tasks/sync/write',    // FileTool own / 抽 const 归 owner module (phase772)
+  'tasks/sync/subagent', // Subagent own / canonical TASKS_SYNC_SUBAGENT_DIR @ core/subagent/constants.ts (phase 536+764)
+  'tasks/sync/spawn',    // SpawnSystem own / canonical TASKS_SYNC_SPAWN_DIR @ core/spawn-system/constants.ts (phase 766)
+  'tasks/sync/shadow',   // ShadowSystem own / canonical TASKS_SYNC_SHADOW_DIR @ core/shadow-system/constants.ts (phase 767)
   'tasks/subagents',
   'memory',                    // 不抽 const / 字面量保留 / B.p380-1 信号登记
   'contract',                  // CONTRACT_DIR phase 746 物理迁 src/core/contract/dirs.ts
