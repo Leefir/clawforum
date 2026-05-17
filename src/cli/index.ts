@@ -8,7 +8,7 @@ if (!process.env.CLAWFORUM_ROOT) {
 }
 
 import { program } from 'commander';
-import { handleCliError, CliError } from './errors.js';
+import { CliError } from './errors.js';
 import { withCliErrorHandling } from './with-cli-error-handling.js';
 import { initCommand } from './commands/init.js';
 import { startCommand } from './commands/start.js';
@@ -274,25 +274,17 @@ motionCmd
 motionCmd
   .command('steps')
   .description('Show motion turn steps')
-  .action(async () => {
-    try {
-      await motionStepsCommand();
-    } catch (error) {
-      process.exitCode = handleCliError(error);
-    }
-  });
+  .action(withCliErrorHandling(async () => {
+    await motionStepsCommand();
+  }));
 
 // motion step
 motionCmd
   .command('step <n>')
   .description('Show full detail of a single motion turn')
-  .action(async (n: string) => {
-    try {
-      await motionStepCommand(n);
-    } catch (error) {
-      process.exitCode = handleCliError(error);
-    }
-  });
+  .action(withCliErrorHandling(async (n: string) => {
+    await motionStepCommand(n);
+  }));
 
 // motion daemon (auto-backgrounds)
 motionCmd
