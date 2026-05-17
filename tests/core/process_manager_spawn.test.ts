@@ -13,9 +13,11 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 // Mock constants to eliminate sleep delays in spawn()
-vi.mock('../../src/constants.js', async (importOriginal) => {
+// Mirror stop-race.test.ts:24-27 pattern — mock the correct constants module
+// so DAEMON_SHUTDOWN_GRACE_MS used in spawn.ts:52 is overridden to 0.
+vi.mock('../../src/foundation/process-manager/constants.js', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
-  return { ...actual, SIGTERM_GRACE_MS: 0, PROCESS_SPAWN_CONFIRM_MS: 0 };
+  return { ...actual, DAEMON_SHUTDOWN_GRACE_MS: 0 };
 });
 
 // Mock child_process so spawn() doesn't actually start a node process
