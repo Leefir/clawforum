@@ -25,4 +25,6 @@ export const LLM_AUDIT_EVENTS = {
   HEDGE_STARTED: 'llm.hedge.started',
   HEDGE_PRIMARY_RECOVERED: 'llm.hedge.primary_recovered',
   HEDGE_FALLBACK_COMMITTED: 'llm.hedge.fallback_committed',
+  CONTEXT_EXCEEDED_FAILOVER: 'llm_context_exceeded_failover',
+  PERMANENT_SKIP_RETRY: 'llm_permanent_skip_retry',
 } as const;

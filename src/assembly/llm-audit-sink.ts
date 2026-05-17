@@ -79,6 +79,14 @@ export function createLLMAuditSink(audit: AuditLog): LLMEventSink {
               `winner=${event.winnerProvider}`, `primary=${event.primaryProvider}`,
               `primaryErrorClass=${event.primaryErrorClass}`, `primaryError=${event.primaryError}`);
             break;
+          case 'context_exceeded_failover':
+            audit.write(LLM_AUDIT_EVENTS.CONTEXT_EXCEEDED_FAILOVER,
+              `provider=${event.provider}`, `stopReason=${event.stopReason}`);
+            break;
+          case 'permanent_skip_retry':
+            audit.write(LLM_AUDIT_EVENTS.PERMANENT_SKIP_RETRY,
+              `provider=${event.provider}`, `attempt=${event.attempt}`, `errorClass=${event.errorClass}`);
+            break;
         }
       } catch (err) {
         // Error isolation: audit failure must not interrupt LLM path
