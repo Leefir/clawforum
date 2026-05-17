@@ -1,7 +1,8 @@
 import * as path from 'path';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
-import { Snapshot, SNAPSHOT_IGNORE_PATTERNS } from '../../src/foundation/snapshot/index.js';
+import { Snapshot } from '../../src/foundation/snapshot/index.js';
+import { SNAPSHOT_IGNORE_PATTERNS } from '../../src/assembly/snapshot-patterns.js';
 
 import { DialogStore, createDialogStore } from '../../src/foundation/dialog-store/index.js';
 import { InboxReader, OutboxWriter } from '../../src/foundation/messaging/index.js';

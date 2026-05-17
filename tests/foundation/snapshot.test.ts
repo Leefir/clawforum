@@ -8,7 +8,8 @@ import * as fsSync from 'fs';
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
-import { Snapshot, SNAPSHOT_IGNORE_PATTERNS } from '../../src/foundation/snapshot/index.js';
+import { Snapshot } from '../../src/foundation/snapshot/index.js';
+import { SNAPSHOT_IGNORE_PATTERNS } from '../../src/assembly/snapshot-patterns.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { SNAPSHOT_AUDIT_EVENTS } from '../../src/foundation/snapshot/audit-events.js';
 

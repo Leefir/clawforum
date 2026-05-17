@@ -20,7 +20,7 @@ import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
 import { Snapshot } from '../../foundation/snapshot/index.js';
 import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
-import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
+import { SNAPSHOT_IGNORE_PATTERNS } from '../../assembly/snapshot-patterns.js';
 import { LOGS_DIR, STATUS_SUBDIR, CLAWS_DIR } from '../../types/paths.js';
 import { TASKS_SYNC_EXEC_DIR } from '../../foundation/command-tool/index.js';
 import { TASKS_SYNC_WRITE_DIR } from '../../foundation/file-tool/index.js';
