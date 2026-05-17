@@ -78,7 +78,7 @@ export class InboxReader {
     const results: InboxEntry[] = [];
     for (const entry of entries) {
       if (!entry.name.endsWith('.md')) continue;
-      const filePath = this.pendingDir + '/' + entry.name;
+      const filePath = path.join(this.pendingDir, entry.name);
       try {
         const content = await this.fs.read(filePath);
         const message = decodeInbox(content);
@@ -172,7 +172,7 @@ export class InboxReader {
     const results: InboxMessageMeta[] = [];
     for (const entry of entries) {
       if (!entry.name.endsWith('.md')) continue;
-      const filePath = this.pendingDir + '/' + entry.name;
+      const filePath = path.join(this.pendingDir, entry.name);
       const result = InboxWriter.readMeta(this.fs, filePath);
       if (!result.ok) {
         this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_META_FAILED, `file=${entry.name}`, `kind=${result.error.kind}`);
