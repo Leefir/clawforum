@@ -44,23 +44,31 @@ vi.mock('../../src/cli/utils/factories.js', () => ({
 // ============================================================================
 import { stopCommand } from '../../src/cli/commands/motion.js';
 
-describe('phase 922: motion steps/step action wraps handleCliError', () => {
-  it('motion steps .action() 包含 try-catch + handleCliError', () => {
+describe('phase 961: motion steps/step action uses withCliErrorHandling wrapper', () => {
+  it('motion steps .action() 使用 withCliErrorHandling wrapper（phase 961 migration）', () => {
     const stepsIdx = indexSource.indexOf("motionCmd\n  .command('steps')");
     expect(stepsIdx).toBeGreaterThan(-1);
     const block = indexSource.slice(stepsIdx, stepsIdx + 400);
-    expect(block).toMatch(/try\s*\{/);
-    expect(block).toMatch(/catch\s*\(\s*error\s*\)\s*\{/);
-    expect(block).toContain('process.exitCode = handleCliError(error)');
+    expect(block).toContain('.action(withCliErrorHandling(async () => {');
+    expect(block).toContain('await motionStepsCommand();');
+    // phase 961: raw try/catch removed
+    expect(block).not.toMatch(/try\s*\{/);
+    expect(block).not.toContain('process.exitCode = handleCliError(error)');
   });
 
-  it('motion step .action() 包含 try-catch + handleCliError', () => {
+  it('motion step .action() 使用 withCliErrorHandling wrapper（phase 961 migration）', () => {
     const stepIdx = indexSource.indexOf("motionCmd\n  .command('step <n>')");
     expect(stepIdx).toBeGreaterThan(-1);
     const block = indexSource.slice(stepIdx, stepIdx + 400);
-    expect(block).toMatch(/try\s*\{/);
-    expect(block).toMatch(/catch\s*\(\s*error\s*\)\s*\{/);
-    expect(block).toContain('process.exitCode = handleCliError(error)');
+    expect(block).toContain('.action(withCliErrorHandling(async (n: string) => {');
+    expect(block).toContain('await motionStepCommand(n);');
+    // phase 961: raw try/catch removed
+    expect(block).not.toMatch(/try\s*\{/);
+    expect(block).not.toContain('process.exitCode = handleCliError(error)');
+  });
+
+  it('cli/index.ts 无 handleCliError 残留 usage（phase 961 import 移除）', () => {
+    expect(indexSource).not.toContain('handleCliError');
   });
 });
 
