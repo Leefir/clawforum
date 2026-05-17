@@ -9,7 +9,7 @@
 
 import * as path from 'path';
 import type { Tool, ToolResult, ExecContext } from '../tool-protocol/index.js';
-import { getChecker } from './permission-context.js';
+
 import { backupToSync } from './sync-backup.js';
 import { resolveWorkspacePath } from './_resolve-path.js';
 
@@ -59,7 +59,10 @@ export const writeTool: Tool = {
     }
 
     // Phase430: claw-space boundary check — caller autonomy
-    const checker = getChecker(ctx.clawDir);
+    const checker = ctx.permissionChecker;
+    if (!checker) {
+      throw new Error('FileTool.write: ctx.permissionChecker not injected (Assembly should inject via createClawPermissionChecker)');
+    }
     checker.resolveAndCheck(resolved, 'write');
 
     // overwrite gate (phase 487 G6 (a) / append 不 gate)

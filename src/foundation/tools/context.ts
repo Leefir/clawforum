@@ -22,6 +22,7 @@ import type { AuditLog } from '../audit/index.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
 import type { DialogStore } from '../dialog-store/index.js';
 import type { ToolRegistry } from './types.js';
+import type { PermissionChecker } from '../../types/permission.js';
 
 /**
  * Options for creating execution context
@@ -84,6 +85,8 @@ export interface ExecContextImplOptions {
   registry?: ToolRegistry;
   /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
   isShadow?: boolean;
+  /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
+  permissionChecker?: PermissionChecker;
   /** Current main agent turn's systemPrompt (in-memory, set by runtime before runReact) — phase 769 */
   systemPromptForLLM?: string;
   /** Current main agent turn's tools array (in-memory, set by runtime before runReact) — phase 769 */
@@ -107,6 +110,7 @@ export function cloneExecContext(
   const proto = Object.getPrototypeOf(ctx) ?? Object.prototype;
   const clone = Object.create(proto);
   Object.assign(clone, ctx, overrides);
+  clone.permissionChecker = ctx.permissionChecker;
   // phase 778: stopRequested 加 requestStop 委托回 parent ctx。
   // 否则 Object.assign 复制 primitive false 到 clone / mutator 写 clone storage /
   // runAgent 读原 ctx 仍 false / loop 不退。
@@ -155,6 +159,7 @@ export class ExecContextImpl implements ExecContext {
   isShadow?: boolean;
   systemPromptForLLM?: string;
   toolsForLLM?: ToolDefinition[];
+  permissionChecker?: PermissionChecker;
   stopRequested: boolean = false;
   
   private startTime: number;
@@ -183,6 +188,7 @@ export class ExecContextImpl implements ExecContext {
     this.isShadow = options.isShadow;
     this.systemPromptForLLM = options.systemPromptForLLM;
     this.toolsForLLM = options.toolsForLLM;
+    this.permissionChecker = options.permissionChecker;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

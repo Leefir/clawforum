@@ -12,7 +12,6 @@ import { makeContractYaml } from '../helpers/contract-yaml.js';
 import { createStatusTool } from '../../src/core/status-service/index.js';
 import { createSendTool } from '../../src/foundation/messaging/tools/send.js';
 import { readTool, writeTool, lsTool, searchTool, editTool, multiEditTool } from '../../src/foundation/file-tool/index.js';
-import { setPermissionCheckerFactory } from '../../src/foundation/file-tool/permission-context.js';
 import { createClawPermissionChecker } from '../../src/core/permissions/claw-permissions.js';
 import { memorySearchTool } from '../../src/core/memory/tools/memory_search.js';
 import { execTool } from '../../src/foundation/command-tool/index.js';
@@ -55,9 +54,9 @@ describe('Builtin Tools', () => {
       syncDir: path.join(tempDir, 'tasks', 'sync'),
       profile: 'full',
       fs: mockFs,
+      permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
     });
-    // phase445: inject PermissionChecker factory for direct tool.execute tests
-    setPermissionCheckerFactory((clawDir) => createClawPermissionChecker({ clawDir, strict: true }));
+
   });
 
   afterEach(async () => {
@@ -536,6 +535,7 @@ describe('Builtin Tools', () => {
         syncDir: path.join(mainClawDir, 'tasks/sync'),
         profile: 'full',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
       const result = await searchTool.execute({ query: 'cross-claw', path: 'clawspace', claw: 'other-claw' }, mainCtx);
 
@@ -565,6 +565,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: motionFs,
         outboxWriter: motionOutboxWriter,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
       
       // Create other claws directory and test claws
@@ -608,6 +609,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: motionFs,
         outboxWriter: motionOutboxWriter,
+        permissionChecker: createClawPermissionChecker({ clawDir: nonExistentDir, strict: true }),
       });
 
       const result = await searchTool.execute({ query: 'test', path: 'clawspace/', claw: '*' }, motionCtx);
@@ -631,6 +633,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: motionFs,
         outboxWriter: motionOutboxWriter,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
       
       // Create other claws
@@ -667,6 +670,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: motionFs,
         outboxWriter: motionOutboxWriter,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const clawsDir = path.join(tempDir, 'claws');
@@ -893,6 +897,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: mockFs,
         auditWriter: auditWriter as any,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
       const statusTool = createStatusTool({
         loadActive: vi.fn().mockRejectedValue(new Error('yaml parse error')),
@@ -917,6 +922,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: mockFs,
         auditWriter: auditWriter as any,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
       await statusTool.execute({}, ctxWithAudit);
 
@@ -945,6 +951,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: mockFs,
         auditWriter: auditWriter as any,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
       await statusTool.execute({}, ctxWithAudit);
 
@@ -1136,6 +1143,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         fs: mockFs,
         signal: controller.signal,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
       const result = await execTool.execute({ command: 'echo should-not-run' }, abortCtx);
@@ -1162,6 +1170,7 @@ describe('Builtin Tools', () => {
         clawDir: path.join(tempDir, 'nonexistent-dir-xyz'),
         profile: 'full',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: path.join(tempDir, 'nonexistent-dir-xyz'), strict: true }),
       });
 
       const result = await execTool.execute({ command: 'echo hi' }, missingDirCtx);
@@ -1207,6 +1216,7 @@ describe('Builtin Tools', () => {
         profile: 'subagent',
         callerType: 'subagent',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
       const result = await execTool.execute({ command: 'pwd' }, subagentCtx);
       expect(result.success).toBe(true);
@@ -1226,6 +1236,7 @@ describe('Builtin Tools', () => {
         profile: 'subagent',
         callerType: 'subagent',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
       const result = await writeTool.execute(
@@ -1248,6 +1259,7 @@ describe('Builtin Tools', () => {
         profile: 'subagent',
         callerType: 'subagent',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
       const result = await writeTool.execute(
@@ -1285,6 +1297,7 @@ describe('Builtin Tools', () => {
         fs: mockFs,
         outboxWriter,
         maxSteps: 42,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
       const result = await spawnTool.execute({
@@ -1313,6 +1326,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await readTool.execute({ path: 'clawspace/test.txt', claw: 'claw1' }, motionCtx);
@@ -1337,6 +1351,7 @@ describe('Builtin Tools', () => {
         callerType: 'subagent',
         fs: motionFs,
         originClawId: 'motion',
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, subagentCtx);
@@ -1358,6 +1373,7 @@ describe('Builtin Tools', () => {
         syncDir: path.join(mainClawDir, 'tasks/sync'),
         profile: 'full',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
       const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, mainCtx);
 
@@ -1374,6 +1390,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await readTool.execute({ path: 'test.txt', claw: '../etc/passwd' }, motionCtx);
@@ -1391,6 +1408,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await readTool.execute({ path: 'test.txt', claw: 'claw/sub' }, motionCtx);
@@ -1415,6 +1433,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await readTool.execute({ path: '../c11/secret.md', claw: 'c1' }, motionCtx);
@@ -1436,6 +1455,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       // path="" resolves to clawRoot; trailing-sep prefix must allow this
@@ -1453,6 +1473,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       // Create c1 with a file
@@ -1496,6 +1517,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await lsTool.execute({ path: 'clawspace', claw: 'claw1' }, motionCtx);
@@ -1519,6 +1541,7 @@ describe('Builtin Tools', () => {
         callerType: 'dispatcher',
         fs: motionFs,
         originClawId: 'motion',
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await lsTool.execute({ path: 'skills', claw: 'claw1' }, subagentCtx);
@@ -1539,6 +1562,7 @@ describe('Builtin Tools', () => {
         syncDir: path.join(mainClawDir, 'tasks/sync'),
         profile: 'full',
         fs: mockFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
       const result = await lsTool.execute({ path: 'clawspace', claw: 'claw1' }, mainCtx);
 
@@ -1561,6 +1585,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await searchTool.execute({ query: 'Error', path: 'clawspace', claw: 'claw1' }, motionCtx);
@@ -1584,6 +1609,7 @@ describe('Builtin Tools', () => {
         callerType: 'subagent',
         fs: motionFs,
         originClawId: 'motion',
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
       const result = await searchTool.execute({ query: 'Warning', path: 'clawspace', claw: 'claw1' }, subagentCtx);

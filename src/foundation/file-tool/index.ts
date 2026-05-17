@@ -7,14 +7,12 @@
  */
 
 import type { Tool } from '../tool-protocol/index.js';
-import type { PermissionChecker } from '../../types/permission.js';
 import { readTool } from './read.js';
 import { writeTool } from './write.js';
 import { searchTool } from './search.js';
 import { lsTool } from './ls.js';
 import { editTool } from './edit.js';
 import { multiEditTool } from './multi_edit.js';
-import { setPermissionCheckerFactory } from './permission-context.js';
 
 /** FileTool own sync scratch subdir（turn-scoped / Snapshot whitelist 清理）*/
 export const TASKS_SYNC_WRITE_DIR = 'tasks/sync/write';
@@ -23,20 +21,18 @@ export const TASKS_SYNC_WRITE_DIR = 'tasks/sync/write';
 export { readTool, writeTool, searchTool, lsTool, editTool, multiEditTool };
 
 /**
- * FileTool 装配选项
+ * FileTool 装配选项 (phase 1006: permissionChecker 改由 ExecContext 注入，此 options 保留为未来扩展)
  */
 export interface FileToolOptions {
-  /** Path permission policy factory (Assembly 装配期注入 / 通常 createClawPermissionChecker) */
-  permissionCheckerFactory: (clawDir: string) => PermissionChecker;
+  // 保留空接口避免 caller 破坏；未来可在此加新 dep
 }
 
 /**
  * FileTool 装配工厂：返回 6 tool 数组（read / write / search / ls / edit / multi_edit per array 顺序）
  *
  * 同 phase378 createCommandTools 模式 / Assembly 装配期调:
- *   for (const tool of createFileTools({ permissionCheckerFactory: ... })) registry.register(tool);
+ *   for (const tool of createFileTools()) registry.register(tool);
  */
-export function createFileTools(options: FileToolOptions): Tool[] {
-  setPermissionCheckerFactory(options.permissionCheckerFactory);
+export function createFileTools(_options?: FileToolOptions): Tool[] {
   return [readTool, writeTool, searchTool, lsTool, editTool, multiEditTool];
 }
