@@ -13,6 +13,7 @@ import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.j
 import { executeStep, type StepCallbacks, type StepMeta } from '../step-executor/step-executor.js';
 import { throwAbortError } from '../step-executor/abort-helpers.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../../types/errors.js';
+import { DEFAULT_MAX_STEPS } from './defaults.js';
 import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from './constants.js';
 
 export interface AgentInput {
@@ -24,7 +25,7 @@ export interface AgentInput {
   registry?: ToolRegistry;
   ctx: ExecContext;
 
-  maxSteps?: number;                              // 默认 20
+  maxSteps?: number;                              // 默认 DEFAULT_MAX_STEPS（1000）
   maxConsecutiveParseErrors?: number;             // 默认 constants.ts MAX_CONSECUTIVE_PARSE_ERRORS (=3)
   maxConsecutiveMaxTokensToolUse?: number;        // 默认 constants.ts MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE (=3)
   maxTokens?: number;                  // 透传给 executeStep
@@ -46,7 +47,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     stepCallbacks,
     onAfterStep,
   } = input;
-  const maxSteps = input.maxSteps ?? 20;
+  const maxSteps = input.maxSteps ?? DEFAULT_MAX_STEPS;
   const maxConsecutiveParseErrors = input.maxConsecutiveParseErrors ?? MAX_CONSECUTIVE_PARSE_ERRORS;
   const maxConsecutiveMaxTokensToolUse = input.maxConsecutiveMaxTokensToolUse ?? MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE;
 

@@ -37,7 +37,7 @@ export const spawnTool: Tool = {
       },
       maxSteps: {
         type: 'number',
-        description: 'Maximum number of ReAct steps the subagent can take (default: 100). Increase for complex multi-file tasks; decrease for simple lookups.',
+        description: 'Maximum number of ReAct steps the subagent can take (default: inherits caller main loop maxSteps, typically DEFAULT_MAX_STEPS = 1000). Increase for complex multi-file tasks; decrease for simple lookups.',
       },
       async: {
         type: 'boolean',

@@ -11,6 +11,7 @@ import type { Message, ToolDefinition } from '../../types/message.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { ExecContext, ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.js';
+import { DEFAULT_MAX_STEPS } from './defaults.js';
 import { runAgent } from './agent-executor.js';
 import type { StepCallbacks, LLMCallInfo } from '../step-executor/step-executor.js';
 
@@ -56,7 +57,7 @@ export interface ReactResult {
 export async function runReact(options: ReactOptions): Promise<ReactResult> {
   const {
     messages, systemPrompt, llm, executor, ctx,
-    maxSteps = 20,
+    maxSteps = DEFAULT_MAX_STEPS,
     maxConsecutiveParseErrors,
     maxConsecutiveMaxTokensToolUse,
     idleTimeoutMs,

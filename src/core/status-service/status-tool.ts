@@ -47,7 +47,8 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
       const pending = await ctx.fs.list(pendingDir, { includeDirs: false });
       pendingCount = pending.length;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
         ctx.auditWriter?.write(STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR, `error=${err instanceof Error ? err.message : String(err)}`);
       }
     }
@@ -56,7 +57,8 @@ async function getTaskStatus(ctx: ExecContext): Promise<string> {
       const running = await ctx.fs.list(runningDir, { includeDirs: false });
       runningCount = running.length;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
         ctx.auditWriter?.write(STATUS_AUDIT_EVENTS.TASK_RUNNING_ERROR, `error=${err instanceof Error ? err.message : String(err)}`);
       }
     }
