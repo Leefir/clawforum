@@ -291,7 +291,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         motionAudit: auditWriter,
         clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
         clawFsFactory: (clawDir: string) => new NodeFileSystem({ baseDir: clawDir }),
-        clawContractManagerFactory: (d: string, id: string, fs: import('../foundation/fs/types.js').FileSystem) => createContractSystem(d, id, fs, createSystemAudit(fs, d), undefined, createToolRegistry()),
+        clawContractManagerFactory: (d: string, id: string, fs: import('../foundation/fs/types.js').FileSystem) => createContractSystem(d, id, fs, createSystemAudit(fs, d), undefined, toolRegistry),
       };
       contractManager.onContractCompleted(async (contractId) => {
         if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)

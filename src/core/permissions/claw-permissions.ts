@@ -15,6 +15,7 @@
  */
 
 import * as path from 'path';
+import { realpathSync } from 'node:fs';
 import {
   PathNotInClawSpaceError,
   WriteOperationForbiddenError,
@@ -121,6 +122,32 @@ function matchesPathPatterns(
 }
 
 /**
+ * Resolve symlinks; fallback by walking up to the nearest existing directory
+ * and concatenating the unresolved suffix (mirror node-fs.ts:121-126 pattern).
+ */
+function safeRealpath(p: string): string {
+  const absolute = path.resolve(p);
+  try {
+    return realpathSync(absolute);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      let dir = absolute;
+      while (dir !== path.dirname(dir)) {
+        dir = path.dirname(dir);
+        try {
+          const realDir = realpathSync(dir);
+          return path.join(realDir, path.relative(dir, absolute));
+        } catch {
+          // continue walking up
+        }
+      }
+      return absolute; // fallback to lexical (nothing exists)
+    }
+    return absolute;
+  }
+}
+
+/**
  * Get path relative to claw directory
  */
 function getRelativeToClaw(
@@ -128,8 +155,8 @@ function getRelativeToClaw(
   targetPath: string
 ): string | null {
   try {
-    const resolvedClaw = path.resolve(clawDir);
-    const resolvedTarget = path.resolve(targetPath);
+    const resolvedClaw = safeRealpath(clawDir);
+    const resolvedTarget = safeRealpath(targetPath);
 
     if (
       resolvedTarget === resolvedClaw ||
