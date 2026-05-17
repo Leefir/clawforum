@@ -115,13 +115,6 @@ function matchesPathPatterns(
       }
     }
 
-    // Check if any parent directory matches
-    for (let i = 1; i <= parts.length; i++) {
-      const partial = parts.slice(0, i).join('/');
-      if (partial === normalizedPattern) {
-        return true;
-      }
-    }
   }
 
   return false;

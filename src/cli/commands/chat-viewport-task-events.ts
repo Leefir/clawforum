@@ -11,7 +11,6 @@ import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import type { TaskStatusBarController } from './chat-viewport-task-status-bar.js';
 
 export interface TaskEventHandlerDeps {
-  getTaskWatch: (taskId: string) => { silent: boolean } | undefined;
   stopTaskWatch: (taskId: string) => void;
   taskStatusBar: TaskStatusBarController;
   audit?: AuditLog;
@@ -29,7 +28,7 @@ export type TaskEvent = {
 };
 
 export function createTaskEventHandler(deps: TaskEventHandlerDeps) {
-  return (taskId: string, callerType: string, event: TaskEvent) => {
+  return (taskId: string, event: TaskEvent) => {
     switch (event.type) {
       case 'tool_call':
       case 'tool_result':
