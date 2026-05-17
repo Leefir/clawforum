@@ -185,6 +185,9 @@ export class DialogStore {
 
     try {
       await this.fs.writeAtomic(this.currentPath, JSON.stringify(data, null, 2));
+      // phase 988 (audit-2026-05-17 NEW.P1 G.1): reset corruptedPoisoned 防 sticky data loss
+      // save 写新 current.json → current.json 实然不再 corrupted、应然 align
+      this.corruptedPoisoned = false;
     } catch (err) {
       this.audit.write(
         DIALOG_AUDIT_EVENTS.SAVE_FAILED,
@@ -210,6 +213,9 @@ export class DialogStore {
       // Move current.json to archive
       await this.fs.move(this.currentPath, archivePath);
       this.createdAt = null;  // Reset so next save() starts a fresh session
+      // phase 988 (audit-2026-05-17 NEW.P1 G.2): reset corruptedPoisoned 防 sticky
+      // archive 移走 current.json → 下次 load cold start → 新 file 不继承 stale poisoned state
+      this.corruptedPoisoned = false;
     } catch (err) {
       this.audit.write(
         DIALOG_AUDIT_EVENTS.ARCHIVE_FAILED,
