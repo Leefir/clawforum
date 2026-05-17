@@ -44,8 +44,8 @@ function failureResult(content: string): ToolResult {
 
 export function createGateway(input: GatewayInput): Gateway {
   const { streamFactory, interrupt, askUserTimeoutMs, audit } = input;
-  let transport: Transport | undefined | null = input.transport;   // phase 877: let (was const) 支持 stop() null-out 单 source-of-truth
-  const isOnlineMode = transport !== undefined;
+  const isOnlineMode = input.transport !== undefined;
+  let transport: Transport | null = input.transport ?? null;   // phase 932: type union narrow 至 2 token 单 absent (phase 877 sister-open-extension)
   const timeoutMs = askUserTimeoutMs ?? GATEWAY_ASK_USER_TIMEOUT_MS;
 
   const connections = new Map<string, Connection>();
