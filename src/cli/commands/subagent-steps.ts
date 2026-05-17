@@ -12,6 +12,7 @@ import {
   parseMessagesFromSession,
   renderSteps,
   renderStepFull,
+  type Turn,
 } from './_message-renderer.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from '../../core/async-task-system/dirs.js';
 import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/constants.js';
@@ -36,7 +37,17 @@ function resolveResultDir(clawDir: string, id: string): string {
 
 // ─── Commands ────────────────────────────────────────────────
 
-export async function subagentStepsCommand(id: string, clawId: string): Promise<void> {
+function turnToJson(turn: Turn): unknown {
+  return {
+    num: turn.num,
+    texts: turn.texts,
+    thinkings: turn.thinkings,
+    toolUses: turn.toolUses,
+    toolResults: Object.fromEntries(turn.toolResults),
+  };
+}
+
+export async function subagentStepsCommand(id: string, clawId: string, opts?: { json?: boolean }): Promise<void> {
   try {
     const clawDir = resolveClawDir(clawId);
     if (!fs.existsSync(clawDir)) {
@@ -48,11 +59,23 @@ export async function subagentStepsCommand(id: string, clawId: string): Promise<
     const turns = parseMessagesFromSession(session);
 
     if (turns.length === 0) {
-      console.log('No turns found.');
+      if (opts?.json) {
+        console.log(JSON.stringify({ turns: [], total: 0, as_of: new Date().toISOString() }, null, 2));
+      } else {
+        console.log('No turns found.');
+      }
       return;
     }
 
-    console.log(renderSteps(turns));
+    if (opts?.json) {
+      console.log(JSON.stringify({
+        turns: turns.map(turnToJson),
+        total: turns.length,
+        as_of: new Date().toISOString(),
+      }, null, 2));
+    } else {
+      console.log(renderSteps(turns));
+    }
   } catch (error) {
     process.exitCode = handleCliError(error);
   }
@@ -67,7 +90,7 @@ function parseStepRef(s: string): { turn: number; slot?: number } {
   return { turn, slot };
 }
 
-export async function subagentStepCommand(n: string, id: string, clawId: string): Promise<void> {
+export async function subagentStepCommand(n: string, id: string, clawId: string, opts?: { json?: boolean }): Promise<void> {
   try {
     const clawDir = resolveClawDir(clawId);
     if (!fs.existsSync(clawDir)) {
@@ -79,18 +102,35 @@ export async function subagentStepCommand(n: string, id: string, clawId: string)
     const turns = parseMessagesFromSession(session);
 
     if (turns.length === 0) {
-      console.log('No turns found.');
+      if (opts?.json) {
+        console.log(JSON.stringify({ turn_index: null, slot: null, turn: null, as_of: new Date().toISOString() }, null, 2));
+      } else {
+        console.log('No turns found.');
+      }
       return;
     }
 
     const ref = parseStepRef(n);
     if (ref.turn < 1 || ref.turn > turns.length) {
-      console.error(`step ${ref.turn} out of range (total turns: ${turns.length})`);
+      if (opts?.json) {
+        console.log(JSON.stringify({ error: `step ${ref.turn} out of range (total turns: ${turns.length})`, as_of: new Date().toISOString() }, null, 2));
+      } else {
+        console.error(`step ${ref.turn} out of range (total turns: ${turns.length})`);
+      }
       process.exitCode = 1;
       return;
     }
 
-    console.log(renderStepFull(turns[ref.turn - 1], ref.slot));
+    if (opts?.json) {
+      console.log(JSON.stringify({
+        turn_index: ref.turn,
+        slot: ref.slot ?? null,
+        turn: turnToJson(turns[ref.turn - 1]),
+        as_of: new Date().toISOString(),
+      }, null, 2));
+    } else {
+      console.log(renderStepFull(turns[ref.turn - 1], ref.slot));
+    }
   } catch (error) {
     process.exitCode = handleCliError(error);
   }

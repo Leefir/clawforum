@@ -49,15 +49,19 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
 
   // Helper: format relative last-active time
   async function formatLastActive(clawPath: string): Promise<string> {
-    const clawFs = new NodeFileSystem({ baseDir: clawPath });
-    const ms = await getLastActiveMs(clawFs, systemAudit);
-    if (ms === undefined) return '-';
-    const age = Date.now() - ms;
+    const lastMs = await formatLastActiveMs(clawPath);
+    if (lastMs === undefined) return '-';
+    const age = Date.now() - lastMs;
     const mins = Math.floor(age / 60000);
     if (mins < 1) return '<1m';
     if (mins < 60) return `${mins}m`;
     const hours = Math.floor(mins / 60);
     return `${hours}h`;
+  }
+
+  async function formatLastActiveMs(clawPath: string): Promise<number | undefined> {
+    const clawFs = new NodeFileSystem({ baseDir: clawPath });
+    return await getLastActiveMs(clawFs, systemAudit);
   }
 
   // Helper: get latest contract title (active > paused > most recent archive)
@@ -104,7 +108,8 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
     const claws: Array<{
       name: string;
       status: string;
-      pid?: string;
+      pid?: number;
+      lastActiveIso: string | null;
       contract: string;
       outbox: number;
       lastActive: string;
@@ -116,13 +121,23 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
       const configPath = path.join(clawPath, 'config.yaml');
       if (fs.existsSync(configPath)) {
         const isRunning = processManager.isAlive(entry);
-        let pid: string | undefined;
+        let pid: number | undefined;
 
         if (isRunning) {
           try {
             const pidNum = await processManager.readPid(entry);
-            pid = pidNum !== null ? String(pidNum) : '';
+            if (pidNum !== null) pid = pidNum;
           } catch { /* ignore read errors */ }
+        }
+
+        const lastMs = await formatLastActiveMs(clawPath);
+        let lastActive = '-';
+        if (lastMs !== undefined) {
+          const age = Date.now() - lastMs;
+          const mins = Math.floor(age / 60000);
+          if (mins < 1) lastActive = '<1m';
+          else if (mins < 60) lastActive = `${mins}m`;
+          else lastActive = `${Math.floor(mins / 60)}h`;
         }
 
         claws.push({
@@ -131,7 +146,8 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
           pid,
           contract: getContractStatus(clawPath),
           outbox: getOutboxCount(clawPath),
-          lastActive: await formatLastActive(clawPath),
+          lastActive,
+          lastActiveIso: lastMs !== undefined ? new Date(lastMs).toISOString() : null,
           lastContract: getLatestContractTitle(clawPath),
         });
       }
@@ -145,7 +161,7 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
           pid: c.pid ?? null,
           contract: c.contract,
           outbox: c.outbox,
-          last_active: c.lastActive,
+          last_active: c.lastActiveIso,
           last_contract: c.lastContract,
         })),
         total: claws.length,
@@ -169,7 +185,7 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
 
     for (const claw of claws) {
       const statusIcon = claw.status === 'running' ? '[running]' : '[stopped]';
-      const pidStr = claw.pid || '-';
+      const pidStr = claw.pid !== undefined ? String(claw.pid) : '-';
       console.log(`${claw.name.padEnd(20)} ${statusIcon.padEnd(12)} ${pidStr.padEnd(10)} ${claw.contract.padEnd(10)} ${String(claw.outbox).padEnd(8)} ${claw.lastActive.padEnd(10)} ${claw.lastContract.padEnd(30)}`);
     }
 

@@ -30,16 +30,18 @@ export function createSubagentCommand(): Command {
     .command('steps <id>')
     .description('Show subagent turn steps')
     .requiredOption('-c, --claw <claw>', 'Claw to query')
-    .action(async (id: string, opts: { claw: string }) => {
-      await subagentStepsCommand(id, opts.claw);
+    .option('--json', 'Output as JSON (machine-readable)')
+    .action(async (id: string, opts: { claw: string; json?: boolean }) => {
+      await subagentStepsCommand(id, opts.claw, { json: opts.json });
     });
 
   cmd
     .command('step <n> <id>')
     .description('Show full detail of a single turn (n = "N" for whole turn, "N.x" for slot x)')
     .requiredOption('-c, --claw <claw>', 'Claw to query')
-    .action(async (n: string, id: string, opts: { claw: string }) => {
-      await subagentStepCommand(n, id, opts.claw);
+    .option('--json', 'Output as JSON (machine-readable)')
+    .action(async (n: string, id: string, opts: { claw: string; json?: boolean }) => {
+      await subagentStepCommand(n, id, opts.claw, { json: opts.json });
     });
 
   return cmd;

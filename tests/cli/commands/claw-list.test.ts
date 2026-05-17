@@ -186,7 +186,11 @@ describe('claw-list', () => {
     expect(parsed.claws).toHaveLength(2);
     expect(parsed.claws[0].name).toBe('claw-a');
     expect(parsed.claws[0].status).toBe('running');
-    expect(parsed.claws[0].pid).toBe('12345');
+    expect(parsed.claws[0].pid).toBe(12345);
+    expect(typeof parsed.claws[0].last_active === 'string' || parsed.claws[0].last_active === null).toBe(true);
+    if (parsed.claws[0].last_active !== null) {
+      expect(parsed.claws[0].last_active).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    }
     expect(parsed.claws[1].name).toBe('claw-b');
     expect(parsed.claws[1].status).toBe('stopped');
     expect(parsed.claws[1].pid).toBeNull();

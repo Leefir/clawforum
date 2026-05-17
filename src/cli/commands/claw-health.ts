@@ -61,10 +61,12 @@ export async function healthCommand(name: string, opts?: { json?: boolean }): Pr
 
   // Last active time（统一使用 stream.jsonl 指标）
   let lastActive = '-';
+  let lastActiveIso: string | null = null;
   const clawFs = new NodeFileSystem({ baseDir: clawDir });
   const lastMs = await getLastActiveMs(clawFs, systemAudit);
   if (lastMs !== undefined) {
     lastActive = formatRelativeTime(Date.now() - lastMs);
+    lastActiveIso = new Date(lastMs).toISOString();
   }
 
   if (opts?.json) {
@@ -74,7 +76,7 @@ export async function healthCommand(name: string, opts?: { json?: boolean }): Pr
       inbox_pending: inboxPending,
       outbox_pending: outboxPending,
       contract: contractStatus as 'active' | 'paused' | 'none',
-      last_active: lastActive,
+      last_active: lastActiveIso,
       as_of: new Date().toISOString(),
     };
     console.log(JSON.stringify(payload, null, 2));

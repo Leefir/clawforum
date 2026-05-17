@@ -140,7 +140,7 @@ describe('claw-health', () => {
     expect(parsed.inbox_pending).toBe(1);
     expect(parsed.outbox_pending).toBe(1);
     expect(parsed.contract).toBe('none');
-    expect(parsed.last_active).toBe('-');
+    expect(parsed.last_active).toBeNull();
     expect(typeof parsed.as_of).toBe('string');
   });
 });
