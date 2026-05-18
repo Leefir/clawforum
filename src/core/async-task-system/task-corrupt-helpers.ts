@@ -3,11 +3,10 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../../foundation/audit/index.js';
 import type { SubAgentTask, ToolTask } from './system.js';
+import { TaskSchema } from './task-schemas.js';
 
 export function validateTaskShape(parsed: unknown): parsed is SubAgentTask | ToolTask {
-  return typeof parsed === 'object' && parsed !== null &&
-    typeof (parsed as { id?: unknown }).id === 'string' &&
-    ((parsed as { kind?: unknown }).kind === 'subagent' || (parsed as { kind?: unknown }).kind === 'tool');
+  return TaskSchema.safeParse(parsed).success;
 }
 
 export async function backupCorruptTask(

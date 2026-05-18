@@ -19,14 +19,28 @@ function makeMockAudit(): { audit: AuditLog; events: Array<[string, ...(string |
 }
 
 function makeValidTask(kind: 'subagent' | 'tool' = 'subagent') {
-  return {
+  const base = {
     kind,
     id: 'task-1',
-    intent: 'test',
-    timeoutMs: 1000,
-    maxSteps: 1,
     parentClawId: 'parent',
     createdAt: new Date().toISOString(),
+  };
+  if (kind === 'subagent') {
+    return {
+      ...base,
+      intent: 'test',
+      timeoutMs: 1000,
+      maxSteps: 1,
+    };
+  }
+  return {
+    ...base,
+    toolName: 'read',
+    args: {},
+    parentClawDir: '/tmp',
+    isIdempotent: true,
+    maxRetries: 2,
+    retryCount: 0,
   };
 }
 

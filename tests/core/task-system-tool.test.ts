@@ -521,10 +521,11 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       // Directly write a pending subagent file without going through scheduleTool
       const taskId = 'recovered-subagent-id';
       const task = { 
-        kind: 'subagent', 
+        kind: 'subagent' as const, 
         id: taskId, 
-        prompt: 'test prompt',
-        contextPaths: [],
+        intent: 'test prompt',
+        timeoutMs: 60000,
+        maxSteps: 10,
         parentClawId: 'parent', 
         createdAt: new Date().toISOString() 
       };
@@ -724,10 +725,9 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const task: SubAgentTask = {
         kind: 'subagent',
         id: taskId,
-        prompt: 'test',
-        tools: [],
+        intent: 'test',
+        timeoutMs: 60000,
         maxSteps: 10,
-        timeout: 60,
         parentClawId: 'parent-claw',
         createdAt: new Date().toISOString(),
       };
@@ -789,10 +789,9 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const task: SubAgentTask = {
         kind: 'subagent',
         id: taskId,
-        prompt: 'test',
-        tools: [],
+        intent: 'test',
+        timeoutMs: 60000,
         maxSteps: 10,
-        timeout: 60,
         parentClawId: 'parent-claw',
         createdAt: new Date().toISOString(),
       };
