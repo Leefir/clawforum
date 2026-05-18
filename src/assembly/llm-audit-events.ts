@@ -28,4 +28,5 @@ export const LLM_AUDIT_EVENTS = {
   HEDGE_PRIMARY_SUCCEEDED_AFTER_RACE_LOST: 'llm.hedge.primary_succeeded_after_race_lost',
   CONTEXT_EXCEEDED_FAILOVER: 'llm_context_exceeded_failover',
   PERMANENT_SKIP_RETRY: 'llm_permanent_skip_retry',
+  ALL_PROVIDERS_CONTEXT_EXCEEDED: 'llm_all_providers_context_exceeded',
 } as const;

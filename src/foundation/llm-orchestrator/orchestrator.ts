@@ -531,6 +531,11 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
     // phase 991 B.4: 减 skipped 让 user-actionable context-exceeded message 在 1+ skipped 时仍能触发
     const totalAttempted = totalProviders - skippedCount;
     if (contextExceededCount > 0 && contextExceededCount === totalAttempted) {
+      this.events.emit({
+        type: 'all_providers_context_exceeded',
+        totalAttempted,
+        skippedCount,
+      });
       throw new Error(
         `All ${totalAttempted} providers exhausted with context_window_exceeded. ` +
         `Reduce system prompt, tool definitions, or conversation history.`

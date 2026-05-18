@@ -13,6 +13,7 @@
       "disassemble_step_failed"
     ],
     "assembly_llm-audit-events": [
+      "llm_all_providers_context_exceeded",
       "llm_breaker_closed",
       "llm_breaker_half_open",
       "llm_breaker_opened",

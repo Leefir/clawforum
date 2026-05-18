@@ -214,7 +214,8 @@ export type LLMEvent =
   | { type: 'hedge_primary_recovered'; provider: string }
   | { type: 'hedge_primary_post_first_chunk_failure'; provider: string; error: Error }
   | { type: 'hedge_fallback_committed'; winnerProvider: string; primaryProvider: string; primaryError: string; primaryErrorClass: LLMErrorClass }
-  | { type: 'hedge_primary_succeeded_after_race_lost'; primaryProvider: string; winnerProvider: string };
+  | { type: 'hedge_primary_succeeded_after_race_lost'; primaryProvider: string; winnerProvider: string }
+  | { type: 'all_providers_context_exceeded'; totalAttempted: number; skippedCount: number };
 
 /**
  * LLM event sink protocol — defined here (L1), implemented by assembly layer (L6+)
