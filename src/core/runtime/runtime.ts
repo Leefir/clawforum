@@ -30,7 +30,6 @@ import { CLAW_SUBDIRS, DIALOG_DIR } from '../../types/paths.js';
 import { oneLine, formatErr } from '../../types/utils.js';
 import { escapeForLog } from '../../foundation/tools/index.js';
 import { MaxStepsExceededError } from '../../types/errors.js';
-import { DEFAULT_TOOL_TIMEOUT_MS } from './constants.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
@@ -108,7 +107,6 @@ export class Runtime {
     this.options = {
       maxSteps: DEFAULT_MAX_STEPS,
       toolProfile: 'full',
-      toolTimeoutMs: DEFAULT_TOOL_TIMEOUT_MS,
       ...options,
     };
     // auditWriter now comes from dependencies (phase155B+)

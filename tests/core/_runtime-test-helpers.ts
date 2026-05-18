@@ -34,7 +34,6 @@ export async function createTestRuntime(options: {
   llmConfig: LLMOrchestratorConfig;
   maxSteps?: number;
   toolProfile?: string;
-  toolTimeoutMs?: number;
   maxConcurrentTasks?: number;
 }) {
   const deps = await makeRuntimeDeps({

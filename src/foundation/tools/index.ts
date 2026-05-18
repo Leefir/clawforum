@@ -25,6 +25,9 @@ export { ExecContextImpl } from './context.js';
 export { TOOL_PROFILES } from './profiles.js';
 export { escapeForLog } from './types.js';
 
+// Constants
+export * from './constants.js';
+
 // Types (from tool-protocol - Phase 435)
 export type { ToolResult, ExecContext, Tool } from '../tool-protocol/index.js';
 export type { ToolRegistry, IToolExecutor, ExecuteOptions } from './executor.js';

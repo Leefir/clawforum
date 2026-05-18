@@ -56,7 +56,6 @@ export interface RuntimeOptions {
   llmConfig: LLMOrchestratorConfig;
   maxSteps?: number;
   toolProfile?: ToolProfile;
-  toolTimeoutMs?: number;
   maxConsecutiveParseErrors?: number;
   maxConsecutiveMaxTokensToolUse?: number;
   idleTimeoutMs: number;   // LLM stream idle timeout（0 = 禁用、由 config boundary resolve）

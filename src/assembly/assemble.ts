@@ -486,7 +486,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         llmConfig,
         maxSteps,
         toolProfile,
-        toolTimeoutMs,
 
         idleTimeoutMs,
         dependencies,

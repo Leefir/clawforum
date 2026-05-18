@@ -22,6 +22,7 @@ import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { AuditLog } from '../audit/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
 import type { DialogStore } from '../dialog-store/index.js';
+import { DEFAULT_TOOL_TIMEOUT_MS } from './constants.js';
 import {
   escapeForLog,
   type ToolRegistry,
@@ -44,7 +45,7 @@ export type {
 export class ToolExecutorImpl implements IToolExecutor {
   constructor(
     protected registry: ToolRegistry,
-    private defaultTimeoutMs = 60000,
+    private defaultTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS,
     private scheduleAsyncTool?: ScheduleAsyncTool,
   ) {}
 

@@ -16,7 +16,7 @@ import {
   DEFAULT_RETRY_DELAY_MS,
   INIT_LLM_IDLE_TIMEOUT_MS,
 } from '../../foundation/llm-orchestrator/defaults.js';
-import { DEFAULT_TOOL_TIMEOUT_MS } from '../../core/runtime/constants.js';
+import { DEFAULT_TOOL_TIMEOUT_MS } from '../../foundation/tools/index.js';
 import {
   WATCHDOG_INTERVAL_MS,
   DEFAULT_DISK_WARNING_MB,

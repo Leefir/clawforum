@@ -14,7 +14,7 @@
  */
 import { DEFAULT_MAX_STEPS } from '../core/agent-executor/index.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../core/agent-executor/constants.js';
-import { DEFAULT_TOOL_TIMEOUT_MS } from '../core/runtime/constants.js';
+import { DEFAULT_TOOL_TIMEOUT_MS } from '../foundation/tools/index.js';
 import { CRON_TICK_INTERVAL_MS } from '../core/cron/constants.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../core/async-task-system/constants.js';
 import {
