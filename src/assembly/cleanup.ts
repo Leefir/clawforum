@@ -20,12 +20,16 @@ export async function cleanupOrphanedTemp(dirPath: string): Promise<string[]> {
       try {
         await fs.unlink(fullPath);
         cleaned.push(fullPath);
-      } catch {
-        // best-effort: caller (assembly) handles overall failure via .catch(audit)
+      } catch (err) {
+        // ENOENT: concurrent unlink race / file already deleted / acceptable
+        // non-ENOENT (EACCES/EIO/ENOSPC): throw → caller .catch + audit (assemble.ts:478-480 CLEANUP_TEMP_FILES_FAILED)
+        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
       }
     }
-  } catch {
-    // Directory might not exist
+  } catch (err) {
+    // ENOENT: first-run dir does not exist / acceptable
+    // non-ENOENT (EACCES/EIO/EBADF): throw → caller .catch + audit (assemble.ts:478-480)
+    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
   }
   return cleaned;
 }
