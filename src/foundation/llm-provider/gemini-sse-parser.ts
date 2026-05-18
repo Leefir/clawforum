@@ -117,9 +117,11 @@ export async function* parseGeminiSSEStream(
   } finally {
     clearTimeout(idleTimer);
     try {
-      reader.releaseLock();
+      // phase 1022 r124 H fork: cancel underlying body stream (cancel implies release per WHATWG Streams spec)
+      // 释放 TCP buffered chunk + reader lock 单 API、abort 后不再 hold 1-10MB memory + token 浪费
+      await reader.cancel();
     } catch {
-      // Ignore: pending read during timeout/abort; stream will be GC'd
+      // silent: stream already done/cancelled/released; no-op per WHATWG spec
     }
   }
 }
