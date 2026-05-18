@@ -513,11 +513,12 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       }
       // ask_user 工具：motion 启 / claw 不启（决策 #25：用户 ↔ motion ↔ claw 中介）
       toolRegistry.register(createAskUserTool(gateway));
-      // notify_claw 工具：motion-only（D11 单向访问特权 / phase 477 design / phase 822 实施）
+      // notify_claw 工具：motion-only（D11 单向访问特权 / phase 477 design / phase 822 实施 / phase 1021 P0 三重错位 hotfix）
       // motion → claw inbox push、与 send（claw → 自己 outbox pull）物理不同、§10.3 不对称设计
+      // fs = parentFs (baseDir = .clawforum/) align clawforumRoot、避免 systemFs (baseDir = motion/) 沙箱拒 sibling claws/<to> absolute path
       toolRegistry.register(createNotifyClawTool({
-        fs: systemFs,
-        clawforumRoot: path.dirname(path.dirname(clawDir)),  // motion clawDir = <root>/claws/motion → root
+        fs: parentFs,
+        clawforumRoot: path.dirname(clawDir),  // motion clawDir = <root>/.clawforum/motion → <root>/.clawforum (clawforumRoot)
         audit: auditWriter,
       }));
     }
