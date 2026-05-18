@@ -16,3 +16,9 @@
 export const TEST_LLM_TIMEOUT_MS = 30000;
 export const SUBAGENT_DEFAULT_TIMEOUT_MS = 60000;
 export const SUBAGENT_SHORT_TIMEOUT_MS = 1000;
+
+/** Subagent waiting / polling timeout for medium-duration tests (5s = balance fast vs flake). */
+export const SUBAGENT_WAIT_TIMEOUT_MS = 5000;
+
+/** Subagent long-running test timeout (10s = longer-poll task verification). */
+export const SUBAGENT_LONG_TIMEOUT_MS = 10000;

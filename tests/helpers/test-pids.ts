@@ -15,3 +15,7 @@ export const FAKE_LIVE_PID_STRING = String(FAKE_LIVE_PID);
 
 export const FAKE_LIVE_PID_ALT = 99999;
 export const FAKE_LIVE_PID_ALT_STRING = String(FAKE_LIVE_PID_ALT);
+
+/** CAS (compare-and-swap) test scenario fake PID — distinct from FAKE_LIVE_PID / _ALT. */
+export const FAKE_LIVE_PID_CAS = 11111;
+export const FAKE_LIVE_PID_CAS_STRING = String(FAKE_LIVE_PID_CAS);

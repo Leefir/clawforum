@@ -23,7 +23,7 @@ import { createTestTaskSystem } from '../helpers/task-system.js';
 import { waitFor } from '../helpers/wait-for.js';
 import { TASK_AUDIT_EVENTS } from '../../src/core/async-task-system/audit-events.js';
 import { SUBAGENT_AUDIT_EVENTS } from '../../src/core/subagent/audit-events.js';
-import { TEST_LLM_TIMEOUT_MS, SUBAGENT_DEFAULT_TIMEOUT_MS } from '../helpers/test-timeouts.js';
+import { TEST_LLM_TIMEOUT_MS, SUBAGENT_DEFAULT_TIMEOUT_MS, SUBAGENT_WAIT_TIMEOUT_MS, SUBAGENT_LONG_TIMEOUT_MS } from '../helpers/test-timeouts.js';
 
 /**
  * Convert LLMResponse to stream chunks for mock
@@ -423,7 +423,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await failSystem.scheduleSubAgent({
         kind: 'subagent',
         intent: 'test fallback',
-        timeoutMs: 10000,
+        timeoutMs: SUBAGENT_LONG_TIMEOUT_MS,
         maxSteps: 5,
         parentClawId: 'test-claw',
       });
@@ -467,7 +467,7 @@ describe('Task System + SubAgent', () => {
       const taskId = await failSystem.scheduleSubAgent({
         kind: 'subagent',
         intent: 'test move failure',
-        timeoutMs: 10000,
+        timeoutMs: SUBAGENT_LONG_TIMEOUT_MS,
         maxSteps: 5,
         parentClawId: 'test-claw',
       });
@@ -695,7 +695,7 @@ describe('Task System + SubAgent', () => {
         registry,
         fs: mockFs,
         maxSteps: 10,
-        timeoutMs: 5000,
+        timeoutMs: SUBAGENT_WAIT_TIMEOUT_MS,
         taskStreamWriter: new NoopStreamWriter(),
         auditWriter: new NoopAuditWriter(),
       });
@@ -739,7 +739,7 @@ describe('Task System + SubAgent', () => {
         registry,
         fs: mockFs,
         maxSteps: 10,
-        timeoutMs: 5000,
+        timeoutMs: SUBAGENT_WAIT_TIMEOUT_MS,
         taskStreamWriter: new NoopStreamWriter(),
         auditWriter: new NoopAuditWriter(),
       });
@@ -782,7 +782,7 @@ describe('Task System + SubAgent', () => {
         registry,
         fs: mockFs,
         maxSteps: 10,
-        timeoutMs: 5000,
+        timeoutMs: SUBAGENT_WAIT_TIMEOUT_MS,
         taskStreamWriter: new NoopStreamWriter(),
         auditWriter: new NoopAuditWriter(),
       });
@@ -871,7 +871,7 @@ describe('Task System + SubAgent', () => {
         llm: hangingLLM,
         registry,
         fs: mockFs,
-        timeoutMs: 10000, // main timeout is long
+        timeoutMs: SUBAGENT_LONG_TIMEOUT_MS, // main timeout is long
         idleTimeoutMs: 100, // idle timeout is short
         onIdleTimeout,
         taskStreamWriter: new NoopStreamWriter(),

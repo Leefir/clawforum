@@ -16,7 +16,6 @@ import type { Tool, ToolResult, ExecContext } from '../../src/foundation/tool-pr
 import type { JSONSchema7 } from '../../src/types/message.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
-import * as fsSync from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
@@ -29,6 +28,10 @@ import { makeTaskSystemDeps } from '../helpers/task-system.js';
 import { waitFor } from '../helpers/wait-for.js';
 import { writePendingToolTaskFile } from '../../src/core/async-task-system/tools/_pending-tool-task-writer.js';
 import { TASKS_QUEUES_PENDING_DIR } from '../../src/types/paths.js';
+import { SUBAGENT_DEFAULT_TIMEOUT_MS } from '../helpers/test-timeouts.js';
+
+const TEST_MAX_CONCURRENT = 3;
+const TEST_RETRY_BASE_DELAY_MS = 10;
 
 // Test helper: fs-driven async tool scheduling (replaces removed scheduleTool API)
 async function scheduleToolCompat(
@@ -146,7 +149,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any,
-      { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
+      { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
     );
     
     await taskSystem.initialize();
@@ -386,7 +389,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any;
 
-      const taskSystem2 = new AsyncTaskSystem(testClawDir, failingInboxFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      const taskSystem2 = new AsyncTaskSystem(testClawDir, failingInboxFs, { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -469,7 +472,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const ts = new AsyncTaskSystem(
         testClawDir,
         (taskSystem as any).fs,
-        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: audit, ...makeTaskSystemDeps() }
+        { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: audit, ...makeTaskSystemDeps() }
       );
       await ts.initialize();
       ts.startDispatch();
@@ -524,7 +527,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         kind: 'subagent' as const, 
         id: taskId, 
         intent: 'test prompt',
-        timeoutMs: 60000,
+        timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 10,
         parentClawId: 'parent', 
         createdAt: new Date().toISOString() 
@@ -557,7 +560,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
+        { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       await taskSystem2.initialize();
 
@@ -622,7 +625,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
+        { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       // 注册工具使恢复后可执行
       (taskSystem2 as any).registry.register({
@@ -693,7 +696,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
+        { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() }
       );
       (taskSystem2 as any).registry.register({
         name: 'pendingTool',
@@ -726,7 +729,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         kind: 'subagent',
         id: taskId,
         intent: 'test',
-        timeoutMs: 60000,
+        timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 10,
         parentClawId: 'parent-claw',
         createdAt: new Date().toISOString(),
@@ -757,7 +760,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
           return { size: s.size, mtime: s.mtime, ctime: s.ctime, isFile: s.isFile(), isDirectory: s.isDirectory() };
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
-      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      } as any, { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
 
       // First restart: result.txt → .sent, inbox message written
       const ts1 = makeTs();
@@ -790,7 +793,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         kind: 'subagent',
         id: taskId,
         intent: 'test',
-        timeoutMs: 60000,
+        timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 10,
         parentClawId: 'parent-claw',
         createdAt: new Date().toISOString(),
@@ -821,7 +824,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
           return { size: s.size, mtime: s.mtime, ctime: s.ctime, isFile: s.isFile(), isDirectory: s.isDirectory() };
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
-      } as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      } as any, { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await ts.initialize();
       ts.startDispatch();
       await ts.shutdown(100).catch(() => {});
@@ -909,7 +912,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       } as any;
 
-      const taskSystem2 = new AsyncTaskSystem(testClawDir, failingFs, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      const taskSystem2 = new AsyncTaskSystem(testClawDir, failingFs, { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -1118,7 +1121,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(testClawDir, from), path.join(testClawDir, to)),
       };
 
-      const taskSystem2 = new AsyncTaskSystem(testClawDir, limitedFs as any, { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
+      const taskSystem2 = new AsyncTaskSystem(testClawDir, limitedFs as any, { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() });
       await taskSystem2.initialize();
       taskSystem2.startDispatch();
 
@@ -1235,7 +1238,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         },
         moveSync: (from: string, to: string) => fsSync.renameSync(path.join(freshDir, from), path.join(freshDir, to)),
         } as any,
-        { maxConcurrent: 3, retryBaseDelayMs: 10, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() },
+        { maxConcurrent: TEST_MAX_CONCURRENT, retryBaseDelayMs: TEST_RETRY_BASE_DELAY_MS, auditWriter: makeAudit().audit, ...makeTaskSystemDeps() },
       );
       (freshSystem as any).registry.register({
         name: 'testTool',

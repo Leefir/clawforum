@@ -16,6 +16,7 @@ import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { readPid, selfWritePid } from '../../../src/foundation/process-manager/pid.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from '../../../src/foundation/process-manager/audit-events.js';
 import { makeAudit } from '../../helpers/audit.js';
+import { FAKE_LIVE_PID } from '../../helpers/test-pids.js';
 import type { ProcessManagerContext } from '../../../src/foundation/process-manager/types.js';
 import * as startTimeModule from '../../../src/foundation/process-exec/process-starttime.js';
 
@@ -48,7 +49,7 @@ describe('PID file format migration (phase 1023)', () => {
     const clawId = 'test-claw';
     const pidFile = path.join(tempDir, 'claws', clawId, 'status', 'pid');
     await fs.mkdir(path.dirname(pidFile), { recursive: true });
-    await fs.writeFile(pidFile, '12345', 'utf-8');
+    await fs.writeFile(pidFile, String(FAKE_LIVE_PID), 'utf-8');
 
     const ctx: ProcessManagerContext = {
       fs: nodeFs,
@@ -57,7 +58,7 @@ describe('PID file format migration (phase 1023)', () => {
     };
 
     const result = await readPid(ctx, clawId);
-    expect(result).toEqual({ pid: 12345, startTime: undefined });
+    expect(result).toEqual({ pid: FAKE_LIVE_PID, startTime: undefined });
 
     const legacyEvents = events.filter(
       (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.PID_FILE_LEGACY_FORMAT,
@@ -67,7 +68,7 @@ describe('PID file format migration (phase 1023)', () => {
       expect.arrayContaining([
         PROCESS_MANAGER_AUDIT_EVENTS.PID_FILE_LEGACY_FORMAT,
         'claw=test-claw',
-        'pid=12345',
+        `pid=${FAKE_LIVE_PID}`,
       ]),
     );
   });
@@ -77,10 +78,10 @@ describe('PID file format migration (phase 1023)', () => {
     const clawId = 'test-claw';
     const pidFile = path.join(tempDir, 'claws', clawId, 'status', 'pid');
     await fs.mkdir(path.dirname(pidFile), { recursive: true });
-    await fs.writeFile(pidFile, JSON.stringify({ pid: 12345, startTime: 'Sat May 18 10:30:00 2026' }), 'utf-8');
+    await fs.writeFile(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID, startTime: 'Sat May 18 10:30:00 2026' }), 'utf-8');
 
     const result = await readPid(ctx, clawId);
-    expect(result).toEqual({ pid: 12345, startTime: 'Sat May 18 10:30:00 2026' });
+    expect(result).toEqual({ pid: FAKE_LIVE_PID, startTime: 'Sat May 18 10:30:00 2026' });
   });
 
   it('readPid returns null for invalid content', async () => {

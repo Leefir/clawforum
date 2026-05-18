@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateTaskShape } from '../../../src/core/async-task-system/task-corrupt-helpers.js';
+import { SUBAGENT_DEFAULT_TIMEOUT_MS } from '../../helpers/test-timeouts.js';
 
 describe('phase 1019 r124 E fork: TaskMeta zod strict schema', () => {
   it('rejects SubAgentTask with missing intent field (was previously accepted by 2-field discriminator)', () => {
@@ -7,7 +8,7 @@ describe('phase 1019 r124 E fork: TaskMeta zod strict schema', () => {
       kind: 'subagent',
       id: 'task-1',
       // intent missing
-      timeoutMs: 60000,
+      timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
       maxSteps: 10,
       parentClawId: 'claw-1',
       createdAt: '2026-05-18T00:00:00Z',
@@ -36,7 +37,7 @@ describe('phase 1019 r124 E fork: TaskMeta zod strict schema', () => {
       kind: 'subagent',
       id: 'task-3',
       intent: 'do something',
-      timeoutMs: 60000,
+      timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
       maxSteps: 10,
       parentClawId: 'claw-1',
       createdAt: '2026-05-18T00:00:00Z',

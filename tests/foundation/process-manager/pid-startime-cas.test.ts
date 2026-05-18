@@ -15,6 +15,7 @@ import { isAlive } from '../../../src/foundation/process-exec/process-control.js
 import * as startTimeModule from '../../../src/foundation/process-exec/process-starttime.js';
 import { removePidIfMatch, readPid, selfWritePid } from '../../../src/foundation/process-manager/pid.js';
 import { makeAudit } from '../../helpers/audit.js';
+import { FAKE_LIVE_PID_CAS } from '../../helpers/test-pids.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import type { ProcessManagerContext } from '../../../src/foundation/process-manager/types.js';
 import * as path from 'path';
@@ -98,7 +99,7 @@ describe('removePidIfMatch CAS', () => {
     const clawId = 'test-claw';
     const pidFile = path.join(tempDir, 'claws', clawId, 'status', 'pid');
     await fs.mkdir(path.dirname(pidFile), { recursive: true });
-    await fs.writeFile(pidFile, JSON.stringify({ pid: 11111 }), 'utf-8');
+    await fs.writeFile(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_CAS }), 'utf-8');
 
     const result = await removePidIfMatch(ctx, clawId, 22222);
     expect(result).toBe(false);
@@ -112,7 +113,7 @@ describe('removePidIfMatch CAS', () => {
     const clawId = 'test-claw';
     const pidFile = path.join(tempDir, 'claws', clawId, 'status', 'pid');
     await fs.mkdir(path.dirname(pidFile), { recursive: true });
-    await fs.writeFile(pidFile, JSON.stringify({ pid: 11111, startTime: 'A' }), 'utf-8');
+    await fs.writeFile(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_CAS, startTime: 'A' }), 'utf-8');
 
     const result = await removePidIfMatch(ctx, clawId, 11111, 'B');
     expect(result).toBe(false);
@@ -126,7 +127,7 @@ describe('removePidIfMatch CAS', () => {
     const clawId = 'test-claw';
     const pidFile = path.join(tempDir, 'claws', clawId, 'status', 'pid');
     await fs.mkdir(path.dirname(pidFile), { recursive: true });
-    await fs.writeFile(pidFile, JSON.stringify({ pid: 11111, startTime: 'A' }), 'utf-8');
+    await fs.writeFile(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_CAS, startTime: 'A' }), 'utf-8');
 
     const result = await removePidIfMatch(ctx, clawId, 11111, 'A');
     expect(result).toBe(true);
@@ -140,7 +141,7 @@ describe('removePidIfMatch CAS', () => {
     const clawId = 'test-claw';
     const pidFile = path.join(tempDir, 'claws', clawId, 'status', 'pid');
     await fs.mkdir(path.dirname(pidFile), { recursive: true });
-    await fs.writeFile(pidFile, JSON.stringify({ pid: 11111 }), 'utf-8');
+    await fs.writeFile(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_CAS }), 'utf-8');
 
     const result = await removePidIfMatch(ctx, clawId, 11111);
     expect(result).toBe(true);
