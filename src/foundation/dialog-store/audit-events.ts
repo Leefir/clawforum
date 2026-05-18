@@ -1,7 +1,7 @@
 /**
  * DialogStore audit event names.
  *
- * Module-owned event namespace per H1 design (phase334 / r36 α 决策).
+ * Module-owned event namespace per H1 design (phase334 / r36 α 决策)。
  * 字符串值与 phase148 起 events.ts 中央注册表的 SESSION_* 系列等价 / 0 漂移。
  */
 export const DIALOG_AUDIT_EVENTS = {
@@ -16,4 +16,5 @@ export const DIALOG_AUDIT_EVENTS = {
   ARCHIVE_DIR_FAILED: 'session_archive_dir_failed',
   VERSION_UNKNOWN: 'dialog_session_version_unknown',  // ← NEW phase 1019 r124 E fork
   VERSION_MIGRATE: 'dialog_session_version_migrate',  // ← NEW phase 1019 r124 E fork (v1→v2 observability)
+  INVARIANT_FAILED: 'dialog_invariant_failed', // ← NEW phase 1024 G.4
 } as const;

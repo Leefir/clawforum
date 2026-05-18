@@ -250,6 +250,11 @@ export class Runtime {
   async stop(): Promise<void> {
     this.abort();
     await this.taskSystem.shutdown(30_000);
+    // phase 1024 G.3: await pending dialogStore.save() flush before close
+    // 防 SIGTERM 时半写 dialog 落盘 / DP「外部信号到达不能丢失状态」
+    await this.sessionManager.getFlushPromise().catch(() => {
+      /* save error 已经 audit.SAVE_FAILED emit / barrier 不阻塞 stop */
+    });
     await this.llm.close();
   }
 

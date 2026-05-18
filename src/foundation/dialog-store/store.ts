@@ -27,6 +27,7 @@ export class DialogStore {
   private readonly archiveDir: string;
   private createdAt: string | null = null;
   private corruptedPoisoned: boolean = false;
+  private flushPromise: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly fs: FileSystem,
@@ -84,31 +85,163 @@ export class DialogStore {
             `path=${this.currentPath}`,
             `reason=${renameErr instanceof Error ? renameErr.message : String(renameErr)}`,
           );
-          this.corruptedPoisoned = true;
         }
+        this.corruptedPoisoned = true;
       }
-    }
 
-    // Try to recover from archive (cold start recovery)
-    const archived = await this.loadLatestArchive();
-    if (archived) {
-      this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
-      return { session: archived.session, source: 'archive' };
-    }
+      // Recovery from archive
+      const archived = await this.loadLatestArchive();
+      if (archived) {
+        this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
+        return { session: archived.session, source: 'archive' };
+      }
 
-    return this.coldStart();
+      return this.coldStart();
+    }
   }
 
+  /**
+   * NEW pub method: await all pending save() flush
+   * phase 1024 G.2: expose flushPromise for barrier (runtime.stop / SIGTERM 不丢半写)
+   */
+  getFlushPromise(): Promise<void> {
+    return this.flushPromise;
+  }
+
+  /**
+   * Save session to current.json
+   * phase 713: 扩 snapshot 参 / atomic write systemPrompt + messages + toolsForLLM 3 件
+   */
+  async save(snapshot: {
+    systemPrompt: string;
+    messages: Message[];
+    toolsForLLM: ToolDefinition[];
+  }): Promise<void> {
+    const doSave = async (): Promise<void> => {
+      const now = new Date().toISOString();
+
+      // Use cached createdAt if available, otherwise use now
+      if (!this.createdAt) {
+        this.createdAt = now;
+      }
+
+      const data: SessionData = {
+        version: 2,
+        ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
+        createdAt: this.createdAt,
+        updatedAt: now,
+        systemPrompt: snapshot.systemPrompt,
+        messages: snapshot.messages,
+        toolsForLLM: snapshot.toolsForLLM,
+      };
+
+      try {
+        await this.fs.writeAtomic(this.currentPath, JSON.stringify(data, null, 2));
+        // phase 988 (audit-2026-05-17 NEW.P1 G.1): reset corruptedPoisoned 防 sticky data loss
+        // save 写新 current.json → current.json 实然不再 corrupted、应然 align
+        this.corruptedPoisoned = false;
+      } catch (err) {
+        this.audit.write(
+          DIALOG_AUDIT_EVENTS.SAVE_FAILED,
+          `path=${this.currentPath}`,
+          `reason=${err instanceof Error ? err.message : String(err)}`,
+        );
+        throw err;
+      }
+    };
+    // phase 1024 G.2: serialize concurrent save() — chain into flushPromise / catch swallow per-link 防 chain 破裂
+    const next = this.flushPromise.then(doSave, doSave);  // 失败也继续 doSave / chain 不破
+    this.flushPromise = next.catch(() => { /* swallow / 防 chain 破裂、caller 仍看到 original error via await next */ });
+    return next;
+  }
+
+  /**
+   * Archive current session (move to archive dir)
+   */
+  async archive(): Promise<void> {
+    try {
+      // Ensure archive directory exists
+      await this.fs.ensureDir(this.archiveDir);
+
+      // Generate archive filename with timestamp and UUID suffix to avoid collisions
+      const timestamp = Date.now();
+      const archivePath = path.join(this.archiveDir, `${timestamp}_${randomUUID().slice(0, UUID_SHORT_LEN)}.json`);
+
+      // Move current.json to archive
+      await this.fs.move(this.currentPath, archivePath);
+      this.createdAt = null;  // Reset so next save() starts a fresh session
+      // phase 988 (audit-2026-05-17 NEW.P1 G.2): reset corruptedPoisoned 防 sticky
+      // archive 移走 current.json → 下次 load cold start → 新 file 不继承 stale poisoned state
+      this.corruptedPoisoned = false;
+    } catch (err) {
+      this.audit.write(
+        DIALOG_AUDIT_EVENTS.ARCHIVE_FAILED,
+        `path=${this.currentPath}`,
+        `reason=${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Load latest archive (cold start recovery)
+   */
+  private async loadLatestArchive(): Promise<{ session: SessionData; name: string } | null> {
+    try {
+      const entries = await this.fs.list(this.archiveDir);
+      const files = entries
+        .filter((e) => e.name.endsWith('.json'))
+        .sort((a, b) => {
+          const aTime = a.name.split('_')[0];
+          const bTime = b.name.split('_')[0];
+          return Number(bTime) - Number(aTime); // newest first
+        });
+
+      for (const entry of files) {
+        try {
+          const content = await this.fs.read(path.join(this.archiveDir, entry.name));
+          const parsed = JSON.parse(content) as Partial<SessionData>;
+          const detected = this.detectAndMigrateVersion(parsed, entry.name);
+          if (detected === null) {
+            this.audit.write(DIALOG_AUDIT_EVENTS.ARCHIVE_PARSE_FAILED, `file=${entry.name}`, `reason=version_unknown`);
+            continue;
+          }
+          const session = this.validateSession(detected);
+          return { session, name: entry.name };
+        } catch (err) {
+          this.audit.write(
+            DIALOG_AUDIT_EVENTS.CORRUPTED,
+            `file=${entry.name}`,
+            `reason=${err instanceof Error ? err.message : String(err)}`,
+          );
+          // Continue to next archive
+        }
+      }
+
+      return null;
+    } catch (err) {
+      this.audit.write(
+        DIALOG_AUDIT_EVENTS.ARCHIVE_READ_FAILED,
+        `dir=${this.archiveDir}`,
+        `reason=${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Cold start: empty session
+   */
   private coldStart(): LoadResult {
     const now = new Date().toISOString();
     const emptySession: SessionData = {
       version: 2,
-      ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
+      ...(this.clawId !== undefined && { clawId: this.clawId }),
       createdAt: now,
       updatedAt: now,
-      systemPrompt: '',                 // phase 713: empty session / 首次 save 时覆盖
+      systemPrompt: '',
       messages: [],
-      toolsForLLM: [],                  // phase 713
+      toolsForLLM: [],
     };
     return { session: emptySession, source: 'empty' };
   }
@@ -160,142 +293,35 @@ export class DialogStore {
   }
 
   /**
-   * Save session to current.json
-   * phase 713: 扩 snapshot 参 / atomic write systemPrompt + messages + toolsForLLM 3 件
+   * Restore message prefix up to and including the marker assistant message.
+   * Scans current.json then archive/*.json (newest first).
    */
-  async save(snapshot: {
-    systemPrompt: string;
-    messages: Message[];
-    toolsForLLM: ToolDefinition[];
-  }): Promise<void> {
-    const now = new Date().toISOString();
-    
-    // Use cached createdAt if available, otherwise use now
-    if (!this.createdAt) {
-      this.createdAt = now;
-    }
-
-    const data: SessionData = {
-      version: 2,
-      ...(this.clawId !== undefined && { clawId: this.clawId }),  // phase 450: 0 clawId 时 schema 不含此字段
-      createdAt: this.createdAt,
-      updatedAt: now,
-      systemPrompt: snapshot.systemPrompt,
-      messages: snapshot.messages,
-      toolsForLLM: snapshot.toolsForLLM,
-    };
-
-    try {
-      await this.fs.writeAtomic(this.currentPath, JSON.stringify(data, null, 2));
-      // phase 988 (audit-2026-05-17 NEW.P1 G.1): reset corruptedPoisoned 防 sticky data loss
-      // save 写新 current.json → current.json 实然不再 corrupted、应然 align
-      this.corruptedPoisoned = false;
-    } catch (err) {
-      this.audit.write(
-        DIALOG_AUDIT_EVENTS.SAVE_FAILED,
-        `path=${this.currentPath}`,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
-      );
-      throw err;
-    }
-  }
-
-  /**
-   * Archive current session (move to archive dir)
-   */
-  async archive(): Promise<void> {
-    try {
-      // Ensure archive directory exists
-      await this.fs.ensureDir(this.archiveDir);
-
-      // Generate archive filename with timestamp and UUID suffix to avoid collisions
-      const timestamp = Date.now();
-      const archivePath = path.join(this.archiveDir, `${timestamp}_${randomUUID().slice(0, UUID_SHORT_LEN)}.json`);
-
-      // Move current.json to archive
-      await this.fs.move(this.currentPath, archivePath);
-      this.createdAt = null;  // Reset so next save() starts a fresh session
-      // phase 988 (audit-2026-05-17 NEW.P1 G.2): reset corruptedPoisoned 防 sticky
-      // archive 移走 current.json → 下次 load cold start → 新 file 不继承 stale poisoned state
-      this.corruptedPoisoned = false;
-    } catch (err) {
-      this.audit.write(
-        DIALOG_AUDIT_EVENTS.ARCHIVE_FAILED,
-        `path=${this.currentPath}`,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
-      );
-      throw err;
-    }
-  }
-
-  /**
-   * Load latest archive for crash recovery
-   */
-  private async loadLatestArchive(): Promise<{ session: SessionData; name: string } | null> {
-    try {
-      const entries = await this.fs.list(this.archiveDir);
-      
-      // Filter JSON files and sort by timestamp (descending)
-      const archives = entries
-        .filter(e => e.isFile && e.name.endsWith('.json') && !isNaN(parseInt(e.name.split('.')[0], 10)))
-        .sort((a, b) => {
-          const tsA = parseInt(a.name.split('.')[0], 10);
-          const tsB = parseInt(b.name.split('.')[0], 10);
-          return tsB - tsA; // Newest first
-        });
-
-      if (archives.length === 0) {
-        return null;
-      }
-
-      // Load latest, falling back to older archives if corrupted
-      for (const entry of archives) {
-        const entryPath = path.join(this.archiveDir, entry.name);
-        try {
-          const content = await this.fs.read(entryPath);
-          const parsed = JSON.parse(content) as Partial<SessionData>;
-          const detected = this.detectAndMigrateVersion(parsed, entry.name);
-          if (detected === null) {
-            this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, `file=${entry.name}`, `reason=version_unknown`);
-            throw new Error('session version unknown');
-          }
-          const data = this.validateSession(detected);
-          return { session: data, name: entry.name };
-        } catch (parseErr) {
-          this.audit.write(
-            DIALOG_AUDIT_EVENTS.CORRUPTED,
-            `file=${entry.name}`,
-            `reason=${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
-          );
-          // Continue to next archive
-        }
-      }
-      return null;
-    } catch (err) {
-      this.audit.write(
-        DIALOG_AUDIT_EVENTS.ARCHIVE_READ_FAILED,
-        `dir=${this.archiveDir}`,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
-      );
-      return null;
-    }
+  async restore(marker: DialogMarker): Promise<RestoreResult> {
+    return this._restore(marker, false);
   }
 
   /**
    * Restore message prefix up to and including the marker assistant message.
    * Scans current.json then archive/*.json (newest first).
    */
+  async restorePrefix(marker: DialogMarker): Promise<RestoreResult> {
+    return this._restore(marker, true);
+  }
+
+  /**
+   * Shared restore implementation
+   */
   private async _restore(marker: DialogMarker, inclusive: boolean): Promise<RestoreResult> {
     // 1. Scan current.json
     try {
       const content = await this.fs.read(this.currentPath);
       const parsed = JSON.parse(content) as Partial<SessionData>;
-      const detected = this.detectAndMigrateVersion(parsed, 'current.json');
-      if (detected === null) {
-        this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, 'file=current.json', `context=restore_${inclusive ? 'prefix' : 'before'}`, `reason=version_unknown`);
-        throw new Error('session version unknown');
+      // v1 → v2 schema 兼容 read（phase 713）
+      if (!parsed.toolsForLLM) {
+        (parsed as SessionData).toolsForLLM = [];
+        (parsed as SessionData).version = 2;
       }
-      const data = this.validateSession(detected);
+      const data = this.validateSession(parsed as SessionData);
       const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId, inclusive);
       if (sliced !== null) {
         return {
@@ -334,12 +360,12 @@ export class DialogStore {
         try {
           const content = await this.fs.read(path.join(this.archiveDir, entry.name));
           const parsed = JSON.parse(content) as Partial<SessionData>;
-          const detected = this.detectAndMigrateVersion(parsed, entry.name);
-          if (detected === null) {
-            this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, `file=${entry.name}`, `context=restore_${inclusive ? 'prefix' : 'before'}`, `reason=version_unknown`);
-            throw new Error('session version unknown');
+          // v1 → v2 schema 兼容 read（phase 713）
+          if (!parsed.toolsForLLM) {
+            (parsed as SessionData).toolsForLLM = [];
+            (parsed as SessionData).version = 2;
           }
-          const data = this.validateSession(detected);
+          const data = this.validateSession(parsed as SessionData);
           const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId, inclusive);
           if (sliced !== null) {
             return {
@@ -371,15 +397,6 @@ export class DialogStore {
   }
 
   /**
-   * Restore message prefix up to and including the marker assistant message.
-   * Scans current.json then archive/*.json (newest first).
-   */
-  async restorePrefix(marker: DialogMarker): Promise<RestoreResult> {
-    return this._restore(marker, true);
-  }
-
-
-  /**
    * Detect version and migrate v1 → v2 if needed.
    * Returns null for unknown versions (> SESSION_CURRENT_VERSION) to trigger corrupt path.
    */
@@ -404,20 +421,40 @@ export class DialogStore {
    * Validate and normalize session data
    */
   private validateSession(data: SessionData): SessionData {
-    if (data.version !== SESSION_CURRENT_VERSION) {
-      this.audit.write(DIALOG_AUDIT_EVENTS.VERSION_UNKNOWN,
-        `phase=validateSession`,
-        `actual=${String(data.version)}`,
-        `current=${SESSION_CURRENT_VERSION}`);
-      throw new Error(`session version mismatch in validateSession: actual=${String(data.version)} current=${SESSION_CURRENT_VERSION}`);
+    // phase 1024 G.4: version 上界 invariant — supported version = 1 | 2 / version > 2 fail-loud audit
+    // (version > 2 已由 detectAndMigrateVersion 拦截，此处处理 version < 1 或 undefined)
+    let version: number = data.version ?? 2;
+    if (typeof version !== 'number' || version > 2 || version < 1) {
+      this.audit.write(
+        DIALOG_AUDIT_EVENTS.INVARIANT_FAILED,
+        `field=version`,
+        `got=${String(data.version)}`,
+        `fallback=2`,
+      );
+      version = 2;
     }
+    // messages corrupt entry filter: shape check role + content
+    const messages = Array.isArray(data.messages)
+      ? data.messages.filter((m): m is Message => {
+          const valid = m != null && typeof m === 'object' && 'role' in m && 'content' in m;
+          if (!valid) {
+            this.audit.write(
+              DIALOG_AUDIT_EVENTS.INVARIANT_FAILED,
+              `field=messages.entry`,
+              `got=${typeof m}`,
+              `filter=skipped`,
+            );
+          }
+          return valid;
+        })
+      : [];
     return {
-      version: data.version,
+      version: version as SessionData['version'],
       clawId: data.clawId ?? this.clawId,
       createdAt: data.createdAt ?? new Date().toISOString(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
       systemPrompt: data.systemPrompt ?? '',
-      messages: Array.isArray(data.messages) ? data.messages : [],
+      messages,
       toolsForLLM: Array.isArray(data.toolsForLLM) ? data.toolsForLLM : [],
     };
   }

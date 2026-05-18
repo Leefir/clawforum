@@ -251,11 +251,14 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   const saveLlmRetryState = () => {
     try {
       fsNative.mkdirSync(path.join(agentDir, STATUS_SUBDIR), { recursive: true });
-      fsNative.writeFileSync(llmRetryStateFile, JSON.stringify({
+      // phase 1024 G.1: atomic tmp+rename — write tmp 同 dir + renameSync POSIX atomic / 防 crash 中 torn-write
+      const tmpFile = `${llmRetryStateFile}.${process.pid}.${Date.now()}.tmp`;
+      fsNative.writeFileSync(tmpFile, JSON.stringify({
         llmRetryCount,
         llmRetryDelayMs,
         llmRetryPending,
       }));
+      fsNative.renameSync(tmpFile, llmRetryStateFile);
     } catch { /* Ignore: state persistence failure should not break the main loop */ }
   };
 

@@ -194,6 +194,7 @@
       "dream_output_persisted"
     ],
     "core_runtime_heartbeat-audit-events": [
+      "heartbeat_checklist_read_failed",
       "heartbeat_fire_failed"
     ],
     "core_runtime_runtime-audit-events": [
@@ -272,6 +273,7 @@
       "wait"
     ],
     "foundation_dialog-store_audit-events": [
+      "dialog_invariant_failed",
       "dialog_session_version_migrate",
       "dialog_session_version_unknown",
       "session_archive_dir_failed",
@@ -312,6 +314,8 @@
       "lockfile_read_failed",
       "orphan_sigterm_failed",
       "pid_empty",
+      "pid_file_legacy_format",
+      "pid_file_parse_failed",
       "pid_read_failed",
       "pid_read_ok",
       "pid_remove_failed",
@@ -324,7 +328,9 @@
       "process_spawned",
       "process_stop_failed",
       "process_stop_stale",
-      "process_stopped"
+      "process_stopped",
+      "starttime_mismatch",
+      "starttime_verify_skipped_windows"
     ],
     "foundation_skill-system_audit-events": [
       "skill_duplicate_skipped",

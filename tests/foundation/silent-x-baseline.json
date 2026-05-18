@@ -185,13 +185,13 @@
     },
     {
       "file": "src/daemon/daemon-loop.ts",
-      "line": 259,
+      "line": 262,
       "body_excerpt": "} catch { /* Ignore: state persistence failure should not break the main loop */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/daemon/daemon-loop.ts",
-      "line": 281,
+      "line": 284,
       "body_excerpt": "} catch { /* Ignore: first start or corrupted file, use defaults */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
