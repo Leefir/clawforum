@@ -28,6 +28,9 @@ export const clawPreviouslyAlive: Map<string, boolean> = new Map();
 /** 1:1 保 watchdog.ts:196 */
 export const inactivityNotifyCount: Map<string, number> = new Map();
 
+/** Track claws that have ever been alive for first-tick crash detection (phase 1047) */
+export const everSpawned: Set<string> = new Set();
+
 // === Lazy cache state（封装 / 经 getter） ===
 
 let _motionCtx: { fs: FileSystem; audit: AuditLog } | null = null;

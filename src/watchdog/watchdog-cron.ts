@@ -8,7 +8,7 @@ import type { ProcessManager } from '../foundation/process-manager/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import {
   getClawforumDir, getClawforumFs, getGlobalConfig, getMotionContext,
-  lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive,
+  lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned,
 } from './watchdog-context.js';
 import { log, writeWatchdogInboxMessage } from './watchdog-log.js';
 import { saveWatchdogState } from './watchdog-state.js';
@@ -113,6 +113,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
   for (const id of clawPreviouslyAlive.keys()) {
     if (!existingClawIds.has(id)) {
       clawPreviouslyAlive.delete(id);
+      everSpawned.delete(id);
     }
   }
 
@@ -121,16 +122,21 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
     const currentlyAlive = pm.isAlive(clawId);
     const wasAlive = clawPreviouslyAlive.get(clawId);
 
-    if (wasAlive === true && !currentlyAlive) {
+    if (currentlyAlive) {
+      everSpawned.add(clawId);
+    }
+
+    if ((wasAlive === true || everSpawned.has(clawId)) && !currentlyAlive) {
+      const detectMethod = wasAlive === true ? 'previous_tick' : 'ever_spawned';
       // Only notify motion when there is an active/paused contract (no notification needed if claw stops without a contract)
       if (!clawHasContract(clawDir, audit)) {
-        log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification)`);
-        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=false');
+        log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification) [${detectMethod}]`);
+        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=false', `detected_by=${detectMethod}`);
         clawPreviouslyAlive.set(clawId, currentlyAlive);
         continue;
       }
-      log(`[watchdog] Claw ${clawId} crashed (was alive, now stopped)`);
-      audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=true');
+      log(`[watchdog] Claw ${clawId} crashed (${detectMethod}, was alive, now stopped)`);
+      audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=true', `detected_by=${detectMethod}`);
 
       // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);

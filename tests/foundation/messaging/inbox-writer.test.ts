@@ -54,7 +54,7 @@ describe('InboxWriter', () => {
 
     const files = await fs.readdir(path.join(testDir, 'inbox', 'pending'));
     expect(files).toHaveLength(1);
-    expect(files[0]).toMatch(/^\d+_high_[a-f0-9-]+\.md$/);
+    expect(files[0]).toMatch(/^sender-\d+_high_[a-f0-9-]+\.md$/);
   });
 
   it('write audits INBOX_WRITTEN on success', async () => {
@@ -97,7 +97,7 @@ describe('InboxWriter', () => {
 
     const files = fsSync.readdirSync(path.join(testDir, 'inbox', 'pending'));
     expect(files).toHaveLength(1);
-    expect(files[0]).toMatch(/^\d{15}_high_[a-f0-9]+\.md$/);
+    expect(files[0]).toMatch(/^motion-\d{15}_high_[a-f0-9]+\.md$/);
   });
 
   it('writeSync audits INBOX_WRITTEN on success', () => {

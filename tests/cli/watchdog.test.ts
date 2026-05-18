@@ -678,6 +678,7 @@ describe('maybeCronClawCrash — crash audit', () => {
       WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED,
       expect.stringContaining(clawId),
       'has_contract=true',
+      'detected_by=previous_tick',
     );
   });
 

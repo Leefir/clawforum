@@ -43,7 +43,8 @@ export class InboxWriter {
     await this.fs.ensureDir(this.inboxDir);
     const timestamp = String(Date.now()).padStart(15, '0');
     const priority = msg.priority ?? 'normal';
-    const filename = `${timestamp}_${priority}_${randomUUID().slice(0, UUID_SHORT_LEN)}.md`;
+    const source = msg.from || 'unknown';
+    const filename = `${source}-${timestamp}_${priority}_${randomUUID().slice(0, UUID_SHORT_LEN)}.md`;
     const filePath = path.join(this.inboxDir, filename);
     try {
       await this.fs.writeAtomic(filePath, encodeInbox(msg, extraFields));
@@ -74,7 +75,8 @@ export class InboxWriter {
     };
 
     this.fs.ensureDirSync(this.inboxDir);
-    const filename = `${timestamp}_${priority}_${uuid8}.md`;
+    const source = opts.source || 'unknown';
+    const filename = `${source}-${timestamp}_${priority}_${uuid8}.md`;
     try {
       const content = encodeInbox(message, opts.extraFields);
       this.fs.writeAtomicSync(path.join(this.inboxDir, filename), content);
