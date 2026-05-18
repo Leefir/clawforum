@@ -8,6 +8,7 @@ import { createTempDir, cleanupTempDirSync } from '../utils/temp.js';
 import { ProcessManager } from '../../src/foundation/process-manager/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { makeAudit } from '../helpers/audit.js';
+import { FAKE_LIVE_PID } from '../helpers/test-pids.js';
 
 // Mock child_process
 vi.mock('child_process', async (importOriginal) => {
@@ -32,7 +33,7 @@ describe('ProcessManager - spawn defaults', () => {
 
     // Setup mock process
     mockProc = {
-      pid: 12345,
+      pid: FAKE_LIVE_PID,
       unref: vi.fn(),
     };
     vi.mocked(spawn).mockReturnValue(mockProc as any);

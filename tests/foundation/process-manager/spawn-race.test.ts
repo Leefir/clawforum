@@ -13,6 +13,7 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
+import { FAKE_LIVE_PID } from '../../helpers/test-pids.js';
 import { spawnProcess } from '../../../src/foundation/process-manager/spawn.js';
 import { makeAudit } from '../../helpers/audit.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from '../../../src/foundation/process-manager/audit-events.js';
@@ -29,7 +30,7 @@ vi.mock('../../../src/foundation/process-exec/index.js', async (importOriginal) 
   const actual = await importOriginal<typeof import('../../../src/foundation/process-exec/index.js')>();
   return {
     ...actual,
-    spawnDetached: vi.fn().mockReturnValue({ pid: 12345 }),
+    spawnDetached: vi.fn().mockReturnValue({ pid: FAKE_LIVE_PID }),
     isAlive: vi.fn().mockReturnValue(true),
   };
 });
@@ -82,7 +83,7 @@ describe('spawn EEXIST race audit 归类（phase 591 / A.spawn-eexist-race-miscl
       logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
     });
 
-    expect(result).toBe(12345);
+    expect(result).toBe(FAKE_LIVE_PID);
 
     const pidReadFailedCalls = events.filter(
       (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.PID_READ_FAILED,
@@ -125,7 +126,7 @@ describe('spawn EEXIST race audit 归类（phase 591 / A.spawn-eexist-race-miscl
       logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
     });
 
-    expect(result).toBe(12345);
+    expect(result).toBe(FAKE_LIVE_PID);
 
     const pidEmptyCalls = events.filter(
       (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.PID_EMPTY,
@@ -170,7 +171,7 @@ describe('spawn EEXIST race audit 归类（phase 591 / A.spawn-eexist-race-miscl
       logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
     });
 
-    expect(result).toBe(12345);
+    expect(result).toBe(FAKE_LIVE_PID);
 
     const pidReadFailedCalls = events.filter(
       (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.PID_READ_FAILED,

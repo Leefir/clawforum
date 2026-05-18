@@ -10,6 +10,7 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
+import { FAKE_LIVE_PID, FAKE_LIVE_PID_STRING } from '../helpers/test-pids.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const viewportPath = path.join(__dirname, '../../src/cli/commands/chat-viewport.ts');
@@ -80,7 +81,7 @@ describe('chat-viewport CRASH audit (phase 816 B1)', () => {
       const shim = createSystemAudit(shimFs, tempDir);
       shim.write(
         CLI_AUDIT_EVENTS.CHAT_CRASH_UNCAUGHT,
-        'pid=12345',
+        `pid=${FAKE_LIVE_PID}`,
         'error=TestError: test',
         'stack_head=TestError: test | at foo | at bar',
       );
@@ -88,7 +89,7 @@ describe('chat-viewport CRASH audit (phase 816 B1)', () => {
       const auditPath = path.join(tempDir, 'audit.tsv');
       const content = fs.readFileSync(auditPath, 'utf-8');
       expect(content).toContain('cli_chat_crash_uncaught');
-      expect(content).toContain('pid=12345');
+      expect(content).toContain(`pid=${FAKE_LIVE_PID}`);
       expect(content).toContain('error=TestError: test');
     });
   });

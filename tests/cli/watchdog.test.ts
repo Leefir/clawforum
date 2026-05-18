@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 import type { ProcessManager } from '../../src/foundation/process-manager/index.js';
+import { FAKE_LIVE_PID, FAKE_LIVE_PID_ALT } from '../helpers/test-pids.js';
 
 // Mock config so getClawforumDir() and getGlobalConfig() return controllable values
 vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
@@ -36,7 +37,7 @@ vi.mock('../../src/watchdog/watchdog-utils.js', async (importOriginal) => {
 
 // Mock spawnDetached (startCommand uses spawnDetached from L1 ProcessExec)
 vi.mock('../../src/foundation/process-exec/spawn-detached.js', () => ({
-  spawnDetached: vi.fn().mockReturnValue({ pid: 12345 }),
+  spawnDetached: vi.fn().mockReturnValue({ pid: FAKE_LIVE_PID }),
 }));
 
 // Mock child_process (keep for any other indirect usage)
@@ -244,7 +245,7 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
     tmpDir = path.join(os.tmpdir(), `wd-fix5-${randomUUID()}`);
     const clawforumDir = path.join(tmpDir, '.clawforum');
     fs.mkdirSync(path.join(clawforumDir, 'motion'), { recursive: true });
-    fs.writeFileSync(path.join(clawforumDir, 'watchdog.pid'), JSON.stringify({ pid: 12345 }));
+    fs.writeFileSync(path.join(clawforumDir, 'watchdog.pid'), JSON.stringify({ pid: FAKE_LIVE_PID }));
     vi.mocked(getMotionDir).mockReturnValue(path.join(clawforumDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
 
@@ -340,8 +341,8 @@ describe('getWatchdogPid', () => {
 
   it('returns pid when pid file exists with valid content', () => {
     const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root: '/some/root' }));
-    expect(getWatchdogPid()).toBe(99999);
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/some/root' }));
+    expect(getWatchdogPid()).toBe(FAKE_LIVE_PID_ALT);
   });
 
   it('returns null when pid file does not exist', () => {
@@ -374,15 +375,15 @@ describe('isWatchdogAlive', () => {
 
   it('returns true when pid file exists, root matches, and process is alive', () => {
     const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root: '/test/root' }));
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/test/root' }));
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
     expect(isWatchdogAlive()).toBe(true);
-    expect(killSpy).toHaveBeenCalledWith(99999, 0);
+    expect(killSpy).toHaveBeenCalledWith(FAKE_LIVE_PID_ALT, 0);
   });
 
   it('returns false and removes pid file when root does not match', () => {
     const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root: '/different/root' }));
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/different/root' }));
     expect(isWatchdogAlive()).toBe(false);
     expect(fs.existsSync(pidFile)).toBe(false);
   });
@@ -415,7 +416,7 @@ describe('startCommand', () => {
     const clawforumDir = path.join(tmpDir, '.clawforum');
     fs.mkdirSync(clawforumDir, { recursive: true });
     vi.mocked(getMotionDir).mockReturnValue(path.join(clawforumDir, 'motion'));
-    vi.mocked(spawnDetached).mockReturnValue({ pid: 12345 });
+    vi.mocked(spawnDetached).mockReturnValue({ pid: FAKE_LIVE_PID });
   });
 
   afterEach(() => {
@@ -426,7 +427,7 @@ describe('startCommand', () => {
   it('logs "already running" if watchdog is alive before spawn', async () => {
     const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
     const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root }));
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root }));
     vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -486,7 +487,7 @@ describe('stopCommand', () => {
     const clawforumDir = path.join(tmpDir, '.clawforum');
     const pidFile = path.join(clawforumDir, 'watchdog.pid');
     const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root }));
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root }));
 
     const killSpy = vi.spyOn(process, 'kill')
       .mockImplementationOnce(() => true)   // first call: kill(pid, 0) → alive check
@@ -496,7 +497,7 @@ describe('stopCommand', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await stopCommand();
 
-    expect(killSpy).toHaveBeenCalledWith(99999, 'SIGTERM');
+    expect(killSpy).toHaveBeenCalledWith(FAKE_LIVE_PID_ALT, 'SIGTERM');
     logSpy.mockRestore();
   });
 
@@ -504,7 +505,7 @@ describe('stopCommand', () => {
     const clawforumDir = path.join(tmpDir, '.clawforum');
     const pidFile = path.join(clawforumDir, 'watchdog.pid');
     const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root }));
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root }));
 
     vi.spyOn(process, 'kill')
       .mockImplementationOnce(() => true)           // isWatchdogAlive kill(0)

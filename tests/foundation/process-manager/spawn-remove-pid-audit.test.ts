@@ -4,6 +4,7 @@
  * 验证点：spawn retry overwrite 路径中 removePid 失败时写入 PID_REMOVE_FAILED audit
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { FAKE_LIVE_PID } from '../../helpers/test-pids.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { tmpdir } from 'os';
@@ -38,7 +39,7 @@ vi.mock('../../../src/foundation/process-exec/index.js', async (importOriginal) 
   const actual = await importOriginal<typeof import('../../../src/foundation/process-exec/index.js')>();
   return {
     ...actual,
-    spawnDetached: vi.fn().mockReturnValue({ pid: 12345 }),
+    spawnDetached: vi.fn().mockReturnValue({ pid: FAKE_LIVE_PID }),
     isAlive: vi.fn().mockReturnValue(true),
   };
 });
@@ -85,7 +86,7 @@ describe('spawn — removePid silent → audit (P1.1)', () => {
       logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
     });
 
-    expect(result).toBe(12345);
+    expect(result).toBe(FAKE_LIVE_PID);
     expect(writeExclusiveCallCount).toBe(2);
 
     const pidRemoveEvents = events.filter(e => e[0] === 'pid_remove_failed');

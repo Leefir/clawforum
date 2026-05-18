@@ -10,6 +10,7 @@ import { setAuditWriter } from '../../src/watchdog/watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import { FAKE_LIVE_PID, FAKE_LIVE_PID_ALT } from '../helpers/test-pids.js';
 
 vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/foundation/config/index.js')>();
@@ -97,7 +98,9 @@ describe('watchdog-pid corrupt path', () => {
 
   it('root non-string: emits PID_CORRUPT audit + backup exists + returns false from isWatchdogAlive', () => {
     const pidFile = path.join(clawforumDir, 'watchdog.pid');
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 12345, root: 99999 }));
+    // Note: root: 99999 is intentional type-corruption fixture (root field should be string path;
+    //       testing corruption recovery). pid: FAKE_LIVE_PID is normal use.
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID, root: 99999 }));
 
     const result = isWatchdogAlive();
 
@@ -116,11 +119,11 @@ describe('watchdog-pid corrupt path', () => {
 
   it('valid pid file still works (no false positive)', () => {
     const pidFile = path.join(clawforumDir, 'watchdog.pid');
-    fs.writeFileSync(pidFile, JSON.stringify({ pid: 99999, root: '/test/root' }));
+    fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/test/root' }));
 
     const result = getWatchdogPid();
 
-    expect(result).toBe(99999);
+    expect(result).toBe(FAKE_LIVE_PID_ALT);
     expect(auditSpy).not.toHaveBeenCalled();
   });
 });

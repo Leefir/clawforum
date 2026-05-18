@@ -12,6 +12,7 @@ import { acquireLock, releaseLock } from '../../../src/core/contract/lock.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../../src/core/contract/audit-events.js';
 import { DEAD_PID } from '../../helpers/dead-pid.js';
+import { FAKE_LIVE_PID } from '../../helpers/test-pids.js';
 
 vi.mock('../../../src/core/contract/constants.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/core/contract/constants.js')>();
@@ -109,7 +110,7 @@ describe('acquireLock', () => {
     const absLockPath = path.join(tmpDir, lockPath);
     await fs.mkdir(path.dirname(absLockPath), { recursive: true });
 
-    await fs.writeFile(absLockPath, JSON.stringify({ pid: 12345, time: NaN }), 'utf-8');
+    await fs.writeFile(absLockPath, JSON.stringify({ pid: FAKE_LIVE_PID, time: NaN }), 'utf-8');
 
     await acquireLock({ fs: nodeFs, audit: mockAudit as any }, lockPath);
 
