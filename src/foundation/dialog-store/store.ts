@@ -17,6 +17,8 @@ import { DIALOG_AUDIT_EVENTS } from './audit-events.js';
 import { randomUUID } from 'crypto';
 import { UUID_SHORT_LEN } from '../../constants.js';
 
+const SESSION_CURRENT_VERSION = 2;
+
 /**
  * Manages a Claw's dialog session
  */
@@ -58,12 +60,12 @@ export class DialogStore {
     try {
       const content = await this.fs.read(this.currentPath);
       const parsed = JSON.parse(content) as Partial<SessionData>;
-      // v1 → v2 schema 兼容 read（phase 713）
-      if (!parsed.toolsForLLM) {
-        (parsed as SessionData).toolsForLLM = [];
-        (parsed as SessionData).version = 2;
+      const detected = this.detectAndMigrateVersion(parsed, 'current.json');
+      if (detected === null) {
+        this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, 'file=current.json', `reason=version_unknown`);
+        throw new Error('session version unknown');
       }
-      const data = this.validateSession(parsed as SessionData);
+      const data = this.validateSession(detected);
       // Cache createdAt for subsequent saves
       this.createdAt = data.createdAt;
       return { session: data, source: 'current' };
@@ -252,12 +254,12 @@ export class DialogStore {
         try {
           const content = await this.fs.read(entryPath);
           const parsed = JSON.parse(content) as Partial<SessionData>;
-          // v1 → v2 schema 兼容 read（phase 713）
-          if (!parsed.toolsForLLM) {
-            (parsed as SessionData).toolsForLLM = [];
-            (parsed as SessionData).version = 2;
+          const detected = this.detectAndMigrateVersion(parsed, entry.name);
+          if (detected === null) {
+            this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, `file=${entry.name}`, `reason=version_unknown`);
+            throw new Error('session version unknown');
           }
-          const data = this.validateSession(parsed as SessionData);
+          const data = this.validateSession(detected);
           return { session: data, name: entry.name };
         } catch (parseErr) {
           this.audit.write(
@@ -288,12 +290,12 @@ export class DialogStore {
     try {
       const content = await this.fs.read(this.currentPath);
       const parsed = JSON.parse(content) as Partial<SessionData>;
-      // v1 → v2 schema 兼容 read（phase 713）
-      if (!parsed.toolsForLLM) {
-        (parsed as SessionData).toolsForLLM = [];
-        (parsed as SessionData).version = 2;
+      const detected = this.detectAndMigrateVersion(parsed, 'current.json');
+      if (detected === null) {
+        this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, 'file=current.json', `context=restore_${inclusive ? 'prefix' : 'before'}`, `reason=version_unknown`);
+        throw new Error('session version unknown');
       }
-      const data = this.validateSession(parsed as SessionData);
+      const data = this.validateSession(detected);
       const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId, inclusive);
       if (sliced !== null) {
         return {
@@ -332,12 +334,12 @@ export class DialogStore {
         try {
           const content = await this.fs.read(path.join(this.archiveDir, entry.name));
           const parsed = JSON.parse(content) as Partial<SessionData>;
-          // v1 → v2 schema 兼容 read（phase 713）
-          if (!parsed.toolsForLLM) {
-            (parsed as SessionData).toolsForLLM = [];
-            (parsed as SessionData).version = 2;
+          const detected = this.detectAndMigrateVersion(parsed, entry.name);
+          if (detected === null) {
+            this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, `file=${entry.name}`, `context=restore_${inclusive ? 'prefix' : 'before'}`, `reason=version_unknown`);
+            throw new Error('session version unknown');
           }
-          const data = this.validateSession(parsed as SessionData);
+          const data = this.validateSession(detected);
           const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId, inclusive);
           if (sliced !== null) {
             return {
@@ -378,11 +380,39 @@ export class DialogStore {
 
 
   /**
+   * Detect version and migrate v1 → v2 if needed.
+   * Returns null for unknown versions (> SESSION_CURRENT_VERSION) to trigger corrupt path.
+   */
+  private detectAndMigrateVersion(parsed: Partial<SessionData>, filename: string): SessionData | null {
+    // v1 → v2 intentional migration (phase 713 logic 保留)
+    if (!parsed.toolsForLLM) {
+      (parsed as SessionData).toolsForLLM = [];
+      (parsed as SessionData).version = 2;
+      this.audit.write(DIALOG_AUDIT_EVENTS.VERSION_MIGRATE, `file=${filename}`, `from=1`, `to=2`);
+      return parsed as SessionData;
+    }
+    // NEW unknown version reject（phase 1019 r124 E fork）
+    if (typeof parsed.version === 'number' && parsed.version > SESSION_CURRENT_VERSION) {
+      this.audit.write(DIALOG_AUDIT_EVENTS.VERSION_UNKNOWN, `file=${filename}`,
+        `actual=${parsed.version}`, `current=${SESSION_CURRENT_VERSION}`);
+      return null;  // caller treats as corrupt
+    }
+    return parsed as SessionData;
+  }
+
+  /**
    * Validate and normalize session data
    */
   private validateSession(data: SessionData): SessionData {
+    if (data.version !== SESSION_CURRENT_VERSION) {
+      this.audit.write(DIALOG_AUDIT_EVENTS.VERSION_UNKNOWN,
+        `phase=validateSession`,
+        `actual=${String(data.version)}`,
+        `current=${SESSION_CURRENT_VERSION}`);
+      throw new Error(`session version mismatch in validateSession: actual=${String(data.version)} current=${SESSION_CURRENT_VERSION}`);
+    }
     return {
-      version: data.version ?? 2,
+      version: data.version,
       clawId: data.clawId ?? this.clawId,
       createdAt: data.createdAt ?? new Date().toISOString(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
