@@ -39,8 +39,10 @@ describe('ProcessManager', () => {
     nodeFs = new NodeFileSystem({ baseDir: tempDir });
     // 重装 vi.mock factory default（restoreAllMocks 后 chained mockImplementation 失效）
     const { spawnSync, spawn } = await import('child_process');
-    vi.mocked(spawnSync).mockImplementation(() => ({ status: 1, stdout: '', stderr: '' } as any));
-    vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as any);
+    vi.mocked(spawnSync).mockImplementation(() =>
+      ({ status: 1, stdout: Buffer.from(''), stderr: Buffer.from('') }) as ReturnType<typeof import('child_process').spawnSync>
+    );
+    vi.mocked(spawn).mockReturnValue({ pid: process.pid, unref: vi.fn() } as unknown as ReturnType<typeof import('child_process').spawn>);
   });
 
   afterEach(async () => {
@@ -223,8 +225,7 @@ describe('ProcessManager', () => {
       const pm = new ProcessManager(nodeFs, tempDir, audit);
       const { spawnSync } = await import('child_process');
       vi.mocked(spawnSync).mockImplementation(() => {
-        const err = new Error('ENOENT: pgrep not found') as any;
-        err.code = 'ENOENT';
+        const err = Object.assign(new Error('ENOENT: pgrep not found'), { code: 'ENOENT' });
         throw err;
       });
 
@@ -237,9 +238,9 @@ describe('ProcessManager', () => {
       const { spawnSync } = await import('child_process');
       vi.mocked(spawnSync).mockImplementation(() => ({
         status: 2,
-        stdout: '',
-        stderr: 'invalid regex',
-      } as any));
+        stdout: Buffer.from(''),
+        stderr: Buffer.from('invalid regex'),
+      }) as ReturnType<typeof import('child_process').spawnSync>);
 
       expect(() => pm.findProcesses('test-pattern')).toThrow(ProcessListUnavailable);
     });

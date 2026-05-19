@@ -87,6 +87,7 @@ async function selectPreset(rl: readline.Interface): Promise<string> {
   
   const answer = await question(rl, '\n> ');
   const num = parseInt(answer, 10);
+  if (isNaN(num)) { throw new CliError('Invalid choice: not a number'); }
   const choice = PRESET_CHOICES.find(c => c.num === num);
   if (!choice) {
     throw new CliError('Invalid selection');

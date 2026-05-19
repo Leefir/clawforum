@@ -13,8 +13,16 @@ import * as fsAsync from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
+const mockAuditWrite = vi.hoisted(() => vi.fn());
+
 vi.mock('../../src/foundation/config/index.js', () => ({
   getClawDir: (name: string) => (globalThis as any).__TEST_CLAW_DIR__,
+}));
+
+vi.mock('../../src/foundation/audit/index.js', () => ({
+  createSystemAudit: vi.fn(() => ({
+    write: mockAuditWrite,
+  })),
 }));
 
 import { contractEventsCommand } from '../../src/cli/commands/contract.js';
@@ -27,6 +35,7 @@ describe('contractEventsCommand', () => {
     clawDir = await fsAsync.mkdtemp(path.join(os.tmpdir(), 'contract-events-test-'));
     (globalThis as any).__TEST_CLAW_DIR__ = clawDir;
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockAuditWrite.mockClear();
   });
 
   afterEach(async () => {
@@ -142,5 +151,22 @@ describe('contractEventsCommand', () => {
 
     await contractEventsCommand('test-claw', escalatedAt.getTime() + 1000);
     expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('handles corrupted progress.json gracefully in archive', async () => {
+    const contractId = 'contract-corrupt';
+    const archiveDir = path.join(clawDir, 'contract', 'archive', contractId);
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, 'progress.json'), '{invalid json');
+
+    await expect(contractEventsCommand('test-claw', 0)).resolves.not.toThrow();
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(mockAuditWrite).toHaveBeenCalledWith(
+      'contract_progress_corrupted',
+      expect.stringContaining('clawId=test-claw'),
+      expect.stringContaining('contract=contract-corrupt'),
+      expect.anything(),
+      expect.anything(),
+    );
   });
 });

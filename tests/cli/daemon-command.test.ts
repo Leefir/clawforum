@@ -116,16 +116,16 @@ class ProcessExitError extends Error {
 //   - module-level 不持 vi.spyOn 句柄 / 0 跨 file 污染
 // ============================================================================
 function installProcessSpies(): void {
-  vi.spyOn(process, 'on').mockImplementation(((event: string, handler: Function) => {
+  vi.spyOn(process, 'on').mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
     if (!mockState.processHandlers[event]) mockState.processHandlers[event] = [];
     mockState.processHandlers[event].push(handler);
     mockProcessOnEvent.emit('register', event);          // NEW (phase 790)
     return process;
-  }) as any);
+  });
 
-  vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
-    throw new ProcessExitError(code);
-  }) as any);
+  vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+    throw new ProcessExitError(typeof code === 'number' ? code : undefined);
+  });
 
   // 保护 mockStartDaemonLoop 不受 restoreAllMocks 影响（vi.fn mockRestore 会还原为 hoisted 原始实现）
   mockState.mockStartDaemonLoop.mockImplementation((options: any) => {

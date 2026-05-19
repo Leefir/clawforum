@@ -131,13 +131,13 @@
     },
     {
       "file": "src/cli/commands/stop.ts",
-      "line": 53,
+      "line": 54,
       "body_excerpt": "} catch { /* no claws dir */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/cli/commands/stop.ts",
-      "line": 73,
+      "line": 74,
       "body_excerpt": "} catch { /* best-effort */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },

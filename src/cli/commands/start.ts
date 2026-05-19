@@ -255,6 +255,7 @@ async function promptReconfigure(rl: readline.Interface, errorType: LLMErrorType
           const raw = await question('\n> ');
           if (raw === 'b') break;
           const idx = parseInt(raw, 10);
+          if (isNaN(idx)) { console.log('  Invalid choice: not a number.'); continue; }
 
           if (idx >= 1 && idx <= presetList.length) {
             const p = presetList[idx - 1];
