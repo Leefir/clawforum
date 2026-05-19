@@ -101,7 +101,7 @@ export async function executeSubAgentTask(
     });
     const finalSystemPrompt = `${promptPrefix}\n\n${task.systemPrompt ?? DEFAULT_SUBAGENT_SYSTEM_PROMPT}`;
 
-    const { text: result } = await runSubagent({
+    const { text, capturedResult } = await runSubagent({
       agentId: task.id,
       callerType: task.callerType,
       callerClawId: task.parentClawId,
@@ -123,7 +123,8 @@ export async function executeSubAgentTask(
     });
 
     // Phase438: 单 postProcessor lookup + execute（替代 pipeline）
-    let inboxResult = result;
+    const displayResult = (capturedResult as { result?: string } | undefined)?.result ?? text;
+    let inboxResult = displayResult;
     if (task.postProcessor) {
       const handler = postProcessors.get(task.postProcessor);
       if (handler) {
@@ -146,7 +147,7 @@ export async function executeSubAgentTask(
       `callerType=${task.callerType ?? 'subagent'}`,
       `intent=${task.intent.slice(0, 60)}`,
       `elapsed_ms=${Date.now() - taskStartTime}`,
-      `len=${result.length}`,
+      `len=${displayResult.length}`,
     );
   } catch (error) {
     taskFailed = true;

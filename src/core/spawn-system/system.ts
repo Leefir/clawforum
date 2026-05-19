@@ -51,7 +51,7 @@ export async function runSpawnSync(opts: RunSpawnSyncOptions): Promise<ToolResul
     }
     subagentRegistry.register(createDoneTool()); // fresh done instance per spawn run (mirror phase 780)
 
-    const { text } = await runSubagent({
+    const { text, capturedResult } = await runSubagent({
       agentId: id,
       callerType: 'subagent',
       callerClawId: opts.ctx.clawId,
@@ -69,10 +69,11 @@ export async function runSpawnSync(opts: RunSpawnSyncOptions): Promise<ToolResul
       toolTimeoutMs: opts.ctx.toolTimeoutMs,
     });
 
+    const content = (capturedResult as { result?: string } | undefined)?.result ?? text;
     opts.ctx.auditWriter?.write(SPAWN_AUDIT_EVENTS.SYNC_FINISHED, id);
     return {
       success: true,
-      content: text,
+      content,
       metadata: { spawnId: id, sync: true },
     };
   } catch (err) {
