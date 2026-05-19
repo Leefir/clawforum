@@ -15,10 +15,12 @@ export function getAliveStatus(
     }
 
     let pid: number;
+    let startTime: string | undefined;
     try {
       const parsed = JSON.parse(trimmed);
       if (typeof parsed === 'object' && parsed !== null && typeof parsed.pid === 'number') {
         pid = parsed.pid;
+        startTime = typeof parsed.startTime === 'string' ? parsed.startTime : undefined;
       } else {
         throw new Error('invalid JSON pidfile');
       }
@@ -30,14 +32,19 @@ export function getAliveStatus(
     }
 
     try {
-      if (l1IsAlive(pid)) {
+      if (l1IsAlive(pid, startTime)) {
         return { alive: true, reason: `PID ${pid}`, pid };
       }
       // M#1 probe ≠ delete：probe 不 mutate state、stale pidfile 清理归 stop/recovery 显式路径
       // 历史 deleteSync 引发 stop.ts isAliveByPidFile race（new4.P1.1 + new4.P2.1-C 同根 cluster phase 879）
       return { alive: false, reason: `PID ${pid} not alive` };
     } catch (err: any) {
-      return { alive: false, reason: `isAlive error: ${err.message ?? String(err)}` };
+      // PM-5：非 ESRCH/EPERM 的异常 → 保守假设 alive，避免误杀健康进程
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ESRCH' || code === 'EPERM') {
+        return { alive: false, reason: `isAlive ${code}` };
+      }
+      return { alive: true, reason: `isAlive probe failed: ${err.message ?? String(err)}`, pid };
     }
   } catch (err: any) {
     if (err.code === 'ENOENT' || err.code === 'FS_NOT_FOUND') {

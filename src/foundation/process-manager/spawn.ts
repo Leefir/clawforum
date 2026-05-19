@@ -36,11 +36,13 @@ export async function spawnProcess(
     }
   }
   let sentAny = false;
+  let orphanFailCount = 0;
   for (const pid of pids) {
     try {
       kill(pid, 'TERM');
       sentAny = true;
     } catch (err: any) {
+      orphanFailCount++;
       ctx.audit.write(
         PROCESS_MANAGER_AUDIT_EVENTS.ORPHAN_SIGTERM_FAILED,
         `claw=${clawId}`,
@@ -49,24 +51,33 @@ export async function spawnProcess(
       );
     }
   }
+  if (orphanFailCount > 0) {
+    ctx.audit.write(
+      PROCESS_MANAGER_AUDIT_EVENTS.ORPHAN_CLEANUP_PARTIAL,
+      `claw=${clawId}`,
+      `sent=${sentAny ? 'true' : 'false'}`,
+      `failed=${orphanFailCount}`,
+    );
+  }
   if (sentAny) {
     await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
   }
 
   const lockFile = getLockFile(ctx, clawId);
   try {
-    const lockPid = readLockPid(ctx, clawId);
-    if (lockPid !== null) {
-      if (l1IsAlive(lockPid)) {
+    const lockHolder = readLockPid(ctx, clawId);
+    if (lockHolder !== null) {
+      const lockStartTime = lockHolder.startTime;
+      if (l1IsAlive(lockHolder.pid, lockStartTime)) {
         try {
-          kill(lockPid, 'TERM');
+          kill(lockHolder.pid, 'TERM');
           await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
         } catch (err: any) {
           ctx.audit.write(
             PROCESS_MANAGER_AUDIT_EVENTS.LOCKFILE_CLEANUP_FAILED,
             `claw=${clawId}`,
             `op=sigterm`,
-            `pid=${lockPid}`,
+            `pid=${lockHolder.pid}`,
             `reason=${err?.message || String(err)}`,
           );
         }
@@ -99,7 +110,7 @@ export async function spawnProcess(
   await ensureStatusDir(ctx, clawId);
 
   try {
-    ctx.fs.writeExclusiveSync(pidFile, '');
+    ctx.fs.writeExclusiveSync(pidFile, String(process.pid));
   } catch (err: any) {
     if (err.code === 'EEXIST') {
       // PID-recycling defense: verify startTime before declaring conflict
@@ -150,7 +161,7 @@ export async function spawnProcess(
           `reason=${err instanceof Error ? err.message : String(err)}`,
         );
       });
-      ctx.fs.writeExclusiveSync(pidFile, '');
+      ctx.fs.writeExclusiveSync(pidFile, String(process.pid));
     } else {
       throw err;
     }
@@ -200,6 +211,7 @@ export async function spawnProcess(
       `claw=${clawId}`,
       `command=${options.command}`,
       `reason=${err instanceof Error ? err.message : String(err)}`,
+      `code=${(err as NodeJS.ErrnoException).code ?? 'unknown'}`,
     );
     throw err;
   }

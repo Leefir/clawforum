@@ -12,7 +12,7 @@ export async function stopProcess(ctx: ProcessManagerContext, clawId: string): P
 
   // phase 879：直接 l1IsAlive(pid) authoritative check（pid 已 line 10 拿、不依赖 pidfile probe）
   // 消除 isAliveByPidFile 经 getAliveStatus.readSync(pidFile) → 并发 caller race window
-  if (!l1IsAlive(stored.pid)) {
+  if (!l1IsAlive(stored.pid, stored.startTime)) {
     await removePid(ctx, clawId);
     ctx.audit.write(
       PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_STOP_STALE,
@@ -25,9 +25,17 @@ export async function stopProcess(ctx: ProcessManagerContext, clawId: string): P
   let via = 'sigterm';
   try {
     kill(stored.pid, 'TERM');
-    await new Promise(resolve => setTimeout(resolve, DAEMON_SHUTDOWN_GRACE_MS));
 
-    if (l1IsAlive(stored.pid)) {
+    // poll until process exits or timeout (early exit)
+    const deadline = Date.now() + DAEMON_SHUTDOWN_GRACE_MS;
+    while (Date.now() < deadline) {
+      if (!l1IsAlive(stored.pid, stored.startTime)) {
+        break; // early exit
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (l1IsAlive(stored.pid, stored.startTime)) {
       kill(stored.pid, 'KILL');
       via = 'sigkill';
       ctx.audit.write(

@@ -34,5 +34,5 @@ export interface ProcessManagerContext {
   /** Optional alive override (used by tests spying on ProcessManager.prototype.isAlive) */
   isAlive?: (clawId: string) => boolean;
   /** Optional readLockPid override (used by tests spying on ProcessManager.prototype.readLockPid) */
-  readLockPid?: (clawId: string) => number | null;
+  readLockPid?: (clawId: string) => { pid: number; startTime?: string } | null;
 }

@@ -28,7 +28,7 @@ describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () =>
 
   it('throws when another daemon acquires the lock during retry', () => {
     // 模拟 readLockPid 返回一个已死进程的 PID
-    vi.spyOn(pm, 'readLockPid').mockReturnValue(12345);
+    vi.spyOn(pm, 'readLockPid').mockReturnValue({ pid: 12345 });
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err: any = new Error('ESRCH');
       err.code = 'ESRCH';
@@ -71,7 +71,7 @@ describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () =>
       err.code = 'EEXIST';
       throw err;
     });
-    vi.spyOn(pm, 'readLockPid').mockReturnValue(12345);
+    vi.spyOn(pm, 'readLockPid').mockReturnValue({ pid: 12345 });
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err: any = new Error('EPERM');
       err.code = 'EPERM';
@@ -91,7 +91,7 @@ describe('ProcessManager.acquireLock — fix 004: TOCTOU race protection', () =>
       err.code = 'EEXIST';
       throw err;
     });
-    vi.spyOn(pm, 'readLockPid').mockReturnValue(12345);
+    vi.spyOn(pm, 'readLockPid').mockReturnValue({ pid: 12345 });
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err: any = new Error('EINVAL');
       err.code = 'EINVAL';

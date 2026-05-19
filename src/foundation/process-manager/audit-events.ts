@@ -25,6 +25,7 @@ export const PROCESS_MANAGER_AUDIT_EVENTS = {
   STARTTIME_VERIFY_SKIPPED_WINDOWS: 'starttime_verify_skipped_windows', // ← NEW phase 1023
   STARTTIME_MISMATCH: 'starttime_mismatch', // ← NEW phase 1023 (PID-wrap detection)
   ORPHAN_SIGTERM_FAILED: 'orphan_sigterm_failed',
+  ORPHAN_CLEANUP_PARTIAL: 'orphan_cleanup_partial', // ← NEW phase 1060
   LOCKFILE_READ_FAILED: 'lockfile_read_failed',
   LOCKFILE_CLEANUP_FAILED: 'lockfile_cleanup_failed',
   LOCK_ACQUIRED: 'lock_acquired',

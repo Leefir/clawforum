@@ -5,12 +5,38 @@ import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { getLockFile } from './paths.js';
 import { LockConflictError, type ProcessManagerContext } from './types.js';
 
-export function readLockPid(ctx: ProcessManagerContext, clawId: string): number | null {
+export function readLockPid(
+  ctx: ProcessManagerContext,
+  clawId: string,
+): { pid: number; startTime?: string } | null {
   try {
     const lockFile = getLockFile(ctx, clawId);
     const content = ctx.fs.readSync(lockFile).trim();
-    const pid = parseInt(content, 10);
-    return isNaN(pid) ? null : pid;
+    // Try JSON first (same format as PID file)
+    try {
+      const parsed: unknown = JSON.parse(content);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        typeof (parsed as { pid?: unknown }).pid === 'number'
+      ) {
+        return {
+          pid: (parsed as { pid: number }).pid,
+          startTime:
+            typeof (parsed as { startTime?: unknown }).startTime === 'string'
+              ? (parsed as { startTime: string }).startTime
+              : undefined,
+        };
+      }
+    } catch {
+      /* silent: JSON parse fail, fall through to legacy int parse */
+    }
+    // Legacy raw int format
+    const legacyPid = parseInt(content, 10);
+    if (Number.isFinite(legacyPid)) {
+      return { pid: legacyPid, startTime: undefined };
+    }
+    return null;
   } catch (err: any) {
     if (err?.code !== 'ENOENT' && err?.code !== 'FS_NOT_FOUND') {
       ctx.audit.write(
@@ -35,20 +61,20 @@ export function acquireLock(ctx: ProcessManagerContext, clawId: string): void {
   }
 
   const readLockPidFn = ctx.readLockPid ?? ((id: string) => readLockPid(ctx, id));
-  const holderPid = readLockPidFn(clawId);
-  if (holderPid !== null) {
-    const holderStartTime = getProcessStartTime(holderPid);
-    if (l1IsAlive(holderPid, holderStartTime)) {
+  const holder = readLockPidFn(clawId);
+  if (holder !== null) {
+    const holderStartTime = holder.startTime ?? getProcessStartTime(holder.pid);
+    if (l1IsAlive(holder.pid, holderStartTime)) {
       throw new LockConflictError(
         clawId,
-        `Another "${clawId}" daemon is running (PID: ${holderPid})`,
+        `Another "${clawId}" daemon is running (PID: ${holder.pid})`,
       );
     }
     if (holderStartTime === undefined && process.platform === 'win32') {
       ctx.audit.write(
         PROCESS_MANAGER_AUDIT_EVENTS.STARTTIME_VERIFY_SKIPPED_WINDOWS,
         `claw=${clawId}`,
-        `pid=${holderPid}`,
+        `pid=${holder.pid}`,
       );
     }
   }
@@ -86,8 +112,8 @@ export function acquireLock(ctx: ProcessManagerContext, clawId: string): void {
 
 export function releaseLock(ctx: ProcessManagerContext, clawId: string): void {
   const readLockPidFn = ctx.readLockPid ?? ((id: string) => readLockPid(ctx, id));
-  const holderPid = readLockPidFn(clawId);
-  if (holderPid !== process.pid) return;
+  const holder = readLockPidFn(clawId);
+  if (holder === null || holder.pid !== process.pid) return;
   const lockFile = getLockFile(ctx, clawId);
   try {
     ctx.fs.deleteSync(lockFile);

@@ -63,7 +63,7 @@ export class ProcessManager {
   isAlive(clawId: string): boolean { return aliveOps.isAliveByPidFile(this._ctx, clawId); }
 
   // lock
-  readLockPid(clawId: string): number | null { return lockOps.readLockPid(this._ctx, clawId); }
+  readLockPid(clawId: string): { pid: number; startTime?: string } | null { return lockOps.readLockPid(this._ctx, clawId); }
   acquireLock(clawId: string): void { lockOps.acquireLock(this._ctx, clawId); }
   releaseLock(clawId: string): void { lockOps.releaseLock(this._ctx, clawId); }
 
