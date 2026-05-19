@@ -33,7 +33,7 @@ function categorizeToolCalls(
 
   for (const [i, call] of toolCalls.entries()) {
     const tool = registry.get(call.name);
-    const wantsAsync = (call.input as Record<string, unknown>)?.async === true;
+    const wantsAsync = call.input?.async === true;
     if (tool?.readonly === true && !wantsAsync) {
       readonlySync.push({ call, index: i });
     } else if (tool?.readonly === true && wantsAsync) {
@@ -70,10 +70,10 @@ async function executeReadonlyAsync(
   callbacks?: StepCallbacks,
 ): Promise<void> {
   const parseErrorCalls = group.filter(
-    ({ call }) => (call.input as Record<string, unknown>)?.__parseError === true
+    ({ call }) => call.input?.__parseError === true
   );
   const cleanCalls = group.filter(
-    ({ call }) => (call.input as Record<string, unknown>)?.__parseError !== true
+    ({ call }) => call.input?.__parseError !== true
   );
 
   // 注：onToolCall 已在 stream.ts:tool_use_start 时调
@@ -87,7 +87,7 @@ async function executeReadonlyAsync(
   if (cleanCalls.length === 0) return;
 
   const batch = cleanCalls.map(({ call }) => {
-    const { async: _asyncMode, ...toolArgs } = call.input as Record<string, unknown>;
+    const { async: _asyncMode, ...toolArgs } = call.input;
     return { toolName: call.name, args: toolArgs };
   });
 
@@ -115,10 +115,10 @@ async function executeReadonlySync(
   callbacks?: StepCallbacks,
 ): Promise<void> {
   const parseErrorCalls = group.filter(
-    ({ call }) => (call.input as Record<string, unknown>)?.__parseError === true
+    ({ call }) => call.input?.__parseError === true
   );
   const cleanCalls = group.filter(
-    ({ call }) => (call.input as Record<string, unknown>)?.__parseError !== true
+    ({ call }) => call.input?.__parseError !== true
   );
 
   // 注：onToolCall 已在 stream.ts:tool_use_start 时调
@@ -132,7 +132,7 @@ async function executeReadonlySync(
   if (cleanCalls.length === 0) return;
 
   const batch = cleanCalls.map(({ call }) => {
-    const { async: _asyncMode, ...toolArgs } = call.input as Record<string, unknown>;
+    const { async: _asyncMode, ...toolArgs } = call.input;
     return { toolName: call.name, args: toolArgs };
   });
 
@@ -201,7 +201,7 @@ export async function executeSingleTool(
     // async is NOT a universal meta-parameter — some tools (spawn) use it as
     // an internal parameter. Only readonly tools with supportsAsync use
     // executor-level async dispatch, and they go through executeReadonlyAsync.
-    const { __parseError, __raw, ...toolArgs } = toolCall.input as Record<string, unknown>;
+    const { __parseError, __raw, ...toolArgs } = toolCall.input;
 
     // Input JSON failed to parse — return error immediately without calling the tool
     if (__parseError) {
@@ -222,7 +222,7 @@ export async function executeSingleTool(
       args: toolArgs,  // async stays in args for tools that read it internally
       ctx,
       toolUseId: toolCall.id,
-      timeoutMs: (toolCall.input as Record<string, unknown>)?.timeoutMs as number | undefined,
+      timeoutMs: toolCall.input?.timeoutMs as number | undefined,
     });
   } catch (err) {
     const errorType = err instanceof Error ? err.constructor.name : 'Error';
