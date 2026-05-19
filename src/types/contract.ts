@@ -26,7 +26,7 @@ export type SubtaskStatus =
  */
 export interface LastFailedFeedback {
   feedback: string;
-  cause: 'llm_rejected' | 'programming_bug' | 'subagent_timeout';
+  cause: 'llm_rejected' | 'programming_bug' | 'subagent_timeout' | 'script_failed';
 }
 
 /**
@@ -36,7 +36,7 @@ export interface LastFailedFeedback {
 export interface AcceptanceFailedNotification {
   contract_id: string;
   subtask_id: string;
-  cause: 'llm_rejected' | 'programming_bug' | 'subagent_timeout';
+  cause: 'llm_rejected' | 'programming_bug' | 'subagent_timeout' | 'script_failed';
   feedback: string;
   retry_count: number;
   max_retries: number;

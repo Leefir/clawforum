@@ -69,8 +69,8 @@ export interface VerifierConfig {
   maxSteps: number;
   idleTimeoutMs: number;
   onIdleTimeout?: () => void;
-  /** Optional audit writer / phase 646 ⚓ verifier cleanup audit / per `feedback_audit_injection_alpha_template` */
-  audit?: AuditLog;
+  /** Audit writer / phase 646 ⚓ verifier cleanup audit / per `feedback_audit_injection_alpha_template` */
+  audit: AuditLog;
   /** AbortSignal for cancel propagation / phase 993 D.1 / contract cancel 提前 abort verifier (vs idleTimeoutMs 等待) */
   signal?: AbortSignal;
 

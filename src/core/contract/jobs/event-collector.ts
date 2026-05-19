@@ -10,7 +10,7 @@ export function collectContractEvents(
   clawDir: string,
   clawId: string,
   sinceTs: number,
-  audit?: AuditLog,
+  audit: AuditLog,
 ): string[] {
   const events: string[] = [];
 

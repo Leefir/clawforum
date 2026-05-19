@@ -10,6 +10,12 @@
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
+      "file": "src/core/subagent/agent.ts",
+      "line": 362,
+      "body_excerpt": "} catch {",
+      "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
+    },
+    {
       "file": "src/cli/commands/chat-viewport-claw-manager.ts",
       "line": 146,
       "body_excerpt": "} catch { /* skip */ }",
