@@ -323,6 +323,7 @@
       "lock_released",
       "lockfile_cleanup_failed",
       "lockfile_read_failed",
+      "orphan_cleanup_partial",
       "orphan_sigterm_failed",
       "pid_empty",
       "pid_file_legacy_format",
