@@ -173,7 +173,7 @@
     },
     {
       "file": "src/core/memory/random-dream.ts",
-      "line": 159,
+      "line": 166,
       "body_excerpt": "} catch { /* 无 progress.json，跳过 */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },

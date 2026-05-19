@@ -36,7 +36,7 @@ export const dispatchContractExtractPostProcessor: PostProcessor = async (
   }
 
   const { contractId, targetClaw } = parsed;
-  if (!contractId || !targetClaw) {
+  if (typeof contractId !== 'string' || typeof targetClaw !== 'string') {
     audit.write(
       DISPATCH_AUDIT_EVENTS.CONTRACT_DONE_MISSING_FIELDS,
       `taskId=${task.id}`,

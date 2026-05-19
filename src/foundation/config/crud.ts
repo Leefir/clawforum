@@ -104,12 +104,16 @@ export function loadClawConfig(name: string, defaults: ConfigDefaults): ClawConf
 // Patch the primary LLM config in-place (raw YAML read/write, no Zod round-trip)
 export function patchGlobalConfigPrimary(patch: Record<string, unknown>): void {
   const configPath = getGlobalConfigPath();
-  const raw = yaml.load(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
-  const llm = (raw.llm ?? {}) as Record<string, unknown>;
+  const loaded = yaml.load(fs.readFileSync(configPath, 'utf-8'));
+  if (typeof loaded !== 'object' || loaded === null) {
+    throw new Error(`config parse failed: expected object, got ${typeof loaded}`);
+  }
+  const cfg = loaded as Record<string, unknown>;
+  const llm = (cfg.llm ?? {}) as Record<string, unknown>;
   const primary = (llm.primary ?? {}) as Record<string, unknown>;
   llm.primary = { ...primary, ...patch };
-  raw.llm = llm;
-  fs.writeFileSync(configPath, yaml.dump(raw));
+  cfg.llm = llm;
+  fs.writeFileSync(configPath, yaml.dump(cfg));
 }
 
 // Save claw config

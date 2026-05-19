@@ -114,6 +114,7 @@ function computeWeight(
   clawId: string,
   processedIds: Set<string>,
   clawsSeen: Set<string>,     // 本次已选中的 clawId 集合
+  audit: AuditLog,
 ): { weight: number; hint: string } {
   let weight = 10;
   const hints: string[] = [];
@@ -133,7 +134,13 @@ function computeWeight(
   // 近期完成：读 progress.json 中各 subtask 的 completed_at
   const progressPath = path.join(contractDir, 'progress.json');
   try {
-    const progress = JSON.parse(fs.readSync(progressPath)) as ProgressData;
+    const parsed: unknown = JSON.parse(fs.readSync(progressPath));
+    if (typeof parsed !== 'object' || parsed === null || typeof (parsed as Record<string, unknown>).subtasks !== 'object') {
+      audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
+        'step=load_progress', 'reason=shape_mismatch', `got=${typeof parsed}`);
+      return { weight, hint: hints.join('、') || '正常' };
+    }
+    const progress = parsed as ProgressData;
     const subtasks = Object.values(progress.subtasks ?? {});
 
     // 近期完成加权（7 天内权重最高）
@@ -166,6 +173,7 @@ function computeWeight(
 function discoverWeightedContracts(
   fs: FileSystem,
   state: RandomDreamState,
+  audit: AuditLog,
 ): WeightedContract[] {
   if (!fs.existsSync(CLAWS_DIR)) return [];
 
@@ -183,7 +191,7 @@ function discoverWeightedContracts(
       const contractDir = path.join(archiveDir, contractId);
       if (!fs.statSync(contractDir).isDirectory) continue;
 
-      const { weight, hint } = computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen);
+      const { weight, hint } = computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen, audit);
       contracts.push({ clawId, contractId, contractDir, weight, hint });
       clawsSeen.add(clawId);  // NEW phase 585 / 每 claw 首契约获 +30 bonus / 后续不获
     }
@@ -292,7 +300,7 @@ function extractDreamOutputs(log: string): DreamExtractionResult {
  */
 export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   const state = loadRandomDreamState(opts.fs, opts.audit);
-  const weightedContracts = discoverWeightedContracts(opts.fs, state);
+  const weightedContracts = discoverWeightedContracts(opts.fs, state, opts.audit);
 
   if (weightedContracts.length === 0) {
     opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=skip_empty`);
