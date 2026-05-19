@@ -84,7 +84,7 @@ export async function executeToolTask(
         auditWriter.write(TASK_AUDIT_EVENTS.TOOL_RETRY, task.id, `tool=${task.toolName}`, `attempt=${attempt + 1}`, `max=${task.maxRetries}`, `error=${errorMsg}`);
 
         // Exponential backoff: retryBaseDelayMs, retryBaseDelayMs*2, etc.
-        const backoffMs = retryBaseDelayMs * (attempt + 1);
+        const backoffMs = retryBaseDelayMs * Math.pow(2, attempt);
         await new Promise(r => setTimeout(r, backoffMs));
 
         // Check abort signal after sleep

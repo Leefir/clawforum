@@ -127,6 +127,7 @@ export class AsyncTaskSystem {
   private cancellingIds: Set<string> = new Set();
   private readonly toolTimeoutMs?: number;
   private permissionChecker?: PermissionChecker;
+  private _shuttingDown = false;
 
   /**
    * 装配期注册 PostProcessor
@@ -208,7 +209,7 @@ export class AsyncTaskSystem {
           });
         },
         {
-          stability: 'immediate',
+          stability: 'stable',
           recursive: false,
           persistent: true,
           onError: (err, context) => {
@@ -401,6 +402,7 @@ export class AsyncTaskSystem {
    * operation to prevent race conditions where _dispatch is called again.
    */
   private _dispatch(): void {
+    if (this._shuttingDown) return;
     // While we have capacity and pending tasks, move them to running
     while (this.runningTasks.size < this.maxConcurrent && this.pendingQueue.length > 0) {
       const task = this.pendingQueue.shift();
@@ -431,6 +433,7 @@ export class AsyncTaskSystem {
       if (task.kind === 'tool') {
         const tool = this.registry.getAll().find(t => t.name === task.toolName);
         if (!tool) {
+          await this.fs.delete(`${TASKS_QUEUES_RUNNING_DIR}/${task.id}.json`).catch(() => {});
           throw new Error(`Tool "${task.toolName}" not found in registry`);
         }
         const reconstructedCtx = this.buildToolTaskExecContext(task, signal);
@@ -668,6 +671,7 @@ export class AsyncTaskSystem {
   }
 
   async shutdown(timeoutMs: number = 30000): Promise<void> {
+    this._shuttingDown = true;
     // 顺序：先关 watcher（避免 shutdown 期间新事件进队）→ 旧 shutdown 流程
     await this.pendingWatcher?.close();
     this.pendingWatcher = undefined;

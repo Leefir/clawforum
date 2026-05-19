@@ -22,10 +22,10 @@ export async function writePendingToolTaskFile(
 ): Promise<string> {
   const taskId = randomUUID();
   const task = {
-    kind: 'tool',
     id: taskId,
     createdAt: new Date().toISOString(),
     ...args,
+    kind: 'tool' as const,  // placed last to prevent spread override
   };
   await fs.writeAtomic(
     `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,

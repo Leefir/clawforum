@@ -174,9 +174,17 @@ export async function executeSubAgentTask(
       await sendResult(fs, auditWriter, task, inboxResult, true);
     } catch (sendErr) {
       // sendResult 本身失败：降级写最小通知，确保 parent 不被永远挂起
-      await sendFallbackError(fs, auditWriter, task, errorMsg).catch((e) => {
-        auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=sendFallbackError', `error=${formatErr(e)}`);
-      });
+      try {
+        await sendFallbackError(fs, auditWriter, task, errorMsg);
+      } catch (fallbackErr) {
+        auditWriter.write(
+          TASK_AUDIT_EVENTS.RESULT_DELIVERY_FAILED,
+          task.id,
+          'reason=both sendResult and sendFallbackError failed',
+          `error=${formatErr(fallbackErr)}`,
+        );
+        // task stays in failed/ for manual recovery (finally will move it)
+      }
     }
 
     auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, `parent=${task.parentClawId}`, `error=${errorMsg}`);
