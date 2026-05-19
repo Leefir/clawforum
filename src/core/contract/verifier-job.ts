@@ -8,7 +8,7 @@
 
 import { runSubagent } from '../subagent/index.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
-import { ReportResultTool, REPORT_RESULT_TOOL_NAME } from './tools/report-result.js';
+import { createDoneTool, DONE_TOOL_NAME } from '../subagent/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { ToolTimeoutError } from '../../types/errors.js';
 import { TASKS_SYNC_SUBAGENT_DIR } from '../subagent/index.js';
@@ -18,7 +18,7 @@ import type { VerifierConfig, VerifierResult } from './types.js';
 
 export async function runContractVerifier(config: VerifierConfig): Promise<VerifierResult> {
   try {
-    const reportTool = new ReportResultTool();
+    const doneTool = createDoneTool();
     const registry = createToolRegistry();
 
     // phase 704: 注入 readonly profile 工具子集（read+ls+search+status+memory_search）
@@ -28,7 +28,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       registry.register(tool);
     }
 
-    registry.register(reportTool);
+    registry.register(doneTool);
 
     const promptPrefix = buildSubagentSystemPromptPrefix({
       taskId: config.agentId,
@@ -51,19 +51,37 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       maxSteps: config.maxSteps,
       idleTimeoutMs: config.idleTimeoutMs,
       onIdleTimeout: config.onIdleTimeout,
-      resultTool: REPORT_RESULT_TOOL_NAME,
+      resultTool: DONE_TOOL_NAME,
       signal: config.signal,   // phase 993 D.1: cancel chain propagation
       toolTimeoutMs: config.toolTimeoutMs, // phase 1029 / F-2
     });
 
     // 结果解析（既有 fallback 逻辑保留）
+    // phase 1056: done tool 返回 { result: string }，需先解析 result 字段中的 JSON
     if (capturedResult && typeof capturedResult === 'object') {
+      const doneResult = capturedResult as { result?: string };
+      if (doneResult.result) {
+        try {
+          const r = JSON.parse(doneResult.result) as { passed: boolean; reason: string; issues?: string[] };
+          return {
+            passed: r.passed,
+            feedback: doneResult.result,
+            structured: r,
+          };
+        } catch {
+          // silent: intentionally falling through to text JSON parsing below
+        }
+      }
+
+      // 兼容旧格式（direct object）
       const r = capturedResult as { passed: boolean; reason: string; issues?: string[] };
-      return {
-        passed: r.passed,
-        feedback: JSON.stringify(r),
-        structured: r,
-      };
+      if ('passed' in r) {
+        return {
+          passed: r.passed,
+          feedback: JSON.stringify(r),
+          structured: r,
+        };
+      }
     }
 
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);

@@ -86,7 +86,7 @@ export interface ExecContext {
   systemPromptForLLM?: string;
   /** Current main agent turn's tools array (in-memory, set by runtime before runReact) — phase 769 */
   toolsForLLM?: ToolDefinition[];
-  /** phase 777: result-capture tools (done, report_result) set this to break the agent loop early */
+  /** phase 777: result-capture tools (done) set this to break the agent loop early */
   stopRequested: boolean;
   /** phase 777: mutator called by result-capture tools after storing capturedResult */
   requestStop(): void;

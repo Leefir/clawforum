@@ -2,7 +2,7 @@
  * done tool - Generic subagent result submission
  *
  * phase 765：通用子代理结果提交工具 / 替原 ContractSystem 申请验收的 done（已迁 submit_subtask）。
- * mirror verifier-job 的 report_result capturedResult mechanism。
+ * 自身即标准 result-capture 工具（phase 1056 清除 report_result）。
  *
  * 用例：
  * - shadow tool D5 γ 路径：shadow 内 LLM 调 done(result=...) 显式退出 / runSubagent 取 capturedResult.result 返主代理

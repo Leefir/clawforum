@@ -531,7 +531,7 @@ describe('ContractSystem Acceptance Flow', () => {
       );
     });
 
-    it('should prefer capturedResult over text when report_result tool is called', async () => {
+    it('should prefer capturedResult over text when done tool is called', async () => {
       const contractId = 'test-llm-captured';
       await setupContract(tempDir, contractId, makeContractYaml({
         subtasks: [{ id: 'task-1', description: 'Test task' }],
@@ -545,14 +545,14 @@ describe('ContractSystem Acceptance Flow', () => {
         'Check if {{evidence}} is valid. {{artifacts}}'
       );
 
-      // SubAgent.run() 调用 report_result 工具后返回任意文字（应被忽略）
+      // SubAgent.run() 调用 done 工具后返回任意文字（应被忽略）
       mockSubAgentRun.mockImplementation(async () => {
-        // 模拟 LLM 在 run() 内部调用了 report_result 工具
+        // 模拟 LLM 在 run() 内部调用了 done 工具
         if (capturedSubAgentRegistry) {
-          const reportTool = capturedSubAgentRegistry.get('report_result');
-          if (reportTool) {
-            await reportTool.execute(
-              { passed: true, reason: 'all checks passed via tool' },
+          const doneTool = capturedSubAgentRegistry.get('done');
+          if (doneTool) {
+            await doneTool.execute(
+              { result: JSON.stringify({ passed: true, reason: 'all checks passed via tool' }) },
               { requestStop: () => { /* no-op */ } } as any
             );
           }
@@ -594,7 +594,7 @@ describe('ContractSystem Acceptance Flow', () => {
         'Check if {{evidence}} is valid. {{artifacts}}'
       );
 
-      // SubAgent 未调用 report_result，返回纯文字（无 JSON）
+      // SubAgent 未调用 done，返回纯文字（无 JSON）
       mockSubAgentRun.mockResolvedValue('I reviewed the evidence but cannot determine a verdict.');
 
       await manager.completeSubtask({ contractId, subtaskId: 'task-1', evidence: 'done' });

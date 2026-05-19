@@ -220,7 +220,7 @@ export class ExecContextImpl implements ExecContext {
   }
 
   /**
-   * phase 777: called by result-capture tools (done, report_result) after storing capturedResult.
+   * phase 777: called by result-capture tools (done) after storing capturedResult.
    * AgentExecutor reads stopRequested at the top of its loop and exits cleanly, saving the
    * next LLM round-trip.
    */

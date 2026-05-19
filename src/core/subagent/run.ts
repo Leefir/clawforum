@@ -20,6 +20,7 @@ import { createDialogStore, type DialogStore } from '../../foundation/dialog-sto
 import { CLAWSPACE_DIR } from '../../types/paths.js';
 
 import { SubAgent } from './agent.js';
+import { DONE_TOOL_NAME } from './tools/done.js';
 
 export interface MainContextSnapshot {
   clawId: string;
@@ -59,7 +60,7 @@ export interface RunSubagentOptions {
   taskStreamCallback?: (event: Record<string, unknown>) => void;
   onIdleTimeout?: () => void;
 
-  // NEW (phase 765)：取 capturedResult 用的 tool name / default 'report_result' 兼容 verifier
+  // NEW (phase 765)：取 capturedResult 用的 tool name / default DONE_TOOL_NAME (phase 1056)
   resultTool?: string;
 
   // NEW (phase 767)：shadow 需要传完整合成 messages
@@ -132,12 +133,13 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
 
   // 检 capturedResult（verifier 等用 / phase 765 扩 resultTool option）
   // phase 805 设计意图：by-name string 0 import (避 L3→L4 反向 import / mirror shadow-system/system.ts:129 'done')
-  const toolName = opts.resultTool ?? 'report_result';
+  // phase 1056: default 改为 DONE_TOOL_NAME — done 是单一 result-capture 工具。
+  const toolName = opts.resultTool ?? DONE_TOOL_NAME;
   const resultToolInstance = opts.registry.get(toolName);
   const capturedResult = (resultToolInstance as { capturedResult?: unknown })?.capturedResult;
 
   return { text, capturedResult };
 }
 
-// caller 负责 registry 装配（含 profile filter + 特殊工具如 report_result）
+// caller 负责 registry 装配（含 profile filter + 特殊工具如 done）
 // runSubagent 只 own audit/stream/workspace/dialog store lifecycle

@@ -68,7 +68,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     }
     ctx.stepNumber = stepCount;
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);
-    // phase 777: result-capture tools (done, report_result) request early stop.
+    // phase 777: result-capture tools (done) request early stop.
     // capturedResult is read by runSubagent regardless of finalText.
     if (ctx.stopRequested) {
       return { finalText: '', stepsUsed: stepCount, stopReason: 'end_turn' };
