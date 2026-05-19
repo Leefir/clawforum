@@ -352,6 +352,8 @@
       "snapshot_degraded",
       "snapshot_init_cleanup_failed",
       "snapshot_init_failed",
+      "snapshot_persist_failed",
+      "snapshot_status_stderr",
       "snapshot_sync_clean_failed",
       "snapshot_sync_restore_failed"
     ],

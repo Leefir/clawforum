@@ -45,6 +45,8 @@ export interface ExecResult {
   output: string;
   /** Process exit code */
   exitCode: number;
+  /** Separated stderr when available (snapshot layer defense, backward-compatible) */
+  stderr?: string;
 }
 
 /**
@@ -78,6 +80,7 @@ export class ProcessExecError extends Error {
     signal?: string;
     killed?: boolean;
     maxBufferExceeded?: boolean;
+    stderr?: string;
   }) {
     super(options.message);
     this.name = 'ProcessExecError';
@@ -87,5 +90,9 @@ export class ProcessExecError extends Error {
     this.signal = options.signal;
     this.killed = options.killed ?? false;
     this.maxBufferExceeded = options.maxBufferExceeded ?? false;
+    // stderr preserved on error for diagnostics (phase1062)
+    if (options.stderr) {
+      (this as any).stderr = options.stderr;
+    }
   }
 }

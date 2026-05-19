@@ -52,11 +52,16 @@ function stateFilePath(dir: string): string {
   return path.join(dir, '.git', STATE_FILE);
 }
 
-async function persistState(fs: FileSystem, dir: string, state: SnapshotState): Promise<void> {
+async function persistState(fs: FileSystem, dir: string, state: SnapshotState, audit?: AuditLog): Promise<void> {
   try {
     await fs.writeAtomic(stateFilePath(dir), JSON.stringify(state));
   } catch {
     // silent: persist fail 不抛，下轮 load 最多丢 1 inc
+    audit?.write(
+      SNAPSHOT_AUDIT_EVENTS.PERSIST_FAILED,
+      `dir=${dir}`,
+      'reason=writeAtomic failed',
+    );
   }
 }
 
@@ -64,7 +69,8 @@ async function tryClearPersist(fs: FileSystem, dir: string): Promise<void> {
   try {
     await fs.delete(stateFilePath(dir));
   } catch {
-    // silent: 不存在或权限错无影响
+    // silent: ENOENT expected; other errors don't affect function
+    // (next init will load + overwrite anyway)
   }
 }
 
@@ -102,9 +108,9 @@ export class Snapshot {
     return [...this.ignorePatterns, ...DEFAULT_IGNORES].join('\n') + '\n';
   }
 
-  private static async git(dir: string, args: string[]): Promise<string> {
+  private static async git(dir: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
     const result = await exec('git', args, { cwd: dir });
-    return result.output.trim();
+    return { stdout: result.output.trim(), stderr: result.stderr?.trim() ?? '' };
   }
 
   /**
@@ -136,18 +142,39 @@ export class Snapshot {
     } catch {
       // silent: corrupted file → start from 0
     }
+    let shouldResetCounter = false;
     if (await this.fs.exists(gitDir)) {
-      // idempotent: do NOT reset counter (preserve cross-reassemble failure history)
-      return ok(undefined);
+      // Post-init integrity check: a repo is only ready if HEAD exists
+      // (git init + git commit completed). If init crashed between git init
+      // and git commit, .git exists but HEAD does not → commit() would fail.
+      try {
+        const head = await Snapshot.git(this.dir, ['rev-parse', 'HEAD']);
+        if (head.stdout) {
+          // idempotent: do NOT reset counter (preserve cross-reassemble failure history)
+          return ok(undefined);
+        }
+      } catch {
+        // silent: rev-parse failure means incomplete repo — handled by re-init below
+      }
+      this.audit.write(
+        SNAPSHOT_AUDIT_EVENTS.INIT_FAILED,
+        `dir=${this.dir}`,
+        'context=incomplete_repo_reinit',
+      );
+    } else {
+      // brand-new repo: reset counter on successful init
+      shouldResetCounter = true;
     }
     try {
-      await this.fs.writeAtomic('.gitignore', this.buildGitignore());
+      await this.fs.writeAtomic(path.join(this.dir, '.gitignore'), this.buildGitignore());
       await Snapshot.git(this.dir, ['init']);
       await Snapshot.git(this.dir, ['config', 'user.name', 'clawforum']);
       await Snapshot.git(this.dir, ['config', 'user.email', 'clawforum@local']);
       await Snapshot.git(this.dir, ['add', '.']);
       await Snapshot.git(this.dir, ['commit', '--allow-empty', '-m', 'init']);
-      getState(this.dir).consecutiveFailures = 0;
+      if (shouldResetCounter) {
+        getState(this.dir).consecutiveFailures = 0;
+      }
       return ok(undefined);
     } catch (rawErr) {
       const failure = this.classifyOrThrow(rawErr);
@@ -197,12 +224,25 @@ export class Snapshot {
     // Throttle: skip commits within COMMIT_THROTTLE_MS (phase 1051)
     const now = Date.now();
     if (now - this._lastCommitMs < COMMIT_THROTTLE_MS) {
+      // throttle skip counts as "not a failure" — reset counter
+      const s = getState(this.dir);
+      if (s.consecutiveFailures > 0) {
+        s.consecutiveFailures = 0;
+        await tryClearPersist(this.fs, this.dir);
+      }
       return ok(undefined);
     }
 
     try {
       const status = await Snapshot.git(this.dir, ['status', '--porcelain']);
-      if (!status) {
+      if (status.stderr) {
+        this.audit.write(
+          SNAPSHOT_AUDIT_EVENTS.STATUS_STDERR,
+          `dir=${this.dir}`,
+          `stderr=${status.stderr.slice(0, 200)}`,
+        );
+      }
+      if (!status.stdout) {
         getState(this.dir).consecutiveFailures = 0;
         return ok(undefined);
       }
@@ -309,7 +349,7 @@ export class Snapshot {
       const failure = this.classifyOrThrow(rawErr);
       const s = getState(this.dir);
       s.consecutiveFailures++;
-      await persistState(this.fs, this.dir, s);
+      await persistState(this.fs, this.dir, s, this.audit);
       this.audit.write(
         SNAPSHOT_AUDIT_EVENTS.COMMIT_FAILED,
         `dir=${this.dir}`,
@@ -318,7 +358,7 @@ export class Snapshot {
       );
       if (s.consecutiveFailures === 3) {
         s.degradedAt = Date.now();
-        await persistState(this.fs, this.dir, s);
+        await persistState(this.fs, this.dir, s, this.audit);
         this.audit.write(
           SNAPSHOT_AUDIT_EVENTS.DEGRADED,
           `dir=${this.dir}`,

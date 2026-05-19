@@ -100,6 +100,10 @@ describe.skipIf(!gitAvailable)('consecutiveFailures singleton', () => {
     const snapshot1 = new Snapshot(tmpDir, fs, audit2, []);
     await snapshot1.init();
 
+    // init re-initializes incomplete repo (HEAD was deleted above);
+    // re-delete HEAD so commit fails as intended for this test
+    await fsp.rm(path.join(tmpDir, '.git', 'HEAD'));
+
     // only 1 more failure needed to trigger DEGRADED
     await snapshot1.commit('fail-3');
 

@@ -12,4 +12,6 @@ export const SNAPSHOT_AUDIT_EVENTS = {
   DEGRADED: 'snapshot_degraded',
   SYNC_CLEAN_FAILED: 'snapshot_sync_clean_failed',
   SYNC_RESTORE_FAILED: 'snapshot_sync_restore_failed',
+  STATUS_STDERR: 'snapshot_status_stderr',
+  PERSIST_FAILED: 'snapshot_persist_failed',
 } as const;

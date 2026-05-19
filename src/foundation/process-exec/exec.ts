@@ -28,6 +28,13 @@ const EXEC_SIGKILL_GRACE_MS = 1000;
 import type { ExecOptions, ExecResult } from './types.js';
 import { ProcessExecError } from './types.js';
 
+/** Internal result with separated stderr for snapshot layer defense. */
+interface RunResult {
+  output: string;
+  stderr: string;
+  exitCode: number;
+}
+
 /**
  * Internal: run a process with shared cross-cutting concerns.
  * Uses spawn for stdout+stderr interleaved capture (preserves timing order).
@@ -65,6 +72,8 @@ async function runProcess(
     });
 
     const buffers: Buffer[] = [];
+    const stdoutBuffers: Buffer[] = [];
+    const stderrBuffers: Buffer[] = [];
     let totalSize = 0;
     let timedOut = false;
     let maxBufferExceeded = false;
@@ -95,8 +104,14 @@ async function runProcess(
       }
     }
 
-    proc.stdout?.on('data', pushChunk);
-    proc.stderr?.on('data', pushChunk);
+    proc.stdout?.on('data', (chunk: Buffer) => {
+      stdoutBuffers.push(chunk);
+      pushChunk(chunk);
+    });
+    proc.stderr?.on('data', (chunk: Buffer) => {
+      stderrBuffers.push(chunk);
+      pushChunk(chunk);
+    });
 
     const timeoutId = setTimeout(() => {
       timedOut = true;
@@ -107,11 +122,14 @@ async function runProcess(
     proc.on('error', (err) => {
       if (settled) return; // guard: close may arrive first
       settle();
+      const output = Buffer.concat(buffers).toString('utf-8');
+      const stderr = Buffer.concat(stderrBuffers).toString('utf-8');
       reject(new ProcessExecError({
         message: err.message,
-        output: Buffer.concat(buffers).toString('utf-8'),
+        output,
         code: (err as NodeJS.ErrnoException).code,
         exitCode: null,
+        stderr: stderr || undefined,
       }));
     });
 
@@ -120,9 +138,10 @@ async function runProcess(
       settle();
 
       const output = Buffer.concat(buffers).toString('utf-8');
+      const stderr = Buffer.concat(stderrBuffers).toString('utf-8');
 
       if (code === 0) {
-        resolve({ output, exitCode: 0 });
+        resolve({ output, exitCode: 0, stderr: stderr || undefined });
         return;
       }
 
@@ -134,6 +153,7 @@ async function runProcess(
           output,
           exitCode,
           killed: true,
+          stderr: stderr || undefined,
         }));
         return;
       }
@@ -144,6 +164,7 @@ async function runProcess(
           output,
           exitCode,
           maxBufferExceeded: true,
+          stderr: stderr || undefined,
         }));
         return;
       }
@@ -156,6 +177,7 @@ async function runProcess(
         exitCode,
         signal: signal ?? undefined,
         killed: !!signal,
+        stderr: stderr || undefined,
       }));
     });
   });
