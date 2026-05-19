@@ -121,7 +121,7 @@ async function _recoverWithResult(
   try {
     const raw = await fs.read(retryPath);
     const parsed = parseInt(raw, 10);
-    if (Number.isNaN(parsed)) {
+    if (Number.isNaN(parsed) || parsed < 0) {
       counterCorrupt = true;
       auditWriter.write(
         TASK_AUDIT_EVENTS.RECOVERY_FAILED,
