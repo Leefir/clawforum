@@ -54,7 +54,15 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     clawIds = fs.listSync(clawsDir, { includeDirs: true })
       .filter(e => e.isDirectory)
       .map(e => e.name);
-  } catch { return; /* claws/ 不存在 */ }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+    motionAudit.write(
+      CONTRACT_AUDIT_EVENTS.CONTRACT_DIR_SCAN_FAILED,
+      `dir=${clawsDir}`,
+      `reason=${err instanceof Error ? err.message : String(err)}`,
+    );
+    return;
+  }
 
   const events: string[] = [];
 

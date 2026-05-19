@@ -95,7 +95,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
   } catch (err) {
     // phase 993 D.2: catch audit emit (config.audit phase 646 ⚓ inject、之前 dead field)
     if (err instanceof ToolTimeoutError) {
-      config.audit?.write(
+      config.audit.write(
         CONTRACT_AUDIT_EVENTS.VERIFIER_FAILED,
         `agentId=${config.agentId}`,
         `clawId=${config.clawId}`,
@@ -104,7 +104,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       return { passed: false, feedback: '验收子代理超时' };
     }
     const msg = err instanceof Error ? err.message : String(err);
-    config.audit?.write(
+    config.audit.write(
       CONTRACT_AUDIT_EVENTS.VERIFIER_FAILED,
       `agentId=${config.agentId}`,
       `clawId=${config.clawId}`,

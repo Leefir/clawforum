@@ -214,16 +214,17 @@ async function applyAcceptanceOutcome(
 
     // failed path
     subtask.retry_count = (subtask.retry_count || 0) + 1;
+    const failureCause = acceptanceConfig.type === 'script' ? 'script_failed' : 'llm_rejected';
     subtask.last_failed_feedback = {
       feedback: result.feedback,
-      cause: 'llm_rejected',
+      cause: failureCause,
     };
     subtask.status = 'todo';
     const maxRetries = contractYaml.escalation?.max_retries ?? 3;
     safeNotify(ctx, 'acceptance_failed', {
       contract_id: contractId,
       subtask_id: subtaskId,
-      cause: 'llm_rejected',
+      cause: failureCause,
       feedback: result.feedback,
       retry_count: subtask.retry_count,
       max_retries: maxRetries,
@@ -377,6 +378,16 @@ export async function completeSubtaskSync(
   });
 
   if (allCompleted) {
+    // Guard: reject if contract was cancelled between lock release and archive
+    const progressAfterLock = await ctx.getProgress(contractId);
+    if (progressAfterLock.status === 'cancelled') {
+      ctx.audit.write(
+        CONTRACT_AUDIT_EVENTS.COMPLETE_ON_CANCELLED,
+        `contractId=${contractId}`,
+        `subtaskId=${subtaskId}`,
+      );
+      return { ...result, allCompleted: false };
+    }
     await archiveAndEmit(ctx, contractId, contractYaml.title, 'ContractSystem._completeSubtaskSync');
   }
 

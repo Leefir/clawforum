@@ -319,7 +319,15 @@ export class ContractSystem {
   // ============================================================================
 
   async create(contractYaml: ContractYaml): Promise<string> {
+    if (contractYaml.id !== undefined && contractYaml.id.trim() === '') {
+      throw new Error('contract id must not be empty');
+    }
     const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, UUID_SHORT_LEN)}`;
+
+    // Check uniqueness against archived contracts too
+    if (await this.fs.exists(`${this.archiveDir}/${contractId}`)) {
+      throw new Error(`contract id ${contractId} already exists in archive`);
+    }
 
     if (!contractYaml.subtasks || contractYaml.subtasks.length === 0) {
       throw new Error('Contract must have at least one subtask');
@@ -421,6 +429,14 @@ export class ContractSystem {
           `error=${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`,
         );
       });
+      // verify rollback succeeded
+      if (await this.fs.exists(`${this.activeDir}/${contractId}`)) {
+        this.audit.write(
+          CONTRACT_AUDIT_EVENTS.ROLLBACK_INCOMPLETE,
+          `contractId=${contractId}`,
+          `remaining=${this.activeDir}/${contractId}`,
+        );
+      }
       throw err;
     }
 

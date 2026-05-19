@@ -139,7 +139,8 @@ export async function contractCreateFromDirCommand(clawId: string, dirPath: stri
 export async function contractEventsCommand(clawId: string, sinceTs: number): Promise<void> {
   const clawDir = getClawDir(clawId);
   const fs = new NodeFileSystem({ baseDir: clawDir });
-  const events = collectContractEvents(fs, clawDir, clawId, sinceTs);
+  const audit = createSystemAudit(fs, clawDir);
+  const events = collectContractEvents(fs, clawDir, clawId, sinceTs, audit);
   if (events.length > 0) {
     console.log(events.join('\n'));
   }
