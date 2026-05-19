@@ -191,10 +191,11 @@ export class DialogStore {
       const entries = await this.fs.list(this.archiveDir);
       const files = entries
         .filter((e) => e.name.endsWith('.json'))
+        .filter((e) => !isNaN(parseInt(e.name.split('_')[0], 10)))
         .sort((a, b) => {
           const aTime = a.name.split('_')[0];
           const bTime = b.name.split('_')[0];
-          return Number(bTime) - Number(aTime); // newest first
+          return parseInt(bTime, 10) - parseInt(aTime, 10); // newest first
         });
 
       for (const entry of files) {

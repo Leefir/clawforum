@@ -154,7 +154,12 @@ export class Runtime {
     this.contextInjector = deps.contextInjector;
     this.execContext = deps.execContext;
 
-    // 3. 归档上一次 session（first-run ENOENT 允许）
+    // 3. Session repair（业务链路）
+    //    先 load 再 archive：直接读 current.json 恢复，避免不必要的归档恢复中转。
+    //    archive 在 load 成功之后作旁路安全备份——数据已在内存中，归档只是 trail。
+    await this.repairSessionIfNeeded();
+
+    // 4. 归档 session 为旁路备份（first-run ENOENT 允许）
     await this.sessionManager.archive().catch((err) => {
       const code = (err as { code?: string })?.code;
       if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
@@ -162,9 +167,6 @@ export class Runtime {
         this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SESSION_ARCHIVE_FAILED, `reason=${msg}`);
       }
     });
-
-    // 4. Session repair（业务链路）
-    await this.repairSessionIfNeeded();
 
     // 5. AsyncTaskSystem 业务动作（M#2 归属消费者 / Assembly 只构造不调）
     try {
