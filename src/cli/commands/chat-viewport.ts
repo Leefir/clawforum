@@ -754,7 +754,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     process.stderr.write(`[chat] uncaught error: ${err}\n`);
     try { tui.stop(); } catch { /* silent: tui.stop best-effort / already in shutdown / 不阻断 exit */ }
     // 刷新 stdout 后再退出，防止 escape sequences 被截断触发 Terminal.app crash
-    process.stdout.write('', () => { process.exitCode = 1; });
+    process.stdout.write('', () => { process.exitCode = 1; process.exit(1); });
   };
   process.on('uncaughtException', uncaughtHandler);
   process.on('unhandledRejection', uncaughtHandler);

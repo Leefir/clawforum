@@ -29,7 +29,8 @@ export async function stopAllCommand(deps?: { audit?: AuditLog }): Promise<void>
       const motionDir = getMotionDir();
       const motionFs = new NodeFileSystem({ baseDir: motionDir });
       audit = createSystemAudit(motionFs, motionDir);
-    } catch {
+    } catch (err) {
+      console.error('Failed to construct audit for stop command:', err);
       audit = null;  // audit 构造失败 / fallback null / 后续 audit?.write 软降级
     }
   }
