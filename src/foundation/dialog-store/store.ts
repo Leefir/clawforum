@@ -52,6 +52,7 @@ export class DialogStore {
       const archived = await this.loadLatestArchive();
       if (archived) {
         this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
+        this.createdAt = archived.session.createdAt;
         return { session: archived.session, source: 'archive' };
       }
       return this.coldStart();
@@ -93,6 +94,7 @@ export class DialogStore {
       const archived = await this.loadLatestArchive();
       if (archived) {
         this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
+        this.createdAt = archived.session.createdAt;
         return { session: archived.session, source: 'archive' };
       }
 
@@ -184,19 +186,22 @@ export class DialogStore {
   }
 
   /**
+   * Extract numeric timestamp from archive filename.
+   * Standard format: `{ts}_{uuid}.json`; parseInt stops at `_` or `.`.
+   */
+  private parseArchiveTimestamp(filename: string): number {
+    return parseInt(filename.split('_')[0], 10);
+  }
+
+  /**
    * Load latest archive (cold start recovery)
    */
   private async loadLatestArchive(): Promise<{ session: SessionData; name: string } | null> {
     try {
       const entries = await this.fs.list(this.archiveDir);
       const files = entries
-        .filter((e) => e.name.endsWith('.json'))
-        .filter((e) => !isNaN(parseInt(e.name.split('_')[0], 10)))
-        .sort((a, b) => {
-          const aTime = a.name.split('_')[0];
-          const bTime = b.name.split('_')[0];
-          return parseInt(bTime, 10) - parseInt(aTime, 10); // newest first
-        });
+        .filter((e) => e.isFile && e.name.endsWith('.json') && !isNaN(this.parseArchiveTimestamp(e.name)))
+        .sort((a, b) => this.parseArchiveTimestamp(b.name) - this.parseArchiveTimestamp(a.name)); // newest first
 
       for (const entry of files) {
         try {
@@ -219,6 +224,11 @@ export class DialogStore {
         }
       }
 
+      if (files.length === 0) {
+        this.audit.write(DIALOG_AUDIT_EVENTS.ARCHIVE_EMPTY);
+      } else {
+        this.audit.write(DIALOG_AUDIT_EVENTS.ARCHIVE_ALL_CORRUPTED, `scanned=${files.length}`);
+      }
       return null;
     } catch (err) {
       this.audit.write(
@@ -244,6 +254,8 @@ export class DialogStore {
       messages: [],
       toolsForLLM: [],
     };
+    this.createdAt = emptySession.createdAt;
+    this.audit.write(DIALOG_AUDIT_EVENTS.COLD_START);
     return { session: emptySession, source: 'empty' };
   }
 
@@ -317,12 +329,12 @@ export class DialogStore {
     try {
       const content = await this.fs.read(this.currentPath);
       const parsed = JSON.parse(content) as Partial<SessionData>;
-      // v1 → v2 schema 兼容 read（phase 713）
-      if (!parsed.toolsForLLM) {
-        (parsed as SessionData).toolsForLLM = [];
-        (parsed as SessionData).version = 2;
+      const detected = this.detectAndMigrateVersion(parsed, 'current.json');
+      if (detected === null) {
+        // version unknown — treat as corrupted and fall through to archive
+        throw new Error('session version unknown');
       }
-      const data = this.validateSession(parsed as SessionData);
+      const data = this.validateSession(detected);
       const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId, inclusive);
       if (sliced !== null) {
         return {
@@ -347,26 +359,22 @@ export class DialogStore {
 
     // 2. Scan archive/*.json (按时间倒序 / 找首个含 toolUseId 的)
     try {
-      await this.fs.ensureDir(this.archiveDir);
+      // ensureDir 不在此调用——_restore 是只读操作，不应有 fs 副作用
+      // 若 archive dir 不存在，后续 fs.list() 抛 ENOENT → catch → 抛 MarkerNotFoundError（正确语义）
       const entries = await this.fs.list(this.archiveDir);
       const sorted = entries
-        .filter(e => e.isFile && e.name.endsWith('.json') && !isNaN(parseInt(e.name.split('.')[0], 10)))
-        .sort((a, b) => {
-          const tsA = parseInt(a.name.split('.')[0], 10);
-          const tsB = parseInt(b.name.split('.')[0], 10);
-          return tsB - tsA; // Newest first / 与 loadLatestArchive 一致
-        });
+        .filter(e => e.isFile && e.name.endsWith('.json') && !isNaN(this.parseArchiveTimestamp(e.name)))
+        .sort((a, b) => this.parseArchiveTimestamp(b.name) - this.parseArchiveTimestamp(a.name)); // Newest first / 与 loadLatestArchive 一致
 
       for (const entry of sorted) {
         try {
           const content = await this.fs.read(path.join(this.archiveDir, entry.name));
           const parsed = JSON.parse(content) as Partial<SessionData>;
-          // v1 → v2 schema 兼容 read（phase 713）
-          if (!parsed.toolsForLLM) {
-            (parsed as SessionData).toolsForLLM = [];
-            (parsed as SessionData).version = 2;
+          const detected = this.detectAndMigrateVersion(parsed, entry.name);
+          if (detected === null) {
+            continue; // version unknown (version > SESSION_CURRENT_VERSION)
           }
-          const data = this.validateSession(parsed as SessionData);
+          const data = this.validateSession(detected);
           const sliced = sliceMessagesAtMarker(data.messages, marker.toolUseId, inclusive);
           if (sliced !== null) {
             return {
@@ -431,6 +439,15 @@ export class DialogStore {
         `field=version`,
         `got=${String(data.version)}`,
         `fallback=2`,
+      );
+      version = 2;
+    }
+    if (!Number.isInteger(version)) {
+      this.audit.write(
+        DIALOG_AUDIT_EVENTS.INVARIANT_FAILED,
+        `field=version`,
+        `got=${String(data.version)}`,
+        `reason=non_integer`,
       );
       version = 2;
     }

@@ -17,4 +17,7 @@ export const DIALOG_AUDIT_EVENTS = {
   VERSION_UNKNOWN: 'dialog_session_version_unknown',  // ← NEW phase 1019 r124 E fork
   VERSION_MIGRATE: 'dialog_session_version_migrate',  // ← NEW phase 1019 r124 E fork (v1→v2 observability)
   INVARIANT_FAILED: 'dialog_invariant_failed', // ← NEW phase 1024 G.4
+  COLD_START: 'dialog_cold_start',              // ← NEW phase 1054
+  ARCHIVE_EMPTY: 'dialog_archive_empty',         // ← NEW phase 1054
+  ARCHIVE_ALL_CORRUPTED: 'dialog_archive_all_corrupted', // ← NEW phase 1054
 } as const;

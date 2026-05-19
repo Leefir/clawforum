@@ -1019,7 +1019,14 @@ export class Runtime {
     const { session } = await this.sessionManager.load();
     const oldMessages = session.messages;
     // 2. archive 当前 sessionManager
-    await this.sessionManager.archive();
+    await this.sessionManager.archive().catch((err) => {
+      const code = (err as { code?: string })?.code;
+      if (code !== 'ENOENT' && code !== 'FS_NOT_FOUND') {
+        const msg = formatErr(err);
+        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.REGIME_SWITCH_FAILED,
+          `phase=archive`, `reason=${msg}`);
+      }
+    });
     // 3. 计算 inherited per strategy
     let inherited: Message[];
     switch (strategy) {

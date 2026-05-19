@@ -278,6 +278,9 @@
       "wait"
     ],
     "foundation_dialog-store_audit-events": [
+      "dialog_archive_all_corrupted",
+      "dialog_archive_empty",
+      "dialog_cold_start",
       "dialog_invariant_failed",
       "dialog_session_version_migrate",
       "dialog_session_version_unknown",
