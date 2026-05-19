@@ -399,7 +399,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         mainUI.flushThinking();
         mainUI.flushStreaming();
         const toolName = String(event.name ?? '');
-        const displayName = (toolName === 'spawn' || toolName === 'shadow') ? `${toolName}:` : toolName;
+        const displayName = toolName;
         appendOutput('\x1b[36m', `⚙ ${displayName}`);
         mainUI.enterPhase('running_tool', event.name as string);
         mainUI.clearPreview();

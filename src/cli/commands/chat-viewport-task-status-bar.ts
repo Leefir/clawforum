@@ -42,20 +42,22 @@ export function makeTaskTrack(taskId: string, callerType: 'subagent' | 'shadow')
 }
 
 export function buildTaskLine(t: TaskTrack, cols: number): string {
-  const shortId = t.taskId.slice(0, 8);
+  const shortId = t.taskId.slice(0, 6);
+  const prefix = t.callerType === 'subagent' ? 'spawn-' : 'shadow-';
+  const label = `${prefix}${shortId}`;
   const icon = t.toolSuccess === true ? '✓' : t.toolSuccess === false ? '✗' : '⚙';
   if (t.currentTool) {
     if (t.textBuffer) {
       const isThinking = t.bufferType === 'thinking';
       const open = isThinking ? '(' : '"';
       const close = isThinking ? ')' : '"';
-      const line = `[${shortId}] ${icon} ${t.currentTool} · ${open}${t.textBuffer.trimStart().replace(/\n/g, ' ')}${close}`;
+      const line = `[${label}] ${icon} ${t.currentTool} · ${open}${t.textBuffer.trimStart().replace(/\n/g, ' ')}${close}`;
       return `\x1b[38;5;147m${fitLine(line, cols)}\x1b[0m`;
     }
-    return `\x1b[38;5;147m[${shortId}] ${icon} ${t.currentTool}\x1b[0m`;
+    return `\x1b[38;5;147m[${label}] ${icon} ${t.currentTool}\x1b[0m`;
   }
   const inner = t.textBuffer ? t.textBuffer.trimStart().replace(/\n/g, ' ') : '';
-  return `\x1b[38;5;147m${fitLine(`[${shortId}] ⊙ (${inner})`, cols)}\x1b[0m`;
+  return `\x1b[38;5;147m${fitLine(`[${label}] ⊙ (${inner})`, cols)}\x1b[0m`;
 }
 
 export interface TaskStatusBarDeps {
