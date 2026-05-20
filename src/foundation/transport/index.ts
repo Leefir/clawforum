@@ -47,7 +47,8 @@ export type TransportErrorEvent =
   | { kind: 'backpressure_pending'; connectionId: string; bufferedBytes: number }
   | { kind: 'drain_completed'; connectionId: string }
   | { kind: 'partial_message_lost'; connectionId: string; bufferedBytes: number; bufferPreview: string }
-  | { kind: 'send_error'; connectionId: string; error: Error };
+  | { kind: 'send_error'; connectionId: string; error: Error }
+  | { kind: 'buffer_overflow'; connectionId: string; bufferedBytes: number };
 
 /**
  * Transport interface — real-time bidirectional communication.

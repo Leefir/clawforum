@@ -223,14 +223,10 @@ export function createWatcher(
         consecutiveCallbackFails++;
         try { options?.onError?.(e, 'callback'); } catch { /* silent: secondary callback error swallowed / onError 已报 primary / 不重复抛 */ }
         if (consecutiveCallbackFails >= FALLBACK_CONSECUTIVE_FAIL_LIMIT) {
-          // Disable poller: clearInterval + null + notify via onError 'fallback_disabled'.
-          // Caller already covers this via binary discrimination else-branch (FAILED tier).
-          if (fallbackTimer) {
-            clearInterval(fallbackTimer);
-            fallbackTimer = null;
-          }
+          // phase 1082: reset counter instead of permanent disable to avoid silent stall
+          consecutiveCallbackFails = 0;
           const disableErr = new Error(
-            `fallback poller disabled after ${consecutiveCallbackFails} consecutive callback failures: ${e.message}`,
+            `fallback poller callback failure limit reached: ${e.message}`,
           );
           try { options?.onError?.(disableErr, 'fallback_disabled'); } catch { /* silent: secondary callback error swallowed / onError 已报 primary / 不重复抛 */ }
         }

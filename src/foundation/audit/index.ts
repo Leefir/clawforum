@@ -22,6 +22,7 @@ import type { FileSystem } from '../fs/types.js';
 
 export interface AuditLog {
   write(type: string, ...cols: (string | number)[]): void;
+  dispose?(): void;
 }
 
 export { AuditWriter, AUDIT_FILE } from './writer.js';

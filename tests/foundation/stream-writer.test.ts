@@ -52,7 +52,7 @@ describe('StreamWriter', () => {
     const archiveDir = path.join(tmpDir, 'logs', 'stream');
     const archives = fsSync.readdirSync(archiveDir);
     expect(archives.length).toBe(1);
-    expect(archives[0]).toMatch(/^stream\.\d+\.jsonl$/);
+    expect(archives[0]).toMatch(/^stream\.\d+_[a-f0-9]{8}\.jsonl$/);
   });
 
   it('open archive failure triggers stream_archive_failed + session_boundary event', () => {

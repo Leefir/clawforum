@@ -97,6 +97,7 @@ export function createStreamReader(
   let started = false;
   let active = false;
   let consecutiveParseFails = 0;
+  const MAX_PENDING_BYTES = 50 * 1024 * 1024; // 50MB
   const recentOutcomes: boolean[] = [];
   let readingInFlight = false;
   let pendingNotify = false;
@@ -165,6 +166,9 @@ export function createStreamReader(
           const buf = fs.readBytesSync(streamPath, offset, size);
           offset += buf.length;
           pending += decoder.write(buf);
+          if (pending.length > MAX_PENDING_BYTES) {
+            throw new Error(`Stream reader pending buffer exceeded ${MAX_PENDING_BYTES} bytes`);
+          }
 
           let nl = pending.indexOf('\n');
           while (nl >= 0) {

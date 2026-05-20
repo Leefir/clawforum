@@ -173,7 +173,11 @@ export class Snapshot {
       await Snapshot.git(this.dir, ['add', '.']);
       await Snapshot.git(this.dir, ['commit', '--allow-empty', '-m', 'init']);
       if (shouldResetCounter) {
-        getState(this.dir).consecutiveFailures = 0;
+        const s = getState(this.dir);
+        s.consecutiveFailures = 0;
+        if (!s.degradedAt) {
+          _stateMap.delete(this.dir);
+        }
       }
       return ok(undefined);
     } catch (rawErr) {
@@ -243,7 +247,11 @@ export class Snapshot {
         );
       }
       if (!status.stdout) {
-        getState(this.dir).consecutiveFailures = 0;
+        const s = getState(this.dir);
+        s.consecutiveFailures = 0;
+        if (!s.degradedAt) {
+          _stateMap.delete(this.dir);
+        }
         return ok(undefined);
       }
       await Snapshot.git(this.dir, ['add', '.']);
@@ -251,6 +259,9 @@ export class Snapshot {
       this._lastCommitMs = Date.now();
       const s = getState(this.dir);
       s.consecutiveFailures = 0;
+      if (!s.degradedAt) {
+        _stateMap.delete(this.dir);
+      }
       await tryClearPersist(this.fs, this.dir);
       this.audit.write(
         SNAPSHOT_AUDIT_EVENTS.COMMITTED,

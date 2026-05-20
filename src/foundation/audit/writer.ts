@@ -140,6 +140,10 @@ export class AuditWriter implements AuditLog {
     }
   }
 
+  dispose(): void {
+    dumpFallback();
+  }
+
   private rotateIfNeeded(): void {
     try {
       const stats = this.fs.statSync(this.filePath);
