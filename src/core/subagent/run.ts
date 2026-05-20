@@ -89,6 +89,7 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
     write: async (event: Record<string, unknown>) => {
       await opts.fs.append(streamPath, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
       opts.taskStreamCallback?.(event);
+      return true;
     },
   };
 

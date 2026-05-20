@@ -5,6 +5,7 @@ import type { FileSystem } from '../fs/types.js';
 import { STREAM_FILE, type StreamEvent, type StreamLog } from './types.js';
 import type { AuditLog } from '../audit/index.js';
 import { STREAM_AUDIT_EVENTS } from './audit-events.js';
+import { randomUUID } from 'node:crypto';
 
 export interface StreamRetentionOptions {
   maxFiles?: number | null;
@@ -34,7 +35,7 @@ export class StreamWriter implements StreamLog {
     if (this.fs.existsSync(STREAM_FILE)) {
       try {
         this.fs.ensureDirSync(ARCHIVE_DIR);
-        this.fs.moveSync(STREAM_FILE, `${ARCHIVE_DIR}/stream.${Date.now()}.jsonl`);
+        this.fs.moveSync(STREAM_FILE, `${ARCHIVE_DIR}/stream.${Date.now()}_${randomUUID().slice(0, 8)}.jsonl`);
       } catch (err) {
         archiveFailed = true;
         this.audit.write(
@@ -70,13 +71,14 @@ export class StreamWriter implements StreamLog {
   }
 
   /** 写一行事件 */
-  write(event: StreamEvent): void {
+  write(event: StreamEvent): boolean {
     if (!this.isOpen) {
       throw new Error('StreamWriter: write() called before open()');
     }
     const line = JSON.stringify(event) + '\n';
     try {
       this.fs.appendSync(STREAM_FILE, line);
+      return true;
     } catch (err) {
       this.audit.write(
         STREAM_AUDIT_EVENTS.APPEND_FAILED,
@@ -84,6 +86,7 @@ export class StreamWriter implements StreamLog {
         `reason=${err instanceof Error ? err.message : String(err)}`,
         `body=${line.trimEnd()}`,
       );
+      return false;
     }
   }
 

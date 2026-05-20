@@ -92,8 +92,18 @@ export class UnixDomainSocketTransport implements Transport {
     const entry: ConnectionEntry = { sock, meta, buf: '' };
     this.connections.set(id, entry);
     sock.setEncoding('utf8');
+    const MAX_BUF_BYTES = 10 * 1024 * 1024; // 10MB
     sock.on('data', (chunk: string) => {
       entry.buf += chunk;
+      if (entry.buf.length > MAX_BUF_BYTES) {
+        this.fireTransportError({
+          kind: 'buffer_overflow',
+          connectionId: id,
+          bufferedBytes: entry.buf.length,
+        });
+        sock.destroy();
+        return;
+      }
       let nl = entry.buf.indexOf('\n');
       while (nl >= 0) {
         const line = entry.buf.slice(0, nl);
@@ -214,6 +224,7 @@ export class UnixDomainSocketTransport implements Transport {
   }
 
   private armDrainOnce(connectionId: string, sock: Socket): void {
+    if (sock.listenerCount('drain') > 0) return;
     sock.once('drain', () => {
       if (!this.connections.has(connectionId)) return;
       this.fireTransportError({

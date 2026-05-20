@@ -46,20 +46,19 @@ describe('fallback poller escalation (macOS only)', () => {
         10,
       );
 
-      // Stop watcher (clearInterval again is no-op-safe)
-      await watcher.close();
-
       // Assert escalation
       const fallbackDisabled = errors.find(e => e.context === 'fallback_disabled');
       expect(fallbackDisabled, 'expected fallback_disabled context').toBeDefined();
-      expect(fallbackDisabled!.err.message).toMatch(/disabled after 5 consecutive callback failures/);
+      expect(fallbackDisabled!.err.message).toMatch(/callback failure limit reached/);
 
-      // Plateau check (NEGATIVE assertion: no further callback calls after disable).
-      // Intentional fixed wait — there is no positive state change to poll for.
-      // 200ms = 20× fallbackPollMs; if poller still alive, would accumulate ≥10 extra calls.
-      const countAtDisable = callback.mock.calls.length;
+      // phase 1082: poller is NOT permanently disabled — it resets counter and continues.
+      // Verify callbacks keep accumulating after the limit is reached.
+      const countAtLimit = callback.mock.calls.length;
       await new Promise(r => setTimeout(r, 200));
-      expect(callback.mock.calls.length).toBe(countAtDisable);
+      expect(callback.mock.calls.length).toBeGreaterThan(countAtLimit);
+
+      // Stop watcher (clearInterval again is no-op-safe)
+      await watcher.close();
     },
   );
 

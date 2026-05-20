@@ -153,7 +153,14 @@ export class DialogStore {
     };
     // phase 1024 G.2: serialize concurrent save() — chain into flushPromise / catch swallow per-link 防 chain 破裂
     const next = this.flushPromise.then(doSave, doSave);  // 失败也继续 doSave / chain 不破
-    this.flushPromise = next.catch(() => { /* swallow / 防 chain 破裂、caller 仍看到 original error via await next */ });
+    const wrapped = next.catch(() => { /* swallow / 防 chain 破裂、caller 仍看到 original error via await next */ });
+    this.flushPromise = wrapped;
+    // phase 1082: cap flushPromise chain growth — reset to resolved when quiescent
+    wrapped.then(() => {
+      if (this.flushPromise === wrapped) {
+        this.flushPromise = Promise.resolve();
+      }
+    });
     return next;
   }
 
@@ -292,12 +299,21 @@ export class DialogStore {
       ? opts.interruptionMessage
       : 'Cause unknown (no context provided to repair).';
 
-    const syntheticResults: ToolResultBlock[] = toolUseBlocks.map(block => ({
-      type: 'tool_result',
-      tool_use_id: block.id,
-      content: `Tool call '${block.name}' with input ${JSON.stringify(block.input)} was interrupted. ${detail}`,
-      is_error: true,
-    }));
+    const syntheticResults: ToolResultBlock[] = toolUseBlocks.map(block => {
+      let inputDesc: string;
+      try {
+        inputDesc = JSON.stringify(block.input);
+      } catch {
+        // silent: cyclic reference guard — fallback to unserializable placeholder
+        inputDesc = '<unserializable>';
+      }
+      return {
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: `Tool call '${block.name}' with input ${inputDesc} was interrupted. ${detail}`,
+        is_error: true,
+      };
+    });
 
     return {
       repaired: [...messages, { role: 'user', content: syntheticResults }],
