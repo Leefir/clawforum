@@ -24,6 +24,11 @@ export function parseAnthropicResponse(data: AnthropicResponse): LLMResponse {
   }
   const content = data.content as ContentBlock[];
 
+  // 0-chunk guard
+  if (content.length === 0) {
+    throw new Error('LLM returned empty response (0 chunks)');
+  }
+
   return {
     content,
     stop_reason: data.stop_reason ?? 'end_turn',

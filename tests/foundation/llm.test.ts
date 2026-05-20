@@ -1174,7 +1174,13 @@ describe('OpenAIAdapter — Phase 98 fixes', () => {
   // 修复 1：stop_reason 规范化（call）
   it('call: finish_reason tool_calls → stop_reason tool_use', async () => {
     vi.mocked(fetch).mockResolvedValue(createMockResponse({
-      choices: [{ message: { content: '' }, finish_reason: 'tool_calls' }],
+      choices: [{
+        message: {
+          content: '',
+          tool_calls: [{ id: 'tc1', type: 'function', function: { name: 'foo', arguments: '{}' } }],
+        },
+        finish_reason: 'tool_calls',
+      }],
       usage: { prompt_tokens: 10, completion_tokens: 5 },
     }));
     const res = await new OpenAIAdapter(config).call({ messages: [{ role: 'user', content: 'hi' }] });

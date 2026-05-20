@@ -88,7 +88,7 @@ export function parseResponse(
           input,
         });
       } catch (err) {
-        // JSON.parse failed (LLM returned malformed args) → emit audit then fallback to raw string
+        // JSON.parse failed (LLM returned malformed args) → emit audit then __parseError path (aligns with Anthropic streaming)
         onToolArgParseError?.({
           provider: providerName,
           toolName: tc.function.name,
@@ -99,10 +99,15 @@ export function parseResponse(
           type: 'tool_use',
           id: tc.id,
           name: tc.function.name,
-          input: decodeHtmlEntities(tc.function.arguments),
+          input: { __parseError: true, __raw: decodeHtmlEntities(tc.function.arguments) },
         });
       }
     }
+  }
+
+  // 0-chunk guard
+  if (content.length === 0) {
+    throw new Error('LLM returned empty response (0 chunks)');
   }
 
   // Normalize stop_reason to internal format

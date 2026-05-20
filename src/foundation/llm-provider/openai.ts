@@ -27,7 +27,7 @@ import type {
   ProviderAdapter,
   StreamChunk,
 } from './types.js';
-import { STREAM_MAX_DURATION_MS } from '../llm-orchestrator/constants.js';
+import { STREAM_MAX_DURATION_MS, STREAM_IDLE_MAX_MS } from '../llm-orchestrator/constants.js';
 import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 // NEW imports（sub-file）
 import { formatMessages, formatTools } from './openai-message-formatter.js';
@@ -217,7 +217,8 @@ export class OpenAIAdapter implements ProviderAdapter {
 
       // 进入 stream 阶段：切换 timer 为总时长保护
       abortHandle.enterStreamPhase(STREAM_MAX_DURATION_MS);
-      yield* parseSSEStream(response, abortHandle, timeout, this.name, this.onStreamParseError);
+      const idleTimeoutMs = Math.min(timeout, STREAM_IDLE_MAX_MS);
+      yield* parseSSEStream(response, abortHandle, idleTimeoutMs, this.name, this.onStreamParseError);
     } catch (error) {
       const classified = classifyFetchAbortError(error, signal, timeout, this.name);
       if (classified) throw classified;

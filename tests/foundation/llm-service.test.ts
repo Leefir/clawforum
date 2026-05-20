@@ -855,7 +855,10 @@ describe('LLMOrchestratorImpl - events (Phase 254)', () => {
     await svc.call({ messages: [] });
     const retryEvent = emitted.find(e => e.type === 'retry_scheduled');
     expect(retryEvent).toBeDefined();
-    expect((retryEvent as any).backoffMs).toBe(100);
+    // M4 jitter: backoff = retryDelayMs * 2^attempt * [0.75, 1.25], capped at MAX_BACKOFF_MS
+    const backoffMs = (retryEvent as any).backoffMs;
+    expect(backoffMs).toBeGreaterThanOrEqual(75);
+    expect(backoffMs).toBeLessThanOrEqual(125);
   });
 
   it('emits provider_exhausted + fallback_switched when primary exhausted', async () => {

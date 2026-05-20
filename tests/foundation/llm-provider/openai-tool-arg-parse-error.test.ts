@@ -40,8 +40,8 @@ describe('OpenAIAdapter — onToolArgParseError', () => {
       rawArgs: 'not-json',
       error: expect.any(String),
     });
-    // Fallback: tool_use input is the raw decoded string
+    // Fallback: tool_use input carries __parseError + __raw (aligns with Anthropic streaming)
     const toolUse = (resp.content as any[]).find(b => b.type === 'tool_use');
-    expect(toolUse.input).toBe('not-json');
+    expect(toolUse.input).toEqual({ __parseError: true, __raw: 'not-json' });
   });
 });

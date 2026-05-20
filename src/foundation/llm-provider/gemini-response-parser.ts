@@ -47,6 +47,11 @@ export function parseGeminiResponse(data: GeminiResponse): LLMResponse {
     }
   }
 
+  // 0-chunk guard
+  if (content.length === 0) {
+    throw new Error('LLM returned empty response (0 chunks)');
+  }
+
   const finishReason = candidate.finishReason ?? 'STOP';
   const hasToolUse = content.some(b => b.type === 'tool_use');
   const stopReason =

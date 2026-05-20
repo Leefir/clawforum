@@ -188,6 +188,8 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
           // Don't retry on user abort (would add multi-second delay)
           if (options.signal?.aborted) throw lastError;
+          // Hard timeout fired → fast failover, skip backoff
+          if (lastError.name === 'AbortError' && hardSignal?.aborted) throw lastError;
           // Provider self-thrown AbortError when hard signal did not fire
           if (lastError.name === 'AbortError' && !hardSignal?.aborted) throw lastError;
 
@@ -204,10 +206,10 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
             break;  // 跳出 retry loop / 进入 fallback failover
           }
 
-          // Wait before retry (exponential backoff with 30s max)
+          // Wait before retry (exponential backoff with jitter, 30s max)
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(
-              this.config.retryDelayMs * Math.pow(2, attempt),
+              this.config.retryDelayMs * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
               MAX_BACKOFF_MS,
             );
             this.events.emit({ type: 'retry_scheduled', provider: this.primary.name, attempt, backoffMs });
@@ -278,6 +280,8 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         cleanupSignal();
         const err = fallbackError as Error;
         if (options.signal?.aborted) throw err;
+        // Hard timeout fired → fast failover, skip backoff
+        if (err.name === 'AbortError' && hardSignal?.aborted) throw err;
         // Provider self-thrown AbortError when hard signal did not fire
         if (err.name === 'AbortError' && !hardSignal?.aborted) throw err;
         this.events.emit({ type: 'provider_exhausted', provider: fb.name, error: err.message });
@@ -462,7 +466,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           // Don't wait after the last attempt
           if (attempt < this.config.maxAttempts - 1) {
             const backoffMs = Math.min(
-              this.config.retryDelayMs * Math.pow(2, attempt),
+              this.config.retryDelayMs * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
               MAX_BACKOFF_MS,
             );
             this.events.emit({ type: 'retry_scheduled', provider: adapter.name, attempt, backoffMs });
@@ -492,7 +496,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         if (!wasOpen && breaker?.isOpen()) {
           this.events.emit({ type: 'breaker_opened', provider: adapter.name, consecutiveFailures: this.config.circuitBreaker?.failureThreshold ?? 0 });
         }
-        const err = new Error('Stream completed with 0 chunks');
+        const err = new Error('LLM returned empty response (0 chunks)');
         this.events.emit({
           type: 'provider_attempt_failed',
           provider: adapter.name,

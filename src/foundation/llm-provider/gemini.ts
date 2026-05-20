@@ -20,7 +20,7 @@ import type {
   ProviderAdapter,
   StreamChunk,
 } from './types.js';
-import { STREAM_MAX_DURATION_MS } from '../llm-orchestrator/constants.js';
+import { STREAM_MAX_DURATION_MS, STREAM_IDLE_MAX_MS } from '../llm-orchestrator/constants.js';
 import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
 import { formatGeminiMessages } from './gemini-message-formatter.js';
 import { parseGeminiSSEStream } from './gemini-sse-parser.js';
@@ -136,7 +136,8 @@ export class GeminiAdapter implements ProviderAdapter {
       if (!response.ok) await throwHttpErrorResponse(this.name, response);
       // 进入 stream 阶段：切换 timer 为总时长保护
       abortHandle.enterStreamPhase(STREAM_MAX_DURATION_MS);
-      yield* parseGeminiSSEStream(response, abortHandle, timeout, this.name, this.onStreamParseError);
+      const idleTimeoutMs = Math.min(timeout, STREAM_IDLE_MAX_MS);
+      yield* parseGeminiSSEStream(response, abortHandle, idleTimeoutMs, this.name, this.onStreamParseError);
     } catch (error) {
       const classified = classifyFetchAbortError(error, options.signal, timeout, this.name);
       if (classified) throw classified;

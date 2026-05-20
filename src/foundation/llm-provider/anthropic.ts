@@ -159,7 +159,7 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
         body as Anthropic.MessageStreamParams,
         requestOptions,
       );
-      yield* this.parseSDKStream(sdkStream);
+      yield* this.parseSDKStream(sdkStream, options.signal);
     } catch (error) {
       throw this.mapSDKError(error, STREAM_MAX_DURATION_MS, options.signal);
     }
@@ -170,11 +170,13 @@ export class AnthropicAdapter extends BaseAnthropicAdapter {
    */
   private async* parseSDKStream(
     stream: ReturnType<Anthropic['messages']['stream']>,
+    signal?: AbortSignal,
   ): AsyncIterableIterator<StreamChunk> {
     let currentToolId = '';
     let currentToolName = '';
 
     for await (const event of stream) {
+      if (signal?.aborted) break;
       if (event.type === 'content_block_start') {
         const block = event.content_block;
         if (block.type === 'tool_use') {
