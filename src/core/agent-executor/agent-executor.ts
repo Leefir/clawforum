@@ -38,7 +38,7 @@ export interface AgentInput {
 export interface AgentResult {
   finalText: string;
   stepsUsed: number;
-  stopReason: 'end_turn' | 'max_tokens_text' | 'no_tool' | 'unknown';
+  stopReason: 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown';
 }
 
 export async function runAgent(input: AgentInput): Promise<AgentResult> {
@@ -83,7 +83,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
 
     if (result.kind === 'final') {
       return {
-        finalText: result.finalText,
+        finalText: result.finalText || (result.stopReason === 'content_filter' ? '[Content filtered]' : result.finalText),
         stepsUsed: stepCount,
         stopReason: result.stopReason,
       };
@@ -129,7 +129,8 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
       if (consecutiveMaxTokensToolUse >= maxConsecutiveMaxTokensToolUse) {
         throw new ConsecutiveMaxTokensToolUseError(maxConsecutiveMaxTokensToolUse);
       }
-      // 不 stepCount++、不 onAfterStep
+      ctx.incrementStep?.();
+      stepCount = ctx.stepNumber;
       continue;
     }
 

@@ -137,7 +137,8 @@ describe('AgentExecutor', () => {
     })).rejects.toThrow(MaxStepsExceededError);
   });
 
-  it('max_tokens_tool_use：不 stepCount++、不 onStepComplete', async () => {
+  it('max_tokens_tool_use：stepCount++、不调 onStepComplete', async () => {
+    let callCount = 0;
     const llm = makeMockLLM([
       { content: [{ type: 'tool_use', id: 'a', name: 'foo', input: {} }], stop_reason: 'max_tokens' },
       { content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' },
@@ -147,8 +148,10 @@ describe('AgentExecutor', () => {
       executor: makeExecutor({}),
       registry: makeRegistry({ foo: { readonly: false } }),
       ctx: makeCtx(),
+      onStepComplete: async () => { callCount++; },
     });
-    expect(res.stepsUsed).toBe(0);
+    expect(res.stepsUsed).toBe(1);
+    expect(callCount).toBe(0);
   });
 });
 

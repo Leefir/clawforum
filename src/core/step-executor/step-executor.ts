@@ -52,7 +52,7 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
   if (response.stop_reason === 'end_turn' || response.stop_reason === 'stop') {
     const text = extractText(response.content);
     appendAssistantMessage(messages, response.content);
-    return { kind: 'final', stopReason: 'end_turn', finalText: text };
+    return { kind: 'final', stopReason: response.stop_reason, finalText: text };
   }
 
   if (response.stop_reason === 'max_tokens') return handleMaxTokensStop(response, input, llmInfo, maxTokens);
@@ -60,7 +60,7 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
   callbacks?.onUnknownStopReason?.(response.stop_reason);
   const text = extractText(response.content);
   appendAssistantMessage(messages, response.content);
-  return { kind: 'final', stopReason: 'unknown', finalText: text };
+  return { kind: 'final', stopReason: 'content_filter', finalText: text };
 }
 
 async function runLLMCall(
