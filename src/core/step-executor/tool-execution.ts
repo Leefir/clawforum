@@ -70,32 +70,17 @@ async function executeReadonlyAsync(
   results: Map<number, ToolResultBlock>,
   callbacks?: StepCallbacks,
 ): Promise<void> {
-  const parseErrorCalls = group.filter(
-    ({ call }) => call.input?.__parseError === true
-  );
-  const cleanCalls = group.filter(
-    ({ call }) => call.input?.__parseError !== true
-  );
+  if (group.length === 0) return;
 
-  // 注：onToolCall 已在 stream.ts:tool_use_start 时调
-  for (const { call, index } of parseErrorCalls) {
-    if (ctx.signal?.aborted) throwAbortError(ctx.signal);
-    const result = await executeSingleTool(call, executor, ctx, callbacks);
-    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, result), callbacks);
-    results.set(index, toToolResultBlock(call.id, result));
-  }
-
-  if (cleanCalls.length === 0) return;
-
-  const batch = cleanCalls.map(({ call }) => {
+  const batch = group.map(({ call }) => {
     const { async: _asyncMode, ...toolArgs } = call.input;
     return { toolName: call.name, args: toolArgs };
   });
 
   const parallelResults = await executor.executeParallel(batch, ctx);
 
-  for (let i = 0; i < cleanCalls.length; i++) {
-    const { call, index } = cleanCalls[i];
+  for (let i = 0; i < group.length; i++) {
+    const { call, index } = group[i];
     const result = parallelResults[i];
     if (!result) {
       const singleResult = await executeSingleTool(call, executor, ctx, callbacks);
@@ -115,32 +100,17 @@ async function executeReadonlySync(
   results: Map<number, ToolResultBlock>,
   callbacks?: StepCallbacks,
 ): Promise<void> {
-  const parseErrorCalls = group.filter(
-    ({ call }) => call.input?.__parseError === true
-  );
-  const cleanCalls = group.filter(
-    ({ call }) => call.input?.__parseError !== true
-  );
+  if (group.length === 0) return;
 
-  // 注：onToolCall 已在 stream.ts:tool_use_start 时调
-  for (const { call, index } of parseErrorCalls) {
-    if (ctx.signal?.aborted) throwAbortError(ctx.signal);
-    const result = await executeSingleTool(call, executor, ctx, callbacks);
-    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, result), callbacks);
-    results.set(index, toToolResultBlock(call.id, result));
-  }
-
-  if (cleanCalls.length === 0) return;
-
-  const batch = cleanCalls.map(({ call }) => {
+  const batch = group.map(({ call }) => {
     const { async: _asyncMode, ...toolArgs } = call.input;
     return { toolName: call.name, args: toolArgs };
   });
 
   const parallelResults = await executor.executeParallel(batch, ctx);
 
-  for (let i = 0; i < cleanCalls.length; i++) {
-    const { call, index } = cleanCalls[i];
+  for (let i = 0; i < group.length; i++) {
+    const { call, index } = group[i];
     const result = parallelResults[i];
     if (!result) {
       const singleResult = await executeSingleTool(call, executor, ctx, callbacks);
@@ -202,25 +172,9 @@ export async function executeSingleTool(
     // async is NOT a universal meta-parameter — some tools (spawn) use it as
     // an internal parameter. Only readonly tools with supportsAsync use
     // executor-level async dispatch, and they go through executeReadonlyAsync.
-    const { __parseError, __raw, ...toolArgs } = toolCall.input;
-
-    // Input JSON failed to parse — return error immediately without calling the tool
-    if (__parseError) {
-      safeCallback(
-        'onToolInputParseError',
-        () => callbacks?.onToolInputParseError?.(toolCall.name, toolCall.id, String(__raw || '')),
-        callbacks,
-      );
-      return {
-        success: false,
-        content: `工具输入 JSON 解析失败，无法调用工具 "${toolCall.name}"。原始输入: ${String(__raw || '')}`,
-        metadata: { parseError: true },
-      };
-    }
-
     return await executor.execute({
       toolName: toolCall.name,
-      args: toolArgs,  // async stays in args for tools that read it internally
+      args: toolCall.input,
       ctx,
       toolUseId: toolCall.id,
       timeoutMs: safeNumber(toolCall.input?.timeoutMs),

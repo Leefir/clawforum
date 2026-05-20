@@ -53,14 +53,29 @@ export function flushText(state: StreamState, callbacks?: StepCallbacks): void {
   }
 }
 
-export function flushToolUse(state: StreamState): void {
+export function flushToolUse(state: StreamState, callbacks?: StepCallbacks): void {
   if (state.currentToolUse) {
-    state.contentBlocks.push({
-      type: 'tool_use',
-      id: state.currentToolUse.id,
-      name: state.currentToolUse.name,
-      input: parseToolInput(state.currentToolUse.input, state.currentToolUse.name),
-    });
+    const parsed = parseToolInput(state.currentToolUse.input, state.currentToolUse.name);
+    if (!parsed.ok) {
+      safeCallback(
+        'onToolInputParseError',
+        () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, state.currentToolUse!.id, parsed.raw),
+        callbacks,
+      );
+      state.contentBlocks.push({
+        type: 'tool_result',
+        tool_use_id: state.currentToolUse.id,
+        content: `Tool input JSON parse failed for "${state.currentToolUse.name}". Raw: ${parsed.raw}`,
+        is_error: true,
+      });
+    } else {
+      state.contentBlocks.push({
+        type: 'tool_use',
+        id: state.currentToolUse.id,
+        name: state.currentToolUse.name,
+        input: parsed.data,
+      });
+    }
   }
 }
 
@@ -87,12 +102,27 @@ export function finalizeContent(state: StreamState, callbacks?: StepCallbacks): 
     callbacks?.onTextEnd?.();
   }
   if (state.currentToolUse) {
-    state.contentBlocks.push({
-      type: 'tool_use',
-      id: state.currentToolUse.id,
-      name: state.currentToolUse.name,
-      input: parseToolInput(state.currentToolUse.input, state.currentToolUse.name),
-    } as ContentBlock);
+    const parsed = parseToolInput(state.currentToolUse.input, state.currentToolUse.name);
+    if (!parsed.ok) {
+      safeCallback(
+        'onToolInputParseError',
+        () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, state.currentToolUse!.id, parsed.raw),
+        callbacks,
+      );
+      state.contentBlocks.push({
+        type: 'tool_result',
+        tool_use_id: state.currentToolUse.id,
+        content: `Tool input JSON parse failed for "${state.currentToolUse.name}". Raw: ${parsed.raw}`,
+        is_error: true,
+      } as ContentBlock);
+    } else {
+      state.contentBlocks.push({
+        type: 'tool_use',
+        id: state.currentToolUse.id,
+        name: state.currentToolUse.name,
+        input: parsed.data,
+      } as ContentBlock);
+    }
     state.currentToolUse = null;
   }
 }
@@ -127,7 +157,7 @@ export async function collectStreamResponse(
         case 'tool_use_start':
           flushThinking(state);
           flushText(state, callbacks);
-          flushToolUse(state);
+          flushToolUse(state, callbacks);
           state.currentToolUse = { id: chunk.toolUse!.id, name: chunk.toolUse!.name, input: '' };
           state.stopReason = 'tool_use';
           // 流式 tool_use_start 来时立即 emit onToolCall（chat-viewport 实时显示 tool icon / 不等 stream end + execute phase）

@@ -636,9 +636,7 @@ describe('ReAct Loop', () => {
     ).rejects.toThrow('aborted');
   });
 
-  it('should log error and return parse failure to LLM when tool_use delta has invalid JSON', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
+  it('should return parse failure to LLM when tool_use delta has invalid JSON', async () => {
     let streamCall = 0;
     mockLLM.stream = vi.fn(() => {
       streamCall++;
@@ -667,15 +665,10 @@ describe('ReAct Loop', () => {
       maxSteps: 5,
     });
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[step-executor] Failed to parse tool input for "read"'),
-    );
     // Tool executor should not have been called with the broken tool
     expect(mockExecutor.execute).not.toHaveBeenCalledWith(
       expect.objectContaining({ toolName: 'read' })
     );
-
-    errorSpy.mockRestore();
   });
 
   // ─── fix 2: callback exception guards ─────────────────────────────────────

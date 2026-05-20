@@ -4,30 +4,26 @@ import { parseToolInput, safeCallback } from '../../../src/core/step-executor/ut
 describe('parseToolInput', () => {
   it('parses valid JSON object', () => {
     const result = parseToolInput('{"key":"value","n":42}', 'tool-name');
-    expect(result).toEqual({ key: 'value', n: 42 });
+    expect(result).toEqual({ ok: true, data: { key: 'value', n: 42 } });
   });
 
   it('returns empty object for empty string', () => {
     const result = parseToolInput('', 'tool-name');
-    expect(result).toEqual({});
+    expect(result).toEqual({ ok: true, data: {} });
   });
 
-  it('returns __parseError marker for invalid JSON', () => {
-    const consoleErrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('returns typed error for invalid JSON', () => {
     const result = parseToolInput('{ invalid', 'tool-name');
-    expect(result).toMatchObject({
-      __parseError: true,
-      __raw: '{ invalid',
+    expect(result).toEqual({
+      ok: false,
+      raw: '{ invalid',
+      error: expect.any(String),
     });
-    expect(consoleErrSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/Failed to parse tool input for "tool-name"/),
-    );
-    consoleErrSpy.mockRestore();
   });
 
   it('handles null-like raw via empty default', () => {
     const result = parseToolInput(null as unknown as string, 'tool-name');
-    expect(result).toEqual({});
+    expect(result).toEqual({ ok: true, data: {} });
   });
 });
 

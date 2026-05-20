@@ -52,6 +52,8 @@ export interface StepMeta {
   parseErrorCount: number;
   allParseErrors: boolean;
   llm: LLMCallInfo;
+  /** Stream-layer parse-error tool names (when no tool_use blocks exist in assistant message) */
+  toolNames?: string;
 }
 
 export type StepResult =

@@ -31,12 +31,16 @@ export async function safeCallbackAsync(
   }
 }
 
-export function parseToolInput(raw: string, toolName: string): Record<string, unknown> {
+export type ParseToolInputResult =
+  | { ok: true; data: Record<string, unknown> }
+  | { ok: false; raw: string; error: string };
+
+export function parseToolInput(raw: string, toolName: string): ParseToolInputResult {
   try {
-    return JSON.parse(raw || '{}');
+    return { ok: true, data: JSON.parse(raw || '{}') };
   } catch (err) {
-    console.error(`[step-executor] Failed to parse tool input for "${toolName}": ${err instanceof Error ? err.message : String(err)}`);
-    return { __parseError: true, __raw: raw ?? '' };
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { ok: false, raw: raw ?? '', error: errorMsg };
   }
 }
 

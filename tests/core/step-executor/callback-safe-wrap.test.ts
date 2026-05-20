@@ -20,62 +20,6 @@ describe('phase 890: callback safeCallback wrap', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  describe('onToolInputParseError throw isolation', () => {
-    it('callback throw → structured return 仍执行 + onSafeCallbackError 触发', async () => {
-      const safeCallbackErrors: Array<{ label: string; err: unknown }> = [];
-      const callbacks = {
-        onToolInputParseError: vi.fn(() => { throw new Error('boom'); }),
-        onSafeCallbackError: (label: string, err: unknown) => {
-          safeCallbackErrors.push({ label, err });
-        },
-      };
-
-      const toolCall = {
-        id: 'tu1',
-        name: 'someTool',
-        input: { __parseError: true, __raw: '{bad json}' },
-      };
-
-      const executor = {
-        execute: vi.fn(),
-      } as unknown as IToolExecutor;
-
-      const ctx = {
-        clawId: 'test',
-        clawDir: '/tmp',
-        workspaceDir: '/tmp',
-        syncDir: '/tmp',
-        callerType: 'main' as const,
-        fs: {},
-        profile: 'full' as const,
-        stepNumber: 1,
-        maxSteps: 10,
-      } as ExecContext;
-
-      const result = await executeSingleTool(toolCall as any, executor, ctx, callbacks as any);
-
-      // 验证 1：structured return 不被 bypass
-      expect(result.success).toBe(false);
-      expect(result.metadata?.parseError).toBe(true);
-      expect(result.content).toContain('工具输入 JSON 解析失败');
-
-      // 验证 2：callback 被 call 一次（throw 之前）
-      expect(callbacks.onToolInputParseError).toHaveBeenCalledTimes(1);
-      expect(callbacks.onToolInputParseError).toHaveBeenCalledWith('someTool', 'tu1', '{bad json}');
-
-      // 验证 3：onSafeCallbackError 被触发、label 对
-      expect(safeCallbackErrors).toHaveLength(1);
-      expect(safeCallbackErrors[0].label).toBe('onToolInputParseError');
-      expect((safeCallbackErrors[0].err as Error).message).toBe('boom');
-
-      // 验证 4：console.warn 双写保留
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/onToolInputParseError/),
-        expect.stringMatching(/boom/),
-      );
-    });
-  });
-
   describe('onToolExecutionFailed throw isolation', () => {
     it('callback throw（执行已 fail 的 catch block 内）→ structured return 仍执行 + onSafeCallbackError 触发', async () => {
       const safeCallbackErrors: Array<{ label: string; err: unknown }> = [];

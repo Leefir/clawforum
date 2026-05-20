@@ -17,20 +17,24 @@ export async function handleToolUseStop(
 ): Promise<StepResult> {
   const { messages, executor, registry, ctx, callbacks } = input;
   const toolCalls = extractToolCalls(response.content);
-  if (toolCalls.length === 0) {
+  const prebuiltResults = response.content.filter(
+    (b): b is ToolResultBlock => b.type === 'tool_result'
+  );
+
+  if (toolCalls.length === 0 && prebuiltResults.length === 0) {
     const text = extractText(response.content);
     appendAssistantMessage(messages, response.content);
     callbacks?.onUnparseableToolUse?.(response.stop_reason);
     return { kind: 'final', stopReason: 'no_tool', finalText: text };
   }
-  appendAssistantMessage(messages, response.content);
+  appendAssistantMessage(messages, response.content.filter(b => b.type !== 'tool_result'));
 
-  let parseErrorCount = 0;
+  let newParseErrorCount = 0;
   const trackingCallbacks: import('./types.js').StepCallbacks = {
     ...callbacks,
     onUnparseableToolUse: callbacks ? callbacks.onUnparseableToolUse : () => {},
     onToolResult: (name, id, result) => {
-      if (result.metadata?.parseError === true) parseErrorCount++;
+      if (result.metadata?.parseError === true) newParseErrorCount++;
       callbacks?.onToolResult?.(name, id, result);
     },
   };
@@ -38,15 +42,28 @@ export async function handleToolUseStop(
   const toolResults = await executeToolCalls(toolCalls, executor, ctx, registry, trackingCallbacks);
 
   if (ctx.signal?.aborted) throwAbortError(ctx.signal);
-  appendToolResults(messages, toolResults);
+  appendToolResults(messages, [...prebuiltResults, ...toolResults]);
+
+  const totalToolCallCount = toolCalls.length + prebuiltResults.length;
+  const totalParseErrorCount = prebuiltResults.length + newParseErrorCount;
+
+  // Extract tool names from stream-layer parse-error results for error messages
+  const toolNames = prebuiltResults
+    .map(pr => {
+      const m = pr.content.match(/^Tool input JSON parse failed for "([^"]+)"/);
+      return m ? m[1] : '';
+    })
+    .filter(Boolean)
+    .join(', ');
 
   return {
     kind: 'continue',
     meta: {
-      toolCallCount: toolCalls.length,
-      parseErrorCount,
-      allParseErrors: toolCalls.length > 0 && parseErrorCount === toolCalls.length,
+      toolCallCount: totalToolCallCount,
+      parseErrorCount: totalParseErrorCount,
+      allParseErrors: totalToolCallCount > 0 && totalParseErrorCount === totalToolCallCount,
       llm: llmInfo,
+      toolNames: toolNames || undefined,
     },
   };
 }
@@ -59,11 +76,18 @@ export function handleMaxTokensStop(
 ): StepResult {
   const { messages } = input;
   const toolCalls = extractToolCalls(response.content);
-  if (toolCalls.length > 0) {
-    appendAssistantMessage(messages, response.content);
-    const truncatedResults: ToolResultBlock[] = toolCalls.map(tc => ({
+  const prebuiltResults = response.content.filter(
+    (b): b is ToolResultBlock => b.type === 'tool_result'
+  );
+  if (toolCalls.length > 0 || prebuiltResults.length > 0) {
+    appendAssistantMessage(messages, response.content.filter(b => b.type !== 'tool_result'));
+    const allIds = [
+      ...toolCalls.map(tc => tc.id),
+      ...prebuiltResults.map(pr => pr.tool_use_id),
+    ];
+    const truncatedResults: ToolResultBlock[] = allIds.map(id => ({
       type: 'tool_result' as const,
-      tool_use_id: tc.id,
+      tool_use_id: id,
       content: `[TRUNCATED] 输出超过单次 token 上限（${maxTokens} tokens），工具调用被截断未执行。请将内容拆分为多次较小的调用。`,
       is_error: true,
     }));
@@ -71,7 +95,7 @@ export function handleMaxTokensStop(
     return {
       kind: 'max_tokens_tool_use',
       meta: {
-        toolCallCount: toolCalls.length,
+        toolCallCount: allIds.length,
         // parseErrorCount=0 by design: max_tokens_tool_use path 不走 parse error counting（continue 路径 own）
         parseErrorCount: 0,
         allParseErrors: false,

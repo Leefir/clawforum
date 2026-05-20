@@ -218,8 +218,8 @@ describe('StepExecutor', () => {
 
   it('meta.allParseErrors：输入 JSON 解析失败时元数据正确', async () => {
     // 构造一个 stream 使 tool_use_delta 的 partialInput 不是合法 JSON
-    // → collectStreamResponse 内 JSON.parse 失败 → input = { __parseError: true }
-    // → executeSingleTool 直接返回 metadata.parseError=true 的 ToolResult
+    // → collectStreamResponse 内 JSON.parse 失败 → 生成 tool_result error block
+    // → stop-handlers 统计为 parseError
     const llm = makeMalformedToolInputLLM('tu1', 'foo', '{not json');
     const result = await executeStep({
       messages: [], systemPrompt: '', llm, tools: [],
@@ -270,7 +270,7 @@ describe('StepExecutor', () => {
     }
     // 3. 第二个工具被真实调用
     expect(exec.execute).toHaveBeenCalledWith(expect.objectContaining({ toolName: 'bar' }));
-    // 4. 第一个工具未真实调用（被 __parseError 早返回）
+    // 4. 第一个工具未真实调用（parse error 在 stream 层已处理为 tool_result）
     expect(exec.execute).not.toHaveBeenCalledWith(expect.objectContaining({ toolName: 'foo' }));
   });
 
@@ -641,7 +641,7 @@ describe('StepExecutor', () => {
     expect(exec.execute).toHaveBeenCalledWith(expect.objectContaining({ args: { a: 1 } }));
   });
 
-  it('malformed tool_use JSON yields __parseError and __raw fields', async () => {
+  it('malformed tool_use JSON is handled at stream layer, no execute called', async () => {
     const llm = makeStreamLLM([
       { type: 'tool_use_start', toolUse: { id: 'tu1', name: 'foo', partialInput: '' } },
       { type: 'tool_use_delta', toolUse: { id: '', name: '', partialInput: '{bad' } },
@@ -652,7 +652,7 @@ describe('StepExecutor', () => {
       messages: [], systemPrompt: '', llm, tools: [],
       executor: exec, registry: makeRegistry({ foo: { readonly: false } }), ctx: makeCtx(),
     });
-    // execute should NOT be called because __parseError short-circuits
+    // execute should NOT be called because parse error is handled in stream.ts
     expect(exec.execute).not.toHaveBeenCalled();
   });
 

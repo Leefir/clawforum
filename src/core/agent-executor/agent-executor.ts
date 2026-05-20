@@ -101,12 +101,14 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
           // 从最近一条 assistant 消息的 tool_use blocks 提取工具名（为错误消息保留上下文）
           const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
           const lastContent = lastAssistant?.content;
-          const toolNames = Array.isArray(lastContent)
+          const toolNamesFromBlocks = Array.isArray(lastContent)
             ? lastContent
                 .filter((b): b is { type: 'tool_use'; name: string } => (b as { type?: string }).type === 'tool_use')
                 .map(b => b.name)
                 .join(', ')
             : '';
+          // Stream-layer parse errors may have no tool_use blocks; use meta.toolNames as fallback
+          const toolNames = toolNamesFromBlocks || result.meta.toolNames || '';
           throw new ConsecutiveParseErrorsExceededError(maxConsecutiveParseErrors, toolNames);
         }
       } else {
