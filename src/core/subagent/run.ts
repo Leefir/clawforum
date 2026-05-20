@@ -86,8 +86,8 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
   const auditWriter = createAuditWriter(opts.fs, `${opts.resultDir}/audit.tsv`);
   const streamPath = `${opts.resultDir}/${STREAM_FILE}`;
   const taskStreamWriter = {
-    write: async (event: Record<string, unknown>) => {
-      await opts.fs.append(streamPath, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
+    write: (event: Record<string, unknown>) => {
+      opts.fs.appendSync(streamPath, JSON.stringify({ ts: Date.now(), ...event }) + '\n');
       opts.taskStreamCallback?.(event);
       return true;
     },

@@ -1,19 +1,21 @@
 /**
- * phase 767 NEW
- * shadow 工具入口，调 runShadow 同步阻塞
+ * phase 767 NEW / phase 1087 shadow async
+ * shadow 工具入口，async/sync 双路径
  */
 
 import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-protocol/index.js';
 import { SHADOW_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 import { runShadow } from '../system.js';
 import { SHADOW_AUDIT_EVENTS } from '../audit-events.js';
+import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
 
 export { SHADOW_TOOL_NAME };
 
 export const shadowTool: Tool = {
   name: SHADOW_TOOL_NAME,
   description: 'Create a one-shot shadow of yourself with full context inheritance. ' +
-    'Shadow runs synchronously and returns its result inline. ' +
+    'By default the shadow executes asynchronously and results arrive via inbox. ' +
+    'Set async=false for synchronous execution that blocks until the result is available inline. ' +
     'Use when you need an equally capable copy to handle a task without polluting your context window. ' +
     'You cannot call shadow from within shadow (no recursion).',
   schema: {
@@ -32,6 +34,10 @@ export const shadowTool: Tool = {
         type: 'number',
         description: 'Maximum ReAct steps (default: subagent max_steps).',
         minimum: 1,
+      },
+      async: {
+        type: 'boolean',
+        description: 'true (default): async execution, result via inbox. false: sync execution, blocks until result available inline.',
       },
     },
     required: ['task'],
@@ -54,10 +60,36 @@ export const shadowTool: Tool = {
     const task = String(args.task ?? '');
     if (!task) return { success: false, content: 'shadow: task is required', error: 'missing_task' };
 
+    const timeoutMs = typeof args.timeoutMs === 'number' ? args.timeoutMs : 300_000;
+    const maxSteps = typeof args.maxSteps === 'number' ? args.maxSteps : (ctx.subagentMaxSteps ?? ctx.maxSteps);
+    const asyncMode = args.async === undefined ? true : Boolean(args.async);
+
+    if (asyncMode) {
+      const taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
+        kind: 'subagent',
+        intent: task,
+        timeoutMs,
+        maxSteps,
+        parentClawId: ctx.clawId,
+        originClawId: ctx.originClawId ?? ctx.clawId,
+        callerType: 'subagent',
+        isShadow: true,
+        shadowMessages: ctx.dialogMessages,
+        shadowSystemPrompt: ctx.systemPromptForLLM,
+        shadowToolsForLLM: ctx.toolsForLLM,
+      });
+      return {
+        success: true,
+        content: `Shadow queued. Task ID: ${taskId}. Result will be delivered to inbox when complete.`,
+        metadata: { taskId, async: true },
+      };
+    }
+
+    // sync 路径不变
     return runShadow({
       task,
-      timeoutMs: typeof args.timeoutMs === 'number' ? args.timeoutMs : undefined,
-      maxSteps: typeof args.maxSteps === 'number' ? args.maxSteps : undefined,
+      timeoutMs,
+      maxSteps,
       ctx,
     });
   },

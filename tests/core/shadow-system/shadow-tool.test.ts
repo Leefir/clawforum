@@ -164,7 +164,7 @@ describe('shadow tool (phase 767)', () => {
         currentToolUseId: 'tu-1',
       });
 
-      const result = await shadowTool.execute({ task: 'test' }, ctxNoState);
+      const result = await shadowTool.execute({ task: 'test', async: false }, ctxNoState);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('no_main_context');
@@ -190,7 +190,7 @@ describe('shadow tool (phase 767)', () => {
         toolsForLLM: [],
       });
 
-      const result = await shadowTool.execute({ task: 'test' }, ctxNoToolUseId);
+      const result = await shadowTool.execute({ task: 'test', async: false }, ctxNoToolUseId);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('no_main_context');
@@ -201,7 +201,7 @@ describe('shadow tool (phase 767)', () => {
     it('calls runSubagent with messages from synthesizeFormB', async () => {
       mockRunSubagent.mockResolvedValue({ text: 'shadow result' });
 
-      const result = await shadowTool.execute({ task: 'test task' }, baseCtx);
+      const result = await shadowTool.execute({ task: 'test task', async: false }, baseCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('shadow result');
@@ -220,7 +220,7 @@ describe('shadow tool (phase 767)', () => {
     it('returns done capturedResult when available', async () => {
       mockRunSubagent.mockResolvedValue({ text: 'fallback', capturedResult: { result: 'structured result' } });
 
-      const result = await shadowTool.execute({ task: 'test' }, baseCtx);
+      const result = await shadowTool.execute({ task: 'test', async: false }, baseCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('structured result');
@@ -232,7 +232,7 @@ describe('shadow tool (phase 767)', () => {
     it('returns tool_result with error metadata on runSubagent failure', async () => {
       mockRunSubagent.mockRejectedValue(new Error('subagent crashed'));
 
-      const result = await shadowTool.execute({ task: 'fail test' }, baseCtx);
+      const result = await shadowTool.execute({ task: 'fail test', async: false }, baseCtx);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('unknown');
@@ -249,7 +249,7 @@ describe('shadow tool (phase 767)', () => {
       const { ToolTimeoutError } = await import('../../../src/types/errors.js');
       mockRunSubagent.mockRejectedValue(new ToolTimeoutError('read', 5000));
 
-      const result = await shadowTool.execute({ task: 'timeout test' }, baseCtx);
+      const result = await shadowTool.execute({ task: 'timeout test', async: false }, baseCtx);
 
       expect(result.error).toBe('timeout');
     });
@@ -324,7 +324,7 @@ describe('shadow tool (phase 767)', () => {
     it('passes callerType=shadow to runSubagent so executorProfile derives to full', async () => {
       mockRunSubagent.mockResolvedValue({ text: 'shadow ok' });
 
-      await shadowTool.execute({ task: 'profile alignment' }, baseCtx);
+      await shadowTool.execute({ task: 'profile alignment', async: false }, baseCtx);
 
       const callArgs = mockRunSubagent.mock.calls[0][0];
       expect(callArgs.callerType).toBe('shadow');
@@ -342,7 +342,7 @@ describe('shadow tool (phase 767)', () => {
       mockRunSubagent.mockResolvedValue({ text: 'fresh shadow text result' });
 
       // 3. run shadow; internal shadowRegistry should have fresh done, not read main stale
-      const result = await shadowTool.execute({ task: 'isolation test' }, baseCtx);
+      const result = await shadowTool.execute({ task: 'isolation test', async: false }, baseCtx);
 
       // 4. assert text fallback, not stale result
       expect(result.success).toBe(true);

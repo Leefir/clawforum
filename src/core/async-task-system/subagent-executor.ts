@@ -78,7 +78,8 @@ export async function executeSubAgentTask(
     // LLM is guaranteed by constructor (readonly non-null field)
 
     // Build per-task registry filtered by caller profile + motionClawDir 重建
-    const subagentProfile = callerTypeToProfile(task.callerType ?? 'subagent');
+    const isShadow = task.isShadow === true;
+    const subagentProfile = isShadow ? 'full' : callerTypeToProfile(task.callerType ?? 'subagent');
     const effectiveRegistry = (() => {
       const r = createToolRegistry();
       for (const t of registry.getForProfile(subagentProfile)) {
@@ -102,7 +103,9 @@ export async function executeSubAgentTask(
       return r;
     })();
 
-    const toolsForLLM = registry.formatForLLM(effectiveRegistry.getAll());
+    const toolsForLLM = isShadow && task.shadowToolsForLLM
+      ? task.shadowToolsForLLM
+      : registry.formatForLLM(effectiveRegistry.getAll());
 
     const promptPrefix = buildSubagentSystemPromptPrefix({
       taskId: task.id,
@@ -120,7 +123,7 @@ export async function executeSubAgentTask(
       llm,
       registry: effectiveRegistry,
       prompt: task.intent,
-      systemPrompt: finalSystemPrompt,
+      systemPrompt: task.shadowSystemPrompt ?? finalSystemPrompt,
       resultDir: taskResultDir,
       maxSteps: task.maxSteps,
       signal,
@@ -131,6 +134,9 @@ export async function executeSubAgentTask(
       originClawId: task.originClawId,
       toolTimeoutMs: deps.toolTimeoutMs,
       permissionChecker: deps.permissionChecker,
+      messages: task.shadowMessages,
+      isShadow,
+      resultTool: isShadow ? DONE_TOOL_NAME : undefined,
     });
 
     // Phase438: 单 postProcessor lookup + execute（替代 pipeline）

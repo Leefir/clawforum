@@ -17,7 +17,7 @@ import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 
 import type { ToolResult, Tool } from '../../foundation/tool-protocol/index.js';
-import type { Message } from '../../types/message.js';
+import type { Message, ToolDefinition } from '../../types/message.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { InboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractSystem } from '../contract/index.js';
@@ -86,6 +86,11 @@ export interface SubAgentTask {
   postProcessor?: string;            // 声明式 post-processor 名称（registry lookup）
   mainContextSnapshot?: { clawId: string; toolUseId: string };  // NEW marker mode
   systemPrompt?: string;                 // phase 546 internal field：caller-side specialized system prompt（agent 不可见 / 与 phase 470 砍 agent-facing spawn schema 不冲突 / fall-back DEFAULT_SUBAGENT_SYSTEM_PROMPT）
+  // phase 1087：shadow async 上下文快照字段
+  isShadow?: boolean;
+  shadowMessages?: Message[];
+  shadowSystemPrompt?: string;
+  shadowToolsForLLM?: ToolDefinition[];
 }
 
 export interface ToolTask {

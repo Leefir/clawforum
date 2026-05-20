@@ -108,7 +108,7 @@ describe('shadow integration (phase 784, real SubAgent path)', () => {
     ]);
     const baseCtx = makeBaseCtx(mockLLM);
 
-    const result = await shadowTool.execute({ task: 'Test done capture' }, baseCtx);
+    const result = await shadowTool.execute({ task: 'Test done capture', async: false }, baseCtx);
 
     expect(result.success).toBe(true);
     expect(result.content).toBe('Task X completed');
@@ -124,7 +124,7 @@ describe('shadow integration (phase 784, real SubAgent path)', () => {
     ]);
     const baseCtx = makeBaseCtx(mockLLM);
 
-    const result = await shadowTool.execute({ task: 'Test text fallback' }, baseCtx);
+    const result = await shadowTool.execute({ task: 'Test text fallback', async: false }, baseCtx);
 
     expect(result.success).toBe(true);
     expect(result.content).toBe('Done without submit_subtask tool');

@@ -117,7 +117,7 @@ describe('shadow signal propagation (phase 874)', () => {
     mockRunSubagent.mockResolvedValue({ text: 'ok' });
 
     const ctxWithSignal = makeBaseCtx(outerController.signal);
-    const result = await shadowTool.execute({ task: 'test signal' }, ctxWithSignal);
+    const result = await shadowTool.execute({ task: 'test signal', async: false }, ctxWithSignal);
 
     expect(result.success).toBe(true);
     expect(mockRunSubagent).toHaveBeenCalledOnce();
@@ -132,7 +132,7 @@ describe('shadow signal propagation (phase 874)', () => {
     mockRunSubagent.mockRejectedValue(new Error('aborted'));
 
     const ctxPreAborted = makeBaseCtx(outerController.signal);
-    const result = await shadowTool.execute({ task: 'pre-aborted' }, ctxPreAborted);
+    const result = await shadowTool.execute({ task: 'pre-aborted', async: false }, ctxPreAborted);
 
     expect(result.success).toBe(false);
     expect(mockRunSubagent).toHaveBeenCalledOnce();
