@@ -11,7 +11,7 @@ export function formatErr(err: unknown): string {
 }
 
 export function safeNumber(v: unknown, defaultVal?: number): number | undefined {
-  const n = typeof v === 'number' ? v : Number(v);
-  if (typeof n !== 'number' || !Number.isFinite(n)) return defaultVal;
+  const n = typeof v === 'number' ? v : Number(String(v));
+  if (Number.isNaN(n) || !Number.isFinite(n)) return defaultVal;
   return n;
 }

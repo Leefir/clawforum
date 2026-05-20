@@ -492,93 +492,98 @@ export class Runtime {
       origOnToolResult?.(name, toolUseId, result, step, maxSteps);
     };
 
-    await runReact({
-        messages: messages,
-        systemPrompt,
-        llm: this.llm,
-        executor: this.toolExecutor,
-        ctx: this.execContext,
-        tools,
-        registry: this.toolRegistry,  // Enable parallel execution for readonly tools
-        maxSteps: this.options.maxSteps,
-        maxConsecutiveParseErrors: this.options.maxConsecutiveParseErrors,
-        maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
-        idleTimeoutMs: this.options.idleTimeoutMs,
-        onLLMResult: (info) => {
-          if (info.error) {
-            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `latency_ms=${info.latencyMs}`);
-          } else {
-            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_CALL, info.model, `in=${info.inputTokens}`, `out=${info.outputTokens}`, `latency_ms=${info.latencyMs}`);
-          }
-        },
-        onStepComplete: async () => {
-          await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
-          // 步间检查：高优先级消息到达时提前结束本轮
-          if (await this._hasHighPriorityInbox()) {
-            this.currentAbortController?.abort({ type: 'step_yield' });
-          }
-        },
-        onTextDelta: (d) => { emitProviderInfoOnce(); callbacks?.onTextDelta?.(d); },
-        onTextEnd: callbacks?.onTextEnd,
-        onThinkingDelta: (d) => { emitProviderInfoOnce(); callbacks?.onThinkingDelta?.(d); },
-        onToolCall: (n, id) => { callbacks?.onToolCall?.(n, id); },
-        onToolResult: auditOnToolResult,
-        onBeforeLLMCall: () => { callbacks?.onBeforeLLMCall?.(); },
-        onReset: (provider, timeoutMs) => {
-          providerInfoEmitted = false;
-          callbacks?.onProviderFailover?.({ from: provider, timeoutMs });
-        },
-        onProviderFailed: (provider, model, error) => {
-          callbacks?.onProviderFailed?.({ provider, model, error });
-        },
-        onEmptyResponse: (stopReason) => {
-          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_EMPTY_RESPONSE, `stop_reason=${stopReason}`);
-        },
-        onUnknownStopReason: (stopReason) => {
-          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNKNOWN_STOP_REASON, `stop_reason=${stopReason}`);
-        },
-        onUnparseableToolUse: (stopReason) => {
-          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNPARSEABLE_TOOL_USE, `stop_reason=${stopReason}`);
-        },
-        onToolInputParseError: (toolName, toolUseId, rawInput) =>
-          this.auditWriter.write(
-            RUNTIME_AUDIT_EVENTS.TOOL_INPUT_PARSE_FAILED,
-            toolName,
-            toolUseId,
-            `reason=parse_error`,
-            `summary=${escapeForLog(rawInput)}`,
-          ),
-        onToolExecutionFailed: (toolName, toolUseId, errorType, errorMsg) =>
-          this.auditWriter.write(
-            RUNTIME_AUDIT_EVENTS.TOOL_EXECUTION_FAILED,
-            toolName,
-            toolUseId,
-            `errorType=${errorType}`,
-            `errorMsg=${escapeForLog(errorMsg)}`,
-          ),
-        onSafeCallbackError: (label, err) => {
-          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.STEP_EXECUTOR_CALLBACK_FAILED, label, `error=${formatErr(err)}`);
-        },
+    try {
+      await runReact({
+          messages: messages,
+          systemPrompt,
+          llm: this.llm,
+          executor: this.toolExecutor,
+          ctx: this.execContext,
+          tools,
+          registry: this.toolRegistry,  // Enable parallel execution for readonly tools
+          maxSteps: this.options.maxSteps,
+          maxConsecutiveParseErrors: this.options.maxConsecutiveParseErrors,
+          maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
+          idleTimeoutMs: this.options.idleTimeoutMs,
+          onLLMResult: (info) => {
+            if (info.error) {
+              this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `latency_ms=${info.latencyMs}`);
+            } else {
+              this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_CALL, info.model, `in=${info.inputTokens}`, `out=${info.outputTokens}`, `latency_ms=${info.latencyMs}`);
+            }
+          },
+          onStepComplete: async () => {
+            await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
+            // 步间检查：高优先级消息到达时提前结束本轮
+            if (await this._hasHighPriorityInbox()) {
+              this.currentAbortController?.abort({ type: 'step_yield' });
+            }
+          },
+          onTextDelta: (d) => { emitProviderInfoOnce(); callbacks?.onTextDelta?.(d); },
+          onTextEnd: callbacks?.onTextEnd,
+          onThinkingDelta: (d) => { emitProviderInfoOnce(); callbacks?.onThinkingDelta?.(d); },
+          onToolCall: (n, id) => { callbacks?.onToolCall?.(n, id); },
+          onToolResult: auditOnToolResult,
+          onBeforeLLMCall: () => { callbacks?.onBeforeLLMCall?.(); },
+          onReset: (provider, timeoutMs) => {
+            providerInfoEmitted = false;
+            callbacks?.onProviderFailover?.({ from: provider, timeoutMs });
+          },
+          onProviderFailed: (provider, model, error) => {
+            callbacks?.onProviderFailed?.({ provider, model, error });
+          },
+          onEmptyResponse: (stopReason) => {
+            this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_EMPTY_RESPONSE, `stop_reason=${stopReason}`);
+          },
+          onUnknownStopReason: (stopReason) => {
+            this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNKNOWN_STOP_REASON, `stop_reason=${stopReason}`);
+          },
+          onUnparseableToolUse: (stopReason) => {
+            this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNPARSEABLE_TOOL_USE, `stop_reason=${stopReason}`);
+          },
+          onToolInputParseError: (toolName, toolUseId, rawInput) =>
+            this.auditWriter.write(
+              RUNTIME_AUDIT_EVENTS.TOOL_INPUT_PARSE_FAILED,
+              toolName,
+              toolUseId,
+              `reason=parse_error`,
+              `summary=${escapeForLog(rawInput)}`,
+            ),
+          onToolExecutionFailed: (toolName, toolUseId, errorType, errorMsg) =>
+            this.auditWriter.write(
+              RUNTIME_AUDIT_EVENTS.TOOL_EXECUTION_FAILED,
+              toolName,
+              toolUseId,
+              `errorType=${errorType}`,
+              `errorMsg=${escapeForLog(errorMsg)}`,
+            ),
+          onSafeCallbackError: (label, err) => {
+            this.auditWriter.write(RUNTIME_AUDIT_EVENTS.STEP_EXECUTOR_CALLBACK_FAILED, label, `error=${formatErr(err)}`);
+          },
+        });
+      await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
+
+      // turn auto-commit
+      this.turnCount++;
+      const commitResult = await this.snapshot.commit(`turn-${this.turnCount} ${new Date().toISOString()}`).catch((err: unknown): null => {
+        // 不可预期失败：audit 已在 snapshot 内写；此处仅暴露给诊断
+        auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, err, `context=turn-${this.turnCount}`);
+        return null;
       });
-    await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools });
-
-    // turn auto-commit
-    this.turnCount++;
-    const commitResult = await this.snapshot.commit(`turn-${this.turnCount} ${new Date().toISOString()}`).catch((err: unknown): null => {
-      // 不可预期失败：audit 已在 snapshot 内写；此处仅暴露给诊断
-      auditError(this.auditWriter, RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, err, `context=turn-${this.turnCount}`);
-      return null;
-    });
-    if (commitResult && !commitResult.ok) {
-      if (commitResult.error.kind === 'uncategorized') {
-        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_UNCATEGORIZED, `context=turn-${this.turnCount}`, `exitCode=${commitResult.error.exitCode}`);
-      } else {
-        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=turn-${this.turnCount}`, `kind=${commitResult.error.kind}`);
+      if (commitResult && !commitResult.ok) {
+        if (commitResult.error.kind === 'uncategorized') {
+          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_UNCATEGORIZED, `context=turn-${this.turnCount}`, `exitCode=${commitResult.error.exitCode}`);
+        } else {
+          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=turn-${this.turnCount}`, `kind=${commitResult.error.kind}`);
+        }
       }
-    }
 
-    // phase 521: turn 末 regime change 检测（per L5.G3 (a) 自动检测）
-    await this._checkRegimeSwitch(systemPrompt, identityContent);
+      // phase 521: turn 末 regime change 检测（per L5.G3 (a) 自动检测）
+      await this._checkRegimeSwitch(systemPrompt, identityContent);
+    } finally {
+      this.execContext.dialogMessages = undefined;
+      this.execContext.systemPromptForLLM = undefined;
+    }
   }
 
   /**

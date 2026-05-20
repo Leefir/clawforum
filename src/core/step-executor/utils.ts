@@ -7,6 +7,11 @@ import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock } from '../..
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { StepCallbacks } from './types.js';
 
+/**
+ * Execute a callback safely, swallowing errors to protect the executor loop.
+ * Errors are logged and optionally forwarded via onSafeCallbackError for audit.
+ * This resilience is intentional: callback failures must not break agent execution.
+ */
 export function safeCallback(
   label: string,
   fn: () => void,

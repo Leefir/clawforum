@@ -15,6 +15,7 @@ import { runSubagent } from '../subagent/index.js';
 import { AUDIT_PREVIEW_LEN } from '../../foundation/audit/index.js';
 import { SHADOW_AUDIT_EVENTS } from './audit-events.js';
 import { synthesizeFormB, formatErr } from './_helpers.js';
+import { ToolTimeoutError, LLMTimeoutError } from '../../types/errors.js';
 import type { BuildShadowInstructionArgs } from '../../prompts/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { createDoneTool, DONE_TOOL_NAME } from '../subagent/index.js';
@@ -128,7 +129,7 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
       timeoutMs: opts.timeoutMs ?? 300_000,
       resultTool: 'done',
       isShadow: true,
-      signal: opts.ctx.signal,
+      signal: new AbortController().signal,
       permissionChecker: opts.ctx.permissionChecker,
     });
 
@@ -152,9 +153,7 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
 }
 
 function classifyError(err: unknown): string {
-  if (err instanceof Error) {
-    if (err.name === 'ToolTimeoutError') return 'timeout';
-    if (err.name === 'LLMTimeoutError') return 'llm_idle_timeout';
-  }
+  if (err instanceof ToolTimeoutError) return 'timeout';
+  if (err instanceof LLMTimeoutError) return 'llm_idle_timeout';
   return 'unknown';
 }

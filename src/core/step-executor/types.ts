@@ -57,6 +57,6 @@ export interface StepMeta {
 }
 
 export type StepResult =
-  | { kind: 'final'; stopReason: 'end_turn' | 'max_tokens_text' | 'no_tool' | 'unknown'; finalText: string }
+  | { kind: 'final'; stopReason: 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown'; finalText: string }
   | { kind: 'continue'; meta: StepMeta }
   | { kind: 'max_tokens_tool_use'; meta: StepMeta };

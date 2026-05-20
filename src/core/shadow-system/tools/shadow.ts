@@ -26,10 +26,12 @@ export const shadowTool: Tool = {
       timeoutMs: {
         type: 'number',
         description: 'Timeout in milliseconds (default: 300000).',
+        minimum: 1,
       },
       maxSteps: {
         type: 'number',
         description: 'Maximum ReAct steps (default: subagent max_steps).',
+        minimum: 1,
       },
     },
     required: ['task'],

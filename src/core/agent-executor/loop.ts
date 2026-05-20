@@ -117,10 +117,10 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 }
 
 function mapStopReason(
-  r: 'end_turn' | 'max_tokens_text' | 'no_tool' | 'unknown'
+  r: 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown'
 ): 'end_turn' | 'no_tool' | 'max_tokens' | 'unknown' {
   if (r === 'max_tokens_text') return 'max_tokens';
   if (r === 'no_tool') return 'no_tool';
-  if (r === 'unknown') return 'unknown';   // phase 788: propagate refusal/safety/etc 不折叠 end_turn
-  return 'end_turn';  // 默 'end_turn'（仅 true end_turn 到达）
+  if (r === 'unknown' || r === 'content_filter') return 'unknown';   // phase 788: propagate refusal/safety/etc 不折叠 end_turn
+  return 'end_turn';  // 'end_turn' 与 'stop' 均映射为 'end_turn'（向后兼容 shim）
 }
