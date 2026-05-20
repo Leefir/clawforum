@@ -4,12 +4,25 @@
  */
 
 import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-protocol/index.js';
+import type { Message } from '../../../types/message.js';
 import { SHADOW_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 import { runShadow } from '../system.js';
 import { SHADOW_AUDIT_EVENTS } from '../audit-events.js';
 import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
 
 export { SHADOW_TOOL_NAME };
+
+/** Strip trailing incomplete assistant message so shadow LLM doesn't see unpaired tool_uses */
+function stripIncompleteToolUse(msgs: Message[] | undefined): Message[] | undefined {
+  if (!msgs || msgs.length === 0) return msgs;
+  const last = msgs[msgs.length - 1];
+  if (last.role === 'assistant' && Array.isArray(last.content)) {
+    if (last.content.some((block: unknown) => (block as { type?: string })?.type === 'tool_use')) {
+      return msgs.slice(0, -1);
+    }
+  }
+  return msgs;
+}
 
 export const shadowTool: Tool = {
   name: SHADOW_TOOL_NAME,
@@ -74,7 +87,7 @@ export const shadowTool: Tool = {
         originClawId: ctx.originClawId ?? ctx.clawId,
         callerType: 'shadow',
         isShadow: true,
-        shadowMessages: ctx.dialogMessages,
+        shadowMessages: stripIncompleteToolUse(ctx.dialogMessages),
         shadowSystemPrompt: ctx.systemPromptForLLM,
         shadowToolsForLLM: ctx.toolsForLLM,
       });
