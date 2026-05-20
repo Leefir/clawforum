@@ -3,12 +3,14 @@
  * shadow 工具入口，async/sync 双路径
  */
 
+import { randomUUID } from 'crypto';
 import type { Tool, ToolResult, ExecContext } from '../../../foundation/tool-protocol/index.js';
 import type { Message } from '../../../types/message.js';
 import { SHADOW_TOOL_NAME } from '../../../foundation/tools/tool-names.js';
 import { runShadow } from '../system.js';
 import { SHADOW_AUDIT_EVENTS } from '../audit-events.js';
 import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
+import { synthesizeFormB } from '../_helpers.js';
 
 export { SHADOW_TOOL_NAME };
 
@@ -82,6 +84,17 @@ export const shadowTool: Tool = {
     const mainMessages = stripIncompleteToolUse(ctx.dialogMessages);
 
     if (asyncMode) {
+      // 合成 shadow instruction（sync 路径在 runShadow 内做，async 在此做）
+      const shadowId = `shadow-${randomUUID().slice(0, 8)}`;
+      const instructionArgs = {
+        shadowId,
+        spawnedAt: new Date().toISOString(),
+        spawnedByClawId: ctx.clawId,
+        toolUseId: ctx.currentToolUseId ?? '',
+        task,
+      };
+      const synthesized = synthesizeFormB({ mainMessagesBeforeMarker: mainMessages ?? [], instructionArgs });
+
       const taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
         kind: 'subagent',
         intent: task,
@@ -91,7 +104,7 @@ export const shadowTool: Tool = {
         originClawId: ctx.originClawId ?? ctx.clawId,
         callerType: 'shadow',
         isShadow: true,
-        shadowMessages: mainMessages,
+        shadowMessages: synthesized,
         shadowSystemPrompt: ctx.systemPromptForLLM,
         shadowToolsForLLM: ctx.toolsForLLM,
       });
