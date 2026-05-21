@@ -39,7 +39,12 @@ describe('phase 556: race + dead-letter cluster fix', () => {
     let mockFs: FileSystem;
     let auditEvents: Array<[string, ...(string | number)[]]>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
+      vi.restoreAllMocks();
+
+      const { sendFallbackError } = await import('../../../src/core/async-task-system/result-delivery.js');
+      vi.mocked(sendFallbackError).mockRejectedValue(new Error('fallback failed'));
+
       mockFs = {
         ensureDir: vi.fn().mockResolvedValue(undefined),
         list: vi.fn().mockResolvedValue([]),
@@ -131,6 +136,11 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
   // ─── C2: dead-letter cluster ───────────────────────────────────────────────
   describe('C2: dead-letter cluster', () => {
+    beforeEach(async () => {
+      const { sendFallbackError } = await import('../../../src/core/async-task-system/result-delivery.js');
+      vi.mocked(sendFallbackError).mockRejectedValue(new Error('fallback failed'));
+    });
+
     const taskJson = JSON.stringify({
       kind: 'subagent',
       id: 'task-dead',
@@ -244,7 +254,12 @@ describe('phase 556: race + dead-letter cluster fix', () => {
     let mockFs: FileSystem;
     let auditEvents: Array<[string, ...(string | number)[]]>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
+      vi.restoreAllMocks();
+
+      const { sendFallbackError } = await import('../../../src/core/async-task-system/result-delivery.js');
+      vi.mocked(sendFallbackError).mockRejectedValue(new Error('fallback failed'));
+
       mockFs = {
         ensureDir: vi.fn().mockResolvedValue(undefined),
         list: vi.fn().mockResolvedValue([]),
@@ -373,6 +388,11 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
   // ─── P1.8: retryCount<MAX retry pending (phase 612) ──────────────────────────
   describe('P1.8 retryCount<MAX retry pending (phase 612)', () => {
+    beforeEach(async () => {
+      const { sendFallbackError } = await import('../../../src/core/async-task-system/result-delivery.js');
+      vi.mocked(sendFallbackError).mockRejectedValue(new Error('fallback failed'));
+    });
+
     const taskJson = JSON.stringify({
       kind: 'subagent',
       id: 'task-retry',

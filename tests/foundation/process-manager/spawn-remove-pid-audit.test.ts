@@ -49,6 +49,19 @@ describe('spawn — removePid silent → audit (P1.1)', () => {
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
+
+    const { spawnDetached, isAlive } = await import('../../../src/foundation/process-exec/index.js');
+    vi.mocked(spawnDetached).mockReturnValue({ pid: FAKE_LIVE_PID } as any);
+    vi.mocked(isAlive).mockReturnValue(true);
+
+    const { removePid } = await import('../../../src/foundation/process-manager/pid.js');
+    vi.mocked(removePid).mockImplementation(async () => {
+      const err = new Error('EACCES') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    });
+
     tempDir = path.join(tmpdir(), `spawn-audit-${randomUUID()}`);
     await fs.mkdir(tempDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: tempDir });

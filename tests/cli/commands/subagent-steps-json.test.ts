@@ -32,13 +32,32 @@ vi.mock('../../../src/cli/commands/_message-renderer.js', () => ({
 describe('subagent steps --json', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.restoreAllMocks();
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { resolveClawDir } = await import('../../../src/cli/commands/subagent-helpers.js');
+    vi.mocked(resolveClawDir).mockReturnValue('/tmp/claws/test-claw');
+
+    const { loadSessionFromFile, parseMessagesFromSession, renderSteps, renderStepFull } = await import('../../../src/cli/commands/_message-renderer.js');
+    vi.mocked(loadSessionFromFile).mockReturnValue({ messages: [] });
+    vi.mocked(parseMessagesFromSession).mockReturnValue([
+      {
+        num: 1,
+        texts: ['hello'],
+        thinkings: [],
+        toolUses: [{ type: 'tool_use', id: 'tu1', name: 'Read', input: { file_path: '/tmp/a' } }],
+        toolResults: new Map([['tu1', { type: 'tool_result', tool_use_id: 'tu1', content: 'ok', is_error: false }]]),
+      },
+    ]);
+    vi.mocked(renderSteps).mockReturnValue('TURN  CALL  RESULT\n1  (text) "hello"');
+    vi.mocked(renderStepFull).mockReturnValue('turn 1\n\ncall: Read\n\nfile_path: "/tmp/a"\n\nresult\n\nok\n');
+
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    consoleLogSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('outputs JSON for steps command', async () => {
