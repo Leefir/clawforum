@@ -7,18 +7,20 @@
  * type-only / 无 runtime / 无 audit events
  */
 
-import type { JSONSchema7 } from '../../types/message.js';
-import type { ToolProfile } from '../../types/config.js';
+import type { JSONSchema7 } from '../llm-provider/types.js';
 import type { CallerType } from './caller-type.js';
 
-export type { JSONSchema7, ToolProfile, CallerType };
+export type ToolProfile = string;
+export type { JSONSchema7, CallerType };
 export { callerTypeToProfile } from './caller-type.js';
 
+import type { Tool, ExecContext, ToolRegistry } from '../tools/types.js';
+
 // ── 过渡期重导出桥 ─────────────────────────────────────────────────
-// Tool 和 ExecContext 物理归属已移至 L2c Tools (tools/types.ts)。
+// Tool、ExecContext、ToolRegistry 物理归属已移至 L2c Tools (tools/types.ts)。
 // 以下重导出保持向后兼容，阶段二完成后移除。
 // 方向 L2b→L2c 违反 M#5，仅作临时过渡。
-export type { Tool, ExecContext } from '../tools/types.js';
+export type { Tool, ExecContext, ToolRegistry };
 
 /**
  * Tool descriptor — pure LLM-facing protocol skeleton.
@@ -36,26 +38,8 @@ export interface ToolDescriptor {
   schema: JSONSchema7;
 }
 
-/**
- * Tool registry interface — canonical definition in tool-protocol (L2b).
- *
- * Previously defined in tools/types.ts (L2c), causing a bidirectional
- * dependency: tools ↔ tool-protocol. Moved here per M#5 (单向依赖).
- * tools/ToolRegistryImpl implements this interface.
- */
-export interface ToolRegistry {
-  register(tool: Tool): void;
-  unregister(name: string): void;
-  get(name: string): Tool | undefined;
-  has(name: string): boolean;
-  getAll(): Tool[];
-  getForProfile(profile: ToolProfile): Tool[];
-  formatForLLM(tools: Tool[]): Array<{
-    name: string;
-    description: string;
-    input_schema: JSONSchema7;
-  }>;
-}
+// ToolRegistry — canonical definition in tools/types.ts (L2c).
+// Re-exported here for backward compat; remove post phase 2F.
 
 /**
  * Tool execution result

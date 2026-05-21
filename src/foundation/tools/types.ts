@@ -8,11 +8,11 @@ import type { ToolProfile } from '../tool-protocol/index.js';
 import type { FileSystem } from '../fs/types.js';
 import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { AuditLog } from '../audit/index.js';
-import type { ToolDescriptor, ToolResult, ToolRegistry } from '../tool-protocol/index.js';
+import type { ToolDescriptor, ToolResult } from '../tool-protocol/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
-import type { Message, ToolDefinition } from '../../types/message.js';
+import type { Message, ToolDefinition } from '../llm-provider/types.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
-import type { PermissionChecker } from '../../types/permission.js';
+import type { PermissionChecker } from '../tool-protocol/permission.js';
 
 /**
  * Escape multi-line content for audit TSV log (used by ToolExecutorImpl).
@@ -102,8 +102,23 @@ export interface Tool extends ToolDescriptor {
   execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult>;
 }
 
-// ToolRegistry — canonical definition now in tool-protocol/index.ts (L2b)
-// Re-imported at top of this file. See § above for Tool & ExecContext definitions.
+/**
+ * Tool registry interface.
+ * Owned by L2c Tools — defined here alongside Tool for clean dependency direction.
+ */
+export interface ToolRegistry {
+  register(tool: Tool): void;
+  unregister(name: string): void;
+  get(name: string): Tool | undefined;
+  has(name: string): boolean;
+  getAll(): Tool[];
+  getForProfile(profile: ToolProfile): Tool[];
+  formatForLLM(tools: Tool[]): Array<{
+    name: string;
+    description: string;
+    input_schema: JSONSchema7;
+  }>;
+}
 
 /**
  * Tool execution options
