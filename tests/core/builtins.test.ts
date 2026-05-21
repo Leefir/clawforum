@@ -443,8 +443,8 @@ describe('Builtin Tools', () => {
 
     // Phase 2 质量审查补充：分页测试
     it('should show pagination indicator when more than 100 files', async () => {
-      // Create 120 files
-      for (let i = 0; i < 120; i++) {
+      // Create 101 files
+      for (let i = 0; i < 101; i++) {
         await mockFs.writeAtomic(`clawspace/file${i}.txt`, '');
       }
 
@@ -453,12 +453,12 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(true);
       // Should show pagination indicator
       expect(result.content).toContain('entries total');
-      expect(result.content).toContain('120');
+      expect(result.content).toContain('101');
     });
 
     it('should limit output to 100 entries', async () => {
-      // Create 120 files
-      for (let i = 0; i < 120; i++) {
+      // Create 101 files
+      for (let i = 0; i < 101; i++) {
         await mockFs.writeAtomic(`clawspace/file${i}.txt`, '');
       }
 
