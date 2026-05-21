@@ -40,6 +40,7 @@ export class DispatchTool implements Tool {
     private getSystemPrompt: () => Promise<string>,  // buildSystemPrompt() 是 async
     private getToolsForLLM: () => ToolDefinition[], // Motion 完整工具列表（KV cache 关键）
     private getToolsForProfile: (profile: string) => ToolDefinition[], // 按 profile 获取工具列表
+    private getCurrentMessages?: () => Message[] | undefined,  // current turn dialogMessages (L4 → factory injection)
   ) {}
 
   schema = {
@@ -113,7 +114,8 @@ export class DispatchTool implements Tool {
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     // 构造包含完整对话上下文的 messages 数组
-    const dialogMessages = ctx.dialogMessages ?? [];
+    // L4 turn state → getter injection; fallback to ctx for transitional compat
+    const dialogMessages = this.getCurrentMessages?.() ?? ctx.dialogMessages ?? [];
     if (dialogMessages.length === 0) {
       ctx.auditWriter?.write(DISPATCH_AUDIT_EVENTS.NO_DIALOG_CONTEXT);
     }

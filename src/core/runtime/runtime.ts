@@ -205,6 +205,7 @@ export class Runtime {
       (profile) => this.toolRegistry.formatForLLM(
         this.toolRegistry.getForProfile(profile as import('../../foundation/tool-protocol/index.js').ToolProfile),
       ),
+      () => this.getCurrentMessages(),  // L4 turn state → factory injection
     );
     this.toolRegistry.register(dispatchTool);
 
