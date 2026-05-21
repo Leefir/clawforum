@@ -17,7 +17,7 @@ import { MOTION_CLAW_ID } from '../../constants.js';
 import { CLAWSPACE_DIR } from '../paths.js';
 
 
-import type { Message, ToolDefinition } from '../llm-provider/types.js';
+import type { Message } from '../llm-provider/types.js';
 import type { AuditLog } from '../audit/index.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
 import type { ToolRegistry } from './types.js';
@@ -77,12 +77,12 @@ export interface ExecContextImplOptions {
   registry?: ToolRegistry;
   /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
   isShadow?: boolean;
+  /** Current main agent turn's systemPrompt (transitional compat) */
+  systemPromptForLLM?: string;
+  /** Current main agent turn's tools (transitional compat) */
+  toolsForLLM?: import('../llm-provider/types.js').ToolDefinition[];
   /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
   permissionChecker?: PermissionChecker;
-  /** Current main agent turn's systemPrompt (in-memory, set by runtime before runReact) — phase 769 */
-  systemPromptForLLM?: string;
-  /** Current main agent turn's tools array (in-memory, set by runtime before runReact) — phase 769 */
-  toolsForLLM?: ToolDefinition[];
   /** Tool-level wall-clock timeout, inherited from globalConfig.tool_timeout_ms / Assembly 装配期注入 (phase 1029 / F-2) */
   toolTimeoutMs?: number;
 }
@@ -149,7 +149,7 @@ export class ExecContextImpl implements ExecContext {
   registry?: ToolRegistry;
   isShadow?: boolean;
   systemPromptForLLM?: string;
-  toolsForLLM?: ToolDefinition[];
+  toolsForLLM?: import('../llm-provider/types.js').ToolDefinition[];
   permissionChecker?: PermissionChecker;
   toolTimeoutMs?: number;
   stopRequested: boolean = false;

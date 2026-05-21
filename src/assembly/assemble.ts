@@ -40,7 +40,7 @@ import { createClawPermissionChecker } from '../core/permissions/claw-permission
 import { CRON_TICK_INTERVAL_MS } from '../core/cron/constants.js';
 import { DEFAULT_DISK_WARNING_MB } from '../watchdog/constants.js';
 import { spawnTool } from '../core/spawn-system/index.js';
-import { shadowTool } from '../core/shadow-system/index.js';
+import { createShadowTool } from '../core/shadow-system/index.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { createInboxReader, createOutboxWriter, notifyInbox, InboxWriter } from '../foundation/messaging/index.js';
 import { createSubmitSubtaskTool } from '../core/contract/index.js';
@@ -219,7 +219,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       }
 
       toolRegistry.register(spawnTool);
-      toolRegistry.register(shadowTool);
+      // shadowTool 改为 post-runtime 注册（需要 Runtime.getTurnSnapshot）
 
       // phase378 后 exec 业务归 CommandTool L2 / 不再经 registerBuiltinTools / Assembly 显式注册
       const commandTools = createCommandTools();
@@ -513,6 +513,16 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=runtime`, `phase=construct`, `reason=${errMsg(e)}`);
       throw new Error(`Assembly: Runtime construct failed: ${errMsg(e)}`, { cause: e });
     }
+
+    // shadow tool — 依赖 Runtime.getTurnSnapshot（L4 turn state 快照）
+    // 必须在 runtime 创建后注册，不能提前（runtime 尚未存在）
+    toolRegistry.register(createShadowTool({
+      getTurnSnapshot: () => ({
+        systemPrompt: runtime.getCurrentSystemPrompt(),
+        tools: runtime.getCurrentTools(),
+        messages: runtime.getCurrentMessages(),
+      }),
+    }));
 
     // --- Gateway (motion only, offline mode) ---
     let gateway: Gateway | undefined;

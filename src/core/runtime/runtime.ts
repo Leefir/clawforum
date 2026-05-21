@@ -75,6 +75,19 @@ export class Runtime {
   private turnCount = 0;
   protected auditWriter!: AuditLog;
 
+  // Turn state — stored on Runtime (not ExecContext) so L4 modules can
+  // access current turn snapshot via getter callback without L2 knowing L4 semantics.
+  private _currentSystemPrompt?: string;
+  private _currentTools?: import('../../foundation/llm-provider/types.js').ToolDefinition[];
+  private _currentMessages?: import('../../foundation/llm-provider/types.js').Message[];
+
+  /** Current turn system prompt (set by _runReact, cleared after turn) */
+  getCurrentSystemPrompt(): string | undefined { return this._currentSystemPrompt; }
+  /** Current turn tool definitions (set by _runReact) */
+  getCurrentTools(): import('../../foundation/llm-provider/types.js').ToolDefinition[] | undefined { return this._currentTools; }
+  /** Current turn messages (set by _runReact, cleared after turn) */
+  getCurrentMessages(): import('../../foundation/llm-provider/types.js').Message[] | undefined { return this._currentMessages; }
+
   // Foundation
   /**
    * @protected allows subclasses such as MotionRuntime to read system files (SOUL.md, etc.)
@@ -457,13 +470,16 @@ export class Runtime {
     // phase 786: stopRequested 是 per-turn flag，每 turn 起首 reset
     // 防 P0.14 跨 turn sticky bug（done 工具误调后下 turn silent empty）
     this.execContext.stopRequested = false;
-    this.execContext.dialogMessages = messages;
+    this._currentMessages = messages;
+    this.execContext.dialogMessages = messages;  // transitional dual-write (remove after dispatch migration)
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
     const { systemPrompt, identityContent } = await this._resolveSystemPromptForRun();
-    // phase 769: inject systemPrompt + tools for shadow sync path to read in-memory main agent state
-    this.execContext.systemPromptForLLM = systemPrompt;
+    // phase 769: inject systemPrompt + tools for shadow sync path
+    this._currentSystemPrompt = systemPrompt;
+    this._currentTools = tools;
+    this.execContext.systemPromptForLLM = systemPrompt;    // transitional compat
     this.execContext.toolsForLLM = tools;
 
     // 首个 LLM 输出 delta 时上报当前生效的 provider（确认 API 可用后才显示）
@@ -581,8 +597,10 @@ export class Runtime {
       // phase 521: turn 末 regime change 检测（per L5.G3 (a) 自动检测）
       await this._checkRegimeSwitch(systemPrompt, identityContent);
     } finally {
-      this.execContext.dialogMessages = undefined;
-      this.execContext.systemPromptForLLM = undefined;
+      this._currentMessages = undefined;
+      this._currentSystemPrompt = undefined;
+      this.execContext.dialogMessages = undefined;              // transitional compat
+      this.execContext.systemPromptForLLM = undefined;         // transitional compat
     }
   }
 

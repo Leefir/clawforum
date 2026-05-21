@@ -26,6 +26,12 @@ export interface RunShadowOptions {
   ctx: ExecContext;
   /** Pre-stripped main agent messages (shadow.ts already removed incomplete tool_use) */
   mainMessages?: Message[];
+  /** L4 turn state snapshot — injected by shadow tool factory (not from ctx) */
+  turnSnapshot?: {
+    systemPrompt?: string;
+    tools?: import('../../foundation/llm-provider/types.js').ToolDefinition[];
+    messages?: Message[];
+  };
 }
 
 function findLastAssistantWithToolUse(messages: Message[], toolUseId: string): number {
@@ -47,21 +53,22 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
 
   opts.ctx.auditWriter?.write(SHADOW_AUDIT_EVENTS.STARTED, shadowId, opts.task.slice(0, AUDIT_PREVIEW_LEN));
 
+  const ts = opts.turnSnapshot;
   // 取 main session in-memory 状态（phase 769：改读 ctx，不读 DialogStore 磁盘，避 sync 时序 bug）
   if (
     !opts.ctx.clawId ||
     !opts.ctx.currentToolUseId ||
-    opts.ctx.systemPromptForLLM === undefined ||
-    opts.ctx.toolsForLLM === undefined
+    ts?.systemPrompt === undefined ||
+    ts?.tools === undefined
   ) {
     return {
       success: false,
       content:
-        '[clawforum shadow] missing main agent in-memory state (clawId, currentToolUseId, systemPromptForLLM, or toolsForLLM)',
+        '[clawforum shadow] missing main agent in-memory state (clawId, currentToolUseId, systemPrompt, or tools)',
       error: 'no_main_context',
     };
   }
-  if (!opts.mainMessages && !opts.ctx.dialogMessages) {
+  if (!opts.mainMessages && !ts?.messages) {
     return {
       success: false,
       content: '[clawforum shadow] missing main agent in-memory state (dialogMessages)',
@@ -69,9 +76,9 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
     };
   }
 
-  const mainMessages = opts.mainMessages ?? opts.ctx.dialogMessages!;
-  const restoredSystemPrompt = opts.ctx.systemPromptForLLM;
-  const restoredTools = opts.ctx.toolsForLLM;
+  const mainMessages = opts.mainMessages ?? ts.messages!;
+  const restoredSystemPrompt = ts.systemPrompt;
+  const restoredTools = ts.tools;
 
   let synthesizedMessages: Message[];
 

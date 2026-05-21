@@ -10,7 +10,7 @@ import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { AuditLog } from '../audit/index.js';
 import type { ToolDescriptor, ToolResult } from '../tool-protocol/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
-import type { Message, ToolDefinition } from '../llm-provider/types.js';
+import type { Message } from '../llm-provider/types.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
 
@@ -75,10 +75,10 @@ export interface ExecContext {
   registry?: ToolRegistry;
   /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
   isShadow?: boolean;
-  /** Current main agent turn's systemPrompt (in-memory, set by runtime before runReact) — phase 769 */
+  /** Current main agent turn's systemPrompt (transitional compat / evicted: shadow gets via getTurnSnapshot) */
   systemPromptForLLM?: string;
-  /** Current main agent turn's tools array (in-memory, set by runtime before runReact) — phase 769 */
-  toolsForLLM?: ToolDefinition[];
+  /** Current main agent turn's tools (transitional compat / evicted: shadow gets via getTurnSnapshot) */
+  toolsForLLM?: import('../llm-provider/types.js').ToolDefinition[];
   /** phase 777: result-capture tools (done) set this to break the agent loop early */
   stopRequested: boolean;
   /** phase 777: mutator called by result-capture tools after storing capturedResult */
