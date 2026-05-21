@@ -97,6 +97,13 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
       // 2. 熔断判定（parse errors）
       if (result.meta.allParseErrors) {
         consecutiveParseErrors++;
+        // Strike 2: warn agent before termination at strike 3
+        if (consecutiveParseErrors === maxConsecutiveParseErrors - 1) {
+          messages.push({
+            role: 'user' as const,
+            content: `[system warning] 连续 ${consecutiveParseErrors} 次工具参数 JSON 解析失败。下一次将终止当前任务。请检查工具调用中的 JSON 格式是否正确。`,
+          });
+        }
         if (consecutiveParseErrors >= maxConsecutiveParseErrors) {
           // 从最近一条 assistant 消息的 tool_use blocks 提取工具名（为错误消息保留上下文）
           const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
@@ -126,6 +133,13 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
 
     if (result.kind === 'max_tokens_tool_use') {
       consecutiveMaxTokensToolUse++;
+      // Strike 2: warn agent before termination at strike 3
+      if (consecutiveMaxTokensToolUse === maxConsecutiveMaxTokensToolUse - 1) {
+        messages.push({
+          role: 'user' as const,
+          content: `[system warning] 连续 ${consecutiveMaxTokensToolUse} 次因 token 上限截断工具调用。下一次将终止当前任务。请将内容拆分为多次较小的调用。`,
+        });
+      }
       if (consecutiveMaxTokensToolUse >= maxConsecutiveMaxTokensToolUse) {
         throw new ConsecutiveMaxTokensToolUseError(maxConsecutiveMaxTokensToolUse);
       }
