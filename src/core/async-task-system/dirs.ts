@@ -1,15 +1,16 @@
 /**
  * AsyncTaskSystem 资源命名空间 const (M#3 single owner)
  *
- * phase 745 物理迁自 types/paths.ts — TASKS_QUEUES_RESULTS_DIR + TASKS_SUBAGENTS_DIR
- * phase 1105: re-export from foundation/paths for single source of truth
+ * Canonical owner of task queue path constants per M#3.
+ * Previously re-exported from foundation/paths.ts (phase 1105),
+ * which violated M#5 (foundation knowing about L4 task concepts).
+ * Now defined inline as canonical source.
  */
-export {
-  TASKS_QUEUES_PENDING_DIR,
-  TASKS_QUEUES_RUNNING_DIR,
-  TASKS_QUEUES_DONE_DIR,
-  TASKS_QUEUES_FAILED_DIR,
-  TASKS_QUEUES_RESULTS_DIR,
-  TASKS_SYNC_DIR,
-  TASKS_SUBAGENTS_DIR,
-} from '../../foundation/paths.js';
+
+export const TASKS_QUEUES_PENDING_DIR = 'tasks/queues/pending' as const;
+export const TASKS_QUEUES_RUNNING_DIR = 'tasks/queues/running' as const;
+export const TASKS_QUEUES_DONE_DIR = 'tasks/queues/done' as const;
+export const TASKS_QUEUES_FAILED_DIR = 'tasks/queues/failed' as const;
+export const TASKS_QUEUES_RESULTS_DIR = 'tasks/queues/results' as const;
+export const TASKS_SYNC_DIR = 'tasks/sync' as const;
+export { TASKS_SUBAGENTS_DIR } from '../subagent/constants.js';
