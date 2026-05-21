@@ -20,6 +20,7 @@ import {
 let testDir: string;
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   testDir = path.join(tmpdir(), `wdutils-${randomUUID()}`);
   fs.mkdirSync(testDir, { recursive: true });
 });
