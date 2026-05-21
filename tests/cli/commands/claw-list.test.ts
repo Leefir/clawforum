@@ -33,6 +33,7 @@ describe('claw-list', () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -45,12 +46,14 @@ describe('claw-list', () => {
       isAlive: vi.fn().mockReturnValue(false),
       readPid: vi.fn().mockResolvedValue(null),
     } as any);
+
+    const { formatRelativeTime, getLastActiveMs } = await import('../../../src/cli/commands/claw-shared.js');
+    vi.mocked(formatRelativeTime).mockImplementation((ms: number) => `${Math.floor(ms / 60000)}m`);
+    vi.mocked(getLastActiveMs).mockResolvedValue(Date.now() - 300_000);
   });
 
   afterEach(() => {
-    consoleLogSpy.mockRestore();
-    consoleErrSpy.mockRestore();
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('lists all claws with status', async () => {

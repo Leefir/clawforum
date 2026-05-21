@@ -41,6 +41,7 @@ describe('stop.ts race + getAliveStatus probe single responsibility (phase 879)'
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
     tempDir = path.join(tmpdir(), `stop-race-${randomUUID()}`);
     await fs.mkdir(tempDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: tempDir });

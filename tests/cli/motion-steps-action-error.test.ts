@@ -45,6 +45,9 @@ vi.mock('../../src/cli/utils/factories.js', () => ({
 import { stopCommand } from '../../src/cli/commands/motion.js';
 
 describe('phase 961: motion steps/step action uses withCliErrorHandling wrapper', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
   it('motion steps .action() 使用 withCliErrorHandling wrapper（phase 961 migration）', () => {
     const stepsIdx = indexSource.indexOf("motionCmd\n  .command('steps')");
     expect(stepsIdx).toBeGreaterThan(-1);
@@ -73,9 +76,11 @@ describe('phase 961: motion steps/step action uses withCliErrorHandling wrapper'
 });
 
 describe('phase 922: motion stop failed branch exitCode', () => {
-  const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.clearAllMocks();
     process.exitCode = 0;
   });

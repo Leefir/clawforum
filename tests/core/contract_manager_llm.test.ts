@@ -194,7 +194,50 @@ describe('ContractSystem Acceptance Flow', () => {
   // mockRegistry removed — ToolRegistryImpl internalized in VerifierScheduler (phase364)
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
+
+    const cp = await import('child_process');
+    vi.mocked(cp.spawn).mockImplementation((file: string, args: string[], options: any) => {
+      const proc = new EventEmitter() as any;
+      proc.stdout = new EventEmitter();
+      proc.stderr = new EventEmitter();
+      proc.kill = vi.fn(() => {
+        proc.emit('close', null, 'SIGTERM');
+      });
+
+      setImmediate(() => {
+        if (execFileMockBehavior === 'success') {
+          if (execFileMockStdout) {
+            proc.stdout.emit('data', Buffer.from(execFileMockStdout));
+          }
+          if (execFileMockStderr) {
+            proc.stderr.emit('data', Buffer.from(execFileMockStderr));
+          }
+          proc.emit('close', 0, null);
+        } else if (execFileMockBehavior === 'fail') {
+          if (execFileMockStdout) {
+            proc.stdout.emit('data', Buffer.from(execFileMockStdout));
+          }
+          if (execFileMockStderr) {
+            proc.stderr.emit('data', Buffer.from(execFileMockStderr));
+          }
+          proc.emit('close', 1, null);
+        } else if (execFileMockBehavior === 'timeout') {
+          proc.emit('close', null, 'SIGTERM');
+        }
+      });
+
+      return proc;
+    });
+
+    const { SubAgent } = await import('../../src/core/subagent/agent.js');
+    vi.mocked(SubAgent).mockImplementation((opts: any) => {
+      capturedSubAgentRegistry = opts.registry ?? null;
+      capturedOnIdleTimeout = opts.onIdleTimeout ?? null;
+      return { run: mockSubAgentRun };
+    });
+
     capturedSubAgentRegistry = null;
     capturedOnIdleTimeout = null;
     

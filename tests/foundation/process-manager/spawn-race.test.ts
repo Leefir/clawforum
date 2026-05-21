@@ -40,6 +40,12 @@ describe('spawn EEXIST race audit 归类（phase 591 / A.spawn-eexist-race-miscl
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
+
+    const { spawnDetached, isAlive } = await import('../../../src/foundation/process-exec/index.js');
+    vi.mocked(spawnDetached).mockReturnValue({ pid: FAKE_LIVE_PID } as any);
+    vi.mocked(isAlive).mockReturnValue(true);
+
     tempDir = path.join(tmpdir(), `spawn-race-${randomUUID()}`);
     await fs.mkdir(tempDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: tempDir });
