@@ -13,7 +13,7 @@
  * phase 942 r115+/r116+ Cluster 3 site #2 ε-inject 落地
  */
 import { DEFAULT_MAX_STEPS } from '../core/agent-executor/index.js';
-import { REACT_DEFAULT_MAX_TOKENS } from '../core/agent-executor/constants.js';
+import { REACT_DEFAULT_MAX_TOKENS } from '../core/step-executor/constants.js';
 import { CRON_TICK_INTERVAL_MS } from '../core/cron/constants.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../core/async-task-system/constants.js';
 import {

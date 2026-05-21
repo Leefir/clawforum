@@ -17,7 +17,6 @@ export const STATUS_SUBDIR = 'status' as const;
 
 export const TASKS_SYNC_DIR = 'tasks/sync';
 
-
 export const CLAW_SUBDIRS = [
   DIALOG_DIR,
   'dialog/archive',

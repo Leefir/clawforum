@@ -1,6 +1,5 @@
-/** Default max tokens for LLM calls */
-export const REACT_DEFAULT_MAX_TOKENS = 4096;
-
+// REACT_DEFAULT_MAX_TOKENS moved to step-executor/constants.ts (canonical owner,
+// step-executor is the primary consumer). Import from there.
 /** Maximum consecutive parse errors before aborting */
 export const MAX_CONSECUTIVE_PARSE_ERRORS = 3;
 

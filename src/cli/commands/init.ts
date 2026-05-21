@@ -9,7 +9,7 @@ import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '.
 import { passwordQuestion } from '../utils/password-prompt.js';
 import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/llm-provider/index.js';
-import { REACT_DEFAULT_MAX_TOKENS } from '../../core/agent-executor/constants.js';
+import { REACT_DEFAULT_MAX_TOKENS } from '../../core/step-executor/constants.js';
 import {
   DEFAULT_LLM_TIMEOUT_MS,
   DEFAULT_LLM_RETRY_ATTEMPTS,
