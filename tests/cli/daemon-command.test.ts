@@ -55,16 +55,6 @@ const mockAuditEvent = new EventEmitter();           // NEW (phase 790)
 // ============================================================================
 // Module mocks（Step 1 D3 6 层映射）
 // ============================================================================
-vi.mock('../../src/assembly/index.js', () => ({
-  assemble: mockState.mockAssemble,
-  disassemble: mockState.mockDisassemble,
-  LockConflictError: class LockConflictError extends Error {
-    constructor(public clawId: string, message?: string) {
-      super(message ?? `Lock conflict: ${clawId}`);
-      this.name = 'LockConflictError';
-    }
-  },
-}));
 
 vi.mock('../../src/daemon/daemon-loop.js', () => ({
   startDaemonLoop: mockState.mockStartDaemonLoop,
@@ -207,7 +197,18 @@ async function waitForAuditCall(eventName: string, timeoutMs = 15_000): Promise<
 // ============================================================================
 // Tests
 // ============================================================================
-import { daemonCommand } from '../../src/daemon/daemon.js';
+import { createDaemonCommand } from '../../src/daemon/daemon.js';
+
+const daemonCommand = createDaemonCommand({
+  configDefaults: {} as any,
+  assemble: mockState.mockAssemble,
+  disassemble: mockState.mockDisassemble,
+  auditEvents: {
+    assembleFailed: 'assemble_failed',
+    daemonStart: 'daemon_start',
+    daemonCrash: 'daemon_crash',
+  },
+});
 
 describe('daemonCommand - A4a startup success', () => {
   beforeEach(() => {

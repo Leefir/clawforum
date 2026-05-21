@@ -8,7 +8,7 @@ import * as readline from 'readline';
 import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '../../foundation/config/index.js';
 import { passwordQuestion } from '../utils/password-prompt.js';
 import { CliError } from '../errors.js';
-import { PRESETS } from '../../foundation/llm-provider/index.js';
+import { PRESETS } from '../../foundation/config/index.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../core/step-executor/constants.js';
 import {
   DEFAULT_LLM_TIMEOUT_MS,

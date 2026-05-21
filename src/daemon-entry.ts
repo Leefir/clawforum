@@ -35,5 +35,20 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-import { daemonCommand } from './daemon/daemon.js';
+import { createDaemonCommand } from './daemon/daemon.js';
+import { CONFIG_DEFAULTS } from './assembly/config-defaults.js';
+import { assemble, disassemble } from './assembly/index.js';
+import { ASSEMBLY_AUDIT_EVENTS } from './assembly/audit-events.js';
+
+const daemonCommand = createDaemonCommand({
+  configDefaults: CONFIG_DEFAULTS,
+  assemble,
+  disassemble,
+  auditEvents: {
+    assembleFailed: ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED,
+    daemonStart: ASSEMBLY_AUDIT_EVENTS.DAEMON_START,
+    daemonCrash: ASSEMBLY_AUDIT_EVENTS.DAEMON_CRASH,
+  },
+});
+
 await daemonCommand(process.argv[2]);

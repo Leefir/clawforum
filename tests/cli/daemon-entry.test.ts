@@ -41,13 +41,14 @@ describe('daemon-entry shim audit', () => {
     }));
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
+      AUDIT_FILE: 'audit.tsv',
     }));
     vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
     vi.doMock('../../src/daemon/daemon.js', () => ({
-      daemonCommand: vi.fn().mockResolvedValue(undefined),
+      createDaemonCommand: vi.fn(() => vi.fn().mockResolvedValue(undefined)),
     }));
 
     vi.resetModules();
@@ -69,13 +70,14 @@ describe('daemon-entry shim audit', () => {
     }));
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
+      AUDIT_FILE: 'audit.tsv',
     }));
     vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
     vi.doMock('../../src/daemon/daemon.js', () => ({
-      daemonCommand: vi.fn().mockResolvedValue(undefined),
+      createDaemonCommand: vi.fn(() => vi.fn().mockResolvedValue(undefined)),
     }));
 
     vi.resetModules();
@@ -106,13 +108,14 @@ describe('daemon-entry shim audit', () => {
     }));
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
+      AUDIT_FILE: 'audit.tsv',
     }));
     vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
     vi.doMock('../../src/daemon/daemon.js', () => ({
-      daemonCommand: vi.fn().mockResolvedValue(undefined),
+      createDaemonCommand: vi.fn(() => vi.fn().mockResolvedValue(undefined)),
     }));
 
     vi.resetModules();
@@ -143,13 +146,14 @@ describe('daemon-entry shim audit', () => {
     }));
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
+      AUDIT_FILE: 'audit.tsv',
     }));
     vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
     vi.doMock('../../src/daemon/daemon.js', () => ({
-      daemonCommand: vi.fn().mockResolvedValue(undefined),
+      createDaemonCommand: vi.fn(() => vi.fn().mockResolvedValue(undefined)),
     }));
 
     vi.resetModules();
@@ -179,13 +183,14 @@ describe('daemon-entry shim audit', () => {
     }));
     vi.doMock('../../src/foundation/audit/index.js', () => ({
       createSystemAudit: vi.fn(() => ({ write: throwingWrite })),
+      AUDIT_FILE: 'audit.tsv',
     }));
     vi.doMock('../../src/foundation/config/index.js', () => ({
       getClawDir: vi.fn(() => '/tmp/test-claw'),
       getMotionDir: vi.fn(() => '/tmp/test-motion'),
     }));
     vi.doMock('../../src/daemon/daemon.js', () => ({
-      daemonCommand: vi.fn().mockResolvedValue(undefined),
+      createDaemonCommand: vi.fn(() => vi.fn().mockResolvedValue(undefined)),
     }));
 
     vi.resetModules();

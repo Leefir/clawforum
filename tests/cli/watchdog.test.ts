@@ -55,9 +55,9 @@ vi.mock('timers/promises', () => ({
   setTimeout: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Mock cli-factories (runWatchdogLoop uses createProcessManagerForCLI)
-vi.mock('../../src/cli/utils/factories.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/cli/utils/factories.js')>();
+// Mock factories (runWatchdogLoop uses createProcessManagerForCLI)
+vi.mock('../../src/foundation/process-manager/factories.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/foundation/process-manager/factories.js')>();
   return {
     ...actual,
     createProcessManagerForCLI: vi.fn(),
@@ -88,7 +88,7 @@ import { lastInactivityNotified, inactivityNotifyCount, getClawforumFs } from '.
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
 import { spawnDetached } from '../../src/foundation/process-exec/spawn-detached.js';
 import { setTimeout as setTimeoutP } from 'timers/promises';
-import { createProcessManagerForCLI } from '../../src/cli/utils/factories.js';
+import { createProcessManagerForCLI } from '../../src/foundation/process-manager/factories.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';

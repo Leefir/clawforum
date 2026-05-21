@@ -12,7 +12,7 @@ import {
   type LLMProviderConfig,
 } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
-import { PRESETS } from '../../foundation/llm-provider/index.js';
+import { PRESETS } from '../../foundation/config/index.js';
 import { createProcessManagerForCLI } from '../utils/factories.js';
 import { z } from 'zod';
 import { CliError } from '../errors.js';
