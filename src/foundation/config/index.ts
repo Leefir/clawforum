@@ -49,3 +49,6 @@ export {
 
 // Adapters
 export { toProviderConfig, buildLLMConfig } from './adapters.js';
+
+// LLM Provider presets (re-export to avoid CLI bypassing L2 config, phase1101)
+export { PRESETS } from '../llm-provider/presets.js';

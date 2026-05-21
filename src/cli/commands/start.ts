@@ -15,7 +15,7 @@ import type { ProgressData } from '../../core/contract/types.js';
 import { isInitialized, loadGlobalConfig, getMotionDir, buildLLMConfig, patchGlobalConfigPrimary, FORMAT_MAP } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
 import { createLLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import { PRESETS } from '../../foundation/llm-provider/index.js';
+import { PRESETS } from '../../foundation/config/index.js';
 import { initCommand } from './init.js';
 import {
   initCommand as motionInitCommand,
