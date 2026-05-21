@@ -40,6 +40,29 @@ export interface ExecuteSubAgentTaskDeps {
   permissionChecker?: PermissionChecker;
 }
 
+async function applyPostProcessor(
+  input: string,
+  task: SubAgentTask,
+  isError: boolean,
+  postProcessors: Map<string, PostProcessor>,
+  fs: FileSystem,
+  auditWriter: AuditLog,
+): Promise<string> {
+  if (!task.postProcessor) return input;
+  const handler = postProcessors.get(task.postProcessor);
+  if (!handler) {
+    auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=postProcessor_not_found', `name=${task.postProcessor}`);
+    return input;
+  }
+  try {
+    return await handler(input, task, isError, fs, auditWriter);
+  } catch (handlerErr) {
+    const ctx = isError ? 'postProcessor_threw_error_path' : 'postProcessor_threw';
+    auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, `context=${ctx}`, `error=${formatErr(handlerErr)}`);
+    return input;
+  }
+}
+
 /**
  * Execute a subagent task
  */
@@ -134,21 +157,8 @@ export async function executeSubAgentTask(
       resultTool: isShadow ? DONE_TOOL_NAME : undefined,
     });
 
-    // Phase438: 单 postProcessor lookup + execute（替代 pipeline）
     const displayResult = getDisplayResult(text, capturedResult);
-    let inboxResult = displayResult;
-    if (task.postProcessor) {
-      const handler = postProcessors.get(task.postProcessor);
-      if (handler) {
-        try {
-          inboxResult = await handler(inboxResult, task, false, fs, auditWriter);
-        } catch (handlerErr) {
-          auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=postProcessor_threw', `error=${formatErr(handlerErr)}`);
-        }
-      } else {
-        auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=postProcessor_not_found', `name=${task.postProcessor}`);
-      }
-    }
+    const inboxResult = await applyPostProcessor(displayResult, task, false, postProcessors, fs, auditWriter);
     await sendResult(fs, auditWriter, task, inboxResult, false);
 
     auditWriter.write(
@@ -165,18 +175,7 @@ export async function executeSubAgentTask(
     taskFailed = true;
     const errorMsg = formatErr(error);
 
-    // Phase438: error path 同型替换
-    let inboxResult = errorMsg;
-    if (task.postProcessor) {
-      const handler = postProcessors.get(task.postProcessor);
-      if (handler) {
-        try {
-          inboxResult = await handler(errorMsg, task, true, fs, auditWriter);
-        } catch (handlerErr) {
-          auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=postProcessor_threw_error_path', `error=${formatErr(handlerErr)}`);
-        }
-      }
-    }
+    const inboxResult = await applyPostProcessor(errorMsg, task, true, postProcessors, fs, auditWriter);
 
     // Send error result to parent inbox
     try {
