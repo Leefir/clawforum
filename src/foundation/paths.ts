@@ -17,11 +17,10 @@ export const STATUS_SUBDIR = 'status' as const;
 
 export const TASKS_SYNC_DIR = 'tasks/sync';
 
-export const DIALOG_ARCHIVE_DIR = 'dialog/archive';
 
 export const CLAW_SUBDIRS = [
   DIALOG_DIR,
-  DIALOG_ARCHIVE_DIR,
+  'dialog/archive',
   'inbox/pending',
   'inbox/done',
   'inbox/failed',

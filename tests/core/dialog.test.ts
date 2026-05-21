@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
-import { DIALOG_ARCHIVE_DIR } from '../../src/foundation/paths.js';
+import { DIALOG_ARCHIVE_DIR } from '../../src/foundation/dialog-store/dirs.js';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';

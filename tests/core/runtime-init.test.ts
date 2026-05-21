@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { Runtime } from '../../src/core/runtime/index.js';
-import { DIALOG_ARCHIVE_DIR } from '../../src/foundation/paths.js';
+import { DIALOG_ARCHIVE_DIR } from '../../src/foundation/dialog-store/dirs.js';
 import { INBOX_PENDING_DIR, OUTBOX_PENDING_DIR } from '../../src/foundation/messaging/dirs.js';
 import { makeRuntimeDeps } from '../helpers/runtime-deps.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
