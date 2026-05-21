@@ -126,6 +126,7 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
       callerType: 'shadow',
       clawDir: opts.ctx.clawDir,
       fs: opts.ctx.fs,
+      fsFactory: opts.ctx.fsFactory,
       llm: opts.ctx.llm,
       registry: shadowRegistry,
       prompt: '',   // shadow 不用 prompt 字段（指令在 synthesized messages 末）

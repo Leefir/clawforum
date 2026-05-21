@@ -36,6 +36,7 @@ export interface RunSubagentOptions {
   // 基础设施依赖（caller 注入）
   clawDir: string;
   fs: FileSystem;
+  fsFactory?: (baseDir: string) => FileSystem;
   llm: LLMOrchestrator;
   registry: ToolRegistry;
 
@@ -110,6 +111,7 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
     llm: opts.llm,
     registry: opts.registry,
     fs: opts.fs,
+    fsFactory: opts.fsFactory,
     maxSteps: opts.maxSteps,
     idleTimeoutMs: opts.idleTimeoutMs,
     signal: opts.signal,

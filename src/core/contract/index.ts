@@ -49,6 +49,7 @@ export function createContractSystem(
   llm?: LLMOrchestrator,
   toolRegistry?: ToolRegistry,
   toolTimeoutMs?: number,
+  fsFactory?: (baseDir: string) => FileSystem,
 ): ContractSystem {
-  return new ContractSystem(clawDir, clawId, fs, audit, llm, toolRegistry, toolTimeoutMs);
+  return new ContractSystem(clawDir, clawId, fs, audit, llm, toolRegistry, toolTimeoutMs, fsFactory);
 }

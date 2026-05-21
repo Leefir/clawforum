@@ -33,7 +33,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
     registry.register(readTool);
     registry.register(lsTool);
     registry.register(searchTool);
-    executor = new ToolExecutor({ registry, clawDir: tmpDir, fs });
+    executor = new ToolExecutor({ registry, clawDir: tmpDir, fs, fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }) });
 
   });
 
@@ -47,6 +47,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
       clawDir: tmpDir,
       profile: 'full',
       fs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       auditWriter: makeAudit().audit,
       permissionChecker: createClawPermissionChecker({ clawDir: tmpDir, strict: true }),
     });
@@ -114,6 +115,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
       clawDir: tmpDir,
       profile: 'full',
       fs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       auditWriter: makeAudit().audit,
       permissionChecker: createClawPermissionChecker({ clawDir: tmpDir, strict: true }),
     });

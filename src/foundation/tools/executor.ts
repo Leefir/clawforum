@@ -338,6 +338,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   private syncDir: string;
   private workspaceDir: string;
   private fs: FileSystem;
+  private fsFactory?: (baseDir: string) => FileSystem;
   private llm?: LLMOrchestrator;
   private subagentMaxSteps?: number;
   private auditWriter?: AuditLog;
@@ -347,6 +348,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     this.syncDir = options.syncDir;
     this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.fs = options.fs;
+    this.fsFactory = options.fsFactory;
     this.llm = options.llm;
     this.subagentMaxSteps = options.subagentMaxSteps;
     this.auditWriter = options.auditWriter;
@@ -368,6 +370,7 @@ export class ToolExecutor extends ToolExecutorImpl {
       callerType: options.callerType ?? 'claw',
       permissionChecker: options.permissionChecker,
       fs: this.fs,
+      ...(this.fsFactory ? { fsFactory: this.fsFactory } : {}),
       llm: this.llm,
       maxSteps: options.maxSteps,
       signal: options.signal,

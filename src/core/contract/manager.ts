@@ -25,6 +25,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 
 import type { FileSystem } from '../../foundation/fs/types.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { Contract, ContractStatus, SubtaskStatus, LastFailedFeedback, AcceptanceFailedNotification } from '../contract/types.js';
 import { ToolError, ToolTimeoutError, isProgrammingBug } from '../../foundation/errors.js';
@@ -86,6 +87,7 @@ export class ContractSystem {
   private llm?: LLMOrchestrator;
   private toolRegistry: ToolRegistry;
   private toolTimeoutMs?: number;
+  private fsFactory: (baseDir: string) => FileSystem;
 
   private activeDir = CONTRACT_ACTIVE_DIR;
   private pausedDir = CONTRACT_PAUSED_DIR;
@@ -156,6 +158,7 @@ export class ContractSystem {
     llm?: LLMOrchestrator,
     toolRegistry?: ToolRegistry,
     toolTimeoutMs?: number,
+    fsFactory?: (baseDir: string) => FileSystem,
   ) {
     this.clawDir = clawDir;
     this.clawId = clawId;
@@ -167,6 +170,7 @@ export class ContractSystem {
     }
     this.toolRegistry = toolRegistry;
     this.toolTimeoutMs = toolTimeoutMs;
+    this.fsFactory = fsFactory ?? ((dir: string) => new NodeFileSystem({ baseDir: dir }));
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
@@ -254,7 +258,7 @@ export class ContractSystem {
         const controller = new AbortController();
         this._registerVerifierController(contractId, controller);
         try {
-          return await runContractVerifier({ ...config, signal: controller.signal, contractId });
+          return await runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory });
         } finally {
           this._unregisterVerifierController(contractId, controller);
         }

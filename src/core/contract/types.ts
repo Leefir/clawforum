@@ -138,6 +138,8 @@ export interface VerifierConfig {
   toolRegistry: ToolRegistry;
   /** Tool-level wall-clock timeout inherited from globalConfig.tool_timeout_ms (phase 1029 / F-2) */
   toolTimeoutMs?: number;
+  /** Factory for cross-claw FileSystem access (injected by ContractSystem) */
+  fsFactory?: (baseDir: string) => FileSystem;
 }
 
 export interface VerifierResult {

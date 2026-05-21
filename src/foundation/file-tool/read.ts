@@ -6,7 +6,6 @@
  */
 
 import * as nodePath from 'path';
-import { NodeFileSystem } from '../fs/node-fs.js';
 import type { Tool, ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from './constants.js';
@@ -76,6 +75,12 @@ export const readTool: Tool = {
     // Cross-claw read: specific target / 任意 callerType OK（D11 inter-claw 互访 align）
     let content: string;
     if (clawParam !== undefined) {
+      if (!ctx.fsFactory) {
+        return {
+          success: false,
+          content: 'Error: Cross-claw access not available in this context (fsFactory not injected)',
+        };
+      }
       // Validate clawParam (no path traversal)
       if (clawParam.includes('/') || clawParam.includes('..') || clawParam === '' || clawParam === '.' || clawParam.startsWith('.')) {
         return {
@@ -98,7 +103,7 @@ export const readTool: Tool = {
       // Phase 1105: cross-claw permission check is a design decision — current PermissionChecker is caller-scoped,
       // not target-scoped. Direct claw-to-claw read permission is managed by hub-and-spoke topology (motion routes).
       try {
-        const targetFs = new NodeFileSystem({ baseDir: nodePath.join(clawsDir, clawParam) });
+        const targetFs = ctx.fsFactory(nodePath.join(clawsDir, clawParam));
         content = await targetFs.read(nodePath.normalize(filePath));
       } catch (error) {
         return {

@@ -38,6 +38,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
     });
 
@@ -66,6 +67,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       signal: controller.signal,
       permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
     });

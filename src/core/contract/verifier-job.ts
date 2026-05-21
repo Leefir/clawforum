@@ -70,6 +70,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
       callerType: 'verifier',
       clawDir: config.clawDir,
       fs: config.fs,
+      fsFactory: config.fsFactory!,
       llm: config.llm,
       registry,
       prompt: config.prompt,

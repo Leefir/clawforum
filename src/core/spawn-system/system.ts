@@ -52,6 +52,7 @@ export async function runSpawnSync(opts: RunSpawnSyncOptions): Promise<ToolResul
       callerType: 'subagent',
       clawDir: opts.ctx.clawDir,
       fs: opts.ctx.fs,
+      fsFactory: opts.ctx.fsFactory,
       llm: opts.ctx.llm,
       registry: subagentRegistry,
       prompt: opts.intent,

@@ -130,6 +130,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
     });
 

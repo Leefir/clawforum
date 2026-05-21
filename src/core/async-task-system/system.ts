@@ -64,6 +64,7 @@ export interface AsyncTaskSystemOptions {
   /** Tool-level wall-clock timeout inherited from globalConfig.tool_timeout_ms (phase 1029 / F-2) */
   toolTimeoutMs?: number;
   permissionChecker?: PermissionChecker;
+  fsFactory: (baseDir: string) => FileSystem;
 }
 
 
@@ -133,6 +134,7 @@ export class AsyncTaskSystem {
   private cancellingIds: Set<string> = new Set();
   private readonly toolTimeoutMs?: number;
   private permissionChecker?: PermissionChecker;
+  private fsFactory: (baseDir: string) => FileSystem;
   private _shuttingDown = false;
 
   /**
@@ -176,6 +178,7 @@ export class AsyncTaskSystem {
     this.registry = options.registry;
     this.toolTimeoutMs = options.toolTimeoutMs;
     this.permissionChecker = options.permissionChecker;
+    this.fsFactory = options.fsFactory;
   }
 
   async initialize(): Promise<void> {
@@ -457,6 +460,7 @@ export class AsyncTaskSystem {
       } else {
         await executeSubAgentTask(task, signal, {
           fs: this.fs,
+          fsFactory: this.fsFactory,
           auditWriter: this.auditWriter,
           llm: this.llm,
           registry: this.registry,
@@ -676,6 +680,7 @@ export class AsyncTaskSystem {
       syncDir: path.join(task.parentClawDir, TASKS_SYNC_DIR),
       callerType: task.callerType ?? 'claw',
       fs: this.fs,
+      fsFactory: this.fsFactory,
       profile: 'full',
       stepNumber: 0,
       maxSteps: 1,

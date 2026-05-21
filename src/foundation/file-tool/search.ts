@@ -6,7 +6,6 @@
  */
 
 import * as nodePath from 'path';
-import { NodeFileSystem } from '../fs/node-fs.js';
 import type { FileSystem } from '../fs/types.js';
 import type { Tool, ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
@@ -121,6 +120,12 @@ export const searchTool: Tool = {
     let useNativeFs = false;
 
     if (clawParam !== undefined) {
+      if (!ctx.fsFactory) {
+        return {
+          success: false,
+          content: 'Error: Cross-claw access not available in this context (fsFactory not injected)',
+        };
+      }
       // claw: "*" - search all claws
       if (clawParam === '*') {
         // claw: '*' broadcast 限 Motion / specific target 任意（D11 互访 align）
@@ -131,7 +136,7 @@ export const searchTool: Tool = {
           };
         }
         const clawsDir = nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR);
-        const clawforumFs = new NodeFileSystem({ baseDir: clawsDir });
+        const clawforumFs = ctx.fsFactory(clawsDir);
         let clawIds: string[];
         try {
           clawIds = clawforumFs.listSync('', { includeDirs: true })
@@ -149,7 +154,7 @@ export const searchTool: Tool = {
           if (allResults.length >= maxResults) break;
           const rawSearchPath = nodePath.normalize(pathArg);
           const clawBaseDir = nodePath.join(clawsDir, clawId, rawSearchPath);
-          const clawFs = new NodeFileSystem({ baseDir: nodePath.join(clawsDir, clawId) });
+          const clawFs = ctx.fsFactory(nodePath.join(clawsDir, clawId));
           if (!clawFs.existsSync(rawSearchPath)) continue;
 
           try {
@@ -214,7 +219,7 @@ export const searchTool: Tool = {
       
       if (useNativeFs) {
         // Use walkNative for single claw search
-        const targetFs = new NodeFileSystem({ baseDir: nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR, clawParam!) });
+        const targetFs = ctx.fsFactory!(nodePath.resolve(ctx.clawDir, '..', CLAWS_DIR, clawParam!));
         await walkNative(
           targetFs,
           nodePath.normalize(pathArg),

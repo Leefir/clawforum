@@ -47,6 +47,8 @@ export interface ExecContextImplOptions {
   
   /** File system instance */
   fs: FileSystem;
+  /** Factory for creating FileSystem instances with arbitrary baseDir (cross-claw access) */
+  fsFactory?: (baseDir: string) => FileSystem;
   
   /** Optional LLM service */
   llm?: LLMOrchestrator;
@@ -136,6 +138,7 @@ export class ExecContextImpl implements ExecContext {
   profile: ToolProfile;
   callerType: CallerType;
   fs: FileSystem;
+  fsFactory?: (baseDir: string) => FileSystem;
   llm?: LLMOrchestrator;
   stepNumber: number;
   maxSteps: number;
@@ -164,6 +167,7 @@ export class ExecContextImpl implements ExecContext {
     this.profile = options.profile;
     this.callerType = options.callerType ?? 'claw';
     this.fs = options.fs;
+    this.fsFactory = options.fsFactory;
     this.llm = options.llm;
     this.maxSteps = options.maxSteps;
     this.signal = options.signal;

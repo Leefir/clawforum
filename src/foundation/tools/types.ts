@@ -48,6 +48,7 @@ export interface ExecContext {
   /** Caller type for spawn recursion prevention */
   callerType: CallerType;
   fs: FileSystem;
+  fsFactory?: (baseDir: string) => FileSystem;
   llm?: LLMOrchestrator;
   profile: ToolProfile;
   stepNumber: number;
@@ -153,6 +154,7 @@ export interface ToolExecutorOptions {
   syncDir: string;
   workspaceDir?: string;
   fs: FileSystem;
+  fsFactory?: (baseDir: string) => FileSystem;
   llm?: LLMOrchestrator;
   subagentMaxSteps?: number;
   auditWriter?: AuditLog;

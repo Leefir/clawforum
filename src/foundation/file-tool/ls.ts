@@ -6,7 +6,6 @@
  */
 
 import * as nodePath from 'path';
-import { NodeFileSystem } from '../fs/node-fs.js';
 import type { Tool, ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 import { LS_MAX_ENTRIES } from './constants.js';
@@ -68,6 +67,12 @@ export const lsTool: Tool = {
     checker.resolveAndCheck(resolved, 'read');
 
     if (clawParam !== undefined) {
+      if (!ctx.fsFactory) {
+        return {
+          success: false,
+          content: 'Error: Cross-claw access not available in this context (fsFactory not injected)',
+        };
+      }
       // specific target / 任意 callerType OK（D11 inter-claw 互访 align）
       // Validate clawParam (no path traversal)
       if (clawParam.includes('/') || clawParam.includes('..') || clawParam === '' || clawParam === '.' || clawParam.startsWith('.')) {
@@ -89,7 +94,7 @@ export const lsTool: Tool = {
       }
       // Cross-claw read: per-target NodeFileSystem (无 PermissionChecker = 等价 skip permissions)
       try {
-        const targetFs = new NodeFileSystem({ baseDir: targetPath });
+        const targetFs = ctx.fsFactory(targetPath);
         entries = await targetFs.list('', { includeDirs: true });
       } catch (error) {
         return {

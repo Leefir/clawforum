@@ -246,6 +246,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         clawDir, clawId, systemFs, auditWriter, llm,
         toolRegistry,   // phase 704: toolRegistry 注入 ContractSystem
         toolTimeoutMs,  // phase 1029 / F-2
+        (dir: string) => new NodeFileSystem({ baseDir: dir }),
       );
     } catch (e) {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=contract_manager`, `phase=construct`, `reason=${errMsg(e)}`);
@@ -279,6 +280,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         toolTimeoutMs,              // phase 1029 / F-2
         permissionChecker,          // NEW: permission checker for subagent file tools
         motionInbox,
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       });
     } catch (e) {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=task_system`, `phase=construct`, `reason=${errMsg(e)}`);
@@ -312,7 +314,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         motionAudit: auditWriter,
         clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
         clawFsFactory: (clawDir: string) => new NodeFileSystem({ baseDir: clawDir }),
-        clawContractManagerFactory: (d: string, id: string, fs: import('../foundation/fs/types.js').FileSystem) => createContractSystem(d, id, fs, createSystemAudit(fs, d), undefined, toolRegistry, toolTimeoutMs),
+        clawContractManagerFactory: (d: string, id: string, fs: import('../foundation/fs/types.js').FileSystem) => createContractSystem(d, id, fs, createSystemAudit(fs, d), undefined, toolRegistry, toolTimeoutMs, (dir: string) => new NodeFileSystem({ baseDir: dir })),
       };
       contractManager.onContractCompleted(async (contractId) => {
         if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)
@@ -340,6 +342,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         profile: toolProfile,
         callerType: 'claw',
         fs: clawFs,
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         llm,
         maxSteps,
         auditWriter,
@@ -603,7 +606,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             const cDir = path.join(clawforumDir, CLAWS_DIR, clawId);
             const cFs = new NodeFileSystem({ baseDir: cDir });
             const cAudit = createSystemAudit(cFs, cDir);
-            cs = createContractSystem(cDir, clawId, cFs, cAudit, llm, toolRegistry, toolTimeoutMs);
+            cs = createContractSystem(cDir, clawId, cFs, cAudit, llm, toolRegistry, toolTimeoutMs, (dir: string) => new NodeFileSystem({ baseDir: dir }));
             contractSystemCache.set(clawId, cs);
           }
           return cs.getProgress(contractId);

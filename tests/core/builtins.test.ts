@@ -55,6 +55,7 @@ describe('Builtin Tools', () => {
       syncDir: path.join(tempDir, 'tasks', 'sync'),
       profile: 'full',
       fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
     });
 
@@ -536,6 +537,7 @@ describe('Builtin Tools', () => {
         syncDir: path.join(mainClawDir, 'tasks/sync'),
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
       const result = await searchTool.execute({ query: 'cross-claw', path: 'clawspace', claw: 'other-claw' }, mainCtx);
@@ -565,6 +567,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         outboxWriter: motionOutboxWriter,
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
@@ -609,6 +612,7 @@ describe('Builtin Tools', () => {
         clawDir: nonExistentDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         outboxWriter: motionOutboxWriter,
         permissionChecker: createClawPermissionChecker({ clawDir: nonExistentDir, strict: true }),
       });
@@ -633,6 +637,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         outboxWriter: motionOutboxWriter,
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
@@ -670,6 +675,7 @@ describe('Builtin Tools', () => {
         permissions: { read: true, write: true, execute: true, spawn: true, send: true, network: false, system: false },
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         outboxWriter: motionOutboxWriter,
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
@@ -897,6 +903,7 @@ describe('Builtin Tools', () => {
         clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         auditWriter: auditWriter as any,
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
@@ -922,6 +929,7 @@ describe('Builtin Tools', () => {
         clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         auditWriter: auditWriter as any,
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
@@ -951,6 +959,7 @@ describe('Builtin Tools', () => {
         clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         auditWriter: auditWriter as any,
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
@@ -1143,6 +1152,7 @@ describe('Builtin Tools', () => {
         clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         signal: controller.signal,
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
@@ -1171,6 +1181,7 @@ describe('Builtin Tools', () => {
         clawDir: path.join(tempDir, 'nonexistent-dir-xyz'),
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: path.join(tempDir, 'nonexistent-dir-xyz'), strict: true }),
       });
 
@@ -1217,6 +1228,7 @@ describe('Builtin Tools', () => {
         profile: 'subagent',
         callerType: 'subagent',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
       const result = await execTool.execute({ command: 'pwd' }, subagentCtx);
@@ -1237,6 +1249,7 @@ describe('Builtin Tools', () => {
         profile: 'subagent',
         callerType: 'subagent',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
@@ -1260,6 +1273,7 @@ describe('Builtin Tools', () => {
         profile: 'subagent',
         callerType: 'subagent',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
@@ -1296,6 +1310,7 @@ describe('Builtin Tools', () => {
         clawDir: tempDir,
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         outboxWriter,
         maxSteps: 42,
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
@@ -1327,6 +1342,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1351,6 +1367,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         callerType: 'subagent',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         originClawId: 'motion',
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
@@ -1374,6 +1391,7 @@ describe('Builtin Tools', () => {
         syncDir: path.join(mainClawDir, 'tasks/sync'),
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
       const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, mainCtx);
@@ -1391,6 +1409,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1409,6 +1428,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1434,6 +1454,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1456,6 +1477,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1474,6 +1496,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1518,6 +1541,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1541,6 +1565,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         callerType: 'dispatcher',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         originClawId: 'motion',
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
@@ -1563,6 +1588,7 @@ describe('Builtin Tools', () => {
         syncDir: path.join(mainClawDir, 'tasks/sync'),
         profile: 'full',
         fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
       const result = await lsTool.execute({ path: 'clawspace', claw: 'claw1' }, mainCtx);
@@ -1586,6 +1612,7 @@ describe('Builtin Tools', () => {
         clawDir: motionDir,
         profile: 'full',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
@@ -1609,6 +1636,7 @@ describe('Builtin Tools', () => {
         profile: 'full',
         callerType: 'subagent',
         fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         originClawId: 'motion',
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });

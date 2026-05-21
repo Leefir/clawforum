@@ -36,6 +36,7 @@ export interface SubAgentOptions {
   llm: LLMOrchestrator;
   registry: ToolRegistry;
   fs: FileSystem;
+  fsFactory?: (baseDir: string) => FileSystem;
   maxSteps: number;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -67,6 +68,7 @@ export class SubAgent {
   private llm: LLMOrchestrator;
   private registry: ToolRegistry;
   private fs: FileSystem;
+  private fsFactory?: (baseDir: string) => FileSystem;
   private maxSteps: number;
   private maxConsecutiveParseErrors?: number;
   private maxConsecutiveMaxTokensToolUse?: number;
@@ -99,6 +101,7 @@ private callerType?: CallerType;
     this.llm = options.llm;
     this.registry = options.registry;
     this.fs = options.fs;
+    this.fsFactory = options.fsFactory;
     this.maxSteps = options.maxSteps;
     this.maxConsecutiveParseErrors = options.maxConsecutiveParseErrors;
     this.maxConsecutiveMaxTokensToolUse = options.maxConsecutiveMaxTokensToolUse;
@@ -201,6 +204,7 @@ private callerType?: CallerType;
         syncDir: this.syncDir,
         workspaceDir: this.workspaceDir,   // phase 512
         fs: this.fs,
+        fsFactory: this.fsFactory,
         llm: this.llm,
         subagentMaxSteps: this.subagentMaxSteps ?? this.maxSteps,
         auditWriter: this.auditWriter,
