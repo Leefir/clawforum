@@ -9,6 +9,7 @@ import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
 import { CONTRACT_DIR } from '../contract/index.js';
+import type { ProgressData } from '../contract/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import {
   RANDOM_DREAM_SYSTEM_PROMPT,
@@ -36,6 +37,8 @@ export interface RandomDreamOptions {
   /** Subagent max steps / default 200 / phase 651 */
   subagentMaxSteps?: number;
   signal?: AbortSignal;
+  /** 读取指定 claw+contract 的 progress（M#3：不走直接文件访问） */
+  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>;
 }
 
 interface WeightedContract {
@@ -97,17 +100,10 @@ function saveRandomDreamState(fs: FileSystem, state: RandomDreamState, audit: Au
 
 // ─── 契约发现与权重计算 ──────────────────────────────────────
 
-interface ProgressData {
-  subtasks: Record<string, {
-    status: string;
-    completed_at?: string;
-    retry_count?: number;
-  }>;
-  started_at?: string;
-}
+
 
 /** 计算契约权重（越高越优先） */
-function computeWeight(
+async function computeWeight(
   fs: FileSystem,
   contractId: string,
   contractDir: string,
@@ -115,7 +111,8 @@ function computeWeight(
   processedIds: Set<string>,
   clawsSeen: Set<string>,     // 本次已选中的 clawId 集合
   audit: AuditLog,
-): { weight: number; hint: string } {
+  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>,
+): Promise<{ weight: number; hint: string }> {
   let weight = 10;
   const hints: string[] = [];
 
@@ -131,50 +128,81 @@ function computeWeight(
     hints.push('新claw');
   }
 
-  // 近期完成：读 progress.json 中各 subtask 的 completed_at
-  const progressPath = path.join(contractDir, 'progress.json');
-  try {
-    const parsed: unknown = JSON.parse(fs.readSync(progressPath));
-    if (typeof parsed !== 'object' || parsed === null || typeof (parsed as Record<string, unknown>).subtasks !== 'object') {
-      audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
-        'step=load_progress', 'reason=shape_mismatch', `got=${typeof parsed}`);
-      return { weight, hint: hints.join('、') || '正常' };
-    }
-    const progress = parsed as ProgressData;
-    const subtasks = Object.values(progress.subtasks ?? {});
+  // 近期完成：读 progress 中各 subtask 的 completed_at
+  // M#3：优先走 ContractSystem 公开 API；fallback 直接文件访问（兼容未注入场景）
+  if (getContractProgress) {
+    try {
+      const progress = await getContractProgress(clawId, contractId);
+      const subtasks = Object.values(progress.subtasks ?? {});
 
-    // 近期完成加权（7 天内权重最高）
-    const completedAts = subtasks
-      .map(s => s.completed_at ? new Date(s.completed_at).getTime() : 0)
-      .filter(t => t > 0);
-    if (completedAts.length > 0) {
-      const latestMs = Math.max(...completedAts);
-      const daysAgo = (Date.now() - latestMs) / (1000 * 60 * 60 * 24);
-      const recencyBonus = Math.round(50 * Math.exp(-daysAgo / 7));
-      weight += recencyBonus;
-      if (recencyBonus > 20) hints.push('近期完成');
-    }
+      // 近期完成加权（7 天内权重最高）
+      const completedAts = subtasks
+        .map(s => s.completed_at ? new Date(s.completed_at).getTime() : 0)
+        .filter(t => t > 0);
+      if (completedAts.length > 0) {
+        const latestMs = Math.max(...completedAts);
+        const daysAgo = (Date.now() - latestMs) / (1000 * 60 * 60 * 24);
+        const recencyBonus = Math.round(50 * Math.exp(-daysAgo / 7));
+        weight += recencyBonus;
+        if (recencyBonus > 20) hints.push('近期完成');
+      }
 
-    // 失败/困难加权
-    let difficultyBonus = 0;
-    for (const s of subtasks) {
-      if (s.status === 'failed') difficultyBonus += 20;
-      else if ((s.retry_count ?? 0) >= 2) difficultyBonus += 10;
-    }
-    weight += difficultyBonus;
-    if (difficultyBonus > 0) hints.push('执行困难');
-  } catch { /* 无 progress.json，跳过 */ }
+      // 失败/困难加权
+      let difficultyBonus = 0;
+      for (const s of subtasks) {
+        if (s.status === 'failed') difficultyBonus += 20;
+        else if ((s.retry_count ?? 0) >= 2) difficultyBonus += 10;
+      }
+      weight += difficultyBonus;
+      if (difficultyBonus > 0) hints.push('执行困难');
+    } catch { /* silent: 无 progress，跳过 */ }
+  } else {
+    // fallback：直接读 progress.json（backward compatible / 未注入 ContractSystem 时）
+    const progressPath = path.join(contractDir, 'progress.json');
+    try {
+      const parsed: unknown = JSON.parse(fs.readSync(progressPath));
+      if (typeof parsed !== 'object' || parsed === null || typeof (parsed as Record<string, unknown>).subtasks !== 'object') {
+        audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
+          'step=load_progress', 'reason=shape_mismatch', `got=${typeof parsed}`);
+        return { weight, hint: hints.join('、') || '正常' };
+      }
+      const progress = parsed as ProgressData;
+      const subtasks = Object.values(progress.subtasks ?? {});
+
+      // 近期完成加权（7 天内权重最高）
+      const completedAts = subtasks
+        .map(s => s.completed_at ? new Date(s.completed_at).getTime() : 0)
+        .filter(t => t > 0);
+      if (completedAts.length > 0) {
+        const latestMs = Math.max(...completedAts);
+        const daysAgo = (Date.now() - latestMs) / (1000 * 60 * 60 * 24);
+        const recencyBonus = Math.round(50 * Math.exp(-daysAgo / 7));
+        weight += recencyBonus;
+        if (recencyBonus > 20) hints.push('近期完成');
+      }
+
+      // 失败/困难加权
+      let difficultyBonus = 0;
+      for (const s of subtasks) {
+        if (s.status === 'failed') difficultyBonus += 20;
+        else if ((s.retry_count ?? 0) >= 2) difficultyBonus += 10;
+      }
+      weight += difficultyBonus;
+      if (difficultyBonus > 0) hints.push('执行困难');
+    } catch { /* silent: 无 progress.json，跳过 */ }
+  }
 
   // 权重下限 1
   weight = Math.max(1, weight);
   return { weight, hint: hints.join('、') || '正常' };
 }
 
-function discoverWeightedContracts(
+async function discoverWeightedContracts(
   fs: FileSystem,
   state: RandomDreamState,
   audit: AuditLog,
-): WeightedContract[] {
+  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>,
+): Promise<WeightedContract[]> {
   if (!fs.existsSync(CLAWS_DIR)) return [];
 
   const processedIds = new Set(state.processedContractIds);
@@ -191,7 +219,7 @@ function discoverWeightedContracts(
       const contractDir = path.join(archiveDir, contractId);
       if (!fs.statSync(contractDir).isDirectory) continue;
 
-      const { weight, hint } = computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen, audit);
+      const { weight, hint } = await computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen, audit, getContractProgress);
       contracts.push({ clawId, contractId, contractDir, weight, hint });
       clawsSeen.add(clawId);  // NEW phase 585 / 每 claw 首契约获 +30 bonus / 后续不获
     }
@@ -300,7 +328,7 @@ function extractDreamOutputs(log: string): DreamExtractionResult {
  */
 export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   const state = loadRandomDreamState(opts.fs, opts.audit);
-  const weightedContracts = discoverWeightedContracts(opts.fs, state, opts.audit);
+  const weightedContracts = await discoverWeightedContracts(opts.fs, state, opts.audit, opts.getContractProgress);
 
   if (weightedContracts.length === 0) {
     opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=skip_empty`);

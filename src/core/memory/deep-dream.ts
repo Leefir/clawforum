@@ -7,10 +7,9 @@ import type { LLMOrchestratorConfig } from '../../foundation/llm-orchestrator/in
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../foundation/llm-provider/types.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
-import { migrateAndValidateSession, validateSessionData } from '../../foundation/dialog-store/store.js';
+import { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
-import { DIALOG_DIR } from '../../foundation/dialog-store/dirs.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import {
   DEEP_DREAM_SYSTEM_PROMPT,
@@ -113,34 +112,28 @@ function saveDreamState(clawFs: FileSystem, state: DreamStateData, audit: AuditL
 
 interface SessionFile {
   filename: string;       // 用于 state 追踪（archive）或 'current.json'
-  filePath: string;
   tsMs: number;           // 时间戳，用于排序
 }
 
-function discoverUnprocessed(clawFs: FileSystem, state: DreamStateData, today: string): SessionFile[] {
+async function discoverUnprocessed(dialogStore: DialogStore, state: DreamStateData, today: string): Promise<SessionFile[]> {
   const processed = new Set(state.processedArchives);
   const files: SessionFile[] = [];
 
   // archive 文件（文件名: {tsMs}_{uuid8}.json）
-  const archiveDir = path.join(DIALOG_DIR, 'archive');
-  if (clawFs.existsSync(archiveDir)) {
-    for (const e of clawFs.listSync(archiveDir, { includeDirs: false })) {
-      const name = e.name;
-      if (!name.endsWith('.json')) continue;
-      if (processed.has(name)) continue;
-      const tsMs = parseInt(name.split('_')[0], 10);
-      if (isNaN(tsMs)) continue;
-      files.push({ filename: name, filePath: path.join(archiveDir, name), tsMs });
-    }
+  const archives = await dialogStore.listArchives();
+  for (const name of archives) {
+    if (processed.has(name)) continue;
+    const tsMs = parseInt(name.split('_')[0], 10);
+    if (isNaN(tsMs)) continue;
+    files.push({ filename: name, tsMs });
   }
 
   // current.json（当日未处理）
-  const currentPath = path.join(DIALOG_DIR, 'current.json');
   if (
-    clawFs.existsSync(currentPath) &&
-    state.currentSessionDreamedDate !== today
+    state.currentSessionDreamedDate !== today &&
+    await dialogStore.hasCurrent()
   ) {
-    files.push({ filename: 'current.json', filePath: currentPath, tsMs: Date.now() });
+    files.push({ filename: 'current.json', tsMs: Date.now() });
   }
 
   // 按时间戳升序，current.json 因为 tsMs=Date.now() 天然排在最后
@@ -184,7 +177,9 @@ async function runDeepDreamForClaw(
 ): Promise<void> {
   const today = new Date().toLocaleDateString('sv');   // ← 统一在此计算
   const state = loadDreamState(clawFs, audit, clawId);
-  const sessionFiles = discoverUnprocessed(clawFs, state, today);  // ← 传入 today
+  // DialogStore 管理 dialog 资源的唯一入口（M#3）
+  const dialogStore = new DialogStore(clawFs, 'dialog', audit, 'current.json', clawId);
+  const sessionFiles = await discoverUnprocessed(dialogStore, state, today);  // ← 传入 today
 
   if (sessionFiles.length === 0) {
     audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_JOB, `step=skip_empty`, `clawId=${clawId}`);
@@ -198,17 +193,21 @@ async function runDeepDreamForClaw(
   const processedArchives: string[] = [];
 
   for (const sf of sessionFiles) {
-    // 读取并序列化会话（走 DialogStore 统一读路径：version migration + validation）
+    // 读取并序列化会话（走 DialogStore 公开 API：version migration + validation 已封装）
     let sessionData: SessionData;
     try {
-      const raw = JSON.parse(clawFs.readSync(sf.filePath));
-      const migrated = migrateAndValidateSession(raw, sf.filename, audit);
-      if (!migrated) {
-        // version unknown → 标记跳过（align DialogStore behavior）
-        if (sf.filename !== 'current.json') processedArchives.push(sf.filename);
-        continue;
+      if (sf.filename === 'current.json') {
+        const result = await dialogStore.load();
+        // current.json 损坏/缺失时 DialogStore 内部走 archive 恢复或 cold start。
+        // deep-dream 只处理真正的 current session（source='current'），
+        // 其他情况（archive 恢复 / empty）跳过，保留当日重试可能。
+        if (result.source !== 'current') {
+          continue;
+        }
+        sessionData = result.session;
+      } else {
+        sessionData = await dialogStore.readArchive(sf.filename);
       }
-      sessionData = validateSessionData(migrated, audit, clawId);
     } catch (err) {
       audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR,
         `step=read_session`,

@@ -595,6 +595,20 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       // --- MemorySystem (L5, motion only) ---
       let memorySystem: MemorySystem | undefined;
       if (isMotion) {
+        // M#3: random-dream 读取 contract progress 走 ContractSystem API（phase 1104）
+        const contractSystemCache = new Map<string, import('../core/contract/index.js').ContractSystem>();
+        const getContractProgress = async (clawId: string, contractId: string): Promise<import('../core/contract/index.js').ProgressData> => {
+          let cs = contractSystemCache.get(clawId);
+          if (!cs) {
+            const cDir = path.join(clawforumDir, CLAWS_DIR, clawId);
+            const cFs = new NodeFileSystem({ baseDir: cDir });
+            const cAudit = createSystemAudit(cFs, cDir);
+            cs = createContractSystem(cDir, clawId, cFs, cAudit, llm, toolRegistry, toolTimeoutMs);
+            contractSystemCache.set(clawId, cs);
+          }
+          return cs.getProgress(contractId);
+        };
+
         try {
           memorySystem = createMemorySystem({
             clawforumDir,
@@ -607,6 +621,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             llmConfig,
             maxCompressionTokens: globalConfig.cron?.jobs?.dream_trigger?.max_compression_tokens,
             clawFsFactory: (clawDir: string) => new NodeFileSystem({ baseDir: clawDir }),
+            getContractProgress,
           });
         } catch (e) {
           auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=memory_system`, `phase=construct`, `reason=${errMsg(e)}`);

@@ -3,6 +3,7 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/system.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { LLMOrchestratorConfig } from '../../foundation/llm-orchestrator/index.js';
+import type { ProgressData } from '../contract/index.js';
 import { runDeepDream } from './deep-dream.js';
 import { runRandomDream } from './random-dream.js';
 
@@ -18,6 +19,8 @@ export interface MemorySystemOptions {
   maxCompressionTokens?: number;
   /** 临时构建 per-claw FileSystem 的 factory（assembly 注入 / 业务 0 触 L1 impl）*/
   clawFsFactory: (clawDir: string) => FileSystem;
+  /** M#3：random-dream 读取 contract progress 走 ContractSystem API */
+  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>;
 }
 
 export class MemorySystem {
@@ -47,6 +50,7 @@ export class MemorySystem {
       motionFs: this.opts.motionFs,
       audit: this.opts.audit,
       signal: opts?.signal,
+      getContractProgress: this.opts.getContractProgress,
     });
   }
 }

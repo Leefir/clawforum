@@ -218,14 +218,15 @@ describe('runDeepDream', () => {
 
         await runDeepDream({ clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
 
-        // audit 记录 step=read_session for current.json
-        expect(mockAudit.write).toHaveBeenCalledWith(
-          'cron_deep_dream_error',
-          'step=read_session',
-          expect.anything(),
-          'file=current.json',
-          expect.anything(),
+        // DialogStore 内部处理 corrupted（不抛错给 deep-dream）→ deep-dream 跳过 current.json
+        // 验证：DialogStore 发出内部 corrupted / cold_start audit（不依赖 deep-dream 的 step=read_session）
+        const calls = mockAudit.write.mock.calls as string[][];
+        const hasDialogAudit = calls.some(call =>
+          call.some(arg => typeof arg === 'string' && (
+            arg.startsWith('dialog_') || arg === 'session_corrupted'
+          ))
         );
+        expect(hasDialogAudit).toBe(true);
 
         // state 不应含 'current.json' in processedArchives（current.json 不入永标记列表）
         const statePath = path.join(clawDir, '.deep-dream-state.json');

@@ -250,6 +250,82 @@ export class DialogStore {
   }
 
   /**
+   * 列举所有已归档 session 文件名（按 mtime 升序）。
+   * 返文件名列表（仅文件名，不含路径），如 `['1711234567890_abc123.json', ...]`。
+   * archive 目录不存在时返空数组（不抛错）。
+   */
+  async listArchives(): Promise<string[]> {
+    try {
+      const entries = await this.fs.list(this.archiveDir);
+      return entries
+        .filter((e) => e.isFile && e.name.endsWith('.json') && !isNaN(this.parseArchiveTimestamp(e.name)))
+        .sort((a, b) => this.parseArchiveTimestamp(a.name) - this.parseArchiveTimestamp(b.name)) // oldest first
+        .map((e) => e.name);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'FS_NOT_FOUND') {
+        return [];
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * 检查 current.json 是否存在。
+   * 只读检查，不触发 cold start / archive 恢复。
+   */
+  async hasCurrent(): Promise<boolean> {
+    try {
+      await this.fs.stat(this.currentPath);
+      return true;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'FS_NOT_FOUND') {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * 读取指定 archive 文件，返完整 SessionData。
+   * 内部自动做 detectAndMigrateVersion + validateSession。
+   * @throws 文件不存在时底层 fs 抛 ENOENT/FS_NOT_FOUND
+   * @throws 文件格式损坏时抛 error（含 corrupted 隔离 + audit）
+   */
+  async readArchive(filename: string): Promise<SessionData> {
+    const filePath = path.join(this.archiveDir, filename);
+    try {
+      const content = await this.fs.read(filePath);
+      const parsed = JSON.parse(content) as Partial<SessionData>;
+      const detected = this.detectAndMigrateVersion(parsed, filename);
+      if (detected === null) {
+        this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, `file=${filename}`, `reason=version_unknown`);
+        throw new Error(`session version unknown in archive ${filename}`);
+      }
+      return this.validateSession(detected);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'FS_NOT_FOUND') {
+        throw err; // 文件不存在，直接抛出让 caller 处理
+      }
+      // 其他错误（parse / version / validation）——尝试隔离到 corrupted
+      try {
+        await this.fs.ensureDir(path.join(this.archiveDir, 'corrupted'));
+        await this.fs.move(filePath, path.join(this.archiveDir, 'corrupted', filename));
+        this.audit.write(DIALOG_AUDIT_EVENTS.CORRUPTED, `file=${filename}`, `isolated=corrupted/${filename}`);
+      } catch (moveErr) {
+        this.audit.write(
+          DIALOG_AUDIT_EVENTS.CORRUPTED_ISOLATE_FAILED,
+          `path=${filePath}`,
+          `reason=${moveErr instanceof Error ? moveErr.message : String(moveErr)}`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  /**
    * Extract numeric timestamp from archive filename.
    * Standard format: `{ts}_{uuid}.json`; parseInt stops at `_` or `.`.
    */
