@@ -1,69 +1,99 @@
 /**
- * Assembly cleanup ENOENT narrow tests (phase 1032)
+ * Assembly cleanup narrow tests (phase 1032 / phase 1106)
  *
- * Reverse cases: verify cleanupOrphanedTemp only swallows ENOENT
- * and throws non-ENOENT errors so caller .catch + audit (assemble.ts:478-480)
+ * Reverse cases: verify cleanupOrphanedTemp only swallows FS_NOT_FOUND
+ * and throws non-FS_NOT_FOUND errors so caller .catch + audit (assemble.ts:478-480)
  * can truly emit CLEANUP_TEMP_FILES_FAILED.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import * as path from 'node:path';
-import { createTempDir, cleanupTempDir } from '../utils/temp.js';
+import type { FileSystem, FileEntry } from '../../src/foundation/fs/types.js';
+import { FileNotFoundError } from '../../src/foundation/fs/types.js';
+import { cleanupOrphanedTemp } from '../../src/assembly/cleanup.js';
 
-// ESM: mock fs/promises before importing the module under test
-const mockReaddir = vi.fn();
-const mockUnlink = vi.fn();
-const mockWriteFile = vi.fn();
-const mockReadFile = vi.fn();
+function makeMockFs(overrides?: Partial<FileSystem>): FileSystem {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    delete: vi.fn().mockResolvedValue(undefined),
+    read: vi.fn(),
+    writeAtomic: vi.fn(),
+    append: vi.fn(),
+    move: vi.fn(),
+    ensureDir: vi.fn(),
+    removeDir: vi.fn(),
+    realpath: vi.fn(),
+    exists: vi.fn(),
+    isDirectory: vi.fn(),
+    stat: vi.fn(),
+    writeAtomicSync: vi.fn(),
+    writeExclusiveSync: vi.fn(),
+    readSync: vi.fn(),
+    readBytesSync: vi.fn(),
+    appendSync: vi.fn(),
+    statSync: vi.fn(),
+    moveSync: vi.fn(),
+    existsSync: vi.fn(),
+    ensureDirSync: vi.fn(),
+    listSync: vi.fn(),
+    deleteSync: vi.fn(),
+    resolve: vi.fn((p: string) => p),
+    ...overrides,
+  } as unknown as FileSystem;
+}
 
-vi.mock('node:fs/promises', () => ({
-  readdir: (...args: unknown[]) => mockReaddir(...args),
-  unlink: (...args: unknown[]) => mockUnlink(...args),
-  writeFile: (...args: unknown[]) => mockWriteFile(...args),
-  readFile: (...args: unknown[]) => mockReadFile(...args),
-}));
+function makeEntry(name: string, isFile: boolean): FileEntry {
+  return {
+    name,
+    path: name,
+    isDirectory: !isFile,
+    isFile,
+    size: 0,
+    mtime: new Date(),
+  };
+}
 
-// Import after mock setup
-const { cleanupOrphanedTemp } = await import('../../src/assembly/cleanup.js');
-
-describe('cleanupOrphanedTemp ENOENT narrow', () => {
-  it('readdir ENOENT → resolves [] (first-run dir absent acceptable)', async () => {
-    mockReaddir.mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 'ENOENT' }));
-    await expect(cleanupOrphanedTemp('/nonexistent')).resolves.toEqual([]);
+describe('cleanupOrphanedTemp FS_NOT_FOUND narrow', () => {
+  it('list FS_NOT_FOUND → resolves [] (first-run dir absent acceptable)', async () => {
+    const mockFs = makeMockFs({
+      list: vi.fn().mockRejectedValue(new FileNotFoundError('/nonexistent')),
+    });
+    await expect(cleanupOrphanedTemp(mockFs, '/nonexistent')).resolves.toEqual([]);
   });
 
-  it('readdir EACCES → throws (caller .catch can audit)', async () => {
-    mockReaddir.mockRejectedValueOnce(Object.assign(new Error('access denied'), { code: 'EACCES' }));
-    await expect(cleanupOrphanedTemp('/protected')).rejects.toThrow();
+  it('list EACCES → throws (caller .catch can audit)', async () => {
+    const mockFs = makeMockFs({
+      list: vi.fn().mockRejectedValue(Object.assign(new Error('access denied'), { code: 'EACCES' })),
+    });
+    await expect(cleanupOrphanedTemp(mockFs, '/protected')).rejects.toThrow();
   });
 
-  it('unlink ENOENT → continues (concurrent race acceptable)', async () => {
-    mockReaddir.mockResolvedValueOnce([
-      { name: '.tmp_file1', isFile: () => true, isDirectory: () => false },
-      { name: '.tmp_file2', isFile: () => true, isDirectory: () => false },
-    ] as unknown[]);
-
+  it('delete FS_NOT_FOUND → continues (concurrent race acceptable)', async () => {
+    const mockFs = makeMockFs({
+      list: vi.fn().mockResolvedValue([
+        makeEntry('.tmp_file1', true),
+        makeEntry('.tmp_file2', true),
+      ]),
+    });
     let callCount = 0;
-    mockUnlink.mockImplementation(async () => {
+    mockFs.delete = vi.fn().mockImplementation(async () => {
       callCount++;
       if (callCount === 1) {
-        throw Object.assign(new Error('not found'), { code: 'ENOENT' });
+        throw new FileNotFoundError('.tmp_file1');
       }
       return undefined;
     });
 
-    const cleaned = await cleanupOrphanedTemp('/somedir');
+    const cleaned = await cleanupOrphanedTemp(mockFs, '/somedir');
     expect(cleaned).toHaveLength(1);
-    expect(mockUnlink).toHaveBeenCalledTimes(2);
+    expect(mockFs.delete).toHaveBeenCalledTimes(2);
   });
 
-  it('unlink EIO → throws (caller .catch can audit)', async () => {
-    mockReaddir.mockResolvedValueOnce([
-      { name: '.tmp_file1', isFile: () => true, isDirectory: () => false },
-    ] as unknown[]);
+  it('delete EIO → throws (caller .catch can audit)', async () => {
+    const mockFs = makeMockFs({
+      list: vi.fn().mockResolvedValue([makeEntry('.tmp_file1', true)]),
+      delete: vi.fn().mockRejectedValue(Object.assign(new Error('i/o error'), { code: 'EIO' })),
+    });
 
-    mockUnlink.mockRejectedValueOnce(Object.assign(new Error('i/o error'), { code: 'EIO' }));
-
-    await expect(cleanupOrphanedTemp('/somedir')).rejects.toThrow();
+    await expect(cleanupOrphanedTemp(mockFs, '/somedir')).rejects.toThrow();
   });
 });

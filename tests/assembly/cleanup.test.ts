@@ -10,6 +10,7 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { cleanupOrphanedTemp } from '../../src/assembly/cleanup.js';
+import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 describe('cleanupOrphanedTemp', () => {
   let tempDir: string;
@@ -32,7 +33,8 @@ describe('cleanupOrphanedTemp', () => {
     await fs.writeFile(regularFile, 'regular content', 'utf-8');
 
     // Clean up temp files
-    const cleaned = await cleanupOrphanedTemp(tempDir);
+    const nodeFs = new NodeFileSystem({ baseDir: tempDir });
+    const cleaned = await cleanupOrphanedTemp(nodeFs, tempDir);
 
     expect(cleaned).toHaveLength(1);
     expect(cleaned[0]).toBe(tempFile);
@@ -53,7 +55,8 @@ describe('cleanupOrphanedTemp', () => {
     await fs.writeFile(tempFile, 'new content', 'utf-8');
 
     // Clean up temp files (simulating recovery on restart)
-    await cleanupOrphanedTemp(tempDir);
+    const nodeFs2 = new NodeFileSystem({ baseDir: tempDir });
+    await cleanupOrphanedTemp(nodeFs2, tempDir);
 
     // Original file should still have original content
     const content = await fs.readFile(filePath, 'utf-8');

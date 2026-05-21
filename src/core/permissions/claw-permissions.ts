@@ -15,12 +15,12 @@
  */
 
 import * as path from 'path';
-import { realpathSync } from 'node:fs';
 import {
   PathNotInClawSpaceError,
   WriteOperationForbiddenError,
 } from '../../foundation/errors.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
+import type { FileSystem } from '../../foundation/fs/types.js';
 import { PERMISSION_AUDIT_EVENTS } from './audit-events.js';
 import {
   TASKS_QUEUES_PENDING_DIR,
@@ -91,6 +91,9 @@ export interface ClawPermissionOptions {
 
   /** Optional audit log for permission events */
   audit?: AuditLog;
+
+  /** FileSystem for path resolution (symlink traversal guard) */
+  fs?: FileSystem;
 }
 
 /**
@@ -128,41 +131,24 @@ function matchesPathPatterns(
 }
 
 /**
- * Resolve symlinks; fallback by walking up to the nearest existing directory
- * and concatenating the unresolved suffix (mirror node-fs.ts:121-126 pattern).
- */
-function safeRealpath(p: string): string {
-  const absolute = path.resolve(p);
-  try {
-    return realpathSync(absolute);
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
-      let dir = absolute;
-      while (dir !== path.dirname(dir)) {
-        dir = path.dirname(dir);
-        try {
-          const realDir = realpathSync(dir);
-          return path.join(realDir, path.relative(dir, absolute));
-        } catch {
-          // silent: walking up to find existing parent directory for realpath fallback
-        }
-      }
-      return absolute; // fallback to lexical (nothing exists)
-    }
-    return absolute;
-  }
-}
-
-/**
  * Get path relative to claw directory
  */
 function getRelativeToClaw(
   clawDir: string,
-  targetPath: string
+  targetPath: string,
+  fs?: FileSystem
 ): string | null {
   try {
-    const resolvedClaw = safeRealpath(clawDir);
-    const resolvedTarget = safeRealpath(targetPath);
+    let resolvedClaw: string;
+    let resolvedTarget: string;
+
+    if (fs) {
+      resolvedClaw = fs.resolve('.');
+      resolvedTarget = fs.resolve(targetPath);
+    } else {
+      resolvedClaw = path.resolve(clawDir);
+      resolvedTarget = path.resolve(targetPath);
+    }
 
     if (
       resolvedTarget === resolvedClaw ||
@@ -172,9 +158,8 @@ function getRelativeToClaw(
     }
 
     return null;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw err; // EACCES, EIO propagate
+  } catch {
+    return null;
   }
 }
 
@@ -196,7 +181,7 @@ function checkReadPermission(
   }
 
   // Check if within clawDir
-  const relativePath = getRelativeToClaw(clawDir, targetPath);
+  const relativePath = getRelativeToClaw(clawDir, targetPath, options.fs);
 
   if (relativePath !== null) {
     // Within clawDir - readable by default
@@ -231,7 +216,7 @@ function checkWritePermission(
   }
 
   // Check if within clawDir
-  const relativePath = getRelativeToClaw(clawDir, targetPath);
+  const relativePath = getRelativeToClaw(clawDir, targetPath, options.fs);
 
   if (relativePath !== null) {
     const isSystemPath = matchesPathPatterns(relativePath, systemPaths);
