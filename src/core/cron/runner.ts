@@ -66,14 +66,42 @@ export class CronRunner {
   private abortController = new AbortController();
   // F5: per-job initial scan guard to prevent daily double-fire on daemon restart
   private _initialScanDone = new Set<string>();
+  // phase1109: cron state persistence (crash recovery for daily/hourly dedup)
+  private stateFile = 'cron/state.json';
 
   constructor(
     private readonly jobs: CronJob[],
     private readonly audit: AuditLog,
+    private readonly fs?: { read: (path: string, encoding: string) => Promise<string>; writeAtomic: (path: string, content: string) => Promise<void> },
   ) {}
+
+  private async loadState(): Promise<void> {
+    if (!this.fs) return;
+    try {
+      const raw = await this.fs.read(this.stateFile, 'utf-8');
+      const state = JSON.parse(raw);
+      if (Array.isArray(state.lastRunKeys)) {
+        for (const [k, v] of state.lastRunKeys) this.lastRunKey.set(k, v);
+      }
+      if (Array.isArray(state.initialScanDone)) {
+        for (const k of state.initialScanDone) this._initialScanDone.add(k);
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
+  }
+
+  private async saveState(): Promise<void> {
+    if (!this.fs) return;
+    await this.fs.writeAtomic(this.stateFile, JSON.stringify({
+      lastRunKeys: [...this.lastRunKey],
+      initialScanDone: [...this._initialScanDone],
+    }));
+  }
 
   /** 启动调度器，tickIntervalMs 决定检查粒度（默认 1 秒） */
   start(tickIntervalMs = CRON_TICK_INTERVAL_MS): void {
+    this.loadState().catch(() => {});
     if (this.timer) return;
     this.timer = setInterval(() => this.tick(), tickIntervalMs);
     this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STARTED, `jobs=${this.jobs.length}`);
@@ -270,6 +298,8 @@ export class CronRunner {
           if (!timedOut) this.running.delete(job.name);
         });
     }
+    // Persist cron state after each tick (fire-and-forget, non-blocking)
+    this.saveState().catch(() => {});
   }
 
   private computeRunKey(now: Date, schedule: CronSchedule): string {
