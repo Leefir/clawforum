@@ -144,11 +144,13 @@ export class Runtime {
     const { clawDir } = this.options;
     const deps = this.options.dependencies;
 
-    // 1. 目录结构（业务初始化，Assembly 不管）
+    // 1. 基础 deps 提前赋值（ensureDirectories 需要 FileSystem）
+    this.systemFs = deps.systemFs;
+
+    // 2. 目录结构（业务初始化，Assembly 不管）
     await this.ensureDirectories(clawDir);
 
-    // 2. 消费 deps（16 字段赋值）
-    this.systemFs = deps.systemFs;
+    // 3. 消费剩余 deps
     this.auditWriter = deps.auditWriter;
     this.llm = deps.llm;
     this.snapshot = deps.snapshot;
@@ -1034,11 +1036,8 @@ export class Runtime {
   }
 
   private async ensureDirectories(clawDir: string): Promise<void> {
-    // Use the shared constant (consistent with createCommand)
-    // Use Node fs directly to create directories (NodeFileSystem is not yet initialized)
-    const { promises: nodeFs } = await import('fs');
     for (const dir of CLAW_SUBDIRS) {
-      await nodeFs.mkdir(path.join(clawDir, dir), { recursive: true });
+      await this.systemFs.ensureDir(dir);
     }
   }
 
