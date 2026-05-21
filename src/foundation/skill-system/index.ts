@@ -9,6 +9,7 @@ import { SkillSystem } from './registry.js';
 import { SKILLS_DIR_DEFAULT } from './skill-paths.js';
 
 export { SkillSystem, type SkillMeta } from './registry.js';
+export { SKILLS_DIR_DEFAULT } from './skill-paths.js';
 
 /**
  * 构造 SkillSystem。

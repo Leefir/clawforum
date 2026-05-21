@@ -19,7 +19,7 @@ import type { SessionData } from '../../foundation/dialog-store/index.js';
 import { InboxListFailed, InboxMoveFailed } from '../../foundation/messaging/index.js';
 
 import { DialogStore } from '../../foundation/dialog-store/index.js';
-import { DispatchTool } from '../async-task-system/tools/dispatch.js';
+import { DispatchTool } from '../async-task-system/index.js';
 import { runReact } from '../agent-executor/index.js';
 import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../signals.js';
@@ -37,7 +37,7 @@ import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { InboxReader, InboxEntry, OutboxWriter } from '../../foundation/messaging/index.js';
 import type { ExecContext } from '../../foundation/tools/index.js';
 import type { ToolRegistry, IToolExecutor } from '../../foundation/tools/index.js';
-import type { ContextInjector } from '../dialog/injector.js';
+import type { ContextInjector } from '../dialog/index.js';
 import type { ContractSystem } from '../contract/index.js';
 import type { SkillSystem } from '../../foundation/skill-system/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';

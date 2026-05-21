@@ -25,7 +25,7 @@ export interface AuditLog {
   dispose?(): void;
 }
 
-export { AuditWriter, AUDIT_FILE } from './writer.js';
+export { AuditWriter, AUDIT_FILE, reconcileFallbackDumps } from './writer.js';
 export { AUDIT_MESSAGE_MAX_CHARS, AUDIT_PREVIEW_LEN } from './defaults.js';
 export { BatchedAuditWriter } from './batched-writer.js';
 export type { BatchedAuditWriterOptions } from './batched-writer.js';

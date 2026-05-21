@@ -2,7 +2,7 @@ import path from 'path';
 import * as fsNative from 'fs';
 
 import { createAuditWriter, createSystemAudit, type AuditLog } from '../foundation/audit/index.js';
-import { reconcileFallbackDumps } from '../foundation/audit/writer.js';
+import { reconcileFallbackDumps } from '../foundation/audit/index.js';
 import { createSnapshot } from '../foundation/snapshot/index.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from './snapshot-patterns.js';
 import type { Snapshot } from '../foundation/snapshot/index.js';
@@ -23,7 +23,7 @@ import { createToolExecutor } from '../foundation/tools/index.js';
 import type { IToolExecutor } from '../foundation/tools/index.js';
 import { writePendingToolTaskFile } from '../core/async-task-system/index.js';
 import { createSkillSystem, SkillSystem } from '../foundation/skill-system/index.js';
-import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/skill-paths.js';
+import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/index.js';
 import { ContractSystem, createContractSystem } from '../core/contract/index.js';
 import { createEvolutionSystem } from '../core/evolution-system/index.js';
 import type { EvolutionSystem } from '../core/evolution-system/index.js';

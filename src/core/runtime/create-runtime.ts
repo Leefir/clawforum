@@ -14,7 +14,7 @@
 
 import { Runtime } from './runtime.js';
 import type { RuntimeOptions } from './types.js';
-import type { ContextInjector } from '../dialog/injector.js';
+import type { ContextInjector } from '../dialog/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { RUNTIME_AUDIT_EVENTS } from './runtime-audit-events.js';
