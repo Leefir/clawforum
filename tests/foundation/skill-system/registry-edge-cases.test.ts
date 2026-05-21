@@ -128,18 +128,16 @@ describe('skill-system registry edge cases (phase 953)', () => {
     await sys.register(dir2);
 
     const dupAudit = audit.calls.find(
-      c =>
-        c[0] === 'skill_duplicate_skipped' ||
-        c[0].includes('DUPLICATE_SKIPPED'),
+      c => c[0] === 'skill_duplicate_skipped',
     );
     expect(dupAudit).toBeDefined();
     // Assert both name_source fields present + value 'fallback_dirname'
-    expect(
-      dupAudit!.some(f => f === 'existing_name_source=fallback_dirname'),
-    ).toBe(true);
-    expect(
-      dupAudit!.some(f => f === 'attempted_name_source=fallback_dirname'),
-    ).toBe(true);
+    expect(dupAudit!.slice(1)).toEqual(
+      expect.arrayContaining([
+        'existing_name_source=fallback_dirname',
+        'attempted_name_source=fallback_dirname',
+      ]),
+    );
   });
 
   it('B2 hybrid case: existing=frontmatter, attempted=fallback_dirname recorded distinctly', async () => {
@@ -160,16 +158,14 @@ describe('skill-system registry edge cases (phase 953)', () => {
     await sys.register(dir2);
 
     const dupAudit = audit.calls.find(
-      c =>
-        c[0] === 'skill_duplicate_skipped' ||
-        c[0].includes('DUPLICATE_SKIPPED'),
+      c => c[0] === 'skill_duplicate_skipped',
     );
     expect(dupAudit).toBeDefined();
-    expect(
-      dupAudit!.some(f => f === 'existing_name_source=frontmatter'),
-    ).toBe(true);
-    expect(
-      dupAudit!.some(f => f === 'attempted_name_source=fallback_dirname'),
-    ).toBe(true);
+    expect(dupAudit!.slice(1)).toEqual(
+      expect.arrayContaining([
+        'existing_name_source=frontmatter',
+        'attempted_name_source=fallback_dirname',
+      ]),
+    );
   });
 });

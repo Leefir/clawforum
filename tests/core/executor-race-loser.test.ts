@@ -106,11 +106,12 @@ describe('executor race-loser audit (phase 816 B2)', () => {
     expect(result.success).toBe(true);
 
     const auditPath = path.join(tempDir, 'audit.tsv');
-    const auditContent = await fs.readFile(auditPath, 'utf-8').catch(() => '');
+    const auditContent = await fs.readFile(auditPath, 'utf-8');
     const rows = auditContent.trim().split('\n');
 
     const winnerRow = rows.find(r => r.includes('tool_exec') && r.includes('fast-ok'));
     expect(winnerRow).toBeDefined();
+    expect(winnerRow).toContain('\tok\t');
 
     const loserRow = rows.find(r => r.includes('tool_exec_race_loser'));
     expect(loserRow).toBeUndefined();
