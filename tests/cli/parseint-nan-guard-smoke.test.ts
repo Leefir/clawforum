@@ -18,11 +18,11 @@ import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-const CLI_ENTRY = path.resolve(process.cwd(), 'src/cli/index.ts');
+const CLI_ENTRY = path.resolve(process.cwd(), 'dist/cli.js');
 
 function runCli(args: string[], env: Record<string, string> = {}): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['tsx', CLI_ENTRY, ...args], {
+    const child = spawn('node', [CLI_ENTRY, ...args], {
       env: { ...process.env, ...env },
       cwd: process.cwd(),
     });
