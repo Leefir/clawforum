@@ -50,6 +50,8 @@ export const CONTRACT_AUDIT_EVENTS = {
   // NEW phase1108: verifier lifecycle observability
   VERIFIER_STARTED: 'contract_verifier_started',
   VERIFIER_PASSED: 'contract_verifier_passed',
+  // NEW phase1133 (r126 C fork C-3): done tool result first JSON.parse silent fall-through audit
+  VERIFIER_RESULT_PARSE_FAILED: 'contract_verifier_result_parse_failed',
   // phase350: A.8 observer 错误暴露
   OBSERVER_EVENT_FAILED: 'contract_observer_event_failed',
   CONTRACT_COMPLETED_HANDLER_FAILED: 'contract_completed_handler_failed',

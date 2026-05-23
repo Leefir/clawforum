@@ -108,8 +108,16 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
             feedback: doneResult.result,
             structured: r,
           };
-        } catch {
-          // silent: intentionally falling through to text JSON parsing below
+        } catch (parseErr) {
+          // phase 1133 (r126 C fork C-3): emit audit before fall-through to text JSON parsing below
+          // 保留 fall-through intent / 但 parse 失败信息不再 silent（DP「不丢弃静默」）
+          config.audit?.write(
+            CONTRACT_AUDIT_EVENTS.VERIFIER_RESULT_PARSE_FAILED,
+            `agentId=${config.agentId}`,
+            `clawId=${config.clawId}`,
+            `stage=done_result_first_parse`,
+            `reason=${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+          );
         }
       }
 
