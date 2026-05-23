@@ -17,9 +17,15 @@ export function getProcessStartTime(pid: number): string | undefined {
     const trimmed = out.trim();
     return trimmed === '' ? undefined : trimmed;
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+    const err = e as NodeJS.ErrnoException & { status?: number | null; signal?: NodeJS.Signals | null };
+    // Known design-internal silent paths:
+    //   (a) status === 1 + empty stdout = ps process-level 'target PID does not exist' (POSIX standard exit code)
+    //   (b) code === 'ENOENT' = ps binary itself missing (rare; Windows is platform-guarded to early-return)
+    const isProcessGone = err.status === 1;
+    const isBinaryMissing = err.code === 'ENOENT';
+    if (!isProcessGone && !isBinaryMissing) {
       console.error('[process-exec] getProcessStartTime: ps failed:', (e as Error).message);
     }
-    return undefined; // process gone / ps fail (caller decides skip-verify)
+    return undefined; // caller decides skip-verify
   }
 }
