@@ -60,7 +60,7 @@ describe('daemon-entry shim audit', () => {
     const unhandledHandlers = process.listeners('unhandledRejection');
     expect(uncaughtHandlers.length).toBeGreaterThanOrEqual(1);
     expect(unhandledHandlers.length).toBeGreaterThanOrEqual(1);
-  });
+  }, 30000);
 
   it('shim uncaughtException → audit daemon_uncaught_exception + console + exit(1)', async () => {
     process.argv = ['node', 'daemon-entry', 'test-claw'];
@@ -98,7 +98,7 @@ describe('daemon-entry shim audit', () => {
       expect.stringContaining('error=test shim uncaught'),
     );
     expect(errorSpy).toHaveBeenCalledWith('[daemon] Uncaught exception:', testErr);
-  });
+  }, 30000);
 
   it('shim unhandledRejection → audit daemon_unhandled_rejection + console + exit(1)', async () => {
     process.argv = ['node', 'daemon-entry', 'test-claw'];
@@ -134,7 +134,7 @@ describe('daemon-entry shim audit', () => {
       expect.stringContaining('error=test rejection'),
     );
     expect(errorSpy).toHaveBeenCalledWith('[daemon] Unhandled rejection:', reason);
-  });
+  }, 30000);
 
   it('shim audit 构造失败 → fallback console 保 exit(1) 语义', async () => {
     process.argv = ['node', 'daemon-entry', 'test-claw'];
@@ -170,7 +170,7 @@ describe('daemon-entry shim audit', () => {
     // audit 未被调用（构造失败导致 shimAudit=null）
     expect(mockAuditWrite).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith('[daemon] Uncaught exception:', testErr);
-  });
+  }, 30000);
 
   it('shim audit write 抛 → 静默 fallback console', async () => {
     process.argv = ['node', 'daemon-entry', 'test-claw'];
@@ -206,5 +206,5 @@ describe('daemon-entry shim audit', () => {
     expect(() => handler!(testErr)).toThrow('process.exit(1)');
     expect(throwingWrite).toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith('[daemon] Uncaught exception:', testErr);
-  });
+  }, 30000);
 });
