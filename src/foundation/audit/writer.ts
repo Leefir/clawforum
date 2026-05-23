@@ -70,6 +70,13 @@ function dumpFallback(): void {
  * Boot-time: scan tmpdir for prior crash fallback dumps and append their
  * contents to the corresponding live audit.tsv files (keyed by origin col).
  * Best-effort — individual file parse/append failures are skipped.
+ *
+ * Race window invariant (snapshot-bounded, phase 1153 design row trace):
+ * `fs.list` is a snapshot call; new fallback files written by an already-open
+ * auditWriter after the snapshot are NOT read this reconcile pass — they
+ * are picked up on next boot. No data loss; only one-boot latency penalty.
+ * See `design/modules/l2_audit_log.md` §7.A
+ * `A.phase1153-reconcile-snapshot-bounded-race-window-invariant`.
  */
 export async function reconcileFallbackDumps(fs: FileSystem): Promise<void> {
   const tmp = getFallbackDir();
