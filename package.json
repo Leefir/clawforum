@@ -23,6 +23,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit --project tsconfig.test.json",
     "lint": "tsc --noEmit",
     "migrate:claw-agents-versions": "bash scripts/migrate-claw-agents-versions.sh"
   },
