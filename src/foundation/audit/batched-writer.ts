@@ -23,6 +23,8 @@ export class BatchedAuditWriter implements AuditLog {
   private readonly maxBytes: number | null;
   private readonly batchSize: number;
   private readonly flushIntervalMs: number;
+  private currentIntervalMs: number;
+  private readonly maxBackoffMs = 30_000;
   private seq = 0; // NEW phase 1125
 
   constructor(fs: FileSystem, filePath: string, opts: BatchedAuditWriterOptions = {}) {
@@ -31,6 +33,7 @@ export class BatchedAuditWriter implements AuditLog {
     this.maxBytes = opts.maxSizeMb ? opts.maxSizeMb * 1024 * 1024 : null;
     this.batchSize = opts.batchSize ?? 50;
     this.flushIntervalMs = opts.flushIntervalMs ?? 1000;
+    this.currentIntervalMs = this.flushIntervalMs;
   }
 
   write(type: string, ...cols: (string | number)[]): void {
@@ -61,6 +64,11 @@ export class BatchedAuditWriter implements AuditLog {
         }
       }
       this.fs.appendSync(this.filePath, batch.join(''));
+      // SUCCESS: reset backoff
+      if (this.currentIntervalMs !== this.flushIntervalMs) {
+        this.currentIntervalMs = this.flushIntervalMs;
+        this._resetTimer();
+      }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       console.error(
@@ -69,13 +77,24 @@ export class BatchedAuditWriter implements AuditLog {
       for (const line of batch) {
         pushFallback(line, this.filePath);
       }
+      // FAILURE: exponential backoff timer
+      this.currentIntervalMs = Math.min(this.currentIntervalMs * 2, this.maxBackoffMs);
+      this._resetTimer();
     }
   }
 
   private _ensureTimer(): void {
     if (this.timer) return;
-    this.timer = setInterval(() => this.flush(), this.flushIntervalMs);
+    this.timer = setInterval(() => this.flush(), this.currentIntervalMs);
     this.timer.unref();
+  }
+
+  private _resetTimer(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    this._ensureTimer();
   }
 
   /** Dispose: flush remaining + clear timer. Call on shutdown. */
