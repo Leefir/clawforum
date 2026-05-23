@@ -205,7 +205,8 @@ describe('Task System + SubAgent', () => {
     it('should move task to done when completed', async () => {
       // Recreate with mock LLM that returns quickly
       await taskSystem.shutdown(100);
-      taskSystem = createTestTaskSystem(tempDir, mockFs, makeAudit().audit, createMockLLM([{
+      const { audit, events, emitter } = makeAudit();
+      taskSystem = createTestTaskSystem(tempDir, mockFs, audit, createMockLLM([{
         content: [{ type: 'text', text: 'Task result' }],
         stop_reason: 'end_turn',
       }]));
@@ -220,8 +221,11 @@ describe('Task System + SubAgent', () => {
         parentClawId: 'parent-claw',
       });
 
-      // Wait for task to complete
-      await waitFor(() => mockFs.exists(`tasks/queues/done/${taskId}.json`));
+      // Wait for TASK_COMPLETED audit event (phase 1143 — was waitFor fs poll, flaky)
+      await waitForAuditEvent(emitter, events, TASK_AUDIT_EVENTS.TASK_COMPLETED);
+
+      // Allow brief fs flush after audit event (R1: emit may slightly precede writeAtomic)
+      await waitFor(() => mockFs.exists(`tasks/queues/done/${taskId}.json`), 1000);
 
       // Task should be moved to done
       const doneExists = await mockFs.exists(`tasks/queues/done/${taskId}.json`);
