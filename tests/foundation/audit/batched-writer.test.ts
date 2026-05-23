@@ -100,7 +100,7 @@ describe('BatchedAuditWriter', () => {
     expect(writes.length).toBe(1);
   });
 
-  it('H1: flush failure preserves buffer for retry', () => {
+  it('H1: flush failure → fallback takes over, buffer cleared, new writes flush independently', () => {
     const { fs, writes, failCount } = makeMockFsWithAppendFailure();
     // batchSize large to avoid auto-flush on write; we manually control flush
     writer = new BatchedAuditWriter(fs, '/tmp/test.tsv', { batchSize: 100, flushIntervalMs: 60_000 });
@@ -111,18 +111,23 @@ describe('BatchedAuditWriter', () => {
     // no auto-flush yet (buffer=3 < 100)
     expect(writes.length).toBe(0);
 
-    // manual flush — fails, buffer restored
+    // manual flush — fails, buffer cleared (fallback queue takes over)
     writer.flush();
     expect(writes.length).toBe(0);
     expect(failCount.value).toBe(0);
+    expect((writer as any).buffer.length).toBe(0);
 
-    // second manual flush — succeeds (failCount now 0)
+    // new writes — flush succeeds with new batch only (failed batch owned by fallback)
+    writer.write('event_d', 'k=v');
+    writer.write('event_e', 'k=v');
+    writer.write('event_f', 'k=v');
     writer.flush();
     expect(writes.length).toBe(1);
     const flushed = writes[0];
-    expect(flushed).toContain('event_a');
-    expect(flushed).toContain('event_b');
-    expect(flushed).toContain('event_c');
+    expect(flushed).toContain('event_d');
+    expect(flushed).toContain('event_e');
+    expect(flushed).toContain('event_f');
+    expect(flushed).not.toContain('event_a');
   });
 
   it('MEDIUM: rotation non-ENOENT error logs to console.error', () => {

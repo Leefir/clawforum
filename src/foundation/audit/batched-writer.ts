@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from './index.js';
+import { pushFallback } from './writer.js';
 
 const UUID_SHORT_LEN = 8;
 
@@ -61,9 +62,13 @@ export class BatchedAuditWriter implements AuditLog {
       }
       this.fs.appendSync(this.filePath, batch.join(''));
     } catch (err) {
-      this.buffer.unshift(...batch);
       const reason = err instanceof Error ? err.message : String(err);
-      console.error(`[AUDIT CRITICAL] batched flush failed: path=${this.filePath} lines=${batch.length} reason=${reason}`);
+      console.error(
+        `[AUDIT CRITICAL] batched flush failed: path=${this.filePath} lines=${batch.length} reason=${reason}`,
+      );
+      for (const line of batch) {
+        pushFallback(line, this.filePath);
+      }
     }
   }
 

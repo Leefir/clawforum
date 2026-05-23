@@ -23,7 +23,7 @@ function ensureExitHandler(): void {
   process.on('exit', dumpFallback);
 }
 
-function pushFallback(line: string, origin: string): void {
+export function pushFallback(line: string, origin: string): void {
   if (pendingFallback.length >= FALLBACK_BUFFER_CAP) {
     pendingFallback.shift();   // FIFO drop-oldest
     if (!overflowMetaEmitted) {
