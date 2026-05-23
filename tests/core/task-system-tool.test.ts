@@ -478,6 +478,46 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       await ts.initialize();
       ts.startDispatch();
 
+      // Pre-subscribe audit events before scheduling so no events are missed
+      // (phase 1150: mirror L498-509 counter pattern for TASK_STARTED + TASK_COMPLETED)
+      let started = 0;
+      const startedPromise = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          emitter.off('write', startedHandler);
+          reject(new Error('timeout waiting for 3 TASK_STARTED events (dispatcher quota)'));
+        }, 10000);
+        const startedHandler = (type: string) => {
+          if (type === 'task_started') {
+            started++;
+            if (started >= 3) {
+              clearTimeout(timer);
+              emitter.off('write', startedHandler);
+              resolve();
+            }
+          }
+        };
+        emitter.on('write', startedHandler);
+      });
+
+      let completed = 0;
+      const completedPromise = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          emitter.off('write', completedHandler);
+          reject(new Error('timeout waiting for 5 TASK_COMPLETED events'));
+        }, 15000); // was 5000
+        const completedHandler = (type: string) => {
+          if (type === 'task_completed') {
+            completed++;
+            if (completed >= 5) {
+              clearTimeout(timer);
+              emitter.off('write', completedHandler);
+              resolve();
+            }
+          }
+        };
+        emitter.on('write', completedHandler);
+      });
+
       // Schedule all 5 tasks quickly
       const taskIds: string[] = [];
       for (let i = 0; i < 5; i++) {
@@ -485,31 +525,11 @@ describe('AsyncTaskSystem Tool Tasks', () => {
         taskIds.push(id);
       }
 
-      await waitFor(
-        () => ts.listRunning().length <= 3 && ts.listPending().length >= 2,
-        10000,
-        20,
-      );
+      // Wait for dispatcher cap to be reached (3 TASK_STARTED)
+      await startedPromise;
 
-      // Wait for 5 TASK_COMPLETED events instead of polling executionOrder (phase 779 Step C)
-      let completed = 0;
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          emitter.off('write', handler);
-          reject(new Error('timeout waiting for 5 TASK_COMPLETED events'));
-        }, 15000); // was 5000
-        const handler = (type: string) => {
-          if (type === 'task_completed') {
-            completed++;
-            if (completed >= 5) {
-              clearTimeout(timer);
-              emitter.off('write', handler);
-              resolve();
-            }
-          }
-        };
-        emitter.on('write', handler);
-      });
+      // Wait for all 5 tasks to finish
+      await completedPromise;
 
       // All 5 tasks should have been executed
       expect(executionOrder.length).toBe(5);
