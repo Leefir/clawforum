@@ -58,9 +58,9 @@ export interface ExecContext {
   subagentMaxSteps?: number;
   /** Tool-level wall-clock timeout, inherited from globalConfig.tool_timeout_ms / Assembly 装配期注入 (phase 1029 / F-2) */
   toolTimeoutMs?: number;
-  /** 当前对话 messages（由 runtime._runReact 注入，供 dispatch 工具读取） */
+  /** 当前对话 messages（由 runtime._runReact 注入，供 summon 工具读取） */
   dialogMessages?: Message[];
-  /** 创建链路的源头 clawId，由 dispatch/spawn 传播。Motion 直接创建时为 'motion' */
+  /** 创建链路的源头 clawId，由 summon/spawn 传播。Motion 直接创建时为 'motion' */
   originClawId?: string;
   /** 是否为 Motion 创建链路上的 agent（Motion 本体或其 subagent） */
   readonly isMotionChain: boolean;

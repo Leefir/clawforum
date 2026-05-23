@@ -65,9 +65,9 @@ export interface ExecContextImplOptions {
   subagentMaxSteps?: number;
   
   
-  /** 当前对话 messages（供 dispatch 工具读取） */
+  /** 当前对话 messages（供 summon 工具读取） */
   dialogMessages?: Message[];
-  /** 创建链路的源头 clawId，由 dispatch/spawn 传播 */
+  /** 创建链路的源头 clawId，由 summon/spawn 传播 */
   originClawId?: string;
   /** AuditLog writer for tool events */
   auditWriter?: AuditLog;

@@ -96,9 +96,9 @@ export interface SubAgentTask {
   callerType?: CallerType;
   originClawId?: string;                   // 创建链路源头，传给子 SubAgent
   /**
-   * Motion clawDir（仅 mining dispatch / phase 713 reframe）
+   * Motion clawDir（仅 mining summon / phase 713 reframe）
    * subagent-executor 据此构造 motionDialogStore 注入 AskMotionTool
-   * ask_motion.execute 内部 read motionDialogStore.load() 拿 dispatch 时刻 dialog snapshot
+   * ask_motion.execute 内部 read motionDialogStore.load() 拿 summon 时刻 dialog snapshot
    * 全然一致性 reuse Motion runtime 实然 dialog snapshot（per phase 709 design）
    */
   motionClawDir?: string;

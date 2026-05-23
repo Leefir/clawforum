@@ -7,7 +7,7 @@
  * - missing main context (no mainDialogStore)
  * - shadow path via runShadow
  * - spawn async=true rejected from within shadow (phase 766 defense)
- * - dispatch rejected from within shadow (phase 767 defense)
+ * - summon rejected from within shadow (phase 767 defense、phase 1119 renamed dispatch → summon)
  * - failure returns tool_result with error metadata
  */
 
