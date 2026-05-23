@@ -15,6 +15,17 @@ import { exec } from '../process-exec/index.js';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { SNAPSHOT_AUDIT_EVENTS } from './audit-events.js';
+import {
+  emitSnapshotCommitFailed,
+  emitSnapshotCommitted,
+  emitSnapshotDegraded,
+  emitSnapshotInitCleanupFailed,
+  emitSnapshotInitFailed,
+  emitSnapshotPersistFailed,
+  emitSnapshotStatusStderr,
+  emitSnapshotSyncCleanFailed,
+  emitSnapshotSyncRestoreFailed,
+} from './audit-emit.js';
 import { ok, err as errResult, type Result } from '../utils/result.js';
 import { classifyGitError, type ExpectedGitFailure, type GitExecError } from './git-errors.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../audit/index.js';
@@ -57,11 +68,9 @@ async function persistState(fs: FileSystem, dir: string, state: SnapshotState, a
     await fs.writeAtomic(stateFilePath(dir), JSON.stringify(state));
   } catch {
     // silent: persist fail 不抛，下轮 load 最多丢 1 inc
-    audit?.write(
-      SNAPSHOT_AUDIT_EVENTS.PERSIST_FAILED,
-      `dir=${dir}`,
-      'reason=writeAtomic failed',
-    );
+    if (audit) {
+      emitSnapshotPersistFailed(audit, { dir, reason: 'writeAtomic failed' });
+    }
   }
 }
 
@@ -134,12 +143,11 @@ export class Snapshot {
           s.consecutiveFailures = loaded.consecutiveFailures;
           s.degradedAt = loaded.degradedAt;
           // audit: restored prior failures from disk
-          this.audit.write(
-            SNAPSHOT_AUDIT_EVENTS.COMMIT_FAILED,
-            `dir=${this.dir}`,
-            'context=state_restored_from_disk',
-            `consecutive=${s.consecutiveFailures}`,
-          );
+          emitSnapshotCommitFailed(this.audit, {
+            dir: this.dir,
+            context: 'state_restored_from_disk',
+            consecutive: s.consecutiveFailures,
+          });
         }
       }
     } catch (e) {
@@ -159,11 +167,10 @@ export class Snapshot {
       } catch {
         // silent: rev-parse failure means incomplete repo — handled by re-init below
       }
-      this.audit.write(
-        SNAPSHOT_AUDIT_EVENTS.INIT_FAILED,
-        `dir=${this.dir}`,
-        'context=incomplete_repo_reinit',
-      );
+      emitSnapshotInitFailed(this.audit, {
+        dir: this.dir,
+        context: 'incomplete_repo_reinit',
+      });
     } else {
       // brand-new repo: reset counter on successful init
       shouldResetCounter = true;
@@ -186,11 +193,10 @@ export class Snapshot {
     } catch (rawErr) {
       const failure = this.classifyOrThrow(rawErr);
       await this.tryCleanupGit(failure);
-      this.audit.write(
-        SNAPSHOT_AUDIT_EVENTS.INIT_FAILED,
-        `dir=${this.dir}`,
-        `kind=${failure.kind}`,
-      );
+      emitSnapshotInitFailed(this.audit, {
+        dir: this.dir,
+        kind: failure.kind,
+      });
       return errResult(failure);
     }
   }
@@ -212,11 +218,10 @@ export class Snapshot {
       await this.fs.removeDir(gitDir);
     } catch (cleanupErr) {
       const reason = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
-      this.audit.write(
-        SNAPSHOT_AUDIT_EVENTS.INIT_CLEANUP_FAILED,
-        `dir=${this.dir}`,
-        `reason=${reason}`,
-      );
+      emitSnapshotInitCleanupFailed(this.audit, {
+        dir: this.dir,
+        reason,
+      });
       // best-effort cleanup / audit-only / 不 throw / mirror commit() syncDir cleanup / per phase 636
       // init() Result API 契约保 / cleanup 失败不升级为 throw / failure 仍走 errResult 路径
     }
@@ -243,11 +248,10 @@ export class Snapshot {
     try {
       const status = await Snapshot.git(this.dir, ['status', '--porcelain']);
       if (status.stderr) {
-        this.audit.write(
-          SNAPSHOT_AUDIT_EVENTS.STATUS_STDERR,
-          `dir=${this.dir}`,
-          `stderr=${status.stderr.slice(0, 200)}`,
-        );
+        emitSnapshotStatusStderr(this.audit, {
+          dir: this.dir,
+          stderr: status.stderr.slice(0, 200),
+        });
       }
       if (!status.stdout) {
         const s = getState(this.dir);
@@ -266,11 +270,10 @@ export class Snapshot {
         _stateMap.delete(this.dir);
       }
       await tryClearPersist(this.fs, this.dir);
-      this.audit.write(
-        SNAPSHOT_AUDIT_EVENTS.COMMITTED,
-        `dir=${this.dir}`,
-        `message=${message.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
-      );
+      emitSnapshotCommitted(this.audit, {
+        dir: this.dir,
+        message: message.slice(0, AUDIT_MESSAGE_MAX_CHARS),
+      });
 
       // whitelist cleanup of specified sync scratch subdirs on commit success
       // (turn-scoped lifecycle / 应然 §A.7 / phase772: 从整 syncDir 清改白名单)
@@ -281,12 +284,11 @@ export class Snapshot {
       for (const cleanupDir of sortedCleanupDirs) {
         const relDir = path.relative(this.dir, cleanupDir);
         if (relDir === '' || relDir.startsWith('..')) {
-          this.audit.write(
-            SNAPSHOT_AUDIT_EVENTS.SYNC_CLEAN_FAILED,
-            `dir=${this.dir}`,
-            'context=empty_or_escaping_relDir',
-            `cleanupDir=${cleanupDir}`,
-          );
+          emitSnapshotSyncCleanFailed(this.audit, {
+            dir: this.dir,
+            context: 'empty_or_escaping_relDir',
+            cleanupDir,
+          });
           continue;
         }
 
@@ -295,13 +297,12 @@ export class Snapshot {
         try {
           resolved = await this.fs.realpath(cleanupDir);
         } catch (err) {
-          this.audit.write(
-            SNAPSHOT_AUDIT_EVENTS.SYNC_CLEAN_FAILED,
-            `dir=${this.dir}`,
-            'context=realpath_failed',
-            `cleanupDir=${cleanupDir}`,
-            `reason=${err instanceof Error ? err.message : String(err)}`,
-          );
+          emitSnapshotSyncCleanFailed(this.audit, {
+            dir: this.dir,
+            context: 'realpath_failed',
+            cleanupDir,
+            reason: err instanceof Error ? err.message : String(err),
+          });
           continue;
         }
         // Resolve this.dir as well to align with resolved (e.g. macOS /var -> /private/var)
@@ -314,13 +315,12 @@ export class Snapshot {
         }
         const relResolved = path.relative(resolvedDir, resolved);
         if (relResolved === '' || relResolved.startsWith('..') || path.isAbsolute(relResolved)) {
-          this.audit.write(
-            SNAPSHOT_AUDIT_EVENTS.SYNC_CLEAN_FAILED,
-            `dir=${this.dir}`,
-            'context=symlink_traversal',
-            `cleanupDir=${cleanupDir}`,
-            `resolved=${resolved}`,
-          );
+          emitSnapshotSyncCleanFailed(this.audit, {
+            dir: this.dir,
+            context: 'symlink_traversal',
+            cleanupDir,
+            resolved,
+          });
           continue;
         }
 
@@ -344,17 +344,15 @@ export class Snapshot {
             await this.fs.ensureDir(relDir);
           } catch (restoreErr) {
             // phase 892: 双 fail 独立 event 区分 outer SYNC_CLEAN_FAILED / mirror init() INIT_CLEANUP_FAILED 模板
-            this.audit.write(
-              SNAPSHOT_AUDIT_EVENTS.SYNC_RESTORE_FAILED,
-              `dir=${cleanupDir}`,
-              `restoreReason=${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`,
-            );
+            emitSnapshotSyncRestoreFailed(this.audit, {
+              dir: cleanupDir,
+              restoreReason: restoreErr instanceof Error ? restoreErr.message : String(restoreErr),
+            });
           }
-          this.audit.write(
-            SNAPSHOT_AUDIT_EVENTS.SYNC_CLEAN_FAILED,
-            `dir=${cleanupDir}`,
-            `reason=${e instanceof Error ? e.message : String(e)}`,
-          );
+          emitSnapshotSyncCleanFailed(this.audit, {
+            dir: cleanupDir,
+            reason: e instanceof Error ? e.message : String(e),
+          });
         }
       }
 
@@ -364,20 +362,18 @@ export class Snapshot {
       const s = getState(this.dir);
       s.consecutiveFailures++;
       await persistState(this.fs, this.dir, s, this.audit);
-      this.audit.write(
-        SNAPSHOT_AUDIT_EVENTS.COMMIT_FAILED,
-        `dir=${this.dir}`,
-        `kind=${failure.kind}`,
-        `consecutive=${s.consecutiveFailures}`,
-      );
+      emitSnapshotCommitFailed(this.audit, {
+        dir: this.dir,
+        kind: failure.kind,
+        consecutive: s.consecutiveFailures,
+      });
       if (s.consecutiveFailures === 3) {
         s.degradedAt = Date.now();
         await persistState(this.fs, this.dir, s, this.audit);
-        this.audit.write(
-          SNAPSHOT_AUDIT_EVENTS.DEGRADED,
-          `dir=${this.dir}`,
-          `consecutive=${s.consecutiveFailures}`,
-        );
+        emitSnapshotDegraded(this.audit, {
+          dir: this.dir,
+          consecutive: s.consecutiveFailures,
+        });
       }
       return errResult(failure);
     }

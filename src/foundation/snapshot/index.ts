@@ -4,6 +4,7 @@
  */
 
 export { Snapshot } from './snapshot.js';
+export * from './audit-emit.js';
 
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
