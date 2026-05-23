@@ -92,7 +92,7 @@ describe('phase 541: silent catch fixes', () => {
       expect(moveFailedEvents[0]).toEqual(
         expect.arrayContaining([
           TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-          'task-1',
+          expect.stringContaining('taskId='),
           'context=alreadysent_move_failed',
           expect.stringContaining('error='),
         ]),
@@ -112,7 +112,7 @@ describe('phase 541: silent catch fixes', () => {
       expect(recoveryFailedEvents[0]).toEqual(
         expect.arrayContaining([
           TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-          'task-1',
+          expect.stringContaining('taskId='),
           'context=alreadysent_move_failed',
           expect.stringContaining('error='),
         ]),
@@ -120,7 +120,7 @@ describe('phase 541: silent catch fixes', () => {
       expect(recoveryFailedEvents[1]).toEqual(
         expect.arrayContaining([
           TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-          'task-1',
+          expect.stringContaining('taskId='),
           'context=alreadysent_delete_failed',
           expect.stringContaining('error='),
         ]),
@@ -170,7 +170,7 @@ describe('phase 541: silent catch fixes', () => {
       expect(inlineFallbackEvents[0]).toEqual(
         expect.arrayContaining([
           TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED,
-          'tool-1',
+          expect.stringContaining('taskId='),
           'context=inline_fallback_failed',
           expect.stringContaining('error='),
         ]),

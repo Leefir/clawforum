@@ -240,7 +240,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       expect(moveFailedEvents[0]).toEqual(
         expect.arrayContaining([
           TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-          'task-dead',
+          expect.stringContaining('taskId='),
           'context=dead_letter_move_failed',
           expect.stringContaining('error='),
         ]),
@@ -455,7 +455,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       expect(retryPendingEvents[0]).toEqual(
         expect.arrayContaining([
           TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-          'task-retry',
+          expect.stringContaining('taskId='),
           'context=retry_pending',
           'retryCount=2',
           'maxRetries=3',

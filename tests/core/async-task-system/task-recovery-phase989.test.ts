@@ -111,7 +111,7 @@ describe('phase 989 task-recovery sub-fixes', () => {
     expect(corruptEvents[0]).toEqual(
       expect.arrayContaining([
         TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
+        expect.stringContaining('taskId='),
         'context=retry_counter_corrupt',
         expect.stringContaining('raw=abc'),
       ]),

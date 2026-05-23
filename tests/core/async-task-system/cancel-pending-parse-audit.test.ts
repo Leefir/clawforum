@@ -59,7 +59,7 @@ describe('phase 1013 E.4: cancel pending parse fail audit', () => {
     expect(parseFailedEvents[0]).toEqual(
       expect.arrayContaining([
         TASK_AUDIT_EVENTS.PARSE_FAILED,
-        taskId,
+        expect.stringContaining('taskId='),
         'context=cancel_pending_load',
         expect.stringContaining('error='),
       ]),

@@ -5,7 +5,12 @@ import type { InboxMessage } from '../../foundation/messaging/types.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { INBOX_PENDING_DIR } from '../../foundation/messaging/dirs.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
-import { formatErr, auditError } from './_helpers.js';
+import { formatErr } from './_helpers.js';
+import {
+  emitResultWriteFailed,
+  emitInboxWriteFailed,
+  emitResultDeliveryEnsureDirFailed,
+} from './audit-emit.js';
 import { TASKS_QUEUES_RESULTS_DIR } from './dirs.js';
 import { SUMMARY_MAX_CHARS } from '../../foundation/utils/format.js';
 import type { SubAgentTask, ToolTask } from './system.js';
@@ -19,12 +24,11 @@ async function writeSentMarker(fs: FileSystem, auditWriter: AuditLog, taskId: st
     await fs.writeAtomic(SENT_MARKER(taskId), '1');
   } catch (markerErr) {
     // 不 throw：marker 写失败仅影响 future recovery 重发 → at-least-once 投递（≤ 10ms race window 已 design ratify ⚓ accepted-stable by phase 875、consumer 容忍重发、详 design/modules/l4_async_task_system.md §7.B B.sent-marker-residual-race-window）
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.RESULT_WRITE_FAILED,
+    emitResultWriteFailed(auditWriter, {
       taskId,
-      'context=sent_marker_persist_failed',
-      `error=${formatErr(markerErr)}`,
-    );
+      context: 'sent_marker_persist_failed',
+      error: formatErr(markerErr),
+    });
   }
 }
 
@@ -52,7 +56,11 @@ export async function sendToolResult(
   } catch (writeErr) {
     // Degrade gracefully: resultRef remains undefined, send full content in inbox
     const errMsg = formatErr(writeErr);
-    auditWriter.write(TASK_AUDIT_EVENTS.RESULT_WRITE_FAILED, task.id, 'context=write_result', `error=${errMsg}`);
+    emitResultWriteFailed(auditWriter, {
+      taskId: task.id,
+      context: 'write_result',
+      error: errMsg,
+    });
   }
 
   // Build summary (preview if resultRef exists, full content otherwise)
@@ -93,23 +101,29 @@ export async function sendToolResult(
     if (resultRef) {
       // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
       await fs.delete(resultRef).catch((delErr) => {
-        auditWriter.write(TASK_AUDIT_EVENTS.RESULT_WRITE_FAILED, task.id, 'context=orphan_delete', `error=${formatErr(delErr)}`);
+        emitResultWriteFailed(auditWriter, {
+          taskId: task.id,
+          context: 'orphan_delete',
+          error: formatErr(delErr),
+        });
       });
       try {
         await new InboxWriter(fs, INBOX_PENDING_DIR, auditWriter).write({ ...baseMsg, content: inlineContent });
         return;
       } catch (inlineErr) {
-        auditWriter.write(
-          TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED,
-          task.id,
-          'context=inline_fallback_failed',
-          `error=${formatErr(inlineErr)}`,
-        );
+        emitInboxWriteFailed(auditWriter, {
+          taskId: task.id,
+          context: 'inline_fallback_failed',
+          error: formatErr(inlineErr),
+        });
         // 降级也失败，继续抛出原始错误（保 caller fallback 链 / 既有 throw err 路径不动）
       }
     }
     const errMsg = formatErr(err);
-    auditWriter.write(TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED, task.id, `error=${errMsg}`);
+    emitInboxWriteFailed(auditWriter, {
+      taskId: task.id,
+      error: errMsg,
+    });
     throw err;  // Re-throw to allow caller fallback
   }
 }
@@ -135,7 +149,11 @@ export async function sendResult(
   } catch (writeErr) {
     // Degrade gracefully: resultRef remains undefined, send full content in inbox
     const errMsg = formatErr(writeErr);
-    auditWriter.write(TASK_AUDIT_EVENTS.RESULT_WRITE_FAILED, task.id, 'context=send_result_write', `error=${errMsg}`);
+    emitResultWriteFailed(auditWriter, {
+      taskId: task.id,
+      context: 'send_result_write',
+      error: errMsg,
+    });
   }
 
   // Build summary (preview if resultRef exists, full content otherwise)
@@ -174,7 +192,11 @@ export async function sendResult(
     if (resultRef) {
       // inbox 写失败：删除孤立的 results 文件，降级为 inline 内容重试
       await fs.delete(resultRef).catch((delErr) => {
-        auditWriter.write(TASK_AUDIT_EVENTS.RESULT_WRITE_FAILED, task.id, 'context=orphan_delete_send', `error=${formatErr(delErr)}`);
+        emitResultWriteFailed(auditWriter, {
+          taskId: task.id,
+          context: 'orphan_delete_send',
+          error: formatErr(delErr),
+        });
       });
       try {
         await new InboxWriter(fs, INBOX_PENDING_DIR, auditWriter).write({ ...baseMsg, content: inlineContent });
@@ -182,17 +204,19 @@ export async function sendResult(
         await writeSentMarker(fs, auditWriter, task.id);
         return;
       } catch (inlineErr) {
-        auditWriter.write(
-          TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED,
-          task.id,
-          'context=inline_fallback_failed',
-          `error=${formatErr(inlineErr)}`,
-        );
+        emitInboxWriteFailed(auditWriter, {
+          taskId: task.id,
+          context: 'inline_fallback_failed',
+          error: formatErr(inlineErr),
+        });
         // 降级也失败，继续抛出原始错误（保 caller fallback 链 / 既有 throw err 路径不动）
       }
     }
     const errMsg = formatErr(err);
-    auditWriter.write(TASK_AUDIT_EVENTS.INBOX_WRITE_FAILED, task.id, `error=${errMsg}`);
+    emitInboxWriteFailed(auditWriter, {
+      taskId: task.id,
+      error: errMsg,
+    });
     throw err;  // Re-throw to allow caller fallback
   }
   // phase 789 (audit-2026-05-14 P0.19): inbox 主路径 success → 原子写 SENT_MARKER
@@ -233,13 +257,12 @@ export async function sendFallbackError(
       // EEXIST 路径 idempotent 安全，silent 合规；非 EEXIST 是真 fs 故障，audit 留痕
       if (code !== 'EEXIST') {
         const msg = err instanceof Error ? err.message : String(err);
-        auditWriter.write(
-          TASK_AUDIT_EVENTS.RESULT_DELIVERY_ENSURE_DIR_FAILED,
-          `taskId=${task.id}`,
-          `dir=${resultsDir}`,
-          `code=${code ?? 'UNKNOWN'}`,
-          `error=${msg}`,
-        );
+        emitResultDeliveryEnsureDirFailed(auditWriter, {
+          taskId: task.id,
+          dir: resultsDir,
+          code: code ?? 'UNKNOWN',
+          error: msg,
+        });
       }
     });
     await writeSentMarker(fs, auditWriter, task.id);

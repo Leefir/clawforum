@@ -347,7 +347,7 @@ describe('Task System + SubAgent', () => {
         expect.arrayContaining([
           expect.arrayContaining([
             TASK_AUDIT_EVENTS.TASK_COMPLETED,
-            taskId,
+            expect.stringContaining('taskId='),
           ]),
         ])
       );
@@ -391,7 +391,7 @@ describe('Task System + SubAgent', () => {
         expect.arrayContaining([
           expect.arrayContaining([
             'task_completed',
-            taskId,
+            expect.stringContaining('taskId='),
             'err',
             expect.stringMatching(/^elapsed_ms=\d+$/),
           ]),

@@ -11,6 +11,12 @@ import {
 } from './dirs.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr } from './_helpers.js';
+import {
+  emitRecovered,
+  emitRecoveryComplete,
+  emitRecoveryFailed,
+  emitRecoveryDeadLetter,
+} from './audit-emit.js';
 import { validateTaskShape, backupCorruptTask } from './task-corrupt-helpers.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { sendFallbackError, sendResult, SENT_MARKER } from './result-delivery.js';
@@ -54,7 +60,11 @@ async function _recoverRunningTasks(deps: RecoverTasksDeps): Promise<number> {
       }
     } catch (err) {
       const errMsg = formatErr(err);
-      auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_FAILED, entry.path, 'context=recover_running', `error=${errMsg}`);
+      emitRecoveryFailed(auditWriter, {
+        path: entry.path,
+        context: 'recover_running',
+        error: errMsg,
+      });
     }
   }
   return recoveredCount;
@@ -65,7 +75,12 @@ async function _recoverToolTask(
 ): Promise<number> {
   const pendingPath = `${TASKS_QUEUES_PENDING_DIR}/${task.id}.json`;
   await deps.fs.move(filePath, pendingPath);
-  deps.auditWriter.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, `kind=${task.kind}`, 'from=running', 'to=pending');
+  emitRecovered(deps.auditWriter, {
+    taskId: task.id,
+    kind: task.kind,
+    from: 'running',
+    to: 'pending',
+  });
   return 1;
 }
 
@@ -91,24 +106,22 @@ async function _recoverAlreadySent(
   deps: RecoverTasksDeps, filePath: string, task: SubAgentTask,
 ): Promise<void> {
   await deps.fs.move(filePath, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(async (moveErr) => {
-    deps.auditWriter.write(
-      TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-      task.id,
-      'context=alreadysent_move_failed',
-      `error=${formatErr(moveErr)}`,
-    );
+    emitRecoveryFailed(deps.auditWriter, {
+      taskId: task.id,
+      context: 'alreadysent_move_failed',
+      error: formatErr(moveErr),
+    });
     await deps.fs.delete(filePath).catch((delErr) => {
-      deps.auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-      'context=alreadysent_delete_failed',
-        `error=${formatErr(delErr)}`,
-      );
+      emitRecoveryFailed(deps.auditWriter, {
+        taskId: task.id,
+        context: 'alreadysent_delete_failed',
+        error: formatErr(delErr),
+      });
     });
   });
   // C.3 (phase 989): mirror _recoverWithResult line 166 cleanup / D5 hygiene / retry-count file 不 accumulate
   await deps.fs.delete(RETRY_COUNT_PATH(task.id)).catch(() => {});
-  deps.auditWriter.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=already_sent');
+  emitRecovered(deps.auditWriter, { taskId: task.id, reason: 'already_sent' });
 }
 
 async function _recoverWithResult(
@@ -124,12 +137,11 @@ async function _recoverWithResult(
     const parsed = parseInt(raw, 10);
     if (Number.isNaN(parsed) || parsed < 0) {
       counterCorrupt = true;
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=retry_counter_corrupt',
-        `raw=${raw.slice(0, 80)}`,
-      );
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'retry_counter_corrupt',
+        raw: raw.slice(0, 80),
+      });
     } else {
       retryCount = parsed;
     }
@@ -137,12 +149,11 @@ async function _recoverWithResult(
     const code = (err as NodeJS.ErrnoException).code;
     // first-run / file 不存在 silent OK；其他 IO 错 audit（防 silent retry counter reset）
     if (code !== 'ENOENT' && !(err instanceof FileNotFoundError)) {
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=retry_counter_read_failed',
-        `error=${formatErr(err)}`,
-      );
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'retry_counter_read_failed',
+        error: formatErr(err),
+      });
     }
   }
 
@@ -155,7 +166,11 @@ async function _recoverWithResult(
   const resultSent = await sendResult(fs, auditWriter, task, resultContent, false)
     .then(() => true)
     .catch(async (e) => {
-      auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_FAILED, task.id, 'context=resend_result_failed', `error=${formatErr(e)}`);
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'resend_result_failed',
+        error: formatErr(e),
+      });
       // phase 789 (audit-2026-05-14 P0.20): await sendFallbackError + 视作 sent
       // 防止 fallback 成功后 next startup 重试 sendResult 导致父 inbox 双投递
       // sendFallbackError 内会写 SENT_MARKER（phase 789 invariant）
@@ -163,12 +178,11 @@ async function _recoverWithResult(
         await sendFallbackError(fs, auditWriter, task, 'Result resend failed after recovery');
         return true;  // fallback delivered = inbox-written 视作 sent
       } catch (fallbackErr) {
-        auditWriter.write(
-          TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-          task.id,
-          'context=fallback_send_failed',
-          `error=${formatErr(fallbackErr)}`,
-        );
+        emitRecoveryFailed(auditWriter, {
+          taskId: task.id,
+          context: 'fallback_send_failed',
+          error: formatErr(fallbackErr),
+        });
         return false;  // both failed → retry next startup
       }
     });
@@ -176,24 +190,22 @@ async function _recoverWithResult(
   if (resultSent) {
     // phase 789: sendResult 内已写过此 marker，本处是 defensive idempotent backup
     await fs.writeAtomic(SENT_MARKER(task.id), '1').catch((e) => {
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=sent_marker_persist_failed',
-        `error=${formatErr(e)}`,
-      );
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'sent_marker_persist_failed',
+        error: formatErr(e),
+      });
     });
     // retryPath delete 失败无害（残文件下次 startup 覆盖 / 不影响 dead-letter promotion）
     await fs.delete(retryPath).catch(() => {});
   } else {
     retryCount++;
     await fs.writeAtomic(retryPath, String(retryCount)).catch((e) => {
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=retry_counter_persist_failed',
-        `error=${formatErr(e)}`,
-      );
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'retry_counter_persist_failed',
+        error: formatErr(e),
+      });
     });
     if (retryCount >= MAX_RECOVERY_RETRIES) {
       await _moveToDeadLetter(deps, filePath, task, retryCount, retryPath);
@@ -202,34 +214,31 @@ async function _recoverWithResult(
     // P1.8 fix (phase 612): retryCount<MAX 时不 move DONE / 保 running/ /
     // 下次启动 recovery 再 trigger _recoverWithResult / counter 持久化 / 累至 MAX → dead-letter
     // 之前 fall-through 到 line 130 move DONE 是 silent drop bug（resultSent=false 但移 DONE / parent 永不收 / 下次启动 0 retry）
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-      task.id,
-      'context=retry_pending',
-      `retryCount=${retryCount}`,
-      `maxRetries=${MAX_RECOVERY_RETRIES}`,
-    );
+    emitRecoveryFailed(auditWriter, {
+      taskId: task.id,
+      context: 'retry_pending',
+      retryCount,
+      maxRetries: MAX_RECOVERY_RETRIES,
+    });
     return 0;
   }
 
   // 仅 success path 走这里 (resultSent=true)
   await fs.move(filePath, `${TASKS_QUEUES_DONE_DIR}/${task.id}.json`).catch(async (moveErr) => {
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-      task.id,
-      'context=done_move_failed',
-      `error=${formatErr(moveErr)}`,
-    );
+    emitRecoveryFailed(auditWriter, {
+      taskId: task.id,
+      context: 'done_move_failed',
+      error: formatErr(moveErr),
+    });
     await fs.delete(filePath).catch((delErr) => {
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=done_delete_failed',
-        `error=${formatErr(delErr)}`,
-      );
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'done_delete_failed',
+        error: formatErr(delErr),
+      });
     });
   });
-  auditWriter.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, 'reason=result_file_exists');
+  emitRecovered(auditWriter, { taskId: task.id, reason: 'result_file_exists' });
   return 0;
 }
 
@@ -237,31 +246,27 @@ async function _moveToDeadLetter(
   deps: RecoverTasksDeps, filePath: string, task: SubAgentTask, retryCount: number, retryPath: string,
 ): Promise<void> {
   const { fs, auditWriter } = deps;
-  auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_DEAD_LETTER, task.id,
-    `retries=${retryCount}`, 'action=move_to_failed');
+  emitRecoveryDeadLetter(auditWriter, { taskId: task.id, retries: retryCount });
   await fs.move(filePath, `${TASKS_QUEUES_FAILED_DIR}/${task.id}.json`).catch(async (moveErr) => {
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-      task.id,
-      'context=dead_letter_move_failed',
-      `error=${formatErr(moveErr)}`,
-    );
+    emitRecoveryFailed(auditWriter, {
+      taskId: task.id,
+      context: 'dead_letter_move_failed',
+      error: formatErr(moveErr),
+    });
     await fs.delete(filePath).catch((delErr) => {
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=dead_letter_delete_failed',
-        `error=${formatErr(delErr)}`,
-      );
+      emitRecoveryFailed(auditWriter, {
+        taskId: task.id,
+        context: 'dead_letter_delete_failed',
+        error: formatErr(delErr),
+      });
     });
   });
   await fs.delete(retryPath).catch((cleanupErr) => {
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-      task.id,
-      'context=dead_letter_retrypath_cleanup_failed',
-      `error=${formatErr(cleanupErr)}`,
-    );
+    emitRecoveryFailed(auditWriter, {
+      taskId: task.id,
+      context: 'dead_letter_retrypath_cleanup_failed',
+      error: formatErr(cleanupErr),
+    });
   });
 }
 
@@ -270,22 +275,25 @@ async function _recoverWithoutResult(
 ): Promise<number> {
   const pendingPath = `${TASKS_QUEUES_PENDING_DIR}/${task.id}.json`;
   await deps.fs.move(filePath, pendingPath).catch(async (moveErr) => {
-    deps.auditWriter.write(
-      TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-      task.id,
-      'context=without_result_move_failed',
-      `error=${formatErr(moveErr)}`,
-    );
+    emitRecoveryFailed(deps.auditWriter, {
+      taskId: task.id,
+      context: 'without_result_move_failed',
+      error: formatErr(moveErr),
+    });
     await deps.fs.delete(filePath).catch((delErr) => {
-      deps.auditWriter.write(
-        TASK_AUDIT_EVENTS.RECOVERY_FAILED,
-        task.id,
-        'context=without_result_delete_failed',
-        `error=${formatErr(delErr)}`,
-      );
+      emitRecoveryFailed(deps.auditWriter, {
+        taskId: task.id,
+        context: 'without_result_delete_failed',
+        error: formatErr(delErr),
+      });
     });
   });
-  deps.auditWriter.write(TASK_AUDIT_EVENTS.RECOVERED, task.id, `kind=${task.kind}`, 'from=running', 'to=pending');
+  emitRecovered(deps.auditWriter, {
+    taskId: task.id,
+    kind: task.kind,
+    from: 'running',
+    to: 'pending',
+  });
   return 1;
 }
 
@@ -310,7 +318,11 @@ async function _loadPendingTasks(deps: RecoverTasksDeps): Promise<void> {
       // 文件保留 / by _initialScanPending 入队
     } catch (err) {
       const errMsg = formatErr(err);
-      auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_FAILED, entry.path, 'context=load_pending', `error=${errMsg}`);
+      emitRecoveryFailed(auditWriter, {
+        path: entry.path,
+        context: 'load_pending',
+        error: errMsg,
+      });
     }
   }
 }
@@ -330,10 +342,18 @@ export async function recoverTasks(deps: RecoverTasksDeps): Promise<void> {
     const failedEntries = await deps.fs.list(TASKS_QUEUES_FAILED_DIR).catch(() => []);
     const failedCount = failedEntries.filter(e => e.name.endsWith('.json')).length;
 
-    auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_COMPLETE, 'system', `pending=${pendingQueue.length}`, `recovered_running=${recoveredFromRunning}`, `failed=${failedCount}`);
+    emitRecoveryComplete(auditWriter, {
+      pending: pendingQueue.length,
+      recoveredRunning: recoveredFromRunning,
+      failed: failedCount,
+    });
   } catch (err) {
     const errMsg = formatErr(err);
-    auditWriter.write(TASK_AUDIT_EVENTS.RECOVERY_FAILED, 'system', 'context=recovery_top', `error=${errMsg}`);
+    emitRecoveryFailed(auditWriter, {
+      source: 'system',
+      context: 'recovery_top',
+      error: errMsg,
+    });
   }
 
 

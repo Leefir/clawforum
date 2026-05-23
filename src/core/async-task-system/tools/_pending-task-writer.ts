@@ -10,7 +10,7 @@ import { TASKS_QUEUES_PENDING_DIR } from '../dirs.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { SubAgentTask } from '../system.js';
-import { TASK_AUDIT_EVENTS } from '../audit-events.js';
+import { emitTaskScheduled } from '../audit-emit.js';
 
 /**
  * Write a pending subagent task file. Watcher will pick it up.
@@ -31,6 +31,8 @@ export async function writePendingSubagentTaskFile(
     `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
     JSON.stringify(task, null, 2),
   );
-  audit?.write(TASK_AUDIT_EVENTS.TASK_SCHEDULED, taskId, 'kind=subagent', `parent=${task.parentClawId}`);
+  if (audit) {
+    emitTaskScheduled(audit, { taskId, kind: 'subagent', parent: task.parentClawId });
+  }
   return taskId;
 }

@@ -23,6 +23,9 @@ export { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
 export { writePendingToolTaskFile } from './tools/_pending-tool-task-writer.js';
 export { classifyTaskError } from './_helpers.js';
 
+// phase 1130: typed audit emit functions
+export * from './audit-emit.js';
+
 
 /** SubAgent task scheduling payload (sans id/createdAt, filled by writer) */
 export type SubAgentTaskInfo = Omit<SubAgentTask, 'id' | 'createdAt'>;

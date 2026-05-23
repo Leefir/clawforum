@@ -12,7 +12,12 @@ import { createDialogStore } from '../../foundation/dialog-store/index.js';
 
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { STREAM_TASK_EVENTS } from './stream-events.js';
-import { formatErr, auditError, classifyTaskError } from './_helpers.js';
+import { formatErr, classifyTaskError } from './_helpers.js';
+import {
+  emitTaskCompleted,
+  emitHandlerFailed,
+  emitResultDeliveryFailed,
+} from './audit-emit.js';
 import { AskMotionTool } from '../summon-system/index.js';
 import { TASKS_SYNC_DIR, TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from './dirs.js';
 import { buildSubagentSystemPrompt, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/subagent.js';
@@ -51,14 +56,22 @@ async function applyPostProcessor(
   if (!task.postProcessor) return input;
   const handler = postProcessors.get(task.postProcessor);
   if (!handler) {
-    auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=postProcessor_not_found', `name=${task.postProcessor}`);
+    emitHandlerFailed(auditWriter, {
+      taskId: task.id,
+      context: 'postProcessor_not_found',
+      name: task.postProcessor,
+    });
     return input;
   }
   try {
     return await handler(input, task, isError, fs, auditWriter);
   } catch (handlerErr) {
     const ctx = isError ? 'postProcessor_threw_error_path' : 'postProcessor_threw';
-    auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, `context=${ctx}`, `error=${formatErr(handlerErr)}`);
+    emitHandlerFailed(auditWriter, {
+      taskId: task.id,
+      context: ctx,
+      error: formatErr(handlerErr),
+    });
     return input;
   }
 }
@@ -156,17 +169,17 @@ export async function executeSubAgentTask(
     const inboxResult = await applyPostProcessor(displayResult, task, false, postProcessors, fs, auditWriter);
     await sendResult(fs, auditWriter, task, inboxResult, false);
 
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.TASK_COMPLETED,
-      task.id, 'ok',
-      `kind=subagent`,
-      `parent=${task.parentClawId}`,
-      `callerType=${task.callerType ?? 'subagent'}`,
-      `intent=${task.intent.slice(0, 60)}`,
-      `elapsed_ms=${Date.now() - taskStartTime}`,
-      `len=${displayResult.length}`,
-      `subAuditPath=tasks/queues/results/${task.id}/audit.tsv`,
-    );
+    emitTaskCompleted(auditWriter, {
+      taskId: task.id,
+      status: 'ok',
+      kind: 'subagent',
+      parent: task.parentClawId,
+      callerType: task.callerType ?? 'subagent',
+      intent: task.intent.slice(0, 60),
+      elapsedMs: Date.now() - taskStartTime,
+      len: displayResult.length,
+      subAuditPath: `tasks/queues/results/${task.id}/audit.tsv`,
+    });
   } catch (error) {
     taskFailed = true;
     const errorMsg = formatErr(error);
@@ -181,28 +194,31 @@ export async function executeSubAgentTask(
       try {
         await sendFallbackError(fs, auditWriter, task, errorMsg);
       } catch (fallbackErr) {
-        auditWriter.write(
-          TASK_AUDIT_EVENTS.RESULT_DELIVERY_FAILED,
-          task.id,
-          'reason=both sendResult and sendFallbackError failed',
-          `error=${formatErr(fallbackErr)}`,
-        );
+        emitResultDeliveryFailed(auditWriter, {
+          taskId: task.id,
+          reason: 'both sendResult and sendFallbackError failed',
+          error: formatErr(fallbackErr),
+        });
         // task stays in failed/ for manual recovery (finally will move it)
       }
     }
 
-    auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, `parent=${task.parentClawId}`, `error=${errorMsg}`);
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.TASK_COMPLETED,
-      task.id, 'err',
-      `kind=subagent`,
-      `parent=${task.parentClawId}`,
-      `callerType=${task.callerType ?? 'subagent'}`,
-      `intent=${task.intent.slice(0, 60)}`,
-      `error_category=${classifyTaskError(error)}`,
-      `elapsed_ms=${Date.now() - taskStartTime}`,
-      `subAuditPath=tasks/queues/results/${task.id}/audit.tsv`,
-    );
+    emitHandlerFailed(auditWriter, {
+      taskId: task.id,
+      parent: task.parentClawId,
+      error: errorMsg,
+    });
+    emitTaskCompleted(auditWriter, {
+      taskId: task.id,
+      status: 'err',
+      kind: 'subagent',
+      parent: task.parentClawId,
+      callerType: task.callerType ?? 'subagent',
+      intent: task.intent.slice(0, 60),
+      errorCategory: classifyTaskError(error),
+      elapsedMs: Date.now() - taskStartTime,
+      subAuditPath: `tasks/queues/results/${task.id}/audit.tsv`,
+    });
   } finally {
     // Move from running to done/failed based on success
     if (taskFailed) {

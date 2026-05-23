@@ -68,7 +68,7 @@ describe('phase 1011 D.3: cancel race lost to dispatch', () => {
     await system.cancel('task-X');
 
     const raceLostEvents = auditEvents.filter(
-      e => e[0] === TASK_AUDIT_EVENTS.TASK_CANCEL_RACE_LOST_TO_DISPATCH && e[1] === 'task-X',
+      e => e[0] === TASK_AUDIT_EVENTS.TASK_CANCEL_RACE_LOST_TO_DISPATCH && e.some(c => typeof c === 'string' && c === 'taskId=task-X'),
     );
     expect(raceLostEvents.length).toBe(1);
 

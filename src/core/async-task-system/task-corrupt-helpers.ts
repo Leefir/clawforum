@@ -1,6 +1,6 @@
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import { TASK_AUDIT_EVENTS } from './audit-events.js';
+import { emitTaskCorrupt } from './audit-emit.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../../foundation/audit/index.js';
 import type { SubAgentTask, ToolTask } from './system.js';
 import { TaskSchema } from './task-schemas.js';
@@ -26,11 +26,10 @@ export async function backupCorruptTask(
     moveOk = false;
     moveErr = mErr;
   }
-  auditWriter.write(
-    TASK_AUDIT_EVENTS.TASK_CORRUPT,
-    `backup=${backupPath}`,
-    `move_ok=${moveOk}`,
-    ...(moveOk ? [] : [`move_error=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`]),
-    `error=${(err instanceof Error ? err.message : String(err)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
-  );
+  emitTaskCorrupt(auditWriter, {
+    backup: backupPath,
+    moveOk,
+    moveError: moveOk ? undefined : (moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS),
+    error: (err instanceof Error ? err.message : String(err)).slice(0, AUDIT_MESSAGE_MAX_CHARS),
+  });
 }

@@ -93,7 +93,7 @@ describe('writePendingSubagentTaskFile', () => {
     expect(mockAudit.write).toHaveBeenCalledTimes(1);
     expect(mockAudit.write).toHaveBeenCalledWith(
       'task_scheduled',
-      taskId,
+      expect.stringContaining('taskId='),
       'kind=subagent',
       'parent=audit-parent',
     );

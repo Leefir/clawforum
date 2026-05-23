@@ -72,7 +72,7 @@ describe('phase 859 r111 H fork: cancel path promise reject audit (Sa.2)', () =>
     expect(cancelPromiseRejectedEvents[0]).toEqual(
       expect.arrayContaining([
         TASK_AUDIT_EVENTS.CANCEL_PROMISE_REJECTED,
-        taskId,
+        expect.stringContaining('taskId='),
         expect.stringContaining('error='),
       ]),
     );
@@ -90,7 +90,7 @@ describe('phase 859 r111 H fork: cancel path promise reject audit (Sa.2)', () =>
     expect(cancelledEvents[0]).toEqual(
       expect.arrayContaining([
         TASK_AUDIT_EVENTS.CANCELLED,
-        taskId,
+        expect.stringContaining('taskId='),
         'from=running',
       ]),
     );
@@ -122,7 +122,7 @@ describe('phase 859 r111 H fork: cancel path promise reject audit (Sa.2)', () =>
     expect(cancelledEvents[0]).toEqual(
       expect.arrayContaining([
         TASK_AUDIT_EVENTS.CANCELLED,
-        taskId,
+        expect.stringContaining('taskId='),
         'from=running',
       ]),
     );

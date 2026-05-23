@@ -9,7 +9,7 @@ import { TASKS_QUEUES_PENDING_DIR } from '../dirs.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { AsyncToolTaskArgs } from '../../../foundation/tools/index.js';
-import { TASK_AUDIT_EVENTS } from '../audit-events.js';
+import { emitTaskScheduled } from '../audit-emit.js';
 
 /**
  * Write a pending tool task file. Watcher will pick it up.
@@ -31,6 +31,14 @@ export async function writePendingToolTaskFile(
     `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
     JSON.stringify(task, null, 2),
   );
-  audit?.write(TASK_AUDIT_EVENTS.TASK_SCHEDULED, taskId, 'kind=tool', `parent=${args.parentClawId}`, `tool=${args.toolName}`, `isShadow=${args.isShadow}`);
+  if (audit) {
+    emitTaskScheduled(audit, {
+      taskId,
+      kind: 'tool',
+      parent: args.parentClawId,
+      tool: args.toolName,
+      isShadow: args.isShadow,
+    });
+  }
   return taskId;
 }

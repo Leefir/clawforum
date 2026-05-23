@@ -4,7 +4,13 @@ import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { ToolTask } from './system.js';
 import { sendToolResult, sendFallbackError } from './result-delivery.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
-import { formatErr, auditError, classifyTaskError } from './_helpers.js';
+import { formatErr, classifyTaskError } from './_helpers.js';
+import {
+  emitTaskCompleted,
+  emitHandlerFailed,
+  emitToolRetry,
+  emitToolAsyncResult,
+} from './audit-emit.js';
 import { TASKS_QUEUES_RUNNING_DIR } from './dirs.js';
 
 export interface ExecuteToolTaskDeps {
@@ -46,21 +52,29 @@ export async function executeToolTask(
       } catch (sendErr) {
         // sendToolResult 本身失败：降级写最小通知，不进入重试（执行已成功）
         await sendFallbackError(fs, auditWriter, task, 'Failed to send result').catch((e) => {
-          auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=sendFallbackError_error_path', `error=${formatErr(e)}`);
+          emitHandlerFailed(auditWriter, {
+            taskId: task.id,
+            context: 'sendFallbackError_error_path',
+            error: formatErr(e),
+          });
         });
       }
       success = true;
-      auditWriter.write(
-        TASK_AUDIT_EVENTS.TASK_COMPLETED,
-        task.id, 'ok',
-        `kind=tool`,
-        `toolName=${task.toolName}`,
-        `elapsed_ms=${Date.now() - taskStartTime}`,
-        `retries=${attempt}`,
-      );
+      emitTaskCompleted(auditWriter, {
+        taskId: task.id,
+        status: 'ok',
+        kind: 'tool',
+        toolName: task.toolName,
+        elapsedMs: Date.now() - taskStartTime,
+        retries: attempt,
+      });
       // tool_async_result：仅当 toolUseId 已记录时写入
       if (task.toolUseId) {
-        auditWriter.write(TASK_AUDIT_EVENTS.TOOL_ASYNC_RESULT, task.toolName, task.toolUseId, `task=${task.id}`);
+        emitToolAsyncResult(auditWriter, {
+          taskId: task.id,
+          toolName: task.toolName,
+          toolUseId: task.toolUseId,
+        });
       }
       break; // Exit retry loop on success
     } catch (error) {
@@ -78,10 +92,20 @@ export async function executeToolTask(
           );
         } catch (writeErr) {
           // Non-critical: just log
-          auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=retry_count_update', `error=${formatErr(writeErr)}`);
+          emitHandlerFailed(auditWriter, {
+            taskId: task.id,
+            context: 'retry_count_update',
+            error: formatErr(writeErr),
+          });
         }
 
-        auditWriter.write(TASK_AUDIT_EVENTS.TOOL_RETRY, task.id, `tool=${task.toolName}`, `attempt=${attempt + 1}`, `max=${task.maxRetries}`, `error=${errorMsg}`);
+        emitToolRetry(auditWriter, {
+          taskId: task.id,
+          tool: task.toolName,
+          attempt: attempt + 1,
+          max: task.maxRetries,
+          error: errorMsg,
+        });
 
         // Exponential backoff: retryBaseDelayMs, retryBaseDelayMs*2, etc.
         const backoffMs = retryBaseDelayMs * Math.pow(2, attempt);
@@ -113,19 +137,28 @@ export async function executeToolTask(
     } catch (sendErr) {
       // sendToolResult 失败：降级写最小通知
       await sendFallbackError(fs, auditWriter, task, finalError).catch((e) => {
-        auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, 'context=sendFallbackError_retry', `error=${formatErr(e)}`);
+        emitHandlerFailed(auditWriter, {
+          taskId: task.id,
+          context: 'sendFallbackError_retry',
+          error: formatErr(e),
+        });
       });
     }
 
-    auditWriter.write(TASK_AUDIT_EVENTS.HANDLER_FAILED, task.id, `tool=${task.toolName}`, 'context=retries_exhausted', `error=${finalError}`);
-    auditWriter.write(
-      TASK_AUDIT_EVENTS.TASK_COMPLETED,
-      task.id, 'err',
-      `kind=tool`,
-      `toolName=${task.toolName}`,
-      `error_category=${classifyTaskError(lastError)}`,
-      `elapsed_ms=${Date.now() - taskStartTime}`,
-    );
+    emitHandlerFailed(auditWriter, {
+      taskId: task.id,
+      tool: task.toolName,
+      context: 'retries_exhausted',
+      error: finalError,
+    });
+    emitTaskCompleted(auditWriter, {
+      taskId: task.id,
+      status: 'err',
+      kind: 'tool',
+      toolName: task.toolName,
+      errorCategory: classifyTaskError(lastError),
+      elapsedMs: Date.now() - taskStartTime,
+    });
   }
 
   // Move from running to done/failed based on success

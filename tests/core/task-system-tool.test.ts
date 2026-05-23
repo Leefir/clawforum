@@ -1195,7 +1195,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       await waitFor(() => writeSpy.mock.calls.some(c => c[0] === 'task_move_failed'));
 
-      expect(writeSpy).toHaveBeenCalledWith('task_move_failed', taskId, 'context=move_to_done', expect.stringContaining('Disk full'));
+      expect(writeSpy).toHaveBeenCalledWith('task_move_failed', expect.stringContaining('taskId='), 'context=move_to_done', expect.stringContaining('Disk full'));
 
       vi.restoreAllMocks();
     });
