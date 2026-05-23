@@ -94,13 +94,13 @@
       "tool_async_result",
       "tool_task_retry"
     ],
-    "core_async-task-system_tools_dispatch-audit-events": [
-      "dispatch_contract_done_missing_fields",
-      "dispatch_contract_done_not_found",
-      "dispatch_contract_done_parse_failed",
-      "dispatch_load_skills_failed",
-      "dispatch_no_dialog_context",
-      "dispatch_write_by_contract_failed"
+    "core_summon-system_audit-events": [
+      "summon_contract_done_missing_fields",
+      "summon_contract_done_not_found",
+      "summon_contract_done_parse_failed",
+      "summon_load_skills_failed",
+      "summon_no_dialog_context",
+      "summon_write_by_contract_failed"
     ],
     "core_contract_audit-events": [
       "acceptance_failed",

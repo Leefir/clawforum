@@ -67,7 +67,7 @@ async function setupFixtures(): Promise<TestFixtures> {
 
   // 写 by-contract index
   const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'describing' }));
+  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'shadow' }));
 
   // 写 target claw 的 contract YAML + progress.json
   const contractYamlPath = path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml');

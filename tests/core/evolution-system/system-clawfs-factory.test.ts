@@ -35,7 +35,7 @@ async function setupFixtures() {
   await fs.mkdir(path.join(targetClawDir, 'contract', 'active', contractId), { recursive: true });
 
   const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'describing' }));
+  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'shadow' }));
 
   const contractYamlPath = path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml');
   await fs.writeFile(contractYamlPath, 'contract_id: ' + contractId + '\nintent: test');
@@ -124,7 +124,7 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
     const targetClawDir2 = path.join(clawsBaseDir, targetClaw2);
     await fs.mkdir(path.join(targetClawDir2, 'contract', 'active', contractId2), { recursive: true });
     const byContractPath2 = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId2}.json`);
-    await fs.writeFile(byContractPath2, JSON.stringify({ targetClaw: targetClaw2, mode: 'describing' }));
+    await fs.writeFile(byContractPath2, JSON.stringify({ targetClaw: targetClaw2, mode: 'shadow' }));
     const contractYamlPath2 = path.join(targetClawDir2, 'contract', 'active', contractId2, 'contract.yaml');
     await fs.writeFile(contractYamlPath2, 'contract_id: ' + contractId2 + '\nintent: test');
     const progressPath2 = path.join(targetClawDir2, 'contract', 'active', contractId2, 'progress.json');

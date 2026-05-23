@@ -1,14 +1,14 @@
 /**
- * DispatchTool tests
+ * SummonTool tests
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { DispatchTool } from '../../src/core/async-task-system/tools/dispatch.js';
+import { SummonTool } from '../../src/core/summon-system/tools/summon.js';
 import { buildMinerSystemPrompt } from '../../src/prompts/mining.js';
-import { dispatchContractExtractPostProcessor } from '../../src/core/async-task-system/post-processors/dispatch-contract-extract.js';
+import { summonContractExtractPostProcessor } from '../../src/core/summon-system/post-processors/contract-extract.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { TASKS_QUEUES_PENDING_DIR } from '../../src/core/async-task-system/index.js';
@@ -17,7 +17,7 @@ import type { Message } from '../../src/foundation/llm-provider/types.js';
 import type { LLMOrchestrator } from '../../src/foundation/llm-orchestrator/index.js';
 
 async function createTempDir(): Promise<string> {
-  const d = path.join(tmpdir(), `dispatch-test-${randomUUID()}`);
+  const d = path.join(tmpdir(), `summon-test-${randomUUID()}`);
   await fs.mkdir(d, { recursive: true });
   return d;
 }
@@ -33,18 +33,18 @@ async function readPendingTasks(baseDir: string): Promise<Array<Record<string, u
   }
 }
 
-describe('DispatchTool', () => {
+describe('SummonTool', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
   let auditEvents: Array<{ type: string; args: unknown[] }>;
-  let tool: DispatchTool;
+  let tool: SummonTool;
 
   beforeEach(async () => {
     vi.restoreAllMocks();
     tempDir = await createTempDir();
     mockFs = new NodeFileSystem({ baseDir: tempDir });
     auditEvents = [];
-    tool = new DispatchTool(
+    tool = new SummonTool(
       async () => 'mock system prompt',
       () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
       () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
@@ -71,7 +71,7 @@ describe('DispatchTool', () => {
     });
   }
 
-  it('should allow dispatch when callerType is claw', async () => {
+  it('should allow summon when callerType is claw', async () => {
     const ctx = makeCtx('claw');
     const result = await tool.execute({ goal: 'do something' }, ctx);
 
@@ -92,7 +92,7 @@ describe('DispatchTool', () => {
 
     const tasks = await readPendingTasks(tempDir);
     expect(tasks).toHaveLength(1);
-    expect(tasks[0].postProcessor).toBe('dispatch-contract-extract');
+    expect(tasks[0].postProcessor).toBe('summon-contract-extract');
     expect(auditEvents.find(e => e.type === TASK_AUDIT_EVENTS.TASK_SCHEDULED)).toBeDefined();
   });
 
@@ -130,14 +130,14 @@ Content.
   });
 
   describe('dialogMessages', () => {
-    it('should include dialogMessages in dispatcherMessages when ctx.dialogMessages is set (describing mode)', async () => {
+    it('should include dialogMessages in dispatcherMessages when ctx.dialogMessages is set (shadow mode)', async () => {
       const dialogMessages: Message[] = [
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi there' },
       ];
       const ctx = makeCtx('claw', { dialogMessages });
 
-      await tool.execute({ goal: 'follow up', mode: 'describing' }, ctx);
+      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -146,21 +146,21 @@ Content.
       });
     });
 
-    it('should capture dispatchToolUseId when dispatch is not the last tool_use block (multi tool_use)', async () => {
+    it('should capture dispatchToolUseId when summon is not the last tool_use block (multi tool_use)', async () => {
       const dialogMessages: Message[] = [
         { role: 'user', content: 'parallel call' },
         {
           role: 'assistant',
           content: [
             { type: 'text', text: 'Dispatching and reading' },
-            { type: 'tool_use', id: 'tu_dispatch_1', name: 'dispatch', input: { goal: 'x' } },
+            { type: 'tool_use', id: 'tu_dispatch_1', name: 'summon', input: { goal: 'x' } },
             { type: 'tool_use', id: 'tu_read_1', name: 'read_file', input: { path: 'a' } },
           ],
         },
       ];
       const ctx = makeCtx('claw', { dialogMessages });
 
-      await tool.execute({ goal: 'follow up', mode: 'describing' }, ctx);
+      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -170,27 +170,27 @@ Content.
       expect(auditEvents.find(e => e.type === TASK_AUDIT_EVENTS.TASK_SCHEDULED)).toBeDefined();
     });
 
-    it('should still capture dispatchToolUseId when dispatch is the last tool_use block (backward-compat)', async () => {
+    it('should still capture dispatchToolUseId when summon is the last tool_use block (backward-compat)', async () => {
       const dialogMessages: Message[] = [
         { role: 'user', content: 'single call' },
         {
           role: 'assistant',
           content: [
             { type: 'text', text: 'Dispatching' },
-            { type: 'tool_use', id: 'tu_dispatch_2', name: 'dispatch', input: { goal: 'y' } },
+            { type: 'tool_use', id: 'tu_dispatch_2', name: 'summon', input: { goal: 'y' } },
           ],
         },
       ];
       const ctx = makeCtx('claw', { dialogMessages });
 
-      await tool.execute({ goal: 'follow up', mode: 'describing' }, ctx);
+      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
       expect(tasks[0].intent).toContain('follow up');
     });
 
-    it('should fallback to prompt when no dispatch tool_use exists in last assistant content (multi non-dispatch)', async () => {
+    it('should fallback to prompt when no summon tool_use exists in last assistant content (multi non-summon)', async () => {
       const dialogMessages: Message[] = [
         { role: 'user', content: 'no dispatch' },
         {
@@ -202,7 +202,7 @@ Content.
       ];
       const ctx = makeCtx('claw', { dialogMessages });
 
-      await tool.execute({ goal: 'follow up', mode: 'describing' }, ctx);
+      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -222,7 +222,7 @@ Content.
     });
   });
 
-  describe('Phase 546 — dispatch systemPrompt 透传', () => {
+  describe('Phase 546 — summon systemPrompt 透传', () => {
     it('mining mode passes buildMinerSystemPrompt output to writePending', async () => {
       const ctx = makeCtx('claw');
       await tool.execute({ goal: 'mine intent', mode: 'mining' }, ctx);
@@ -232,15 +232,15 @@ Content.
       expect(tasks[0].systemPrompt).toContain('意图挖掘');
     });
 
-    it('describing mode passes Motion getSystemPrompt output', async () => {
+    it('shadow mode passes Motion getSystemPrompt output', async () => {
       const mockMotionPrompt = 'MOTION_SYSTEM_PROMPT_FIXTURE';
-      const customTool = new DispatchTool(
+      const customTool = new SummonTool(
         async () => mockMotionPrompt,
         () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
         () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
       );
       const ctx = makeCtx('claw');
-      await customTool.execute({ goal: 'describe intent', mode: 'describing' }, ctx);
+      await customTool.execute({ goal: 'describe intent', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -249,7 +249,7 @@ Content.
   });
 
   describe('originClawId propagation', () => {
-    it('should pass originClawId=motion when Motion calls dispatch', async () => {
+    it('should pass originClawId=motion when Motion calls summon', async () => {
       // Motion 调用：clawId='motion', originClawId=undefined
       const ctx = makeCtx('claw', { clawId: 'motion' });
 
@@ -269,7 +269,7 @@ Content.
         originClawId: 'motion',
       });
 
-      await tool.execute({ goal: 'nested dispatch' }, ctx);
+      await tool.execute({ goal: 'nested summon' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -294,14 +294,14 @@ Content.
     });
   });
 
-  describe('dispatch-contract-extract postProcessor', () => {
+  describe('summon-contract-extract postProcessor', () => {
     function makeAuditWriter() {
       return { write: vi.fn() };
     }
 
     it('should audit when dispatcher finishes without [CONTRACT_DONE] block', async () => {
       const auditWriter = makeAuditWriter();
-      const result = await dispatchContractExtractPostProcessor(
+      const result = await summonContractExtractPostProcessor(
         'Dispatcher finished with no marker.',
         { id: 'task-pp-test', callerType: 'miner' } as any,
         false,
@@ -310,7 +310,7 @@ Content.
       );
 
       expect(auditWriter.write).toHaveBeenCalledWith(
-        'dispatch_contract_done_not_found',
+        'summon_contract_done_not_found',
         'taskId=task-pp-test',
       );
       expect(result).toBe('Dispatcher finished with no marker.');
@@ -318,16 +318,16 @@ Content.
 
     it('should audit when [CONTRACT_DONE] parsed but fields missing', async () => {
       const auditWriter = makeAuditWriter();
-      const result = await dispatchContractExtractPostProcessor(
+      const result = await summonContractExtractPostProcessor(
         'Done.\n[CONTRACT_DONE]{"targetClaw":"my-claw"}[/CONTRACT_DONE]',
-        { id: 'task-pp-test', callerType: 'describer' } as any,
+        { id: 'task-pp-test', callerType: 'shadow' } as any,
         false,
         mockFs,
         auditWriter as any,
       );
 
       expect(auditWriter.write).toHaveBeenCalledWith(
-        'dispatch_contract_done_missing_fields',
+        'summon_contract_done_missing_fields',
         'taskId=task-pp-test',
         'contractId=missing',
         'targetClaw=my-claw',
@@ -338,7 +338,7 @@ Content.
     it('should write by-contract file and return summary on valid [CONTRACT_DONE]', async () => {
       const auditWriter = makeAuditWriter();
       const resultText = 'Work done.\n[CONTRACT_DONE]{"contractId":"c-001","targetClaw":"my-claw"}[/CONTRACT_DONE]';
-      const summary = await dispatchContractExtractPostProcessor(
+      const summary = await summonContractExtractPostProcessor(
         resultText,
         { id: 'task-pp-test', callerType: 'miner' } as any,
         false,
@@ -362,17 +362,17 @@ Content.
 
       // 无 dispatch audit 事件（全是正常路径）
       const dispatchCalls = auditWriter.write.mock.calls.filter(
-        (c: any) => c[0]?.startsWith('dispatch_'),
+        (c: any) => c[0]?.startsWith('summon_'),
       );
       expect(dispatchCalls).toHaveLength(0);
     });
 
-    it('should derive mode=describing from callerType=describer', async () => {
+    it('should derive mode=shadow from callerType=shadow', async () => {
       const auditWriter = makeAuditWriter();
       const resultText = '[CONTRACT_DONE]{"contractId":"c-desc","targetClaw":"claw-b"}[/CONTRACT_DONE]';
-      await dispatchContractExtractPostProcessor(
+      await summonContractExtractPostProcessor(
         resultText,
-        { id: 'task-desc', callerType: 'describer' } as any,
+        { id: 'task-desc', callerType: 'shadow' } as any,
         false,
         mockFs,
         auditWriter as any,
@@ -382,14 +382,14 @@ Content.
         tempDir, 'clawspace', 'pending-retrospective', 'by-contract', 'c-desc.json',
       );
       const raw = JSON.parse(await fs.readFile(byContractPath, 'utf-8'));
-      expect(raw.mode).toBe('describing');
+      expect(raw.mode).toBe('shadow');
       expect(raw.describingTaskId).toBe('task-desc');
       expect(raw.miningTaskId).toBeUndefined();
     });
 
     it('should audit when [CONTRACT_DONE] JSON parse fails', async () => {
       const auditWriter = makeAuditWriter();
-      await dispatchContractExtractPostProcessor(
+      await summonContractExtractPostProcessor(
         'Done.\n[CONTRACT_DONE]{invalid json}[/CONTRACT_DONE]',
         { id: 'task-pp-test', callerType: 'miner' } as any,
         false,
@@ -398,7 +398,7 @@ Content.
       );
 
       expect(auditWriter.write).toHaveBeenCalledWith(
-        'dispatch_contract_done_parse_failed',
+        'summon_contract_done_parse_failed',
         expect.stringContaining('raw='),
       );
     });
@@ -407,7 +407,7 @@ Content.
       const auditWriter = makeAuditWriter();
       const writeSpy = vi.spyOn(mockFs, 'writeAtomic').mockRejectedValue(new Error('disk full'));
 
-      await dispatchContractExtractPostProcessor(
+      await summonContractExtractPostProcessor(
         '[CONTRACT_DONE]{"contractId":"c-002","targetClaw":"my-claw"}[/CONTRACT_DONE]',
         { id: 'task-pp-test', callerType: 'miner' } as any,
         false,
@@ -416,7 +416,7 @@ Content.
       );
 
       expect(auditWriter.write).toHaveBeenCalledWith(
-        'dispatch_write_by_contract_failed',
+        'summon_write_by_contract_failed',
         'contractId=c-002',
         'error=disk full',
       );
@@ -426,7 +426,7 @@ Content.
 
     it('should return result unchanged on error path (isError=true)', async () => {
       const auditWriter = makeAuditWriter();
-      const result = await dispatchContractExtractPostProcessor(
+      const result = await summonContractExtractPostProcessor(
         'some error result',
         { id: 'task-err', callerType: 'miner' } as any,
         true,
@@ -459,7 +459,7 @@ Content.
       await tool.execute({ goal: 'test task' }, ctx);
 
       expect(auditWriter.write).toHaveBeenCalledWith(
-        'dispatch_load_skills_failed',
+        'summon_load_skills_failed',
         'error=Error: permission denied',
       );
 
@@ -482,7 +482,7 @@ Content.
       await tool.execute({ goal: 'test task' }, ctx);
 
       expect(auditWriter.write).toHaveBeenCalledWith(
-        'dispatch_no_dialog_context',
+        'summon_no_dialog_context',
       );
     });
   });

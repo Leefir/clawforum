@@ -2,13 +2,13 @@
  * Caller type definitions
  * 
  * Centralized type definitions for all caller types to ensure consistency
- * across the codebase. New dispatch modes only need to be added here.
+ * across the codebase. New summon modes only need to be added here.
  */
 
 import type { ToolProfile } from '../tool-protocol/index.js';
 
-export type DispatchCallerType = 'describer' | 'miner';
-export type CallerType = 'claw' | 'subagent' | 'verifier' | 'shadow' | DispatchCallerType;
+export type DispatchCallerType = 'shadow' | 'miner';
+export type CallerType = 'claw' | 'subagent' | 'verifier' | 'shadow' | 'miner';
 
 /**
  * Map callerType to the corresponding ToolProfile for registry filtering.

@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
 import { shadowTool } from '../../../src/core/shadow-system/index.js';
 import { spawnTool } from '../../../src/core/spawn-system/index.js';
-import { DispatchTool } from '../../../src/core/async-task-system/tools/dispatch.js';
+import { SummonTool } from '../../../src/core/summon-system/tools/summon.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { makeAudit } from '../../helpers/audit.js';
@@ -295,9 +295,9 @@ describe('shadow tool (phase 767)', () => {
     });
   });
 
-  describe('dispatch-from-shadow defense (phase 767)', () => {
-    it('rejects dispatch when ctx.isShadow', async () => {
-      const dispatchTool = new DispatchTool(
+  describe('summon-from-shadow defense (phase 767)', () => {
+    it('rejects summon when ctx.isShadow', async () => {
+      const summonTool = new SummonTool(
         async () => 'system prompt',
         () => [],
         () => [],
@@ -312,10 +312,10 @@ describe('shadow tool (phase 767)', () => {
         isShadow: true,
       });
 
-      const result = await dispatchTool.execute({ goal: 'test' }, shadowCtx);
+      const result = await summonTool.execute({ goal: 'test' }, shadowCtx);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('shadow_dispatch_rejected');
+      expect(result.error).toBe('shadow_summon_rejected');
       expect(result.content).toContain('not callable from within shadow');
     });
   });

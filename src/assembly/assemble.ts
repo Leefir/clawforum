@@ -30,7 +30,7 @@ import type { EvolutionSystem } from '../core/evolution-system/index.js';
 
 import { createAsyncTaskSystem } from '../core/async-task-system/index.js';
 import type { AsyncTaskSystem } from '../core/async-task-system/system.js';
-import { dispatchContractExtractPostProcessor } from '../core/async-task-system/post-processors/dispatch-contract-extract.js';
+import { summonContractExtractPostProcessor } from '../core/summon-system/index.js';
 import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
 import { ExecContextImpl } from '../foundation/tools/index.js';
 import type { ExecContext } from '../foundation/tools/index.js';
@@ -208,7 +208,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       throw new Error(`Assembly: LLMOrchestrator construct failed: ${errMsg(e)}`, { cause: e });
     }
 
-    // --- L3-L5: toolRegistry（空；DispatchTool 留给 Runtime） ---
+    // --- L3-L5: toolRegistry（空；SummonTool 留给 Runtime） ---
     let toolRegistry: ToolRegistry;
     try {
       toolRegistry = createToolRegistry();
@@ -287,7 +287,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       throw new Error(`Assembly: AsyncTaskSystem construct failed: ${errMsg(e)}`, { cause: e });
     }
     // phase438: 注册 PostProcessors（装配期）
-    taskSystem.addPostProcessor('dispatch-contract-extract', dispatchContractExtractPostProcessor);
+    taskSystem.addPostProcessor('summon-contract-extract', summonContractExtractPostProcessor);
+    // backwards-compat: 既有 pending tasks/queues/pending/<id>.json 内 `postProcessor: 'dispatch-contract-extract'` 仍认
+    taskSystem.addPostProcessor('dispatch-contract-extract', summonContractExtractPostProcessor);
 
     // NOTE: taskSystem.initialize() / startDispatch() 属 AsyncTaskSystem 业务语义，由 Runtime.initialize() 调用
     //       参见 接口冻结.md §4 "业务动作归属" + 原则 #2

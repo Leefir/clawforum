@@ -35,7 +35,7 @@ async function setupFixtures() {
   await fs.mkdir(path.join(targetClawDir, 'contract', 'active', contractId), { recursive: true });
 
   const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'describing' }));
+  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'shadow' }));
 
   const contractYamlPath = path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml');
   await fs.writeFile(contractYamlPath, 'contract_id: ' + contractId + '\nintent: test');

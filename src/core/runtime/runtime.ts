@@ -19,7 +19,7 @@ import type { SessionData } from '../../foundation/dialog-store/index.js';
 import { InboxListFailed, InboxMoveFailed } from '../../foundation/messaging/index.js';
 
 import { DialogStore } from '../../foundation/dialog-store/index.js';
-import { DispatchTool } from '../async-task-system/index.js';
+import { SummonTool } from '../summon-system/index.js';
 import { runReact } from '../agent-executor/index.js';
 import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../signals.js';
@@ -198,10 +198,10 @@ export class Runtime {
       throw new Error(`Runtime: AsyncTaskSystem.startDispatch failed: ${formatErr(e)}`, { cause: e });
     }
 
-    // 6. DispatchTool 注册（候选 γ：结构性循环依赖妥协 / l6_assembly §7）
-    // NOTE: DispatchTool 闭包依赖 this.buildSystemPrompt / this.toolRegistry.formatForLLM
+    // 6. SummonTool 注册（候选 γ：结构性循环依赖妥协 / l6_assembly §7）
+    // NOTE: SummonTool 闭包依赖 this.buildSystemPrompt / this.toolRegistry.formatForLLM
     //       Assembly 构造期 Runtime 尚未 new / 此 register 必须留在 Runtime 内
-    const dispatchTool = new DispatchTool(
+    const summonTool = new SummonTool(
       () => this.buildSystemPrompt(),
       () => this.toolRegistry.formatForLLM(this.toolRegistry.getAll()),
       (profile) => this.toolRegistry.formatForLLM(
@@ -209,7 +209,7 @@ export class Runtime {
       ),
       () => this.getCurrentMessages(),  // L4 turn state → factory injection
     );
-    this.toolRegistry.register(dispatchTool);
+    this.toolRegistry.register(summonTool);
 
     if (this.options.identityToolFilter) {
       this.options.identityToolFilter(this.toolRegistry);

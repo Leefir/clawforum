@@ -130,7 +130,7 @@ describe('async ToolTask isShadow propagation (phase 858)', () => {
     const task: ToolTask = {
       kind: 'tool',
       id: 'task-2',
-      toolName: 'dispatch',
+      toolName: 'summon',
       args: {},
       parentClawDir: '/tmp/claw',
       parentClawId: 'claw-1',

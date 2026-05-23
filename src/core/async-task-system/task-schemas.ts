@@ -9,7 +9,7 @@
 import { z } from 'zod';
 
 // 字符串值与 system.ts CallerType 等价（保持单一真相 / type-import）
-const CallerTypeSchema = z.enum(['claw', 'subagent', 'verifier', 'shadow', 'describer', 'miner']);
+const CallerTypeSchema = z.enum(['claw', 'subagent', 'verifier', 'shadow', 'miner']);
 
 export const SubAgentTaskSchema = z.object({
   kind: z.literal('subagent'),

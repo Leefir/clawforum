@@ -22,7 +22,7 @@ export {
 export { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
 export { writePendingToolTaskFile } from './tools/_pending-tool-task-writer.js';
 export { classifyTaskError } from './_helpers.js';
-export { DispatchTool } from './tools/dispatch.js';
+
 
 /** SubAgent task scheduling payload (sans id/createdAt, filled by writer) */
 export type SubAgentTaskInfo = Omit<SubAgentTask, 'id' | 'createdAt'>;

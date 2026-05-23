@@ -84,7 +84,7 @@ describe('EvolutionSystem _loadState corrupt path', () => {
     // trigger _loadState via runRetroForContract (needs by-contract index to not ENOENT early)
     const contractId = 'c-' + randomUUID();
     const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'describing' }));
+    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'shadow' }));
 
     await evolutionSystem.runRetroForContract(contractId, {
       motionFs: new NodeFileSystem({ baseDir: motionDir }),
@@ -118,7 +118,7 @@ describe('EvolutionSystem _loadState corrupt path', () => {
 
     const contractId = 'c-' + randomUUID();
     const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'describing' }));
+    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'shadow' }));
 
     await evolutionSystem.runRetroForContract(contractId, {
       motionFs: new NodeFileSystem({ baseDir: motionDir }),
@@ -149,7 +149,7 @@ describe('EvolutionSystem _loadState corrupt path', () => {
 
     const contractId = 'c-' + randomUUID();
     const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'describing' }));
+    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'shadow' }));
 
     await evolutionSystem.runRetroForContract(contractId, {
       motionFs: new NodeFileSystem({ baseDir: motionDir }),

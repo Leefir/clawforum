@@ -20,7 +20,7 @@ import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/index.js';
 import { TASKS_SYNC_SPAWN_DIR } from '../../core/spawn-system/index.js';
 import { TASKS_SYNC_SHADOW_DIR } from '../../core/shadow-system/index.js';
 
-export type SubagentKind = 'dispatch' | 'spawn' | 'shadow' | 'verifier' | 'random_dream' | 'cron';
+export type SubagentKind = 'summon' | 'spawn' | 'shadow' | 'verifier' | 'random_dream' | 'cron';
 export type SubagentStatus = 'completed' | 'running' | 'failed';
 
 // 文件级 const，cli/commands/subagent-helpers.ts inferKind + getStartedAt 两处共用
@@ -49,8 +49,8 @@ export function inferKind(id: string, clawDir: string): SubagentKind {
         if (task.systemPrompt?.includes('RANDOM_DREAM') || task.intent?.includes('[DREAM_OUTPUT]')) {
           return 'random_dream';
         }
-        if (task.callerType === 'describer' || task.callerType === 'miner' || task.postProcessor === 'dispatch-contract-extract') {
-          return 'dispatch';
+        if (task.callerType === 'shadow' || task.callerType === 'miner' || task.postProcessor === 'summon-contract-extract' || task.postProcessor === 'dispatch-contract-extract') {
+          return 'summon';
         }
         if (task.callerType === 'subagent') {
           return 'spawn';

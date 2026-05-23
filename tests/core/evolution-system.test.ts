@@ -63,7 +63,7 @@ async function setupFixtures(): Promise<TestFixtures> {
   await fs.mkdir(path.join(targetClawDir, 'contract', 'active', contractId), { recursive: true });
 
   const byContractPath = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`);
-  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'describing' }));
+  await fs.writeFile(byContractPath, JSON.stringify({ targetClaw, mode: 'shadow' }));
 
   const contractYamlPath = path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml');
   await fs.writeFile(contractYamlPath, 'contract_id: ' + contractId + '\nintent: test');
@@ -124,7 +124,7 @@ describe('EvolutionSystem - lazy load atomicity', () => {
     const byContractPath2 = path.join(
       fixtures.motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId2}.json`
     );
-    await fs.writeFile(byContractPath2, JSON.stringify({ targetClaw: 'claw-a', mode: 'describing' }));
+    await fs.writeFile(byContractPath2, JSON.stringify({ targetClaw: 'claw-a', mode: 'shadow' }));
     const contractDir2 = path.join(fixtures.targetClawDir, 'contract', 'active', contractId2);
     await fs.mkdir(contractDir2, { recursive: true });
     const contractYamlPath2 = path.join(contractDir2, 'contract.yaml');
@@ -154,7 +154,7 @@ describe('EvolutionSystem - lazy load atomicity', () => {
     const byContractPath = path.join(
       fixtures.motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`
     );
-    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'describing' }));
+    await fs.writeFile(byContractPath, JSON.stringify({ targetClaw: 'claw-a', mode: 'shadow' }));
 
     const result = await evolutionSystem.runRetroForContract(contractId, ctx);
 
