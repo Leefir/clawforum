@@ -129,96 +129,90 @@ Content.
     expect(result.content).toContain(tasks[0].id);
   });
 
-  describe('dialogMessages', () => {
-    it('should include dialogMessages in dispatcherMessages when ctx.dialogMessages is set (shadow mode)', async () => {
-      const dialogMessages: Message[] = [
-        { role: 'user', content: 'Hello' },
-        { role: 'assistant', content: 'Hi there' },
-      ];
-      const ctx = makeCtx('claw', { dialogMessages });
-
-      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
-
-      const tasks = await readPendingTasks(tempDir);
-      expect(tasks).toHaveLength(1);
-      expect(tasks[0]).toMatchObject({
-        intent: expect.stringContaining('follow up'),
-      });
-    });
-
-    it('should capture dispatchToolUseId when summon is not the last tool_use block (multi tool_use)', async () => {
-      const dialogMessages: Message[] = [
-        { role: 'user', content: 'parallel call' },
+  describe('shadowMessages', () => {
+    it('shadow mode: shadowMessages 含 motion dialog 历史（stripped、不含 userMessage）', async () => {
+      const motionDialog: Message[] = [
+        { role: 'user', content: '帮我创建 foo claw 的契约' },
         {
           role: 'assistant',
           content: [
-            { type: 'text', text: 'Dispatching and reading' },
-            { type: 'tool_use', id: 'tu_dispatch_1', name: 'summon', input: { goal: 'x' } },
-            { type: 'tool_use', id: 'tu_read_1', name: 'read_file', input: { path: 'a' } },
-          ],
+            { type: 'text', text: '好的、我来 summon' },
+            { type: 'tool_use', id: 'tu-summon-1', name: 'summon', input: { goal: 'create foo contract', mode: 'shadow' } },
+          ] as unknown as string,
         },
       ];
-      const ctx = makeCtx('claw', { dialogMessages });
+      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+
+      await tool.execute({ goal: 'create foo contract', mode: 'shadow' }, ctx);
+
+      const tasks = await readPendingTasks(tempDir);
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].shadowMessages).toBeDefined();
+      expect(tasks[0].shadowMessages).toHaveLength(1);
+      expect(tasks[0].shadowMessages[0]).toEqual({ role: 'user', content: '帮我创建 foo claw 的契约' });
+      // 验末条 NOT userMessage（不 push、由 subagent-executor 自动 push intent）
+      const lastShadow = tasks[0].shadowMessages[tasks[0].shadowMessages.length - 1];
+      expect(lastShadow.role).toBe('user');
+      expect(lastShadow.content).toBe('帮我创建 foo claw 的契约');
+      expect(tasks[0].intent).toContain('create foo contract');
+    });
+
+    it('shadow mode: 末条不是 assistant tool_use 时不 strip', async () => {
+      const motionDialog: Message[] = [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hello' },
+      ];
+      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
 
       await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
-      expect(tasks[0]).toMatchObject({
-        intent: expect.stringContaining('follow up'),
-      });
-      expect(auditEvents.find(e => e.type === TASK_AUDIT_EVENTS.TASK_SCHEDULED)).toBeDefined();
+      expect(tasks[0].shadowMessages).toHaveLength(2);
+      expect(tasks[0].shadowMessages[0]).toEqual({ role: 'user', content: 'hi' });
+      expect(tasks[0].shadowMessages[1]).toEqual({ role: 'assistant', content: 'hello' });
     });
 
-    it('should still capture dispatchToolUseId when summon is the last tool_use block (backward-compat)', async () => {
-      const dialogMessages: Message[] = [
-        { role: 'user', content: 'single call' },
-        {
-          role: 'assistant',
-          content: [
-            { type: 'text', text: 'Dispatching' },
-            { type: 'tool_use', id: 'tu_dispatch_2', name: 'summon', input: { goal: 'y' } },
-          ],
-        },
-      ];
-      const ctx = makeCtx('claw', { dialogMessages });
+    it('shadow mode: dialogMessages 为空时 shadowMessages = []', async () => {
+      const ctx = makeCtx('claw', { dialogMessages: [] });
 
-      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
+      await tool.execute({ goal: 'empty dialog', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
-      expect(tasks[0].intent).toContain('follow up');
+      expect(tasks[0].shadowMessages).toEqual([]);
     });
 
-    it('should fallback to prompt when no summon tool_use exists in last assistant content (multi non-summon)', async () => {
-      const dialogMessages: Message[] = [
-        { role: 'user', content: 'no dispatch' },
-        {
-          role: 'assistant',
-          content: [
-            { type: 'tool_use', id: 'tu_read', name: 'read_file', input: { path: 'a' } },
-          ],
-        },
-      ];
-      const ctx = makeCtx('claw', { dialogMessages });
-
-      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
-
-      const tasks = await readPendingTasks(tempDir);
-      expect(tasks).toHaveLength(1);
-      expect(tasks[0].intent).toContain('follow up');
-    });
-
-    it('should send single user message when ctx.dialogMessages is undefined (mining mode)', async () => {
+    it('mining mode: shadowMessages = undefined（保 mining 不动 + AskMotionTool 主导 context）', async () => {
       const ctx = makeCtx('claw');
 
-      await tool.execute({ goal: 'standalone task' }, ctx);
+      await tool.execute({ goal: 'mine intent', mode: 'mining' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
-      expect(tasks[0]).toMatchObject({
-        intent: expect.stringContaining('standalone task'),
-      });
+      expect(tasks[0].shadowMessages).toBeUndefined();
+      expect(tasks[0].motionClawDir).toBeDefined();
+    });
+
+    it('design contract: shadow mode summon 子代理 ≡ shadow tool 子代理（继承 motion 快照 systemPrompt+tools+dialog）', async () => {
+      const mockMotionPrompt = 'MOTION_SYSTEM_PROMPT_FIXTURE';
+      const customTool = new SummonTool(
+        async () => mockMotionPrompt,
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      );
+      const motionDialog: Message[] = [
+        { role: 'user', content: 'test' },
+      ];
+      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+
+      await customTool.execute({ goal: 'describe intent', mode: 'shadow' }, ctx);
+
+      const tasks = await readPendingTasks(tempDir);
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].systemPrompt).toBe(mockMotionPrompt);
+      expect(tasks[0].shadowMessages).toBeDefined();
+      expect(tasks[0].callerType).toBe('shadow');
     });
   });
 
@@ -438,6 +432,8 @@ Content.
       expect(auditWriter.write).not.toHaveBeenCalled();
     });
   });
+
+
 
   describe('audit events', () => {
     it('should audit when loadSkills fails with non-ENOENT error', async () => {

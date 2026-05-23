@@ -13,6 +13,21 @@ import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
 
 const SUMMON_SUBAGENT_TIMEOUT_MS = 3600 * 1000;   // 1 hour
 
+/**
+ * Strip trailing incomplete assistant message so subagent LLM doesn't see unpaired tool_uses.
+ * phase 1123 NEW (R1 形态、duplicate from shadow-system/tools/shadow.ts:22-31、N=2 duplicate 已 design row §7.B B.phase1123-strip-incomplete-tool-use-duplicate-N2 登记、N≥3 callsite 浮出时迁 foundation/llm-provider/_helpers.ts 单一源).
+ */
+function stripIncompleteToolUse(msgs: Message[] | undefined): Message[] | undefined {
+  if (!msgs || msgs.length === 0) return msgs;
+  const last = msgs[msgs.length - 1];
+  if (last.role === 'assistant' && Array.isArray(last.content)) {
+    if (last.content.some((block: unknown) => (block as { type?: string })?.type === 'tool_use')) {
+      return msgs.slice(0, -1);
+    }
+  }
+  return msgs;
+}
+
 export const SUMMON_TOOL_NAME = 'summon' as const;
 
 export class SummonTool implements Tool {
@@ -121,48 +136,14 @@ export class SummonTool implements Tool {
       ctx.auditWriter?.write(SUMMON_AUDIT_EVENTS.NO_DIALOG_CONTEXT);
     }
 
-    // messages 截止至当前 summon tool_use（loop 在执行工具前已追加），tool_result 尚未产生。
-    // 历史 summon 对（tool_use + tool_result）保持完整，确保 KV cache 命中。
-    const dispatcherMessages: Message[] = [...dialogMessages];
-
-    // --- 关闭悬空的 summon tool_use ---
-    //
-    // dialogMessages 末尾是 assistant: tool_use(summon)，没有对应的 tool_result。
-    // 原因：loop 在调用工具前已把 tool_use 追加到 messages，但 tool_result 在工具
-    // 返回后才生成——而 summoner 作为异步任务，在工具返回之前就已拿到 messages 副本。
-    //
-    // 如果直接在 tool_use 后追加普通 user message（summoner 指令），会违反 Anthropic
-    // API 规范（tool_use 后必须跟 tool_result），导致 LLM 行为不稳定：它会把"完成
-    // summon 调用"误解为自己的任务，转而发通知报告而不是执行 summoner workflow。
-    //
-    // 修复：注入一个合并的 user message，同时包含：
-    //   - tool_result：语法上关闭 summon tool_use（content 是占位符，summoner 无需知道
-    //     Motion 实际收到的 "Summon subagent started..." 信息）
-    //   - text：summoner 指令（与原 prompt 字段内容相同）
-    // 两者合并为同一个 user message，保证消息结构 [tool_use → user(tool_result+text)] 合法。
-    const lastMsg = dispatcherMessages[dispatcherMessages.length - 1];
-    let dispatchToolUseId: string | undefined;
-    if (lastMsg?.role === 'assistant' && Array.isArray(lastMsg.content)) {
-      // 倒序遍历：多 tool_use blocks 并行调用时 summon 可能不是最后 block
-      for (let i = lastMsg.content.length - 1; i >= 0; i--) {
-        const block = lastMsg.content[i];
-        if (block?.type === 'tool_use' && block.name === SUMMON_TOOL_NAME) {
-          dispatchToolUseId = (block as { type: string; id: string; name: string }).id;
-          break;
-        }
-      }
-    }
-    if (dispatchToolUseId) {
-      dispatcherMessages.push({
-        role: 'user',
-        content: [
-          // 占位 tool_result：关闭 summon 调用，content 无需与 Motion 实际收到的相同
-          { type: 'tool_result', tool_use_id: dispatchToolUseId, content: 'Summon subagent activated.' },
-          // summoner 指令紧跟其后，同属一个 user turn
-          { type: 'text', text: userMessage },
-        ],
-      });
-    }
+    // phase 1123 bug fix：shadow mode 子代理继承 motion dialog 历史（恢复 phase 470 切断的设计 intent、与 ShadowSystem.shadow tool async path 对称）
+    // mining mode 不传 shadowMessages：保 mining 不动 discipline、AskMotionTool 已提供 context
+    // 不 push userMessage 入 shadowMessages：subagent-executor.ts:150 会读 task.shadowMessages、SubAgent.run 见 messages 非空时 push prompt（=task.intent=userMessage）、避免 double-push
+    // strip 末尾 incomplete summon tool_use（loop 派发时 tool_use 已入 dialogMessages 但 tool_result 尚未生成、不 strip 会违反 Anthropic API）
+    // 新 array 防 mutate motion dialogMessages（subagent-executor → SubAgent 链可能 push 主 dialog）
+    const shadowMessages: Message[] | undefined = isMining
+      ? undefined
+      : [...(stripIncompleteToolUse(dialogMessages) ?? dialogMessages ?? [])];
 
     // miner 使用专属工具列表（miner profile + ask_motion）；shadow 用 Motion 完整列表确保 KV cache 命中
     const motionClawDir = isMining ? ctx.clawDir : undefined;
@@ -192,6 +173,7 @@ export class SummonTool implements Tool {
         postProcessor: 'summon-contract-extract',  // 声明式 post-processor
         mainContextSnapshot,
         systemPrompt,                            // phase 546: 透传 caller-side specialized prompt（mining: buildMinerSystemPrompt / shadow: this.getSystemPrompt()）
+        shadowMessages,  // phase 1123 bug fix: shadow mode 继承 motion dialog 历史 / mining mode = undefined
       });
 
       return {
