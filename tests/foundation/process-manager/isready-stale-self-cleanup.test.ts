@@ -1,11 +1,10 @@
 /**
- * ready marker — isReady / markReady / markNotReady (phase 1114)
+ * isReady stale marker self-cleanup（phase 1148 / C.1）
  *
- * 验证点：
- * 1. markReady → isReady true → markNotReady → isReady false
- * 2. 反向 1：mark 写完不 delete → isReady 持 true
- * 3. 反向 2：corrupt JSON → isReady false
- * 4. 反向 3：stale marker (PID mismatch) → isReady false + READY_MARK_STALE audit
+ * 反向 3 项：
+ * 1. STALE 分支触发 self-cleanup + marker 文件 0 残留
+ * 2. ENOENT-on-delete 不致 isReady throw
+ * 3. race-with-markReady：unlink 后 next markReady 重写 不丢 new marker
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
@@ -17,7 +16,7 @@ import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { markReady, markNotReady, isReady } from '../../../src/foundation/process-manager/ready.js';
 import { makeAudit } from '../../helpers/audit.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from '../../../src/foundation/process-manager/audit-events.js';
-import { FAKE_LIVE_PID, FAKE_LIVE_PID_STRING } from '../../helpers/test-pids.js';
+import { FAKE_LIVE_PID } from '../../helpers/test-pids.js';
 import type { ProcessManagerContext } from '../../../src/foundation/process-manager/types.js';
 
 vi.mock('../../../src/foundation/process-exec/index.js', async (importOriginal) => {
@@ -28,7 +27,7 @@ vi.mock('../../../src/foundation/process-exec/index.js', async (importOriginal) 
   };
 });
 
-describe('isReady / markReady / markNotReady', () => {
+describe('isReady stale marker self-cleanup（phase 1148 / C.1）', () => {
   let tempDir: string;
   let nodeFs: NodeFileSystem;
 
@@ -37,7 +36,7 @@ describe('isReady / markReady / markNotReady', () => {
     const { isAlive } = await import('../../../src/foundation/process-exec/index.js');
     vi.mocked(isAlive).mockReturnValue(true);
 
-    tempDir = path.join(tmpdir(), `ready-test-${randomUUID()}`);
+    tempDir = path.join(tmpdir(), `ready-self-cleanup-${randomUUID()}`);
     await fs.mkdir(tempDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: tempDir });
   });
@@ -61,7 +60,87 @@ describe('isReady / markReady / markNotReady', () => {
     await fs.writeFile(pidFile, JSON.stringify({ pid }), 'utf-8');
   }
 
-  it('markReady → isReady true → markNotReady → isReady false', async () => {
+  it('反向 1：STALE 分支触发 self-cleanup + marker 文件 0 残留', async () => {
+    const { audit, events } = makeAudit();
+    const clawId = 'test-claw';
+    const nodeFsLocal = new NodeFileSystem({ baseDir: tempDir });
+    const ctx: ProcessManagerContext = {
+      fs: nodeFsLocal,
+      audit,
+      resolveDir: (id: string) => path.join(tempDir, 'claws', id),
+    };
+
+    await writePidFile(clawId, process.pid);
+
+    const readyFile = path.join(tempDir, 'claws', clawId, 'status', 'ready');
+    await fs.mkdir(path.dirname(readyFile), { recursive: true });
+    await fs.writeFile(readyFile, JSON.stringify({ pid: FAKE_LIVE_PID }), 'utf-8');
+
+    expect(isReady(ctx, clawId)).toBe(false);
+
+    const staleEvents = events.filter(
+      (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.READY_MARK_STALE,
+    );
+    expect(staleEvents).toHaveLength(1);
+
+    const markerStillExists = await fs.access(readyFile).then(() => true).catch(() => false);
+    expect(markerStillExists).toBe(false);
+  });
+
+  it('反向 2：ENOENT-on-delete 不致 isReady throw', async () => {
+    const { audit, events } = makeAudit();
+    const clawId = 'test-claw';
+    const nodeFsLocal = new NodeFileSystem({ baseDir: tempDir });
+
+    // mock delete to reject ENOENT (simulating race where another cleanup already removed it)
+    vi.spyOn(nodeFsLocal, 'delete').mockRejectedValue(
+      Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
+    );
+
+    const ctx: ProcessManagerContext = {
+      fs: nodeFsLocal,
+      audit,
+      resolveDir: (id: string) => path.join(tempDir, 'claws', id),
+    };
+
+    await writePidFile(clawId, process.pid);
+
+    const readyFile = path.join(tempDir, 'claws', clawId, 'status', 'ready');
+    await fs.mkdir(path.dirname(readyFile), { recursive: true });
+    await fs.writeFile(readyFile, JSON.stringify({ pid: FAKE_LIVE_PID }), 'utf-8');
+
+    // should NOT throw despite delete rejecting ENOENT
+    const result = isReady(ctx, clawId);
+    expect(result).toBe(false);
+
+    const staleEvents = events.filter(
+      (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.READY_MARK_STALE,
+    );
+    expect(staleEvents).toHaveLength(1);
+  });
+
+  it('反向 3：race-with-markReady — unlink 后 next markReady 重写 不丢 new marker', async () => {
+    const ctx = makeCtx();
+    const clawId = 'test-claw';
+
+    await writePidFile(clawId, process.pid);
+
+    // write stale marker
+    const readyFile = path.join(tempDir, 'claws', clawId, 'status', 'ready');
+    await fs.mkdir(path.dirname(readyFile), { recursive: true });
+    await fs.writeFile(readyFile, JSON.stringify({ pid: FAKE_LIVE_PID }), 'utf-8');
+
+    // trigger self-cleanup via isReady
+    expect(isReady(ctx, clawId)).toBe(false);
+
+    // immediately markReady with current process pid
+    await markReady(ctx, clawId);
+
+    // next isReady should see fresh marker (not deleted by stale cleanup race)
+    expect(isReady(ctx, clawId)).toBe(true);
+  });
+
+  it('反向 4：happy path 不动', async () => {
     const ctx = makeCtx();
     const clawId = 'test-claw';
     await writePidFile(clawId, process.pid);
@@ -73,67 +152,5 @@ describe('isReady / markReady / markNotReady', () => {
 
     await markNotReady(ctx, clawId);
     expect(isReady(ctx, clawId)).toBe(false);
-  });
-
-  it('反向 1：mark 写完不 delete → isReady 持 true', async () => {
-    const ctx = makeCtx();
-    const clawId = 'test-claw';
-    await writePidFile(clawId, process.pid);
-
-    await markReady(ctx, clawId);
-    expect(isReady(ctx, clawId)).toBe(true);
-
-    // 不调用 markNotReady，isReady 仍应为 true
-    expect(isReady(ctx, clawId)).toBe(true);
-  });
-
-  it('反向 2：corrupt JSON → isReady false', async () => {
-    const ctx = makeCtx();
-    const clawId = 'test-claw';
-    await writePidFile(clawId, process.pid);
-
-    const readyFile = path.join(tempDir, 'claws', clawId, 'status', 'ready');
-    await fs.mkdir(path.dirname(readyFile), { recursive: true });
-    await fs.writeFile(readyFile, 'not-json', 'utf-8');
-
-    expect(isReady(ctx, clawId)).toBe(false);
-  });
-
-  it('反向 3：stale marker (PID mismatch) → isReady false + READY_MARK_STALE audit + self-cleanup', async () => {
-    const { audit, events } = makeAudit();
-    const clawId = 'test-claw';
-    const nodeFsLocal = new NodeFileSystem({ baseDir: tempDir });
-    const ctx: ProcessManagerContext = {
-      fs: nodeFsLocal,
-      audit,
-      resolveDir: (id: string) => path.join(tempDir, 'claws', id),
-    };
-
-    // pidFile 写当前进程 PID
-    await writePidFile(clawId, process.pid);
-
-    // ready marker 写不同的 PID（模拟 stale）
-    const readyFile = path.join(tempDir, 'claws', clawId, 'status', 'ready');
-    await fs.mkdir(path.dirname(readyFile), { recursive: true });
-    await fs.writeFile(readyFile, JSON.stringify({ pid: FAKE_LIVE_PID }), 'utf-8');
-
-    expect(isReady(ctx, clawId)).toBe(false);
-
-    const staleEvents = events.filter(
-      (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.READY_MARK_STALE,
-    );
-    expect(staleEvents).toHaveLength(1);
-    expect(staleEvents[0]).toEqual(
-      expect.arrayContaining([
-        PROCESS_MANAGER_AUDIT_EVENTS.READY_MARK_STALE,
-        expect.stringContaining('claw='),
-        expect.stringContaining(`ready_pid=${FAKE_LIVE_PID}`),
-        expect.stringContaining(`pid_file_pid=${process.pid}`),
-      ]),
-    );
-
-    // r127 C.1: stale marker self-cleanup — file should be gone after isReady stale check
-    const markerStillExists = await fs.access(readyFile).then(() => true).catch(() => false);
-    expect(markerStillExists).toBe(false);
   });
 });

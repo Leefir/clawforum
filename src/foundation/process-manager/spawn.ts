@@ -21,6 +21,7 @@ export async function spawnProcess(
   clawId: string,
   options: SpawnOptions,
 ): Promise<number> {
+  const startMs = Date.now();
   const isAliveByPidFile = ctx.isAlive ?? ((id: string) => checkAlive(ctx, id));
   if (isAliveByPidFile(clawId)) {
     throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
@@ -204,6 +205,7 @@ export async function spawnProcess(
       `pid=${pid}`,
       `command=${options.command}`,
       `args=${options.args.join(' ').slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
+      `duration_ms=${Date.now() - startMs}`,
     );
 
     return pid;
@@ -222,6 +224,7 @@ export async function spawnProcess(
       `command=${options.command}`,
       `reason=${err instanceof Error ? err.message : String(err)}`,
       `code=${(err as NodeJS.ErrnoException).code ?? 'unknown'}`,
+      `duration_ms=${Date.now() - startMs}`,
     );
     throw err;
   }

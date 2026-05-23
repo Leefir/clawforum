@@ -93,6 +93,10 @@ export function isReady(ctx: ProcessManagerContext, clawId: string): boolean {
       `ready_pid=${readyPid}`,
       `pid_file_pid=${pidFilePid}`,
     );
+    // r127 C fork C.1: self-cleanup stale marker (fire-and-forget)
+    // race with next markReady writeAtomic: if delete wins after rename, next isReady sees absent marker
+    // → benign: spawn poll loop will wait for markReady (already finished) and re-check; or markReady will re-write
+    ctx.fs.delete(readyFile).catch(() => { /* benign: race with next markReady or already gone */ });
     return false;
   }
   try {
