@@ -8,6 +8,8 @@
 
 import { runSubagent } from '../subagent/index.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+import { CONTRACT_ACTIVE_DIR } from './dirs.js';
+import * as path from 'path';
 import { createDoneTool, DONE_TOOL_NAME } from '../subagent/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { ToolTimeoutError } from '../../foundation/errors.js';
@@ -19,7 +21,11 @@ import type { VerifierConfig, VerifierResult } from './types.js';
 export async function runContractVerifier(config: VerifierConfig): Promise<VerifierResult> {
   // phase 1080: crash-recovery — skip verifier if contract was cancelled
   if (config.contractId) {
-    const progressPath = `contract/active/${config.contractId}/progress.json`;
+    const progressPath = path.join(
+      CONTRACT_ACTIVE_DIR,
+      config.contractId,
+      'progress.json',
+    );
     try {
       const raw = await config.fs.read(progressPath);
       const progress = JSON.parse(raw) as { status?: string };
@@ -102,8 +108,16 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
             feedback: doneResult.result,
             structured: r,
           };
-        } catch {
-          // silent: intentionally falling through to text JSON parsing below
+        } catch (parseErr) {
+          // phase 1133 (r126 C fork C-3): emit audit before fall-through to text JSON parsing below
+          // 保留 fall-through intent / 但 parse 失败信息不再 silent（DP「不丢弃静默」）
+          config.audit?.write(
+            CONTRACT_AUDIT_EVENTS.VERIFIER_RESULT_PARSE_FAILED,
+            `agentId=${config.agentId}`,
+            `clawId=${config.clawId}`,
+            `stage=done_result_first_parse`,
+            `reason=${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+          );
         }
       }
 
