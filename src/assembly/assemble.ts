@@ -537,7 +537,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         gateway = createGateway({
           streamFactory: (onEvent) => createStreamReader(systemFs, STREAM_FILE, onEvent, auditWriter),
           getInitialOffset: () => findRecentTurnStartOffset(systemFs, STREAM_FILE),
-          transport: undefined,                      // offline mode
+          transport: undefined,                      // offline mode (latent: future wire UnixDomainSocketTransport per phase 1055)
           interrupt: () => runtime.abort(),          // offline 不会触发，留接口
           audit: auditWriter,
         });

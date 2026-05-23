@@ -1,3 +1,15 @@
+/**
+ * UnixDomainSocketTransport — Transport implementation over Unix domain sockets.
+ *
+ * **Latent advertise** (phase 1055 ⚓ accepted-stable, user ratify β 2026-05-19).
+ *
+ * Currently 0 production caller (assemble.ts:538 wires `transport: undefined`
+ * for motion offline mode). Retained as future transport hook per user
+ * decision; do NOT delete without re-ratifying.
+ *
+ * Detail: `design/modules/l1_transport.md §7.A A.r125-unix-socket-dead-code`
+ * + phase 1118 in-file marker補 (`coding plan/phase1118/`).
+ */
 import { createServer, connect, type Server, type Socket } from 'node:net';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -11,6 +23,7 @@ interface ConnectionEntry {
   buf: string;
 }
 
+/** Latent advertise — see file header. Future wire site: `assemble.ts:538` */
 export class UnixDomainSocketTransport implements Transport {
   private server: Server | null = null;
   private socketPath: string | null = null;
