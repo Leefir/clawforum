@@ -19,6 +19,7 @@ export const MESSAGING_AUDIT_EVENTS = {
   INBOX_META_FAILED: 'inbox_meta_failed',
   INBOX_PEEK_RACE_SKIP: 'inbox_peek_race_skip',
   INBOX_PRIORITY_UNKNOWN: 'inbox_priority_unknown',
+  INBOX_LEGACY_CLAW_ID_FIELD: 'inbox_legacy_claw_id_field',
   INBOX_DEDUPED: 'inbox_deduped',
   INBOX_MARK_DONE_FAILED: 'inbox_mark_done_failed',
   OUTBOX_SENT: 'outbox_sent',

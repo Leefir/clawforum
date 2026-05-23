@@ -56,8 +56,16 @@ export function isReady(ctx: ProcessManagerContext, clawId: string): boolean {
   try {
     readyContent = ctx.fs.readSync(readyFile);
     pidContent = ctx.fs.readSync(pidFile);
-  } catch {
-    return false; // 任一缺则 not ready
+  } catch (err: any) {
+    if (err?.code === 'ENOENT' || err?.code === 'FS_NOT_FOUND') {
+      return false; // 任一缺则 not ready (normal)
+    }
+    ctx.audit.write(
+      PROCESS_MANAGER_AUDIT_EVENTS.READY_CHECK_READ_FAILED,
+      `claw=${clawId}`,
+      `reason=${err?.message ?? String(err)}`,
+    );
+    return false;
   }
   let readyPid: number;
   let readyStartTime: string | undefined;
@@ -69,7 +77,12 @@ export function isReady(ctx: ProcessManagerContext, clawId: string): boolean {
     readyPid = ready.pid;
     readyStartTime = typeof ready.startTime === 'string' ? ready.startTime : undefined;
     pidFilePid = pidData.pid;
-  } catch {
+  } catch (err: any) {
+    ctx.audit.write(
+      PROCESS_MANAGER_AUDIT_EVENTS.READY_CHECK_PARSE_FAILED,
+      `claw=${clawId}`,
+      `reason=${err?.message ?? String(err)}`,
+    );
     return false; // schema 不符 / legacy raw int (虽 readyMarker 永远写 JSON) → 视 not ready
   }
   if (readyPid !== pidFilePid) {
@@ -84,7 +97,13 @@ export function isReady(ctx: ProcessManagerContext, clawId: string): boolean {
   }
   try {
     return l1IsAlive(readyPid, readyStartTime);
-  } catch {
+  } catch (err: any) {
+    ctx.audit.write(
+      PROCESS_MANAGER_AUDIT_EVENTS.READY_CHECK_ISALIVE_THROW,
+      `claw=${clawId}`,
+      `ready_pid=${readyPid}`,
+      `reason=${err?.message ?? String(err)}`,
+    );
     return false;
   }
 }

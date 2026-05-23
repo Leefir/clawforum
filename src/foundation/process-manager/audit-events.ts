@@ -34,4 +34,7 @@ export const PROCESS_MANAGER_AUDIT_EVENTS = {
   READY_MARK_WROTE: 'process_ready_mark_wrote',
   READY_MARK_REMOVED: 'process_ready_mark_removed',
   READY_MARK_STALE: 'process_ready_mark_stale',
+  READY_CHECK_READ_FAILED: 'process_ready_check_read_failed',
+  READY_CHECK_PARSE_FAILED: 'process_ready_check_parse_failed',
+  READY_CHECK_ISALIVE_THROW: 'process_ready_check_isalive_throw',
 } as const;

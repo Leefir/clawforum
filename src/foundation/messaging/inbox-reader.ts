@@ -93,6 +93,13 @@ export class InboxReader {
             `fallback=${message.priority}`,
           );
         }
+        if (message.extraMeta?.__legacy_claw_id !== undefined) {
+          this.audit.write(
+            MESSAGING_AUDIT_EVENTS.INBOX_LEGACY_CLAW_ID_FIELD,
+            `file=${entry.name}`,
+            `claw_id=${message.extraMeta.__legacy_claw_id}`,
+          );
+        }
 
         // taskId dedupe: extract from content JSON
         // (all task-result messages carry taskId in content JSON; non-JSON content skips dedupe)

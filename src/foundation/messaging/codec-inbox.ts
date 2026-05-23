@@ -142,6 +142,11 @@ export function decodeInbox(raw: string): InboxMessage {
     extraMeta.__original_priority = rawPriority;
   }
 
+  // A.3: legacy claw_id field  observability (不跨键 fallback 到 contract_id)
+  if (meta.claw_id !== undefined) {
+    extraMeta.__legacy_claw_id = meta.claw_id;
+  }
+
   // type loose validation（M9 phase 575）/ 任意 string 直通 / 非 string fallback 'message'
   const rawType = meta.type;
   const type = validateType(rawType);
@@ -157,7 +162,7 @@ export function decodeInbox(raw: string): InboxMessage {
     content: body,
     priority,
     timestamp: meta.timestamp ?? new Date().toISOString(),
-    contract_id: meta.claw_id ?? meta.contract_id,
+    contract_id: meta.contract_id,
     ...(Object.keys(extraMeta).length > 0 ? { extraMeta } : {}),
   };
 }
