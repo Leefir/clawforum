@@ -36,8 +36,7 @@ main agent. But you are NOT the main agent — you are a transient worker.
 Constraints:
 - You CANNOT call \`${SHADOW_TOOL_NAME}\` (no recursion). Calling shadow from within shadow will be rejected.
 - You CAN call \`spawn\` but MUST set \`async=false\` (sync mode). spawn with \`async=true\` from within shadow will be rejected (async-scheduled tasks would orphan to main inbox after shadow exits).
-- You CANNOT call \`dispatch\` (async-only routing, same orphan problem).
-- You cannot create new claws (no summon access).
+- You CANNOT call \`summon\` (async-only routing, same orphan problem).
 
 Task:
 ${args.task}
