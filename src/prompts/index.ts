@@ -4,7 +4,7 @@
  * Centralized prompt management - all prompts are defined here and imported by business files.
  */
 
-export * from './describing.js';
+export * from './summon-contract-task.js';
 export * from './subagent.js';
 export * from './claw-template.js';
 export * from './retrospective.js';

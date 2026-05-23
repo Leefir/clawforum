@@ -130,7 +130,35 @@ Content.
   });
 
   describe('shadowMessages', () => {
-    it('shadow mode: shadowMessages 含 motion dialog 历史（stripped、不含 userMessage）', async () => {
+    it('shadow mode: shadowMessages 含 SHADOW INSTRUCTION 锚 + contractTaskBody', async () => {
+      const motionDialog: Message[] = [
+        { role: 'user', content: '帮我审计 L1 FileSystem 模块' },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: '好的、我来 summon' },
+            { type: 'tool_use', id: 'tu-summon-1', name: 'summon', input: { goal: 'audit L1 FileSystem', mode: 'shadow' } },
+          ] as unknown as string,
+        },
+      ];
+      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+
+      await tool.execute({ goal: 'audit L1 FileSystem', mode: 'shadow' }, ctx);
+
+      const tasks = await readPendingTasks(tempDir);
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].shadowMessages).toBeDefined();
+      // stripped motion dialog (1 msg) + SHADOW INSTRUCTION user msg = 2
+      expect(tasks[0].shadowMessages.length).toBeGreaterThanOrEqual(2);
+      const lastMsg = tasks[0].shadowMessages[tasks[0].shadowMessages.length - 1];
+      expect(lastMsg.role).toBe('user');
+      expect(lastMsg.content).toContain('SHADOW INSTRUCTION');
+      expect(lastMsg.content).toContain('shadow_id: summon-');
+      expect(lastMsg.content).toContain('## 本次目标');
+      expect(tasks[0].intent).toContain('audit L1 FileSystem');
+    });
+
+    it('shadow mode: 末条 assistant tool_use 时 strip + SHADOW INSTRUCTION', async () => {
       const motionDialog: Message[] = [
         { role: 'user', content: '帮我创建 foo claw 的契约' },
         {
@@ -148,13 +176,12 @@ Content.
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
       expect(tasks[0].shadowMessages).toBeDefined();
-      expect(tasks[0].shadowMessages).toHaveLength(1);
+      // strip 后 1 msg + SHADOW INSTRUCTION = 2
+      expect(tasks[0].shadowMessages).toHaveLength(2);
       expect(tasks[0].shadowMessages[0]).toEqual({ role: 'user', content: '帮我创建 foo claw 的契约' });
-      // 验末条 NOT userMessage（不 push、由 subagent-executor 自动 push intent）
-      const lastShadow = tasks[0].shadowMessages[tasks[0].shadowMessages.length - 1];
-      expect(lastShadow.role).toBe('user');
-      expect(lastShadow.content).toBe('帮我创建 foo claw 的契约');
-      expect(tasks[0].intent).toContain('create foo contract');
+      const lastMsg = tasks[0].shadowMessages[tasks[0].shadowMessages.length - 1];
+      expect(lastMsg.role).toBe('user');
+      expect(lastMsg.content).toContain('SHADOW INSTRUCTION');
     });
 
     it('shadow mode: 末条不是 assistant tool_use 时不 strip', async () => {
@@ -168,19 +195,24 @@ Content.
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
-      expect(tasks[0].shadowMessages).toHaveLength(2);
+      // 2 msgs + SHADOW INSTRUCTION = 3
+      expect(tasks[0].shadowMessages).toHaveLength(3);
       expect(tasks[0].shadowMessages[0]).toEqual({ role: 'user', content: 'hi' });
       expect(tasks[0].shadowMessages[1]).toEqual({ role: 'assistant', content: 'hello' });
+      expect(tasks[0].shadowMessages[2].role).toBe('user');
+      expect(tasks[0].shadowMessages[2].content).toContain('SHADOW INSTRUCTION');
     });
 
-    it('shadow mode: dialogMessages 为空时 shadowMessages = []', async () => {
+    it('shadow mode: dialogMessages 为空时 shadowMessages = [SHADOW INSTRUCTION]', async () => {
       const ctx = makeCtx('claw', { dialogMessages: [] });
 
       await tool.execute({ goal: 'empty dialog', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
-      expect(tasks[0].shadowMessages).toEqual([]);
+      expect(tasks[0].shadowMessages).toHaveLength(1);
+      expect(tasks[0].shadowMessages[0].role).toBe('user');
+      expect(tasks[0].shadowMessages[0].content).toContain('SHADOW INSTRUCTION');
     });
 
     it('mining mode: shadowMessages = undefined（保 mining 不动 + AskMotionTool 主导 context）', async () => {

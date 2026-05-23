@@ -14,21 +14,9 @@ import type { Message, ToolDefinition } from '../../../foundation/llm-provider/t
 import { runShadow } from '../system.js';
 import { SHADOW_AUDIT_EVENTS } from '../audit-events.js';
 import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
-import { synthesizeFormB } from '../_helpers.js';
+import { synthesizeFormB, stripIncompleteToolUse } from '../_helpers.js';
 
 export const SHADOW_TOOL_NAME = 'shadow' as const;
-
-/** Strip trailing incomplete assistant message so shadow LLM doesn't see unpaired tool_uses */
-function stripIncompleteToolUse(msgs: Message[] | undefined): Message[] | undefined {
-  if (!msgs || msgs.length === 0) return msgs;
-  const last = msgs[msgs.length - 1];
-  if (last.role === 'assistant' && Array.isArray(last.content)) {
-    if (last.content.some((block: unknown) => (block as { type?: string })?.type === 'tool_use')) {
-      return msgs.slice(0, -1);
-    }
-  }
-  return msgs;
-}
 
 export function createShadowTool(deps: {
   getTurnSnapshot: () => {

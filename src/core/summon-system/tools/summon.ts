@@ -6,27 +6,14 @@ import { createSkillSystem } from '../../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../../evolution-system/index.js';
 import type { ToolRegistry } from '../../../foundation/tools/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../foundation/llm-orchestrator/index.js';
-import { buildDescribingUserMessage, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
+import { buildSummonContractTask, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { ASK_MOTION_TOOL_NAME, ASK_MOTION_TOOL_DESCRIPTION, ASK_MOTION_TOOL_SCHEMA } from './ask-motion.js';
 import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
 import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
+import { synthesizeFormB, stripIncompleteToolUse, buildShadowInstruction, type BuildShadowInstructionArgs } from '../../shadow-system/index.js';
+import { randomUUID } from 'crypto';
 
 const SUMMON_SUBAGENT_TIMEOUT_MS = 3600 * 1000;   // 1 hour
-
-/**
- * Strip trailing incomplete assistant message so subagent LLM doesn't see unpaired tool_uses.
- * phase 1123 NEW (R1 形态、duplicate from shadow-system/tools/shadow.ts:22-31、N=2 duplicate 已 design row §7.B B.phase1123-strip-incomplete-tool-use-duplicate-N2 登记、N≥3 callsite 浮出时迁 foundation/llm-provider/_helpers.ts 单一源).
- */
-function stripIncompleteToolUse(msgs: Message[] | undefined): Message[] | undefined {
-  if (!msgs || msgs.length === 0) return msgs;
-  const last = msgs[msgs.length - 1];
-  if (last.role === 'assistant' && Array.isArray(last.content)) {
-    if (last.content.some((block: unknown) => (block as { type?: string })?.type === 'tool_use')) {
-      return msgs.slice(0, -1);
-    }
-  }
-  return msgs;
-}
 
 export const SUMMON_TOOL_NAME = 'summon' as const;
 
@@ -115,7 +102,7 @@ export class SummonTool implements Tool {
     // 根据模式构建用户消息
     const userMessage = isMining
       ? buildMiningUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined)
-      : buildDescribingUserMessage(args.goal as string, skillsSummary, args.targetClaw as string | undefined);
+      : buildSummonContractTask(args.goal as string, skillsSummary, args.targetClaw as string | undefined);
     if (isMining && !ctx.llm) {
       return { success: false, content: 'Mining mode requires LLM service, but none is available.' };
     }
@@ -136,14 +123,26 @@ export class SummonTool implements Tool {
       ctx.auditWriter?.write(SUMMON_AUDIT_EVENTS.NO_DIALOG_CONTEXT);
     }
 
-    // phase 1123 bug fix：shadow mode 子代理继承 motion dialog 历史（恢复 phase 470 切断的设计 intent、与 ShadowSystem.shadow tool async path 对称）
+    // phase 1142: shadow mode 子代理身份锚定委托 ShadowSystem（synthesizeFormB + buildShadowInstruction）
+    // 复用 shadow tool async path 模式：strip → synthesizeFormB → shadowMessages 含 SHADOW INSTRUCTION 锚 + task
     // mining mode 不传 shadowMessages：保 mining 不动 discipline、AskMotionTool 已提供 context
-    // 不 push userMessage 入 shadowMessages：subagent-executor.ts:150 会读 task.shadowMessages、SubAgent.run 见 messages 非空时 push prompt（=task.intent=userMessage）、避免 double-push
-    // strip 末尾 incomplete summon tool_use（loop 派发时 tool_use 已入 dialogMessages 但 tool_result 尚未生成、不 strip 会违反 Anthropic API）
-    // 新 array 防 mutate motion dialogMessages（subagent-executor → SubAgent 链可能 push 主 dialog）
-    const shadowMessages: Message[] | undefined = isMining
-      ? undefined
-      : [...(stripIncompleteToolUse(dialogMessages) ?? dialogMessages ?? [])];
+    // intent = userMessage（与 shadow async path 对称：intent = task、shadowMessages 末也含 task）
+    let shadowMessages: Message[] | undefined;
+    if (!isMining) {
+      const summonId = `summon-${randomUUID().slice(0, 8)}`;
+      const stripped = stripIncompleteToolUse(dialogMessages) ?? dialogMessages ?? [];
+      const instructionArgs: BuildShadowInstructionArgs = {
+        shadowId: summonId,
+        spawnedAt: new Date().toISOString(),
+        spawnedByClawId: ctx.clawId ?? '',
+        toolUseId: ctx.currentToolUseId ?? '',
+        task: userMessage,
+      };
+      shadowMessages = synthesizeFormB({
+        mainMessagesBeforeMarker: stripped,
+        instructionArgs,
+      });
+    }
 
     // miner 使用专属工具列表（miner profile + ask_motion）；shadow 用 Motion 完整列表确保 KV cache 命中
     const motionClawDir = isMining ? ctx.clawDir : undefined;
@@ -173,7 +172,7 @@ export class SummonTool implements Tool {
         postProcessor: 'summon-contract-extract',  // 声明式 post-processor
         mainContextSnapshot,
         systemPrompt,                            // phase 546: 透传 caller-side specialized prompt（mining: buildMinerSystemPrompt / shadow: this.getSystemPrompt()）
-        shadowMessages,  // phase 1123 bug fix: shadow mode 继承 motion dialog 历史 / mining mode = undefined
+        shadowMessages,  // phase 1142: shadow mode 含 SHADOW INSTRUCTION 锚 + contractTaskBody / mining mode = undefined
       });
 
       return {

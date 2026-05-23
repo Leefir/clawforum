@@ -1,28 +1,23 @@
 /**
- * Describing User Message Builder
- * 
- * Builds the user message for describing subagent (direct contract creation mode).
+ * Summon Contract Task Builder
+ * phase 1142 rename from describing.ts、删身份混淆段（身份锚定归 shadow-system buildShadowInstruction）
+ *
+ * Builds the task body for summon shadow mode subagent (contract creation workflow).
+ * 不含身份段；身份锚由 ShadowSystem.buildShadowInstruction wrap。
  */
 
-export function buildDescribingUserMessage(
+export function buildSummonContractTask(
   goal: string,
   skillsSummary?: string,
   targetClaw?: string,
 ): string {
-  let userMessage = `---
-你是由 Motion 通过 \`dispatch\` 启动的 Describing 子代理（直接进入契约创建模式），以上为 Motion 的对话历史。对话历史仅供参考背景，本次任务为独立任务，你不在这个会话中。
-- 你的任务：完成契约创建（写文件 + 提交），任务完成后在最终回复末尾输出结果标记
-- 不能再调用 \`dispatch\`（递归防护）
-- 不能调用 \`spawn\`（会报错）
-`;
-
-  userMessage += `\n## 本次目标\n${goal}`;
+  let task = `## 本次目标\n${goal}`;
 
   if (skillsSummary) {
-    userMessage += `\n\n${skillsSummary}`;
+    task += `\n\n${skillsSummary}`;
   }
 
-  userMessage += `\n\n**重要**：第二阶段必须从工具调用开始，不得跳过任何步骤直接输出结果标记。
+  task += `\n\n**重要**：第二阶段必须从工具调用开始，不得跳过任何步骤直接输出结果标记。
 
 ## 第一阶段：推理
 
@@ -48,14 +43,14 @@ export function buildDescribingUserMessage(
 ### 1. 确定目标 claw`;
 
   if (targetClaw) {
-    userMessage += `
+    task += `
 目标 claw 已由用户指定：**${targetClaw}**。
 执行 \`clawforum claw list\` 确认它存在且处于 daemon 状态。
 如未运行，执行：
   exec: clawforum claw daemon ${targetClaw}
   exec: clawforum claw list   ← 再次确认状态已变为 running，再继续`;
   } else {
-    userMessage += `
+    task += `
 用 \`clawforum claw list\` 查现有 claw，判断复用还是新建：
 - 判断依据：上下文效率，不根据 claw 名称推断能力
 - 如果现有 claw 的对话状态专注于不同的项目或任务域，应新建 claw
@@ -66,7 +61,7 @@ export function buildDescribingUserMessage(
 - targetClaw 必须是 claw id（kebab-case），不能是 UUID 或 taskId`;
   }
 
-  userMessage += `
+  task += `
 
 ### 2. 安装 dispatch-skills（如需要）
 
@@ -149,5 +144,5 @@ exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-d
 - **background**：用户意图，与具体行动无关的动机和背景。从对话上下文综合提炼，不是对任务的描述。
 - **expectations**：全局执行要求和质量期望，适用于所有子任务。包含：用户约束和偏好（显性 + 推断）、成果质量标准、预期产出路径（如有交付物）。`;
 
-  return userMessage;
+  return task;
 }
