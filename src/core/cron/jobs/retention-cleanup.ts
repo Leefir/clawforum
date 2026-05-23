@@ -23,6 +23,7 @@ const DIRS: Array<{ relPath: string; maxDaysKey: keyof RetentionCleanupOptions['
   { relPath: 'tasks/done', maxDaysKey: 'tasks' },
   { relPath: 'tasks/failed', maxDaysKey: 'tasks' },
   { relPath: 'tasks/results', maxDaysKey: 'tasks' },
+  { relPath: 'dialog/archive', maxDaysKey: 'dialog' },
 ];
 
 export async function runRetentionCleanup(opts: RetentionCleanupOptions): Promise<void> {
