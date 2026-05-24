@@ -17,7 +17,6 @@ import { MOTION_CLAW_ID } from '../../constants.js';
 import { CLAWSPACE_DIR } from '../paths.js';
 
 
-import type { Message } from '../llm-provider/types.js';
 import type { AuditLog } from '../audit/index.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
 import type { ToolRegistry } from './types.js';
@@ -65,8 +64,6 @@ export interface ExecContextImplOptions {
   subagentMaxSteps?: number;
   
   
-  /** 当前对话 messages（供 summon 工具读取） */
-  dialogMessages?: Message[];
   /** 创建链路的源头 clawId，由 summon/spawn 传播 */
   originClawId?: string;
   /** AuditLog writer for tool events */
@@ -79,10 +76,6 @@ export interface ExecContextImplOptions {
   registry?: ToolRegistry;
   /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
   isShadow?: boolean;
-  /** Current main agent turn's systemPrompt (transitional compat) */
-  systemPromptForLLM?: string;
-  /** Current main agent turn's tools (transitional compat) */
-  toolsForLLM?: import('../llm-provider/types.js').ToolDefinition[];
   /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
   permissionChecker?: PermissionChecker;
   /** Tool-level wall-clock timeout, inherited from globalConfig.tool_timeout_ms / Assembly 装配期注入 (phase 1029 / F-2) */
@@ -144,15 +137,12 @@ export class ExecContextImpl implements ExecContext {
   maxSteps: number;
   signal?: AbortSignal;
   subagentMaxSteps: number;
-  dialogMessages?: Message[];
   originClawId?: string;
   auditWriter?: AuditLog;
   currentToolUseId?: string;
   fullyReadPaths: Set<string>;
   registry?: ToolRegistry;
   isShadow?: boolean;
-  systemPromptForLLM?: string;
-  toolsForLLM?: import('../llm-provider/types.js').ToolDefinition[];
   permissionChecker?: PermissionChecker;
   toolTimeoutMs?: number;
   stopRequested: boolean = false;
@@ -172,15 +162,12 @@ export class ExecContextImpl implements ExecContext {
     this.maxSteps = options.maxSteps;
     this.signal = options.signal;
     this.subagentMaxSteps = options.subagentMaxSteps ?? options.maxSteps;
-    this.dialogMessages = options.dialogMessages;
     this.originClawId = options.originClawId;
     this.auditWriter = options.auditWriter;
     this.currentToolUseId = options.currentToolUseId;
     this.fullyReadPaths = options.fullyReadPaths ?? new Set();
     this.registry = options.registry;
     this.isShadow = options.isShadow;
-    this.systemPromptForLLM = options.systemPromptForLLM;
-    this.toolsForLLM = options.toolsForLLM;
     this.permissionChecker = options.permissionChecker;
     this.toolTimeoutMs = options.toolTimeoutMs;
     this.stepNumber = 0;

@@ -9,7 +9,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
-import { shadowTool } from '../../../src/core/shadow-system/index.js';
+import { createShadowTool } from '../../../src/core/shadow-system/index.js';
+import type { Message, ToolDefinition } from '../../../src/foundation/llm-provider/types.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { makeAudit } from '../../helpers/audit.js';
@@ -43,6 +44,7 @@ describe('shadow tool async (phase 1087)', () => {
   let fs: NodeFileSystem;
   let baseCtx: ExecContextImpl;
   let audit: ReturnType<typeof makeAudit>;
+  let shadowTool: ReturnType<typeof createShadowTool>;
 
   function makeRegistry(): ToolRegistryImpl {
     const registry = new ToolRegistryImpl();
@@ -93,6 +95,10 @@ describe('shadow tool async (phase 1087)', () => {
     tempDir = await createTempDir();
     fs = new NodeFileSystem({ baseDir: tempDir });
     audit = makeAudit();
+    const dialogMessages: Message[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
+    ];
     baseCtx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -104,12 +110,13 @@ describe('shadow tool async (phase 1087)', () => {
       registry: makeRegistry(),
       mainDialogStore: makeMockDialogStore(),
       currentToolUseId: 'tu-1',
-      dialogMessages: [
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
-      ],
-      systemPromptForLLM: 'test-system-prompt',
-      toolsForLLM: [{ type: 'function', function: { name: 'read', description: 'read' } }],
+    });
+    shadowTool = createShadowTool({
+      getTurnSnapshot: () => ({
+        systemPrompt: 'test-system-prompt',
+        tools: [{ type: 'function', function: { name: 'read', description: 'read' } }] as ToolDefinition[],
+        messages: dialogMessages,
+      }),
     });
     mockWriteFile.mockClear();
     mockRunSubagent.mockClear();
@@ -141,7 +148,7 @@ describe('shadow tool async (phase 1087)', () => {
       expect(callArgs.shadowMessages[1]).toMatchObject({ role: 'user' });
       expect((callArgs.shadowMessages[1] as { content: string }).content).toContain('SHADOW INSTRUCTION');
       expect(callArgs.shadowSystemPrompt).toBe('test-system-prompt');
-      expect(callArgs.shadowToolsForLLM).toEqual(baseCtx.toolsForLLM);
+      expect(callArgs.shadowToolsForLLM).toEqual([{ type: 'function', function: { name: 'read', description: 'read' } }]);
       expect(callArgs.parentClawId).toBe('test-claw');
       expect(callArgs.originClawId).toBe('test-claw');
       expect(callArgs.callerType).toBe('shadow');
@@ -208,6 +215,7 @@ describe('shadow tool async (phase 1087)', () => {
       });
 
       const result = await shadowTool.execute({ task: 'test' }, shadowCtx);
+      // NOTE: recursion defense happens before getTurnSnapshot is called
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('shadow_recursion_rejected');

@@ -117,8 +117,8 @@ export class SummonTool implements Tool {
       : DEFAULT_LLM_IDLE_TIMEOUT_MS;
 
     // 构造包含完整对话上下文的 messages 数组
-    // L4 turn state → getter injection; fallback to ctx for transitional compat
-    const dialogMessages = this.getCurrentMessages?.() ?? ctx.dialogMessages ?? [];
+    // L4 turn state → getter injection; canonical-only path (phase 1174)
+    const dialogMessages = this.getCurrentMessages?.() ?? [];
     if (dialogMessages.length === 0) {
       ctx.auditWriter?.write(SUMMON_AUDIT_EVENTS.NO_DIALOG_CONTEXT);
     }

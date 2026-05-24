@@ -14,7 +14,7 @@ import { editTool } from '../../../src/foundation/file-tool/edit.js';
 import { multiEditTool } from '../../../src/foundation/file-tool/multi_edit.js';
 import { execTool } from '../../../src/foundation/command-tool/exec.js';
 import { spawnTool } from '../../../src/core/spawn-system/tools/spawn.js';
-import { shadowTool } from '../../../src/core/shadow-system/tools/shadow.js';
+import { createShadowTool } from '../../../src/core/shadow-system/tools/shadow.js';
 import { memorySearchTool } from '../../../src/core/memory/tools/memory_search.js';
 import type { Tool } from '../../../src/foundation/tools/types.js';
 
@@ -28,7 +28,7 @@ describe('phase 963 — profile advertise invariant lint', () => {
     multiEditTool,
     execTool,
     spawnTool,
-    shadowTool,
+    createShadowTool({ getTurnSnapshot: () => ({}) }),
     memorySearchTool,
   ];
 

@@ -48,6 +48,7 @@ describe('SummonTool', () => {
       async () => 'mock system prompt',
       () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
       () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      () => [],
     );
   });
 
@@ -55,7 +56,7 @@ describe('SummonTool', () => {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', options?: { originClawId?: string; clawId?: string; dialogMessages?: Message[] }) {
+  function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', options?: { originClawId?: string; clawId?: string }) {
     return new ExecContextImpl({
       clawId: options?.clawId ?? 'test-claw',
       clawDir: tempDir,
@@ -64,7 +65,6 @@ describe('SummonTool', () => {
       fs: mockFs,
       llm: {} as unknown as LLMOrchestrator,
       originClawId: options?.originClawId,
-      dialogMessages: options?.dialogMessages,
       auditWriter: {
         write: (type: string, ...args: unknown[]) => { auditEvents.push({ type, args }); },
       } as any,
@@ -141,9 +141,15 @@ Content.
           ] as unknown as string,
         },
       ];
-      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+      const ctx = makeCtx('claw');
+      const customTool = new SummonTool(
+        async () => 'mock system prompt',
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => motionDialog,
+      );
 
-      await tool.execute({ goal: 'audit L1 FileSystem', mode: 'shadow' }, ctx);
+      await customTool.execute({ goal: 'audit L1 FileSystem', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -169,9 +175,15 @@ Content.
           ] as unknown as string,
         },
       ];
-      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+      const ctx = makeCtx('claw');
+      const customTool = new SummonTool(
+        async () => 'mock system prompt',
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => motionDialog,
+      );
 
-      await tool.execute({ goal: 'create foo contract', mode: 'shadow' }, ctx);
+      await customTool.execute({ goal: 'create foo contract', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -189,9 +201,15 @@ Content.
         { role: 'user', content: 'hi' },
         { role: 'assistant', content: 'hello' },
       ];
-      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+      const ctx = makeCtx('claw');
+      const customTool = new SummonTool(
+        async () => 'mock system prompt',
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => motionDialog,
+      );
 
-      await tool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
+      await customTool.execute({ goal: 'follow up', mode: 'shadow' }, ctx);
 
       const tasks = await readPendingTasks(tempDir);
       expect(tasks).toHaveLength(1);
@@ -204,7 +222,7 @@ Content.
     });
 
     it('shadow mode: dialogMessages 为空时 shadowMessages = [SHADOW INSTRUCTION]', async () => {
-      const ctx = makeCtx('claw', { dialogMessages: [] });
+      const ctx = makeCtx('claw');
 
       await tool.execute({ goal: 'empty dialog', mode: 'shadow' }, ctx);
 
@@ -228,15 +246,16 @@ Content.
 
     it('design contract: shadow mode summon 子代理 ≡ shadow tool 子代理（继承 motion 快照 systemPrompt+tools+dialog）', async () => {
       const mockMotionPrompt = 'MOTION_SYSTEM_PROMPT_FIXTURE';
+      const motionDialog: Message[] = [
+        { role: 'user', content: 'test' },
+      ];
       const customTool = new SummonTool(
         async () => mockMotionPrompt,
         () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
         () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => motionDialog,
       );
-      const motionDialog: Message[] = [
-        { role: 'user', content: 'test' },
-      ];
-      const ctx = makeCtx('claw', { dialogMessages: motionDialog });
+      const ctx = makeCtx('claw');
 
       await customTool.execute({ goal: 'describe intent', mode: 'shadow' }, ctx);
 
@@ -264,6 +283,7 @@ Content.
         async () => mockMotionPrompt,
         () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
         () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+        () => [],
       );
       const ctx = makeCtx('claw');
       await customTool.execute({ goal: 'describe intent', mode: 'shadow' }, ctx);
@@ -481,7 +501,6 @@ Content.
         fs: mockFs,
         llm: {} as unknown as LLMOrchestrator,
         auditWriter: auditWriter as any,
-        dialogMessages: [{ role: 'user' as const, content: 'test' }],
       });
 
       await tool.execute({ goal: 'test task' }, ctx);
@@ -504,7 +523,6 @@ Content.
         fs: mockFs,
         llm: {} as unknown as LLMOrchestrator,
         auditWriter: auditWriter as any,
-        dialogMessages: [],
       });
 
       await tool.execute({ goal: 'test task' }, ctx);

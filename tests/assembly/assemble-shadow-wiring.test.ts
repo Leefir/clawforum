@@ -160,7 +160,6 @@ vi.mock('../../src/foundation/tools/context.js', () => ({
   ExecContextImpl: vi.fn((opts) => ({
     ...opts,
     signal: undefined,
-    dialogMessages: [],
     incrementStep: vi.fn(),
     requestStop: vi.fn(),
   })),

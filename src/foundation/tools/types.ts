@@ -35,7 +35,7 @@ export function escapeForLog(s: string): string {
  * Execution context — passed to all tool executions.
  *
  * Fields are L1/L2 infrastructure handles + execution control state.
- * L4 business fields (isShadow, systemPromptForLLM, etc.) are scheduled
+ * L4 business fields (isShadow) are scheduled
  * for eviction to per-module factory injection.
  */
 export interface ExecContext {
@@ -58,8 +58,6 @@ export interface ExecContext {
   subagentMaxSteps?: number;
   /** Tool-level wall-clock timeout, inherited from globalConfig.tool_timeout_ms / Assembly 装配期注入 (phase 1029 / F-2) */
   toolTimeoutMs?: number;
-  /** 当前对话 messages（由 runtime._runReact 注入，供 summon 工具读取） */
-  dialogMessages?: Message[];
   /** 创建链路的源头 clawId，由 summon/spawn 传播。Motion 直接创建时为 'motion' */
   originClawId?: string;
   /** 是否为 Motion 创建链路上的 agent（Motion 本体或其 subagent） */
@@ -76,10 +74,6 @@ export interface ExecContext {
   registry?: ToolRegistry;
   /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
   isShadow?: boolean;
-  /** Current main agent turn's systemPrompt (transitional compat / evicted: shadow gets via getTurnSnapshot) */
-  systemPromptForLLM?: string;
-  /** Current main agent turn's tools (transitional compat / evicted: shadow gets via getTurnSnapshot) */
-  toolsForLLM?: import('../llm-provider/types.js').ToolDefinition[];
   /** phase 777: result-capture tools (done) set this to break the agent loop early */
   stopRequested: boolean;
   /** phase 777: mutator called by result-capture tools after storing capturedResult */

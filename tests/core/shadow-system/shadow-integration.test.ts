@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
-import { shadowTool } from '../../../src/core/shadow-system/index.js';
+import { createShadowTool } from '../../../src/core/shadow-system/index.js';
+import type { Message, ToolDefinition } from '../../../src/foundation/llm-provider/types.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
@@ -62,16 +63,28 @@ describe('shadow integration (phase 784, real SubAgent path)', () => {
   let tempDir: string;
   let fs: NodeFileSystem;
   let registry: ToolRegistryImpl;
-  beforeEach(async () => {
-    tempDir = await createTempDir('phase784-shadow-');
-    fs = new NodeFileSystem({ baseDir: tempDir });
+  let shadowTool: ReturnType<typeof createShadowTool>;
 
-    registry = new ToolRegistryImpl();
-    registry.register(createDoneTool());
-  });
 
   afterEach(async () => {
     await cleanupTempDir(tempDir);
+  });
+
+  beforeEach(async () => {
+    tempDir = await createTempDir('phase784-shadow-');
+    fs = new NodeFileSystem({ baseDir: tempDir });
+    registry = new ToolRegistryImpl();
+    registry.register(createDoneTool());
+    shadowTool = createShadowTool({
+      getTurnSnapshot: () => ({
+        systemPrompt: 'sp',
+        tools: [] as ToolDefinition[],
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-shadow-1', name: 'shadow', input: { task: 'X' } }] },
+        ],
+      }),
+    });
   });
 
   function makeBaseCtx(mockLLM: LLMOrchestrator): ExecContextImpl {
@@ -84,14 +97,7 @@ describe('shadow integration (phase 784, real SubAgent path)', () => {
       auditWriter: new NoopAuditWriter(),
       llm: mockLLM,
       registry,
-
       currentToolUseId: 'tu-shadow-1',
-      dialogMessages: [
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-shadow-1', name: 'shadow', input: { task: 'X' } }] },
-      ],
-      systemPromptForLLM: 'sp',
-      toolsForLLM: [],
       maxSteps: 10,
     });
   }

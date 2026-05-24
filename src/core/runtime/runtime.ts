@@ -476,7 +476,6 @@ export class Runtime {
     // 防 P0.14 跨 turn sticky bug（done 工具误调后下 turn silent empty）
     this.execContext.stopRequested = false;
     this._currentMessages = messages;
-    this.execContext.dialogMessages = messages;  // transitional dual-write (remove after dispatch migration)
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
@@ -484,8 +483,6 @@ export class Runtime {
     // phase 769: inject systemPrompt + tools for shadow sync path
     this._currentSystemPrompt = systemPrompt;
     this._currentTools = tools;
-    this.execContext.systemPromptForLLM = systemPrompt;    // transitional compat
-    this.execContext.toolsForLLM = tools;
 
     // 首个 LLM 输出 delta 时上报当前生效的 provider（确认 API 可用后才显示）
     let providerInfoEmitted = false;
@@ -604,8 +601,6 @@ export class Runtime {
     } finally {
       this._currentMessages = undefined;
       this._currentSystemPrompt = undefined;
-      this.execContext.dialogMessages = undefined;              // transitional compat
-      this.execContext.systemPromptForLLM = undefined;         // transitional compat
     }
   }
 

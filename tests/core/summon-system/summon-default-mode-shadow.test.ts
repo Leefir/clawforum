@@ -43,6 +43,7 @@ describe('Phase 1166 — default mode shadow', () => {
       async () => 'mock system prompt',
       () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
       () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      () => [],
     );
   });
 
@@ -50,7 +51,7 @@ describe('Phase 1166 — default mode shadow', () => {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  function makeCtx(options?: { dialogMessages?: Message[] }) {
+  function makeCtx() {
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -58,14 +59,19 @@ describe('Phase 1166 — default mode shadow', () => {
       callerType: 'claw',
       fs: mockFs,
       llm: {} as unknown as LLMOrchestrator,
-      dialogMessages: options?.dialogMessages,
       auditWriter: { write: vi.fn() } as any,
     });
   }
 
   it('reverse 1 — 默认 mode 不传 mode 走 shadow 路径', async () => {
-    const ctx = makeCtx({ dialogMessages: [{ role: 'user', content: 'test' }] });
-    const result = await tool.execute({ goal: 'test goal' }, ctx);
+    const customTool = new SummonTool(
+      async () => 'mock system prompt',
+      () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      () => [{ role: 'user', content: 'test' }],
+    );
+    const ctx = makeCtx();
+    const result = await customTool.execute({ goal: 'test goal' }, ctx);
 
     expect(result.success).toBe(true);
     const tasks = await readPendingTasks(tempDir);
@@ -89,8 +95,14 @@ describe('Phase 1166 — default mode shadow', () => {
   });
 
   it('reverse 3 — 显式 mode: shadow 仍走 shadow 路径', async () => {
-    const ctx = makeCtx({ dialogMessages: [{ role: 'user', content: 'test' }] });
-    const result = await tool.execute({ goal: 'test goal', mode: 'shadow' }, ctx);
+    const customTool = new SummonTool(
+      async () => 'mock system prompt',
+      () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      () => [{ name: 'mock_tool', description: 'Mock tool', input_schema: { type: 'object' } }],
+      () => [{ role: 'user', content: 'test' }],
+    );
+    const ctx = makeCtx();
+    const result = await customTool.execute({ goal: 'test goal', mode: 'shadow' }, ctx);
 
     expect(result.success).toBe(true);
     const tasks = await readPendingTasks(tempDir);

@@ -7,7 +7,7 @@ import { writeTool } from '../../src/foundation/file-tool/write.js';
 import { editTool } from '../../src/foundation/file-tool/edit.js';
 import { multiEditTool } from '../../src/foundation/file-tool/multi_edit.js';
 import { spawnTool } from '../../src/core/spawn-system/tools/spawn.js';
-import { shadowTool } from '../../src/core/shadow-system/tools/shadow.js';
+import { createShadowTool } from '../../src/core/shadow-system/tools/shadow.js';
 import { memorySearchTool } from '../../src/core/memory/tools/memory_search.js';
 import { execTool } from '../../src/foundation/command-tool/exec.js';
 
@@ -16,17 +16,17 @@ describe('Tool Profiles', () => {
     // full profile tools
     expect(readTool.profiles).toContain('full');
     expect(spawnTool.profiles).toContain('full');
-    expect(shadowTool.profiles).toContain('full');
+    expect(createShadowTool({ getTurnSnapshot: () => ({}) }).profiles).toContain('full');
     expect(execTool.profiles).toContain('full');
 
     // readonly constraints
     expect(writeTool.profiles).not.toContain('readonly');
     expect(spawnTool.profiles).not.toContain('readonly');
-    expect(shadowTool.profiles).not.toContain('readonly');
+    expect(createShadowTool({ getTurnSnapshot: () => ({}) }).profiles).not.toContain('readonly');
 
     // subagent constraints
     expect(spawnTool.profiles).not.toContain('subagent');
-    expect(shadowTool.profiles).not.toContain('subagent');
+    expect(createShadowTool({ getTurnSnapshot: () => ({}) }).profiles).not.toContain('subagent');
 
     // edit / multi_edit in subagent + miner but not readonly
     expect(editTool.profiles).toContain('subagent');

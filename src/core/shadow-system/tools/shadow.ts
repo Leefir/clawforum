@@ -128,24 +128,3 @@ export function createShadowTool(deps: {
 }
 
 
-// shadowTool compat: reads from ctx fields during transition.
-function _compatExecute(args: Record<string, unknown>, ctx: ExecContext): ReturnType<Tool['execute']> {
-  const factoryTool = createShadowTool({
-    getTurnSnapshot: () => ({
-      systemPrompt: ctx.systemPromptForLLM,
-      tools: ctx.toolsForLLM,
-      messages: ctx.dialogMessages,
-    }),
-  });
-  return factoryTool.execute(args, ctx);
-}
-export const shadowTool: Tool = {
-  name: SHADOW_TOOL_NAME,
-  profiles: ['full'],
-  description: 'compat wrapper — use createShadowTool(factory) directly',
-  schema: { type: 'object', properties: { task: { type: 'string' } }, required: ['task'] },
-  readonly: false,
-  idempotent: false,
-  defaultTimeoutMs: 300_000,
-  execute: _compatExecute,
-};

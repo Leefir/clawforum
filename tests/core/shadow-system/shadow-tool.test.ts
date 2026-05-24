@@ -13,7 +13,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
-import { shadowTool } from '../../../src/core/shadow-system/index.js';
+import { createShadowTool } from '../../../src/core/shadow-system/index.js';
+import type { Message, ToolDefinition } from '../../../src/foundation/llm-provider/types.js';
 import { spawnTool } from '../../../src/core/spawn-system/index.js';
 import { SummonTool } from '../../../src/core/summon-system/tools/summon.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
@@ -43,6 +44,7 @@ describe('shadow tool (phase 767)', () => {
   let fs: NodeFileSystem;
   let baseCtx: ExecContextImpl;
   let audit: ReturnType<typeof makeAudit>;
+  let shadowTool: ReturnType<typeof createShadowTool>;
 
   function makeRegistry(): ToolRegistryImpl {
     const registry = new ToolRegistryImpl();
@@ -93,6 +95,10 @@ describe('shadow tool (phase 767)', () => {
     tempDir = await createTempDir();
     fs = new NodeFileSystem({ baseDir: tempDir });
     audit = makeAudit();
+    const dialogMessages: Message[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
+    ];
     baseCtx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -104,12 +110,13 @@ describe('shadow tool (phase 767)', () => {
       registry: makeRegistry(),
       mainDialogStore: makeMockDialogStore(),
       currentToolUseId: 'tu-1',
-      dialogMessages: [
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
-      ],
-      systemPromptForLLM: 'sp',
-      toolsForLLM: [],
+    });
+    shadowTool = createShadowTool({
+      getTurnSnapshot: () => ({
+        systemPrompt: 'sp',
+        tools: [] as ToolDefinition[],
+        messages: dialogMessages,
+      }),
     });
     mockRunSubagent.mockClear();
   });
@@ -163,8 +170,11 @@ describe('shadow tool (phase 767)', () => {
         registry: makeRegistry(),
         currentToolUseId: 'tu-1',
       });
+      const shadowToolNoState = createShadowTool({
+        getTurnSnapshot: () => ({ systemPrompt: 'sp', tools: [], messages: undefined }),
+      });
 
-      const result = await shadowTool.execute({ task: 'test', async: false }, ctxNoState);
+      const result = await shadowToolNoState.execute({ task: 'test', async: false }, ctxNoState);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('no_main_context');
@@ -182,15 +192,19 @@ describe('shadow tool (phase 767)', () => {
         llm: makeLLM(),
         registry: makeRegistry(),
         mainDialogStore: makeMockDialogStore(),
-        dialogMessages: [
-          { role: 'user', content: 'hi' },
-          { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
-        ],
-        systemPromptForLLM: 'sp',
-        toolsForLLM: [],
+      });
+      const shadowToolNoToolUseId = createShadowTool({
+        getTurnSnapshot: () => ({
+          systemPrompt: 'sp',
+          tools: [] as ToolDefinition[],
+          messages: [
+            { role: 'user', content: 'hi' },
+            { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
+          ],
+        }),
       });
 
-      const result = await shadowTool.execute({ task: 'test', async: false }, ctxNoToolUseId);
+      const result = await shadowToolNoToolUseId.execute({ task: 'test', async: false }, ctxNoToolUseId);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('no_main_context');
