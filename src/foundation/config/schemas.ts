@@ -11,6 +11,8 @@ import {
   DEFAULT_LLM_RETRY_ATTEMPTS,
 } from '../llm-orchestrator/defaults.js';
 
+const SCHEDULE_REGEX = /^(?:hourly|daily:\d{1,2}:\d{2}|interval:\d+[smh])$/;
+
 // API format code → preset id (for manual entry)
 export const FORMAT_MAP: Record<string, string> = {
   '1': 'custom-anthropic',
@@ -94,44 +96,44 @@ export function createClawGlobalConfigSchema(defaults: ConfigDefaults) {
       jobs: z.object({
         disk_monitor: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('hourly'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('hourly'),
         }).optional(),
         llm_stats: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('daily:06:00'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('daily:06:00'),
         }).optional(),
         dream_trigger: z.object({
           enabled: z.boolean().default(false),
-          schedule: z.string().default('daily:04:00'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('daily:04:00'),
           max_compression_tokens: z.number().min(500).max(20000).default(4000),
         }).optional(),
         contract_observer: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('interval:1m'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('interval:1m'),
         }).optional(),
         metrics_snapshot: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('interval:5m'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('interval:5m'),
         }).optional(),
         git_gc_weekly: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('daily:03:00'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('daily:03:00'),
         }).optional(),
         retention_cleanup: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('daily:04:00'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('daily:04:00'),
         }).optional(),
         audit_size_monitor: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('interval:6h'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('interval:6h'),
         }).optional(),
         outbox_drain: z.object({
           enabled: z.boolean().default(true),
-          schedule: z.string().default('interval:30s'),
+          schedule: z.string().regex(SCHEDULE_REGEX).default('interval:30s'),
         }).optional(),
         git_hygiene_monitor: z.object({
           enabled: z.boolean().optional(),
-          schedule: z.string().optional(),
+          schedule: z.string().regex(SCHEDULE_REGEX).optional(),
           worktree_threshold: z.number().int().positive().optional(),
           branch_threshold: z.number().int().positive().optional(),
           stash_threshold: z.number().int().nonnegative().optional(),

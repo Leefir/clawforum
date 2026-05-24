@@ -11,10 +11,17 @@ import { CRON_TICK_INTERVAL_MS } from './constants.js';
 export type CronSchedule =
   | { type: 'daily'; time: string }       // "HH:MM"，每天固定时刻
   | { type: 'hourly' }                     // 每小时整点
-  | { type: 'interval'; minutes: number }; // 每 N 分钟
+  | { type: 'interval'; ms: number };      // 每 N 毫秒（接收 s/m/h 单位、内部 ms 表示）
 
 /** 将配置字符串解析为 CronSchedule
- * 格式：'hourly' | 'daily:HH:MM' | 'interval:N[m|h|s]'
+ * 格式：'hourly' | 'daily:HH:MM' | 'interval:N[smh]'
+ *
+ * 单位:
+ * - 's' = seconds (`interval:30s` → ms=30_000)
+ * - 'm' = minutes (`interval:5m` → ms=300_000)
+ * - 'h' = hours (`interval:6h` → ms=21_600_000)
+ *
+ * phase 1216 (r131 B): suffix 严格 enforce、防 phase 793 起 silent drift 复发
  */
 export function parseSchedule(s: string, audit?: AuditLog): CronSchedule | null {
   if (s === 'hourly') return { type: 'hourly' };
@@ -27,31 +34,18 @@ export function parseSchedule(s: string, audit?: AuditLog): CronSchedule | null 
     return { type: 'daily', time: s.slice(6) };
   }
   if (s.startsWith('interval:')) {
-    const rest = s.slice(9);
-    const match = rest.match(/^(\d+)([smh])?$/);
+    const match = s.slice(9).match(/^(\d+)([smh])$/);
     if (!match) {
-      audit?.write(CRON_AUDIT_EVENTS.PARSE_INVALID, `input=${s}`, 'reason=invalid_interval_format');
-      return null;
-    }
-    const num = parseInt(match[1], 10);
-    const unit = match[2] ?? 'm';
-    if (isNaN(num) || num <= 0) {
       audit?.write(CRON_AUDIT_EVENTS.PARSE_INVALID, `input=${s}`, 'reason=invalid_interval');
       return null;
     }
-    // Convert to minutes
-    let minutes: number;
-    switch (unit) {
-      case 's': minutes = num / 60; break;
-      case 'm': minutes = num; break;
-      case 'h': minutes = num * 60; break;
-      default: minutes = num;
-    }
-    if (minutes <= 0) {
-      audit?.write(CRON_AUDIT_EVENTS.PARSE_INVALID, `input=${s}`, 'reason=interval_too_small');
+    const value = parseInt(match[1], 10);
+    if (value <= 0) {
+      audit?.write(CRON_AUDIT_EVENTS.PARSE_INVALID, `input=${s}`, 'reason=invalid_interval');
       return null;
     }
-    return { type: 'interval', minutes };
+    const multiplier = { s: 1_000, m: 60_000, h: 3_600_000 }[match[2] as 's' | 'm' | 'h'];
+    return { type: 'interval', ms: value * multiplier };
   }
   audit?.write(CRON_AUDIT_EVENTS.PARSE_FALLBACK, `input=${s}`, 'fallback=hourly');
   return { type: 'hourly' };
@@ -338,9 +332,10 @@ export class CronRunner {
       case 'hourly':
         return `${date}T${pad(now.getHours())}`;
       case 'interval': {
-        const block = Math.floor(
-          (now.getHours() * 60 + now.getMinutes()) / schedule.minutes
-        );
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const elapsedMs = now.getTime() - startOfDay.getTime();
+        const block = Math.floor(elapsedMs / schedule.ms);
         return `${date}-${block}`;
       }
     }

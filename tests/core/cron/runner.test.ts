@@ -22,8 +22,8 @@ describe('parseSchedule', () => {
     expect(parseSchedule('daily:06:00')).toEqual({ type: 'daily', time: '06:00' });
   });
 
-  it('parses "interval:5m" → { type: "interval", minutes: 5 }', () => {
-    expect(parseSchedule('interval:5m')).toEqual({ type: 'interval', minutes: 5 });
+  it('parses "interval:5m" → { type: "interval", ms: 300_000 }', () => {
+    expect(parseSchedule('interval:5m')).toEqual({ type: 'interval', ms: 300_000 });
   });
 
   it('unknown format falls back to hourly (no console.warn)', () => {
@@ -199,7 +199,7 @@ describe('CronRunner', () => {
 
   it('computeRunKey: interval block', async () => {
     const handler = vi.fn().mockResolvedValue(undefined);
-    const job: CronJob = { name: 'test', enabled: true, schedule: { type: 'interval', minutes: 30 }, handler };
+    const job: CronJob = { name: 'test', enabled: true, schedule: { type: 'interval', ms: 30 * 60 * 1000 }, handler };
     const runner = new CronRunner([job], audit as unknown as AuditLog);
     runner.tick();
     expect(handler).toHaveBeenCalledTimes(1);
