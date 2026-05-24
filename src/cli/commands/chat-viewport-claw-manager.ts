@@ -30,7 +30,10 @@ export interface ClawManager {
   closeAll(): Promise<void>;
 }
 
+/** ClawTrack textBuffer 上限 / 防 UI 内存膨胀 */
 const TEXT_BUFFER_CAP = 64 * 1024;
+
+/** 截断后保留最近 N 字节 (cap 的 1/2 / 滑动窗口稳定保留近期上下文) */
 const TEXT_BUFFER_KEEP = 32 * 1024;
 
 const appendCappedBuffer = (track: ClawTrack, delta: string) => {

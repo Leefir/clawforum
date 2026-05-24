@@ -5,14 +5,20 @@ import { pushFallback } from './writer.js';
 
 const UUID_SHORT_LEN = 8;
 
+/** BatchedAuditWriter constructor option fallback default — flush 触发的 buffer line 阈值 */
+const DEFAULT_BATCH_SIZE = 50;
+
+/** BatchedAuditWriter constructor option fallback default — periodic flush interval (ms) */
+const DEFAULT_FLUSH_INTERVAL_MS = 1000;
+
 function esc(val: string): string {
   return val.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\0/g, '\\0');
 }
 
 export interface BatchedAuditWriterOptions {
   maxSizeMb?: number | null;
-  batchSize?: number;        // flush when buffer reaches this many lines (default 50)
-  flushIntervalMs?: number;  // periodic flush interval (default 1000ms)
+  batchSize?: number;        // flush when buffer reaches this many lines (default DEFAULT_BATCH_SIZE = 50)
+  flushIntervalMs?: number;  // periodic flush interval (default DEFAULT_FLUSH_INTERVAL_MS = 1000ms)
 }
 
 export class BatchedAuditWriter implements AuditLog {
@@ -31,8 +37,8 @@ export class BatchedAuditWriter implements AuditLog {
     this.fs = fs;
     this.filePath = filePath;
     this.maxBytes = opts.maxSizeMb ? opts.maxSizeMb * 1024 * 1024 : null;
-    this.batchSize = opts.batchSize ?? 50;
-    this.flushIntervalMs = opts.flushIntervalMs ?? 1000;
+    this.batchSize = opts.batchSize ?? DEFAULT_BATCH_SIZE;
+    this.flushIntervalMs = opts.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
     this.currentIntervalMs = this.flushIntervalMs;
   }
 
