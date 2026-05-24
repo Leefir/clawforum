@@ -269,9 +269,9 @@
     },
     {
       "file": "src/watchdog/watchdog-utils.ts",
-      "line": 120,
-      "body_excerpt": "} catch { /* skip */ }",
-      "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
+      "line": 124,
+      "body_excerpt": "} catch { /* silent: contract dir scan ENOENT is legitimate / skip */ }",
+      "reason": "pre-existing silent catch / converted to canonical silent comment"
     },
     {
       "file": "src/core/runtime/runtime.ts",

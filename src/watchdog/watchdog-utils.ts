@@ -100,12 +100,16 @@ export interface ClawSnapshot {
   contract: string;       // 'active:<id>' | 'paused:<id>' | 'none'
   inboxPending: number;
   outboxPending: number;
+  // NEW additive optional forensic context (phase 1207 gap B)
+  lastAuditEvents?: string[];   // last N audit events from claw audit.tsv
 }
 
 /** Duck-typed subset of ProcessManager used by gatherClawSnapshot */
 export interface ProcessLiveness {
   isAlive(id: string): boolean;
 }
+
+const AUDIT_TAIL_N = 5;
 
 export function gatherClawSnapshot(clawDir: string, pm: ProcessLiveness, clawId: string): ClawSnapshot {
   const status = pm.isAlive(clawId) ? 'running' : 'stopped';
@@ -117,7 +121,7 @@ export function gatherClawSnapshot(clawDir: string, pm: ProcessLiveness, clawId:
       const entries = fs.listSync(path.join(CONTRACT_DIR, sub), { includeDirs: true });
       const dir = entries.find(e => e.isDirectory);
       if (dir) { contract = `${sub}:${dir.name}`; break; }
-    } catch { /* skip */ }
+    } catch { /* silent: contract dir scan ENOENT is legitimate / skip */ }
   }
 
   const countMd = (dir: string) => {
@@ -126,7 +130,15 @@ export function gatherClawSnapshot(clawDir: string, pm: ProcessLiveness, clawId:
   const inboxPending = countMd(path.join('inbox', 'pending'));
   const outboxPending = countMd(path.join('outbox', 'pending'));
 
-  return { status, contract, inboxPending, outboxPending };
+  // NEW: read claw audit.tsv tail for forensic context (phase 1207 gap B)
+  let lastAuditEvents: string[] | undefined;
+  try {
+    const raw = fs.readSync('audit.tsv');
+    const lines = raw.split('\n').filter(l => l.trim());
+    lastAuditEvents = lines.slice(-AUDIT_TAIL_N);
+  } catch { /* silent: audit.tsv ENOENT or corrupt: leave undefined optional */ }
+
+  return { status, contract, inboxPending, outboxPending, lastAuditEvents };
 }
 
 // ---- Phase 18: inactivity backoff pure helpers ----

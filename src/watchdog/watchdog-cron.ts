@@ -8,7 +8,7 @@ import type { ProcessManager } from '../foundation/process-manager/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import {
   getClawforumDir, getClawforumFs, getGlobalConfig, getMotionContext,
-  lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned,
+  lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned, clawPreviouslyNotified,
 } from './watchdog-context.js';
 import { log, writeWatchdogInboxMessage } from './watchdog-log.js';
 import { clawHasContract, getClawActivityInfo, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
@@ -113,6 +113,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
     if (!existingClawIds.has(id)) {
       clawPreviouslyAlive.delete(id);
       everSpawned.delete(id);
+      clawPreviouslyNotified.delete(id);
     }
   }
 
@@ -127,6 +128,18 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
 
     if ((wasAlive === true || everSpawned.has(clawId)) && !currentlyAlive) {
       const detectMethod = wasAlive === true ? 'previous_tick' : 'ever_spawned';
+
+      // Dedup: skip re-emitting crash_notification for already-notified claw
+      if (clawPreviouslyNotified.has(clawId)) {
+        audit.write(
+          WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DEDUPED,
+          `claw=${clawId}`,
+          `reason=already_notified`,
+        );
+        clawPreviouslyAlive.set(clawId, currentlyAlive);
+        continue;
+      }
+
       // Only notify motion when there is an active/paused contract (no notification needed if claw stops without a contract)
       if (!clawHasContract(clawDir, audit)) {
         log(`[watchdog] Claw ${clawId} stopped (no active contract, skipping notification) [${detectMethod}]`);
@@ -139,7 +152,10 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
 
       // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
-      const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}`;
+      const lastEventsStr = snapshot.lastAuditEvents?.length
+        ? `; last_events: ${snapshot.lastAuditEvents.map(e => e.replace(/\t/g, '|')).join(' >> ')}`
+        : '';
+      const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}${lastEventsStr}`;
 
       const { fs: motionFs, audit: motionAudit } = getMotionContext();
       try {
@@ -152,6 +168,18 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
       } catch (err) {
         audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DROPPED, `claw=${clawId}`, `error=${err instanceof Error ? err.message : String(err)}`);
       }
+
+      clawPreviouslyNotified.add(clawId);
+    }
+
+    // Alive recovery transition: allow next crash to re-notify
+    if (currentlyAlive && clawPreviouslyNotified.has(clawId)) {
+      clawPreviouslyNotified.delete(clawId);
+      audit.write(
+        WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_RESET,
+        `claw=${clawId}`,
+        `reason=recovered_alive`,
+      );
     }
 
     clawPreviouslyAlive.set(clawId, currentlyAlive);
