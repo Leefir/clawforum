@@ -7,9 +7,7 @@ import {
   TASKS_QUEUES_DONE_DIR,
   TASKS_QUEUES_FAILED_DIR,
   TASKS_QUEUES_RESULTS_DIR,
-  TASKS_SUBAGENTS_DIR,
 } from './dirs.js';
-import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr } from './_helpers.js';
 import {
   emitRecovered,
@@ -18,7 +16,7 @@ import {
   emitRecoveryDeadLetter,
 } from './audit-emit.js';
 import { validateTaskShape, backupCorruptTask } from './task-corrupt-helpers.js';
-import { FileNotFoundError, isFileNotFound } from '../../foundation/fs/types.js';
+import { isFileNotFound } from '../../foundation/fs/types.js';
 import { sendFallbackError, sendResult, SENT_MARKER } from './result-delivery.js';
 
 const RETRY_COUNT_PATH = (taskId: string) =>

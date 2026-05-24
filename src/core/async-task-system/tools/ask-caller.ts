@@ -45,7 +45,10 @@ export function createAskCallerTool(deps: {
         };
       }
       try {
-        const restored = await mainDialogStore.restorePrefix(mainContextSnapshot);
+        // phase 1178 B fork: `_` prefix tsc-pass (phase 812 latent advertise PLACEHOLDER)
+        // r129 C fork (phase ~1161) 真填实 LLM clone call wrapper 时去 prefix
+        const _restored = await mainDialogStore.restorePrefix(mainContextSnapshot);
+        void _restored; // tsc-pass: intentionally unused until C fork fills real LLM call
         // LLM clone call setup
         // - system: restored.systemPrompt + ask_caller wrapper instruction
         // - messages: restored.messages + { role: 'user', content: question }

@@ -1,16 +1,14 @@
-import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import { type StreamLog, STREAM_FILE, createPerResourceStreamWriter } from '../../foundation/stream/index.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
-import { type CallerType, callerTypeToProfile } from '../../foundation/tool-protocol/index.js';
+import { callerTypeToProfile } from '../../foundation/tool-protocol/index.js';
 
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { runSubagent, NoopAuditWriter, createPerTaskRegistry, DONE_TOOL_NAME, getDisplayResult } from '../subagent/index.js';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
 
-import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { STREAM_TASK_EVENTS } from './stream-events.js';
 import { formatErr, classifyTaskError } from './_helpers.js';
 import {
@@ -19,7 +17,7 @@ import {
   emitResultDeliveryFailed,
 } from './audit-emit.js';
 import { AskMotionTool } from '../summon-system/index.js';
-import { TASKS_SYNC_DIR, TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from './dirs.js';
+import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from './dirs.js';
 import { buildSubagentSystemPrompt, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { sendResult, sendFallbackError } from './result-delivery.js';
 
@@ -84,7 +82,7 @@ export async function executeSubAgentTask(
   signal: AbortSignal,
   deps: ExecuteSubAgentTaskDeps,
 ): Promise<void> {
-  const { fs, fsFactory, auditWriter, llm, registry, clawDir, parentStreamLog, postProcessors, mainDialogStore, moveTaskToDone, moveTaskToFailed } = deps;
+  const { fs, fsFactory, auditWriter, llm, registry, clawDir, parentStreamLog, postProcessors, moveTaskToDone, moveTaskToFailed } = deps;
   const taskStartTime = Date.now();
   let taskFailed = false;
 
