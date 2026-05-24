@@ -79,6 +79,23 @@ import { createStreamReader, STREAM_FILE, findRecentTurnStartOffset } from '../f
 import { TASKS_SYNC_DIR } from '../core/async-task-system/index.js';
 import { DIALOG_DIR } from '../foundation/dialog-store/dirs.js';
 
+/**
+ * Cron job per-handler timeout (ms) / 防 stuck handler 占 cron tick.
+ * 各 job timeout 根据 handler 业务时长 calibrate（dream-trigger 30min / git-gc-weekly 2min / etc.）.
+ * 改值需同步评估 `cron.jobs.<name>.timeout_ms` config 默认行为（若 future 加 config override）.
+ */
+const CRON_JOB_TIMEOUTS_MS = {
+  diskMonitor: 60_000,
+  llmStats: 60_000,
+  dreamTrigger: 30 * 60_000,           // 30 min (deep dream + random dream)
+  metricsSnapshot: 30_000,
+  contractObserver: 5 * 60_000,         // 5 min
+  gitGcWeekly: 120_000,                 // 2 min
+  retentionCleanup: 120_000,            // 2 min
+  auditSizeMonitor: 30_000,
+  outboxDrain: 30_000,
+} as const;
+
 // 内部 helper（从 daemon.ts L42-75 搬入）
 export function detectUncleanExit(auditDir: string, auditWriter: AuditLog): void {
   const auditPath = path.join(auditDir, 'audit.tsv');
@@ -650,7 +667,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
               motionInbox: diskMonitorInbox,
             }),
-            timeoutMs: 60_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.diskMonitor,
           },
           {
             name: 'llm-stats',
@@ -663,7 +680,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               motionFs: systemFs,
               audit: auditWriter,
             }),
-            timeoutMs: 60_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.llmStats,
           },
           {
             name: 'dream-trigger',
@@ -674,7 +691,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               await memorySystem.runDeepDream(undefined, { signal });
               await memorySystem.runRandomDream({ signal });
             },
-            timeoutMs: 30 * 60_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.dreamTrigger,
           },
           {
             name: 'metrics-snapshot',
@@ -685,7 +702,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               fs: clawforumFs,
               audit: auditWriter,
             }),
-            timeoutMs: 30_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.metricsSnapshot,
           },
           {
             name: 'contract-observer',
@@ -698,7 +715,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
               notifyInbox: (payload, audit) => notifyInbox(clawforumFs, payload, audit),
             }),
-            timeoutMs: 5 * 60_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.contractObserver,
           },
           {
             name: 'git-gc-weekly',
@@ -709,7 +726,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               fs: clawforumFs,
               audit: auditWriter,
             }),
-            timeoutMs: 120_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.gitGcWeekly,
           },
           {
             name: 'retention-cleanup',
@@ -726,7 +743,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
                 dialog: globalConfig.retention?.dialog_max_days ?? 90,
               },
             }),
-            timeoutMs: 120_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.retentionCleanup,
           },
           {
             name: 'audit-size-monitor',
@@ -740,7 +757,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               rootAuditPath: path.join(clawforumDir, 'audit.tsv'),
               motionInbox: diskMonitorInbox,
             }),
-            timeoutMs: 30_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.auditSizeMonitor,
           },
           {
             name: 'outbox-drain',
@@ -752,7 +769,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               fs: clawforumFs,
               audit: auditWriter,
             }),
-            timeoutMs: 30_000,
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.outboxDrain,
           },
         ], auditWriter);
       } catch (e) {
