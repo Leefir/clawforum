@@ -335,6 +335,10 @@
     "foundation_file-tool_audit-events": [
       "file_tool_backup_failed"
     ],
+    "foundation_llm-provider_audit-events": [
+      "llm_provider_tool_result_missing_id",
+      "llm_provider_tool_result_orphan_id"
+    ],
     "foundation_messaging_audit-events": [
       "inbox_deduped",
       "inbox_done",
@@ -422,6 +426,7 @@
       "stream_reader_watcher_callback_failed",
       "stream_reader_watcher_failed",
       "stream_reader_watcher_reset",
+      "stream_write_after_close",
       "stream_write_dropped",
       "stream_writer_open_created_empty",
       "stream_writer_open_preserved_raced"
