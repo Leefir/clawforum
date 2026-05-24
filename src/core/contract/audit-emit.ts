@@ -12,6 +12,24 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { formatErr } from '../../foundation/utils/format.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 
+// ─── phase 1235 B.3: invariant assert for empty contractId ─────────────────
+function assertContractIdNonEmpty(
+  audit: AuditLog,
+  contractId: string,
+  emitFnName: string,
+): boolean {
+  if (contractId === '') {
+    audit.write(
+      CONTRACT_AUDIT_EVENTS.TYPED_EMIT_INVARIANT_VIOLATION,
+      `field=contractId`,
+      `event=${emitFnName}`,
+      `reason=empty_string`,
+    );
+    return false;
+  }
+  return true;
+}
+
 // ─── LOCK_CLEARED ───────────────────────────────────────────────────────────
 export function emitContractLockCleared(
   audit: AuditLog,
@@ -507,6 +525,7 @@ export function emitContractVerifierFailed(
   audit: AuditLog,
   opts: { contractId: string; agentId?: string; clawId?: string; kind?: string; reason?: string },
 ): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierFailed')) return;
   const cols: string[] = [`contractId=${opts.contractId}`];
   if (opts.agentId !== undefined) cols.push(`agentId=${opts.agentId}`);
   if (opts.clawId !== undefined) cols.push(`clawId=${opts.clawId}`);
@@ -520,6 +539,7 @@ export function emitContractVerifierSkipped(
   audit: AuditLog,
   opts: { contractId: string; agentId: string; reason: string },
 ): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierSkipped')) return;
   audit.write(
     CONTRACT_AUDIT_EVENTS.VERIFIER_SKIPPED,
     `contractId=${opts.contractId}`,
@@ -533,6 +553,7 @@ export function emitContractVerifierStarted(
   audit: AuditLog,
   opts: { contractId: string; agentId: string; clawId: string },
 ): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierStarted')) return;
   audit.write(
     CONTRACT_AUDIT_EVENTS.VERIFIER_STARTED,
     `contractId=${opts.contractId}`,
@@ -546,6 +567,7 @@ export function emitContractVerifierPassed(
   audit: AuditLog,
   opts: { contractId: string; agentId: string },
 ): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierPassed')) return;
   audit.write(
     CONTRACT_AUDIT_EVENTS.VERIFIER_PASSED,
     `contractId=${opts.contractId}`,
@@ -558,6 +580,7 @@ export function emitContractVerifierResultParseFailed(
   audit: AuditLog,
   opts: { contractId: string; agentId: string; clawId: string; stage: string; reason: string },
 ): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierResultParseFailed')) return;
   audit.write(
     CONTRACT_AUDIT_EVENTS.VERIFIER_RESULT_PARSE_FAILED,
     `contractId=${opts.contractId}`,

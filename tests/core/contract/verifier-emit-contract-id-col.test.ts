@@ -25,13 +25,14 @@ describe('phase 1151 r127 F fork Step B: verifier emit contractId col', () => {
     expect(writes).toHaveLength(1);
   });
 
-  it('reverse 2: emit 传空字符串 contractId 不掩盖 / cols 含 literal "contractId="', () => {
+  it('reverse 2: emit 传空字符串 contractId → invariant violation audit + early return / 0 cols emit', () => {
     const { audit, writes } = makeFakeAudit();
     emitContractVerifierPassed(audit, { contractId: '', agentId: 'verifier-cid-abc-sub1' });
     expect(writes).toHaveLength(1);
-    expect(writes[0].event).toBe(CONTRACT_AUDIT_EVENTS.VERIFIER_PASSED);
-    expect(writes[0].cols[0]).toBe('contractId=');  // 空字符串不掩盖
-    expect(writes[0].cols[1]).toBe('agentId=verifier-cid-abc-sub1');
+    expect(writes[0].event).toBe(CONTRACT_AUDIT_EVENTS.TYPED_EMIT_INVARIANT_VIOLATION);
+    expect(writes[0].cols).toContain('field=contractId');
+    expect(writes[0].cols).toContain('event=emitContractVerifierPassed');
+    expect(writes[0].cols).toContain('reason=empty_string');
   });
 
   it('reverse 3: emit 传正常 contractId / 5 fn cols 全含 contractId= 首位', () => {

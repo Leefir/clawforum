@@ -124,6 +124,7 @@
       "contract_subtask_already_completed",
       "contract_subtask_duplicate_done",
       "contract_system_closed",
+      "contract_typed_emit_invariant_violation",
       "contract_unexpected_async_throw",
       "contract_updated",
       "contract_verification_background_done",
