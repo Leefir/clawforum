@@ -152,7 +152,10 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
 
       // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, pm, clawId);
-      const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}`;
+      const lastEventsStr = snapshot.lastAuditEvents?.length
+        ? `; last_events: ${snapshot.lastAuditEvents.map(e => e.replace(/\t/g, '|')).join(' >> ')}`
+        : '';
+      const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}${lastEventsStr}`;
 
       const { fs: motionFs, audit: motionAudit } = getMotionContext();
       try {
