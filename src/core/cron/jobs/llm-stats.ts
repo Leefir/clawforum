@@ -58,7 +58,6 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
   const entries = collectEntries(opts, targetDate);
   if (entries.length === 0) {
     opts.audit.write(CRON_AUDIT_EVENTS.LLM_STATS, `step=empty_result`, `date=${targetDate}`);
-    console.log(`[cron:llm-stats] No LLM calls found for ${targetDate}`);
     return;
   }
 
@@ -70,11 +69,6 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
   opts.clawforumFs.appendSync(statsFile, JSON.stringify(summary) + '\n');
 
   opts.audit.write(CRON_AUDIT_EVENTS.LLM_STATS, `step=report`, `date=${targetDate}`, `totalCalls=${summary.totalCalls}`, `successCalls=${summary.successCalls}`, `failedCalls=${summary.failedCalls}`, `totalInputTokens=${summary.totalInputTokens}`, `totalOutputTokens=${summary.totalOutputTokens}`, `avg_latency_ms=${summary.avgLatencyMs}`);
-  console.log(
-    `[cron:llm-stats] ${targetDate}: ${summary.totalCalls} calls, ` +
-    `${summary.totalInputTokens}/${summary.totalOutputTokens} tokens in/out, ` +
-    `${summary.failedCalls} failed`
-  );
 }
 
 function collectEntries(opts: LlmStatsOptions, targetDate: string): ParsedLlmRow[] {

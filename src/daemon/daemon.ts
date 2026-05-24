@@ -77,11 +77,9 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       const reason = e instanceof Error ? e.message : String(e);
       if (e instanceof LockConflictError) {
         preAssembleAudit.write(deps.auditEvents.assembleFailed, 'module=lockfile', 'phase=preconstruct', `reason=${reason}`);
-        console.error(`[daemon] ${e.message}`);
         process.exit(1);
       }
       preAssembleAudit.write(deps.auditEvents.assembleFailed, 'module=pre_assemble', 'phase=preconstruct', `reason=${reason}`);
-      console.error('[daemon] assemble failed:', reason);
       process.exit(1);
     }
 
@@ -94,7 +92,6 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       // 兜底：Runtime 侧若已精确 audit（如 inboxReader.init / sessionManager.save）此行幂等重复；
       // Runtime 侧漏网的失败由此行唯一覆盖，postmortem 信号"需补精确 audit"
       auditWriter.write(deps.auditEvents.assembleFailed, `module=runtime`, `phase=post_assemble_init`, `reason=${errMsg(e)}`);
-      console.error('[daemon] runtime init failed:', errMsg(e));
       process.exit(1);
     }
 
@@ -109,7 +106,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       }
     } catch (e: any) {
       if (e?.code !== 'ENOENT') {
-        console.warn(`[daemon] Failed to clean up heartbeat files: ${e?.message}`);
+        auditWriter.write(DAEMON_AUDIT_EVENTS.CLEANUP_HEARTBEAT_FAILED, `reason=${e?.message}`);
       }
     }
 
@@ -181,7 +178,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       try {
         await processManager.selfRemovePid(name);
       } catch (e: any) {
-        console.warn(`[daemon] Failed to clean up pid file: ${e?.message}`);
+        instances.auditWriter.write(DAEMON_AUDIT_EVENTS.CLEANUP_PID_FAILED, `reason=${e?.message}`);
       }
       process.exit(0);
     };
@@ -189,7 +186,6 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
     process.on('SIGINT', () => shutdown('SIGINT'));
 
     const label = isMotion ? '[motion daemon]' : '[daemon]';
-    console.log(`${label} Started`);
     await promise;
   };
 }

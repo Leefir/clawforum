@@ -241,8 +241,7 @@ async function runDeepDreamForClaw(
       });
       dreamOutput = responseText(res);
     } catch (err) {
-      audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR, `step=call_1`, `clawId=${clawId}`, `file=${sf.filename}`, `reason=${err instanceof Error ? err.message : String(err)}`);
-      console.error(`[cron:deep-dream] ${clawId}: Call 1 failed for ${sf.filename}:`, err);
+      audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_CALL_FAILED, `step=call_1`, `clawId=${clawId}`, `file=${sf.filename}`, `reason=${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
 
@@ -261,8 +260,7 @@ async function runDeepDreamForClaw(
       });
       compression = responseText(res);
     } catch (err) {
-      audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR, `step=call_2`, `clawId=${clawId}`, `file=${sf.filename}`, `reason=${err instanceof Error ? err.message : String(err)}`);
-      console.error(`[cron:deep-dream] ${clawId}: Call 2 failed for ${sf.filename}:`, err);
+      audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_CALL_FAILED, `step=call_2`, `clawId=${clawId}`, `file=${sf.filename}`, `reason=${err instanceof Error ? err.message : String(err)}`);
       // 压缩失败不阻断流程，截取前 maxCompressionTokens chars 防 meta-compression 超上下文
       compression = dreamOutput.slice(0, maxCompressionTokens);
     }
@@ -340,8 +338,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
       const clawFs = opts.clawFsFactory(clawDir);
       await runDeepDreamForClaw(clawId, clawDir, clawFs, opts.motionFs, llm, maxCompressionTokens, opts.audit, opts.signal);
     } catch (err) {
-      opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR, `step=unexpected`, `clawId=${clawId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
-      console.error(`[cron:deep-dream] ${clawId}: unexpected error:`, err);
+      opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_UNEXPECTED, `step=unexpected`, `clawId=${clawId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
       // 单 claw 失败不阻断其他 claw
     }
   }

@@ -286,8 +286,7 @@ export async function waitForTaskResult(
     await new Promise(r => setTimeout(r, pollIntervalMs));
   }
 
-  audit?.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WARNING, `reason=poll_timeout`, `taskId=${taskId}`);
-  console.warn(`[cron:random-dream] timeout waiting for task ${taskId}`);
+  audit?.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WAIT_TIMEOUT, `reason=poll_timeout`, `taskId=${taskId}`);
   return null;
 }
 
@@ -365,19 +364,17 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   );
   if (!log) {
     opts.audit.write(
-      MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WARNING,
+      MEMORY_AUDIT_EVENTS.RANDOM_DREAM_SUBAGENT_TIMEOUT,
       `reason=subagent_timeout`,
       `taskId=${taskId}`,  // NEW phase 758 / 让事后 grep result.txt 关联
     );
-    console.warn(`[cron:random-dream] sub-agent did not complete within timeout (taskId=${taskId})`);
     return;
   }
 
   // 解析梦境输出
   const { outputs, contractIds } = extractDreamOutputs(log);
   if (outputs.length === 0) {
-    opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_WARNING, `reason=no_output`);
-    console.warn('[cron:random-dream] no [DREAM_OUTPUT] blocks found in log');
+    opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_OUTPUT_MISSING, `reason=no_output`);
     return;
   }
 

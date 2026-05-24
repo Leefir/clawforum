@@ -9,9 +9,14 @@
 export const MEMORY_AUDIT_EVENTS = {
   DEEP_DREAM_JOB: 'cron_deep_dream_job',
   DEEP_DREAM_ERROR: 'cron_deep_dream_error',
+  DEEP_DREAM_CALL_FAILED: 'deep_dream_call_failed',
+  DEEP_DREAM_UNEXPECTED: 'deep_dream_unexpected',
   RANDOM_DREAM_JOB: 'cron_random_dream_job',
   RANDOM_DREAM_WARNING: 'cron_random_dream_warning',
   RANDOM_DREAM_ERROR: 'cron_random_dream_error',   // ← NEW (phase 597)
   RANDOM_DREAM_PULSE: 'cron_random_dream_pulse',   // phase 633 ⚓11 / per-pulse audit / opt-in via pulseAuditEnabled
+  RANDOM_DREAM_WAIT_TIMEOUT: 'random_dream_wait_timeout',
+  RANDOM_DREAM_SUBAGENT_TIMEOUT: 'random_dream_subagent_timeout',
+  RANDOM_DREAM_OUTPUT_MISSING: 'random_dream_output_missing',
   DREAM_OUTPUT_PERSISTED: 'dream_output_persisted',  // NEW phase 756
 } as const;

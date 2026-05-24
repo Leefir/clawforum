@@ -51,11 +51,9 @@ export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
 
   const totalMB = Math.round(totalSize / 1024 / 1024);
   opts.audit.write(CRON_AUDIT_EVENTS.DISK_MONITOR_CHECK, `totalMB=${totalMB}`, `limitMB=${opts.limitMB}`);
-  console.log(`[cron:disk-monitor] ${totalMB}MB / ${opts.limitMB}MB`);
 
   if (totalMB > opts.limitMB) {
     opts.audit.write(CRON_AUDIT_EVENTS.DISK_MONITOR_THRESHOLD_EXCEEDED, `totalMB=${totalMB}`, `limitMB=${opts.limitMB}`);
-    console.warn(`[cron:disk-monitor] WARNING: usage ${totalMB}MB > limit ${opts.limitMB}MB`);
     opts.motionInbox.writeSync({
       type: 'cron_disk_warning',
       source: 'cron',

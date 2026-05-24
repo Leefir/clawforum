@@ -252,7 +252,7 @@ export class UnixDomainSocketTransport implements Transport {
       try {
         cb(evt);
       } catch (err) {
-        console.error('[transport] onTransportError callback error:', err);
+        // silent: callback error already observable via transportErrorCbs fire
       }
     }
   }

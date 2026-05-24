@@ -209,7 +209,12 @@
       "cron_random_dream_job",
       "cron_random_dream_pulse",
       "cron_random_dream_warning",
-      "dream_output_persisted"
+      "deep_dream_call_failed",
+      "deep_dream_unexpected",
+      "dream_output_persisted",
+      "random_dream_output_missing",
+      "random_dream_subagent_timeout",
+      "random_dream_wait_timeout"
     ],
     "core_permissions_audit-events": [
       "permission_strict_disabled"
@@ -286,6 +291,8 @@
     "daemon_audit-events": [
       "chain",
       "chain_limited",
+      "daemon_cleanup_heartbeat_failed",
+      "daemon_cleanup_pid_failed",
       "daemon_liveness_heartbeat",
       "daemon_loop_fatal",
       "daemon_loop_interrupt",
@@ -303,6 +310,7 @@
       "dialog_archive_all_corrupted",
       "dialog_archive_empty",
       "dialog_cold_start",
+      "dialog_flush_chain_error",
       "dialog_invariant_failed",
       "dialog_session_version_migrate",
       "dialog_session_version_unknown",
@@ -386,9 +394,12 @@
       "snapshot_init_cleanup_failed",
       "snapshot_init_failed",
       "snapshot_persist_failed",
+      "snapshot_realpath_failed",
+      "snapshot_state_corrupt",
       "snapshot_status_stderr",
       "snapshot_sync_clean_failed",
-      "snapshot_sync_restore_failed"
+      "snapshot_sync_restore_failed",
+      "snapshot_try_clear_failed"
     ],
     "foundation_stream_audit-events": [
       "stream_append_failed",
@@ -420,5 +431,5 @@
       "watchdog_stream_read_failed"
     ]
   },
-  "updated": "2026-05-23T23:00:00.000Z"
+  "updated": "2026-05-24T14:24:00.000Z"
 }

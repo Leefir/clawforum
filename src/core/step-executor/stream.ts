@@ -174,7 +174,6 @@ export async function collectStreamResponse(
           }
           break;
         case 'reset':
-          if (!callbacks?.onReset) console.warn(`[llm] mid-stream failover: ${chunk.provider} timed out after ${chunk.timeoutMs}ms`);
           resetState(state);
           callbacks?.onReset?.(chunk.provider ?? 'unknown', chunk.timeoutMs ?? 0);
           break;

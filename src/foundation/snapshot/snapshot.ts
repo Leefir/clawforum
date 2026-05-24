@@ -74,13 +74,13 @@ async function persistState(fs: FileSystem, dir: string, state: SnapshotState, a
   }
 }
 
-async function tryClearPersist(fs: FileSystem, dir: string): Promise<void> {
+async function tryClearPersist(fs: FileSystem, dir: string, audit?: AuditLog): Promise<void> {
   try {
     await fs.delete(stateFilePath(dir));
   } catch (e) {
     // phase 1154 r+ derive: 双码 narrow via foundation helper (FileSystem 抽象层抛 FS_NOT_FOUND)
-    if (!isFileNotFound(e)) {
-      console.error('[snapshot] tryClearPersist failed:', (e as Error).message);
+    if (!isFileNotFound(e) && audit) {
+      audit.write(SNAPSHOT_AUDIT_EVENTS.TRY_CLEAR_FAILED, `dir=${dir}`, `reason=${(e as Error).message}`);
     }
     // ENOENT expected; other errors don't affect function
     // (next init will load + overwrite anyway)
@@ -152,7 +152,7 @@ export class Snapshot {
         }
       }
     } catch (e) {
-      console.error('[snapshot] loadConsecutiveFailures: corrupted state file, resetting to 0:', (e as Error).message);
+      this.audit.write(SNAPSHOT_AUDIT_EVENTS.STATE_CORRUPT, `reason=${(e as Error).message}`);
     }
     let shouldResetCounter = false;
     if (await this.fs.exists(gitDir)) {
@@ -241,7 +241,7 @@ export class Snapshot {
       const s = getState(this.dir);
       if (s.consecutiveFailures > 0) {
         s.consecutiveFailures = 0;
-        await tryClearPersist(this.fs, this.dir);
+        await tryClearPersist(this.fs, this.dir, this.audit);
       }
       return ok(undefined);
     }
@@ -270,7 +270,7 @@ export class Snapshot {
       if (!s.degradedAt) {
         _stateMap.delete(this.dir);
       }
-      await tryClearPersist(this.fs, this.dir);
+      await tryClearPersist(this.fs, this.dir, this.audit);
       emitSnapshotCommitted(this.audit, {
         dir: this.dir,
         message: message.slice(0, AUDIT_MESSAGE_MAX_CHARS),
@@ -311,7 +311,7 @@ export class Snapshot {
         try {
           resolvedDir = await this.fs.realpath(this.dir);
         } catch (e) {
-          console.error('[snapshot] realpath failed, falling back to unresolved path:', (e as Error).message);
+          this.audit.write(SNAPSHOT_AUDIT_EVENTS.REALPATH_FAILED, `dir=${this.dir}`, `reason=${(e as Error).message}`);
           resolvedDir = this.dir;
         }
         const relResolved = path.relative(resolvedDir, resolved);

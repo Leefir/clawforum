@@ -22,7 +22,6 @@ export function parseSchedule(s: string, audit?: AuditLog): CronSchedule | null 
     const [hh, mm] = s.slice(6).split(':').map(Number);
     if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
       audit?.write(CRON_AUDIT_EVENTS.PARSE_INVALID, `input=${s}`, 'reason=invalid_daily_time');
-      console.warn(`[cron] Invalid daily schedule "${s}", skipping registration`);
       return null;
     }
     return { type: 'daily', time: s.slice(6) };
@@ -31,13 +30,11 @@ export function parseSchedule(s: string, audit?: AuditLog): CronSchedule | null 
     const minutes = parseInt(s.slice(9), 10);
     if (isNaN(minutes) || minutes <= 0) {
       audit?.write(CRON_AUDIT_EVENTS.PARSE_INVALID, `input=${s}`, 'reason=invalid_interval');
-      console.warn(`[cron] Invalid interval schedule "${s}", skipping registration`);
       return null;
     }
     return { type: 'interval', minutes };
   }
   audit?.write(CRON_AUDIT_EVENTS.PARSE_FALLBACK, `input=${s}`, 'fallback=hourly');
-  console.warn(`[cron] Unknown schedule format "${s}", falling back to hourly`);
   return { type: 'hourly' };
 }
 
@@ -103,7 +100,7 @@ export class CronRunner {
 
   /** 启动调度器，tickIntervalMs 决定检查粒度（默认 1 秒） */
   start(tickIntervalMs = CRON_TICK_INTERVAL_MS): void {
-    this.loadState().catch(() => {});
+    this.loadState().catch(() => { /* silent: non-critical state load, next tick retries */ });
     if (this.timer) return;
     this.timer = setInterval(() => this.tick(), tickIntervalMs);
     this.audit.write(CRON_AUDIT_EVENTS.RUNNER_STARTED, `jobs=${this.jobs.length}`);
@@ -225,7 +222,6 @@ export class CronRunner {
               `run_key=${key}`,
               `error=${err instanceof Error ? err.message : String(err)}`,
             );
-            console.error(`[cron] ${job.name} error:`, err);
           })
           .finally(() => this.running.delete(job.name));
         continue;
@@ -294,14 +290,13 @@ export class CronRunner {
               `run_key=${key}`,
               `error=${result.err instanceof Error ? result.err.message : String(result.err)}`,
             );
-            console.error(`[cron] ${job.name} error:`, result.err);
           }
           // settled 或 err 路径：仅在未 timeout 时清 running
           if (!timedOut) this.running.delete(job.name);
         });
     }
     // Persist cron state after each tick (fire-and-forget, non-blocking)
-    this.saveState().catch(() => {});
+    this.saveState().catch(() => { /* silent: non-critical state save, next tick retries */ });
   }
 
   private computeRunKey(now: Date, schedule: CronSchedule): string {
