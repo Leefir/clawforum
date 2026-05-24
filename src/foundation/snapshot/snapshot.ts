@@ -14,7 +14,6 @@ import * as path from 'path';
 import { exec } from '../process-exec/index.js';
 import { isFileNotFound, type FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
-import { SNAPSHOT_AUDIT_EVENTS } from './audit-events.js';
 import {
   emitSnapshotCommitFailed,
   emitSnapshotCommitted,
@@ -22,9 +21,12 @@ import {
   emitSnapshotInitCleanupFailed,
   emitSnapshotInitFailed,
   emitSnapshotPersistFailed,
+  emitSnapshotRealpathFailed,
+  emitSnapshotStateCorrupt,
   emitSnapshotStatusStderr,
   emitSnapshotSyncCleanFailed,
   emitSnapshotSyncRestoreFailed,
+  emitSnapshotTryClearFailed,
 } from './audit-emit.js';
 import { ok, err as errResult, type Result } from '../utils/result.js';
 import { classifyGitError, type ExpectedGitFailure, type GitExecError } from './git-errors.js';
@@ -80,7 +82,7 @@ async function tryClearPersist(fs: FileSystem, dir: string, audit?: AuditLog): P
   } catch (e) {
     // phase 1154 r+ derive: 双码 narrow via foundation helper (FileSystem 抽象层抛 FS_NOT_FOUND)
     if (!isFileNotFound(e) && audit) {
-      audit.write(SNAPSHOT_AUDIT_EVENTS.TRY_CLEAR_FAILED, `dir=${dir}`, `reason=${(e as Error).message}`);
+      emitSnapshotTryClearFailed(audit, { dir, reason: (e as Error).message });
     }
     // ENOENT expected; other errors don't affect function
     // (next init will load + overwrite anyway)
@@ -152,7 +154,7 @@ export class Snapshot {
         }
       }
     } catch (e) {
-      this.audit.write(SNAPSHOT_AUDIT_EVENTS.STATE_CORRUPT, `reason=${(e as Error).message}`);
+      emitSnapshotStateCorrupt(this.audit, { reason: (e as Error).message });
     }
     let shouldResetCounter = false;
     if (await this.fs.exists(gitDir)) {
@@ -311,7 +313,7 @@ export class Snapshot {
         try {
           resolvedDir = await this.fs.realpath(this.dir);
         } catch (e) {
-          this.audit.write(SNAPSHOT_AUDIT_EVENTS.REALPATH_FAILED, `dir=${this.dir}`, `reason=${(e as Error).message}`);
+          emitSnapshotRealpathFailed(this.audit, { dir: this.dir, reason: (e as Error).message });
           resolvedDir = this.dir;
         }
         const relResolved = path.relative(resolvedDir, resolved);

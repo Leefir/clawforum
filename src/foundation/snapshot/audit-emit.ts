@@ -96,3 +96,26 @@ export function emitSnapshotPersistFailed(audit: AuditLog, opts: {
 }): void {
   audit.write(SNAPSHOT_AUDIT_EVENTS.PERSIST_FAILED, `dir=${opts.dir}`, `reason=${opts.reason}`);
 }
+
+// === TRY_CLEAR_FAILED ===
+export function emitSnapshotTryClearFailed(audit: AuditLog, opts: {
+  dir: string;
+  reason: string;
+}): void {
+  audit.write(SNAPSHOT_AUDIT_EVENTS.TRY_CLEAR_FAILED, `dir=${opts.dir}`, `reason=${opts.reason}`);
+}
+
+// === STATE_CORRUPT ===
+export function emitSnapshotStateCorrupt(audit: AuditLog, opts: {
+  reason: string;
+}): void {
+  audit.write(SNAPSHOT_AUDIT_EVENTS.STATE_CORRUPT, `reason=${opts.reason}`);
+}
+
+// === REALPATH_FAILED ===
+export function emitSnapshotRealpathFailed(audit: AuditLog, opts: {
+  dir: string;
+  reason: string;
+}): void {
+  audit.write(SNAPSHOT_AUDIT_EVENTS.REALPATH_FAILED, `dir=${opts.dir}`, `reason=${opts.reason}`);
+}

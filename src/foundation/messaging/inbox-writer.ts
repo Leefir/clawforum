@@ -12,7 +12,10 @@ import type { InboxMessage } from '../messaging/types.js';
 import { encodeInbox, parseFrontmatter } from './codec-inbox.js';
 import type { AuditLog } from '../audit/index.js';
 
-import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
+import {
+  emitInboxWriteFailed,
+  emitInboxWritten,
+} from './audit-emit.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { ok, err as errResult, type Result } from '../utils/result.js';
 import type { InboxMetaError } from './errors.js';
@@ -48,10 +51,10 @@ export class InboxWriter {
       await this.fs.writeAtomic(filePath, encodeInbox(msg, extraFields));
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
-      this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_WRITE_FAILED, `file=${filename}`, `to=${msg.to ?? 'broadcast'}`, `reason=${reason}`);
+      emitInboxWriteFailed(this.audit, { file: filename, to: msg.to, reason });
       throw e;
     }
-    this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_WRITTEN, `file=${filename}`, `to=${msg.to ?? 'broadcast'}`);
+    emitInboxWritten(this.audit, { file: filename, to: msg.to });
   }
 
   /** sync 写，供 task/system 同步路径使用 */
@@ -80,10 +83,10 @@ export class InboxWriter {
       this.fs.writeAtomicSync(path.join(this.inboxDir, filename), content);
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
-      this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_WRITE_FAILED, `file=${filename}`, `to=${opts.to ?? 'broadcast'}`, `reason=${reason}`);
+      emitInboxWriteFailed(this.audit, { file: filename, to: opts.to, reason });
       throw e;
     }
-    this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_WRITTEN, `file=${filename}`, `to=${opts.to ?? 'broadcast'}`);
+    emitInboxWritten(this.audit, { file: filename, to: opts.to });
   }
 
   /** 读 frontmatter meta；纯读，静态方法不依赖 audit */

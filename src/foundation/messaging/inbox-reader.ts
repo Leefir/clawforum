@@ -15,7 +15,19 @@ import type { InboxMessage } from '../messaging/types.js';
 import { PRIORITY_VALUES, type Priority } from '../messaging/types.js';
 import { decodeInbox } from './codec-inbox.js';
 import type { AuditLog } from '../audit/index.js';
-import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
+import {
+  emitInboxDeduped,
+  emitInboxDone,
+  emitInboxFailed,
+  emitInboxLegacyClawIdField,
+  emitInboxListFailed,
+  emitInboxMarkDoneFailed,
+  emitInboxMetaFailed,
+  emitInboxMoveFailed,
+  emitInboxPeekRaceSkip,
+  emitInboxPriorityUnknown,
+  emitOutboxDelivered,
+} from './audit-emit.js';
 import { InboxWriter, type InboxMessageMeta } from './inbox-writer.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { InboxListFailed, InboxMoveFailed } from './errors.js';
@@ -66,12 +78,11 @@ export class InboxReader {
       if (code === 'FS_NOT_FOUND' || code === 'ENOENT') return [];
       // 其余 list 失败均为不可预期 I/O / 权限错误，必须冒泡
       const reason = err instanceof Error ? err.message : String(err);
-      this.audit.write(
-        MESSAGING_AUDIT_EVENTS.INBOX_LIST_FAILED,
-        `dir=${this.pendingDir}`,
-        `error_code=${classifyErrno(err)}`,
-        `reason=${reason}`,
-      );
+      emitInboxListFailed(this.audit, {
+        dir: this.pendingDir,
+        errorCode: classifyErrno(err),
+        reason,
+      });
       throw new InboxListFailed(this.pendingDir, err);
     }
 
@@ -86,19 +97,17 @@ export class InboxReader {
         // M4 phase 577：unknown priority audit warn / observability 加固
         // codec-inbox 是 pure fn / decoder 调用方负责 audit
         if (message.extraMeta?.__original_priority !== undefined) {
-          this.audit.write(
-            MESSAGING_AUDIT_EVENTS.INBOX_PRIORITY_UNKNOWN,
-            `file=${entry.name}`,
-            `original=${message.extraMeta.__original_priority}`,
-            `fallback=${message.priority}`,
-          );
+          emitInboxPriorityUnknown(this.audit, {
+            file: entry.name,
+            original: message.extraMeta.__original_priority,
+            fallback: message.priority,
+          });
         }
         if (message.extraMeta?.__legacy_claw_id !== undefined) {
-          this.audit.write(
-            MESSAGING_AUDIT_EVENTS.INBOX_LEGACY_CLAW_ID_FIELD,
-            `file=${entry.name}`,
-            `claw_id=${message.extraMeta.__legacy_claw_id}`,
-          );
+          emitInboxLegacyClawIdField(this.audit, {
+            file: entry.name,
+            clawId: message.extraMeta.__legacy_claw_id,
+          });
         }
 
         // taskId dedupe: extract from content JSON
@@ -116,19 +125,12 @@ export class InboxReader {
         if (taskId && seenTaskIds.has(taskId)) {
           // duplicate: already have a message for this task in this batch
           // silently dedupe + move to done/ (content already represented by first message)
-          this.audit.write(
-            MESSAGING_AUDIT_EVENTS.INBOX_DEDUPED,
-            `file=${entry.name}`,
-            `taskId=${taskId}`,
-          );
+          emitInboxDeduped(this.audit, { file: entry.name, taskId });
           try {
             await this.markDone(filePath);
           } catch (e) {
             if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
-              this.audit.write(
-                MESSAGING_AUDIT_EVENTS.INBOX_MARK_DONE_FAILED,
-                `reason=${(e as Error).message}`,
-              );
+              emitInboxMarkDoneFailed(this.audit, { reason: (e as Error).message });
             }
             // ENOENT silent: best-effort markDone fail → next drainInbox re-encounters + re-dedupes
           }
@@ -141,12 +143,11 @@ export class InboxReader {
         results.push({ message, filePath });
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
-        this.audit.write(
-          MESSAGING_AUDIT_EVENTS.INBOX_FAILED,
-          `file=${entry.name}`,
-          `error_code=${classifyErrno(err)}`,
-          `reason=${reason}`,
-        );
+        emitInboxFailed(this.audit, {
+          file: entry.name,
+          errorCode: classifyErrno(err),
+          reason,
+        });
         try {
           await this.markFailed(filePath);
         } catch (moveErr) {
@@ -177,17 +178,16 @@ export class InboxReader {
       await this.fs.move(filePath, targetPath);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      this.audit.write(
-        MESSAGING_AUDIT_EVENTS.INBOX_MOVE_FAILED,
-        `file=${fileName}`,
-        `op=done`,
-        `error_code=${classifyErrno(err)}`,
-        `reason=${reason}`,
-      );
+      emitInboxMoveFailed(this.audit, {
+        file: fileName,
+        op: 'done',
+        errorCode: classifyErrno(err),
+        reason,
+      });
       throw new InboxMoveFailed(filePath, 'done', err);
     }
-    this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_DONE, `file=${fileName}`);
-    this.audit.write(MESSAGING_AUDIT_EVENTS.OUTBOX_DELIVERED, `file=${fileName}`);
+    emitInboxDone(this.audit, { file: fileName });
+    emitOutboxDelivered(this.audit, { file: fileName });
   }
 
   /**
@@ -206,13 +206,12 @@ export class InboxReader {
       if (code === 'FS_NOT_FOUND' || code === 'ENOENT') return [];
       // 其他 list 失败 audit + 返回空（peek 不冒泡 / 与 drainInbox 不同行为）
       const reason = err instanceof Error ? err.message : String(err);
-      this.audit.write(
-        MESSAGING_AUDIT_EVENTS.INBOX_LIST_FAILED,
-        `dir=${this.pendingDir}`,
-        `op=peek`,
-        `error_code=${classifyErrno(err)}`,
-        `reason=${reason}`,
-      );
+      emitInboxListFailed(this.audit, {
+        dir: this.pendingDir,
+        op: 'peek',
+        errorCode: classifyErrno(err),
+        reason,
+      });
       return [];
     }
 
@@ -224,9 +223,9 @@ export class InboxReader {
       if (!result.ok) {
         if (result.error.kind === 'not_found') {
           // race-skip: file 被 markDone/markFailed 并发移走、非真 failure (phase 1011 D.2)
-          this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_PEEK_RACE_SKIP, `file=${entry.name}`);
+          emitInboxPeekRaceSkip(this.audit, { file: entry.name });
         } else {
-          this.audit.write(MESSAGING_AUDIT_EVENTS.INBOX_META_FAILED, `file=${entry.name}`, `kind=${result.error.kind}`);
+          emitInboxMetaFailed(this.audit, { file: entry.name, kind: result.error.kind });
         }
         continue;
       }
@@ -246,13 +245,12 @@ export class InboxReader {
       await this.fs.move(filePath, targetPath);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      this.audit.write(
-        MESSAGING_AUDIT_EVENTS.INBOX_MOVE_FAILED,
-        `file=${fileName}`,
-        `op=failed`,
-        `error_code=${classifyErrno(err)}`,
-        `reason=${reason}`,
-      );
+      emitInboxMoveFailed(this.audit, {
+        file: fileName,
+        op: 'failed',
+        errorCode: classifyErrno(err),
+        reason,
+      });
       throw new InboxMoveFailed(filePath, 'failed', err);
     }
     // markFailed 成功不 audit（归档本身是降级路径，audit 已在解析/处理失败时记）
