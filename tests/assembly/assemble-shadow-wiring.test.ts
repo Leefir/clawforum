@@ -254,6 +254,6 @@ describe('assemble shadow wiring (phase 784)', () => {
     expect(capturedDeps!.execContext.registry).toBe(capturedDeps!.toolRegistry);
     expect(capturedDeps!.execContext.mainDialogStore).toBe(capturedDeps!.sessionManager);
     expect(capturedDeps!.execContext.isShadow).toBeUndefined();
-    expect(capturedDeps!.execContext.callerType).toBe('claw');
+    expect(capturedDeps!.execContext.callerType).toBe('motion');
   });
 });

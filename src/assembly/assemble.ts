@@ -345,7 +345,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         workspaceDir: path.join(clawDir, CLAWSPACE_DIR),
         syncDir,
         profile: toolProfile,
-        callerType: 'claw',
+        callerType: isMotion ? 'motion' : 'claw',
         fs: clawFs,
         fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         llm,

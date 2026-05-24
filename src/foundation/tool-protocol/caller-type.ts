@@ -8,7 +8,7 @@
 import type { ToolProfile } from '../tool-protocol/index.js';
 
 export type DispatchCallerType = 'shadow' | 'miner';
-export type CallerType = 'claw' | 'subagent' | 'verifier' | 'shadow' | 'miner';
+export type CallerType = 'motion' | 'claw' | 'subagent' | 'verifier' | 'shadow' | 'miner';
 
 /**
  * Map callerType to the corresponding ToolProfile for registry filtering.
