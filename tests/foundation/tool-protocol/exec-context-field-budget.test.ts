@@ -30,8 +30,8 @@ describe('ExecContext field budget (phase 968 升档条件 mechanical enforcemen
   });
 
   it('single-reader fields cluster size ≤ 3 (phase 808 升档条件 b)', () => {
-    // single-reader candidate fields (现 2: systemPromptForLLM + toolsForLLM)
-    const candidates = ['systemPromptForLLM', 'toolsForLLM'];
+    // single-reader candidate fields (phase 1174: dual-write fields evicted, 0 remaining)
+    const candidates: string[] = [];
 
     // grep src/ excluded tests/ 数 reader file count per field
     const srcDir = path.resolve(__dirname, '../../../src');

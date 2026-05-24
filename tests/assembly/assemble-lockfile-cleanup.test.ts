@@ -136,7 +136,7 @@ vi.mock('../../src/core/dialog/injector.js', () => ({
 }));
 
 vi.mock('../../src/foundation/tools/context.js', () => ({
-  ExecContextImpl: vi.fn(() => ({ signal: undefined, dialogMessages: [] })),
+  ExecContextImpl: vi.fn(() => ({ signal: undefined })),
 }));
 
 vi.mock('../../src/foundation/messaging/index.js', () => {

@@ -168,7 +168,7 @@ vi.mock('../../src/core/dialog/injector.js', () => {
 });
 
 vi.mock('../../src/foundation/tools/context.js', () => ({
-  ExecContextImpl: trackCtor('ExecContextImpl', () => ({ signal: undefined, dialogMessages: [] })),
+  ExecContextImpl: trackCtor('ExecContextImpl', () => ({ signal: undefined })),
 }));
 
 

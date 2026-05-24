@@ -8,7 +8,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
-import { shadowTool } from '../../../src/core/shadow-system/index.js';
+import { createShadowTool } from '../../../src/core/shadow-system/index.js';
+import type { Message, ToolDefinition } from '../../../src/foundation/llm-provider/types.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { makeAudit } from '../../helpers/audit.js';
@@ -33,6 +34,7 @@ describe('shadow signal propagation (phase 874)', () => {
   let tempDir: string;
   let fs: NodeFileSystem;
   let audit: ReturnType<typeof makeAudit>;
+  let shadowTool: ReturnType<typeof createShadowTool>;
 
   function makeRegistry(): ToolRegistryImpl {
     const registry = new ToolRegistryImpl();
@@ -91,12 +93,6 @@ describe('shadow signal propagation (phase 874)', () => {
       registry: makeRegistry(),
       mainDialogStore: makeMockDialogStore(),
       currentToolUseId: 'tu-1',
-      dialogMessages: [
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
-      ],
-      systemPromptForLLM: 'sp',
-      toolsForLLM: [],
       signal,
     });
   }
@@ -105,6 +101,16 @@ describe('shadow signal propagation (phase 874)', () => {
     tempDir = await createTempDir();
     fs = new NodeFileSystem({ baseDir: tempDir });
     audit = makeAudit();
+    shadowTool = createShadowTool({
+      getTurnSnapshot: () => ({
+        systemPrompt: 'sp',
+        tools: [] as ToolDefinition[],
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'assistant', content: [{ type: 'tool_use', id: 'tu-1', name: 'shadow', input: {} }] },
+        ],
+      }),
+    });
     mockRunSubagent.mockClear();
   });
 
