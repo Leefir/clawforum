@@ -30,6 +30,9 @@ const RECENT_WINDOW = 10;
 /** 近 RECENT_WINDOW 次 parse 的失败占比阈值（> 则触发 trigger=ratio_high）。 */
 const RECENT_FAIL_RATIO_THRESHOLD = 0.5;
 
+/** Stream reader pending buffer 上限 / 防 unbounded line buffering OOM (默 50MB) */
+const MAX_PENDING_BYTES = 50 * 1024 * 1024; // 50MB
+
 export interface StreamReader {
   /** Start watching and emit new events. Throws if already started. */
   /**
@@ -97,7 +100,6 @@ export function createStreamReader(
   let started = false;
   let active = false;
   let consecutiveParseFails = 0;
-  const MAX_PENDING_BYTES = 50 * 1024 * 1024; // 50MB
   const recentOutcomes: boolean[] = [];
   let readingInFlight = false;
   let pendingNotify = false;
