@@ -154,6 +154,8 @@ export class SkillSystem {
       version: frontmatter.version || '0.0.0',
       skillDir,
     };
+    // Phase 1200: ratify first-wins design row + audit fallback usage
+    const versionSource: 'frontmatter' | 'fallback_default' = frontmatter.version ? 'frontmatter' : 'fallback_default';
 
     // Duplicate check: preserve first registration, skip later ones
     if (this.metaMap.has(meta.name)) {
@@ -165,6 +167,9 @@ export class SkillSystem {
         `attempted_skill_dir=${skillDir}`,
         `existing_name_source=${existingNameSource}`,
         `attempted_name_source=${nameSource}`,
+        `existing_version=${existing.version}`,
+        `attempted_version=${meta.version}`,
+        `version_source=${versionSource}`,
         `skills_dir=${this.skillsDir}`,
       );
       return existing;

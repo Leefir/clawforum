@@ -266,6 +266,16 @@ export function createStreamReader(
               );
               return;
             }
+            if (context === 'fallback_limit_reset') {
+              audit.write(
+                STREAM_AUDIT_EVENTS.READER_WATCHER_RESET,
+                `path=${streamPath}`,
+                `reason=${err.message}`,
+              );
+              // Phase 1200: fallback_limit_reset is a reset, not a fatal watcher failure;
+              // do NOT set active=false here (mirror w.ts:228 reset counter pattern).
+              return;
+            }
             audit.write(
               STREAM_AUDIT_EVENTS.READER_WATCHER_FAILED,
               `path=${streamPath}`,

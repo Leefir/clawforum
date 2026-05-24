@@ -19,4 +19,5 @@ export const MEMORY_AUDIT_EVENTS = {
   RANDOM_DREAM_SUBAGENT_TIMEOUT: 'random_dream_subagent_timeout',
   RANDOM_DREAM_OUTPUT_MISSING: 'random_dream_output_missing',
   DREAM_OUTPUT_PERSISTED: 'dream_output_persisted',  // NEW phase 756
+  DEEP_DREAM_RETRY_EXHAUSTED: 'deep_dream_retry_exhausted',  // NEW phase 1200
 } as const;

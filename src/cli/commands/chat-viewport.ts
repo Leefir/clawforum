@@ -527,7 +527,13 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
           if (tw) tw.lastEventMs = Date.now();
           mainUI.withScope('task', () => handleTaskEvent(taskId, ev));
         }, options.audit, { persistent: true });
-        taskReader.start();
+        try {
+          taskReader.start();
+        } catch (err) {
+          try {
+            options.audit.write(VIEWPORT_AUDIT_EVENTS.STREAM_READER_START_FAILED, `taskId=${taskId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
+          } catch { /* audit self-failure tolerated */ }
+        }
         const tw: TaskWatch = {
           callerType: callerType as CallerType,
           silent: (event.silent as boolean) ?? false,

@@ -2,9 +2,20 @@ import type { Instances } from './index.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 
 export async function disassemble(instances: Instances, signal: string): Promise<void> {
-  const { gateway, runtime, streamWriter, processManager, auditWriter, cronRunner, clawId } = instances;
+  const { gateway, runtime, streamWriter, processManager, auditWriter, cronRunner, clawId, disposeContractSystems } = instances;
 
-  // Step 0: markNotReady (NEW phase 1114; 与 gateway.stop 切断对外推送 语义对称)
+  // Step 0: dispose contractSystemCache (motion lifecycle end-of-life, phase 1200)
+  try {
+    disposeContractSystems?.();
+  } catch (e) {
+    auditWriter.write(
+      ASSEMBLY_AUDIT_EVENTS.DISASSEMBLE_STEP_FAILED,
+      `step=dispose_contract_systems`,
+      `reason=${_reason(e)}`,
+    );
+  }
+
+  // Step 1: markNotReady (NEW phase 1114; 与 gateway.stop 切断对外推送 语义对称)
   // r127 C fork C.4: markNotReady 内部自负 audit (READY_MARK_REMOVED + context=remove_failed)、
   // 不抛 → caller try/catch 是 dead code (mirror phase 1032 cleanup.ts 模板)
   await processManager.markNotReady(clawId);

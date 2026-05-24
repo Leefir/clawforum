@@ -6,7 +6,12 @@ import { getClawDir, getMotionDir } from './foundation/config/index.js';
 // 独立于 daemon.ts 的 preAssembleAudit：shim 在 daemon.ts 未入时兜底
 let shimAudit: AuditLog | null = null;
 try {
-  const name = process.argv[2];
+  const rawName = process.argv[2];
+  // Phase 1200: daemon entry argv schema validate
+  if (typeof rawName !== 'string' || rawName === '' || rawName === '.' || rawName.startsWith('.') || rawName.includes('/') || rawName.includes('\\') || /[\x00-\x1f]/.test(rawName) || rawName.includes('..')) {
+    throw new Error(`Invalid daemon argv[2]: ${JSON.stringify(rawName)}`);
+  }
+  const name = rawName;
   const dir = name === 'motion' ? getMotionDir() : getClawDir(name);
   const shimFs = new NodeFileSystem({ baseDir: dir });
   shimAudit = createSystemAudit(shimFs, dir);

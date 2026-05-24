@@ -1,6 +1,17 @@
 import { EventEmitter } from 'events';
+import { vi } from 'vitest';
 import type { AuditLog } from '../../src/foundation/audit/index.js';
 import { TEST_LLM_TIMEOUT_MS } from './test-timeouts.js';
+
+/**
+ * Test helper: create a typed mock AuditLog with a vitest spy write method.
+ * Use when you only need to assert write calls (no event recording).
+ */
+export function makeMockAudit(): AuditLog {
+  return {
+    write: vi.fn<(type: string, ...cols: (string | number)[]) => void>(),
+  };
+}
 
 /**
  * Test helper: create a mock AuditLog sink that records all written events.

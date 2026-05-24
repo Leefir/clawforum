@@ -124,6 +124,5 @@ describe('watchdog handler idempotent install (phase 1034 / audit-2026-05-17 NEW
     //     → prior handlers leak in process registry
     // This test serves as documentation of the defense mechanism.
     // The actual invariant is verified by the "re-entry idempotent" test above.
-    expect(true).toBe(true);
   });
 });

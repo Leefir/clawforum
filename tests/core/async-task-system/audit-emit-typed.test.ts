@@ -2,7 +2,7 @@
  * Phase 1130: async-task-system typed audit emit — 反向 3 项 + 主路径
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   emitRecovered,
   emitToolAsyncResult,
@@ -15,9 +15,10 @@ import {
   emitPendingIngestFailed,
 } from '../../../src/core/async-task-system/audit-emit.js';
 import { TASK_AUDIT_EVENTS } from '../../../src/core/async-task-system/audit-events.js';
+import { makeMockAudit } from '../../helpers/audit.js';
 
 describe('async-task-system typed audit emit (phase 1130)', () => {
-  const makeAudit = () => ({ write: vi.fn() as ReturnType<typeof vi.fn> });
+  const makeAudit = makeMockAudit;
 
   // ─── 主路径 ────────────────────────────────────────────────────────────────
 

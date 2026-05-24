@@ -34,6 +34,8 @@ export interface Instances {
   readonly heartbeat?: Heartbeat;     // motion + heartbeat_interval_ms > 0
   readonly gateway?: Gateway;          // motion only, offline mode（phase157）
   readonly evolutionSystem?: EvolutionSystem;  // motion only（phase411）
+  /** Phase 1200: motion lifecycle end-of-life dispose hook for contractSystemCache */
+  readonly disposeContractSystems?: () => void;
 }
 
 export { LockConflictError } from '../foundation/process-manager/index.js';

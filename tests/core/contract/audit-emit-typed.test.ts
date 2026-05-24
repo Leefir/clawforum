@@ -1,13 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   emitContractPassed,
   emitContractSubtaskCompleted,
   emitContractAcceptanceStarted,
 } from '../../../src/core/contract/audit-emit.js';
 import { CONTRACT_AUDIT_EVENTS } from '../../../src/core/contract/audit-events.js';
+import { makeMockAudit } from '../../helpers/audit.js';
 
 describe('contract typed audit emit (phase 1141)', () => {
-  const makeAudit = () => ({ write: vi.fn() as ReturnType<typeof vi.fn> });
+  const makeAudit = makeMockAudit;
 
   // 主路径
   it('emitContractPassed split contractId + subtaskId 2 cols (key fix site acceptance.ts:202)', () => {

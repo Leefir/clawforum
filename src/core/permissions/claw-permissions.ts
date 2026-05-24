@@ -9,6 +9,10 @@
  * - Claw readable space: + contract/, tasks/queues/results/, tasks/sync/subagent/, tasks/sync/spawn/, tasks/sync/shadow/, tasks/subagents/
  * - Outside clawDir: denied (PathNotInClawSpaceError)
  *
+ * Phase 1200: cross-claw access is managed by hub-and-spoke topology (motion routes);
+ * PermissionChecker is caller-scoped, not target-scoped. Direct claw-to-claw
+ * read/write is not enforced here — see foundation/file-tool/read.ts line 103-104.
+ *
  * Phase430: PermissionChecker interface + createClawPermissionChecker 完全归 L4。
  * NodeFileSystem (L1) 0 PermissionChecker dep / 0 业务概念。
  * L4 caller (FileTool 等) 自治调 claw-permissions check 后 call fs。

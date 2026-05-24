@@ -51,6 +51,7 @@
       "chat_viewport_history_replay_failed",
       "chat_viewport_invalid_task_id",
       "chat_viewport_refresh_claws_failed",
+      "chat_viewport_stream_reader_start_failed",
       "chat_viewport_watcher_callback_failed",
       "chat_viewport_watcher_failed",
       "viewport_clawsdir_scan_failed",
@@ -93,14 +94,6 @@
       "task_started",
       "tool_async_result",
       "tool_task_retry"
-    ],
-    "core_summon-system_audit-events": [
-      "summon_contract_done_missing_fields",
-      "summon_contract_done_not_found",
-      "summon_contract_done_parse_failed",
-      "summon_load_skills_failed",
-      "summon_no_dialog_context",
-      "summon_write_by_contract_failed"
     ],
     "core_contract_audit-events": [
       "acceptance_failed",
@@ -210,6 +203,7 @@
       "cron_random_dream_pulse",
       "cron_random_dream_warning",
       "deep_dream_call_failed",
+      "deep_dream_retry_exhausted",
       "deep_dream_unexpected",
       "dream_output_persisted",
       "random_dream_output_missing",
@@ -287,6 +281,14 @@
       "turn_error",
       "turn_interrupted",
       "turn_start"
+    ],
+    "core_summon-system_audit-events": [
+      "summon_contract_done_missing_fields",
+      "summon_contract_done_not_found",
+      "summon_contract_done_parse_failed",
+      "summon_load_skills_failed",
+      "summon_no_dialog_context",
+      "summon_write_by_contract_failed"
     ],
     "daemon_audit-events": [
       "chain",
@@ -414,6 +416,7 @@
       "stream_reader_unlinked",
       "stream_reader_watcher_callback_failed",
       "stream_reader_watcher_failed",
+      "stream_reader_watcher_reset",
       "stream_write_dropped",
       "stream_writer_open_created_empty",
       "stream_writer_open_preserved_raced"
