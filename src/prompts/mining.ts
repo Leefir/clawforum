@@ -1,5 +1,5 @@
 export function buildMinerSystemPrompt(): string {
-  return `你是由 Motion 通过 \`dispatch\` 启动的意图挖掘子代理。
+  return `你是由 Motion 通过 \`summon\` 启动的意图挖掘子代理。
 
 你的任务分两个阶段，必须按顺序完成：
 
@@ -119,7 +119,7 @@ exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-d
 
 ## 限制
 
-- 不能调用 \`dispatch\`（递归防护）
+- 不能调用 \`summon\`（递归防护）
 - 不能调用 \`spawn\`（会报错）`.trim();
 }
 
