@@ -228,22 +228,21 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       
       const taskId = await scheduleToolCompat(taskSystem, 'testTool', executeCallback, 'parent-claw');
       
+      // phase 1175 B.flaky-24: 等 inbox file atomic write 完成 + frontmatter 完整再 parse
+      // mirror L291 / L955 同 file 邻位 phase 1090 模板
+      const inboxDir = path.join(testClawDir, 'inbox', 'pending');
       await waitFor(async () => {
-        const files = await fs.readdir(path.join(testClawDir, 'inbox', 'pending')).catch(() => [] as string[]);
+        const files = await fs.readdir(inboxDir).catch(() => [] as string[]);
         return (files as string[]).some(f => f.endsWith('.md'));
       });
-      
+
       expect(executeCallback).toHaveBeenCalled();
-      
-      // Check inbox/pending/ for the result message
-      const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
+
+      const inboxFiles = await fs.readdir(inboxDir);
       expect(inboxFiles.length).toBeGreaterThan(0);
-      
-      const inboxFile = await fs.readFile(
-        path.join(testClawDir, 'inbox', 'pending', inboxFiles[0]),
-        'utf-8'
-      );
-      
+      const inboxPath = path.join(inboxDir, inboxFiles[0]);
+      const inboxFile = await waitForCompleteFile(inboxPath, /^---[\s\S]+---\n\n/);
+
       // Parse frontmatter + content
       const match = inboxFile.match(/---\n([\s\S]*?)\n---\n\n([\s\S]*)/);
       expect(match).not.toBeNull();
