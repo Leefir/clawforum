@@ -852,6 +852,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     rescanClawsDir();
     // 周期性 rescan / 每 2s 检测新 claw 与新 contract
     clawScanInterval = setInterval(rescanClawsDir, 2000);
+    clawScanInterval.unref();
   }
 
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
