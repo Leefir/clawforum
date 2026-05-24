@@ -46,16 +46,20 @@ export function createAskCallerTool(deps: {
       }
       try {
         const restored = await mainDialogStore.restorePrefix(mainContextSnapshot);
-        // LLM clone call setup
-        // - system: restored.systemPrompt + ask_caller wrapper instruction
-        // - messages: restored.messages + { role: 'user', content: question }
-        // - 调 LLM (经 ctx.llm or 类似)
-        // 实施期 derive: LLM call 的具体 wrapper / 见 modules/l4_task_system.md §10.2 ask_caller workflow
-
-        // PLACEHOLDER: caller 实施期填 LLM call
-        const cloneResponseContent = '<TODO: LLM clone call wrapper / per §10.2>';
-
-        return { success: true, content: cloneResponseContent };
+        // LATENT (phase 812 latent advertise ratify + r129 C fork phase 1182):
+        // LLM clone call wrapper 未实施 / 不返字面 TODO 给子代理 (DP「不丢弃静默」)
+        // sunset triggers (详 design/modules/l4_async_task_system.md §A.phase1182-ask-caller-latent-marker):
+        //   (a) spawn subagent 真依赖 ask_caller 完成任务 N≥1 production case → 立即填实
+        //   (b) §10.2 ask_caller workflow finalize + LLM clone call wrapper impl 立项
+        //   (c) 假信息影响 spawn 真案例 N≥1 → 紧急治
+        //   (d) `feedback_design_claim_requires_empirical_evidence` Tier 1 evidence 失效 → 重 ratify
+        // 防止假信息: 改返 success:false (subagent 收到 LATENT error 应 graceful 处理 / 不被假答案误导)
+        void restored; // 保留 restorePrefix 调用 (LLM cache 命中关键)
+        return {
+          success: false,
+          content: 'ask_caller is currently LATENT (placeholder not implemented). See design/behavior.md + design/modules/l4_async_task_system.md §A.phase1182-ask-caller-latent-marker for sunset triggers.',
+          error: 'latent_not_implemented',
+        };
       } catch (err) {
         if (err instanceof MarkerNotFoundError) {
           return {
