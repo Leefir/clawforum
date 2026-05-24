@@ -136,7 +136,9 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
       timeoutMs: opts.timeoutMs ?? 300_000,
       resultTool: 'done',
       isShadow: true,
-      signal: new AbortController().signal,
+      // phase 1162 r128 D fork DD2: shadow 独立 lifecycle (phase 1084 ratify 维持)。
+      // 显式不传 signal 字段而非 fake `new AbortController().signal` (ML#9 显式表达 / honesty fix)。
+      // ratify chain: phase 874 (α-propagate) → phase 1084 (β-independent fake AC) → phase 1162 (β-independent honest omit)。
       permissionChecker: opts.ctx.permissionChecker,
     });
 

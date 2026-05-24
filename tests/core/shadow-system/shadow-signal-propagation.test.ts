@@ -118,7 +118,7 @@ describe('shadow signal propagation (phase 874)', () => {
     await cleanupTempDir(tempDir);
   });
 
-  it('shadow uses independent signal (not parent ctx.signal)', async () => {
+  it('shadow runs with no signal coupling (phase 1162 honesty fix)', async () => {
     const outerController = new AbortController();
     mockRunSubagent.mockResolvedValue({ text: 'ok' });
 
@@ -128,11 +128,10 @@ describe('shadow signal propagation (phase 874)', () => {
     expect(result.success).toBe(true);
     expect(mockRunSubagent).toHaveBeenCalledOnce();
     const callArgs = mockRunSubagent.mock.calls[0][0];
-    expect(callArgs.signal).not.toBe(outerController.signal);
-    expect(callArgs.signal.aborted).toBe(false);
+    expect(callArgs.signal).toBeUndefined();
   });
 
-  it('pre-aborted parent signal does not propagate to shadow', async () => {
+  it('pre-aborted parent signal does not propagate to shadow (β-independent honest)', async () => {
     const outerController = new AbortController();
     outerController.abort();
     mockRunSubagent.mockRejectedValue(new Error('aborted'));
@@ -143,7 +142,6 @@ describe('shadow signal propagation (phase 874)', () => {
     expect(result.success).toBe(false);
     expect(mockRunSubagent).toHaveBeenCalledOnce();
     const callArgs = mockRunSubagent.mock.calls[0][0];
-    expect(callArgs.signal).not.toBe(outerController.signal);
-    expect(callArgs.signal.aborted).toBe(false);
+    expect(callArgs.signal).toBeUndefined();
   });
 });
