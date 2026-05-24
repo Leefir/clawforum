@@ -792,6 +792,8 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
       this.currentProviderIndex = winner.providerIndex;
       this.updateLastSuccess(winner.provider, true);
+      // NEW: drain primary generator (mirror L821 double-fail template)
+      try { await primaryIter.return?.(); } catch { /* silent: generator already closed, ignore */ }
       cleanupSignals();
       yield* wrapResponseAsStream(winner.response, winner.provider);
       return;
