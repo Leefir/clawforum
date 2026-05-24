@@ -4,10 +4,8 @@
  */
 
 import * as path from 'path';
-import type { FileSystem } from '../../foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { AuditLog } from '../../foundation/audit/index.js';
-import type { Contract, AcceptanceFailedNotification, LastFailedFeedback } from '../contract/types.js';
+import type { AcceptanceFailedNotification, LastFailedFeedback } from '../contract/types.js';
 import { ToolError, ToolTimeoutError, isProgrammingBug } from '../../foundation/errors.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { exec } from '../../foundation/process-exec/index.js';
@@ -17,9 +15,7 @@ import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/i
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import type { ContractYaml, ProgressData, AcceptanceResult, VerifierConfig, VerifierResult } from './types.js';
-import { withProgressLock, type LockContext } from './lock.js';
-import { runContractVerifier } from './verifier-job.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+import { type LockContext } from './lock.js';
 import {
   emitContractCompleted,
   emitContractMoveArchiveFailed,

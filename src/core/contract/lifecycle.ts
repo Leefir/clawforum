@@ -3,14 +3,11 @@
  * Contract status transitions: pause / resume / cancel / archive / completion check
  */
 
-import * as path from 'path';
-import type { FileSystem } from '../../foundation/fs/types.js';
-import type { AuditWriter } from '../../foundation/audit/index.js';
 import type { Contract } from '../contract/types.js';
 import type { ProgressData } from './types.js';
-import { acquireLock, releaseLock, withProgressLock, type LockContext } from './lock.js';
+import { acquireLock, releaseLock, type LockContext } from './lock.js';
 import { ToolError } from '../../foundation/errors.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+
 import {
   emitContractPaused,
   emitContractResumed,

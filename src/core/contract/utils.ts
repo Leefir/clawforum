@@ -12,7 +12,7 @@ import * as path from 'path';
 import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CONTRACT_DIR } from './dirs.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+
 import { emitContractContractDirScanFailed } from './audit-emit.js';
 
 const EPOCH_2020_01_01_MS = 1_577_836_800_000;

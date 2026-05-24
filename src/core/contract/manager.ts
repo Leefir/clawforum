@@ -22,18 +22,16 @@
 
 import * as yaml from 'js-yaml';
 import { randomUUID } from 'crypto';
-import * as path from 'path';
 
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { Contract, ContractStatus, SubtaskStatus, LastFailedFeedback, AcceptanceFailedNotification } from '../contract/types.js';
-import { ToolError, ToolTimeoutError, isProgrammingBug } from '../../foundation/errors.js';
-import { InboxWriter } from '../../foundation/messaging/index.js';
+import type { Contract, SubtaskStatus } from '../contract/types.js';
+import { ToolError, isProgrammingBug } from '../../foundation/errors.js';
 import { type AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import { AUDIT_PREVIEW_LEN } from '../../foundation/audit/index.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+
 import {
   emitContractCancelled,
   emitContractCompletedHandlerFailed,
@@ -53,7 +51,7 @@ import type {
   ContractYaml, ProgressData, AcceptanceResult, VerifierConfig, VerifierResult,
 } from './types.js';
 import {
-  acquireLock, unlinkStaleLock, releaseLock, withProgressLock as wpl,
+  withProgressLock as wpl,
   type LockContext,
 } from './lock.js';
 import { loadActiveContract, loadPausedContract, type DiscoveryContext } from './discovery.js';
@@ -71,8 +69,7 @@ import {
   type LifecycleContext,
 } from './lifecycle.js';
 import {
-  runAcceptancePipeline, runAcceptanceInBackground, completeSubtaskSync,
-  writeAcceptanceInbox, writeAcceptanceError, formatRejectionFeedback,
+  runAcceptancePipeline,
   runScriptAcceptance as runScriptAcceptanceFn,
   runLLMAcceptance as runLLMAcceptanceFn,
   type AcceptanceContext,
@@ -545,18 +542,6 @@ export class ContractSystem {
   // private thin delegate（保 method 名 / tests white-box 调用面 + spy 保护）
   // ============================================================================
 
-  private async acquireLock(lockPath: string): Promise<void> {
-    return acquireLock(this._lockCtx(), lockPath);
-  }
-
-  private async unlinkStaleLock(lockPath: string, reason: string): Promise<boolean> {
-    return unlinkStaleLock(this._lockCtx(), lockPath, reason);
-  }
-
-  private async releaseLock(lockPath: string): Promise<void> {
-    return releaseLock(this._lockCtx(), lockPath);
-  }
-
   private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
     const dir = await this.contractDir(contractId);
     return wpl(this._lockCtx(), dir, contractId, fn);
@@ -580,55 +565,6 @@ export class ContractSystem {
 
   private async moveToArchive(contractId: string): Promise<void> {
     return moveContractToArchive(this._lifecycleCtx(), contractId);
-  }
-
-  private async _runVerifierSubagent(config: VerifierConfig): Promise<VerifierResult> {
-    return runContractVerifier(config);
-  }
-
-  private async _completeSubtaskSync(
-    contractId: string,
-    subtaskId: string,
-    evidence: string,
-    artifacts?: string[],
-  ): Promise<AcceptanceResult> {
-    return completeSubtaskSync(this._acceptanceCtx(), contractId, subtaskId, evidence, artifacts);
-  }
-
-  private async _runAcceptanceInBackground(
-    params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
-    contractYaml: ContractYaml,
-    acceptanceConfig: { subtask_id: string; type: 'script'; script_file?: string } | { subtask_id: string; type: 'llm'; prompt_file?: string },
-  ): Promise<void> {
-    return runAcceptanceInBackground(this._acceptanceCtx(), params, contractYaml, acceptanceConfig);
-  }
-
-  private _writeAcceptanceInbox(
-    contractId: string,
-    subtaskId: string,
-    verdict: 'passed' | 'rejected',
-    allCompleted: boolean,
-    feedback?: string,
-    retryCount?: number,
-  ): void {
-    return writeAcceptanceInbox(this._acceptanceCtx(), contractId, subtaskId, verdict, allCompleted, feedback, retryCount);
-  }
-
-  async _writeAcceptanceError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
-    return writeAcceptanceError(this._acceptanceCtx(), contractId, subtaskId, error);
-  }
-
-  private formatRejectionFeedback(
-    subtaskId: string,
-    subtaskDesc: string,
-    reason: string,
-    issues: string[],
-    retryCount: number,
-    maxRetries: number,
-    acceptanceType: string,
-    acceptanceFile: string,
-  ): string {
-    return formatRejectionFeedback(subtaskId, subtaskDesc, reason, issues, retryCount, maxRetries, acceptanceType, acceptanceFile);
   }
 
   private async runScriptAcceptance(scriptFile: string, contractAbsDir: string): Promise<AcceptanceResult> {

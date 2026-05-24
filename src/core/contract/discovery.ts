@@ -7,7 +7,7 @@ import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Contract } from '../contract/types.js';
 import type { ProgressData } from './types.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+
 import {
   emitContractProgressSchemaInvalid,
   emitContractProgressCorrupted,
