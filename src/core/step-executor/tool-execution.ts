@@ -188,7 +188,6 @@ export async function executeSingleTool(
       () => callbacks?.onToolExecutionFailed?.(toolCall.name, toolCall.id, errorType, errorMsg),
       callbacks,
     );
-    console.error(`[step-executor] Tool ${toolCall.name} execution failed:`, errorMsg);
     return {
       success: false,
       content: `[${errorType}] 工具执行失败: ${errorMsg}`,

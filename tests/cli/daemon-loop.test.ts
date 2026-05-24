@@ -46,7 +46,7 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
     vi.useRealTimers();
     vi.mocked(fsNative.unlinkSync).mockRestore();
     errSpy.mockRestore();
-    warnSpy.mockRestore();
+
   });
 
   it('disables interrupt poller after 20 consecutive errors', async () => {
@@ -79,10 +79,6 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
       await Promise.resolve();
     }
 
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('disabling'),
-    );
-
     // phase 1154 α-2: wait emit 已删除 / 仅检查 poller disabled
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_interrupt_poller_disabled',
@@ -113,7 +109,6 @@ describe('startDaemonLoop - LLM retry', () => {
   it('LLM error triggers retryLastTurn after exponential delay', async () => {
     vi.useFakeTimers();
     const mockAudit = { write: vi.fn() };
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const retryLastTurn = vi.fn().mockResolvedValue(undefined);
     const processBatch = vi.fn()
       .mockRejectedValueOnce(new LLMAllProvidersFailedError([{ provider: 'test', error: new Error('network unreachable') }]))
@@ -139,7 +134,6 @@ describe('startDaemonLoop - LLM retry', () => {
 
     // retryLastTurn must have been called
     expect(retryLastTurn).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('retrying'));
 
     // AuditLog: llm_retry attempt=1
     expect(mockAudit.write).toHaveBeenCalledWith(
@@ -153,15 +147,11 @@ describe('startDaemonLoop - LLM retry', () => {
     stop();
     vi.advanceTimersByTime(1_001);
     await flushMicrotasks();
-    warnSpy.mockRestore();
   });
 
   it('LLM max retries exhausted logs error to console', async () => {
     vi.useFakeTimers();
     const mockAudit = { write: vi.fn() };
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const errSpy  = vi.spyOn(console, 'error').mockImplementation(() => {});
-
     // processBatch throws once; retryLastTurn always throws → 3 retries → max exceeded
     const processBatch  = vi.fn().mockRejectedValueOnce(new LLMAllProvidersFailedError([{ provider: 'test', error: new Error('network unreachable') }]));
     const retryLastTurn = vi.fn().mockRejectedValue(new LLMAllProvidersFailedError([{ provider: 'test', error: new Error('network unreachable on retry') }]));
@@ -189,11 +179,7 @@ describe('startDaemonLoop - LLM retry', () => {
     vi.advanceTimersByTime(120_001);
     await flushMicrotasks();
 
-    // Iteration 4: retryLastTurn throws → llmRetryCount=3 >= MAX → else branch → log error
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('LLM max retries'),
-    );
-
+    // Iteration 4: retryLastTurn throws → llmRetryCount=3 >= MAX → else branch → audit fatal
     // AuditLog: llm_retry × 3 + fatal
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_llm_retry',
@@ -225,14 +211,11 @@ describe('startDaemonLoop - LLM retry', () => {
     stop();
     vi.advanceTimersByTime(200);
     await flushMicrotasks();
-    warnSpy.mockRestore();
-    errSpy.mockRestore();
   });
 
   it('non-LLM error does not set llmRetryPending and skips retryLastTurn', async () => {
     vi.useFakeTimers();
     const mockAudit = { write: vi.fn() };
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const retryLastTurn = vi.fn();
     const processBatch  = vi.fn()
@@ -254,10 +237,6 @@ describe('startDaemonLoop - LLM retry', () => {
     // Non-LLM error goes straight to waitForInbox (no retry delay)
     // retryLastTurn must never be called
     expect(retryLastTurn).not.toHaveBeenCalled();
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('processBatch error'),
-      expect.any(Error),
-    );
 
     // AuditLog: fatal non_llm_error
     expect(mockAudit.write).toHaveBeenCalledWith(
@@ -269,7 +248,6 @@ describe('startDaemonLoop - LLM retry', () => {
     stop();
     vi.advanceTimersByTime(600);
     await flushMicrotasks();
-    errSpy.mockRestore();
   });
 });
 

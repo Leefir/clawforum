@@ -82,8 +82,7 @@ describe('SkillSystem', () => {
       expect(loadedCall[2]).toBe('count=2');
     });
 
-    it('单技能 register 失败 → skill_load_failed + console.warn + continue', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    it('单技能 register 失败 → skill_load_failed + continue', async () => {
       (mockFs.exists as any).mockImplementation((p: string) =>
         Promise.resolve(p === 'skills' || p === 'skills/skill-a/SKILL.md' || p === 'skills/skill-b/SKILL.md'),
       );
@@ -109,9 +108,6 @@ describe('SkillSystem', () => {
       expect(loadFailedCall[1]).toMatch(/^skill_dir=skills\/skill-b/);
       expect(loadFailedCall[2]).toBe('skills_dir=skills');
       expect(loadFailedCall[3]).toMatch(/^error=/);
-
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
     });
   });
 
@@ -127,8 +123,7 @@ describe('SkillSystem', () => {
       expect(registry.getMeta('gamma')).toEqual(meta);
     });
 
-    it('duplicate 同名 → skill_duplicate_skipped + console.warn + 返回 existing', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    it('duplicate 同名 → skill_duplicate_skipped + 返回 existing', async () => {
       (mockFs.read as any).mockResolvedValue(makeSkillMd({ name: 'delta', description: 'D', version: '1.0' }));
       const registry = new SkillSystem(mockFs, SKILLS_DIR_DEFAULT, mockAudit);
       const first = await registry.register('skills/delta');
@@ -143,9 +138,6 @@ describe('SkillSystem', () => {
       expect(dupCall[4]).toBe('existing_name_source=frontmatter');
       expect(dupCall[5]).toBe('attempted_name_source=frontmatter');
       expect(dupCall[6]).toBe('skills_dir=skills');
-
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
     });
 
     it('frontmatter 缺字段 → 用默认值 fallback', async () => {

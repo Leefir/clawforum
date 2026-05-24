@@ -106,12 +106,6 @@ describe('safeCallback audit observability (F2.7)', () => {
     // onToolResult itself was called (and threw)
     expect(onToolResult).toHaveBeenCalledWith('testTool', 'tu1', { success: true, content: 'ok' });
 
-    // console.warn dual-write preserved
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/onToolResult/),
-      expect.stringMatching(/callback-boom/),
-    );
-
     // onSafeCallbackError audit callback fired
     expect(onSafeCallbackError).toHaveBeenCalledOnce();
     expect(onSafeCallbackError).toHaveBeenCalledWith('onToolResult', expect.any(Error));
@@ -145,10 +139,6 @@ describe('safeCallback audit observability (F2.7)', () => {
 
     expect(result.kind).toBe('final');
     expect(onBeforeLLMCall).toHaveBeenCalled();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/onBeforeLLMCall/),
-      expect.stringMatching(/before-boom/),
-    );
     expect(onSafeCallbackError).toHaveBeenCalledOnce();
     expect(onSafeCallbackError).toHaveBeenCalledWith('onBeforeLLMCall', expect.any(Error));
   });

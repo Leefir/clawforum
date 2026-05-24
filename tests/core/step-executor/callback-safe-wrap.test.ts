@@ -69,11 +69,7 @@ describe('phase 890: callback safeCallback wrap', () => {
       expect(safeCallbackErrors[0].label).toBe('onToolExecutionFailed');
       expect((safeCallbackErrors[0].err as Error).message).toBe('callback-boom');
 
-      // 验证 4：console.warn 双写保留
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/onToolExecutionFailed/),
-        expect.stringMatching(/callback-boom/),
-      );
+      // 验证 4：console.warn 已移除（phase 1179: caller lifecycle audit 覆盖）
     });
   });
 });

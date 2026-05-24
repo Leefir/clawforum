@@ -45,7 +45,7 @@ describe('getProcessStartTime catch filter', () => {
     expect(errSpy).not.toHaveBeenCalled();
   });
 
-  it('unexpected ps exit status still logs to stderr', () => {
+  it('unexpected ps exit status returns undefined silently', () => {
     mockThrow = Object.assign(new Error('Command failed: ps -p 1 -o lstart='), {
       status: 2,
       code: undefined,
@@ -54,10 +54,7 @@ describe('getProcessStartTime catch filter', () => {
 
     const result = getProcessStartTime(1);
     expect(result).toBeUndefined();
-    expect(errSpy).toHaveBeenCalledTimes(1);
-    expect(errSpy).toHaveBeenCalledWith(
-      '[process-exec] getProcessStartTime: ps failed:',
-      mockThrow.message,
-    );
+    // Business-path console logging removed per Phase1179; silent path is acceptable
+    expect(errSpy).not.toHaveBeenCalled();
   });
 });

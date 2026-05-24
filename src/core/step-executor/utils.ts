@@ -19,7 +19,7 @@ export function safeCallback(
 ): void {
   try { fn(); }
   catch (err) {
-    console.warn(`[step-executor] ${label} error:`, err instanceof Error ? err.message : String(err));
+    // silent: error forwarded via onSafeCallbackError callback (caller lifecycle audit)
     callbacks?.onSafeCallbackError?.(label, err);
   }
 }

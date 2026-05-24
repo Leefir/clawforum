@@ -20,4 +20,5 @@ export const DIALOG_AUDIT_EVENTS = {
   COLD_START: 'dialog_cold_start',              // ← NEW phase 1054
   ARCHIVE_EMPTY: 'dialog_archive_empty',         // ← NEW phase 1054
   ARCHIVE_ALL_CORRUPTED: 'dialog_archive_all_corrupted', // ← NEW phase 1054
+  FLUSH_CHAIN_ERROR: 'dialog_flush_chain_error',
 } as const;

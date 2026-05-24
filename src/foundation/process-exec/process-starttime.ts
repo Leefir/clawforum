@@ -24,7 +24,7 @@ export function getProcessStartTime(pid: number): string | undefined {
     const isProcessGone = err.status === 1;
     const isBinaryMissing = err.code === 'ENOENT';
     if (!isProcessGone && !isBinaryMissing) {
-      console.error('[process-exec] getProcessStartTime: ps failed:', (e as Error).message);
+      // silent: non-ENOENT ps failure — caller decides skip-verify
     }
     return undefined; // caller decides skip-verify
   }

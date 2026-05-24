@@ -121,7 +121,6 @@ export class SkillSystem {
           `skills_dir=${this.skillsDir}`,
           `error=${err instanceof Error ? err.message : String(err)}`,
         );
-        console.warn(`[skill] Failed to load skill from ${skillDir}:`, err);
         continue;
       }
     }
@@ -168,7 +167,6 @@ export class SkillSystem {
         `attempted_name_source=${nameSource}`,
         `skills_dir=${this.skillsDir}`,
       );
-      console.warn(`[skill] Duplicate skill "${meta.name}" skipped: ${skillDir} (existing: ${existing.skillDir}, sources: existing=${existingNameSource} attempted=${nameSource})`);
       return existing;
     }
     this.metaMap.set(meta.name, meta);

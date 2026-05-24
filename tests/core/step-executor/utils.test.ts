@@ -45,32 +45,23 @@ describe('safeCallback', () => {
     expect(consoleWarnSpy).not.toHaveBeenCalled();
   });
 
-  it('catches throwing Error and logs warn with label + message', () => {
+  it('catches throwing Error without warn and without breaking execution', () => {
     const fn = vi.fn(() => { throw new Error('boom'); });
     expect(() => safeCallback('onStep', fn)).not.toThrow();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/onStep/),
-      expect.stringMatching(/boom/),
-    );
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
   });
 
-  it('catches non-Error throw and stringifies', () => {
+  it('catches non-Error throw without warn and without breaking execution', () => {
     const fn = vi.fn(() => { throw 'string-err'; });
     expect(() => safeCallback('onAbort', fn)).not.toThrow();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/onAbort/),
-      'string-err',
-    );
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
   });
 
   it('emits onSafeCallbackError when callback throws and callbacks provided', () => {
     const fn = vi.fn(() => { throw new Error('boom'); });
     const onSafeCallbackError = vi.fn();
     expect(() => safeCallback('onStep', fn, { onSafeCallbackError })).not.toThrow();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/onStep/),
-      expect.stringMatching(/boom/),
-    );
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(onSafeCallbackError).toHaveBeenCalledOnce();
     expect(onSafeCallbackError).toHaveBeenCalledWith('onStep', expect.any(Error));
     expect((onSafeCallbackError.mock.calls[0]![1] as Error).message).toBe('boom');
@@ -79,7 +70,7 @@ describe('safeCallback', () => {
   it('does not emit onSafeCallbackError when callbacks omitted', () => {
     const fn = vi.fn(() => { throw new Error('boom'); });
     expect(() => safeCallback('onStep', fn)).not.toThrow();
-    expect(consoleWarnSpy).toHaveBeenCalled();
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
   });
 
   it('does not emit onSafeCallbackError when callback succeeds', () => {

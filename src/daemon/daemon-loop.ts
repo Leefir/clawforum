@@ -275,7 +275,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       }));
       fsNative.renameSync(tmpFile, llmRetryStateFile);
     } catch (e) {
-      console.error('[daemon] saveLlmRetryState failed:', (e as Error).message);
       options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `context=saveLlmRetryState`, `reason=${(e as Error).message}`);
     }
   };
@@ -390,12 +389,8 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               return;
             }
             interruptErrCount++;
-            if (interruptErrCount % INTERRUPT_POLL_WARN_EVERY === 1) {
-              console.warn(`${label} interrupt poll error: ${err instanceof Error ? err.message : String(err)}`);
-            }
             if (interruptErrCount >= INTERRUPT_POLL_MAX_ERRORS) {
               options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT_POLLER_DISABLED, `error_count=${interruptErrCount}`, `last_error=${err instanceof Error ? err.message : String(err)}`);
-              console.error(`${label} interrupt poll failed ${interruptErrCount} times, disabling`);
               clearInterval(interruptPoller!);
               interruptPoller = null;
             }
@@ -476,7 +471,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryCount++;
           const delaySec = Math.round(llmRetryDelayMs / 1000);
           options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_LLM_RETRY, `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `error=${err.message}`);
-          console.warn(`${label} LLM error, retrying in ${delaySec}s (${llmRetryCount}/${LLM_MAX_RETRIES}): ${err.message}`);
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
           llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, LLM_RETRY_MAX_DELAY_MS);
           llmRetryPending = true; // next iteration will call retryLastTurn
@@ -488,9 +482,8 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
           saveLlmRetryState();
           options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `error=${err instanceof Error ? err.message : String(err)}`);
-          console.error(`${label} processBatch error:`, err);
           if (isLLMMaxRetry) {
-            console.error(`${label} LLM max retries (${LLM_MAX_RETRIES}) exhausted: ${err instanceof Error ? err.message : String(err)}`);
+            // LLM max retries exhausted — already audited as LOOP_FATAL above
           }
 
           await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);

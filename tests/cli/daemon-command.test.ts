@@ -288,15 +288,13 @@ describe('daemonCommand - A4a startup failure', () => {
     vi.restoreAllMocks();
   });
 
-  it('it #3: assemble LockConflictError → audit module=lockfile + console + exit 1', async () => {
+  it('it #3: assemble LockConflictError → audit module=lockfile + exit 1', async () => {
     const { LockConflictError } = await import('../../src/foundation/process-manager/index.js');
     const lockErr = new LockConflictError('test-claw');
     mockState.mockAssemble.mockRejectedValue(lockErr);
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(daemonCommand('test-claw')).rejects.toThrow('process.exit(1)');
 
-    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Lock conflict'));
     // phase189 §7.A3 清零：LockConflictError 分支补 audit
     expect(mockState.mockAuditWrite).toHaveBeenCalledWith(
       'assemble_failed',
@@ -304,32 +302,24 @@ describe('daemonCommand - A4a startup failure', () => {
       'phase=preconstruct',
       expect.stringMatching(/reason=.*Lock conflict/),
     );
-    errSpy.mockRestore();
   });
 
-  it('it #4: assemble 其他失败 → audit module=pre_assemble + console + exit 1', async () => {
+  it('it #4: assemble 其他失败 → audit module=pre_assemble + exit 1', async () => {
     mockState.mockAssemble.mockRejectedValue(new Error('mock assemble crash'));
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(daemonCommand('test-claw')).rejects.toThrow('process.exit(1)');
 
-    expect(errSpy).toHaveBeenCalledWith(
-      '[daemon] assemble failed:',
-      'mock assemble crash',
-    );
     expect(mockState.mockAuditWrite).toHaveBeenCalledWith(
       'assemble_failed',
       'module=pre_assemble',
       'phase=preconstruct',
       expect.stringMatching(/reason=.*mock assemble crash/),
     );
-    errSpy.mockRestore();
   });
 
   it('it #5: runtime.initialize 失败 → assemble_failed audit + exit 1', async () => {
     mockState.mockAssemble.mockResolvedValue(makeMockInstances({ clawId: 'test-claw' }));
     mockState.mockRuntime.initialize.mockRejectedValue(new Error('init failed'));
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(daemonCommand('test-claw')).rejects.toThrow('process.exit(1)');
 
@@ -339,7 +329,6 @@ describe('daemonCommand - A4a startup failure', () => {
       'phase=post_assemble_init',
       expect.stringContaining('reason=init failed'),
     );
-    errSpy.mockRestore();
   });
 
   it('it #6: snapshot.commit uncategorized → snapshot_commit_uncategorized audit', async () => {

@@ -26,11 +26,8 @@ describe('parseSchedule', () => {
     expect(parseSchedule('interval:5m')).toEqual({ type: 'interval', minutes: 5 });
   });
 
-  it('unknown format falls back to hourly + console.warn', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('unknown format falls back to hourly (no console.warn)', () => {
     expect(parseSchedule('bogus')).toEqual({ type: 'hourly' });
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown schedule format "bogus"'));
-    warnSpy.mockRestore();
   });
 
   it('unknown format + audit → cron_parse_fallback audit written', () => {
@@ -157,8 +154,7 @@ describe('CronRunner', () => {
     await vi.runAllTicks();
   });
 
-  it('handler error → cron_job_error audit + console.error', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('handler error → cron_job_error audit (no console.error)', async () => {
     const handler = vi.fn().mockRejectedValue(new Error('boom'));
     const job: CronJob = { name: 'failing', enabled: true, schedule: { type: 'hourly' }, handler };
     const runner = new CronRunner([job], audit as unknown as AuditLog);
@@ -170,7 +166,6 @@ describe('CronRunner', () => {
       expect.stringContaining('run_key='),
       'error=boom',
     );
-    expect(errSpy).toHaveBeenCalled();
   });
 
   it('computeRunKey: hourly format', async () => {

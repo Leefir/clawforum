@@ -111,12 +111,12 @@ describe('runDeepDream — clawFsFactory 注入路径（caller DIP enforce）', 
     expect(factory).toHaveBeenCalledWith(path.join(clawsDir, 'fail'));
     expect(factory).toHaveBeenCalledWith(path.join(clawsDir, 'ok2'));
 
-    // audit 记录 DEEP_DREAM_ERROR for claw-fail
+    // audit 记录 DEEP_DREAM_UNEXPECTED for claw-fail
     expect(mockAudit.write).toHaveBeenCalledWith(
-      'cron_deep_dream_error',
+      'deep_dream_unexpected',
       'step=unexpected',
       'clawId=fail',
-      expect.stringContaining('factory-fail-for-claw-fail'),
+      'reason=factory-fail-for-claw-fail',
     );
 
     await fs.rm(clawforumDir, { recursive: true, force: true });

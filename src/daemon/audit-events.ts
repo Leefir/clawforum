@@ -14,6 +14,9 @@ export const DAEMON_AUDIT_EVENTS = {
   LOOP_LLM_RETRY: 'daemon_loop_llm_retry',
   LOOP_FATAL: 'daemon_loop_fatal',
   LIVENESS_HEARTBEAT: 'daemon_liveness_heartbeat',
+  // cleanup 路径
+  CLEANUP_HEARTBEAT_FAILED: 'daemon_cleanup_heartbeat_failed',
+  CLEANUP_PID_FAILED: 'daemon_cleanup_pid_failed',
 } as const;
 
 export const LOOP_ITERATION_TYPES = {
