@@ -53,20 +53,23 @@ describe('daemon-loop dedicated unit (phase 1157 / r127 H fork)', () => {
     it('反向 1：空 inbox 时 timeout 兜底 resolve', async () => {
       const fs = new NodeFileSystem({ baseDir: path.join(agentDir, '..') });
       const audit = createMockAudit();
+      const TIMEOUT_MS = 100;
 
       const start = Date.now();
-      await waitForInbox(fs, audit, inboxPendingDir, 100);
+      await waitForInbox(fs, audit, inboxPendingDir, TIMEOUT_MS);
       const elapsed = Date.now() - start;
 
-      expect(elapsed).toBeGreaterThanOrEqual(80);
-      expect(elapsed).toBeLessThan(500);
+      // phase 1165: 表达「断言 = TIMEOUT_MS ± margin」derivation、替原 magic 80/500
+      expect(elapsed).toBeGreaterThanOrEqual(TIMEOUT_MS - 20);  // setup overhead margin (early resolve 反模式 lower bound)
+      expect(elapsed).toBeLessThan(TIMEOUT_MS + 400);            // contention safety margin
     });
 
     it('反向 2：inbox 出现 file 时 watcher 触发提前 resolve（不走 timeout）', async () => {
       const fs = new NodeFileSystem({ baseDir: path.join(agentDir, '..') });
       const audit = createMockAudit();
+      const TIMEOUT_MS = 5000;
 
-      const promise = waitForInbox(fs, audit, inboxPendingDir, 5000);
+      const promise = waitForInbox(fs, audit, inboxPendingDir, TIMEOUT_MS);
 
       // Give watcher time to set up
       await new Promise(r => setTimeout(r, 50));
@@ -76,8 +79,9 @@ describe('daemon-loop dedicated unit (phase 1157 / r127 H fork)', () => {
       await promise;
       const elapsed = Date.now() - start;
 
-      // Should resolve quickly via watcher, not wait 5s
-      expect(elapsed).toBeLessThan(1000);
+      // phase 1165: watcher 应 ≥ 5x 快于 timeout（替原 magic 1000）
+      // Should resolve quickly via watcher, not wait full timeout
+      expect(elapsed).toBeLessThan(TIMEOUT_MS / 5);
     });
 
     it('反向 3：fs.ensureDirSync 抛错时 audit 记录 + promise 仍 resolve', async () => {
