@@ -27,6 +27,7 @@ function makeMockFsWithControllableAppend(
       writeAtomicSync: vi.fn(),
       ensureDirSync: vi.fn(),
       deleteSync: vi.fn(),
+      syncSync: vi.fn(),
     } as unknown as FileSystem,
     writes,
     failCount,

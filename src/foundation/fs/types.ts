@@ -235,6 +235,13 @@ export interface FileSystem {
    */
   deleteSync(path: string): void;
 
+  /**
+   * Synchronize file data to disk (fsync).
+   * Ensures durability for audit/log paths.
+   * @param path - Relative path within claw space
+   */
+  syncSync(path: string): void;
+
   // ========================================================================
   // Path Resolution
   // ========================================================================

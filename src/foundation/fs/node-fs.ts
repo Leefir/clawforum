@@ -488,4 +488,14 @@ export class NodeFileSystem implements FileSystem {
     const absolute = this.resolveAndCheck(relativePath, 'write');
     return wrapENOENTSync(relativePath, () => fsSync.unlinkSync(absolute));
   }
+
+  syncSync(relativePath: string): void {
+    const absolute = this.resolveAndCheck(relativePath, 'write');
+    const fd = fsSync.openSync(absolute, 'r+');
+    try {
+      fsSync.fsyncSync(fd);
+    } finally {
+      fsSync.closeSync(fd);
+    }
+  }
 }

@@ -15,6 +15,7 @@ function makeMockFs(): { fs: FileSystem; writes: string[] } {
       writeAtomicSync: vi.fn(),
       ensureDirSync: vi.fn(),
       deleteSync: vi.fn(),
+      syncSync: vi.fn(),
     } as unknown as FileSystem,
     writes,
   };
@@ -40,6 +41,7 @@ function makeMockFsWithAppendFailure(initialFailCount = 1): { fs: FileSystem; wr
       writeAtomicSync: vi.fn(),
       ensureDirSync: vi.fn(),
       deleteSync: vi.fn(),
+      syncSync: vi.fn(),
     } as unknown as FileSystem,
     writes,
     failCount,

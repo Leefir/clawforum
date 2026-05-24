@@ -64,6 +64,7 @@ export class BatchedAuditWriter implements AuditLog {
         }
       }
       this.fs.appendSync(this.filePath, batch.join(''));
+      this.fs.syncSync(this.filePath);
       // SUCCESS: reset backoff
       if (this.currentIntervalMs !== this.flushIntervalMs) {
         this.currentIntervalMs = this.flushIntervalMs;

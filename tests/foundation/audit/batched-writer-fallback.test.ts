@@ -10,6 +10,7 @@ function makeFs(behavior: { appendThrows?: Error } = {}): FileSystem {
       calls.push({ method: 'appendSync', args });
       if (behavior.appendThrows) throw behavior.appendThrows;
     },
+    syncSync() {},
     statSync() { throw Object.assign(new Error('not found'), { code: 'ENOENT' }); },
     moveSync() {},
   };
@@ -58,6 +59,7 @@ describe('BatchedAuditWriter fallback wiring', () => {
       appendSync(...args: any[]) {
         if (throwsNext) { throwsNext = false; throw new Error('transient'); }
       },
+      syncSync() {},
       statSync() { throw Object.assign(new Error('not found'), { code: 'ENOENT' }); },
       moveSync() {},
     };
