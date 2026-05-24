@@ -5,6 +5,7 @@
  * 字符串值与 phase148 起 events.ts 中央注册表的 STREAM_* 系列等价 / 0 漂移。
  */
 export const STREAM_AUDIT_EVENTS = {
+  WRITE_AFTER_CLOSE: 'stream_write_after_close',
   WRITE_DROPPED: 'stream_write_dropped',
   APPEND_FAILED: 'stream_append_failed',
   ARCHIVE_FAILED: 'stream_archive_failed',

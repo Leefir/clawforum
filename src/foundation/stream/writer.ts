@@ -111,7 +111,14 @@ export class StreamWriter implements StreamLog {
   /** 写一行事件 */
   write(event: StreamEvent): void {
     if (!this.isOpen) {
-      throw new Error('StreamWriter: write() called before open()');
+      // cancel / disassemble 期间异步 cleanup 调 write 是预期 race
+      // DP「中断可恢复」+ ML#10 不合理停下 → graceful drop + audit
+      this.audit.write(
+        STREAM_AUDIT_EVENTS.WRITE_AFTER_CLOSE,
+        `type=${event.type}`,
+        `reason=writer_closed`,
+      );
+      return;
     }
     const line = JSON.stringify(event) + '\n';
     try {

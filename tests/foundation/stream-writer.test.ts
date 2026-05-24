@@ -33,13 +33,12 @@ describe('StreamWriter', () => {
     expect(parsed.type).toBe('test');
   });
 
-  it('write before open throws', () => {
-    const { audit } = makeAudit();
+  it('write before open does not throw + emits WRITE_AFTER_CLOSE audit (phase 1203)', () => {
+    const { audit, events } = makeAudit();
     const writer = new StreamWriter(fs, audit);
-    expect(() => writer.write({ ts: 1, type: 'dropped' })).toThrow(
-      'StreamWriter: write() called before open()',
-    );
+    expect(() => writer.write({ ts: 1, type: 'dropped' })).not.toThrow();
     expect(fsSync.existsSync(path.join(tmpDir, 'stream.jsonl'))).toBe(false);
+    expect(events.some(e => e[0] === 'stream_write_after_close')).toBe(true);
   });
 
   it('open archives existing stream.jsonl', () => {

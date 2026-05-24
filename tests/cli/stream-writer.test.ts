@@ -23,13 +23,12 @@ describe('StreamWriter', () => {
     await fsp.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('write() before open throws', () => {
+  it('write() before open does not throw + emits WRITE_AFTER_CLOSE audit (phase 1203)', () => {
     const fs = new NodeFileSystem({ baseDir: tmpDir });
-    const { audit } = makeAudit();
+    const { audit, events } = makeAudit();
     const sw = new StreamWriter(fs, audit);
-    expect(() => sw.write({ ts: 1, type: 'test' })).toThrow(
-      'StreamWriter: write() called before open()',
-    );
+    expect(() => sw.write({ ts: 1, type: 'test' })).not.toThrow();
+    expect(events.some(e => e[0] === 'stream_write_after_close')).toBe(true);
   });
 
   it('write() when appendSync throws audits and does not propagate', () => {
