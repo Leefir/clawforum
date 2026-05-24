@@ -110,7 +110,7 @@ describe('runtime chat() stopRequested reset (phase 900)', () => {
     await runtime.initialize();
     runtime.testSetLLM(mockLLM);
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({
       full: 'test-prompt',
       identityContent: 'test-hash',
     });

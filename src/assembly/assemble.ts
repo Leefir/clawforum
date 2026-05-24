@@ -18,7 +18,7 @@ import { createRuntime } from '../core/runtime/index.js';
 import { createLLMOrchestrator, type LLMOrchestrator, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../foundation/llm-orchestrator/index.js';
 import { createLLMAuditSink } from './llm-audit-sink.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
-import { CLAWS_DIR, CLAWSPACE_DIR } from '../foundation/paths.js';
+import { CLAWS_DIR } from '../foundation/paths.js';
 import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index.js';
 import { createToolExecutor } from '../foundation/tools/index.js';
 import type { IToolExecutor } from '../foundation/tools/index.js';
@@ -32,9 +32,7 @@ import type { EvolutionSystem } from '../core/evolution-system/index.js';
 import { createAsyncTaskSystem } from '../core/async-task-system/index.js';
 import type { AsyncTaskSystem } from '../core/async-task-system/system.js';
 import { summonContractExtractPostProcessor } from '../core/summon-system/index.js';
-import { createContextInjector, type ContextInjector } from '../core/dialog/index.js';
-import { ExecContextImpl } from '../foundation/tools/index.js';
-import type { ExecContext } from '../foundation/tools/index.js';
+
 import { createFileTools, TASKS_SYNC_WRITE_DIR } from '../foundation/file-tool/index.js';
 import { createCommandTools, TASKS_SYNC_EXEC_DIR } from '../foundation/command-tool/index.js';
 import { createClawPermissionChecker } from '../core/permissions/claw-permissions.js';
@@ -348,38 +346,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       });
     }
 
-    // --- L3-L5: contextInjector ---
-    let contextInjector: ContextInjector;
-    try {
-      contextInjector = createContextInjector({ fs: systemFs, skillRegistry, contractManager, audit: auditWriter });
-    } catch (e) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=context_injector`, `phase=construct`, `reason=${errMsg(e)}`);
-      throw new Error(`Assembly: ContextInjector construct failed: ${errMsg(e)}`, { cause: e });
-    }
-
-    // --- L3-L5: execContext ---
-    let execContext: ExecContext;
-    try {
-      execContext = new ExecContextImpl({
-        clawId,
-        clawDir,
-        workspaceDir: path.join(clawDir, CLAWSPACE_DIR),
-        syncDir,
-        profile: toolProfile,
-        callerType: isMotion ? 'motion' : 'claw',
-        fs: clawFs,
-        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
-        llm,
-        maxSteps,
-        auditWriter,
-        permissionChecker,
-        toolTimeoutMs,
-      });
-    } catch (e) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=exec_context`, `phase=construct`, `reason=${errMsg(e)}`);
-      throw new Error(`Assembly: ExecContext construct failed: ${errMsg(e)}`, { cause: e });
-    }
-
     // 注入工具属性（避免通过 ExecContext 传业务依赖）
     // done 注册：phase360 后 done 业务归 ContractSystem / 不再经 registerBuiltinTools / Assembly 显式注册
     toolRegistry.register(createSubmitSubtaskTool(contractManager));
@@ -391,9 +357,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
     // send 注册：phase440 后 send 业务归 Messaging / 不再经 registerBuiltinTools / Assembly 显式注册
     toolRegistry.register(createSendTool(outboxWriter));
-
-    // phase 766: inject registry into execContext for sync spawn path
-    (execContext as { registry?: unknown }).registry = toolRegistry;
 
     // --- L3-L5: toolExecutor ---
     let toolExecutor: IToolExecutor;
@@ -426,14 +389,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
     // phase470: inject mainDialogStore after sessionManager is available
     taskSystem.setMainDialogStore(sessionManager);
-
-    // phase 768: inject mainDialogStore into main agent execContext.
-    // phase 833 注释 align：phase 769 后 shadow 改读 ctx.systemPrompt + ctx.tools in-memory、
-    // 不再消费 ctx.mainDialogStore；当前唯一 active consumer = ask-caller.ts
-    // （P1.1 ⚓ accepted-stable as latent advertise per r105 B fork phase 812 user 拍板）。
-    // 保留 inject path 维持 latent advertise retention chain（删 = 让 askCaller 不可激活）。
-    // mirror phase 766 registry lazy 注入 pattern（line 338，ExecContext lazy 注入 cluster 第 2 实证）。
-    (execContext as { mainDialogStore?: DialogStore }).mainDialogStore = sessionManager;
 
     let inboxReader: InboxReader;
     try {
@@ -504,8 +459,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       toolExecutor,
       contractManager,
       taskSystem,
-      contextInjector,
-      execContext,
+      skillRegistry,
       parentStreamLog: streamWriter!,
       contractNotifyCallback,
       // phase 521: regime switch coordination / Assembly own factory / closure capture 5 const

@@ -645,7 +645,7 @@ describe('assemble', () => {
       const required = [
         'LLMOrchestratorImpl', 'ToolRegistryImpl',
         'SkillSystem', 'ContractSystem',
-        'AsyncTaskSystem', 'ContextInjector', 'ExecContextImpl', 'ToolExecutorImpl',
+        'AsyncTaskSystem', 'ToolExecutorImpl',
       ];
       for (const name of required) {
         expect(callOrder, `missing ${name}`).toContain(name);
@@ -656,8 +656,7 @@ describe('assemble', () => {
       expect(idx('SkillSystem')).toBeLessThan(idx('AsyncTaskSystem'));
       expect(idx('ContractSystem')).toBeLessThan(idx('AsyncTaskSystem'));
       expect(idx('ToolRegistryImpl')).toBeLessThan(idx('ToolExecutorImpl'));
-      expect(idx('ContractSystem')).toBeLessThan(idx('ContextInjector'));
-      expect(idx('SkillSystem')).toBeLessThan(idx('ContextInjector'));
+
     });
 
     it('construction order is deterministic across runs', async () => {
@@ -754,22 +753,6 @@ describe('assemble', () => {
       );
       expect(events.some(e => /^assemble_failed\tmodule=task_system\tphase=construct\treason=injected/.test(e))).toBe(true);
       expect(thrown.message).toMatch(/AsyncTaskSystem construct failed/);
-    });
-
-    it('context_injector construct failure → audit module=context_injector phase=construct + throw', async () => {
-      const { events, thrown } = await expectAssembleFailure(
-        '../../src/core/dialog/injector.js', 'ContextInjector', 'ctor',
-      );
-      expect(events.some(e => /^assemble_failed\tmodule=context_injector\tphase=construct\treason=injected/.test(e))).toBe(true);
-      expect(thrown.message).toMatch(/ContextInjector construct failed/);
-    });
-
-    it('exec_context construct failure → audit module=exec_context phase=construct + throw', async () => {
-      const { events, thrown } = await expectAssembleFailure(
-        '../../src/foundation/tools/context.js', 'ExecContextImpl', 'ctor',
-      );
-      expect(events.some(e => /^assemble_failed\tmodule=exec_context\tphase=construct\treason=injected/.test(e))).toBe(true);
-      expect(thrown.message).toMatch(/ExecContext construct failed/);
     });
 
     it('tool_executor construct failure → audit module=tool_executor phase=construct + throw', async () => {

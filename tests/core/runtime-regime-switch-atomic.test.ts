@@ -129,7 +129,7 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     // Capture old session manager reference AFTER initialize
     const oldSessionManager = runtime.testGetSessionManager();
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -177,7 +177,7 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     ];
     await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -244,7 +244,7 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       return originalWriteAtomic(filePath, content);
     });
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -302,7 +302,7 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
     ];
     await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 

@@ -30,9 +30,10 @@ import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { InboxReader, InboxEntry, OutboxWriter } from '../../foundation/messaging/index.js';
+import { ExecContextImpl } from '../../foundation/tools/index.js';
 import type { ExecContext } from '../../foundation/tools/index.js';
 import type { ToolRegistry, IToolExecutor } from '../../foundation/tools/index.js';
-import type { ContextInjector } from '../dialog/index.js';
+import { createContextInjector, type ContextInjector } from '../dialog/index.js';
 import type { ContractSystem } from '../contract/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import {
@@ -40,6 +41,8 @@ import {
   type StreamCallbacks,
   type DaemonStreamCallbacks,
 } from './types.js';
+import { TASKS_SYNC_DIR } from '../async-task-system/index.js';
+import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { formatTimeAgo } from './utils.js';
 
 function auditError(
@@ -160,8 +163,31 @@ export class Runtime {
     this.toolExecutor = deps.toolExecutor;
     this.contractManager = deps.contractManager;
     this.taskSystem = deps.taskSystem;
-    this.contextInjector = deps.contextInjector;
-    this.execContext = deps.execContext;
+    // phase 1211: ContextInjector + ExecContext 是 Runtime 内部组件 (per arch.md:328)
+    // 用既有 RuntimeDeps 字段自构造、不接受外部 inject
+    this.contextInjector = createContextInjector({
+      fs: this.systemFs,
+      skillRegistry: deps.skillRegistry,
+      contractManager: this.contractManager,
+      audit: this.auditWriter,
+    });
+    this.execContext = new ExecContextImpl({
+      clawId: this.options.clawId,
+      clawDir: this.options.clawDir,
+      syncDir: path.join(this.options.clawDir, TASKS_SYNC_DIR),
+      profile: this.options.toolProfile ?? 'full',
+      callerType: this.options.systemPromptBuilder ? 'motion' : 'claw',
+      fs: this.systemFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+      llm: this.llm,
+      maxSteps: this.options.maxSteps ?? DEFAULT_MAX_STEPS,
+      auditWriter: this.auditWriter,
+    });
+
+    // phase 766: inject registry into execContext for sync spawn path
+    (this.execContext as { registry?: unknown }).registry = this.toolRegistry;
+    // phase 768: inject mainDialogStore into main agent execContext.
+    (this.execContext as { mainDialogStore?: DialogStore }).mainDialogStore = this.sessionManager;
 
     // 3. Session repair（业务链路）
     //    先 load 再 archive：直接读 current.json 恢复，避免不必要的归档恢复中转。

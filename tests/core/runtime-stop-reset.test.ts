@@ -108,9 +108,6 @@ describe('runtime stopRequested per-turn reset (phase 786 / P0.14)', () => {
     });
     runtimesToStop.push(runtime);
 
-    // Simulate previous turn's done call leaving stopRequested=true
-    deps.execContext.stopRequested = true;
-
     const mockLLM = createMockLLM([{
       content: [{ type: 'text', text: 'ok' }],
       stop_reason: 'end_turn',
@@ -119,7 +116,10 @@ describe('runtime stopRequested per-turn reset (phase 786 / P0.14)', () => {
     await runtime.initialize();
     (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({
+    // Simulate previous turn's done call leaving stopRequested=true
+    runtime.execContext.stopRequested = true;
+
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({
       full: 'test-prompt',
       identityContent: 'test-hash',
     });
@@ -129,7 +129,7 @@ describe('runtime stopRequested per-turn reset (phase 786 / P0.14)', () => {
     ]);
 
     // stopRequested was reset to false at turn start
-    expect(deps.execContext.stopRequested).toBe(false);
+    expect(runtime.execContext.stopRequested).toBe(false);
     // LLM was actually called (not early-exited)
     expect(mockLLM.call).toHaveBeenCalledTimes(1);
   });
@@ -152,7 +152,7 @@ describe('runtime stopRequested per-turn reset (phase 786 / P0.14)', () => {
     await runtime.initialize();
     (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({
       full: 'test-prompt',
       identityContent: 'test-hash',
     });
@@ -163,7 +163,7 @@ describe('runtime stopRequested per-turn reset (phase 786 / P0.14)', () => {
     ]);
 
     // Simulate done tool execution setting stopRequested=true after turn 1
-    deps.execContext.stopRequested = true;
+    runtime.execContext.stopRequested = true;
 
     // Turn 2 — without the reset fix, this would silently empty-return
     await (runtime as unknown as { _runReact: (m: Message[]) => Promise<void> })._runReact([

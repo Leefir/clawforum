@@ -52,18 +52,12 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
   const taskSystem = new AsyncTaskSystem(clawDir, systemFs, {
     auditWriter, llm, contractManager, outboxWriter, registry: toolRegistry,
   });
-  const contextInjector = new ContextInjector({ fs: systemFs, skillRegistry, contractManager });
-  const execContext = new ExecContextImpl({
-    clawId, clawDir, workspaceDir: path.join(clawDir, 'clawspace'), profile: 'full', callerType: 'claw', fs: clawFs,
-    llm, maxSteps: 30, taskSystem, contractManager,
-    outboxWriter, auditWriter,
-  });
   const toolExecutor = new ToolExecutorImpl(toolRegistry, 60000);
 
   return {
     systemFs, clawFs, auditWriter, snapshot, sessionManager,
     inboxReader, outboxWriter, llm, toolRegistry, toolExecutor,
-    skillRegistry, contractManager, taskSystem, contextInjector, execContext,
+    skillRegistry, contractManager, taskSystem,
     parentStreamLog: undefined,
     contractNotifyCallback: undefined,
     // phase 521 mock

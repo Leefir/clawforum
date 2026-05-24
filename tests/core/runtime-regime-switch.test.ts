@@ -122,7 +122,7 @@ describe('Runtime regime switch (phase 521)', () => {
     runtime.testSetLLM(mockLLM);
 
     // Mock buildSystemPromptForRegime so _runReact gets a consistent value
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'prompt-A', identityContent: 'identity-A' });
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'prompt-A', identityContent: 'identity-A' });
 
     await runtime.chat('Hi!');
 
@@ -149,7 +149,7 @@ describe('Runtime regime switch (phase 521)', () => {
     const archiveSpy = vi.spyOn(deps.sessionManager, 'archive').mockResolvedValue(undefined);
     runtime.testSetLLM(mockLLM);
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'same-prompt', identityContent: 'same-identity' });
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'same-prompt', identityContent: 'same-identity' });
 
     await runtime.chat('Message 1');
     await runtime.chat('Message 2');
@@ -181,7 +181,7 @@ describe('Runtime regime switch (phase 521)', () => {
     runtime.testSetLLM(mockLLM);
 
     // Turn 1: identity A; Turn 2: identity B (regime change)
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -216,7 +216,7 @@ describe('Runtime regime switch (phase 521)', () => {
     await runtime.initialize();
     runtime.testSetLLM(mockLLM);
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -260,7 +260,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ];
     await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -307,7 +307,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ];
     await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -350,7 +350,7 @@ describe('Runtime regime switch (phase 521)', () => {
     ];
     await deps.sessionManager.save({ systemPrompt: 'test-system-prompt', messages: seededMessages, toolsForLLM: [] });
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -406,7 +406,7 @@ describe('phase 539: identity-only diff', () => {
 
     // Turn 1: full includes memory-v1, identityContent = agents+skills (no memory)
     // Turn 2: full includes memory-v2, identityContent same = agents+skills
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'agents\n\nmemory-v1\n\nskills', identityContent: 'agents\n\nskills' })
       .mockResolvedValueOnce({ full: 'agents\n\nmemory-v2\n\nskills', identityContent: 'agents\n\nskills' });
 
@@ -438,7 +438,7 @@ describe('phase 539: identity-only diff', () => {
     // Turn 1: contract with subtask unchecked
     // Turn 2: contract with subtask checked
     // identityContent excludes contract, so no regime switch
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'agents\n\ncontract-unchecked', identityContent: 'agents\n\nskills' })
       .mockResolvedValueOnce({ full: 'agents\n\ncontract-checked', identityContent: 'agents\n\nskills' });
 
@@ -470,7 +470,7 @@ describe('phase 539: identity-only diff', () => {
     // Turn 1: contract title='A' goal='X'
     // Turn 2: contract title='B' goal='Y'
     // identityContent excludes contract
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'agents\n\ncontract-A', identityContent: 'agents\n\nskills' })
       .mockResolvedValueOnce({ full: 'agents\n\ncontract-B', identityContent: 'agents\n\nskills' });
 
@@ -504,7 +504,7 @@ describe('phase 539: identity-only diff', () => {
     // Turn 1: AGENTS.md = "v1"
     // Turn 2: AGENTS.md = "v2"
     // identityContent changes because agents changed
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'agents-v1\n\nskills', identityContent: 'agents-v1\n\nskills' })
       .mockResolvedValueOnce({ full: 'agents-v2\n\nskills', identityContent: 'agents-v2\n\nskills' });
 
@@ -537,7 +537,7 @@ describe('phase 539: identity-only diff', () => {
     // Turn 1: skills = "S1"
     // Turn 2: skills = "S1\nS2"
     // identityContent changes because skills changed
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'agents\n\nS1', identityContent: 'agents\n\nS1' })
       .mockResolvedValueOnce({ full: 'agents\n\nS1\nS2', identityContent: 'agents\n\nS1\nS2' });
 
@@ -572,7 +572,7 @@ describe('phase 539: identity-only diff', () => {
     await runtime.initialize();
     runtime.testSetLLM(mockLLM);
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
@@ -620,7 +620,7 @@ describe('phase 539: identity-only diff', () => {
     await runtime.initialize();
     runtime.testSetLLM(mockLLM);
 
-    vi.spyOn(deps.contextInjector, 'buildSystemPromptForRegime')
+    vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime')
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });

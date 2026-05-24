@@ -13,9 +13,10 @@ import type { InboxReader, OutboxWriter } from '../../foundation/messaging/index
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { IToolExecutor } from '../../foundation/tools/index.js';
 import type { ContextInjector } from '../dialog/index.js';
+import type { SkillSystem } from '../../foundation/skill-system/index.js';
 import type { ContractSystem } from '../contract/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';
-import type { ExecContext } from '../../foundation/tools/index.js';
+
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import type { ToolProfile } from '../../foundation/tool-protocol/index.js';
 
@@ -37,8 +38,7 @@ export interface RuntimeDependencies {
   readonly toolExecutor: IToolExecutor;
   readonly contractManager: ContractSystem;
   readonly taskSystem: AsyncTaskSystem;
-  readonly contextInjector: ContextInjector;
-  readonly execContext: ExecContext;
+  readonly skillRegistry: SkillSystem;
 
   // 构造期注入（phase182 B.p166-5 升档：setter 双阶段消除）
   readonly parentStreamLog?: import('../../foundation/stream/types.js').StreamLog;
