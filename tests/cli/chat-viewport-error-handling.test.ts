@@ -67,7 +67,7 @@ describe('chat-viewport error handling (phase 523 + 524)', () => {
       expect(idx).toBeGreaterThan(-1);
       // 取到下一个 case/default 之前的片段（约 1500 字符足够覆盖）
       const endIdx = sourceCode.indexOf('case ', idx + 1);
-      const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 1500);
+      const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 2000);
       // 包含 traversal 校验条件
       expect(block).toContain("taskId.includes('/')");
       expect(block).toContain("taskId.includes('..')");
@@ -77,7 +77,7 @@ describe('chat-viewport error handling (phase 523 + 524)', () => {
       const idx = sourceCode.indexOf("case 'task_started':");
       expect(idx).toBeGreaterThan(-1);
       const endIdx = sourceCode.indexOf('case ', idx + 1);
-      const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 1500);
+      const block = endIdx > -1 ? sourceCode.slice(idx, endIdx) : sourceCode.slice(idx, idx + 2000);
       // audit 事件名（const 化 / phase 547）
       expect(block).toContain('VIEWPORT_AUDIT_EVENTS.INVALID_TASK_ID');
       // break 跳过（task_started 内应有至少两个 break：if 内一个 + case 末尾一个）

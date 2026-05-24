@@ -18,5 +18,6 @@ export const STREAM_AUDIT_EVENTS = {
   READER_UNLINKED: 'stream_reader_unlinked',
   READER_WATCHER_FAILED: 'stream_reader_watcher_failed',
   READER_WATCHER_CALLBACK_FAILED: 'stream_reader_watcher_callback_failed',
+  READER_WATCHER_RESET: 'stream_reader_watcher_reset',
   READER_CORRUPT: 'stream_reader_corrupt',
 } as const;

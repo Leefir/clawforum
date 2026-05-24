@@ -23,6 +23,7 @@ import {
 interface DreamStateData {
   processedArchives: string[];           // 已处理的 archive 文件名（不含路径）
   currentSessionDreamedDate: string;     // "YYYY-MM-DD"，当日 current.json 已处理
+  currentSessionRetryCount?: number;     // Phase 1200: current.json 损坏重试计数器
 }
 
 export interface DeepDreamOptions {
@@ -216,8 +217,22 @@ async function runDeepDreamForClaw(
         `reason=${err instanceof Error ? err.message : String(err)}`,
       );
       // 损坏 archive 永标记跳过（防 retry-storm / mirror line 198-201 空 session 模式）
-      // current.json 损坏当日仍 retry 是 known limitation（极少 corrupt / r+1 评估）
-      if (sf.filename !== 'current.json') processedArchives.push(sf.filename);
+      if (sf.filename !== 'current.json') {
+        processedArchives.push(sf.filename);
+        continue;
+      }
+      // Phase 1200: current.json retry stop-loss (max 3 attempts per day)
+      const retryCount = (state.currentSessionRetryCount ?? 0) + 1;
+      state.currentSessionRetryCount = retryCount;
+      if (retryCount >= 3) {
+        audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_RETRY_EXHAUSTED,
+          `clawId=${clawId}`,
+          `file=${sf.filename}`,
+          `retries=${retryCount}`,
+        );
+        // Mark as processed to stop further retries today
+        processedArchives.push(sf.filename);
+      }
       continue;
     }
     const sessionText = serializeSession(sessionData.messages ?? []);
@@ -275,11 +290,14 @@ async function runDeepDreamForClaw(
 
   // 更新 state（无论是否有梦境输出，都记录已处理的 archive 文件）
   if (processedArchives.length > 0 || sessionFiles.some(f => f.filename === 'current.json')) {
+    const currentProcessedToday = sessionFiles.some(f => f.filename === 'current.json');
     const updatedState: DreamStateData = {
       processedArchives: [...new Set([...state.processedArchives, ...processedArchives])],
-      currentSessionDreamedDate: sessionFiles.some(f => f.filename === 'current.json')
+      currentSessionDreamedDate: currentProcessedToday
         ? today
         : state.currentSessionDreamedDate,
+      // Phase 1200: reset retry count when current.json is successfully processed
+      currentSessionRetryCount: currentProcessedToday ? 0 : state.currentSessionRetryCount,
     };
     saveDreamState(clawFs, updatedState, audit, clawId);
   }

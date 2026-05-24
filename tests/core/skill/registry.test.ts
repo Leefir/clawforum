@@ -137,7 +137,10 @@ describe('SkillSystem', () => {
       expect(dupCall[3]).toBe('attempted_skill_dir=skills/delta-dup');
       expect(dupCall[4]).toBe('existing_name_source=frontmatter');
       expect(dupCall[5]).toBe('attempted_name_source=frontmatter');
-      expect(dupCall[6]).toBe('skills_dir=skills');
+      expect(dupCall[6]).toBe('existing_version=1.0');
+      expect(dupCall[7]).toBe('attempted_version=1.0');
+      expect(dupCall[8]).toBe('version_source=frontmatter');
+      expect(dupCall[9]).toBe('skills_dir=skills');
     });
 
     it('frontmatter 缺字段 → 用默认值 fallback', async () => {
