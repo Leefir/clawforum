@@ -26,8 +26,6 @@ export interface InboxMessageOptionsBase {
   body: string;
   to?: string;
   idPrefix?: string;
-  /** @deprecated since phase 577 / filename 中段统一 priority / 字段保接口稳 */
-  filenameTag?: string;
   extraFields?: Record<string, string>;
 }
 

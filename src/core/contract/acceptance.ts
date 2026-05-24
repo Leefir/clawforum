@@ -685,7 +685,6 @@ export function writeAcceptanceInbox(
     to: ctx.clawId,
     priority: verdict === 'rejected' ? 'high' : 'normal',
     body,
-    filenameTag: verdict === 'rejected' ? 'high' : 'normal',
     extraFields,
   });
 }
@@ -717,7 +716,6 @@ export async function writeAcceptanceError(
       priority: 'high',
       body: `Acceptance verification failed with error: ${errorMsg}`,
       idPrefix: 'acceptance_error',
-      filenameTag: 'high',
       extraFields: {
         contract_id: contractId,
         subtask_id: subtaskId,

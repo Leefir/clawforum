@@ -41,7 +41,6 @@ export function notifySystem(
     type?: string;
     priority?: 'critical' | 'high' | 'normal' | 'low';
     idPrefix?: string;
-    filenameTag?: string;
   },
 ): void {
   notifyInbox(fs, {
@@ -51,7 +50,6 @@ export function notifySystem(
     priority: options?.priority ?? 'high',
     body,
     idPrefix: options?.idPrefix,
-    filenameTag: options?.filenameTag,
   }, audit);
 }
 

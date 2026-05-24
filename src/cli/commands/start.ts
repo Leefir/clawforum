@@ -421,7 +421,6 @@ async function _start(audit?: AuditLog): Promise<void> {
       priority: 'high',
       body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
       idPrefix: 'start',
-      filenameTag: 'start',
     });
 
   } else {
@@ -445,14 +444,14 @@ async function _start(audit?: AuditLog): Promise<void> {
       new InboxWriter(notifyFs, inboxDir, notifyAudit).writeSync({
         type: 'message', source: 'system', priority: 'high',
         body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
-        idPrefix: 'start', filenameTag: 'start',
+        idPrefix: 'start',
       });
     } else {
       const pendingList = onboarding.pending.join(', ');
       new InboxWriter(notifyFs, inboxDir, notifyAudit).writeSync({
         type: 'message', source: 'system', priority: 'high',
         body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
-        idPrefix: 'start', filenameTag: 'start',
+        idPrefix: 'start',
       });
     }
   }

@@ -282,21 +282,21 @@
     },
     {
       "file": "src/core/async-task-system/system.ts",
-      "line": 486,
+      "line": 485,
       "body_excerpt": ".catch(() => {}",
       "reason": "best-effort cleanup before throw / throw 真传播 / cleanup 失败无害",
       "form": "promise"
     },
     {
       "file": "src/core/async-task-system/system.ts",
-      "line": 683,
+      "line": 682,
       "body_excerpt": ".catch(() => {",
       "reason": "fs.move 路径仍 cover 持久化",
       "form": "promise"
     },
     {
       "file": "src/core/async-task-system/system.ts",
-      "line": 787,
+      "line": 786,
       "body_excerpt": ".catch(() => {",
       "reason": "Timeout acceptable / arrow body emitShutdownTimeout audit emit",
       "form": "promise"

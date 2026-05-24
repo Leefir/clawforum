@@ -53,7 +53,6 @@ export async function runAuditSizeMonitor(opts: AuditSizeMonitorOptions): Promis
           priority: level === 'critical' ? 'high' : 'normal',
           body: `audit.tsv size ${mb} MB (${level} threshold) at ${p}. 建议跑 α-3a rotation。`,
           idPrefix: `${Date.now()}_audit_size_alert`,
-          filenameTag: 'audit_size_alert',
         });
       }
     } catch (err) {

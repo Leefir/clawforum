@@ -50,6 +50,5 @@ export function writeWatchdogInboxMessage(type: string, content: Record<string, 
     priority: 'high',
     body,
     idPrefix: `${Date.now()}_${type}`,
-    filenameTag: `watchdog_${type}`,
   });
 }

@@ -353,7 +353,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
               source: 'daemon',
               priority: 'high',
               body: '系统启动。请检查活跃契约并继续执行。',
-              filenameTag: 'startup_check',
             }, audit);
           }
           // No continue — processBatch() naturally picks up the inbox file

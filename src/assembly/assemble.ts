@@ -477,7 +477,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         source: 'system',
         priority: 'high',
         body: `[${type}] claw=${clawId} ${formatNotifyData(data)}`,
-        filenameTag: 'contract_events',
       }, auditWriter);
     };
 

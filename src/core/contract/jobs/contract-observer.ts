@@ -91,7 +91,6 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
       source: 'system',
       priority: 'high',
       body: events.join('\n\n'),
-      filenameTag: 'contract_events',
     }, motionAudit);
   }
 

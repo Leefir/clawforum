@@ -312,7 +312,6 @@ async function runDeepDreamForClaw(
     priority: 'low',
     body: dreamOutput,
     idPrefix: `${Date.now()}_deep_dream`,
-    filenameTag: 'deep_dream',
     extraFields: { session_count: String(dreamOutputs.length) },
   });
 

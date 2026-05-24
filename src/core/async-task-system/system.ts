@@ -378,7 +378,6 @@ export class AsyncTaskSystem {
             priority: 'critical',
             body: `Task ${task.id} (${task.kind}) rejected: queue at cap ${AsyncTaskSystem.PENDING_QUEUE_MAX}`,
             idPrefix: `${Date.now()}_overflow`,
-            filenameTag: 'task_overflow',
           });
           emitPendingQueueOverflowNotified(this.auditWriter, {
             taskId: task.id,

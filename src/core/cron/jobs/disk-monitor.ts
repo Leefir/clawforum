@@ -62,7 +62,6 @@ export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
       priority: 'high',
       body: `Disk usage ${totalMB}MB, limit ${opts.limitMB}MB`,
       idPrefix: `${Date.now()}_disk_warning`,
-      filenameTag: 'disk_warning',
     });
   }
 }
