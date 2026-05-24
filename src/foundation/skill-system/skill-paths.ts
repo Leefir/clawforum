@@ -11,7 +11,6 @@
  * - 字符串字面量集中 const（B.p169-2 闭环）
  */
 
-import { CLAWSPACE_DIR } from '../paths.js';
 
 /** per-agent 自身 skills 目录默认值（motion 自有 + 各 claw 各自 skills） */
 export const SKILLS_DIR_DEFAULT = 'skills' as const;

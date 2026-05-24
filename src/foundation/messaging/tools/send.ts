@@ -38,7 +38,7 @@ export function createSendTool(outboxWriter: OutboxWriter): Tool {
     readonly: false,
     idempotent: false,
 
-    async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
+    async execute(args: Record<string, unknown>, _ctx: ExecContext): Promise<ToolResult> {
       const content = args.content as string;
       const type = args.type as string;
       const priority = (args.priority as string) ?? 'normal';

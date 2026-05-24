@@ -22,7 +22,6 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { setTimeout } from 'timers/promises';
 import { getMotionDir } from '../foundation/config/index.js';
-import { ProcessManager } from '../foundation/process-manager/index.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/factories.js';

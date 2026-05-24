@@ -5,7 +5,6 @@
 
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock } from '../../foundation/llm-provider/types.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
-import type { StepCallbacks } from './types.js';
 
 /**
  * Execute a callback safely, swallowing errors to protect the executor loop.
@@ -28,7 +27,7 @@ export type ParseToolInputResult =
   | { ok: true; data: Record<string, unknown> }
   | { ok: false; raw: string; error: string };
 
-export function parseToolInput(raw: string, toolName: string): ParseToolInputResult {
+export function parseToolInput(raw: string, _toolName: string): ParseToolInputResult {
   try {
     return { ok: true, data: JSON.parse(raw || '{}') };
   } catch (err) {

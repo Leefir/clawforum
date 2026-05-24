@@ -10,10 +10,9 @@ import type {
 } from '../llm-provider/types.js';
 import {
   LLMError,
-  LLMTimeoutError,
   LLMNetworkError,
 } from './errors.js';
-import { parseRetryAfter, throwHttpErrorResponse } from './_helpers.js';
+import { throwHttpErrorResponse } from './_helpers.js';
 import type {
   ProviderConfig,
   LLMCallOptions,
@@ -21,7 +20,7 @@ import type {
   StreamChunk,
 } from './types.js';
 import { STREAM_MAX_DURATION_MS, STREAM_IDLE_MAX_MS } from './constants.js';
-import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
+import { withCombinedAbortSignal, classifyFetchAbortError } from './abort-helper.js';
 import { formatGeminiMessages } from './gemini-message-formatter.js';
 import { parseGeminiSSEStream } from './gemini-sse-parser.js';
 import { parseGeminiResponse, type GeminiResponse } from './gemini-response-parser.js';

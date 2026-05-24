@@ -1,4 +1,4 @@
-import { ok, err as errResult, type Result } from '../utils/result.js';
+import { ok, type Result } from '../utils/result.js';
 
 /** 预期失败：git 语义上的可识别状态，降级不抛 */
 export type ExpectedGitFailure =

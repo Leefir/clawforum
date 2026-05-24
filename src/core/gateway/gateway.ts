@@ -19,7 +19,6 @@ import type {
 import type { Connection, Transport } from '../../foundation/transport/index.js';
 import type { StreamReader, StreamEvent } from '../../foundation/stream/index.js';
 import type { ToolResult, ExecContext } from '../../foundation/tools/index.js';
-import type { AuditWriter } from '../../foundation/audit/index.js';
 import { GATEWAY_AUDIT_EVENTS } from './audit-events.js';
 import {
   GATEWAY_INTERRUPT_DEBOUNCE_MS,

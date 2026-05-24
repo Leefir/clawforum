@@ -11,7 +11,6 @@ import {
   lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned,
 } from './watchdog-context.js';
 import { log, writeWatchdogInboxMessage } from './watchdog-log.js';
-import { saveWatchdogState } from './watchdog-state.js';
 import { clawHasContract, getClawActivityInfo, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount } from './watchdog-utils.js';
 import { getContractCreatedMs } from '../core/contract/index.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';

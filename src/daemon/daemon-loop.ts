@@ -54,7 +54,7 @@ const INTERRUPT_POLL_MAX_ERRORS = 20;
  * 创建 StreamCallbacks 实现，将业务事件转为 StreamEvent 写入 StreamLog。
  * 这是装配层逻辑：将 ReAct 循环的业务事件名映射为 stream.jsonl 的事件记录。
  */
-function createStreamCallbacks(sink: StreamLog, audit: AuditLog): StreamCallbacks {
+function createStreamCallbacks(sink: StreamLog, _audit: AuditLog): StreamCallbacks {
   const checkWrite = (event: import('../foundation/stream/types.js').StreamEvent) => {
     sink.write(event);
   };
@@ -234,7 +234,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, agentDir, clawId, label, audit, inbox, motion, onBatchComplete, streamWriter } = options;
+  const { runtime, agentDir, label, audit, inbox, motion, onBatchComplete, streamWriter } = options;
   const { pendingDir: inboxPendingDir } = inbox;
   const fallbackTimeout = inbox.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   const heartbeat = motion?.heartbeat;

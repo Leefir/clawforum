@@ -6,15 +6,11 @@
  */
 
 import type {
-  Message,
-  ToolDefinition,
-  LLMResponse,
   StreamChunk,
   ProviderConfig as L1ProviderConfig,
   ProviderAdapter,
   LLMCallOptions as L1LLMCallOptions,
 } from '../llm-provider/types.js';
-import type { ApiFormat } from '../llm-provider/presets.js';
 import type { LLMErrorClass, UserActionHint } from './errors.js';
 
 // Re-export L1 base types for backward compat

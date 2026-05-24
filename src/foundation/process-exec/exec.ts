@@ -28,13 +28,6 @@ const EXEC_SIGKILL_GRACE_MS = 1000;
 import type { ExecOptions, ExecResult } from './types.js';
 import { ProcessExecError } from './types.js';
 
-/** Internal result with separated stderr for snapshot layer defense. */
-interface RunResult {
-  output: string;
-  stderr: string;
-  exitCode: number;
-}
-
 /**
  * Internal: run a process with shared cross-cutting concerns.
  * Uses spawn for stdout+stderr interleaved capture (preserves timing order).

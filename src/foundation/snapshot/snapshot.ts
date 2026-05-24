@@ -14,7 +14,6 @@ import * as path from 'path';
 import { exec } from '../process-exec/index.js';
 import { isFileNotFound, type FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
-import { SNAPSHOT_AUDIT_EVENTS } from './audit-events.js';
 import {
   emitSnapshotCommitFailed,
   emitSnapshotCommitted,
@@ -213,7 +212,7 @@ export class Snapshot {
     throw rawErr;
   }
 
-  private async tryCleanupGit(failure: ExpectedGitFailure): Promise<void> {
+  private async tryCleanupGit(_failure: ExpectedGitFailure): Promise<void> {
     const gitDir = path.join(this.dir, '.git');
     try {
       await this.fs.removeDir(gitDir);

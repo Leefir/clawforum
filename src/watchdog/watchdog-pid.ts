@@ -3,18 +3,12 @@
  * PID file management — 0 module state 依赖（仅 fs）
  */
 
-import { getClawforumDir, getClawforumFs } from './watchdog-context.js';
+import { getClawforumFs } from './watchdog-context.js';
 import { isAlive } from '../foundation/process-exec/index.js';
-import * as path from 'path';
 import { getWorkspaceRoot } from '../foundation/paths.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { getAuditWriter } from './watchdog-context.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
-
-/** 1:1 保 watchdog.ts:50-52 */
-function getWatchdogPidFile(): string {
-  return path.join(getClawforumDir(), 'watchdog.pid');
-}
 
 /** 1:1 保 watchdog.ts:85-89 */
 export function writeWatchdogPid(pid: number): void {
@@ -46,7 +40,7 @@ function validatePidShape(parsed: unknown): parsed is WatchdogPidShape {
   );
 }
 
-function backupCorruptPid(content: string, err: unknown): void {
+function backupCorruptPid(_content: string, err: unknown): void {
   const fs = getClawforumFs();
   const backupPath = `watchdog.pid.corrupt-${Date.now()}`;
   let moveOk = true;

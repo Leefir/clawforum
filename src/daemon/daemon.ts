@@ -16,11 +16,9 @@ import { loadGlobalConfig, loadClawConfig, getClawDir, getMotionDir } from '../f
 
 import { startDaemonLoop } from './daemon-loop.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
-import { AuditWriter } from '../foundation/audit/writer.js';
 import { createSystemAudit, type AuditLog } from '../foundation/audit/index.js';
 import { createAgentProcessManager } from '../foundation/process-manager/agent-factory.js';
 
-import { CliError } from '../foundation/errors.js';
 import { LockConflictError } from '../foundation/process-manager/index.js';
 import { DAEMON_AUDIT_EVENTS } from './audit-events.js';
 import type { DaemonInstances } from './types.js';

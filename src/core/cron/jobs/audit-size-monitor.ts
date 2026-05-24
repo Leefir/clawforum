@@ -8,7 +8,6 @@
  * phase 1154 derive (user 2026-05-23 Terminal SIGABRT 诊断追溯)。
  */
 
-import * as path from 'path';
 import { isFileNotFound } from '../../../foundation/fs/types.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';

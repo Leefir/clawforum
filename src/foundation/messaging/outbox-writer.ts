@@ -10,7 +10,6 @@ import type { FileSystem } from '../fs/types.js';
 import type { OutboxMessage } from '../messaging/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { encodeOutbox } from './codec-outbox.js';
-import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 import { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 
@@ -33,7 +32,7 @@ export class OutboxWriter {
 
   constructor(
     private readonly clawId: string,
-    private readonly clawDir: string,
+    clawDir: string,
     private readonly fs: FileSystem,
     private readonly audit: AuditLog,
   ) {

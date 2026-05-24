@@ -5,7 +5,7 @@
  * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  */
 
-import type { Tool, ExecContext } from '../tools/index.js';
+import type { ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 import { randomUUID } from 'crypto';
 import * as path from 'path';

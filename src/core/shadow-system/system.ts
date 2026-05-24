@@ -79,7 +79,6 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
 
   const mainMessages = opts.mainMessages ?? ts.messages!;
   const restoredSystemPrompt = ts.systemPrompt;
-  const restoredTools = ts.tools;
 
   let synthesizedMessages: Message[];
 

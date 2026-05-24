@@ -10,10 +10,9 @@ import type {
 } from '../llm-provider/types.js';
 import {
   LLMError,
-  LLMTimeoutError,
   LLMNetworkError,
 } from './errors.js';
-import { parseRetryAfter, throwHttpErrorResponse } from './_helpers.js';
+import { throwHttpErrorResponse } from './_helpers.js';
 import type {
   ProviderConfig,
   LLMCallOptions,
@@ -21,7 +20,7 @@ import type {
 } from './types.js';
 import { THINKING_TOKEN_RESERVE, STREAM_MAX_DURATION_MS, STREAM_IDLE_MAX_MS } from './constants.js';
 import { BaseAnthropicAdapter, type AnthropicRequestBody } from './base-anthropic.js';
-import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
+import { withCombinedAbortSignal, classifyFetchAbortError } from './abort-helper.js';
 import { parseAnthropicSSEStream } from './custom-anthropic-sse-parser.js';
 import { parseAnthropicResponse, type AnthropicResponse } from './custom-anthropic-response-parser.js';
 

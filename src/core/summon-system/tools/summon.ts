@@ -4,13 +4,11 @@ import type { ToolResult } from '../../../foundation/tool-protocol/index.js';
 import type { Message, ToolDefinition } from '../../../foundation/llm-provider/types.js';
 import { createSkillSystem } from '../../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../../evolution-system/index.js';
-import type { ToolRegistry } from '../../../foundation/tools/index.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../foundation/llm-orchestrator/index.js';
+
 import { buildSummonContractTask, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
-import { ASK_MOTION_TOOL_NAME, ASK_MOTION_TOOL_DESCRIPTION, ASK_MOTION_TOOL_SCHEMA } from './ask-motion.js';
 import { writePendingSubagentTaskFile } from '../../async-task-system/index.js';
 import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
-import { synthesizeFormB, stripIncompleteToolUse, buildShadowInstruction, type BuildShadowInstructionArgs } from '../../shadow-system/index.js';
+import { synthesizeFormB, stripIncompleteToolUse, type BuildShadowInstructionArgs } from '../../shadow-system/index.js';
 import { randomUUID } from 'crypto';
 
 const SUMMON_SUBAGENT_TIMEOUT_MS = 3600 * 1000;   // 1 hour
@@ -44,7 +42,10 @@ export class SummonTool implements Tool {
     private getToolsForLLM: () => ToolDefinition[], // Motion 完整工具列表（KV cache 关键）
     private getToolsForProfile: (profile: string) => ToolDefinition[], // 按 profile 获取工具列表
     private getCurrentMessages?: () => Message[] | undefined,  // current turn dialogMessages (L4 → factory injection)
-  ) {}
+  ) {
+    void this.getToolsForLLM;
+    void this.getToolsForProfile;
+  }
 
   schema = {
     type: 'object',
@@ -112,10 +113,6 @@ export class SummonTool implements Tool {
     const systemPrompt = isMining
       ? buildMinerSystemPrompt()
       : await this.getSystemPrompt();
-    const idleTimeoutMs = typeof args.idleTimeoutMs === 'number'
-      ? args.idleTimeoutMs
-      : DEFAULT_LLM_IDLE_TIMEOUT_MS;
-
     // 构造包含完整对话上下文的 messages 数组
     // L4 turn state → getter injection; canonical-only path (phase 1174)
     const dialogMessages = this.getCurrentMessages?.() ?? [];
@@ -144,14 +141,7 @@ export class SummonTool implements Tool {
       });
     }
 
-    // miner 使用专属工具列表（miner profile + ask_motion）；shadow 用 Motion 完整列表确保 KV cache 命中
     const motionClawDir = isMining ? ctx.clawDir : undefined;
-    const toolsForLLM = isMining
-      ? [
-          ...this.getToolsForProfile('miner'),
-          { name: ASK_MOTION_TOOL_NAME, description: ASK_MOTION_TOOL_DESCRIPTION, input_schema: ASK_MOTION_TOOL_SCHEMA },
-        ]
-      : this.getToolsForLLM();
 
     // 装配 mainContextSnapshot from ctx.currentToolUseId
     const mainContextSnapshot = ctx.clawId && ctx.currentToolUseId

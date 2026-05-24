@@ -10,9 +10,7 @@
  */
 
 import type { FileSystem } from '../../foundation/fs/types.js';
-import type { Message } from '../../foundation/llm-provider/types.js';
 import type { Contract } from '../contract/types.js';
-import type { SessionData } from '../../foundation/dialog-store/index.js';
 import type { SkillSystem } from '../../foundation/skill-system/index.js';
 import type { ContractSystem } from '../contract/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';

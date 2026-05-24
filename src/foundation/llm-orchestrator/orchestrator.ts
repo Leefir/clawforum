@@ -9,21 +9,16 @@
 
 import type { LLMResponse, TextBlock, ThinkingBlock, ToolUseBlock } from '../llm-provider/types.js';
 import {
-  LLMError,
   LLMAllProvidersFailedError,
   LLMTimeoutError,
   LLMRateLimitError,
-  LLMAuthError,
-  LLMModelNotFoundError,
   classifyLLMError,
   getUserActionHint,
 } from './errors.js';
 
 import type {
-  ProviderConfig,
   LLMOrchestratorConfig,
   LLMCallOptions,
-  ProviderAdapter,
   StreamChunk,
   LLMEventSink,
 } from './types.js';
@@ -90,8 +85,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
   private primary: LLMProvider;
   private fallbacks: LLMProvider[];
   private config: LLMOrchestratorConfig;
-  // Track current provider: -1 = primary, 0..N = fallbacks[i]
-  private currentProviderIndex = -1;
 
   private lastSuccessProvider: {
     name: string;
@@ -178,7 +171,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           this.breakers[0]?.onSuccess();
 
           // Reset to primary
-          this.currentProviderIndex = -1;
           this.updateLastSuccess(this.primary, false);
           return response;
 
@@ -272,7 +264,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         // Circuit breaker: record success
         this.breakers[i + 1]?.onSuccess();
 
-        this.currentProviderIndex = i;
         this.updateLastSuccess(fb, true);
         return response;
 
@@ -342,16 +333,12 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         continue;
       }
 
-      // Track current provider so getProviderInfo() reflects the active adapter
-      // during mid-stream failover — not just the last one that fully completed.
-      this.currentProviderIndex = pi === 0 ? -1 : pi - 1;
 
       // Retry loop (aligns with call())
       let success = false;
       let hasYielded = false;
       let midStreamReset = false;
       let lastError: Error | null = null;
-      let doneChunk: StreamChunk | undefined;
       let contextExceeded = false;
       let idleTimer: ReturnType<typeof setTimeout> | undefined;
       let idleCtrl: AbortController | null = null;
@@ -378,7 +365,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
             resetIdleTimer();
             hasYielded = true;
             if (chunk.type === 'done') {
-              doneChunk = chunk;
               if (chunk.stopReason && CONTEXT_EXCEEDED_STOP_REASONS.has(chunk.stopReason)) {
                 contextExceeded = true;
                 this.events.emit({ type: 'context_exceeded_failover', provider: adapter.name, stopReason: chunk.stopReason });
@@ -478,8 +464,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       if (success && hasYielded) {
         // Circuit breaker: record success
         breaker?.onSuccess();
-        // Update current provider index (-1 = primary, 0..N = fallbacks)
-        this.currentProviderIndex = pi === 0 ? -1 : pi - 1;
         this.updateLastSuccess(adapter, pi !== 0);
         return; // Success, exit generator
       }
@@ -726,7 +710,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       trackBCtrl.abort();
       this.breakers[0]?.onSuccess(); // breaker auto-close (first chunk = real recovery)
       this.events.emit({ type: 'hedge_primary_recovered', provider: this.primary.name });
-      this.currentProviderIndex = -1;
       this.updateLastSuccess(this.primary, false);
       yield winner.chunk;
       try {
@@ -794,7 +777,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         });
       }
 
-      this.currentProviderIndex = winner.providerIndex;
       this.updateLastSuccess(winner.provider, true);
       // NEW: drain primary generator (mirror L821 double-fail template)
       try { await primaryIter.return?.(); } catch { /* silent: generator already closed, ignore */ }
@@ -817,7 +799,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           cacheCreationInputTokens: bResult.response.usage?.cache_creation_input_tokens ?? undefined,
           cacheReadInputTokens: bResult.response.usage?.cache_read_input_tokens ?? undefined,
         });
-        this.currentProviderIndex = bResult.providerIndex;
         this.updateLastSuccess(bResult.provider, true);
         cleanupSignals();
         yield* wrapResponseAsStream(bResult.response, bResult.provider);
@@ -840,7 +821,6 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       trackBCtrl.abort();
       this.breakers[0]?.onSuccess();
       this.events.emit({ type: 'hedge_primary_recovered', provider: this.primary.name });
-      this.currentProviderIndex = -1;
       this.updateLastSuccess(this.primary, false);
       yield aResult.chunk;
       try {
@@ -882,7 +862,7 @@ function isContentChunk(chunk: StreamChunk): boolean {
 
 async function* wrapResponseAsStream(
   response: LLMResponse,
-  provider: LLMProvider,
+  _provider: LLMProvider,
 ): AsyncIterableIterator<StreamChunk> {
   for (const block of response.content) {
     if (block.type === 'text') {

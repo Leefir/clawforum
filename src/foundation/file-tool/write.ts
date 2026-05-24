@@ -7,7 +7,6 @@
  * - Overwrite gate: file must be fully read in this session first (phase 487 G6)
  */
 
-import * as path from 'path';
 import type { Tool, ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 
