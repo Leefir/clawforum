@@ -158,15 +158,17 @@ describe('ContractSystem lifecycle race (phase 791 / P0.16 + P0.18)', () => {
     expect(progress.status).toBe('cancelled');
     expect(progress.subtasks['t1'].status).toBe('todo');
 
+    // phase 1221: predicate 精确 match context=completeSubtaskSync 防 multi-site emit 拿错位
+    // (verification.ts 6 site emit VERIFICATION_RESET_FAILED 不同 context 值、phase 1196 β 仅 type match 残留 race)
+    const isCompleteSubtaskSyncGuard = (c: { type: string; args: string[] }) =>
+      c.type === CONTRACT_AUDIT_EVENTS.VERIFICATION_RESET_FAILED &&
+      c.args.some(a => a.includes('context=completeSubtaskSync'));
+
     await vi.waitUntil(
-      () => auditCalls.slice(beforeAudit).some(
-        c => c.type === CONTRACT_AUDIT_EVENTS.VERIFICATION_RESET_FAILED
-      ),
+      () => auditCalls.slice(beforeAudit).some(isCompleteSubtaskSyncGuard),
       { timeout: 2000, interval: 20 },
     );
-    const guardAudits = auditCalls.slice(beforeAudit).filter(
-      c => c.type === CONTRACT_AUDIT_EVENTS.VERIFICATION_RESET_FAILED
-    );
+    const guardAudits = auditCalls.slice(beforeAudit).filter(isCompleteSubtaskSyncGuard);
     expect(guardAudits.length).toBeGreaterThanOrEqual(1);
     expect(guardAudits[0].args.some(a => a.includes('context=completeSubtaskSync'))).toBe(true);
   });
