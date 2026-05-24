@@ -10,7 +10,6 @@ import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { AuditLog } from '../audit/index.js';
 import type { ToolDescriptor, ToolResult } from '../tool-protocol/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
-import type { Message } from '../llm-provider/types.js';
 import type { CallerType } from '../tool-protocol/caller-type.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
 

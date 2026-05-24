@@ -12,7 +12,6 @@ import { buildRetroPrompt } from '../../prompts/retrospective.js';
 import { writePendingSubagentTaskFile } from '../async-task-system/index.js';
 import { createSkillSystem } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from './dispatch-skills-paths.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
@@ -57,11 +56,6 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
   const retroPrompt = buildRetroPrompt(
     config.targetClaw, config.contractId, config.contractYaml, skillsSummary
   );
-  const retroMessages: Message[] = [
-    ...config.baseMessages,
-    { role: 'user', content: retroPrompt },
-  ];
-
   // 调度 retro subagent（A.4）
   await writePendingSubagentTaskFile(config.motionFs, config.motionAudit, {
     kind: 'subagent',

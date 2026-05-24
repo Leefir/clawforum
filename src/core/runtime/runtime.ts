@@ -7,15 +7,10 @@
 
 import * as path from 'path';
 
-import type { LLMOrchestratorConfig } from '../../foundation/llm-orchestrator/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
-import type { ToolProfile } from '../../foundation/tool-protocol/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import type { InboxMessage } from '../../foundation/messaging/types.js';
-import type { Priority } from '../../foundation/messaging/types.js';
-import type { OutboxWriteOptions } from '../../foundation/messaging/index.js';
-import type { SessionData } from '../../foundation/dialog-store/index.js';
 import { InboxListFailed, InboxMoveFailed } from '../../foundation/messaging/index.js';
 
 import { DialogStore } from '../../foundation/dialog-store/index.js';
@@ -39,10 +34,8 @@ import type { ExecContext } from '../../foundation/tools/index.js';
 import type { ToolRegistry, IToolExecutor } from '../../foundation/tools/index.js';
 import type { ContextInjector } from '../dialog/index.js';
 import type { ContractSystem } from '../contract/index.js';
-import type { SkillSystem } from '../../foundation/skill-system/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import {
-  type RuntimeDependencies,
   type RuntimeOptions,
   type StreamCallbacks,
   type DaemonStreamCallbacks,
@@ -1031,7 +1024,7 @@ export class Runtime {
     return { systemPrompt: r.full, identityContent: r.identityContent };
   }
 
-  private async ensureDirectories(clawDir: string): Promise<void> {
+  private async ensureDirectories(_clawDir: string): Promise<void> {
     for (const dir of CLAW_SUBDIRS) {
       await this.systemFs.ensureDir(dir);
     }

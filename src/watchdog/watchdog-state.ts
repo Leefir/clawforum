@@ -3,8 +3,7 @@
  * Watchdog state persistence — load/save 2 Map + crash log
  */
 
-import * as path from 'path';
-import { getClawforumDir, getClawforumFs, getAuditWriter, lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned } from './watchdog-context.js';
+import { getClawforumFs, getAuditWriter, lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned } from './watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
 
@@ -27,11 +26,6 @@ class WatchdogSchemaError extends Error {
     super(`watchdog-state.json unknown schema_version ${String(actualVersion)} (current=${currentVersion})`);
     this.name = 'WatchdogSchemaError';
   }
-}
-
-/** 1:1 保 watchdog.ts:204-206 */
-function getWatchdogStateFile(): string {
-  return path.join(getClawforumDir(), 'watchdog-state.json');
 }
 
 /** 1:1 保 watchdog.ts:208-238 / load 2 Map */

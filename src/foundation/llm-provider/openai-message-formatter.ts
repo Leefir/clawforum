@@ -4,7 +4,6 @@
  * 0 this.X dep / 真 pure function
  */
 
-import type { Message } from '../llm-provider/types.js';
 
 interface OpenAIMessage {
   role: string;

@@ -213,7 +213,7 @@ export class Snapshot {
     throw rawErr;
   }
 
-  private async tryCleanupGit(failure: ExpectedGitFailure): Promise<void> {
+  private async tryCleanupGit(_failure: ExpectedGitFailure): Promise<void> {
     const gitDir = path.join(this.dir, '.git');
     try {
       await this.fs.removeDir(gitDir);

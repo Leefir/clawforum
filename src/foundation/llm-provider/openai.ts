@@ -10,17 +10,12 @@
 
 import type {
   LLMResponse,
-  ContentBlock,
-  TextBlock,
-  ToolUseBlock,
 } from '../llm-provider/types.js';
 import {
   LLMError,
-  LLMRateLimitError,
-  LLMTimeoutError,
   LLMNetworkError,
 } from './errors.js';
-import { parseRetryAfter, throwHttpErrorResponse } from './_helpers.js';
+import { throwHttpErrorResponse } from './_helpers.js';
 import type {
   ProviderConfig,
   LLMCallOptions,
@@ -28,7 +23,7 @@ import type {
   StreamChunk,
 } from './types.js';
 import { STREAM_MAX_DURATION_MS, STREAM_IDLE_MAX_MS } from './constants.js';
-import { withCombinedAbortSignal, type CombinedAbortHandle, classifyFetchAbortError } from './abort-helper.js';
+import { withCombinedAbortSignal, classifyFetchAbortError } from './abort-helper.js';
 // NEW imports（sub-file）
 import { formatMessages, formatTools } from './openai-message-formatter.js';
 import { parseSSEStream } from './openai-sse-parser.js';

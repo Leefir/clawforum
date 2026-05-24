@@ -153,7 +153,6 @@ export const searchTool: Tool = {
         for (const clawId of clawIds) {
           if (allResults.length >= maxResults) break;
           const rawSearchPath = nodePath.normalize(pathArg);
-          const clawBaseDir = nodePath.join(clawsDir, clawId, rawSearchPath);
           const clawFs = ctx.fsFactory(nodePath.join(clawsDir, clawId));
           if (!clawFs.existsSync(rawSearchPath)) continue;
 

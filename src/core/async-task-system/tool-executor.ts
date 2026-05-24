@@ -3,7 +3,6 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { ToolTask } from './system.js';
 import { sendToolResult, sendFallbackError } from './result-delivery.js';
-import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr, classifyTaskError } from './_helpers.js';
 import {
   emitTaskCompleted,

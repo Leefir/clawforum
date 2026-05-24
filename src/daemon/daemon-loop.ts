@@ -47,14 +47,13 @@ import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
 
 // Interrupt poller constants
 const INTERRUPT_POLL_INTERVAL_MS = 200;
-const INTERRUPT_POLL_WARN_EVERY = 5;
 const INTERRUPT_POLL_MAX_ERRORS = 20;
 
 /**
  * 创建 StreamCallbacks 实现，将业务事件转为 StreamEvent 写入 StreamLog。
  * 这是装配层逻辑：将 ReAct 循环的业务事件名映射为 stream.jsonl 的事件记录。
  */
-function createStreamCallbacks(sink: StreamLog, audit: AuditLog): StreamCallbacks {
+function createStreamCallbacks(sink: StreamLog, _audit: AuditLog): StreamCallbacks {
   const checkWrite = (event: import('../foundation/stream/types.js').StreamEvent) => {
     sink.write(event);
   };
@@ -234,7 +233,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   promise: Promise<void>;
   stop: () => void;
 } {
-  const { runtime, agentDir, clawId, label, audit, inbox, motion, onBatchComplete, streamWriter } = options;
+  const { runtime, agentDir, audit, inbox, motion, onBatchComplete, streamWriter } = options;
   const { pendingDir: inboxPendingDir } = inbox;
   const fallbackTimeout = inbox.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   const heartbeat = motion?.heartbeat;
@@ -468,7 +467,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
         ) {
           // Transient LLM failure — schedule retry via llmRetryPending flag
           llmRetryCount++;
-          const delaySec = Math.round(llmRetryDelayMs / 1000);
           options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_LLM_RETRY, `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `error=${err.message}`);
           await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
           llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, LLM_RETRY_MAX_DELAY_MS);

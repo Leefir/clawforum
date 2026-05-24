@@ -12,9 +12,9 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { loadGlobalConfig, getMotionDir, getGlobalConfigPath, getClawforumRoot } from '../../foundation/config/index.js';
+import { loadGlobalConfig, getMotionDir } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
-import { ProcessManager, PROCESS_SPAWN_CONFIRM_MS, STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
+import { PROCESS_SPAWN_CONFIRM_MS, STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';

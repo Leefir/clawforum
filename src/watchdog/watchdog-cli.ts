@@ -9,7 +9,7 @@ import {
   getWatchdogEntryPath,
 } from './watchdog-context.js';
 import {
-  writeWatchdogPid, getWatchdogPid, isWatchdogAlive, removeWatchdogPid,
+  getWatchdogPid, isWatchdogAlive, removeWatchdogPid,
 } from './watchdog-pid.js';
 import { getWorkspaceRoot } from '../foundation/paths.js';
 

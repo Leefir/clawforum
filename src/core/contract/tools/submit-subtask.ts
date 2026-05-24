@@ -45,7 +45,7 @@ export function createSubmitSubtaskTool(contractManager: ContractSystem): Tool {
     readonly: false,
     idempotent: false,
 
-    async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
+    async execute(args: Record<string, unknown>, _ctx: ExecContext): Promise<ToolResult> {
       const active = await contractManager.loadActive();
       if (!active) {
         return {

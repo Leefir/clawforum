@@ -14,7 +14,7 @@ import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 
 import { createAgentProcessManager } from '../foundation/process-manager/agent-factory.js';
 import { type Runtime, type RuntimeDependencies } from '../core/runtime/index.js';
-import { createRuntime, buildMotionSystemPrompt } from '../core/runtime/index.js';
+import { createRuntime } from '../core/runtime/index.js';
 import { createLLMOrchestrator, type LLMOrchestrator, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../foundation/llm-orchestrator/index.js';
 import { createLLMAuditSink } from './llm-audit-sink.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
@@ -393,13 +393,6 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     // 语义正确（变量作用域覆盖全函数，依赖链仍 DAG），但与 phase155B 原拓扑"L2 先于 L3-L5"不一致。
     // 如要对齐拓扑走独立 phase 处理，见 coding plan/phase155/phase155C/fixup/合并计划.md §C5
     // --- L2: sessionManager + inboxReader + outboxWriter ---
-
-    // build system prompt before DialogStore（phase 466: ctor 必填 systemPrompt）
-    const initialSystemPrompt = await buildMotionSystemPrompt({
-      contextInjector,
-      systemFs,
-      audit: auditWriter,
-    });
 
     const makeDialogStore = (): DialogStore =>
       createDialogStore(systemFs, DIALOG_DIR, auditWriter, 'current.json', clawId);

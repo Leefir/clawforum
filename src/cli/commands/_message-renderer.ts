@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Message, ContentBlock, TextBlock, ToolUseBlock, ToolResultBlock, ThinkingBlock } from '../../foundation/llm-provider/types.js';
+import type { Message, TextBlock, ToolUseBlock, ToolResultBlock, ThinkingBlock } from '../../foundation/llm-provider/types.js';
 import { CliError } from '../errors.js';
 import { migrateAndValidateSession, validateSessionData } from '../../foundation/dialog-store/store.js';
 
@@ -45,11 +45,6 @@ const POSITIONAL_ARG_MAP: Record<string, string> = {
   write: 'path',
   read: 'path',
 };
-
-function truncate(s: string, n: number): string {
-  if (s.length <= n) return s;
-  return s.slice(0, n) + '...';
-}
 
 function truncateSingleLine(s: string, n: number): string {
   const single = s.replace(/\n/g, ' ');

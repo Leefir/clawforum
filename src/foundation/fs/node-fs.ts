@@ -75,7 +75,7 @@ export class NodeFileSystem implements FileSystem {
    */
   private resolveAndCheck(
     relativePath: string, 
-    operation: 'read' | 'write'
+    _operation: 'read' | 'write'
   ): string {
     // Resolve symlinks to prevent traversal via symlinks (OS-level guard)
     const realBase = (() => {

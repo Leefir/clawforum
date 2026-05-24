@@ -10,7 +10,6 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { ToolError } from '../../foundation/errors.js';
 import { LOCK_MAX_RETRIES, LOCK_RETRY_DELAY_MS, LOCK_STALE_TIMEOUT_MS } from './constants.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import {
   emitContractLockSchemaInvalid,
   emitContractLockCleared,

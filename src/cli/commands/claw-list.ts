@@ -5,7 +5,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
 import {
   loadGlobalConfig, getGlobalConfigPath,
 } from '../../foundation/config/index.js';
@@ -14,7 +13,7 @@ import { createDirContext, createProcessManagerForCLI } from '../utils/factories
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
-import { formatRelativeTime, getLastActiveMs, LLM_OUTPUT_EVENTS } from './claw-shared.js';
+import { getLastActiveMs } from './claw-shared.js';
 import { handleCliError } from '../errors.js';
 
 /**
@@ -46,18 +45,6 @@ export async function listCommand(opts?: { json?: boolean }): Promise<void> {
     try {
       return fs.readdirSync(path.join(clawPath, 'outbox', 'pending')).length;
     } catch { return 0; }
-  }
-
-  // Helper: format relative last-active time
-  async function formatLastActive(clawPath: string): Promise<string> {
-    const lastMs = await formatLastActiveMs(clawPath);
-    if (lastMs === undefined) return '-';
-    const age = Date.now() - lastMs;
-    const mins = Math.floor(age / 60000);
-    if (mins < 1) return '<1m';
-    if (mins < 60) return `${mins}m`;
-    const hours = Math.floor(mins / 60);
-    return `${hours}h`;
   }
 
   async function formatLastActiveMs(clawPath: string): Promise<number | undefined> {

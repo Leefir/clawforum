@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { getClawforumDir, getClawforumFs, getAuditWriter, getMotionContext } from './watchdog-context.js';
+import { getClawforumFs, getAuditWriter, getMotionContext } from './watchdog-context.js';
 import { getMotionDir } from '../foundation/config/index.js';
 import { InboxWriter } from '../foundation/messaging/index.js';
 import { WATCHDOG_LOG } from './constants.js';

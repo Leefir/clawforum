@@ -4,7 +4,6 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { INBOX_PENDING_DIR } from '../../foundation/messaging/dirs.js';
-import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr } from './_helpers.js';
 import {
   emitResultWriteFailed,

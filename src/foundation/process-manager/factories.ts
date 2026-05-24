@@ -12,9 +12,8 @@
  *   - NodeFileSystem 构造签名（foundation/fs）、AuditWriter 构造签名、createAgentProcessManager 签名
  */
 
-import path from 'path';
 import { NodeFileSystem } from '../fs/node-fs.js';
-import { type AuditLog, createSystemAudit, AUDIT_FILE } from '../audit/index.js';
+import { type AuditLog, createSystemAudit } from '../audit/index.js';
 import type { FileSystem } from '../fs/types.js';
 import type { ProcessManager } from './index.js';
 import { createAgentProcessManager } from './agent-factory.js';

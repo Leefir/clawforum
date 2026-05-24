@@ -8,7 +8,7 @@
 
 import { isFileNotFound } from '../../foundation/fs/types.js';
 import { runSubagent } from '../subagent/index.js';
-import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+
 import {
   emitContractVerifierSkipped,
   emitContractVerifierFailed,

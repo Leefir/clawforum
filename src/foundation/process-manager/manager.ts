@@ -12,7 +12,6 @@ import * as path from 'path';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 
-import * as pathOps from './paths.js';
 import * as pidOps from './pid.js';
 import * as aliveOps from './alive.js';
 import * as readyOps from './ready.js';
@@ -30,7 +29,6 @@ export { PROCESS_SPAWN_CONFIRM_MS, DAEMON_SHUTDOWN_GRACE_MS } from './constants.
 export class ProcessManager {
   private readonly _ctx: ProcessManagerContext;
   protected readonly fs: FileSystem;
-  private readonly audit: AuditLog;
 
   constructor(
     fs: FileSystem,
@@ -39,7 +37,6 @@ export class ProcessManager {
     dirResolver?: (id: string) => string,
   ) {
     this.fs = fs;
-    this.audit = audit;
     this._ctx = {
       fs,
       audit,

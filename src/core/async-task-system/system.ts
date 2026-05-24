@@ -16,8 +16,6 @@ import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { CallerType } from '../../foundation/tool-protocol/caller-type.js';
 
-import type { Tool } from '../../foundation/tools/index.js';
-import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { Message, ToolDefinition } from '../../foundation/llm-provider/types.js';
 import type { OutboxWriter } from '../../foundation/messaging/index.js';
 import type { InboxWriter } from '../../foundation/messaging/index.js';
@@ -61,7 +59,6 @@ import {
   emitShutdownPendingCleanupsDrained,
 } from './audit-emit.js';
 import { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
-import { writePendingToolTaskFile } from './tools/_pending-tool-task-writer.js';
 import type { PostProcessor } from './post-processors/types.js';
 
 export interface AsyncTaskSystemOptions {
@@ -139,8 +136,6 @@ export class AsyncTaskSystem {
   private readonly maxConcurrent: number;
   private readonly registry: ToolRegistry;
   private readonly llm: LLMOrchestrator;
-  private readonly contractManager: ContractSystem;
-  private readonly outboxWriter: OutboxWriter;
   private readonly motionInbox?: InboxWriter;
   private auditWriter: AuditLog;
   private parentStreamLog?: StreamLog;
@@ -188,8 +183,6 @@ export class AsyncTaskSystem {
     this.parentStreamLog = options.parentStreamLog;
     this.retryBaseDelayMs = options.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS;
     this.llm = options.llm;
-    this.contractManager = options.contractManager;
-    this.outboxWriter = options.outboxWriter;
     this.motionInbox = options.motionInbox;
     this.mainDialogStore = options.mainDialogStore;
     this.registry = options.registry;

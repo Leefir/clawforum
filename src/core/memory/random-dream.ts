@@ -6,7 +6,6 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
-import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
 import { CONTRACT_DIR } from '../contract/index.js';
 import type { ProgressData } from '../contract/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';

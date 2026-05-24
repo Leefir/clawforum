@@ -47,37 +47,37 @@
     },
     {
       "file": "src/cli/commands/chat-viewport.ts",
-      "line": 749,
+      "line": 747,
       "body_excerpt": "} catch { /* fail-soft: shim 自身失败不破坏 crash log + stderr 路径 */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/cli/commands/chat-viewport.ts",
-      "line": 781,
+      "line": 779,
       "body_excerpt": "} catch { /* skip */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/cli/commands/claw-list.ts",
-      "line": 131,
+      "line": 118,
       "body_excerpt": "} catch { /* ignore read errors */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/cli/commands/claw-list.ts",
-      "line": 39,
+      "line": 38,
       "body_excerpt": "} catch { /* skip */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/cli/commands/claw-list.ts",
-      "line": 81,
+      "line": 68,
       "body_excerpt": "} catch { /* skip */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/cli/commands/claw-list.ts",
-      "line": 99,
+      "line": 86,
       "body_excerpt": "} catch { /* skip */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
@@ -257,13 +257,13 @@
     },
     {
       "file": "src/watchdog/watchdog-pid.ts",
-      "line": 31,
+      "line": 25,
       "body_excerpt": "} catch {",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
     {
       "file": "src/watchdog/watchdog-state.ts",
-      "line": 115,
+      "line": 109,
       "body_excerpt": "} catch { /* ignore: crash handler 不抛 */ }",
       "reason": "pre-existing silent catch / TODO phase TBD convert to canonical"
     },
@@ -282,14 +282,14 @@
     },
     {
       "file": "src/core/async-task-system/system.ts",
-      "line": 485,
+      "line": 478,
       "body_excerpt": ".catch(() => {}",
       "reason": "best-effort cleanup before throw / throw 真传播 / cleanup 失败无害",
       "form": "promise"
     },
     {
       "file": "src/core/async-task-system/system.ts",
-      "line": 682,
+      "line": 675,
       "body_excerpt": ".catch(() => {",
       "reason": "fs.move 路径仍 cover 持久化",
       "form": "promise"
@@ -303,14 +303,14 @@
     },
     {
       "file": "src/core/async-task-system/task-recovery.ts",
-      "line": 123,
+      "line": 121,
       "body_excerpt": ".catch(() => {}",
       "reason": "phase 989 C.3 retry-count cleanup hygiene / D5 align",
       "form": "promise"
     },
     {
       "file": "src/core/async-task-system/task-recovery.ts",
-      "line": 200,
+      "line": 198,
       "body_excerpt": ".catch(() => {}",
       "reason": "retryPath delete 失败无害 / 残文件下次 startup 覆盖",
       "form": "promise"
@@ -348,6 +348,13 @@
       "line": 319,
       "body_excerpt": ".catch(() => {",
       "reason": "phase 1149 D fork ratify accepted-stable α / shadow promise 三件套 by-design / 12 caller universe 全 await + audit emit 实证齐全",
+      "form": "promise"
+    },
+    {
+      "file": "src/foundation/dialog-store/store.ts",
+      "line": 325,
+      "body_excerpt": ".catch(() => {",
+      "reason": "pre-existing silent catch / TODO phase TBD convert to canonical",
       "form": "promise"
     }
   ]

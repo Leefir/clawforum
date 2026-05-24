@@ -4,7 +4,6 @@
  */
 
 import * as path from 'path';
-import { createWatcher } from '../../foundation/file-watcher/index.js';
 
 import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
 import { isAlive } from '../../foundation/process-exec/index.js';
@@ -27,10 +26,10 @@ import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/index.js'
 import { writeUserChat } from './chat-viewport-utils.js';
 import { findRecentTurnStartOffset } from '../../foundation/stream/index.js';
 import { type ClawTrack, makeClawTrack, buildClawLine } from './chat-viewport-claw-line.js';
-import { createMainTurnUI, type MainTurnUIDeps, type MainTurnUIController } from './main-turn-ui.js';
-import { createTaskEventHandler, type TaskEventHandlerDeps, type TaskEvent } from './chat-viewport-task-events.js';
-import { createTaskStatusBar, type TaskStatusBarController } from './chat-viewport-task-status-bar.js';
-import { createClawManager, type ClawManager } from './chat-viewport-claw-manager.js';
+import { createMainTurnUI, type MainTurnUIController } from './main-turn-ui.js';
+import { createTaskEventHandler } from './chat-viewport-task-events.js';
+import { createTaskStatusBar } from './chat-viewport-task-status-bar.js';
+import { createClawManager } from './chat-viewport-claw-manager.js';
 import { createViewportCommands, type ViewportCommand, type ThinkingMode } from './chat-viewport-commands.js';
 import { createTuiInputHandler, type ShutdownReason } from './chat-viewport-input.js';
 
@@ -71,7 +70,6 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   }
 
   const { fs } = createDirContext(options.agentDir);
-  const showRecapStream = options.showRecapStream ?? false;
   const showSystemMessages = options.showSystemMessages ?? false;
   const showContractEvents = options.showContractEvents ?? true;
   const trimOutputNewlines = options.trimOutputNewlines ?? true;
