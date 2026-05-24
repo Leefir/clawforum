@@ -9,7 +9,7 @@ import { loadGlobalConfig, getGlobalConfigPath, getMotionDir } from '../../found
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
 import { stopCommand as watchdogStop } from '../../watchdog/watchdog.js';
 import { stopCommand as motionStop } from './motion.js';
-import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
+import { ProcessListUnavailable } from '../../foundation/process-manager/index.js';
 import { kill } from '../../foundation/process-exec/index.js';
 import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { createSystemAudit, type AuditLog } from '../../foundation/audit/index.js';

@@ -17,7 +17,7 @@ import { notifySystem } from '../../foundation/messaging/index.js';
 import { createSystemAudit, type AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
-import { STREAM_FILE, createPerResourceStreamWriter, STREAM_AUDIT_EVENTS, type StreamEvent } from '../../foundation/stream/index.js';
+import { STREAM_FILE, createPerResourceStreamWriter, type StreamEvent } from '../../foundation/stream/index.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { CliError } from '../errors.js';
 

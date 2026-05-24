@@ -3,13 +3,12 @@
  * Stop the Claw daemon process
  */
 
-import * as path from 'path';
 import {
-  loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath,
+  loadGlobalConfig, clawExists,
 } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
 import { CliError } from '../errors.js';
-import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
+import { createProcessManagerForCLI } from '../utils/factories.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 
@@ -21,11 +20,7 @@ export async function stopCommand(name: string, deps?: { audit?: AuditLog }): Pr
     throw new CliError(`Claw "${name}" does not exist`);
   }
 
-  const globalConfigPath = getGlobalConfigPath();
-  const baseDir = path.dirname(globalConfigPath);
-  
   const processManager = createProcessManagerForCLI();
-  const { audit: systemAudit } = createDirContext(baseDir);
 
   // Check if running
   if (!processManager.isAlive(name)) {

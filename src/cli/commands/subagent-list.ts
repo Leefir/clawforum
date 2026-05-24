@@ -4,7 +4,7 @@
  */
 
 import * as fs from 'fs';
-import { resolveClawDir, scanSubagentResults, formatDate, formatDuration, truncateId, type SubagentEntry, type SubagentKind, type SubagentStatus } from './subagent-helpers.js';
+import { resolveClawDir, scanSubagentResults, formatDate, formatDuration, truncateId, type SubagentKind, type SubagentStatus } from './subagent-helpers.js';
 import { handleCliError, CliError } from '../errors.js';
 
 interface ListOptions {

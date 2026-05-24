@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
-  loadGlobalConfig, clawExists, getClawDir, loadClawConfig, buildLLMConfig,
+  loadGlobalConfig, clawExists, getClawDir,
 } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
 import { CliError } from '../errors.js';

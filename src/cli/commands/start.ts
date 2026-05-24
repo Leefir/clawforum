@@ -27,7 +27,6 @@ import { ContractSystem } from '../../core/contract/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { createDirContext } from '../utils/factories.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
-import { NodeFileSystem } from '../../foundation/fs/node-fs.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
