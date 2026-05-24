@@ -111,6 +111,7 @@ describe('no verification path', () => {
     // Mock runLLMVerification to delay, keeping the subtask in_progress for the
     // duration of this test so assertions are deterministic.
     vi.spyOn(manager as any, 'runLLMVerification').mockImplementation(async () => {
+      // sleep: keep subtask in_progress long enough for synchronous assertions above
       await new Promise((r) => setTimeout(r, 150));
       return { passed: true, feedback: 'mocked' };
     });
