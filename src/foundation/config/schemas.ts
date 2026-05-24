@@ -129,6 +129,14 @@ export function createClawGlobalConfigSchema(defaults: ConfigDefaults) {
           enabled: z.boolean().default(true),
           schedule: z.string().default('interval:30s'),
         }).optional(),
+        git_hygiene_monitor: z.object({
+          enabled: z.boolean().optional(),
+          schedule: z.string().optional(),
+          worktree_threshold: z.number().int().positive().optional(),
+          branch_threshold: z.number().int().positive().optional(),
+          stash_threshold: z.number().int().nonnegative().optional(),
+          claude_worktrees_threshold: z.number().int().nonnegative().optional(),
+        }).optional(),
       }).optional(),
     }).optional(),
     viewport: z.object({

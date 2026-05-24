@@ -67,6 +67,7 @@ import { createMemorySystem, memorySearchTool } from '../core/memory/index.js';
 import type { MemorySystem } from '../core/memory/index.js';
 import { runContractObserver } from '../core/contract/jobs/contract-observer.js';
 import { runOutboxDrain } from '../core/cron/jobs/outbox-drain.js';
+import { runGitHygieneMonitor } from '../core/cron/jobs/git-hygiene-monitor.js';
 import { buildLLMConfig } from '../foundation/config/index.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../core/async-task-system/constants.js';
 import { DEFAULT_MAX_STEPS } from '../core/agent-executor/index.js';
@@ -94,6 +95,7 @@ const CRON_JOB_TIMEOUTS_MS = {
   retentionCleanup: 120_000,            // 2 min
   auditSizeMonitor: 30_000,
   outboxDrain: 30_000,
+  gitHygieneMonitor: 60_000,
 } as const;
 
 // 内部 helper（从 daemon.ts L42-75 搬入）
@@ -770,6 +772,21 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
               audit: auditWriter,
             }),
             timeoutMs: CRON_JOB_TIMEOUTS_MS.outboxDrain,
+          },
+          {
+            name: 'git-hygiene-monitor',
+            enabled: globalConfig.cron?.jobs?.git_hygiene_monitor?.enabled ?? true,
+            schedule: parseSchedule(globalConfig.cron?.jobs?.git_hygiene_monitor?.schedule ?? 'daily:06:00', auditWriter),
+            handler: () => runGitHygieneMonitor({
+              clawforumDir,
+              audit: auditWriter,
+              motionInbox: diskMonitorInbox,
+              worktreeThreshold: globalConfig.cron?.jobs?.git_hygiene_monitor?.worktree_threshold,
+              branchThreshold: globalConfig.cron?.jobs?.git_hygiene_monitor?.branch_threshold,
+              stashThreshold: globalConfig.cron?.jobs?.git_hygiene_monitor?.stash_threshold,
+              claudeWorktreesThreshold: globalConfig.cron?.jobs?.git_hygiene_monitor?.claude_worktrees_threshold,
+            }),
+            timeoutMs: CRON_JOB_TIMEOUTS_MS.gitHygieneMonitor,
           },
         ], auditWriter);
       } catch (e) {
