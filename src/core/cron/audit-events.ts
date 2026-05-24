@@ -19,6 +19,7 @@ export const CRON_AUDIT_EVENTS = {
   JOB_ERROR: 'cron_job_error',
   JOB_STARTED: 'cron_job_started',        // NEW phase1108: tick dispatch
   HANDLER_TIMEOUT: 'cron_handler_timeout',
+  HANDLER_ABORTED: 'cron_handler_aborted',  // NEW phase 1232 r132 C
   HANDLER_STUCK: 'cron_handler_stuck',
   JOB_LATE_SETTLED: 'cron_job_late_settled',  // NEW phase 758
   RUNNER_DRAIN_TIMEOUT: 'cron_drain_timeout',   // phase 793 (P0.22): stop drain cap timeout

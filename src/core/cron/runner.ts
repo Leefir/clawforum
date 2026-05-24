@@ -74,6 +74,8 @@ export class CronRunner {
   private inflightPromises = new Map<Promise<unknown>, { job: string; runKey: string; startTs: number }>();
   // phase 946 (audit-2026-05-15 gap.7): AbortController for handler cooperative cancellation
   private abortController = new AbortController();
+  // phase 1232 r132 C: per-job AbortController for真 abort on timeout / stuck
+  private _activeAbortControllers = new Map<string, AbortController>();
   // F5: per-job initial scan guard to prevent daily double-fire on daemon restart
   private _initialScanDone = new Set<string>();
   // phase1109: cron state persistence (crash recovery for daily/hourly dedup)
@@ -129,6 +131,11 @@ export class CronRunner {
     // phase 946: signal handler cooperative abort (LLM call → fetch early reject)
     // 在 drain 之前 abort、让 inflight handler 尽快 settle / drain 实际 < cap timeout
     this.abortController.abort();
+    // phase 1232 r132 C: abort all per-job controllers on stop (shared 不替代 per-job)
+    for (const [, ctrl] of this._activeAbortControllers) {
+      ctrl.abort();
+    }
+    this._activeAbortControllers.clear();
 
     // drain inflight handlers
     if (this.inflightPromises.size > 0) {
@@ -190,6 +197,18 @@ export class CronRunner {
           `ticks=${ticks}`,
           `timeout_ms=${job?.timeoutMs ?? 'unknown'}`,
         );
+        // phase 1232 r132 C: 再 abort (idempotent) + cleanup controller
+        const ctrl = this._activeAbortControllers.get(name);
+        if (ctrl) {
+          ctrl.abort();  // idempotent if already aborted
+          this.audit.write(
+            CRON_AUDIT_EVENTS.HANDLER_ABORTED,
+            `job=${name}`,
+            `ticks=${ticks}`,
+            'context=stuck_watchdog',
+          );
+          this._activeAbortControllers.delete(name);
+        }
         this.cancelling.delete(name);
         this.cancellingTicks.delete(name);
       } else {
@@ -217,7 +236,9 @@ export class CronRunner {
 
       let handlerPromise: Promise<void>;
       try {
-        handlerPromise = job.handler(this.abortController.signal);
+        const jobController = new AbortController();
+        this._activeAbortControllers.set(job.name, jobController);
+        handlerPromise = job.handler(jobController.signal);
       } catch (syncErr) {
         handlerPromise = Promise.reject(syncErr);
       }
@@ -239,7 +260,10 @@ export class CronRunner {
               `error=${err instanceof Error ? err.message : String(err)}`,
             );
           })
-          .finally(() => this.running.delete(job.name));
+          .finally(() => {
+            this.running.delete(job.name);
+            this._activeAbortControllers.delete(job.name);
+          });
         continue;
       }
 
@@ -260,6 +284,17 @@ export class CronRunner {
           this.running.delete(job.name);
           this.cancelling.add(job.name);
           this.cancellingTicks.set(job.name, 0);
+          // phase 1232 r132 C: 真 abort handler signal (handler 若 cooperative respect 真 stop)
+          const ctrl = this._activeAbortControllers.get(job.name);
+          if (ctrl) {
+            ctrl.abort();
+            this.audit.write(
+              CRON_AUDIT_EVENTS.HANDLER_ABORTED,
+              `job=${job.name}`,
+              `run_key=${key}`,
+              'context=timeout',
+            );
+          }
           resolve();
         }, job.timeoutMs);
       });
@@ -276,6 +311,7 @@ export class CronRunner {
             );
             this.cancelling.delete(job.name);
             this.cancellingTicks.delete(job.name);
+            this._activeAbortControllers.delete(job.name);
           }
         },
         err => {
@@ -288,6 +324,7 @@ export class CronRunner {
             );
             this.cancelling.delete(job.name);
             this.cancellingTicks.delete(job.name);
+            this._activeAbortControllers.delete(job.name);
           }
           // 非 timedOut 时 race chain 路径已 audit JOB_ERROR / 此处不重 audit
         }
@@ -308,7 +345,10 @@ export class CronRunner {
             );
           }
           // settled 或 err 路径：仅在未 timeout 时清 running
-          if (!timedOut) this.running.delete(job.name);
+          if (!timedOut) {
+            this.running.delete(job.name);
+            this._activeAbortControllers.delete(job.name);
+          }
         });
     }
     // Persist cron state after each tick (fire-and-forget, non-blocking)
