@@ -354,6 +354,7 @@ Test message`;
               timestamp: new Date().toISOString(),
               metadata: { contract_id: 'test-contract' },
             } as InboxMessage],
+            addressedHandles: [],
           };
         }
         protected override async _runReact(_messages: Message[]) {

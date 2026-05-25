@@ -125,6 +125,30 @@ export function emitInboxMetaFailed(
   audit.write(MESSAGING_AUDIT_EVENTS.INBOX_META_FAILED, `file=${opts.file}`, `kind=${opts.kind}`);
 }
 
+// ─── INBOX_RECONCILE ──────────────────────────────────────────────────────────
+export function emitInboxReconcile(
+  audit: AuditLog,
+  opts: { revertedCount: number; from: string; to: string; reason: string },
+): void {
+  audit.write(
+    MESSAGING_AUDIT_EVENTS.INBOX_RECONCILE,
+    `reverted_count=${opts.revertedCount}`,
+    `from=${opts.from}`,
+    `to=${opts.to}`,
+    `reason=${opts.reason}`,
+  );
+}
+
+// ─── INBOX_NACK ───────────────────────────────────────────────────────────────
+export function emitInboxNack(
+  audit: AuditLog,
+  opts: { file: string; reason?: string },
+): void {
+  const cols: string[] = [`file=${opts.file}`];
+  if (opts.reason !== undefined) cols.push(`reason=${opts.reason}`);
+  audit.write(MESSAGING_AUDIT_EVENTS.INBOX_NACK, ...cols);
+}
+
 // ─── OUTBOX_SENT ──────────────────────────────────────────────────────────────
 export function emitOutboxSent(
   audit: AuditLog,

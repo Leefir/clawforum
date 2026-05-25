@@ -30,7 +30,7 @@ import { MaxStepsExceededError } from '../agent-executor/errors.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
-import type { InboxReader, InboxEntry, OutboxWriter } from '../../foundation/messaging/index.js';
+import type { InboxReader, InboxEntry, InboxHandle, OutboxWriter } from '../../foundation/messaging/index.js';
 import { ExecContextImpl } from '../../foundation/tools/index.js';
 import type { ExecContext } from '../../foundation/tools/index.js';
 import type { ToolRegistry, IToolExecutor } from '../../foundation/tools/index.js';
@@ -356,7 +356,8 @@ export class Runtime {
 
   /**
    * Read and drain inbox/pending/*.md for this instance.
-   * Files are moved to the done directory immediately after reading (messages are already in memory).
+   * Uses drainAndDeliver() to move files to inflight/ (delivered but not yet acked).
+   * Unaddressed messages are immediately acked; addressed handles returned for turn-end ack.
    * @protected available for reuse by subclass MotionRuntime
    */
   protected async _drainOwnInbox(): Promise<{
@@ -364,27 +365,39 @@ export class Runtime {
     sources: Array<{ text: string; type: string }>;
     count: number;
     infos: InboxMessage[];
+    addressedHandles: InboxHandle[];
   }> {
-    const entries = await this._drainEntriesOrEmpty();
+    const { entries, handles } = await this._drainEntriesOrEmpty();
     if (entries.length === 0) {
-      return { injected: [], sources: [], count: 0, infos: [] };
+      return { injected: [], sources: [], count: 0, infos: [], addressedHandles: [] };
     }
-    const { addressed, unaddressed } = this._splitAndAuditEntries(entries);
-    // 先 format 再 markDone：format/inject 成功后才移文件
-    // 若其间 crash，文件在 pending/ 中，下次 drain 重新处理
+    const { addressed } = this._splitAndAuditEntries(entries);
     const { injected, sources } = await this._formatInjected(addressed);
-    const truncated = await this._markDoneAndTruncate(addressed, unaddressed);
+
+    // unaddressed messages are not part of this turn — ack immediately
+    const addressedPaths = new Set(addressed.map(e => e.filePath));
+    const unaddressedHandles = handles.filter(h => !addressedPaths.has(h.filePath));
+    for (const h of unaddressedHandles) {
+      try {
+        await this.inboxReader.ack(h);
+      } catch (e) {
+        // best-effort ack; audit already emitted by InboxReader
+      }
+    }
+
+    const addressedHandles = handles.filter(h => addressedPaths.has(h.filePath));
     return {
       injected,
       sources,
-      count: truncated.length,
-      infos: truncated.map(e => e.message),
+      count: addressed.length,
+      infos: addressed.map(e => e.message),
+      addressedHandles,
     };
   }
 
-  private async _drainEntriesOrEmpty(): Promise<InboxEntry[]> {
+  private async _drainEntriesOrEmpty(): Promise<{ entries: InboxEntry[]; handles: InboxHandle[] }> {
     try {
-      return await this.inboxReader.drainInbox();
+      return await this.inboxReader.drainAndDeliver();
     } catch (err) {
       if (err instanceof InboxListFailed || err instanceof InboxMoveFailed) {
         this.auditWriter.write(
@@ -392,7 +405,7 @@ export class Runtime {
           `error=${err.constructor.name}`,
           `reason=${formatErr(err)}`,
         );
-        return [];
+        return { entries: [], handles: [] };
       }
       throw err;
     }
@@ -432,29 +445,6 @@ export class Runtime {
       );
     }
     return { addressed, unaddressed };
-  }
-
-  private async _markDoneAndTruncate(
-    addressed: InboxEntry[],
-    unaddressed: InboxEntry[],
-  ): Promise<InboxEntry[]> {
-    const allEntries = [...addressed, ...unaddressed];
-    let processedCount = 0;
-    for (const { filePath } of allEntries) {
-      try {
-        await this.inboxReader.markDone(filePath);
-        processedCount++;
-      } catch (err) {
-        if (err instanceof InboxMoveFailed) {
-          // markDone 失败：该消息 + 之后未处理消息留 pending / 下次 drainInbox 重拉
-          // audit 已在 markDone 内写 / 截断 returned addressed 防重复 inject
-          break;
-        }
-        throw err;
-      }
-    }
-    // 截断 addressed 到 successfully markDone 数（防重复 inject）
-    return addressed.slice(0, Math.min(processedCount, addressed.length));
   }
 
   private async _formatInjected(addressed: InboxEntry[]): Promise<{
@@ -647,7 +637,7 @@ export class Runtime {
       await this.initialize();
     }
 
-    const { injected, sources, count, infos } = await this._drainOwnInbox();
+    const { injected, sources, count, infos, addressedHandles } = await this._drainOwnInbox();
     if (count === 0) return 0;
 
     // Notify daemon-loop of inbox messages for review_request handling
@@ -662,18 +652,11 @@ export class Runtime {
 
     const { session } = await this.sessionManager.load();
     const messages = [...session.messages, ...injected];
-
-    // Save injected messages immediately so interrupt doesn't lose them
     const injectTools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
-    await this.sessionManager.save({
-      systemPrompt: session.systemPrompt,
-      messages,
-      toolsForLLM: injectTools,
-    });
 
-    // Turn start: inbox drained and persisted, processing about to begin
+    // Turn start
     callbacks?.onTurnStart?.(sources);
     this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_START);
 
@@ -681,27 +664,34 @@ export class Runtime {
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
-    // Phase 1105: pre-turn snapshot for rollback on error
-    const messagesBefore = JSON.parse(JSON.stringify(messages)) as Message[];
-    const systemPromptBefore = session.systemPrompt;
-    const toolsBefore = injectTools;
+
+    await this.sessionManager.beginTurn();
     try {
+      // Save injected messages inside transaction
+      await this.sessionManager.save({
+        systemPrompt: session.systemPrompt,
+        messages,
+        toolsForLLM: injectTools,
+      });
+
       await this._runReact(messages, callbacks);
 
       // Turn completed normally
       callbacks?.onTurnEnd?.();
       this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_END);
 
+      await this.sessionManager.commitTurn();
+      for (const h of addressedHandles) {
+        await this.inboxReader.ack(h);
+      }
       return count;
     } catch (err) {
       // Turn-level error/interrupt event
       this._handleTurnInterrupt(err, callbacks);
-      // Phase 1105: rollback to pre-turn state to prevent corrupted partial state
-      await this.sessionManager.save({
-        systemPrompt: systemPromptBefore,
-        messages: messagesBefore,
-        toolsForLLM: toolsBefore,
-      });
+      await this.sessionManager.rollbackTurn(formatErr(err));
+      for (const h of addressedHandles) {
+        await this.inboxReader.nack(h, formatErr(err));
+      }
       // Notify each inbox sender so they're not left hanging
       if (err instanceof MaxStepsExceededError) {
         const errorMsg = err.message;

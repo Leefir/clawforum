@@ -35,6 +35,13 @@ export class DialogStore {
   private corruptedPoisoned: boolean = false;
   private flushPromise: Promise<void> = Promise.resolve();
 
+  // phase 1285: turn transaction snapshot (memory-based)
+  private _turnSnapshot: {
+    messages: Message[];
+    systemPrompt: string;
+    toolsForLLM: import('../../foundation/llm-provider/types.js').ToolDefinition[];
+  } | null = null;
+
   constructor(
     private readonly fs: FileSystem,
     dialogDir: string,
@@ -333,6 +340,47 @@ export class DialogStore {
       this.audit.write(DIALOG_AUDIT_EVENTS.FLUSH_CHAIN_ERROR, `reason=${e instanceof Error ? e.message : String(e)}`);
     });
     return next;
+  }
+
+  /**
+   * Begin a turn transaction.
+   * Captures current in-memory state as rollback point.
+   * All save() calls within the turn are accumulated in memory;
+   * commitTurn() flushes atomically, rollbackTurn() restores snapshot.
+   */
+  async beginTurn(): Promise<void> {
+    const { session } = await this.load();
+    this._turnSnapshot = {
+      messages: JSON.parse(JSON.stringify(session.messages)) as Message[],
+      systemPrompt: session.systemPrompt,
+      toolsForLLM: JSON.parse(JSON.stringify(session.toolsForLLM)) as import('../../foundation/llm-provider/types.js').ToolDefinition[],
+    };
+    this.audit.write(DIALOG_AUDIT_EVENTS.TURN_BEGIN);
+  }
+
+  /**
+   * Commit turn transaction: snapshot is discarded; save() already wrote incrementally.
+   * No-op if no transaction in progress.
+   */
+  async commitTurn(): Promise<void> {
+    if (!this._turnSnapshot) return;
+    this._turnSnapshot = null;
+    this.audit.write(DIALOG_AUDIT_EVENTS.TURN_COMMIT);
+  }
+
+  /**
+   * Rollback turn transaction: restore dialog to beginTurn() snapshot.
+   * Guarantees Phase 1105 all-or-nothing rollback semantics.
+   */
+  async rollbackTurn(reason?: string): Promise<void> {
+    if (!this._turnSnapshot) return;
+    const { messages, systemPrompt, toolsForLLM } = this._turnSnapshot;
+    await this.save({ systemPrompt, messages, toolsForLLM });
+    this._turnSnapshot = null;
+    this.audit.write(
+      DIALOG_AUDIT_EVENTS.TURN_ROLLBACK,
+      reason ? `reason=${reason}` : 'reason=unknown',
+    );
   }
 
   /**

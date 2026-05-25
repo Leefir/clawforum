@@ -48,7 +48,8 @@ describe('Runtime SignalAudit', () => {
         sources: Array<{ text: string; type: string }>;
         count: number;
         infos: Array<{ meta: Record<string, string>; body?: string }>;
-      } = { injected: [], sources: [], count: 0, infos: [] };
+        addressedHandles: any[];
+      } = { injected: [], sources: [], count: 0, infos: [], addressedHandles: [] };
       public reactThrow: unknown = null;
 
       protected override async _drainOwnInbox() {
@@ -100,6 +101,7 @@ describe('Runtime SignalAudit', () => {
           priority: 'normal',
           timestamp: new Date().toISOString(),
         } as InboxMessage],
+        addressedHandles: [],
       };
       return r;
     }
