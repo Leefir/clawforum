@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/audit/index.js';
+import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { ToolError } from '../../foundation/errors.js';

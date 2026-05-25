@@ -13,7 +13,7 @@
 import { createServer, connect, type Server, type Socket } from 'node:net';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { AUDIT_PREVIEW_LEN } from '../audit/index.js';
+import { AUDIT_PREVIEW_LEN } from '../constants.js';
 import type { Transport, TransportOptions, BroadcastFailure, TransportErrorEvent } from './index.js';
 import type { Connection } from './types.js';
 

@@ -13,7 +13,7 @@ import type { Message } from '../../foundation/llm-provider/types.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { TASKS_SYNC_SHADOW_DIR } from './constants.js';
 import { runSubagent, createPerTaskRegistry, getDisplayResult } from '../subagent/index.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/audit/index.js';
+import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
 import { SHADOW_AUDIT_EVENTS } from './audit-events.js';
 import { synthesizeFormB, formatErr } from './_helpers.js';
 import { classifyTaskError } from '../async-task-system/index.js';

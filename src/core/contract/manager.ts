@@ -30,7 +30,7 @@ import type { Contract, SubtaskStatus } from '../contract/types.js';
 import { ToolError, isProgrammingBug } from '../../foundation/errors.js';
 import { type AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/audit/index.js';
+import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
 
 import {
   emitContractCancelled,

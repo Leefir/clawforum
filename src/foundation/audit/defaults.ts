@@ -9,10 +9,16 @@
 export const AUDIT_MESSAGE_MAX_CHARS = 200;
 
 /**
- * AUDIT_PREVIEW_LEN = audit log 预览字段截断字符数
- * （audit 体系内部、raw/intent/task 等预览字段统一截断长度）
- * 与 AUDIT_MESSAGE_MAX_CHARS 区别：
- *   - AUDIT_PREVIEW_LEN (100) = preview / debug 用、短摘要
- *   - AUDIT_MESSAGE_MAX_CHARS (200) = 单字段完整 truncate cap、防 binary payload 撑爆
+ * AUDIT_PREVIEW_LEN — SUNSET backward-compat re-export (phase 1278 α path)
+ *
+ * Original const ratified at phase 982 (M#3 + ML#8 single-source).
+ * Revoked by phase 1278 r136 D fork user ratify α path:
+ * moved to foundation/constants.ts (L0) to eliminate L1→L2a reverse import
+ * and same-layer L2→L2a cross-module dependency.
+ *
+ * This re-export is retained for 30-day backward compat.
+ * Audit emit `AUDIT_PREVIEW_LEN_LEGACY_BARREL_IMPORT` tracked.
+ * After sunset: delete this re-export; all callers must import from
+ * `foundation/constants.js` directly.
  */
-export const AUDIT_PREVIEW_LEN = 100;
+export { AUDIT_PREVIEW_LEN } from '../constants.js';

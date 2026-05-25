@@ -13,7 +13,7 @@ import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { TASKS_SYNC_SPAWN_DIR } from './constants.js';
 import { runSubagent, createPerTaskRegistry, getDisplayResult } from '../subagent/index.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/audit/index.js';
+import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
 import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { SPAWN_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr } from './_helpers.js';
