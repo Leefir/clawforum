@@ -17,8 +17,8 @@ import {
 import {
   getGlobalConfigPath,
   getClawConfigPath,
-  getClawDir,
 } from '../paths.js';
+import { NodeFileSystem } from '../fs/index.js';
 
 // Expand ${ENV_VAR} syntax in config values
 function expandEnvVars(obj: unknown): unknown {
@@ -93,17 +93,11 @@ export function isInitialized(): boolean {
 // Save global config
 export function saveGlobalConfig(config: ClawGlobalConfig): void {
   const configPath = getGlobalConfigPath();
-  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  const dir = path.dirname(configPath);
+  fs.mkdirSync(dir, { recursive: true });
   const content = yaml.dump(config);
-  const tmpPath = `${configPath}.tmp.${Date.now()}`;
-  fs.writeFileSync(tmpPath, content);
-  const fd = fs.openSync(tmpPath, 'r+');
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(tmpPath, configPath);
+  const fileSystem = new NodeFileSystem({ baseDir: dir });
+  fileSystem.writeAtomicSync(path.basename(configPath), content);
 }
 
 // Load claw config
@@ -157,33 +151,19 @@ export function patchGlobalConfigPrimary(patch: Record<string, unknown>): void {
   llm.primary = { ...primary, ...patch };
   cfg.llm = llm;
   const content = yaml.dump(cfg);
-  const tmpPath = `${configPath}.tmp.${Date.now()}`;
-  fs.writeFileSync(tmpPath, content);
-  const fd = fs.openSync(tmpPath, 'r+');
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(tmpPath, configPath);
+  const dir = path.dirname(configPath);
+  const fileSystem = new NodeFileSystem({ baseDir: dir });
+  fileSystem.writeAtomicSync(path.basename(configPath), content);
 }
 
 // Save claw config
 export function saveClawConfig(name: string, config: ClawConfig): void {
-  const clawDir = getClawDir(name);
-  fs.mkdirSync(clawDir, { recursive: true });
-
   const configPath = getClawConfigPath(name);
+  const dir = path.dirname(configPath);
+  fs.mkdirSync(dir, { recursive: true });
   const content = yaml.dump(config);
-  const tmpPath = `${configPath}.tmp.${Date.now()}`;
-  fs.writeFileSync(tmpPath, content);
-  const fd = fs.openSync(tmpPath, 'r+');
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(tmpPath, configPath);
+  const fileSystem = new NodeFileSystem({ baseDir: dir });
+  fileSystem.writeAtomicSync(path.basename(configPath), content);
 }
 
 // Check if claw exists
