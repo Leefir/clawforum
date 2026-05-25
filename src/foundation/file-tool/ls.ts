@@ -47,7 +47,7 @@ export const lsTool: Tool = {
     const clawParam = args.claw as string | undefined;
     // From constants.ts: pagination limit
 
-    // Motion-only: list directory in another claw
+    // Cross-claw ls: specific target = any agent / broadcast '*' = Motion-only (per D11 inter-claw)
     let targetPath: string;
     let entries: { path: string; isDirectory: boolean; isFile: boolean; size?: number }[];
 

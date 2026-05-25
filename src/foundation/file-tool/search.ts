@@ -2,7 +2,7 @@
  * @module L2.FileTool
  * search tool - Search for text in files
  *
- * Motion-only: can search other claws' files via `claw` parameter
+ * Cross-claw access: `claw: "<id>"` available to all agents; `claw: "*"` (broadcast) Motion-only (per D11).
  */
 
 import * as nodePath from 'path';
@@ -81,7 +81,7 @@ export const searchTool: Tool = {
       },
       claw: {
         type: 'string',
-        description: '目标 claw ID（仅 Motion 可用）。"*" 表示搜索所有 claw，结果带 [clawId] 前缀。例：{ query: "error", path: "logs/", claw: "*" }',
+        description: '目标 claw ID（specific target 任意 agent / broadcast \'*\' 仅 Motion 可用）。"*" 表示搜索所有 claw，结果带 [clawId] 前缀。例：{ query: "error", path: "logs/", claw: "*" }',
       },
       async: {
         type: 'boolean',
@@ -115,7 +115,7 @@ export const searchTool: Tool = {
     }
     checker.resolveAndCheck(searchPath, 'read');
 
-    // Motion-only: search files in another claw
+    // Cross-claw search: specific target = any agent / broadcast '*' = Motion-only (per D11 inter-claw)
     let baseDir: string;
     let useNativeFs = false;
 
