@@ -6,6 +6,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import * as path from 'path';
 
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
@@ -743,7 +744,7 @@ export class AsyncTaskSystem {
       stepNumber: 0,
       maxSteps: 1,
       signal,
-      isMotionChain: task.parentClawId === 'motion',
+      isMotionChain: task.parentClawId === MOTION_CLAW_ID,
       isShadow: task.isShadow,
       auditWriter: this.auditWriter,
       getElapsedMs: () => 0,

@@ -9,6 +9,7 @@
 
 import path from 'node:path';
 import type { Tool, ExecContext } from '../../tools/index.js';
+import { MOTION_CLAW_ID } from '../../../constants.js';
 import type { ToolResult } from '../../tool-protocol/index.js';
 import type { FileSystem } from '../../fs/types.js';
 import type { AuditLog } from '../../audit/index.js';
@@ -55,7 +56,7 @@ export function createNotifyClawTool(deps: NotifyClawDeps): Tool {
 
     async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
       // Phase 1105: notify_claw is motion-only
-      if ((ctx.callerType as string) !== 'motion') {
+      if ((ctx.callerType as string) !== MOTION_CLAW_ID) {
         return { success: false, content: 'notify_claw is motion-only' };
       }
       const to = args.to as string;
@@ -92,7 +93,7 @@ export function createNotifyClawTool(deps: NotifyClawDeps): Tool {
       try {
         new InboxWriter(deps.fs, targetInboxDir, deps.audit).writeSync({
           type,
-          source: 'motion',
+          source: MOTION_CLAW_ID,
           priority,
           body,
         });

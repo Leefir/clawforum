@@ -3,6 +3,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { CLAWS_DIR } from '../../../foundation/paths.js';
+import { MOTION_CLAW_ID } from '../../../constants.js';
 
 /**
  * Cron job timeout (ms) / 防 stuck handler 占 cron tick.
@@ -83,7 +84,7 @@ function collectEntries(opts: LlmStatsOptions, targetDate: string): ParsedLlmRow
   const results: ParsedLlmRow[] = [];
 
   const candidates: Array<{ fs: FileSystem; file: string; clawId: string }> = [
-    { fs: opts.motionFs, file: 'audit.tsv', clawId: 'motion' },
+    { fs: opts.motionFs, file: 'audit.tsv', clawId: MOTION_CLAW_ID },
     ...(() => {
       if (!opts.clawforumFs.existsSync(CLAWS_DIR)) return [];
       return opts.clawforumFs.listSync(CLAWS_DIR, { includeDirs: true }).map(e => ({

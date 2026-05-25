@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { MEMORY_AUDIT_EVENTS } from './audit-events.js';
@@ -345,8 +346,8 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
     intent: buildRandomDreamPrompt(weightedContracts),
     timeoutMs: subagentTimeoutMs,
     maxSteps: subagentMaxSteps,
-    parentClawId: 'motion',
-    originClawId: 'motion',
+    parentClawId: MOTION_CLAW_ID,
+    originClawId: MOTION_CLAW_ID,
     systemPrompt: RANDOM_DREAM_SYSTEM_PROMPT,    // phase 546: dead import 活化（同 deep-dream 直 LLMService.call 模板 align）
   });
 

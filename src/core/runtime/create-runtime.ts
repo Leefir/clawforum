@@ -13,6 +13,7 @@
  */
 
 import { Runtime } from './runtime.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import type { RuntimeOptions } from './types.js';
 import type { ContextInjector } from '../dialog/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -103,7 +104,7 @@ export function createRuntime(
   options: CreateRuntimeOptions
 ): Runtime {
   const { identity, ...runtimeOptions } = options;
-  if (identity === 'motion') {
+  if (identity === MOTION_CLAW_ID) {
     return new Runtime({
       ...runtimeOptions,
       systemPromptBuilder: buildMotionSystemPrompt,

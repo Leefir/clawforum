@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import { MOTION_CLAW_ID } from '../../constants.js';
 
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
@@ -176,7 +177,7 @@ export class Runtime {
       clawDir: this.options.clawDir,
       syncDir: path.join(this.options.clawDir, TASKS_SYNC_DIR),
       profile: this.options.toolProfile ?? 'full',
-      callerType: this.options.systemPromptBuilder ? 'motion' : 'claw',
+      callerType: this.options.systemPromptBuilder ? MOTION_CLAW_ID : 'claw',
       permissionChecker: deps.permissionChecker,  // NEW phase 1273
       fs: this.systemFs,
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),

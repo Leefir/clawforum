@@ -9,6 +9,7 @@
  */
 
 import { buildRetroPrompt } from '../../prompts/retrospective.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import { writePendingSubagentTaskFile } from '../async-task-system/index.js';
 import { createSkillSystem } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from './dispatch-skills-paths.js';
@@ -63,7 +64,7 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
     intent: retroPrompt,
     timeoutMs: config.retroSubagentTimeoutMs ?? 600000,
     maxSteps: DEFAULT_MAX_STEPS,
-    parentClawId: 'motion',
-    originClawId: 'motion',
+    parentClawId: MOTION_CLAW_ID,
+    originClawId: MOTION_CLAW_ID,
   });
 }

@@ -4,6 +4,7 @@
  */
 
 import type { Tool, ExecContext } from '../../tools/index.js';
+import { MOTION_CLAW_ID } from '../../../constants.js';
 import type { ToolResult } from '../../tool-protocol/index.js';
 import type { OutboxWriter } from '../index.js';
 
@@ -64,7 +65,7 @@ export function createSendTool(outboxWriter: OutboxWriter): Tool {
       try {
         await outboxWriter.write({
           type: type as 'report' | 'question' | 'result' | 'error',
-          to: 'motion',
+          to: MOTION_CLAW_ID,
           content,
           priority: priority as 'critical' | 'high' | 'normal' | 'low',
         });
