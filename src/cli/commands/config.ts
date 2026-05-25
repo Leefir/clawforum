@@ -16,6 +16,7 @@ import { createProcessManagerForCLI } from '../utils/factories.js';
 import { CliError } from '../errors.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../core/step-executor/constants.js';
 import { DEFAULT_LLM_TIMEOUT_MS } from '../../foundation/llm-orchestrator/defaults.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 
 /**
  * If motion daemon is running, ask user whether to restart it so config changes take effect.
@@ -23,14 +24,14 @@ import { DEFAULT_LLM_TIMEOUT_MS } from '../../foundation/llm-orchestrator/defaul
  */
 async function promptRestartDaemon(rl?: readline.Interface): Promise<void> {
   const pm = createProcessManagerForCLI();
-  if (!pm.isAlive('motion')) return;
+  if (!pm.isAlive(MOTION_CLAW_ID)) return;
 
   const needClose = !rl;
   if (!rl) rl = createRL();
   try {
     const answer = await question(rl, '\nMotion daemon is running. Restart to apply changes? [y/N]', 'N');
     if (answer.toLowerCase() === 'y') {
-      const stopped = await pm.stop('motion');
+      const stopped = await pm.stop(MOTION_CLAW_ID);
       if (stopped) {
         console.log('✓ Daemon stopped. Watchdog will restart it automatically.');
       } else {

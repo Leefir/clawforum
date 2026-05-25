@@ -334,7 +334,7 @@ export async function startCommand(deps?: { audit?: AuditLog }): Promise<void> {
 
 async function _start(audit?: AuditLog): Promise<void> {
   // Step 1: workspace init
-  const motionDir = getNamedSubrootDir('motion');
+  const motionDir = getNamedSubrootDir(MOTION_CLAW_ID);
   const snapshot = getInitializationSnapshot(motionDir);
   const wasFirstRun = !snapshot.isInitialized;
   if (wasFirstRun) {
@@ -371,7 +371,7 @@ async function _start(audit?: AuditLog): Promise<void> {
   const daemonEntryPath = fs.existsSync(bundleEntry) ? bundleEntry : path.resolve(thisDir, '..', '..', 'daemon-entry.js');
   const motionSpawnOptions = {
     command: 'node' as const,
-    args: [daemonEntryPath, 'motion'],
+    args: [daemonEntryPath, MOTION_CLAW_ID],
     logFile: path.join(motionDir, DAEMON_LOG),
     env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
   };
@@ -385,8 +385,8 @@ async function _start(audit?: AuditLog): Promise<void> {
   // onboarding 已完成 → 直接进 chat
   if (onboarding.state === 'complete') {
     const pm = createProcessManagerForCLI();
-    if (!pm.isAlive('motion')) {
-      await pm.spawn('motion', motionSpawnOptions);
+    if (!pm.isAlive(MOTION_CLAW_ID)) {
+      await pm.spawn(MOTION_CLAW_ID, motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     const { ensureWatchdog } = await import('../../watchdog/ensure.js');
@@ -401,8 +401,8 @@ async function _start(audit?: AuditLog): Promise<void> {
     // ★ 首次运行：后台启动 daemon，前台展示语言选择（并行）
     const pm = createProcessManagerForCLI();
     const daemonReady = (async () => {
-      if (!pm.isAlive('motion')) {
-        await pm.spawn('motion', motionSpawnOptions);
+      if (!pm.isAlive(MOTION_CLAW_ID)) {
+        await pm.spawn(MOTION_CLAW_ID, motionSpawnOptions);
         await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
       }
     })();
@@ -442,8 +442,8 @@ async function _start(audit?: AuditLog): Promise<void> {
   } else {
     // 非首次但 not_found（极少），或 in_progress
     const pm = createProcessManagerForCLI();
-    if (!pm.isAlive('motion')) {
-      await pm.spawn('motion', motionSpawnOptions);
+    if (!pm.isAlive(MOTION_CLAW_ID)) {
+      await pm.spawn(MOTION_CLAW_ID, motionSpawnOptions);
       await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     const { ensureWatchdog } = await import('../../watchdog/ensure.js');

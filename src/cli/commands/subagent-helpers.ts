@@ -19,6 +19,7 @@ import {
 import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/index.js';
 import { TASKS_SYNC_SPAWN_DIR } from '../../core/spawn-system/index.js';
 import { TASKS_SYNC_SHADOW_DIR } from '../../core/shadow-system/index.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 
 export type SubagentKind = 'summon' | 'spawn' | 'shadow' | 'verifier' | 'random_dream' | 'cron';
 export type SubagentStatus = 'completed' | 'running' | 'failed';
@@ -34,7 +35,7 @@ const QUEUE_DIRS = [
 ];
 
 export function resolveClawDir(clawId: string): string {
-  return clawId === 'motion' ? getNamedSubrootDir('motion') : getClawDir(clawId);
+  return clawId === MOTION_CLAW_ID ? getNamedSubrootDir(MOTION_CLAW_ID) : getClawDir(clawId);
 }
 
 export function inferKind(id: string, clawDir: string): SubagentKind {

@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getNamedSubrootDir } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
 import { PROCESS_SPAWN_CONFIRM_MS, STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
@@ -128,7 +129,7 @@ async function writeTemplate(filePath: string, content: string): Promise<boolean
  */
 export async function initCommand(silent = false, deps?: { audit?: AuditLog }): Promise<void> {
   const audit = deps?.audit;
-  const motionDir = getNamedSubrootDir('motion');
+  const motionDir = getNamedSubrootDir(MOTION_CLAW_ID);
   const motionConfigDir = getMotionConfigDir();
   
   console.log(`Initializing Motion at: ${motionDir}`);
@@ -194,7 +195,7 @@ export async function initCommand(silent = false, deps?: { audit?: AuditLog }): 
  */
 export async function chatCommand(): Promise<void> {
   const globalConfig = loadGlobalConfig(CONFIG_DEFAULTS);
-  const motionDir = getNamedSubrootDir('motion');
+  const motionDir = getNamedSubrootDir(MOTION_CLAW_ID);
   const { audit: systemAudit } = createDirContext(motionDir);
 
   // Check whether Motion has been initialized
@@ -206,18 +207,18 @@ export async function chatCommand(): Promise<void> {
 
   await runChatViewport({
     agentDir: motionDir,
-    label: 'motion',
+    label: MOTION_CLAW_ID,
     audit: systemAudit,
     ensureDaemon: async () => {
       const pm = createProcessManagerForCLI();
-      if (!pm.isAlive('motion')) {
+      if (!pm.isAlive(MOTION_CLAW_ID)) {
         console.log('Starting Motion daemon...');
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
         const bundleEntry = path.join(thisDir, 'daemon-entry.js');
         const daemonEntryPath = existsSync(bundleEntry) ? bundleEntry : path.resolve(thisDir, '..', '..', 'daemon-entry.js');
-        const pid = await pm.spawn('motion', {
+        const pid = await pm.spawn(MOTION_CLAW_ID, {
           command: 'node',
-          args: [daemonEntryPath, 'motion'],
+          args: [daemonEntryPath, MOTION_CLAW_ID],
           logFile: path.join(motionDir, DAEMON_LOG),
           env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
         });
@@ -243,14 +244,14 @@ export async function stopCommand(deps?: { audit?: AuditLog }): Promise<void> {
   loadGlobalConfig(CONFIG_DEFAULTS);
   const pm = createProcessManagerForCLI();
 
-  if (!pm.isAlive('motion')) {
+  if (!pm.isAlive(MOTION_CLAW_ID)) {
     audit?.write(CLI_AUDIT_EVENTS.MOTION_STOP, `status=not_running`);
     console.log('Motion is not running');
     return;
   }
 
   console.log('Stopping Motion daemon...');
-  const stopped = await pm.stop('motion');
+  const stopped = await pm.stop(MOTION_CLAW_ID);
   if (stopped) {
     audit?.write(CLI_AUDIT_EVENTS.MOTION_STOP, `status=success`);
     console.log('✓ Stopped Motion daemon');

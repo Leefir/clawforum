@@ -17,6 +17,7 @@ import { isFileNotFound } from '../../foundation/fs/types.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
 import { createViewportObservability } from './chat-viewport-observability.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 
 
 import { writeUserChat } from './chat-viewport-utils.js';
@@ -128,7 +129,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   const editor = new Editor(tui, editorTheme);
 
   // Motion viewport：各 claw 步数追踪
-  const isMotion = options.label === 'motion';
+  const isMotion = options.label === MOTION_CLAW_ID;
   const clawsDir = isMotion ? path.join(options.agentDir, '..', CLAWS_DIR) : '';
   const clawsFs = isMotion && clawsDir ? createDirContext(clawsDir).fs : fs;
   const clawTrackMap = new Map<string, ClawTrack>();
