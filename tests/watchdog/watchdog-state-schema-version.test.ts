@@ -86,7 +86,7 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
         expect.stringContaining('backup='),
         expect.stringContaining('reason=unknown_schema_version'),
         expect.stringContaining('actual=99'),
-        expect.stringContaining('current=1'),
+        expect.stringContaining('current=2'),
         expect.stringContaining('move_ok=true'),
       ]),
     );
@@ -128,7 +128,7 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
     saveWatchdogState();
     const savedRaw = fs.readFileSync(stateFile, 'utf-8');
     const saved = JSON.parse(savedRaw);
-    expect(saved.schema_version).toBe(1);
+    expect(saved.schema_version).toBe(2);
     expect(saved).not.toHaveProperty('version');
   });
 });

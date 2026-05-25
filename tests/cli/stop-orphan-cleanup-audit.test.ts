@@ -68,6 +68,7 @@ vi.mock('../../src/cli/utils/factories.js', () => ({
 vi.mock('../../src/foundation/fs/node-fs.js', () => ({
   NodeFileSystem: vi.fn().mockImplementation(function (this: any, opts: any) {
     this.baseDir = opts.baseDir;
+    this.existsSync = vi.fn().mockReturnValue(true);
   }),
 }));
 
