@@ -40,14 +40,17 @@ export async function handleToolUseStop(
       callbacks?.onToolResult?.(name, id, result);
     },
   };
+  // phase 1282: prebuilt 已 cover 的 tool_use（stream-side parseError emit 占位）skip execute / 防 input={} 真跑出副作用
+  const prebuiltIds = new Set(prebuiltResults.map(r => r.tool_use_id));
+  const toolCallsToExecute = toolCalls.filter(tc => !prebuiltIds.has(tc.id));
   // abort 期不剥 signal / 工具自治响应 / 已 abort-aware 工具 throw / 不 aware 工具忽略
-  const toolResults = await executeToolCalls(toolCalls, executor, ctx, registry, trackingCallbacks);
+  const toolResults = await executeToolCalls(toolCallsToExecute, executor, ctx, registry, trackingCallbacks);
 
   if (ctx.signal?.aborted) throwAbortError(ctx.signal);
   appendToolResults(messages, [...prebuiltResults, ...toolResults]);
   callbacks?.onMessageAppended?.('user', toolResults.length + prebuiltResults.length);
 
-  const totalToolCallCount = toolCalls.length + prebuiltResults.length;
+  const totalToolCallCount = toolCallsToExecute.length + prebuiltResults.length;
   const totalParseErrorCount = prebuiltResults.length + newParseErrorCount;
 
   // Extract tool names from stream-layer parse-error results for error messages
@@ -93,15 +96,21 @@ export function handleMaxTokensStop(
     } else {
       input.callbacks?.onMaxTokensAssistantEmptySkipped?.({ llm: llmInfo });
     }
-    // Only toolCalls.ids (prebuiltResults.ids are historical, already paired, do not overlap)
-    const truncatedResults: ToolResultBlock[] = toolCalls.map(tc => ({
+    // phase 1282: prebuilt 已 cover 的 tool_use id 不再 synthesize [TRUNCATED] / 防 duplicate tool_result 同 id
+    // 仅透传 stream-side parseError 结果（ML#9「不丢弃静默」），historical/orphan tool_result 仍丢弃
+    const parseErrorPrebuilt = prebuiltResults.filter(pr =>
+      /^Tool input JSON parse failed for/.test(pr.content)
+    );
+    const prebuiltIds = new Set(parseErrorPrebuilt.map(r => r.tool_use_id));
+    const newToolCallIds = toolCalls.map(tc => tc.id).filter(id => !prebuiltIds.has(id));
+    const truncatedResults: ToolResultBlock[] = newToolCallIds.map(id => ({
       type: 'tool_result' as const,
-      tool_use_id: tc.id,
+      tool_use_id: id,
       content: `[TRUNCATED] 输出超过单次 token 上限（${maxTokens} tokens），工具调用被截断未执行。请将内容拆分为多次较小的调用。`,
       is_error: true,
     }));
-    appendToolResults(messages, truncatedResults);
-    input.callbacks?.onMessageAppended?.('user', truncatedResults.length);
+    appendToolResults(messages, [...parseErrorPrebuilt, ...truncatedResults]);
+    input.callbacks?.onMessageAppended?.('user', parseErrorPrebuilt.length + truncatedResults.length);
     return {
       kind: 'max_tokens_tool_use',
       meta: {

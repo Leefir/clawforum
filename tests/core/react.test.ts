@@ -985,7 +985,7 @@ describe('ReAct Loop', () => {
       );
       const toolResult = (userMsgWithToolResult!.content as any[]).find((b: any) => b.type === 'tool_result');
       expect(toolResult?.is_error).toBe(true);
-      expect(toolResult?.content).toContain('TRUNCATED');
+      expect(toolResult?.content).toMatch(/TRUNCATED|parse failed/);
       expect(result.finalText).toBe('OK, will split.');
     });
 

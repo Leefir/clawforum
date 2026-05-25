@@ -62,6 +62,14 @@ export function flushToolUse(state: StreamState, callbacks?: StepCallbacks): voi
         () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, state.currentToolUse!.id, parsed.raw),
         callbacks,
       );
+      // phase 1282: emit tool_use 占位块满足 pair invariant（ML#9 + ML#5 stream 自验合法）
+      //            input={} 占位 / 下游 handleToolUseStop + handleMaxTokensStop State A 经 prebuiltIds dedup 不 execute / 不再 synthesize
+      state.contentBlocks.push({
+        type: 'tool_use',
+        id: state.currentToolUse.id,
+        name: state.currentToolUse.name,
+        input: {},
+      });
       state.contentBlocks.push({
         type: 'tool_result',
         tool_use_id: state.currentToolUse.id,
@@ -109,6 +117,13 @@ export function finalizeContent(state: StreamState, callbacks?: StepCallbacks): 
         () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, state.currentToolUse!.id, parsed.raw),
         callbacks,
       );
+      // phase 1282: emit tool_use 占位块满足 pair invariant（ML#9 + ML#5 stream 自验合法）
+      state.contentBlocks.push({
+        type: 'tool_use',
+        id: state.currentToolUse.id,
+        name: state.currentToolUse.name,
+        input: {},
+      } as ContentBlock);
       state.contentBlocks.push({
         type: 'tool_result',
         tool_use_id: state.currentToolUse.id,
