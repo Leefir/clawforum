@@ -7,7 +7,7 @@
  *   3. late settle 后 controller map 清干净 (no leak)
  *   4. normal complete 后 controller map 也清干净
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CronRunner, type CronJob } from '../../../src/core/cron/runner.js';
 import { CRON_AUDIT_EVENTS } from '../../../src/core/cron/audit-events.js';
 
@@ -20,7 +20,13 @@ function makeMockAudit() {
 }
 
 describe('cron handler real abort (phase 1232 r132 C)', () => {
-  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date(2026, 5, 25, 10, 0, 0) });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   // 反向 1: timeout 后 signal.aborted === true + audit HANDLER_ABORTED context=timeout
   it('timeout 路径真 abort signal + audit HANDLER_ABORTED context=timeout', async () => {
@@ -38,7 +44,7 @@ describe('cron handler real abort (phase 1232 r132 C)', () => {
     };
     const runner = new CronRunner([job], audit as any);
     runner.tick();
-    await new Promise(r => setTimeout(r, 100));  // 等 timeout fire
+    await vi.advanceTimersByTimeAsync(100);  // 等 timeout fire
     expect(capturedSignal?.aborted).toBe(true);
     expect(
       audit.events.find(
@@ -61,7 +67,7 @@ describe('cron handler real abort (phase 1232 r132 C)', () => {
     const runner = new CronRunner([job], audit as any);
     runner.tick();
     // 等 timeout fire
-    await new Promise(r => setTimeout(r, 50));
+    await vi.advanceTimersByTimeAsync(100);
     // 模拟 10+ ticks stuck 后 watchdog
     for (let i = 0; i < 12; i++) runner.tick();
     const stuckEvents = audit.events.filter(
@@ -86,9 +92,9 @@ describe('cron handler real abort (phase 1232 r132 C)', () => {
     };
     const runner = new CronRunner([job], audit as any);
     runner.tick();
-    await new Promise(r => setTimeout(r, 50));  // timeout fire
+    await vi.advanceTimersByTimeAsync(100);  // timeout fire
     resolveHandler();  // late settle
-    await new Promise(r => setTimeout(r, 30));
+    await vi.advanceTimersByTimeAsync(50);
     // controller map, cancelling, cancellingTicks all cleaned
     expect((runner as any)._activeAbortControllers.has('late-job')).toBe(false);
     expect((runner as any).cancelling.has('late-job')).toBe(false);
@@ -115,7 +121,7 @@ describe('cron handler real abort (phase 1232 r132 C)', () => {
     };
     const runner = new CronRunner([job], audit as any);
     runner.tick();
-    await new Promise(r => setTimeout(r, 50));  // 等 handler 完成
+    await vi.advanceTimersByTimeAsync(50);  // 等 handler 完成
     expect(handlerRan).toBe(true);
     expect((runner as any)._activeAbortControllers.has('fast-job')).toBe(false);
     expect((runner as any).running.has('fast-job')).toBe(false);

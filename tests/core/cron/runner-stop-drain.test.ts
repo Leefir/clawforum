@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../../../src/core/cron/audit-events.js';
-import { CronRunner, type CronJob } from '../../../src/core/cron/runner.js';
+import { CronRunner } from '../../../src/core/cron/runner.js';
 
 // mock helper
 function makeMockAudit(): { write: ReturnType<typeof vi.fn> } {
@@ -9,6 +9,13 @@ function makeMockAudit(): { write: ReturnType<typeof vi.fn> } {
 }
 
 describe('CronRunner.stop drain (phase 793 / P0.22)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date(2026, 5, 25, 10, 0, 0) });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('drains inflight handlers before resolving stop', async () => {
     let handlerResolved = false;
     const slowHandler = () => new Promise<void>(resolve => setTimeout(() => {
@@ -19,7 +26,7 @@ describe('CronRunner.stop drain (phase 793 / P0.22)', () => {
     const audit = makeMockAudit();
     const runner = new CronRunner([{
       name: 'slow', enabled: true,
-      schedule: { type: 'interval', minutes: 1 },
+      schedule: { type: 'hourly' },
       handler: slowHandler,
     }], audit as unknown as AuditLog);
 
@@ -27,7 +34,9 @@ describe('CronRunner.stop drain (phase 793 / P0.22)', () => {
     runner.tick();  // 触发 schedule slowHandler
 
     // stop 应等 handler settle
-    await runner.stop(1000);   // cap 1s > handler 200ms
+    const stopPromise = runner.stop(1000);   // cap 1s > handler 200ms
+    await vi.advanceTimersByTimeAsync(250);
+    await stopPromise;
 
     expect(handlerResolved).toBe(true);
   });
@@ -38,14 +47,16 @@ describe('CronRunner.stop drain (phase 793 / P0.22)', () => {
     const audit = makeMockAudit();
     const runner = new CronRunner([{
       name: 'hang', enabled: true,
-      schedule: { type: 'interval', minutes: 1 },
+      schedule: { type: 'hourly' },
       handler: hangingHandler,
     }], audit as unknown as AuditLog);
 
     runner.start();
     runner.tick();
 
-    await runner.stop(100);   // cap 100ms
+    const stopPromise = runner.stop(100);   // cap 100ms
+    await vi.advanceTimersByTimeAsync(150);
+    await stopPromise;
 
     // 期 audit RUNNER_DRAIN_TIMEOUT 写
     const calls = (audit.write as any).mock.calls;
