@@ -40,7 +40,7 @@ export interface StatInfo {
  * 
  * Implementation notes:
  * - Most methods are async (Promise-based); synchronous variants available for hot paths
- * - Paths are validated to be within claw space (implementation responsibility)
+ * - Paths are validated to be within configured baseDir (implementation responsibility)
  * - Atomic writes ensure no partial files on crash
  */
 export interface FileSystem {
@@ -50,7 +50,7 @@ export interface FileSystem {
   
   /**
    * Read file content as string
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @returns File content
    * @throws FileNotFoundError if file doesn't exist
    */
@@ -58,30 +58,30 @@ export interface FileSystem {
 
   /**
    * Write file atomically (write-to-temp + rename)
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param content - Content to write
-   * @throws PathNotInClawSpaceError if path is outside claw space
+   * @throws PathNotInClawSpaceError if path is outside configured baseDir
    */
   writeAtomic(path: string, content: string): Promise<void>;
   
   /**
    * Append content to file (creates if not exists)
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param content - Content to append
    */
   append(path: string, content: string): Promise<void>;
   
   /**
    * Delete a file
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @throws FileNotFoundError if file doesn't exist
    */
   delete(path: string): Promise<void>;
 
   /**
    * Move/rename a file atomically
-   * @param fromPath - Source path (relative within claw space)
-   * @param toPath - Destination path (relative within claw space)
+   * @param fromPath - Source path (relative within configured baseDir)
+   * @param toPath - Destination path (relative within configured baseDir)
    */
   move(fromPath: string, toPath: string): Promise<void>;
 
@@ -91,19 +91,19 @@ export interface FileSystem {
   
   /**
    * Ensure directory exists (creates recursively if needed)
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   ensureDir(path: string): Promise<void>;
   
   /**
    * Remove directory and all contents
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   removeDir(path: string): Promise<void>;
   
   /**
    * List directory contents
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param options - Listing options
    * @returns Array of file entries
    */
@@ -119,26 +119,26 @@ export interface FileSystem {
   
   /**
    * Resolve symlinks to canonical absolute path
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @returns Resolved absolute path
    */
   realpath(path: string): Promise<string>;
 
   /**
    * Check if path exists
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   exists(path: string): Promise<boolean>;
   
   /**
    * Check if path is a directory
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   isDirectory(path: string): Promise<boolean>;
   
   /**
    * Get file stats
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   stat(path: string): Promise<StatInfo>;
 
@@ -149,7 +149,7 @@ export interface FileSystem {
   /**
    * Write file atomically (sync version of writeAtomic).
    * Uses write-to-temp + fsync + rename pattern.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param content - Content to write
    */
   writeAtomicSync(path: string, content: string): void;
@@ -158,7 +158,7 @@ export interface FileSystem {
    * Create file exclusively and write content. Throws EEXIST if file already exists.
    * For lock-file semantics (PID file exclusive create).
    * Caller must ensure parent directory exists.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param content - Content to write
    * @throws Error with code EEXIST if file already exists
    */
@@ -166,7 +166,7 @@ export interface FileSystem {
 
   /**
    * Read file content synchronously.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @throws FileNotFoundError if file doesn't exist
    */
   readSync(path: string): string;
@@ -175,7 +175,7 @@ export interface FileSystem {
    * Read a byte range from a file synchronously (returns raw Buffer).
    * Used by incremental-read consumers (e.g. stream reader) that need
    * byte-safe offsets free of UTF-8/UTF-16 index mismatch.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param start - Byte offset (inclusive)
    * @param end - Byte offset (exclusive); if file shorter, returns available bytes
    * @returns Buffer containing bytes in [start, end); length ≤ end - start
@@ -186,40 +186,40 @@ export interface FileSystem {
   /**
    * Append content to file synchronously.
    * For high-frequency writes where async overhead matters (audit log, stream).
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param content - Content to append
    */
   appendSync(path: string, content: string): void;
 
   /**
    * Get file stats synchronously.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @throws FileNotFoundError if file doesn't exist
    */
   statSync(path: string): StatInfo;
 
   /**
    * Move/rename a file synchronously.
-   * @param fromPath - Source path (relative within claw space)
-   * @param toPath - Destination path (relative within claw space)
+   * @param fromPath - Source path (relative within configured baseDir)
+   * @param toPath - Destination path (relative within configured baseDir)
    */
   moveSync(fromPath: string, toPath: string): void;
 
   /**
    * Check if path exists synchronously.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   existsSync(path: string): boolean;
 
   /**
    * Ensure directory exists synchronously (creates recursively if needed).
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   ensureDirSync(path: string): void;
 
   /**
    * List directory contents synchronously.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @param options - Listing options
    */
   listSync(path: string, options?: {
@@ -230,7 +230,7 @@ export interface FileSystem {
 
   /**
    * Delete a file synchronously.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    * @throws FileNotFoundError if file doesn't exist
    */
   deleteSync(path: string): void;
@@ -238,7 +238,7 @@ export interface FileSystem {
   /**
    * Synchronize file data to disk (fsync).
    * Ensures durability for audit/log paths.
-   * @param path - Relative path within claw space
+   * @param path - Relative path within configured baseDir
    */
   syncSync(path: string): void;
 

@@ -29,7 +29,7 @@ export class StreamWriter implements StreamLog {
     this.retention = retention;
   }
 
-  /** daemon 启动时调用：归档旧文件 */
+  /** lifecycle init: archives old files (caller-managed) */
   open(): void {
     if (this.isOpen) return;
 
@@ -133,7 +133,7 @@ export class StreamWriter implements StreamLog {
     }
   }
 
-  /** daemon 关闭时调用 */
+  /** lifecycle dispose (caller-managed) */
   close(): void {
     this.isOpen = false;
   }

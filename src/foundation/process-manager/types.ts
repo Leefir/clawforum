@@ -4,7 +4,7 @@ import type { AuditLog } from '../audit/index.js';
 export class LockConflictError extends Error {
   readonly clawId: string;
   constructor(clawId: string, message?: string) {
-    super(message ?? `Lock conflict: another daemon is running for ${clawId}`);
+    super(message ?? `Lock conflict: another process holds the lock for ${clawId}`);
     this.name = 'LockConflictError';
     this.clawId = clawId;
   }
