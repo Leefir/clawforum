@@ -169,7 +169,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog): void {
         audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DROPPED, `claw=${clawId}`, `error=${err instanceof Error ? err.message : String(err)}`);
       }
 
-      clawPreviouslyNotified.add(clawId);
+      clawPreviouslyNotified.set(clawId, Date.now());
     }
 
     // Alive recovery transition: allow next crash to re-notify

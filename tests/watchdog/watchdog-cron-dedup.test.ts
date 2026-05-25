@@ -166,7 +166,7 @@ describe('watchdog crash_notification dedup (phase 1207 gap A)', () => {
     fs.mkdirSync(path.join(clawsDir, clawId), { recursive: true });
 
     clawPreviouslyAlive.set(clawId, true);
-    clawPreviouslyNotified.add(clawId);
+    clawPreviouslyNotified.set(clawId, Date.now());
     everSpawned.add(clawId);
 
     // Remove claw dir
