@@ -442,36 +442,6 @@ describe('Builtin Tools', () => {
       expect(result.content).toContain('current.txt');
     });
 
-    // Phase 2 质量审查补充：分页测试
-    it('should show pagination indicator when more than 100 files', async () => {
-      // Create 101 files
-      for (let i = 0; i < 101; i++) {
-        await mockFs.writeAtomic(`clawspace/file${i}.txt`, '');
-      }
-
-      const result = await lsTool.execute({ path: '.' }, ctx);
-
-      expect(result.success).toBe(true);
-      // Should show pagination indicator
-      expect(result.content).toContain('entries total');
-      expect(result.content).toContain('101');
-    });
-
-    it('should limit output to 100 entries', async () => {
-      // Create 101 files
-      for (let i = 0; i < 101; i++) {
-        await mockFs.writeAtomic(`clawspace/file${i}.txt`, '');
-      }
-
-      const result = await lsTool.execute({ path: '.' }, ctx);
-
-      expect(result.success).toBe(true);
-      const lines = result.content.split('\n').filter(l => l.trim() && !l.includes('...'));
-      // Should have 100 entries plus possibly pagination line
-      const fileLines = lines.filter(l => l.includes('[FILE]') || l.includes('[DIR]'));
-      expect(fileLines.length).toBeLessThanOrEqual(100);
-    });
-
     // Phase 16: error path Tip about claw parameter
     it('should include claw parameter Tip in error when listing non-existent path', async () => {
       const result = await lsTool.execute({ path: 'nonexistent/path/xyz' }, ctx);
@@ -1088,16 +1058,6 @@ describe('Builtin Tools', () => {
 
       expect(result.success).toBe(false);
       expect(result.content).toContain('Error');
-    });
-
-    it('should fail with timeout error when timeoutMs exceeded', async () => {
-      // sleep 5s with timeoutMs:100 → src clamp 把 100ms 拉到 PROCESS_EXEC_TIMEOUT_MIN_MS (1000ms)
-      // 但 clamp 后 1000ms 仍远小于 sleep 5000ms / timeout 必先 fire / 不 race
-      // 旧版用 sleep 1 与 clamp 后 1000ms 同长 / CI 慢机器 sleep 完成早于 timeout / race condition
-      // 真合规 src 改方向：clamp 时 emit audit warning（推 phase 743+）
-      const result = await execTool.execute({ command: 'sleep 5', timeoutMs: 100 }, ctx);
-      expect(result.success).toBe(false);
-      expect(result.content).toMatch(/timed out|timeout|超时/i);
     });
 
     // Phase 21 Step 1: PATH augmentation

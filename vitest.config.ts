@@ -43,6 +43,7 @@ const VI_MOCK_FILES = [
   'tests/core/async-task-system/silent-catch.test.ts',
   'tests/core/async-task-system/task-recovery-corrupt.test.ts',
   'tests/core/async-task-system/task-recovery-phase989.test.ts',
+  'tests/core/builtins-slow.test.ts',  // phase 1252: slow outlier split
   'tests/core/builtins.test.ts',
   'tests/core/contract-review-request.test.ts',
   'tests/core/contract/archive-race.test.ts',
