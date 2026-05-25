@@ -164,10 +164,10 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
   }));
   (MockInboxWriter as any).readMeta = vi.fn();
   return {
-    InboxReader: vi.fn(() => ({ init: vi.fn().mockResolvedValue(undefined), drainInbox: vi.fn(() => []), markDone: vi.fn(), markFailed: vi.fn() })),
+    InboxReader: vi.fn(() => ({ init: vi.fn().mockResolvedValue(undefined), drainInbox: vi.fn(() => []), drainAndDeliver: vi.fn(() => ({ entries: [], handles: [] })), markDone: vi.fn(), markFailed: vi.fn(), ack: vi.fn(), nack: vi.fn() })),
     OutboxWriter: vi.fn(() => ({ write: vi.fn().mockResolvedValue(undefined) })),
     InboxWriter: MockInboxWriter,
-    createInboxReader: vi.fn(() => ({ init: vi.fn().mockResolvedValue(undefined), drainInbox: vi.fn(() => []), markDone: vi.fn(), markFailed: vi.fn() })),
+    createInboxReader: vi.fn(() => ({ init: vi.fn().mockResolvedValue(undefined), drainInbox: vi.fn(() => []), drainAndDeliver: vi.fn(() => ({ entries: [], handles: [] })), markDone: vi.fn(), markFailed: vi.fn(), ack: vi.fn(), nack: vi.fn() })),
     createOutboxWriter: vi.fn(() => ({ write: vi.fn().mockResolvedValue(undefined) })),
     readInboxFileMeta: vi.fn(),
   };

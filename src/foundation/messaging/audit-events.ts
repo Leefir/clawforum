@@ -22,6 +22,8 @@ export const MESSAGING_AUDIT_EVENTS = {
   INBOX_LEGACY_CLAW_ID_FIELD: 'inbox_legacy_claw_id_field',
   INBOX_DEDUPED: 'inbox_deduped',
   INBOX_MARK_DONE_FAILED: 'inbox_mark_done_failed',
+  INBOX_RECONCILE: 'inbox_reconcile',
+  INBOX_NACK: 'inbox_nack',
   OUTBOX_SENT: 'outbox_sent',
   OUTBOX_DELIVERED: 'outbox_delivered',
   OUTBOX_SEND_FAILED: 'outbox_send_failed',

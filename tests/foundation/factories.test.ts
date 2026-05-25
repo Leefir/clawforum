@@ -51,7 +51,7 @@ describe('L2 factories — 行为契约', () => {
     const r = createInboxReader(fs, audit, 'my_inbox');
     await r.init();
     const sub = (await readdir(path.join(dir, 'my_inbox'))).sort();
-    expect(sub).toEqual(['done', 'failed', 'pending']);
+    expect(sub).toEqual(['done', 'failed', 'inflight', 'pending']);
     // 反向保障：若工厂写错（拼成 'incoming' 或遗漏某子目录），子目录集合偏离
   });
 

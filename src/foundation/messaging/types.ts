@@ -32,6 +32,11 @@ export interface OutboxMessage {
   metadata?: Record<string, string>;
 }
 
+export interface InboxHandle {
+  readonly filePath: string;
+  readonly originalFileName: string;
+}
+
 export interface HeartbeatEntry {
   claw_id: string;
   timestamp: string;

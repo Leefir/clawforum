@@ -158,7 +158,8 @@ describe('Runtime RetryOutboxInterrupt', () => {
         sources: Array<{ text: string; type: string }>;
         count: number;
         infos: InboxMessage[];
-      } = { injected: [], sources: [], count: 0, infos: [] };
+        addressedHandles: any[];
+      } = { injected: [], sources: [], count: 0, infos: [], addressedHandles: [] };
       public reactError: Error | null = null;
 
       protected override async _drainOwnInbox() {
@@ -216,6 +217,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
           timestamp: new Date().toISOString(),
           contract_id: 'c-1',
         } as InboxMessage],
+        addressedHandles: [],
       };
       runtime.reactError = new MaxStepsExceededError(10);
 
@@ -250,6 +252,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
           priority: 'normal',
           timestamp: new Date().toISOString(),
         } as InboxMessage],
+        addressedHandles: [],
       };
       const originalError = new Error('LLM exploded');
       runtime.reactError = originalError;
@@ -284,6 +287,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
           timestamp: new Date().toISOString(),
           contract_id: 'c-1',
         } as InboxMessage],
+        addressedHandles: [],
       };
       runtime.reactError = new MaxStepsExceededError(10);
 
@@ -317,6 +321,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
           timestamp: new Date().toISOString(),
           contract_id: 'c-1',
         } as InboxMessage],
+        addressedHandles: [],
       };
       const originalError = new Error('LLM crash injected');
       runtime.reactError = originalError;
