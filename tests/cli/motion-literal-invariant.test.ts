@@ -18,7 +18,16 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const CLI_COMMANDS_DIR = path.resolve(__dirname, '../../src/cli/commands');
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
+
+const SCOPE_DIRS = [
+  'src/cli/commands',
+  'src/daemon',
+  'src/watchdog',
+  'src/foundation',
+  'src/core',
+];
+
 const MOTION_LITERAL_PATTERN = /['"]motion['"]/;
 
 const ALLOWLIST_PATTERNS = [
@@ -29,6 +38,12 @@ const ALLOWLIST_PATTERNS = [
   /path\.join.*templates.*['"]motion['"]/,  // path.join(..., 'templates', 'motion')
   // line comments with 'motion' as example label
   /\/\/.*如 'motion'/,
+  // phase 1279 r136 E fork NEW patterns
+  /getNamedSubrootDir\(['"]motion['"]\)/,    // bucket B fs subdir name passing
+  /path\.join.*['"]motion['"]/,             // bucket B other path.join forms
+  /['"]motion['"]\s*\|\s*['"]claw['"]/,     // bucket C type literal union (TS discriminated)
+  /\*.*['"]motion['"]/,                     // bucket E JSDoc + line comment
+  /\/\/.*['"]motion['"]/,                   // bucket E line comment full
 ];
 
 interface Site {
@@ -37,13 +52,12 @@ interface Site {
   excerpt: string;
 }
 
-function findMotionLiterals(dir: string, relBase = ''): Site[] {
+function findMotionLiterals(dir: string): Site[] {
   const sites: Site[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      sites.push(...findMotionLiterals(full, rel));
+      sites.push(...findMotionLiterals(full));
       continue;
     }
     if (!/\.(ts|tsx)$/.test(entry.name)) continue;
@@ -54,18 +68,22 @@ function findMotionLiterals(dir: string, relBase = ''): Site[] {
       const line = lines[i];
       if (!MOTION_LITERAL_PATTERN.test(line)) continue;
       if (ALLOWLIST_PATTERNS.some((p) => p.test(line))) continue;
-      sites.push({ file: `src/cli/commands/${rel}`, line: i + 1, excerpt: line.trim() });
+      sites.push({ file: path.relative(PROJECT_ROOT, full), line: i + 1, excerpt: line.trim() });
     }
   }
   return sites;
 }
 
-describe('motion literal invariant (phase 1265 r135 C fork)', () => {
-  it('no raw `motion` literal in src/cli/commands/ (use MOTION_CLAW_ID const)', () => {
-    const sites = findMotionLiterals(CLI_COMMANDS_DIR);
+describe('motion literal invariant (phase 1265 r135 C fork + phase 1279 r136 E fork)', () => {
+  it('no raw `motion` literal in src/cli/commands/ + src/daemon/ + src/watchdog/ + src/foundation/ + src/core/ (use MOTION_CLAW_ID const)', () => {
+    const allSites: Site[] = [];
+    for (const scopeDir of SCOPE_DIRS) {
+      const dir = path.resolve(PROJECT_ROOT, scopeDir);
+      allSites.push(...findMotionLiterals(dir));
+    }
     expect(
-      sites,
-      `Raw 'motion' literal found in src/cli/commands/. Use MOTION_CLAW_ID from src/constants.ts. Sites: ${JSON.stringify(sites.slice(0, 5), null, 2)}`,
+      allSites,
+      `Raw 'motion' literal found. Use MOTION_CLAW_ID from src/constants.ts. Sites: ${JSON.stringify(allSites.slice(0, 10), null, 2)}`,
     ).toEqual([]);
   });
 
