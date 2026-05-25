@@ -61,7 +61,7 @@ export async function sweepOrphanWatchdogs(opts: { excludePid?: number | null } 
     // SIGKILL 兜底
     for (const pid of killed) {
       if (isAlive(pid)) {
-        try { kill(pid, 'KILL'); } catch { /* dead now */ }
+        try { kill(pid, 'KILL'); } catch { /* silent: isAlive→SIGKILL race / 目标进程已死 ESRCH = 已达成目标态 */ }
       }
     }
     const auditWriter = getAuditWriter();

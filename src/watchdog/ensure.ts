@@ -76,7 +76,7 @@ async function tryAcquireLock(lockPath: string, timeoutMs: number): Promise<bool
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
       // 检查 lock 持有者是否还活、stale 则清
       if (isLockStale(lockPath)) {
-        try { fsNode.unlinkSync(lockPath); } catch { /* race ok */ }
+        try { fsNode.unlinkSync(lockPath); } catch { /* silent: stale-lock cleanup 与并发 unlink race / loser ENOENT 视为 winner 已清 / 外层 continue retry 收敛 */ }
         const auditWriter = getAuditWriter();
         auditWriter?.write(WATCHDOG_AUDIT_EVENTS.ENSURE_LOCK_STALE_RECOVERED, `path=${lockPath}`);
         continue;
@@ -99,5 +99,5 @@ function isLockStale(lockPath: string): boolean {
 }
 
 function releaseLock(lockPath: string): void {
-  try { fsNode.unlinkSync(lockPath); } catch { /* 已被 stale recover 清 ok */ }
+  try { fsNode.unlinkSync(lockPath); } catch { /* silent: release-lock idempotent / stale-recover 路径已先 unlink 时 ENOENT 合规 */ }
 }

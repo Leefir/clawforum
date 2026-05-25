@@ -237,6 +237,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         observability.recordShutdown('daemon_dead');
       }
     } catch (e) {
+      // silent: FileNotFound 在 daemon 首次写 pid 前 expected / non-FileNotFound 经 stderr.write 上报
       if (!isFileNotFound(e)) {
         process.stderr.write(`[viewport] daemon liveness PID read failed: ${(e as Error).message}\n`);
       }

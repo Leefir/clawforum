@@ -99,7 +99,7 @@ export async function stopAllCommand(deps?: { audit?: AuditLog }): Promise<void>
     const tmpFile = `${cleanStopFile}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(tmpFile, String(Date.now()), 'utf-8');
     fs.renameSync(tmpFile, cleanStopFile);
-  } catch { /* best-effort */ }
+  } catch { /* silent: clean-stop marker 写失败 best-effort / 缺 marker 仅次启动 spurious "ungraceful shutdown" warn 不影响功能 */ }
 
   audit?.write(CLI_AUDIT_EVENTS.DAEMON_STOP, `scope=all`);
   console.log('Done.');
