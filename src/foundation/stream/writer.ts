@@ -6,8 +6,6 @@ import { STREAM_FILE, type StreamEvent, type StreamLog } from './types.js';
 import type { AuditLog } from '../audit/index.js';
 import { STREAM_AUDIT_EVENTS } from './audit-events.js';
 import { randomUUID } from 'node:crypto';
-import * as fsSync from 'fs';
-import * as path from 'path';
 
 export interface StreamRetentionOptions {
   maxFiles?: number | null;
@@ -72,15 +70,8 @@ export class StreamWriter implements StreamLog {
     //       - 已存在（CLI cross-process append race won）→ EEXIST 抛、catch 保留 raced content
     //         + emit WRITER_OPEN_PRESERVED_RACED（observability、forensics 可重建 race）
     //     合规 DP「不丢弃静默」（user Q2 拍板 2026-05-23：不允许条件性接受形态、必本 phase 治）。
-    const nodeFsRace = this.fs as unknown as {
-      readSync(path: string): string;
-    };
-    const fsOptions = this.fs as unknown as { options?: { baseDir?: string } };
-    const absStreamPath = fsOptions.options?.baseDir
-      ? path.join(fsOptions.options.baseDir, STREAM_FILE)
-      : STREAM_FILE;
     try {
-      fsSync.writeFileSync(absStreamPath, '', { flag: 'wx' });
+      this.fs.writeExclusiveSync(STREAM_FILE, '');
       this.audit.write(
         STREAM_AUDIT_EVENTS.WRITER_OPEN_CREATED_EMPTY,
         `path=${STREAM_FILE}`,
@@ -89,7 +80,7 @@ export class StreamWriter implements StreamLog {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
         // CLI cross-process append won the race — preserve raced content as start of new session
-        const racedContent = nodeFsRace.readSync(STREAM_FILE);
+        const racedContent = this.fs.readSync(STREAM_FILE);
         this.audit.write(
           STREAM_AUDIT_EVENTS.WRITER_OPEN_PRESERVED_RACED,
           `path=${STREAM_FILE}`,

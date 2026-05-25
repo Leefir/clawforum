@@ -11,8 +11,10 @@
  * + phase 1118 in-file marker補 (`coding plan/phase1118/`).
  */
 import { createServer, connect, type Server, type Socket } from 'node:net';
-import { promises as fs } from 'node:fs';
+import * as path from 'path';
 import { randomUUID } from 'node:crypto';
+import type { FileSystem } from '../fs/types.js';
+import { isFileNotFound } from '../fs/types.js';
 import { AUDIT_PREVIEW_LEN } from '../constants.js';
 import type { Transport, TransportOptions, BroadcastFailure, TransportErrorEvent } from './index.js';
 import type { Connection } from './types.js';
@@ -33,6 +35,8 @@ export class UnixDomainSocketTransport implements Transport {
   private transportErrorCbs: ((evt: TransportErrorEvent) => void)[] = [];
   private messageCbs: ((c: Connection, data: string) => void)[] = [];
   private closed = false;
+
+  constructor(private deps: { fs: FileSystem }) {}
 
   async listen(options?: TransportOptions): Promise<void> {
     if (!options?.socketPath) throw new Error('socketPath required');
@@ -80,16 +84,16 @@ export class UnixDomainSocketTransport implements Transport {
       });
       probe.once('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
-          fs.unlink(this.socketPath!).then(
+          this.deps.fs.delete(path.basename(this.socketPath!)).then(
             () => resolve(),
-            (unlinkErr: NodeJS.ErrnoException) => {
+            (err: unknown) => {
               // ENOENT 例外 silent：文件已不在 = race 良性
-              if (unlinkErr.code === 'ENOENT') {
+              if (isFileNotFound(err)) {
                 resolve();
                 return;
               }
               // 其他 IO 错 reject 透传 reason / caller 通过 listen() reject 链路 audit STARTUP_FAILED
-              reject(new Error(`unlink stale socket ${this.socketPath} failed: ${unlinkErr.message}`));
+              reject(new Error(`unlink stale socket ${this.socketPath} failed: ${err instanceof Error ? err.message : String(err)}`));
             },
           );
         } else {
@@ -284,7 +288,7 @@ export class UnixDomainSocketTransport implements Transport {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     if (this.socketPath) {
       try {
-        await fs.unlink(this.socketPath);
+        await this.deps.fs.delete(path.basename(this.socketPath));
       } catch {
         // silent: socket file may already be cleaned up by OS or prior close
       }
