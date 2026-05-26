@@ -115,23 +115,30 @@ describe('ensureWatchdog singleton lock', () => {
   });
 
   it('lock acquire timeout throws + audit ENSURE_LOCK_TIMEOUT', async () => {
-    const lockPath = path.join(clawforumDir, 'watchdog.lock');
-    // Write a lock file with the CURRENT process PID (alive, never releases)
-    fs.writeFileSync(lockPath, `${process.pid}\n`);
+    // phase 1297: use fake timers + advanceTimersByTimeAsync to fast-forward
+    // through 60× 50ms retry loop instead of waiting real 3s.
+    // Real fs.openSync calls still execute (each fails with EEXIST).
+    vi.useFakeTimers();
+    try {
+      const lockPath = path.join(clawforumDir, 'watchdog.lock');
+      // Write a lock file with the CURRENT process PID (alive, never releases)
+      fs.writeFileSync(lockPath, `${process.pid}\n`);
 
-    // Patch retry interval to make test fast
-    const ensureModule = await import('../../src/watchdog/ensure.js');
-    // We cannot patch module-level constants easily; instead we rely on the
-    // default 3s timeout being acceptable. To keep test fast, create a live
-    // lock holder in a child process that never releases.
-    // Simpler: create lock file with alive PID and let tryAcquireLoop spin.
-    // Vitest default test timeout is 5s, our lock timeout is 3s — acceptable.
-    await expect(ensureWatchdog(fsFactory)).rejects.toThrow('Failed to acquire watchdog lock');
+      const ensurePromise = ensureWatchdog(fsFactory).catch((e: unknown) => e);
 
-    expect(auditSpy).toHaveBeenCalledWith(
-      WATCHDOG_AUDIT_EVENTS.ENSURE_LOCK_TIMEOUT,
-      expect.stringContaining('timeout_ms='),
-    );
+      // Advance through 60× 50ms retry loop + cross deadline (LOCK_ACQUIRE_TIMEOUT_MS=3000)
+      await vi.advanceTimersByTimeAsync(3001);
+
+      const err = await ensurePromise;
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toContain('Failed to acquire watchdog lock');
+      expect(auditSpy).toHaveBeenCalledWith(
+        WATCHDOG_AUDIT_EVENTS.ENSURE_LOCK_TIMEOUT,
+        expect.stringContaining('timeout_ms='),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('foreign workspace pid rethrows WatchdogPidForeignWorkspaceError', async () => {
