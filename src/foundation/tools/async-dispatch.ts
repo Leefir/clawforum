@@ -9,6 +9,8 @@ export interface AsyncToolTaskArgs {
   maxRetries: number;
   retryCount: number;
   callerType?: CallerType;
+  /** phase 1337: opaque audit label (replaces callerType semantic) */
+  callerLabel?: string;
   toolUseId?: string;
   /** phase 858：propagate ExecContext.isShadow through async tool dispatch boundary */
   isShadow?: boolean;

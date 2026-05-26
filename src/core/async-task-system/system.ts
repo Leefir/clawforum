@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'crypto';
 import { MOTION_CLAW_ID } from '../../constants.js';
+import { CALLER_TYPE_TO_GROUPS } from '../caller-types.js';
 import * as path from 'path';
 
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
@@ -673,6 +674,8 @@ export class AsyncTaskSystem {
       workspaceDir: path.join(task.parentClawDir, CLAWSPACE_DIR),
       syncDir: path.join(task.parentClawDir, TASKS_SYNC_DIR),
       callerType: task.callerType ?? 'claw',
+      allowedGroups: CALLER_TYPE_TO_GROUPS[task.callerType ?? 'claw'],
+      callerLabel: task.callerType ?? 'claw',
       fs: this.fs,
       fsFactory: this.fsFactory,
       profile: 'full',
