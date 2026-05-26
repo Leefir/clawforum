@@ -21,7 +21,7 @@ export interface LoadResult {
   source: 'current' | 'archive' | 'empty';
 }
 
-/** phase 466: marker 模式 ask_caller 工具用 */
+/** phase 466: marker 模式 for subagent context restoration */
 export interface DialogMarker {
   clawId: string;
   toolUseId: string;

@@ -27,7 +27,7 @@ export interface AsyncTaskSystemOptions {
   outboxWriter: OutboxWriter;
   /** Motion inbox for overflow notification (optional, backward compat) */
   motionInbox?: InboxWriter;
-  // main dialog store ref for ask_caller
+  // main dialog store ref for subagent context restoration
   mainDialogStore?: DialogStore;
   registry: ToolRegistry;     // NEW: caller 注入填充好的 registry / Assembly own 装配
   /** Tool-level wall-clock timeout inherited from globalConfig.tool_timeout_ms (phase 1029 / F-2) */
