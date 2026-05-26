@@ -1284,6 +1284,30 @@ describe('Builtin Tools', () => {
       expect(result.success).toBe(true);
       expect(result.content).toContain(path.join(tempDir, 'clawspace', 'build'));
     });
+
+    it('should pipe stdin to command (phase 1321)', async () => {
+      const result = await execTool.execute({
+        command: 'cat',
+        stdin: 'hello from stdin',
+      }, ctx);
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('hello from stdin');
+    });
+
+    it('should write file content without heredoc issues (phase 1321)', async () => {
+      const fsNative = await import('fs');
+      fsNative.mkdirSync(path.join(tempDir, 'clawspace'), { recursive: true });
+
+      const result = await execTool.execute({
+        command: 'cat > test-output.md',
+        stdin: '---\nfrontmatter: true\n---\n\nbody',
+      }, ctx);
+      expect(result.success).toBe(true);
+      const content = await ctx.fs.read('clawspace/test-output.md');
+      expect(content).toContain('---');
+      expect(content).toContain('frontmatter: true');
+      expect(content).toContain('body');
+    });
   });
 
   describe('spawn tool', () => {
