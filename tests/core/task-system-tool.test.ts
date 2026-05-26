@@ -595,6 +595,25 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       );
       await taskSystem2.initialize();
 
+      // phase 1307 α-1: positive audit guard — corrupt/failed path must NOT be taken for valid task
+      // (convert silent corrupt path to loud test fail / mirror feedback_event_driven_wait_pattern Tier 2 active)
+      const corruptEventsEarly = auditEvents.filter(
+        e => e.type === TASK_AUDIT_EVENTS.TASK_CORRUPT,
+      );
+      const recoveryFailedEventsEarly = auditEvents.filter(
+        e => e.type === TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+      );
+      if (corruptEventsEarly.length > 0 || recoveryFailedEventsEarly.length > 0) {
+        console.error('[phase1307-α-1] corrupt/fail audit during recovery (silent path detected):', {
+          corruptEventsEarly,
+          recoveryFailedEventsEarly,
+          allAuditEventsCount: auditEvents.length,
+          last10AuditEvents: auditEvents.slice(-10),
+        });
+      }
+      expect(corruptEventsEarly).toHaveLength(0);
+      expect(recoveryFailedEventsEarly).toHaveLength(0);
+
       const exists = async () =>
         fs
           .access(pendingFilePath)
