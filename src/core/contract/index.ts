@@ -28,6 +28,10 @@ export {
   CONTRACT_ARCHIVE_DIR,
 } from './dirs.js';
 
+// Phase 1335 (r138 F fork): cross-module query API
+export { listArchiveContracts } from './persistence.js';
+export type { ArchiveContractRef } from './types.js';
+
 export {
   readOnboardingStatus,
   type OnboardingStatus,

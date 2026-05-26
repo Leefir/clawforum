@@ -148,3 +148,11 @@ export interface VerifierResult {
   feedback: string;
   structured?: { passed: boolean; reason: string; issues?: string[] };
 }
+
+/** Phase 1335 (r138 F fork): cross-module query API — archive contract reference */
+export interface ArchiveContractRef {
+  clawId: string;
+  contractId: string;
+  contractDir: string;
+  archivedAt?: string;
+}

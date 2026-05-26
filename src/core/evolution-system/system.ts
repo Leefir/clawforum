@@ -12,6 +12,7 @@ import { CONTRACT_AUDIT_EVENTS } from '../contract/audit-events.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { isProgrammingBug } from '../../foundation/errors.js';
+import { listPendingRetrospectives } from '../summon-system/index.js';
 
 export interface EvolutionSystemDeps {
   fs: FileSystem;
@@ -182,7 +183,7 @@ export class EvolutionSystem {
       return { status: 'skipped_duplicate', detail: 'already processed' };
     }
 
-    // Part 1: by-contract 索引解析（daemon.ts:124-158 等价迁移）
+    // Part 1: by-contract 索引解析（phase 1335: cross-module query API 替代直读）
     const byContractPath = path.join(
       CLAWSPACE_DIR, 'pending-retrospective', 'by-contract',
       `${contractId}.json`,
@@ -192,54 +193,30 @@ export class EvolutionSystem {
     let mode: string | undefined;
     let miningTaskId: string | undefined;
     try {
-      const fileContent = await ctx.motionFs.read(byContractPath);
-      let raw: unknown;
-      try {
-        raw = JSON.parse(fileContent);
-      } catch {
-        this.deps.audit.write(
-          RETRO_AUDIT_EVENTS.INDEX_FAILED,
-          `contractId=${contractId}`,
-          'reason=invalid_json',
-        );
-        return { status: 'error', detail: 'invalid_json' };
+      const retros = await listPendingRetrospectives({ fs: ctx.motionFs, filter: { contractId } });
+      if (retros.length === 0) {
+        return { status: 'skipped_index_missing', detail: 'ENOENT' };
       }
-      if (typeof raw !== 'object' || raw === null) {
-        this.deps.audit.write(
-          RETRO_AUDIT_EVENTS.INDEX_FAILED,
-          `contractId=${contractId}`,
-          'reason=unexpected_format',
-        );
-        return { status: 'error', detail: 'unexpected_format' };
-      }
-      const r = raw as Record<string, unknown>;
-      const rawTarget = typeof r.targetClaw === 'string' ? r.targetClaw : null;
-      if (!rawTarget || !/^[a-z0-9-]+$/.test(rawTarget)) {
+      const r = retros[0];
+      if (!r.targetClaw || !/^[a-z0-9-]+$/.test(r.targetClaw)) {
         this.deps.audit.write(
           RETRO_AUDIT_EVENTS.INDEX_FAILED,
           `contractId=${contractId}`,
           `reason=invalid_targetClaw`,
-          `rawTarget=${rawTarget ?? 'null'}`,
+          `rawTarget=${r.targetClaw ?? 'null'}`,
         );
         return { status: 'error', detail: 'invalid_targetClaw' };
       }
-      targetClaw = rawTarget;
-      // Part 1 回填：mode / miningTaskId（Step 3 预留，Step 4 回填）
-      mode = typeof r.mode === 'string' ? r.mode : undefined;
-      miningTaskId = typeof r.miningTaskId === 'string' ? r.miningTaskId : undefined;
+      targetClaw = r.targetClaw;
+      mode = r.mode;
+      miningTaskId = r.miningTaskId;
     } catch (e) {
-      const isMissing =
-        (e as NodeJS.ErrnoException).code === 'ENOENT' ||
-        e instanceof FileNotFoundError;
-      if (!isMissing) {
-        this.deps.audit.write(
-          RETRO_AUDIT_EVENTS.INDEX_FAILED,
-          `contractId=${contractId}`,
-          `error=${e instanceof Error ? e.message : String(e)}`,
-        );
-        return { status: 'error', detail: (e as NodeJS.ErrnoException).code };
-      }
-      return { status: 'skipped_index_missing', detail: 'ENOENT' };
+      this.deps.audit.write(
+        RETRO_AUDIT_EVENTS.INDEX_FAILED,
+        `contractId=${contractId}`,
+        `error=${e instanceof Error ? e.message : String(e)}`,
+      );
+      return { status: 'error', detail: (e as NodeJS.ErrnoException).code };
     }
 
     // Part 2: contract YAML + skills + mining messages（daemon.ts:160-213 等价）

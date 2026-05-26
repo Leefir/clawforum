@@ -144,3 +144,50 @@ export async function checkAllSubtasksCompleted(
     return subtask?.status === 'completed';
   });
 }
+
+import { CONTRACT_ARCHIVE_DIR } from './dirs.js';
+import { CLAWS_DIR } from '../../foundation/paths.js';
+import type { ArchiveContractRef } from './types.js';
+
+/**
+ * Phase 1335 (r138 F fork): cross-module query API — list archived contracts
+ * ML#3 资源唯一归属：ContractSystem own archive / caller 不直访 fs
+ */
+export async function listArchiveContracts(opts: {
+  fs: FileSystem;
+  filter?: { sinceMs?: number; untilMs?: number };
+}): Promise<ArchiveContractRef[]> {
+  const { fs, filter } = opts;
+  const results: ArchiveContractRef[] = [];
+
+  if (!fs.existsSync(CLAWS_DIR)) return results;
+
+  for (const e of fs.listSync(CLAWS_DIR, { includeDirs: true })) {
+    const clawId = e.name;
+    const archiveDir = `${CLAWS_DIR}/${clawId}/${CONTRACT_ARCHIVE_DIR}`;
+    if (!fs.existsSync(archiveDir)) continue;
+
+    for (const ce of fs.listSync(archiveDir, { includeDirs: true })) {
+      const contractId = ce.name;
+      const contractDir = `${archiveDir}/${contractId}`;
+      if (!fs.statSync(contractDir).isDirectory) continue;
+
+      let archivedAt: string | undefined;
+      try {
+        const progressRaw = fs.readSync(`${contractDir}/progress.json`);
+        const progress = JSON.parse(progressRaw) as { completed_at?: string };
+        archivedAt = progress.completed_at;
+      } catch { /* best-effort: 无 completed_at 则 undef */ }
+
+      if (filter?.sinceMs !== undefined || filter?.untilMs !== undefined) {
+        const at = archivedAt ? new Date(archivedAt).getTime() : 0;
+        if (filter.sinceMs !== undefined && at < filter.sinceMs) continue;
+        if (filter.untilMs !== undefined && at > filter.untilMs) continue;
+      }
+
+      results.push({ clawId, contractId, contractDir, archivedAt });
+    }
+  }
+
+  return results;
+}

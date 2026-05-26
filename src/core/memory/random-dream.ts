@@ -7,9 +7,8 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
-import { CONTRACT_DIR } from '../contract/index.js';
 import type { ProgressData } from '../contract/index.js';
-import { CLAWS_DIR } from '../../foundation/paths.js';
+import { listArchiveContracts } from '../contract/index.js';
 import {
   RANDOM_DREAM_SYSTEM_PROMPT,
   buildRandomDreamPrompt,
@@ -202,27 +201,18 @@ async function discoverWeightedContracts(
   audit: AuditLog,
   getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>,
 ): Promise<WeightedContract[]> {
-  if (!fs.existsSync(CLAWS_DIR)) return [];
-
   const processedIds = new Set(state.processedContractIds);
   const clawsSeen = new Set<string>();
   const contracts: WeightedContract[] = [];
 
-  for (const e of fs.listSync(CLAWS_DIR, { includeDirs: true })) {
-    const clawId = e.name;
-    const archiveDir = path.join(CLAWS_DIR, clawId, CONTRACT_DIR, 'archive');
-    if (!fs.existsSync(archiveDir)) continue;
+  // Phase 1335 (r138 F fork): cross-module query API 替代直扫
+  const archiveContracts = await listArchiveContracts({ fs });
 
-    for (const ce of fs.listSync(archiveDir, { includeDirs: true })) {
-      const contractId = ce.name;
-      const contractDir = path.join(archiveDir, contractId);
-      if (!fs.statSync(contractDir).isDirectory) continue;
-
-      const { weight, hint } = await computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen, audit, getContractProgress);
-      contracts.push({ clawId, contractId, contractDir, weight, hint });
-      clawsSeen.add(clawId);  // NEW phase 585 / 每 claw 首契约获 +30 bonus / 后续不获
-    }
-    // clawsSeen 内层每契约后 add（首契约获 +30 bonus）/ firstSeenClaws 排序后 hint 文案独立修正
+  for (const ref of archiveContracts) {
+    const { clawId, contractId, contractDir } = ref;
+    const { weight, hint } = await computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen, audit, getContractProgress);
+    contracts.push({ clawId, contractId, contractDir, weight, hint });
+    clawsSeen.add(clawId);  // NEW phase 585 / 每 claw 首契约获 +30 bonus / 后续不获
   }
 
   // 按权重降序排序
