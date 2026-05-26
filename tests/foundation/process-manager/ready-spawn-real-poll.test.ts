@@ -50,7 +50,7 @@ describe('ready-spawn real-poll interval', () => {
       resolveDir: (id: string) => path.join(tempDir, 'claws', id),
     };
 
-    // 在 200ms 后写 ready marker（< 默认 PROCESS_SPAWN_CONFIRM_MS=3000ms）
+    // 在 200ms 后写 ready marker（event-driven loop 无 deadline，永等到 ready）
     const writeDelay = 200;
     setTimeout(async () => {
       const statusDir = path.join(tempDir, 'claws', clawId, 'status');

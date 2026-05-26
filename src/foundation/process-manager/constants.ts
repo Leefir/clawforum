@@ -1,14 +1,4 @@
 /**
- * Process spawn confirmation timeout (ms).
- *
- * Window during which spawn() awaits child process to confirm running
- * (parent ack via lock-file write or similar).
- *
- * Value: 3000 (3s) = empirical / Node.js child_process spawn + parent ack
- * 实测 < 3s 充分 / 调长 spawn-fail 回报延迟 / 调短易误判 spawn 真坏.
- */
-export const PROCESS_SPAWN_CONFIRM_MS = 3000;
-/**
  * SIGTERM → SIGKILL grace period (ms).
  *
  * Time given to a process after SIGTERM before force-killing with SIGKILL.

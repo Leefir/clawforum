@@ -28,7 +28,7 @@ import { createDirContext } from '../utils/factories.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
-import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
+
 import { CliError } from '../errors.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { getWorkspaceRoot } from '../../foundation/paths.js';
@@ -340,7 +340,6 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     const pm = createProcessManagerForCLI(deps);
     if (!pm.isAlive(MOTION_CLAW_ID)) {
       await pm.spawn(MOTION_CLAW_ID, motionSpawnOptions);
-      await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     const { ensureWatchdog } = await import('../../watchdog/ensure.js');
     await ensureWatchdog(deps.fsFactory);
@@ -356,7 +355,6 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     const daemonReady = (async () => {
       if (!pm.isAlive(MOTION_CLAW_ID)) {
         await pm.spawn(MOTION_CLAW_ID, motionSpawnOptions);
-        await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
       }
     })();
     daemonReady.catch((err: unknown) => {
@@ -397,7 +395,6 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     const pm = createProcessManagerForCLI(deps);
     if (!pm.isAlive(MOTION_CLAW_ID)) {
       await pm.spawn(MOTION_CLAW_ID, motionSpawnOptions);
-      await new Promise(r => setTimeout(r, PROCESS_SPAWN_CONFIRM_MS));
     }
     const { ensureWatchdog } = await import('../../watchdog/ensure.js');
     await ensureWatchdog(deps.fsFactory);

@@ -1,9 +1,10 @@
 /**
- * ready marker — spawn poll predicate 切换 verify (phase 1114)
+ * ready marker — spawn poll predicate 切换 verify (phase 1114，phase 1317 升级 event-driven)
  *
  * 验证点：
  * 1. spawn poll 等 markReady 才返回（mock 慢 boot）
- * 2. spawn 超时当 ready marker 始终不出现，error msg 含 alive 状态
+ * 2. isAlive 若干次后 false → fast-fail throw "died during boot"
+ * 3. spawn 失败时 cleanup 路径走真 audit emit + 状态文件 0 残留
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
@@ -20,7 +21,7 @@ import type { ProcessManagerContext } from '../../../src/foundation/process-mana
 // Mock constants to eliminate sleep delays
 vi.mock('../../../src/foundation/process-manager/constants.js', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
-  return { ...actual, DAEMON_SHUTDOWN_GRACE_MS: 0, PROCESS_SPAWN_CONFIRM_MS: 500, SPAWN_POLL_INTERVAL_MS: 10 };
+  return { ...actual, DAEMON_SHUTDOWN_GRACE_MS: 0, SPAWN_POLL_INTERVAL_MS: 10 };
 });
 
 // Mock spawnDetached so no real process starts; use process.pid so l1IsAlive passes for real
@@ -73,13 +74,20 @@ describe('ready-spawn integration', () => {
     expect(result).toBe(process.pid);
   });
 
-  it('spawn 超时当 ready marker 始终不出现，error msg 含 alive=true', async () => {
+  it('isAlive 若干次后 false → fast-fail throw "died during boot"', async () => {
     const { audit } = makeAudit();
     const clawId = 'test-claw';
+    let aliveCallCount = 0;
     const ctx: ProcessManagerContext = {
       fs: nodeFs,
       audit,
       resolveDir: (id: string) => path.join(tempDir, 'claws', id),
+      isAlive: () => {
+        aliveCallCount++;
+        if (aliveCallCount === 1) return false;
+        return aliveCallCount < 5;
+      },
+      isReady: () => false,
     };
 
     await expect(
@@ -88,16 +96,23 @@ describe('ready-spawn integration', () => {
         args: ['/fake/daemon-entry.js', clawId],
         logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
       }),
-    ).rejects.toThrow(`Process "${clawId}" failed to become ready (alive=true)`);
+    ).rejects.toThrow(`Process "${clawId}" died during boot`);
   });
 
   it('spawn 失败时 cleanup 路径走真 audit emit + 状态文件 0 残留', async () => {
     const { audit, events } = makeAudit();
     const clawId = 'cleanup-test-claw';
+    let aliveCallCount = 0;
     const ctx: ProcessManagerContext = {
       fs: nodeFs,
       audit,
       resolveDir: (id: string) => path.join(tempDir, 'claws', id),
+      isAlive: () => {
+        aliveCallCount++;
+        if (aliveCallCount === 1) return false;
+        return aliveCallCount < 5;
+      },
+      isReady: () => false,
     };
 
     await expect(
@@ -106,7 +121,7 @@ describe('ready-spawn integration', () => {
         args: ['/fake/daemon-entry.js', clawId],
         logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
       }),
-    ).rejects.toThrow(/failed to become ready/);
+    ).rejects.toThrow(/died during boot/);
 
     expect(events.some(e => e[0] === 'process_spawn_failed')).toBe(true);
     await expect(fs.access(path.join(tempDir, 'claws', clawId, 'status', 'ready')))

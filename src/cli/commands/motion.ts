@@ -12,7 +12,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getNamedSubrootDir } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
-import { PROCESS_SPAWN_CONFIRM_MS, STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
+import { STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
 import { runChatViewport } from './chat-viewport.js';
@@ -234,7 +234,6 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
           env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
         });
         console.log(`✓ Started (PID: ${pid})`);
-        await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
       // 确保 watchdog 在运行（唯一入口、phase 1269 ML#1）
       const { ensureWatchdog } = await import('../../watchdog/ensure.js');

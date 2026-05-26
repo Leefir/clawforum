@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { spawnDetached, kill } from '../process-exec/index.js';
-import { PROCESS_SPAWN_CONFIRM_MS, DAEMON_SHUTDOWN_GRACE_MS, SPAWN_POLL_INTERVAL_MS } from './constants.js';
+import { DAEMON_SHUTDOWN_GRACE_MS, SPAWN_POLL_INTERVAL_MS } from './constants.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { FileNotFoundError } from '../fs/types.js';
 import { ProcessListUnavailable } from './errors.js';
@@ -184,19 +184,17 @@ export async function spawnProcess(
     await ctx.fs.writeAtomic(pidFile, JSON.stringify(pidPayload));
 
     const isReady = ctx.isReady ?? ((id: string) => checkReady(ctx, id));
+    // Event-driven readiness: poll until ready file appears OR child dies.
+    // No wall-clock deadline — readiness is causal, not temporal (phase 1317).
+    // Child died → fast-fail via isAliveByPidFile (existing path).
+    // Hang case → user Ctrl-C / OS timeout(1) wrapper (escalation anchor a).
     let ready = isReady(clawId);
-    const deadline = Date.now() + PROCESS_SPAWN_CONFIRM_MS;
-    while (!ready && Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, SPAWN_POLL_INTERVAL_MS));
+    while (!ready) {
       if (!isAliveByPidFile(clawId)) {
-        // child died during boot — fast-fail without waiting for full deadline
         throw new Error(`Process "${clawId}" died during boot. Check logs at: ${options.logFile}`);
       }
+      await new Promise(resolve => setTimeout(resolve, SPAWN_POLL_INTERVAL_MS));
       ready = isReady(clawId);
-    }
-    if (!ready) {
-      const alive = isAliveByPidFile(clawId);
-      throw new Error(`Process "${clawId}" failed to become ready (alive=${alive}). Check logs at: ${options.logFile}`);
     }
 
     ctx.audit.write(

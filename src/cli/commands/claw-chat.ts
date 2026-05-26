@@ -13,7 +13,6 @@ import { runChatViewport } from './chat-viewport.js';
 import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
 import { getWorkspaceRoot } from '../../foundation/paths.js';
 import { DAEMON_LOG } from '../constants.js';
-import { PROCESS_SPAWN_CONFIRM_MS } from '../../foundation/process-manager/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string): Promise<void> {
@@ -47,8 +46,6 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
           env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
         });
         console.log(`Started (PID: ${pid})`);
-        // Wait for daemon to initialize
-        await new Promise(resolve => setTimeout(resolve, PROCESS_SPAWN_CONFIRM_MS));
       }
     },
     showRecapStream: globalConfig.viewport?.show_recap_stream,

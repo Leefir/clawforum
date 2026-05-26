@@ -204,6 +204,10 @@ describe('ProcessManager', () => {
       const pidFile = path.join(clawDir, 'status', 'pid');
       const logFile = path.join(clawDir, 'logs', 'daemon.log');
 
+      // Use a dead PID so event-driven readiness loop fast-fails instead of hanging
+      const { spawn } = await import('child_process');
+      vi.mocked(spawn).mockReturnValue({ pid: 99999, unref: vi.fn() } as unknown as ReturnType<typeof import('child_process').spawn>);
+
       // Pre-create an EMPTY PID file (simulates in-progress spawn by another process)
       await fs.mkdir(path.dirname(pidFile), { recursive: true });
       await fs.writeFile(pidFile, '', 'utf-8');
