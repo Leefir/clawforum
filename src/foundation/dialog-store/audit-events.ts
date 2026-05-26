@@ -25,4 +25,5 @@ export const DIALOG_AUDIT_EVENTS = {
   TURN_COMMIT: 'dialog_turn_commit',
   TURN_ROLLBACK: 'dialog_turn_rollback',
   FLUSH_CHAIN_ERROR: 'dialog_flush_chain_error',
+  CLEANUP_ARCHIVES_DELETE_FAILED: 'dialog_cleanup_archives_delete_failed',
 } as const;

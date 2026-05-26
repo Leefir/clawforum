@@ -72,6 +72,7 @@
       "task_cancel_promise_rejected",
       "task_cancel_race_lost_to_dispatch",
       "task_cancelled",
+      "task_cleanup_retention_delete_failed",
       "task_completed",
       "task_corrupt",
       "task_discarded",
@@ -327,6 +328,7 @@
     "foundation_dialog-store_audit-events": [
       "dialog_archive_all_corrupted",
       "dialog_archive_empty",
+      "dialog_cleanup_archives_delete_failed",
       "dialog_cold_start",
       "dialog_flush_chain_error",
       "dialog_invariant_failed",
@@ -371,6 +373,7 @@
       "inbox_watcher_failed",
       "inbox_write_failed",
       "inbox_written",
+      "messaging_retention_cleanup_delete_failed",
       "notify_claw_failed",
       "notify_claw_sent",
       "outbox_delivered",

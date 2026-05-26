@@ -28,7 +28,7 @@ const mockWritePendingSubAgentTask = vi.fn();
 
 function makeMockTaskSystem(): AsyncTaskSystem {
   return {
-    writePendingSubAgentTask: mockWritePendingSubAgentTask,
+    schedule: mockWritePendingSubAgentTask,
   } as unknown as AsyncTaskSystem;
 }
 
