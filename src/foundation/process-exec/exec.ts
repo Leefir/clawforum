@@ -64,6 +64,11 @@ async function runProcess(
       },
     });
 
+    if (options.stdin !== undefined) {
+      proc.stdin.write(options.stdin);
+      proc.stdin.end();
+    }
+
     const buffers: Buffer[] = [];
     const stdoutBuffers: Buffer[] = [];
     const stderrBuffers: Buffer[] = [];

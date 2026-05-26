@@ -73,6 +73,10 @@ export function createExecTool() {
           type: 'number',
           description: `Timeout in milliseconds (default ${PROCESS_EXEC_DEFAULT_TIMEOUT_MS})`,
         },
+        stdin: {
+          type: 'string',
+          description: 'Content to pipe to the command stdin. Use "cat > file" with this instead of heredoc to avoid shell escaping issues.',
+        },
       },
       required: ['command'],
     },
@@ -97,6 +101,7 @@ export function createExecTool() {
           cwd,
           timeout: timeoutMs,
           signal: ctx.signal,
+          stdin: args.stdin as string | undefined,
         });
 
         if (result.output.length > EXEC_MAX_OUTPUT) {
