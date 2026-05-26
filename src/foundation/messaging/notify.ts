@@ -25,7 +25,7 @@ export function notifyClaw(
   audit: AuditLog,
 ): void {
   const targetInboxDir = targetClawId === MOTION_CLAW_ID
-    ? path.join(clawforumRoot, 'motion', 'inbox', 'pending')
+    ? path.join(clawforumRoot, MOTION_CLAW_ID, 'inbox', 'pending')
     : path.join(clawforumRoot, 'claws', targetClawId, 'inbox', 'pending');
 
   try {
@@ -79,7 +79,7 @@ export function notifyInbox(
  * Send a system message to inbox with high priority.
  * Convenience wrapper for common system notification pattern.
  *
- * @deprecated since phase 1334 — use notifyClaw(fs, clawforumRoot, 'motion', ...) instead.
+ * @deprecated since phase 1334 — use notifyClaw(fs, clawforumRoot, MOTION_CLAW_ID, ...) instead.
  */
 export function notifySystem(
   fs: FileSystem,

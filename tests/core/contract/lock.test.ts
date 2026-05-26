@@ -4,6 +4,7 @@
  * Phase 576: lock JSON.parse defensive schema 校验
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as os from 'os';
@@ -34,7 +35,7 @@ beforeEach(async () => {
   );
   await fs.mkdir(tmpDir, { recursive: true });
   nodeFs = new NodeFileSystem({ baseDir: tmpDir });
-  mockAudit = { write: vi.fn() };
+  mockAudit = makeMockAudit();
 });
 
 afterEach(async () => {

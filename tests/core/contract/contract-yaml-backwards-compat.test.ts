@@ -3,6 +3,7 @@
  * old `acceptance` field → new `verification` field
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -31,7 +32,7 @@ afterEach(async () => {
 function makeCtx(contractId: string) {
   return {
     fs: nodeFs,
-    audit: { write: vi.fn() } as any,
+    audit: makeMockAudit() as any,
     contractDir: async () => 'contract/active',
     getProgress: async () =>
       ({ contract_id: contractId, status: 'running', subtasks: {} }) as any,

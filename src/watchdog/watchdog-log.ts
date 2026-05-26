@@ -9,6 +9,7 @@ import { getClawforumFs, getAuditWriter, getMotionContext } from './watchdog-con
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 import { WATCHDOG_LOG } from './constants.js';
+import { MOTION_CLAW_ID } from '../constants.js';
 
 /** 1:1 保 watchdog.ts:152-164 */
 export function log(fsFactory: (baseDir: string) => FileSystem, message: string): void {
@@ -46,7 +47,7 @@ export function writeWatchdogInboxMessage(fsFactory: (baseDir: string) => FileSy
   const clawforumRoot = path.dirname(motionDir);
   const { fs, audit } = getMotionContext(fsFactory);
   const body = typeof content.message === 'string' ? content.message : JSON.stringify(content);
-  notifyClaw(fs, clawforumRoot, 'motion', {
+  notifyClaw(fs, clawforumRoot, MOTION_CLAW_ID, {
     type: `watchdog_${type}`,
     source: 'watchdog',
     priority: 'high',

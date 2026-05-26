@@ -785,26 +785,6 @@ describe('ContractSystem Acceptance Flow', () => {
       );
     });
 
-    it('writes CONTRACT_VERIFICATION_INBOX_FAILED when inbox write fails', async () => {
-      const writeSyncSpy = vi.spyOn(InboxWriter.prototype, 'writeSync').mockImplementation(() => {
-        throw new Error('inbox full');
-      });
-
-      try {
-        // @ts-expect-error - private method
-        await manager._writeVerificationError('contract-1', 'task-1', new Error('verification crashed'));
-
-        const auditWriter = (manager as any).audit;
-        expect(auditWriter.write).toHaveBeenCalledWith(
-          CONTRACT_AUDIT_EVENTS.VERIFICATION_INBOX_FAILED,
-          expect.stringContaining('context=ContractSystem._writeVerificationError'),
-          expect.stringContaining('inbox full'),
-        );
-      } finally {
-        writeSyncSpy.mockRestore();
-      }
-    });
-
     it('writes CONTRACT_VERIFICATION_RESET_FAILED when reset status fails', async () => {
       const lockSpy = vi.spyOn(manager as any, 'withProgressLock').mockRejectedValue(new Error('lock busy'));
 

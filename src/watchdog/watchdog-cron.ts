@@ -17,6 +17,7 @@ import { getContractCreatedMs } from '../core/contract/index.js';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
+import { MOTION_CLAW_ID } from '../constants.js';
 import { CLAWS_DIR } from '../foundation/paths.js';
 
 // Check for claws with an active contract but no progress for a long time, and send a reminder
@@ -159,7 +160,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
 
       const { fs: motionFs, audit: motionAudit } = getMotionContext(fsFactory);
       const clawforumRoot = path.dirname(getNamedSubrootDir('motion'));
-      notifyClaw(motionFs, clawforumRoot, 'motion', {
+      notifyClaw(motionFs, clawforumRoot, MOTION_CLAW_ID, {
         type: 'crash_notification',
         source: clawId,
         priority: 'high',

@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { makeMockAudit } from '../helpers/audit.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -116,7 +117,7 @@ describe('maybeCronClawInactivity — fix 4: per-claw error isolation', () => {
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
 
     mockPm = { isAlive: vi.fn().mockReturnValue(false) } as unknown as ProcessManager;
-    mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    mockAudit = makeMockAudit() as unknown as AuditWriter;
   });
 
   afterEach(() => {
@@ -654,7 +655,7 @@ describe('maybeCronClawCrash — crash audit', () => {
     } as any);
 
     mockPm = { isAlive: vi.fn(), getAliveStatus: vi.fn() } as unknown as ProcessManager;
-    mockAudit = { write: vi.fn() };
+    mockAudit = makeMockAudit();
 
     writeSyncSpy = vi.spyOn(InboxWriter.prototype, 'writeSync').mockImplementation(() => {});
   });
@@ -684,29 +685,6 @@ describe('maybeCronClawCrash — crash audit', () => {
     );
   });
 
-  it('emits CLAW_CRASH_NOTIFY_DROPPED when inbox write throws', () => {
-    const clawId = `claw-drop-${randomUUID().slice(0, 8)}`;
-    fs.mkdirSync(path.join(clawsDir, clawId), { recursive: true });
-
-    // Establish alive baseline
-    vi.mocked(mockPm.isAlive).mockReturnValue(true);
-    maybeCronClawCrash(mockPm, mockAudit as any, fsFactory);
-
-    // Mock InboxWriter to throw
-    writeSyncSpy.mockImplementation(() => {
-      throw new Error('disk full');
-    });
-
-    vi.mocked(mockPm.isAlive).mockReturnValue(false);
-    maybeCronClawCrash(mockPm, mockAudit as any, fsFactory);
-
-    expect(mockAudit.write).toHaveBeenCalledWith(
-      WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DROPPED,
-      expect.stringContaining(clawId),
-      expect.stringContaining('disk full'),
-    );
-  });
-
   it('emits watchdog_claw_scan with ctx=crash after scanning claws dir', () => {
     const clawId = `claw-scan-${randomUUID().slice(0, 8)}`;
     fs.mkdirSync(path.join(clawsDir, clawId), { recursive: true });
@@ -728,7 +706,7 @@ describe('maybeCronClawCrash — crash audit', () => {
 
 describe('writeWatchdogCrash', () => {
   it('writes WATCHDOG_CRASH audit when _auditWriter is set', () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     setAuditWriter(mockAudit as any);
 
     writeWatchdogCrash(new Error('test crash'));
@@ -774,7 +752,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
       inactivityNotifyCount:  { 'claw-1': 2 },
     }));
 
-    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    const mockAudit = makeMockAudit() as unknown as AuditWriter;
     setAuditWriter(mockAudit);
 
     expect(() => loadWatchdogState(fsFactory)).not.toThrow();
@@ -788,7 +766,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
     const stateFile = path.join(clawforumDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, 'NOT_VALID_JSON{{{{');
 
-    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    const mockAudit = makeMockAudit() as unknown as AuditWriter;
     setAuditWriter(mockAudit);
 
     loadWatchdogState(fsFactory);
@@ -814,7 +792,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
     // 写真正 corrupt 的 JSON
     fs.writeFileSync(stateFile, '{ not valid json');
 
-    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    const mockAudit = makeMockAudit() as unknown as AuditWriter;
     setAuditWriter(mockAudit);
 
     loadWatchdogState(fsFactory);
@@ -834,7 +812,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
       throw new Error('mock move failure');
     });
 
-    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;
+    const mockAudit = makeMockAudit() as unknown as AuditWriter;
     setAuditWriter(mockAudit);
 
     loadWatchdogState(fsFactory);

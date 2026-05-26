@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -13,7 +14,7 @@ describe('phase 1019 r124 E fork: contract.yaml schema_version invariant', () =>
     await fs.mkdir(clawDir, { recursive: true });
     const nodeFs = new NodeFileSystem({ baseDir: clawDir });
 
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const contractId = 'version-test';
     const contractDir = path.join(clawDir, 'contract', 'active', contractId);
     await fs.mkdir(contractDir, { recursive: true });

@@ -9,6 +9,7 @@
  */
 import { makeContractYaml } from '../../helpers/contract-yaml.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -49,7 +50,7 @@ afterEach(async () => {
 
 describe('getProgress schema check', () => {
   it('throws on corrupt schema (missing contract_id)', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const manager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',
@@ -80,7 +81,7 @@ describe('getProgress schema check', () => {
   });
 
   it('throws on null subtasks', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const manager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',
@@ -122,7 +123,7 @@ describe('getProgress schema check', () => {
 
 describe('loadContractYaml schema check', () => {
   it('throws on missing title', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const contractId = 'yaml-test';
     const contractDir = path.join(clawDir, 'contract', 'active', contractId);
     await fs.mkdir(contractDir, { recursive: true });
@@ -155,7 +156,7 @@ describe('loadContractYaml schema check', () => {
   });
 
   it('throws on null yaml result (empty file)', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const contractId = 'empty-yaml';
     const contractDir = path.join(clawDir, 'contract', 'active', contractId);
     await fs.mkdir(contractDir, { recursive: true });
@@ -183,7 +184,7 @@ describe('loadContractYaml schema check', () => {
 
 describe('discovery schema check', () => {
   it('gracefully skips corrupt schema and finds latest valid', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const activeDir = path.join(clawDir, 'contract', 'active');
 
     // Contract A: schema invalid (missing contract_id)
@@ -240,7 +241,7 @@ describe('discovery schema check', () => {
   });
 
   it('skips null subtasks via schema check', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const activeDir = path.join(clawDir, 'contract', 'active');
 
     const dirA = path.join(activeDir, 'contract-a');
@@ -309,7 +310,7 @@ describe('event-collector schema check', () => {
   }
 
   it('skips archive contract with schema invalid progress.json', () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const fsMock = makeFsWithContracts([
       {
         dir: 'archive',
@@ -340,7 +341,7 @@ describe('event-collector schema check', () => {
   });
 
   it('skips active contract with null subtasks and audits PROGRESS_SCHEMA_INVALID', () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const now = Date.now();
     const fsMock = makeFsWithContracts([
       {
@@ -374,7 +375,7 @@ describe('event-collector schema check', () => {
   });
 
   it('audits PROGRESS_CORRUPTED on JSON.parse throw', () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const files = new Map<string, string>();
     const dirs = new Map<string, { name: string; isDirectory: boolean; size: number }[]>();
 

@@ -4,6 +4,7 @@
  * Tests formatRejectionFeedback (pure) + runScriptVerification path-safety & exec handling.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import { formatRejectionFeedback, runScriptVerification } from '../../../src/core/contract/verification.js';
 import { ProcessExecError } from '../../../src/foundation/process-exec/index.js';
 import type { VerificationContext } from '../../../src/core/contract/verification.js';
@@ -24,7 +25,7 @@ function makeCtx(overrides: Partial<VerificationContext> = {}): VerificationCont
   return {
     clawDir: '/tmp/claw',
     clawId: 'claw-test',
-    audit: { write: vi.fn() } as unknown as VerificationContext['audit'],
+    audit: makeMockAudit() as unknown as VerificationContext['audit'],
     ...overrides,
   } as VerificationContext;
 }

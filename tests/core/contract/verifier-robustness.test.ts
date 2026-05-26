@@ -7,6 +7,7 @@
  * 3. invalid JSON in done.result emits audit + verifier still returns success via text parse (C-3)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as path from 'path';
 import { runContractVerifier } from '../../../src/core/contract/verifier-job.js';
 import { runVerificationInBackground } from '../../../src/core/contract/verification.js';
@@ -46,7 +47,7 @@ function makeConfig(overrides: Partial<VerifierConfig> = {}): VerifierConfig {
       read: vi.fn(),
     } as unknown as VerifierConfig['fs'],
     llm: {} as unknown as VerifierConfig['llm'],
-    audit: { write: vi.fn() } as unknown as VerifierConfig['audit'],
+    audit: makeMockAudit() as unknown as VerifierConfig['audit'],
     prompt: 'test prompt',
     toolRegistry: {
       getForProfile: vi.fn().mockReturnValue([]),

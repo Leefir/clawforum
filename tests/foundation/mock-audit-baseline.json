@@ -932,12 +932,12 @@
     },
     {
       "file": "watchdog/watchdog-cron-dedup.test.ts",
-      "line": 70,
+      "line": 68,
       "excerpt": "    mockAudit = { write: vi.fn() };"
     },
     {
       "file": "watchdog/watchdog-ever-spawned-crash.test.ts",
-      "line": 69,
+      "line": 67,
       "excerpt": "    mockAudit = { write: vi.fn() };"
     },
     {

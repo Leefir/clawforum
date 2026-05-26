@@ -2,6 +2,7 @@
  * Phase 1134 — progress.json schema_version invariant + legacy compatibility
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -34,7 +35,7 @@ afterEach(async () => {
 
 describe('progress.json schema_version invariant — phase 1134', () => {
   it('getProgress rejects schema_version > CURRENT and emits PROGRESS_SCHEMA_INVALID', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const manager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',
@@ -77,7 +78,7 @@ describe('progress.json schema_version invariant — phase 1134', () => {
   });
 
   it('getProgress accepts legacy progress.json without schema_version', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const manager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',

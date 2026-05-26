@@ -8,6 +8,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { notifyClaw } from '../../foundation/messaging/index.js';
 import type { InboxReader } from '../../foundation/messaging/index.js';
 import { HEARTBEAT_AUDIT_EVENTS } from './heartbeat-audit-events.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 
 export interface HeartbeatOptions {
@@ -59,7 +60,7 @@ export class Heartbeat {
         return;
       }
 
-      notifyClaw(this.fs, this.baseDir, 'motion', {
+      notifyClaw(this.fs, this.baseDir, MOTION_CLAW_ID, {
         type: 'heartbeat',
         source: 'system',
         priority: 'low',

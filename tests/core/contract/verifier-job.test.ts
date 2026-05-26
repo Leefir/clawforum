@@ -5,6 +5,7 @@
  * Pure-logic cluster: capturedResult, JSON codeblock, plain JSON, parse error, timeout, generic error.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import { runContractVerifier } from '../../../src/core/contract/verifier-job.js';
 import { ToolTimeoutError } from '../../../src/foundation/errors.js';
 import type { VerifierConfig } from '../../../src/core/contract/types.js';
@@ -28,7 +29,7 @@ function makeConfig(overrides: Partial<VerifierConfig> = {}): VerifierConfig {
     clawDir: '/tmp/claw',
     fs: {} as unknown as VerifierConfig['fs'],
     llm: {} as unknown as VerifierConfig['llm'],
-    audit: { write: vi.fn() } as unknown as VerifierConfig['audit'],
+    audit: makeMockAudit() as unknown as VerifierConfig['audit'],
     prompt: 'test prompt',
     toolRegistry: {
       getForProfile: vi.fn().mockReturnValue([]),

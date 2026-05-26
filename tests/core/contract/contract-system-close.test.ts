@@ -7,6 +7,7 @@
  * (c) cache.clear() 集成 path 调用每 instance .close()（spy verify）
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -163,7 +164,7 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
       clawDir,
       clawId: 'test-claw-2',
       fs: nodeFs,
-      audit: { write: vi.fn() } as any,
+      audit: makeMockAudit() as any,
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
     });

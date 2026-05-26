@@ -7,6 +7,7 @@
  * 3. 同 contract 多 verifier 并发，cancel abort 全部
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -43,7 +44,7 @@ describe('phase 1020 / r124 C fork — cancel propagation 装配端真实施', (
     await fs.mkdir(clawDir, { recursive: true });
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = makeMockAudit();
     const mockLlm = { id: 'mock-llm' } as any;
     manager = new ContractSystem({
       clawDir,

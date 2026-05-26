@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { makeMockAudit } from '../../helpers/audit.js';
 import { runContractObserver } from '../../../src/core/contract/jobs/contract-observer.js';
 import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
@@ -57,7 +58,7 @@ function makeFsMock(scenario: 'empty' | 'completed' | 'escalated'): FileSystem {
 }
 
 function makeAuditMock(): AuditLog {
-  return { write: vi.fn() };
+  return makeMockAudit();
 }
 
 function makeOpts(overrides: Partial<{

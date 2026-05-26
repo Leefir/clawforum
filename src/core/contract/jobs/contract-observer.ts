@@ -5,6 +5,7 @@ import type { InboxMessageOptionsBase } from '../../../foundation/messaging/inde
 import { collectContractEvents } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 import { CLAWS_DIR } from '../../../foundation/paths.js';
+import { MOTION_CLAW_ID } from '../../../constants.js';
 
 /**
  * Cron job timeout (ms) / 防 stuck handler 占 cron tick.
@@ -92,7 +93,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
 
   // 有事件时写 motion inbox
   if (events.length > 0) {
-    notifyClawFn(fs, clawforumDir, 'motion', {
+    notifyClawFn(fs, clawforumDir, MOTION_CLAW_ID, {
       type: 'contract_events',
       source: 'system',
       priority: 'high',

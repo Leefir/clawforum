@@ -404,7 +404,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
 
   // 投递到 motion inbox（motionAudit 已在调度前实例化，直接复用）
   const clawforumRoot = path.dirname(opts.motionDir);
-  notifyClaw(opts.fs, clawforumRoot, 'motion', {
+  notifyClaw(opts.fs, clawforumRoot, MOTION_CLAW_ID, {
     type: 'random_dream',
     source: 'cron:dream',
     priority: 'low',
