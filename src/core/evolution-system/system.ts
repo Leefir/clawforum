@@ -65,6 +65,23 @@ export class EvolutionSystem {
   constructor(private readonly deps: EvolutionSystemDeps) {
   }
 
+  /**
+   * boot reconcile / lazy load 升 eager + audit emit trace
+   * mirror phase 1285 InboxReader.init() 模板
+   */
+  async init(): Promise<void> {
+    if (!this.stateFileLoaded) {
+      this.stateLoadPromise ??= this._loadState();
+      await this.stateLoadPromise;
+      this.stateFileLoaded = true;
+    }
+    this.deps.audit.write(
+      RETRO_AUDIT_EVENTS.EVOLUTION_BOOT_RECONCILE,
+      `processed_count=${this.processedContractIds.size}`,
+      `recovered=${this.processedContractIds.size > 0}`,
+    );
+  }
+
   private async _loadState(): Promise<void> {
     try {
       const content = await this.deps.fs.read(STATE_FILE_PATH);

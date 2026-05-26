@@ -8,6 +8,8 @@
  * 历史关联：phase338 H1 收官时 RETRO_* 与 CONTRACT_AUDIT_EVENTS 同文件 / phase383 命名空间分离.
  */
 export const RETRO_AUDIT_EVENTS = {
+  // phase 1335 (r138 F fork): boot reconcile audit emit trace
+  EVOLUTION_BOOT_RECONCILE: 'evolution_boot_reconcile',
   INDEX_FAILED: 'contract_retro_index_failed',
   YAML_FAILED: 'contract_retro_yaml_failed',
   SKILL_FAILED: 'contract_retro_skill_failed',
