@@ -76,14 +76,48 @@ describe('isReady stale marker self-cleanup（phase 1148 / C.1）', () => {
     await fs.mkdir(path.dirname(readyFile), { recursive: true });
     await fs.writeFile(readyFile, JSON.stringify({ pid: FAKE_LIVE_PID }), 'utf-8');
 
-    expect(isReady(ctx, clawId)).toBe(false);
+    // phase 1310 α-1: diagnostic dump on assertion fail (mirror phase 1307/1309 模板)
+    const isReadyResult = isReady(ctx, clawId);
+    if (isReadyResult !== false) {
+      const readyFileExists = await fs.access(readyFile).then(() => true).catch(() => false);
+      const readyFileContent = readyFileExists
+        ? await fs.readFile(readyFile, 'utf-8').catch(() => 'read-fail')
+        : null;
+      const pidFileContent = await fs.readFile(
+        path.join(tempDir, 'claws', clawId, 'status', 'pid'),
+        'utf-8',
+      ).catch(() => 'read-fail');
+      console.error('[phase1310-α-1] isReady returned true (expected false):', {
+        isReadyResult,
+        readyFileExists,
+        readyFileContent,
+        pidFileContent,
+        eventsCount: events.length,
+        allEvents: events,
+      });
+    }
+    expect(isReadyResult).toBe(false);
 
     const staleEvents = events.filter(
       (e) => e[0] === PROCESS_MANAGER_AUDIT_EVENTS.READY_MARK_STALE,
     );
+    if (staleEvents.length !== 1) {
+      console.error('[phase1310-α-1] staleEvents count mismatch:', {
+        expected: 1,
+        actual: staleEvents.length,
+        allEvents: events,
+      });
+    }
     expect(staleEvents).toHaveLength(1);
 
     const markerStillExists = await fs.access(readyFile).then(() => true).catch(() => false);
+    if (markerStillExists) {
+      console.error('[phase1310-α-1] marker still exists after isReady (expected deleted):', {
+        readyFile,
+        eventsCount: events.length,
+        allEvents: events,
+      });
+    }
     expect(markerStillExists).toBe(false);
   });
 
