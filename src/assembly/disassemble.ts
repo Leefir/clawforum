@@ -6,7 +6,7 @@ export async function disassemble(instances: Instances, signal: string): Promise
 
   // Step 0: dispose contractSystemCache (motion lifecycle end-of-life, phase 1200)
   try {
-    disposeContractSystems?.();
+    await disposeContractSystems?.();
   } catch (e) {
     auditWriter.write(
       ASSEMBLY_AUDIT_EVENTS.DISASSEMBLE_STEP_FAILED,

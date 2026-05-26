@@ -123,21 +123,26 @@ export class ContractSystem {
    * cancelContract 触发后 abort 所有 controller / 真 propagate verifier subagent abort
    * 反 phase 993 D.1 dead field
    */
-  private _activeContractControllers = new Map<string, Set<AbortController>>();
+  private _activeContractControllers = new Map<string, Set<{ controller: AbortController; promise: Promise<unknown> }>>();
 
-  private _registerVerifierController(contractId: string, ctrl: AbortController): void {
+  private _registerVerifierController(contractId: string, ctrl: AbortController, promise: Promise<unknown>): void {
     let s = this._activeContractControllers.get(contractId);
     if (!s) {
       s = new Set();
       this._activeContractControllers.set(contractId, s);
     }
-    s.add(ctrl);
+    s.add({ controller: ctrl, promise });
   }
 
   private _unregisterVerifierController(contractId: string, ctrl: AbortController): void {
     const s = this._activeContractControllers.get(contractId);
     if (!s) return;
-    s.delete(ctrl);
+    for (const entry of s) {
+      if (entry.controller === ctrl) {
+        s.delete(entry);
+        break;
+      }
+    }
     if (s.size === 0) this._activeContractControllers.delete(contractId);
   }
 
@@ -158,9 +163,9 @@ export class ContractSystem {
     const s = this._activeContractControllers.get(contractId);
     if (!s) return;
     const err = new Error(`contract ${contractId} cancelled: ${reason}`);
-    for (const c of s) {
+    for (const { controller } of s) {
       try {
-        c.abort(err);
+        controller.abort(err);
       } catch (abortErr) {
         // unsafe abort: 容错防破 cancelContract 主流程
         emitContractCancelled(
@@ -268,9 +273,10 @@ export class ContractSystem {
       toolTimeoutMs: this.toolTimeoutMs,
       runVerifierWithCancel: async (contractId, config) => {
         const controller = new AbortController();
-        this._registerVerifierController(contractId, controller);
+        const promise = runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory });
+        this._registerVerifierController(contractId, controller, promise);
         try {
-          return await runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory });
+          return await promise;
         } finally {
           this._unregisterVerifierController(contractId, controller);
         }
@@ -609,19 +615,21 @@ export class ContractSystem {
 
   /**
    * phase 1217 (r131 C fork): true disposable / abort all active verifier controllers
-   * 替代 phase 1200 浅 dispose (cache.clear() 仅 Map.clear() refs drop)
+   * phase 1335 (r138 F fork): async close / await verifier termination promises
    */
-  close(): void {
-    // Abort all per-contract verifier controllers (phase 1020 _activeContractControllers)
-    for (const [, controllers] of this._activeContractControllers) {
-      for (const ctrl of controllers) {
+  async close(): Promise<void> {
+    const terminationPromises: Promise<unknown>[] = [];
+    for (const [, entries] of this._activeContractControllers) {
+      for (const { controller, promise } of entries) {
         try {
-          ctrl.abort();
+          controller.abort();
         } catch {
           // silent: abort 失败不影响 dispose 流程 / best-effort cleanup
         }
+        terminationPromises.push(promise);
       }
     }
+    await Promise.allSettled(terminationPromises);
     this._activeContractControllers.clear();
     this.contractCompletedCallbacks.clear();
     // audit emit close event (additive const)

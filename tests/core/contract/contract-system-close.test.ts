@@ -81,8 +81,12 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
     );
 
     // 挂起 verifier 以保留 controller 注册
-    mockRunContractVerifier.mockImplementation(async () => {
-      return new Promise(() => {}); // never resolves
+    mockRunContractVerifier.mockImplementation(async (config: { signal?: AbortSignal }) => {
+      return new Promise((_resolve, reject) => {
+        config.signal?.addEventListener('abort', () => {
+          reject(new Error('aborted'));
+        }, { once: true });
+      });
     });
 
     // 启动 verification，这会注册一个 AbortController
@@ -102,7 +106,7 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
       { timeout: 5000, interval: 10 },
     );
 
-    manager.close();
+    await manager.close();
 
     expect(manager.getActiveVerifierCount()).toBe(0);
   });
@@ -125,7 +129,11 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
     let capturedSignal: AbortSignal | undefined;
     mockRunContractVerifier.mockImplementation(async (config: { signal?: AbortSignal }) => {
       capturedSignal = config.signal;
-      return new Promise(() => {});
+      return new Promise((_resolve, reject) => {
+        config.signal?.addEventListener('abort', () => {
+          reject(new Error('aborted'));
+        }, { once: true });
+      });
     });
 
     (manager as any).runLLMVerification(
@@ -147,13 +155,13 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
     expect(capturedSignal).toBeDefined();
     expect(capturedSignal!.aborted).toBe(false);
 
-    manager.close();
+    await manager.close();
 
     expect(capturedSignal!.aborted).toBe(true);
   });
 
   // ───── 反向 (c): cache.clear() 集成 path 调用每 instance .close() ─────
-  it('disposeContractSystems 遍历调用每个 ContractSystem.close()', () => {
+  it('disposeContractSystems 遍历调用每个 ContractSystem.close()', async () => {
     const cache = new Map<string, ContractSystem>();
     const closeSpy = vi.fn();
 
@@ -169,15 +177,15 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
     });
 
     // 用 vi.spyOn 包装 close
-    const spy1 = vi.spyOn(cs1, 'close').mockImplementation(() => {});
-    const spy2 = vi.spyOn(cs2, 'close').mockImplementation(() => {});
+    const spy1 = vi.spyOn(cs1, 'close').mockImplementation(async () => {});
+    const spy2 = vi.spyOn(cs2, 'close').mockImplementation(async () => {});
 
     cache.set('claw-1', cs1);
     cache.set('claw-2', cs2);
 
     // 模拟 assemble.ts disposeContractSystems lambda 行为
     for (const cs of cache.values()) {
-      cs.close();
+      await cs.close();
     }
     cache.clear();
 
@@ -189,8 +197,8 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
   });
 
   // ───── audit emit CONTRACT_SYSTEM_CLOSED ─────
-  it('close() 触发 CONTRACT_SYSTEM_CLOSED audit event', () => {
-    manager.close();
+  it('close() 触发 CONTRACT_SYSTEM_CLOSED audit event', async () => {
+    await manager.close();
 
     expect(auditWrite).toHaveBeenCalledWith(
       CONTRACT_AUDIT_EVENTS.CONTRACT_SYSTEM_CLOSED,

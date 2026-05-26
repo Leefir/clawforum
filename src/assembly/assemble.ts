@@ -190,7 +190,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
   let llm: LLMOrchestrator | undefined;
   let streamWriter: StreamWriter | undefined;
   // Phase 1200: contractSystemCache dispose hook (motion lifecycle end-of-life)
-  let disposeContractSystems: (() => void) | undefined;
+  let disposeContractSystems: (() => Promise<void>) | undefined;
 
   try {
     // --- 3. Runtime (daemon.ts L111-137) ---
@@ -581,9 +581,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       if (isMotion) {
         // M#3: random-dream 读取 contract progress 走 ContractSystem API（phase 1104）
         const contractSystemCache = new Map<string, import('../core/contract/index.js').ContractSystem>();
-        disposeContractSystems = () => {
+        disposeContractSystems = async () => {
           for (const cs of contractSystemCache.values()) {
-            cs.close();
+            await cs.close();
           }
           contractSystemCache.clear();
         };

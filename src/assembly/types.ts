@@ -30,5 +30,5 @@ export interface Instances {
   readonly gateway?: Gateway;          // motion only, offline mode（phase157）
   readonly evolutionSystem?: EvolutionSystem;  // motion only（phase411）
   /** Phase 1200: motion lifecycle end-of-life dispose hook for contractSystemCache */
-  readonly disposeContractSystems?: () => void;
+  readonly disposeContractSystems?: () => Promise<void>;
 }
