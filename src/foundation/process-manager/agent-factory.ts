@@ -5,7 +5,7 @@
  * across daemon / motion / watchdog / start / status / claw / stop / index.
  */
 
-import { ProcessManager } from './index.js';
+import { ProcessManager } from './manager.js';
 import { getClawforumRoot, getNamedSubrootDir, getClawDir } from '../config/index.js';
 import type { AuditLog } from '../audit/index.js';
 import type { FileSystem } from '../fs/types.js';

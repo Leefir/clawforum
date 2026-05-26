@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { EXEC_MAX_OUTPUT } from './constants.js';
-import { TASKS_SYNC_EXEC_DIR } from './index.js';
+import { TASKS_SYNC_EXEC_DIR } from './constants.js';
 import { exec } from '../process-exec/index.js';
 import { ProcessExecError } from '../process-exec/index.js';
 import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../process-exec/index.js';

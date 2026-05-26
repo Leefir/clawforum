@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { FileNotFoundError } from '../fs/types.js';
 import type { FileSystem } from '../fs/types.js';
-import type { AuditLog } from './index.js';
+import type { AuditLog } from './types.js';
 
 const FALLBACK_BUFFER_CAP = 1000;
 function getFallbackDir(): string { return tmpdir(); }

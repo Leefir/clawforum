@@ -10,7 +10,7 @@ import * as path from 'path';
 import type { ExecContext } from '../tools/index.js';
 import { FILE_TOOL_AUDIT_EVENTS } from './audit-events.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
-import { TASKS_SYNC_WRITE_DIR } from './index.js';
+import { TASKS_SYNC_WRITE_DIR } from './constants.js';
 
 export type BackupSource = 'file_backup' | 'edit_backup' | 'multi_edit_backup' | 'exec_overflow';
 

@@ -20,10 +20,8 @@ import { AuditWriter, AUDIT_FILE } from './writer.js';
 import * as path from 'path';
 import type { FileSystem } from '../fs/types.js';
 
-export interface AuditLog {
-  write(type: string, ...cols: (string | number)[]): void;
-  dispose?(): void;
-}
+export type { AuditLog } from './types.js';
+import type { AuditLog } from './types.js';
 
 export { AuditWriter, AUDIT_FILE, reconcileFallbackDumps } from './writer.js';
 export { AUDIT_MESSAGE_MAX_CHARS } from './defaults.js';

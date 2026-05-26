@@ -6,8 +6,7 @@
  *          createLLMOrchestrator factory
  */
 
-import type { LLMResponse } from '../llm-provider/types.js';
-import type { LLMCallOptions, StreamChunk } from './types.js';
+import type { LLMOrchestratorConfig, LLMOrchestrator } from './types.js';
 
 export { LLMOrchestratorImpl } from './orchestrator.js';
 export type {
@@ -18,26 +17,13 @@ export type {
   LLMCallOptions,
   ProviderConfig,
   ProviderAdapter,
+  LLMOrchestrator,
 } from './types.js';
 
 import { LLMOrchestratorImpl } from './orchestrator.js';
-import type { LLMOrchestratorConfig } from './types.js';
 
 export function createLLMOrchestrator(config: LLMOrchestratorConfig): LLMOrchestrator {
   return new LLMOrchestratorImpl(config);
-}
-
-/**
- * LLMOrchestrator interface — multi-provider fault-tolerant LLM orchestration
- *
- * Implemented by LLMOrchestratorImpl class.
- */
-export interface LLMOrchestrator {
-  call(options: LLMCallOptions): Promise<LLMResponse>;
-  stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk>;
-  healthCheck(): Promise<boolean>;
-  getProviderInfo(): { name: string; model: string; isFallback: boolean } | null;
-  close(): Promise<void>;
 }
 
 export { DEFAULT_LLM_IDLE_TIMEOUT_MS, INIT_LLM_IDLE_TIMEOUT_MS } from './defaults.js';

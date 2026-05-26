@@ -14,7 +14,7 @@ import type {
   FileSystemOptions,
   FileEntry,
   StatInfo,
-} from './index.js';
+} from './types.js';
 import {
   readFile,
   writeAtomic,

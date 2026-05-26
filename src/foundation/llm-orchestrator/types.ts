@@ -11,6 +11,7 @@ import type {
   ProviderAdapter,
   LLMCallOptions as L1LLMCallOptions,
 } from '../llm-provider/types.js';
+import type { LLMResponse } from '../llm-provider/types.js';
 import type { LLMErrorClass, UserActionHint } from './errors.js';
 
 // Re-export L1 base types for backward compat
@@ -74,4 +75,17 @@ export type LLMEvent =
  */
 export interface LLMEventSink {
   emit(event: LLMEvent): void;
+}
+
+/**
+ * LLMOrchestrator interface — multi-provider fault-tolerant LLM orchestration
+ *
+ * Implemented by LLMOrchestratorImpl class.
+ */
+export interface LLMOrchestrator {
+  call(options: LLMCallOptions): Promise<LLMResponse>;
+  stream(options: LLMCallOptions): AsyncIterableIterator<StreamChunk>;
+  healthCheck(): Promise<boolean>;
+  getProviderInfo(): { name: string; model: string; isFallback: boolean } | null;
+  close(): Promise<void>;
 }

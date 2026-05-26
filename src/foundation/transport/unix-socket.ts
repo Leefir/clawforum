@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import type { FileSystem } from '../fs/types.js';
 import { isFileNotFound } from '../fs/types.js';
 import { AUDIT_PREVIEW_LEN } from '../constants.js';
-import type { Transport, TransportOptions, BroadcastFailure, TransportErrorEvent } from './index.js';
+import type { Transport, TransportOptions, BroadcastFailure, TransportErrorEvent } from './types.js';
 import type { Connection } from './types.js';
 
 interface ConnectionEntry {

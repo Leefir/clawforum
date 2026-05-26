@@ -14,12 +14,11 @@
 import type { Tool } from '../tools/index.js';
 import { createExecTool } from './exec.js';
 
-/** CommandTool own sync scratch subdir（turn-scoped / Snapshot whitelist 清理）*/
-export const TASKS_SYNC_EXEC_DIR = 'tasks/sync/exec';
-
 export interface CommandToolModule {
   exec: Tool;
 }
+
+export { TASKS_SYNC_EXEC_DIR } from './constants.js';
 
 /**
  * 创建 CommandTool 模块

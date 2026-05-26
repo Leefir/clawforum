@@ -14,7 +14,7 @@
 
 import { type AuditLog, createSystemAudit } from '../audit/index.js';
 import type { FileSystem } from '../fs/types.js';
-import type { ProcessManager } from './index.js';
+import type { ProcessManager } from './manager.js';
 import { createAgentProcessManager } from './agent-factory.js';
 import { getClawforumRoot } from '../config/index.js';
 

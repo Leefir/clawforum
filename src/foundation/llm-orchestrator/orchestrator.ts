@@ -22,7 +22,7 @@ import type {
   StreamChunk,
   LLMEventSink,
 } from './types.js';
-import type { LLMOrchestrator } from './index.js';
+import type { LLMOrchestrator } from './types.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { createLLMProvider, type LLMProvider } from '../llm-provider/index.js';
 import { makeExternalAbortError, withCombinedAbortSignal, type AbortReason } from '../llm-provider/index.js';
