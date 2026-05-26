@@ -7,6 +7,7 @@ import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { createNotifyClawTool } from '../../src/foundation/messaging/tools/notify-claw.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { makeAudit } from '../helpers/audit.js';
+import { CALLER_TYPE_TO_GROUPS } from '../../src/core/caller-types.js';
 
 describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
   let tempDir: string;
@@ -26,39 +27,41 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
   });
 
   // 反向 1: motion identity → callerType === motion (production wiring)
-  it('反向 1: motion identity → callerType === motion', () => {
+  it('反向 1: motion identity → callerLabel === motion', () => {
     const fs = new NodeFileSystem({ baseDir: clawforumDir });
     const ctx = new ExecContextImpl({
       clawId: 'motion',
       clawDir: path.join(clawforumDir, 'motion'),
       syncDir: path.join(clawforumDir, 'motion', 'tasks', 'sync'),
       profile: 'full',
-      callerType: 'motion',
+      allowedGroups: CALLER_TYPE_TO_GROUPS.motion,
+      callerLabel: 'motion',
       fs,
       maxSteps: 10,
       auditWriter: audit.audit,
     });
-    expect(ctx.callerType).toBe('motion');
+    expect(ctx.callerLabel).toBe('motion');
   });
 
   // 反向 2: claw identity → callerType === claw (regression guard)
-  it('反向 2: claw identity → callerType === claw', () => {
+  it('反向 2: claw identity → callerLabel === claw', () => {
     const fs = new NodeFileSystem({ baseDir: clawforumDir });
     const ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: path.join(clawforumDir, 'claws', 'test-claw'),
       syncDir: path.join(clawforumDir, 'claws', 'test-claw', 'tasks', 'sync'),
       profile: 'full',
-      callerType: 'claw',
+      allowedGroups: CALLER_TYPE_TO_GROUPS.claw,
+      callerLabel: 'claw',
       fs,
       maxSteps: 10,
       auditWriter: audit.audit,
     });
-    expect(ctx.callerType).toBe('claw');
+    expect(ctx.callerLabel).toBe('claw');
   });
 
   // 反向 3: motion → notify-claw guard passes (end-to-end)
-  it('反向 3: motion callerType → notify-claw guard passes', async () => {
+  it('反向 3: motion callerLabel → notify-claw guard passes', async () => {
     const fs = new NodeFileSystem({ baseDir: clawforumDir });
     await fs.ensureDir('claws/target-claw');
 
@@ -67,7 +70,8 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
       clawDir: path.join(clawforumDir, 'motion'),
       syncDir: path.join(clawforumDir, 'motion', 'tasks', 'sync'),
       profile: 'full',
-      callerType: 'motion',
+      allowedGroups: CALLER_TYPE_TO_GROUPS.motion,
+      callerLabel: 'motion',
       fs,
       maxSteps: 10,
       auditWriter: audit.audit,
@@ -92,7 +96,7 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
   });
 
   // 反向 4: claw callerType → notify-claw guard rejects (regression)
-  it('反向 4: claw callerType → notify-claw guard rejects', async () => {
+  it('反向 4: claw callerLabel → notify-claw guard rejects', async () => {
     const fs = new NodeFileSystem({ baseDir: clawforumDir });
     await fs.ensureDir('claws/target-claw');
 
@@ -101,7 +105,8 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
       clawDir: path.join(clawforumDir, 'claws', 'test-claw'),
       syncDir: path.join(clawforumDir, 'claws', 'test-claw', 'tasks', 'sync'),
       profile: 'full',
-      callerType: 'claw',
+      allowedGroups: CALLER_TYPE_TO_GROUPS.claw,
+      callerLabel: 'claw',
       fs,
       maxSteps: 10,
       auditWriter: audit.audit,

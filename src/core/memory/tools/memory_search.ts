@@ -38,6 +38,7 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
 export const memorySearchTool: Tool = {
   name: MEMORY_SEARCH_TOOL_NAME,
   profiles: ['full', 'readonly', 'subagent', 'miner'],
+  group: 'memory',
   description: 'Full-text search across memory/ files. Supports keyword search, filename regex filtering, and frontmatter metadata filtering. At least one of query or filter is required.',
   schema: {
     type: 'object',

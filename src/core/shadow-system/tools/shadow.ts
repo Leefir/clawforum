@@ -26,6 +26,7 @@ export function createShadowTool(deps: {
   return {
     name: SHADOW_TOOL_NAME,
     profiles: ['full'],
+    group: 'shadow',
     description: 'Create a one-shot shadow of yourself with full context inheritance. ' +
       'By default the shadow executes asynchronously and results arrive via inbox. ' +
       'Set async=false for synchronous execution that blocks until the result is available inline. ' +

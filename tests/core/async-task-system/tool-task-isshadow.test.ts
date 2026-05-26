@@ -187,7 +187,8 @@ describe('async ToolTask isShadow propagation (phase 858)', () => {
       execute: vi.fn(),
       idempotent: true,
       supportsAsync: true,
-    });
+      group: 'fs-read',
+    } as any);
 
     let capturedArgs: AsyncToolTaskArgs | undefined;
     const scheduleAsyncTool = vi.fn(async (args: AsyncToolTaskArgs) => {
@@ -203,6 +204,8 @@ describe('async ToolTask isShadow propagation (phase 858)', () => {
       workspaceDir: '/tmp/claw/clawspace',
       syncDir: '/tmp/claw/.sync',
       callerType: 'claw',
+      allowedGroups: new Set(['fs-read']),
+      callerLabel: 'claw',
       fs: makeCapturingMockFs(),
       profile: 'full',
       stepNumber: 0,

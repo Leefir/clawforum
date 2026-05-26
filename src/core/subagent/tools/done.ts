@@ -21,6 +21,7 @@ export function createDoneTool(): Tool & { capturedResult?: { result: string } }
   const tool: Tool & { capturedResult?: { result: string } } = {
     name: DONE_TOOL_NAME,
     profiles: ['subagent'],
+    group: 'subagent-protocol',
     description: 'Submit your final result and exit. ' +
       'Use when your task is complete and you have a result to return to the caller. ' +
       'After calling done, no further tool use is expected.',

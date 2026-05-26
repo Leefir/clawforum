@@ -21,6 +21,7 @@ export function createSkillTool(skillRegistry: SkillSystem): Tool {
   return {
     name: SKILL_TOOL_NAME,
     profiles: ['full', 'subagent', 'miner'],
+    group: 'skill',
     description: 'Load a skill by name. Skills provide domain-specific knowledge and guidelines from SKILL.md files.',
     schema: {
       type: 'object',

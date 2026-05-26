@@ -12,6 +12,7 @@ describe('Tools — async path silent rejection audit (P1.10 / α)', () => {
               schema: { type: 'object' },
               readonly: true,
               idempotent: true,
+              group: 'fs-read',
               execute: vi.fn(),
               ...toolOverrides,
             }
@@ -29,13 +30,15 @@ describe('Tools — async path silent rejection audit (P1.10 / α)', () => {
     return { audit, events };
   }
 
-  function makeCtx(callerType: string, audit: ReturnType<typeof makeAudit>['audit']) {
+  function makeCtx(callerType: string, audit: ReturnType<typeof makeAudit>['audit'], allowedGroups?: Set<string>) {
     return {
       clawId: 'test',
       clawDir: '/tmp',
       profile: 'full',
       fs: {},
       callerType,
+      allowedGroups: allowedGroups ?? new Set(['fs-read']),
+      callerLabel: callerType,
       auditWriter: audit,
     } as any;
   }
@@ -45,7 +48,7 @@ describe('Tools — async path silent rejection audit (P1.10 / α)', () => {
     const registry = makeRegistry({ readonly: true, supportsAsync: true });
     const scheduleAsyncTool = vi.fn();
     const executor = new ToolExecutorImpl(registry, 60000, scheduleAsyncTool);
-    const ctx = makeCtx('subagent', audit);
+    const ctx = makeCtx('subagent', audit, new Set());
 
     const result = await executor.execute({
       toolName: 'testTool',
@@ -56,14 +59,15 @@ describe('Tools — async path silent rejection audit (P1.10 / α)', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.content).toBe('Async mode is not available for subagents.');
+    expect(result.content).toBe('Async mode is not available for this caller.');
     expect(events).toHaveLength(1);
     expect(events[0]).toEqual([
       'tool_async_rejected',
       'testTool',
       'tu1',
-      'reason=caller_type',
+      'reason=group_membership',
       'caller=subagent',
+      'group=fs-read',
     ]);
     expect(scheduleAsyncTool).not.toHaveBeenCalled();
   });

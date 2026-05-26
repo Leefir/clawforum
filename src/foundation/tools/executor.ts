@@ -14,8 +14,8 @@ import {
   ToolInvalidInputError,
 } from '../errors.js';
 import { CLAWSPACE_DIR } from '../paths.js';
-import type { CallerType } from '../../core/caller-types.js';
 import type { ExecContext } from './types.js';
+import type { ToolGroup } from './types.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 import type { ToolProfile } from '../tool-protocol/index.js';
@@ -76,15 +76,16 @@ export class ToolExecutorImpl implements IToolExecutor {
     // Async path: tool lifecycle owned by AsyncTaskSystem, no signal merge here.
     // 4. Async path: write fs pending file, watcher will ingest and dispatch
     if (options.async) {
-      if (ctx.callerType !== 'claw') {
+      if (!tool.group || !ctx.allowedGroups?.has(tool.group)) {
         ctx.auditWriter?.write(
           'tool_async_rejected',
           toolName,
           options.toolUseId ?? '',
-          `reason=caller_type`,
-          `caller=${ctx.callerType}`,
+          `reason=group_membership`,
+          `caller=${ctx.callerLabel}`,
+          `group=${tool.group ?? 'undefined'}`,
         );
-        return { success: false, content: 'Async mode is not available for subagents.' };
+        return { success: false, content: 'Async mode is not available for this caller.' };
       }
       if (!tool.supportsAsync) {
         ctx.auditWriter?.write(
@@ -112,7 +113,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         isIdempotent: tool.idempotent,
         maxRetries: tool.idempotent ? 2 : 0,
         retryCount: 0,
-        callerType: ctx.callerType === 'claw' ? undefined : ctx.callerType,
+        callerLabel: ctx.callerLabel === 'claw' ? undefined : ctx.callerLabel,
         toolUseId: options.toolUseId,
         isShadow: ctx.isShadow,
       });
@@ -367,7 +368,7 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: string; maxSteps: number; signal?: AbortSignal; callerType?: CallerType; originClawId?: string; isShadow?: boolean; permissionChecker?: PermissionChecker }
+    options: { clawId: string; maxSteps: number; signal?: AbortSignal; allowedGroups: ReadonlySet<ToolGroup>; callerLabel: string; originClawId?: string; isShadow?: boolean; permissionChecker?: PermissionChecker }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
@@ -375,7 +376,8 @@ export class ToolExecutor extends ToolExecutorImpl {
       workspaceDir: this.workspaceDir,
       syncDir: this.syncDir,
       profile,
-      callerType: options.callerType ?? 'claw',
+      allowedGroups: options.allowedGroups,
+      callerLabel: options.callerLabel,
       permissionChecker: options.permissionChecker,
       fs: this.fs,
       ...(this.fsFactory ? { fsFactory: this.fsFactory } : {}),

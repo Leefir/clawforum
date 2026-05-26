@@ -11,14 +11,14 @@
 import type { FileSystem } from '../fs/types.js';
 import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { ToolProfile } from '../tool-protocol/index.js';
-import type { ExecContext } from './types.js';
+import type { ExecContext, ToolGroup } from './types.js';
 import path from 'path';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { CLAWSPACE_DIR } from '../paths.js';
 
 
 import type { AuditLog } from '../audit/index.js';
-import type { CallerType } from '../../core/caller-types.js';
+
 import type { ToolRegistry } from './types.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
 
@@ -41,8 +41,10 @@ export interface ExecContextImplOptions {
   /** Tool profile for permission control */
   profile: ToolProfile;
   
-  /** Caller type for spawn recursion prevention */
-  callerType?: CallerType;
+  /** phase 1337: capability-tag based group filtering (replaces callerType) */
+  allowedGroups: ReadonlySet<ToolGroup>;
+  /** phase 1337: opaque audit label (replaces callerType semantic) */
+  callerLabel: string;
   
   /** File system instance */
   fs: FileSystem;
@@ -131,7 +133,8 @@ export class ExecContextImpl implements ExecContext {
   workspaceDir: string;
   syncDir: string;
   profile: ToolProfile;
-  callerType: CallerType;
+  allowedGroups: ReadonlySet<ToolGroup>;
+  callerLabel: string;
   fs: FileSystem;
   fsFactory?: (baseDir: string) => FileSystem;
   llm?: LLMOrchestrator;
@@ -158,7 +161,8 @@ export class ExecContextImpl implements ExecContext {
     this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.syncDir = options.syncDir;
     this.profile = options.profile;
-    this.callerType = options.callerType ?? 'claw';
+    this.allowedGroups = options.allowedGroups;
+    this.callerLabel = options.callerLabel;
     this.fs = options.fs;
     this.fsFactory = options.fsFactory;
     this.llm = options.llm;

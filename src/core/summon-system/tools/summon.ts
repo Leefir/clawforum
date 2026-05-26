@@ -38,6 +38,7 @@ export class SummonTool implements Tool {
   readonly readonly = false;
   readonly idempotent = false;
   readonly profiles = ['full'] as const;
+  readonly group = 'spawn';
 
   constructor(
     private getSystemPrompt: () => Promise<string>,  // buildSystemPrompt() 是 async

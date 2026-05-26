@@ -31,6 +31,7 @@ function countMatches(s: string, pattern: string): number {
 export const multiEditTool: Tool = {
   name: MULTI_EDIT_TOOL_NAME,
   profiles: ['full', 'subagent', 'miner'],
+  group: 'fs-write',
   description: 'Apply multiple edits to a file atomically. Edits are applied in order; on any failure, all edits are rolled back. Single backup before all edits. File must exist.',
   schema: {
     type: 'object',

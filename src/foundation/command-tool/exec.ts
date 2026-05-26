@@ -7,6 +7,7 @@
 
 import type { ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
+import type { Tool } from '../tools/index.js';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import { UUID_SHORT_LEN } from '../../constants.js';
@@ -53,10 +54,11 @@ async function persistOverflow(
 
 export const EXEC_TOOL_NAME = 'exec' as const;
 
-export function createExecTool() {
+export function createExecTool(): Tool {
   return {
     name: EXEC_TOOL_NAME,
     profiles: ['full', 'subagent', 'miner'],
+    group: 'llm',
     description: 'Execute a shell command in your agent workspace. Runs via `sh -c`, so shell features (pipes, redirects, quotes) work normally. Relative paths resolve against your workspace root.',
     schema: {
       type: 'object',

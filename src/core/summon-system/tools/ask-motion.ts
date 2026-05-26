@@ -29,6 +29,7 @@ export class AskMotionTool implements Tool {
   readonly readonly = false;
   readonly idempotent = false;
   readonly profiles = ['miner'] as const;
+  readonly group = 'subagent-protocol';
 
   readonly schema = ASK_MOTION_TOOL_SCHEMA;
 

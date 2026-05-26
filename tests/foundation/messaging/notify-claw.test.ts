@@ -53,7 +53,7 @@ describe('notify_claw tool', () => {
     });
   });
 
-  const motionCtx = { callerType: 'motion' } as any;
+  const motionCtx = { callerLabel: 'motion' } as any;
 
   describe('happy path cross-claw write', () => {
     it('default interrupt=false → priority=normal metadata + NOTIFY_CLAW_SENT audit', async () => {

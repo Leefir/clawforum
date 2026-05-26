@@ -22,6 +22,7 @@ export const SPAWN_TOOL_NAME = 'spawn' as const;
 export const spawnTool: Tool = {
   name: SPAWN_TOOL_NAME,
   profiles: ['full'],
+  group: 'spawn',
   description: 'Create a subagent to handle a delegated task. ' +
     'By default the subagent executes asynchronously and results arrive via inbox. ' +
     'Set async=false for synchronous execution that blocks until the subagent completes and returns the result inline.',

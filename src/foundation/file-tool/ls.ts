@@ -18,6 +18,7 @@ export const LS_TOOL_NAME = 'ls' as const;
 export const lsTool: Tool = {
   name: LS_TOOL_NAME,
   profiles: ['full', 'readonly', 'subagent', 'miner'],
+  group: 'fs-read',
   description: 'List files and directories in the specified path. Use `claw: "<id>"` to list another claw\'s directory. `claw` parameter with specific target is available to all agents; broadcast across all claws is Motion-only.',
   schema: {
     type: 'object',

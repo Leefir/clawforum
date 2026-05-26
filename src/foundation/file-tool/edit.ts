@@ -31,6 +31,7 @@ function countMatches(s: string, pattern: string): number {
 export const editTool: Tool = {
   name: EDIT_TOOL_NAME,
   profiles: ['full', 'subagent', 'miner'],
+  group: 'fs-write',
   description: 'Replace exact string in a file (for subagent partial modify). old_string must uniquely match by default; use replace_all=true for batch. File must exist.',
   schema: {
     type: 'object',

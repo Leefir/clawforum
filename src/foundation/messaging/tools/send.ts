@@ -14,6 +14,7 @@ export function createSendTool(outboxWriter: OutboxWriter): Tool {
   return {
     name: SEND_TOOL_NAME,
     profiles: ['full'],
+    group: 'messaging',
     description: 'Send a message to the outbox for the parent or other claws. Priority: critical|high|normal|low (default: normal).',
     schema: {
       type: 'object',

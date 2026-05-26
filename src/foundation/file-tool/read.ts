@@ -19,6 +19,7 @@ export const READ_TOOL_NAME = 'read' as const;
 export const readTool: Tool = {
   name: READ_TOOL_NAME,
   profiles: ['full', 'readonly', 'subagent', 'miner'],
+  group: 'fs-read',
   description: 'Read a file in your agent workspace. Path is relative to your workspace root — do NOT prefix with "clawspace/". Use cwd: ".." to access files in your claw root (e.g., MEMORY.md). Use cwd: "memory" for subdirs. Use claw: "<id>" to read another claw\'s files (available to all agents); claw: "*" is Motion-only.',
   schema: {
     type: 'object',
