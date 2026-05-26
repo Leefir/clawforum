@@ -162,7 +162,7 @@ vi.mock('../../src/foundation/skill-system/registry.js', () => ({
 }));
 
 vi.mock('../../src/core/contract/manager.js', () => ({
-  ContractSystem: trackCtor('ContractSystem', () => ({ setOnNotify: vi.fn(), loadPaused: vi.fn(), resume: vi.fn(), onContractCompleted: vi.fn(() => () => {}) })),
+  ContractSystem: trackCtor('ContractSystem', () => ({ setOnNotify: vi.fn(), loadPaused: vi.fn(), resume: vi.fn(), onContractCompleted: vi.fn(() => () => {}), init: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) })),
 }));
 
 vi.mock('../../src/core/async-task-system/system.js', () => ({

@@ -347,26 +347,28 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=evolution_system`, `phase=construct`, `reason=${errMsg(e)}`);
         throw new Error(`Assembly: EvolutionSystem construct failed: ${errMsg(e)}`, { cause: e });
       }
-      try {
-        await evolutionSystem.init();
-      } catch (e) {
-        auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=evolution_system`, `phase=init`, `reason=${errMsg(e)}`);
-        throw new Error(`Assembly: EvolutionSystem.init failed: ${errMsg(e)}`, { cause: e });
-      }
+      if (evolutionSystem) {
+        try {
+          await evolutionSystem.init();
+        } catch (e) {
+          auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=evolution_system`, `phase=init`, `reason=${errMsg(e)}`);
+          throw new Error(`Assembly: EvolutionSystem.init failed: ${errMsg(e)}`, { cause: e });
+        }
 
-      // Wire ContractSystem.contract_completed → EvolutionSystem.runRetroForContract
-      const motionReviewContext = {
-        motionFs: systemFs,
-        motionBaseDir: clawDir,
-        motionAudit: auditWriter,
-        clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
-        clawFsFactory: fsFactory,
-        clawContractManagerFactory: (d: string, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: id, fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory }),
-      };
-      contractManager.onContractCompleted(async (contractId) => {
-        if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)
-        await evolutionSystem.runRetroForContract(contractId, motionReviewContext);
-      });
+        // Wire ContractSystem.contract_completed → EvolutionSystem.runRetroForContract
+        const motionReviewContext = {
+          motionFs: systemFs,
+          motionBaseDir: clawDir,
+          motionAudit: auditWriter,
+          clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
+          clawFsFactory: fsFactory,
+          clawContractManagerFactory: (d: string, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: id, fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory }),
+        };
+        contractManager.onContractCompleted(async (contractId) => {
+          if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)
+          await evolutionSystem.runRetroForContract(contractId, motionReviewContext);
+        });
+      }
     }
 
     // 注入工具属性（避免通过 ExecContext 传业务依赖）

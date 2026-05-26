@@ -130,13 +130,14 @@ vi.mock('../../src/foundation/skill-system/registry.js', () => ({
 }));
 
 vi.mock('../../src/core/evolution-system/index.js', () => ({
-  EvolutionSystem: vi.fn(() => ({ runRetroForContract: vi.fn().mockResolvedValue(undefined) })),
+  EvolutionSystem: vi.fn(() => ({ runRetroForContract: vi.fn().mockResolvedValue(undefined), init: vi.fn().mockResolvedValue(undefined) })),
   createEvolutionSystem: vi.fn(() => ({
     runRetroForContract: vi.fn(async (_contractId: string, ctx: any) => {
       // Simulate the real path where factory is called (evolution-system/system.ts:232)
       ctx.clawContractManagerFactory('/tmp/test-claw', 'test-claw', {} as any);
       return { status: 'ok' };
     }),
+    init: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
@@ -152,6 +153,8 @@ vi.mock('../../src/core/contract/manager.js', () => ({
       capturedContractCallback = cb;
       return () => {};
     }),
+    init: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 

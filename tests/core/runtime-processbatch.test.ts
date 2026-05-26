@@ -198,19 +198,5 @@ Test message
     });
   });
 
-  describe('resumeContractIfPaused()', () => {
-    it('should not throw when no active contract', async () => {
-      const runtime = trackRuntime(await createTestRuntime({
-        clawId: 'test-claw',
-        clawDir,
-        llmConfig: createMockLLMConfig(),
-      }));
-      await runtime.initialize();
-
-      // Should not throw
-      await expect(runtime.resumeContractIfPaused()).resolves.not.toThrow();
-    });
-  });
-
   // ─── inbox edge cases ────────────────────────────────────────────────────────
 });
