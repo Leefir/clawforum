@@ -3,11 +3,11 @@
  * Phase 1335 sub-4: listPendingRetrospectives cross-module query API
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { listPendingRetrospectives } from '../../../src/core/summon-system/index.js';
+import { listPendingRetrospectives, SUMMON_AUDIT_EVENTS } from '../../../src/core/summon-system/index.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 
 describe('listPendingRetrospectives', () => {
@@ -77,5 +77,24 @@ describe('listPendingRetrospectives', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].contractId).toBe('good');
+  });
+
+  it('emits audit per file parse-fail and bulk listing does not crash', async () => {
+    const dir = path.join(motionDir, 'clawspace', 'pending-retrospective', 'by-contract');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'bad.json'), 'not-json');
+    await fs.writeFile(path.join(dir, 'good.json'), JSON.stringify({ targetClaw: 'ok' }));
+
+    const nodeFs = new NodeFileSystem({ baseDir: motionDir });
+    const mockAudit = { write: vi.fn() };
+    const result = await listPendingRetrospectives({ fs: nodeFs, audit: mockAudit as any });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].contractId).toBe('good');
+    expect(mockAudit.write).toHaveBeenCalledWith(
+      SUMMON_AUDIT_EVENTS.RETRO_INDEX_PARSE_FAILED,
+      expect.stringContaining('contractId=bad'),
+      expect.stringContaining('reason='),
+    );
   });
 });

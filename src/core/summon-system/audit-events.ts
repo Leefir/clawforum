@@ -11,4 +11,5 @@ export const SUMMON_AUDIT_EVENTS = {
   CONTRACT_DONE_MISSING_FIELDS: 'summon_contract_done_missing_fields',
   WRITE_BY_CONTRACT_FAILED: 'summon_write_by_contract_failed',
   NO_DIALOG_CONTEXT: 'summon_no_dialog_context',
+  RETRO_INDEX_PARSE_FAILED: 'retro_index_parse_failed',
 } as const;

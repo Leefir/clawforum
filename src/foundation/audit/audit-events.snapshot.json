@@ -307,6 +307,7 @@
       "summon_contract_done_parse_failed",
       "summon_load_skills_failed",
       "summon_no_dialog_context",
+      "summon_retro_index_parse_failed",
       "summon_write_by_contract_failed"
     ],
     "daemon_audit-events": [

@@ -177,7 +177,7 @@ export async function listArchiveContracts(opts: {
         const progressRaw = fs.readSync(`${contractDir}/progress.json`);
         const progress = JSON.parse(progressRaw) as { completed_at?: string };
         archivedAt = progress.completed_at;
-      } catch { /* best-effort: 无 completed_at 则 undef */ }
+      } catch { /* silent: progress.json 缺/parse-fail 不阻 archive 列举 / by-design optional metadata */ }
 
       if (filter?.sinceMs !== undefined || filter?.untilMs !== undefined) {
         const at = archivedAt ? new Date(archivedAt).getTime() : 0;
