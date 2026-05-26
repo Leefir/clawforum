@@ -31,7 +31,7 @@ export const spawnTool: Tool = {
     properties: {
       intent: {
         type: 'string',
-        description: 'The user intent / task goal for the subagent (subagent uses ask_caller to fetch main context if needed)',
+        description: 'The user intent / task goal for the subagent',
       },
       timeoutMs: {
         type: 'number',
