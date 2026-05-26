@@ -185,6 +185,15 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           // Provider self-thrown AbortError when hard signal did not fire
           if (lastError.name === 'AbortError' && !hardSignal?.aborted) throw lastError;
 
+          this.events.emit({
+            type: 'provider_attempt_failed',
+            provider: this.primary.name,
+            attempt,
+            error: lastError.message,
+            errorClass: classifyLLMError(lastError),
+            userActionHint: getUserActionHint(lastError),
+          });
+
           // phase 735 step 4: class-aware retry decision
           const errClass = classifyLLMError(lastError);
           if (errClass === 'permanent') {

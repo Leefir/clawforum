@@ -35,4 +35,5 @@ export const TASK_AUDIT_EVENTS = {
   PARSE_FAILED: 'task_parse_failed', // ← NEW (phase 1013 / r123 E fork E.4)
   RESULT_DELIVERY_FAILED: 'task_result_delivery_failed', // ← NEW (phase 1069 / T3)
   LEGACY_PENDING_TASK_NO_MODE: 'legacy_pending_task_no_mode', // ← NEW (phase 1258 / F.2 sunset observability)
+  RUNNING_FILE_DELETE_FAILED: 'task_running_file_delete_failed', // ← NEW (phase 1324 / r137 C fork F.hot.6)
 } as const;

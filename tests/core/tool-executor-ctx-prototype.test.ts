@@ -5,7 +5,7 @@
  * survive the ToolExecutor.execute() spread path.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ToolExecutor } from '../../src/foundation/tools/executor.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { createStatusTool } from '../../src/core/status-service/index.js';
