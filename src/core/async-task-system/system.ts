@@ -54,7 +54,6 @@ import {
   emitShutdownTimeout,
   emitShutdownPendingCleanupsDrained,
 } from './audit-emit.js';
-import { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
 import type { PostProcessor } from './post-processors/types.js';
 import type { AsyncTaskSystemOptions, SubAgentTask, ToolTask } from './types.js';
 
@@ -204,9 +203,20 @@ export class AsyncTaskSystem {
    * Returns taskId immediately, task enters pending queue and will be dispatched
    */
   async scheduleSubAgent(taskData: Omit<SubAgentTask, 'id' | 'createdAt'>): Promise<string> {
+    return this.schedule('subagent', taskData);
+  }
+
+  /**
+   * Semantic scheduling API (phase 1332 N2).
+   * Replaces cross-L4 writePendingSubagentTaskFile leak.
+   */
+  async schedule(
+    taskKind: 'subagent',
+    payload: Omit<SubAgentTask, 'id' | 'createdAt'>,
+  ): Promise<string> {
     const taskId = randomUUID();
     const task = {
-      ...taskData,
+      ...payload,
       id: taskId,
       createdAt: new Date().toISOString(),
     } as SubAgentTask;
@@ -217,7 +227,7 @@ export class AsyncTaskSystem {
 
     emitTaskScheduled(this.auditWriter, {
       taskId,
-      kind: 'subagent',
+      kind: taskKind,
       parent: task.parentClawId,
       maxSteps: task.maxSteps,
     });
@@ -659,12 +669,7 @@ export class AsyncTaskSystem {
   /**
    * Shutdown - wait for all tasks to complete or timeout
    */
-  async writePendingSubAgentTask(
-    motionAudit: AuditLog,
-    taskInfo: Omit<SubAgentTask, 'id' | 'createdAt'>,
-  ): Promise<string> {
-    return writePendingSubagentTaskFile(this.fs, motionAudit, taskInfo);
-  }
+
 
   private buildToolTaskExecContext(task: ToolTask, signal: AbortSignal): import('../../foundation/tools/index.js').ExecContext {
     return {

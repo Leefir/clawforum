@@ -22,17 +22,14 @@ import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 import { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
 import { createDoneTool, DONE_TOOL_NAME } from '../../../src/core/subagent/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 
-const { mockWriteFile } = vi.hoisted(() => ({
-  mockWriteFile: vi.fn(),
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn(),
 }));
 
 const { mockRunSubagent } = vi.hoisted(() => ({
   mockRunSubagent: vi.fn(),
-}));
-
-vi.mock('../../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWriteFile,
 }));
 
 vi.mock('../../../src/core/subagent/index.js', async (importOriginal) => {
@@ -85,6 +82,8 @@ describe('spawn tool sync path (phase 766)', () => {
     tempDir = await createTempDir();
     fs = new NodeFileSystem({ baseDir: tempDir });
     audit = makeAudit();
+    const taskSystem = createMockTaskSystem(fs, audit.audit);
+    taskSystem.schedule = mockSchedule;
     baseCtx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -94,8 +93,9 @@ describe('spawn tool sync path (phase 766)', () => {
       auditWriter: audit.audit,
       llm: makeLLM(),
       registry: makeRegistry(),
+      taskSystem,
     });
-    mockWriteFile.mockClear();
+    mockSchedule.mockClear();
     mockRunSubagent.mockClear();
   });
 
@@ -105,25 +105,25 @@ describe('spawn tool sync path (phase 766)', () => {
 
   describe('async path (backward compat)', () => {
     it('default async=true when args.async is undefined', async () => {
-      mockWriteFile.mockResolvedValue('task-xxx');
+      mockSchedule.mockResolvedValue('task-xxx');
 
       const result = await spawnTool.execute({ intent: 'test task' }, baseCtx);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.anything(), expect.anything(), expect.objectContaining({ intent: 'test task' }),
+      expect(mockSchedule).toHaveBeenCalledWith(
+        'subagent', expect.objectContaining({ intent: 'test task' }),
       );
       expect(mockRunSubagent).not.toHaveBeenCalled();
     });
 
     it('async=true explicit takes async path', async () => {
-      mockWriteFile.mockResolvedValue('task-yyy');
+      mockSchedule.mockResolvedValue('task-yyy');
 
       const result = await spawnTool.execute({ intent: 'test task', async: true }, baseCtx);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        expect.anything(), expect.anything(), expect.objectContaining({ intent: 'test task' }),
+      expect(mockSchedule).toHaveBeenCalledWith(
+        'subagent', expect.objectContaining({ intent: 'test task' }),
       );
       expect(mockRunSubagent).not.toHaveBeenCalled();
     });
@@ -136,7 +136,7 @@ describe('spawn tool sync path (phase 766)', () => {
       const result = await spawnTool.execute({ intent: 'test task', async: false }, baseCtx);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockSchedule).not.toHaveBeenCalled();
       expect(mockRunSubagent).toHaveBeenCalledOnce();
 
       const callArgs = mockRunSubagent.mock.calls[0][0];
@@ -235,7 +235,7 @@ describe('spawn tool sync path (phase 766)', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('shadow_async_spawn_rejected');
-      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockSchedule).not.toHaveBeenCalled();
       expect(mockRunSubagent).not.toHaveBeenCalled();
     });
 
@@ -252,6 +252,7 @@ describe('spawn tool sync path (phase 766)', () => {
         llm: makeLLM(),
         registry: makeRegistry(),
         isShadow: true,
+        taskSystem: createMockTaskSystem(fs, audit.audit),
       });
 
       const result = await spawnTool.execute({ intent: 'test', async: false }, shadowCtx);
@@ -262,13 +263,13 @@ describe('spawn tool sync path (phase 766)', () => {
     });
 
     it('allows normal spawn (non-shadow) with async=true', async () => {
-      mockWriteFile.mockResolvedValue('task-zzz');
+      mockSchedule.mockResolvedValue('task-zzz');
 
       const result = await spawnTool.execute({ intent: 'test', async: true }, baseCtx);
 
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
-      expect(mockWriteFile).toHaveBeenCalledOnce();
+      expect(mockSchedule).toHaveBeenCalledOnce();
     });
   });
 

@@ -20,8 +20,6 @@ export {
   TASKS_SUBAGENTS_DIR,
 } from './dirs.js';
 
-// phase 763：升级 pending writer 为公开 API / 修 evolution-system + assembly deep import 违 M#7
-export { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
 export { writePendingToolTaskFile } from './tools/_pending-tool-task-writer.js';
 export { classifyTaskError } from './_helpers.js';
 

@@ -340,7 +340,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   const subagentTimeoutMs = opts.subagentTimeoutMs ?? DEFAULT_RANDOM_DREAM_TIMEOUT_MS;
   const subagentMaxSteps = opts.subagentMaxSteps ?? DEFAULT_RANDOM_DREAM_MAX_STEPS;
 
-  const taskId = await opts.taskSystem.writePendingSubAgentTask(motionAudit, {
+  const taskId = await opts.taskSystem.schedule('subagent', {
     kind: 'subagent',
     mode: 'standard',
     intent: buildRandomDreamPrompt(weightedContracts),

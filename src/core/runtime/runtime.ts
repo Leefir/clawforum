@@ -184,6 +184,7 @@ export class Runtime {
       llm: this.llm,
       maxSteps: this.options.maxSteps ?? DEFAULT_MAX_STEPS,
       auditWriter: this.auditWriter,
+      taskSystem: this.taskSystem,
     });
 
     // phase 766: inject registry into execContext for sync spawn path

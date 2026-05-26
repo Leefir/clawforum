@@ -18,6 +18,7 @@ import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 import type { Message, ToolDefinition } from '../../../src/foundation/llm-provider/types.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
 import { TASKS_QUEUES_PENDING_DIR } from '../../../src/core/async-task-system/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 
 async function readPendingTasks(baseDir: string): Promise<Array<Record<string, unknown>>> {
   const dir = path.join(baseDir, TASKS_QUEUES_PENDING_DIR);
@@ -50,6 +51,7 @@ describe('spawnShadowSubagent (phase 1185)', () => {
       auditWriter: audit.audit,
       currentToolUseId: 'tu-1',
       originClawId: 'motion',
+      taskSystem: createMockTaskSystem(nodeFs, audit.audit),
     });
   });
 

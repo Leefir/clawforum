@@ -15,6 +15,7 @@ import { TASKS_QUEUES_PENDING_DIR } from '../../../src/core/async-task-system/in
 import { TASK_AUDIT_EVENTS } from '../../../src/core/async-task-system/audit-events.js';
 import type { Message } from '../../../src/foundation/llm-provider/types.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 
 async function createTempDir(): Promise<string> {
   const d = path.join(tmpdir(), `summon-test-${randomUUID()}`);
@@ -57,6 +58,9 @@ describe('SummonTool', () => {
   });
 
   function makeCtx(callerType: 'claw' | 'subagent' | 'dispatcher', options?: { originClawId?: string; clawId?: string }) {
+    const auditWriter = {
+      write: (type: string, ...args: unknown[]) => { auditEvents.push({ type, args }); },
+    } as any;
     return new ExecContextImpl({
       clawId: options?.clawId ?? 'test-claw',
       clawDir: tempDir,
@@ -65,9 +69,8 @@ describe('SummonTool', () => {
       fs: mockFs,
       llm: {} as unknown as LLMOrchestrator,
       originClawId: options?.originClawId,
-      auditWriter: {
-        write: (type: string, ...args: unknown[]) => { auditEvents.push({ type, args }); },
-      } as any,
+      auditWriter,
+      taskSystem: createMockTaskSystem(mockFs, auditWriter),
     });
   }
 
@@ -502,6 +505,7 @@ Content.
         fs: mockFs,
         llm: {} as unknown as LLMOrchestrator,
         auditWriter: auditWriter as any,
+        taskSystem: createMockTaskSystem(mockFs, auditWriter as any),
       });
 
       await tool.execute({ goal: 'test task' }, ctx);
@@ -524,6 +528,7 @@ Content.
         fs: mockFs,
         llm: {} as unknown as LLMOrchestrator,
         auditWriter: auditWriter as any,
+        taskSystem: createMockTaskSystem(mockFs, auditWriter as any),
       });
 
       await tool.execute({ goal: 'test task' }, ctx);

@@ -11,6 +11,7 @@ import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { TASKS_QUEUES_PENDING_DIR } from '../../../src/core/async-task-system/index.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 
 async function createTempDir(): Promise<string> {
   const d = path.join(tmpdir(), `summon-verify-test-${randomUUID()}`);
@@ -63,6 +64,9 @@ describe('SummonTool verify parameter', () => {
   });
 
   function makeCtx() {
+    const auditWriter = {
+      write: () => {},
+    } as any;
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -70,9 +74,8 @@ describe('SummonTool verify parameter', () => {
       callerType: 'claw',
       fs: mockFs,
       llm: {} as unknown as LLMOrchestrator,
-      auditWriter: {
-        write: () => {},
-      } as any,
+      auditWriter,
+      taskSystem: createMockTaskSystem(mockFs, auditWriter),
     });
   }
 

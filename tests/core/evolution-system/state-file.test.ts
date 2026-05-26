@@ -28,14 +28,10 @@ vi.mock('../../../src/foundation/skill-system/registry.js', () => ({
 }));
 
 // ============================================================================
-// Mock: writePendingSubagentTaskFile
+// Mock: taskSystem.schedule
 // ============================================================================
-const { mockWritePending } = vi.hoisted(() => ({
-  mockWritePending: vi.fn().mockResolvedValue('mock-task-id'),
-}));
-
-vi.mock('../../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWritePending,
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn().mockResolvedValue('mock-task-id'),
 }));
 
 // ============================================================================
@@ -90,7 +86,7 @@ async function setupFixtures(overrides?: {
   const evolutionSystem = new EvolutionSystem({
     fs: motionFs,
     audit: mockAudit as any,
-    taskSystem: {} as any,
+    taskSystem: { schedule: mockSchedule } as any,
     contractManager: mockContractManager,
     retroSubagentTimeoutMs: overrides?.retroSubagentTimeoutMs,
   });
@@ -144,7 +140,7 @@ describe('EvolutionSystem state file dedupe', () => {
     const result = await evolutionSystem.runRetroForContract(contractId, ctx);
 
     expect(result.status).toBe('finished');
-    expect(mockWritePending).toHaveBeenCalled();
+    expect(mockSchedule).toHaveBeenCalled();
 
     // state file 被创建
     const statePath = path.join(motionDir, '.evolution-system-state.json');
@@ -163,7 +159,7 @@ describe('EvolutionSystem state file dedupe', () => {
     // 第一次调用
     const result1 = await evolutionSystem.runRetroForContract(contractId, ctx);
     expect(result1.status).toBe('finished');
-    expect(mockWritePending).toHaveBeenCalledTimes(1);
+    expect(mockSchedule).toHaveBeenCalledTimes(1);
 
     // 恢复 by-contract 索引（模拟新事件到达）
     const byContractPath = path.join(
@@ -178,7 +174,7 @@ describe('EvolutionSystem state file dedupe', () => {
 
     expect(result2.status).toBe('skipped_duplicate');
     expect(result2.detail).toBe('already processed');
-    expect(mockWritePending).not.toHaveBeenCalled();
+    expect(mockSchedule).not.toHaveBeenCalled();
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.SKIPPED_DUPLICATE,
       expect.stringContaining('contractId='),
@@ -193,7 +189,7 @@ describe('EvolutionSystem state file dedupe', () => {
     const result = await evolutionSystem.runRetroForContract(contractId, ctx);
 
     expect(result.status).toBe('finished');
-    expect(mockWritePending).toHaveBeenCalled();
+    expect(mockSchedule).toHaveBeenCalled();
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.STATE_LOAD_FAILED,
       expect.stringContaining('backup='),
@@ -216,7 +212,7 @@ describe('EvolutionSystem state file dedupe', () => {
     const result = await evolutionSystem.runRetroForContract(contractId, ctx);
 
     expect(result.status).toBe('finished');
-    expect(mockWritePending).toHaveBeenCalled();
+    expect(mockSchedule).toHaveBeenCalled();
     expect(auditSpy).toHaveBeenCalledWith(
       RETRO_AUDIT_EVENTS.STATE_SAVE_FAILED,
       expect.stringContaining('reason='),
@@ -229,7 +225,7 @@ describe('EvolutionSystem state file dedupe', () => {
 
     await evolutionSystem.runRetroForContract(contractId, ctx);
 
-    const args = mockWritePending.mock.calls[0][2];
+    const args = mockSchedule.mock.calls[0][1];
     expect(args.timeoutMs).toBe(600000);
   });
 
@@ -239,7 +235,7 @@ describe('EvolutionSystem state file dedupe', () => {
 
     await evolutionSystem.runRetroForContract(contractId, ctx);
 
-    const args = mockWritePending.mock.calls[0][2];
+    const args = mockSchedule.mock.calls[0][1];
     expect(args.timeoutMs).toBe(300000);
   });
 });
@@ -275,6 +271,6 @@ describe('EvolutionSystem ENOENT path', () => {
 
     expect(result.status).toBe('skipped_index_missing');
     expect(result.detail).toBe('ENOENT');
-    expect(mockWritePending).not.toHaveBeenCalled();
+    expect(mockSchedule).not.toHaveBeenCalled();
   });
 });
