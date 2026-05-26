@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import type { VerificationContext } from './verification.js';
+import type { VerificationContext } from './verification-types.js';
 import { InboxWriter } from '../../foundation/messaging/index.js';
 
 import { formatErr } from '../../foundation/utils/format.js';

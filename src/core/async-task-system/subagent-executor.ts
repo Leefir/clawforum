@@ -16,13 +16,13 @@ import {
   emitHandlerFailed,
   emitResultDeliveryFailed,
 } from './audit-emit.js';
-import { AskMotionTool } from '../summon-system/index.js';
+import { AskMotionTool } from '../summon-system/tools/ask-motion.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from './dirs.js';
 import { buildSubagentSystemPrompt, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import { sendResult, sendFallbackError } from './result-delivery.js';
 
 import type { PostProcessor } from './post-processors/types.js';
-import type { SubAgentTask } from './system.js';
+import type { SubAgentTask } from './types.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
 
 

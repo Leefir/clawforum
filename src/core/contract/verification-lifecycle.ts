@@ -3,7 +3,7 @@
  * Lifecycle ops — archive + emit + subtask complete
  */
 
-import type { VerificationContext } from './verification.js';
+import type { VerificationContext } from './verification-types.js';
 import type { VerificationResult } from './types.js';
 import { safeNotify } from './verification-notify.js';
 import { formatValidIds } from './verification-format.js';

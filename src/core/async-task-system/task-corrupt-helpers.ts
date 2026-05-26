@@ -2,7 +2,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { emitTaskCorrupt } from './audit-emit.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../../foundation/audit/index.js';
-import type { SubAgentTask, ToolTask } from './system.js';
+import type { SubAgentTask, ToolTask } from './types.js';
 import { TaskSchema } from './task-schemas.js';
 
 export function validateTaskShape(parsed: unknown): parsed is SubAgentTask | ToolTask {

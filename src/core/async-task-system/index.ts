@@ -4,9 +4,11 @@
  */
 
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { AsyncTaskSystem, type AsyncTaskSystemOptions, type SubAgentTask } from './system.js';
+import { AsyncTaskSystem } from './system.js';
+import type { AsyncTaskSystemOptions, SubAgentTask } from './types.js';
 
-export { AsyncTaskSystem, type SubAgentTask, type AsyncTaskSystemOptions } from './system.js';
+export { AsyncTaskSystem } from './system.js';
+export type { AsyncTaskSystemOptions, SubAgentTask } from './types.js';
 
 export {
   TASKS_SYNC_DIR,

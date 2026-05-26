@@ -12,7 +12,7 @@ import {
 } from './audit-emit.js';
 import { TASKS_QUEUES_RESULTS_DIR } from './dirs.js';
 import { SUMMARY_MAX_CHARS } from '../../foundation/utils/format.js';
-import type { SubAgentTask, ToolTask } from './system.js';
+import type { SubAgentTask, ToolTask } from './types.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 
 export const SENT_MARKER = (taskId: string): string =>

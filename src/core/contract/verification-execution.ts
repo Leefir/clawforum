@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import type { VerificationContext } from './verification.js';
+import type { VerificationContext } from './verification-types.js';
 import type { VerificationResult } from './types.js';
 import { exec } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';

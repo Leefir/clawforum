@@ -1,6 +1,6 @@
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
-import type { SubAgentTask } from '../system.js';
+import type { SubAgentTask } from '../types.js';
 
 /**
  * PostProcessor — 单次任务结果后处理 standalone function

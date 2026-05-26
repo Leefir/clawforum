@@ -1,6 +1,6 @@
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import type { SubAgentTask, ToolTask } from './system.js';
+import type { SubAgentTask, ToolTask } from './types.js';
 import {
   TASKS_QUEUES_PENDING_DIR,
   TASKS_QUEUES_RUNNING_DIR,

@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import { TASKS_QUEUES_PENDING_DIR } from '../dirs.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
-import type { SubAgentTask } from '../system.js';
+import type { SubAgentTask } from '../types.js';
 import { emitTaskScheduled } from '../audit-emit.js';
 
 /**

@@ -1,7 +1,7 @@
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
-import type { ToolTask } from './system.js';
+import type { ToolTask } from './types.js';
 import { sendToolResult, sendFallbackError } from './result-delivery.js';
 import { formatErr, classifyTaskError } from './_helpers.js';
 import {
