@@ -52,3 +52,31 @@ export function createOutboxWriter(
 export { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';
 
 export { notifyInbox, notifySystem } from './notify.js';
+
+import {
+  drainOutboxes,
+  type DrainOutboxesOptions,
+  type DrainResult,
+} from './drain-outboxes.js';
+export { drainOutboxes, type DrainOutboxesOptions, type DrainResult };
+
+export interface Messaging {
+  drainOutboxes(opts: { limitPerClaw?: number; signal?: AbortSignal }): Promise<DrainResult>;
+}
+
+export function createMessaging(deps: {
+  clawforumDir: string;
+  fs: FileSystem;
+  audit: AuditLog;
+}): Messaging {
+  return {
+    drainOutboxes: async (opts) =>
+      drainOutboxes({
+        clawforumDir: deps.clawforumDir,
+        fs: deps.fs,
+        audit: deps.audit,
+        limitPerClaw: opts.limitPerClaw,
+        signal: opts.signal,
+      }),
+  };
+}
