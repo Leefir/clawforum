@@ -475,7 +475,13 @@ export class AsyncTaskSystem {
       if (task.kind === 'tool') {
         const tool = this.registry.getAll().find(t => t.name === task.toolName);
         if (!tool) {
-          await this.fs.delete(`${TASKS_QUEUES_RUNNING_DIR}/${task.id}.json`).catch(() => { /* silent: best-effort delete */ });
+          await this.fs.delete(`${TASKS_QUEUES_RUNNING_DIR}/${task.id}.json`).catch((err) => {
+            this.auditWriter?.write(
+              TASK_AUDIT_EVENTS.RUNNING_FILE_DELETE_FAILED,
+              `task_id=${task.id}`,
+              `reason=${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
           throw new Error(`Tool "${task.toolName}" not found in registry`);
         }
         const reconstructedCtx = this.buildToolTaskExecContext(task, signal);
