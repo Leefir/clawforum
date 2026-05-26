@@ -322,7 +322,6 @@ describe('startDaemonLoop - interrupt audit', () => {
     expect(mockAudit.write).toHaveBeenCalledWith(
       'daemon_loop_interrupt',
       'cause=user_interrupt',
-      'recovery_delay_ms=1000',
     );
 
     stop();

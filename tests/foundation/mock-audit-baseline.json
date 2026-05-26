@@ -202,32 +202,32 @@
     },
     {
       "file": "cli/daemon-loop.test.ts",
-      "line": 335,
+      "line": 334,
       "excerpt": "    const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "cli/daemon-loop.test.ts",
-      "line": 374,
+      "line": 373,
       "excerpt": "    const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "cli/daemon-loop.test.ts",
-      "line": 431,
+      "line": 430,
       "excerpt": "    const mockAudit = { write: vi.fn() } as unknown as AuditLog;"
     },
     {
       "file": "cli/daemon-loop.test.ts",
-      "line": 452,
+      "line": 451,
       "excerpt": "    const mockAudit = { write: vi.fn() } as unknown as AuditLog;"
     },
     {
       "file": "cli/daemon-loop.test.ts",
-      "line": 469,
+      "line": 468,
       "excerpt": "    const mockAudit = { write: vi.fn() } as unknown as AuditLog;"
     },
     {
       "file": "cli/daemon-loop.test.ts",
-      "line": 489,
+      "line": 488,
       "excerpt": "    const mockAudit = { write: vi.fn() } as unknown as AuditLog;"
     },
     {

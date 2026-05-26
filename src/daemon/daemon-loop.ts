@@ -442,9 +442,9 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
         } else if (err instanceof UserInterrupt) {
           // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
-          // Brief wait after interrupt to avoid immediately processing the next inbox message (e.g. heartbeat)
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.USER_INTERRUPT}`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
-          await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
+          // Wait for NEW user input before continuing; don't re-process the interrupted message.
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.USER_INTERRUPT}`);
+          await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
         } else if (err instanceof PriorityInboxInterrupt) {
           // 步间中断 — 直接继续，下一轮立即处理优先消息，无需 recovery delay
           options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.PRIORITY_INBOX}`, `recovery_delay_ms=0`);
