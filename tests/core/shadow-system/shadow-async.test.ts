@@ -18,17 +18,14 @@ import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 import { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
 import type { DialogStore } from '../../../src/foundation/dialog-store/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 
-const { mockWriteFile } = vi.hoisted(() => ({
-  mockWriteFile: vi.fn(),
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn(),
 }));
 
 const { mockRunSubagent } = vi.hoisted(() => ({
   mockRunSubagent: vi.fn(),
-}));
-
-vi.mock('../../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWriteFile,
 }));
 
 vi.mock('../../../src/core/subagent/index.js', async (importOriginal) => {
@@ -110,6 +107,7 @@ describe('shadow tool async (phase 1087)', () => {
       registry: makeRegistry(),
       mainDialogStore: makeMockDialogStore(),
       currentToolUseId: 'tu-1',
+      taskSystem: createMockTaskSystem(fs, audit.audit),
     });
     shadowTool = createShadowTool({
       getTurnSnapshot: () => ({
@@ -118,7 +116,9 @@ describe('shadow tool async (phase 1087)', () => {
         messages: dialogMessages,
       }),
     });
-    mockWriteFile.mockClear();
+    baseCtx.taskSystem = createMockTaskSystem(fs, audit.audit);
+    (baseCtx.taskSystem as any).schedule = mockSchedule;
+    mockSchedule.mockClear();
     mockRunSubagent.mockClear();
   });
 
@@ -128,15 +128,15 @@ describe('shadow tool async (phase 1087)', () => {
 
   describe('async path', () => {
     it('default async=true queues shadow task with snapshot fields', async () => {
-      mockWriteFile.mockResolvedValue('task-xxx');
+      mockSchedule.mockResolvedValue('task-xxx');
 
       const result = await shadowTool.execute({ task: 'test task' }, baseCtx);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).toHaveBeenCalledOnce();
+      expect(mockSchedule).toHaveBeenCalledOnce();
       expect(mockRunSubagent).not.toHaveBeenCalled();
 
-      const callArgs = mockWriteFile.mock.calls[0][2];
+      const callArgs = mockSchedule.mock.calls[0][1];
       expect(callArgs.kind).toBe('subagent');
       expect(callArgs.intentPreview).toBe('test task');
       expect(callArgs.isShadow).toBe(true);
@@ -155,18 +155,18 @@ describe('shadow tool async (phase 1087)', () => {
     });
 
     it('async=true explicit takes async path', async () => {
-      mockWriteFile.mockResolvedValue('task-yyy');
+      mockSchedule.mockResolvedValue('task-yyy');
 
       const result = await shadowTool.execute({ task: 'test task', async: true }, baseCtx);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).toHaveBeenCalledOnce();
+      expect(mockSchedule).toHaveBeenCalledOnce();
       expect(mockRunSubagent).not.toHaveBeenCalled();
       expect(result.metadata).toMatchObject({ async: true, taskId: 'task-yyy' });
     });
 
     it('async path returns taskId and async metadata', async () => {
-      mockWriteFile.mockResolvedValue('task-zzz');
+      mockSchedule.mockResolvedValue('task-zzz');
 
       const result = await shadowTool.execute({ task: 'test task' }, baseCtx);
 
@@ -184,7 +184,7 @@ describe('shadow tool async (phase 1087)', () => {
       const result = await shadowTool.execute({ task: 'test task', async: false }, baseCtx);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockSchedule).not.toHaveBeenCalled();
       expect(mockRunSubagent).toHaveBeenCalledOnce();
 
       const callArgs = mockRunSubagent.mock.calls[0][0];
@@ -219,7 +219,7 @@ describe('shadow tool async (phase 1087)', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('shadow_recursion_rejected');
-      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockSchedule).not.toHaveBeenCalled();
       expect(mockRunSubagent).not.toHaveBeenCalled();
     });
   });

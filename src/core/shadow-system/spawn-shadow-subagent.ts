@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import type { Message } from '../../foundation/llm-provider/types.js';
-import { writePendingSubagentTaskFile } from '../async-task-system/tools/_pending-task-writer.js';
+
 import { synthesizeFormB } from './_helpers.js';
 import { type BuildShadowInstructionArgs } from '../../prompts/index.js';
 import type { SpawnShadowSubagentOptions, SpawnShadowSubagentResult } from './types.js';
@@ -35,7 +35,7 @@ export async function spawnShadowSubagent(
     instructionArgs,
   });
 
-  const taskId = await writePendingSubagentTaskFile(opts.ctx.fs, opts.ctx.auditWriter, {
+  const taskId = await opts.ctx.taskSystem!.schedule('subagent', {
     kind: 'subagent',
     mode: 'shadow',                            // δ discriminated union 新字段
     shadowMessages,                            // shadow path 真信息源

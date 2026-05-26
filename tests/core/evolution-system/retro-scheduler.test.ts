@@ -10,10 +10,10 @@ import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
 import { SUBAGENT_TIMEOUT_MS } from '../../../src/core/subagent/constants.js';
 
-const { mockSkillLoadAll, mockSkillFormat, mockWritePending } = vi.hoisted(() => ({
+const { mockSkillLoadAll, mockSkillFormat, mockSchedule } = vi.hoisted(() => ({
   mockSkillLoadAll: vi.fn().mockResolvedValue(undefined),
   mockSkillFormat: vi.fn().mockReturnValue('No skills loaded'),
-  mockWritePending: vi.fn().mockResolvedValue('mock-task-id'),
+  mockSchedule: vi.fn().mockResolvedValue('mock-task-id'),
 }));
 
 vi.mock('../../../src/foundation/skill-system/registry.js', () => ({
@@ -21,10 +21,6 @@ vi.mock('../../../src/foundation/skill-system/registry.js', () => ({
     loadAll: mockSkillLoadAll,
     formatForContext: mockSkillFormat,
   })),
-}));
-
-vi.mock('../../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWritePending,
 }));
 
 function makeConfig(overrides: Partial<RetroConfig> = {}): RetroConfig {
@@ -37,6 +33,7 @@ function makeConfig(overrides: Partial<RetroConfig> = {}): RetroConfig {
     motionBaseDir: '/tmp/motion',
     baseMessages: [{ role: 'user', content: 'hi' }],
     audit: { write: vi.fn() } as unknown as AuditLog,
+    taskSystem: { schedule: mockSchedule } as unknown as RetroConfig['taskSystem'],
     ...overrides,
   };
 }
@@ -45,16 +42,15 @@ describe('scheduleRetro (phase 990)', () => {
   beforeEach(() => {
     mockSkillLoadAll.mockClear();
     mockSkillFormat.mockClear().mockReturnValue('No skills loaded');
-    mockWritePending.mockClear().mockResolvedValue('mock-task-id');
+    mockSchedule.mockClear().mockResolvedValue('mock-task-id');
   });
 
   it('schedules retro with default timeout when skills empty', async () => {
     const config = makeConfig();
     await scheduleRetro(config);
     expect(mockSkillLoadAll).toHaveBeenCalled();
-    expect(mockWritePending).toHaveBeenCalledWith(
-      config.motionFs,
-      config.motionAudit,
+    expect(mockSchedule).toHaveBeenCalledWith(
+      'subagent',
       expect.objectContaining({
         kind: 'subagent',
         intent: expect.stringContaining('yaml: true'),
@@ -69,9 +65,8 @@ describe('scheduleRetro (phase 990)', () => {
     mockSkillFormat.mockReturnValue('skillA, skillB');
     const config = makeConfig();
     await scheduleRetro(config);
-    expect(mockWritePending).toHaveBeenCalledWith(
-      config.motionFs,
-      config.motionAudit,
+    expect(mockSchedule).toHaveBeenCalledWith(
+      'subagent',
       expect.objectContaining({
         intent: expect.stringContaining('skillA, skillB'),
       }),
@@ -86,15 +81,14 @@ describe('scheduleRetro (phase 990)', () => {
       expect.any(String),
       expect.stringContaining('disk full'),
     );
-    expect(mockWritePending).toHaveBeenCalled();
+    expect(mockSchedule).toHaveBeenCalled();
   });
 
   it('uses custom retroSubagentTimeoutMs when provided', async () => {
     const config = makeConfig({ retroSubagentTimeoutMs: 120000 });
     await scheduleRetro(config);
-    expect(mockWritePending).toHaveBeenCalledWith(
-      config.motionFs,
-      config.motionAudit,
+    expect(mockSchedule).toHaveBeenCalledWith(
+      'subagent',
       expect.objectContaining({ timeoutMs: 120000 }),
     );
   });

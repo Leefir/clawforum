@@ -54,7 +54,6 @@ import {
   emitShutdownTimeout,
   emitShutdownPendingCleanupsDrained,
 } from './audit-emit.js';
-import { writePendingSubagentTaskFile } from './tools/_pending-task-writer.js';
 import type { PostProcessor } from './post-processors/types.js';
 import type { AsyncTaskSystemOptions, SubAgentTask, ToolTask } from './types.js';
 
@@ -204,9 +203,20 @@ export class AsyncTaskSystem {
    * Returns taskId immediately, task enters pending queue and will be dispatched
    */
   async scheduleSubAgent(taskData: Omit<SubAgentTask, 'id' | 'createdAt'>): Promise<string> {
+    return this.schedule('subagent', taskData);
+  }
+
+  /**
+   * Semantic scheduling API (phase 1332 N2).
+   * Replaces cross-L4 writePendingSubagentTaskFile leak.
+   */
+  async schedule(
+    taskKind: 'subagent',
+    payload: Omit<SubAgentTask, 'id' | 'createdAt'>,
+  ): Promise<string> {
     const taskId = randomUUID();
     const task = {
-      ...taskData,
+      ...payload,
       id: taskId,
       createdAt: new Date().toISOString(),
     } as SubAgentTask;
@@ -217,7 +227,7 @@ export class AsyncTaskSystem {
 
     emitTaskScheduled(this.auditWriter, {
       taskId,
-      kind: 'subagent',
+      kind: taskKind,
       parent: task.parentClawId,
       maxSteps: task.maxSteps,
     });
@@ -659,12 +669,7 @@ export class AsyncTaskSystem {
   /**
    * Shutdown - wait for all tasks to complete or timeout
    */
-  async writePendingSubAgentTask(
-    motionAudit: AuditLog,
-    taskInfo: Omit<SubAgentTask, 'id' | 'createdAt'>,
-  ): Promise<string> {
-    return writePendingSubagentTaskFile(this.fs, motionAudit, taskInfo);
-  }
+
 
   private buildToolTaskExecContext(task: ToolTask, signal: AbortSignal): import('../../foundation/tools/index.js').ExecContext {
     return {
@@ -690,18 +695,27 @@ export class AsyncTaskSystem {
     };
   }
 
-  async shutdown(timeoutMs: number = 30000): Promise<void> {
+  /**
+   * Abort all running tasks immediately.
+   * Used by Runtime when shutdown timeout is hit (phase 1332 N4).
+   */
+  abort(): void {
+    for (const state of this.runningTasks.values()) {
+      state.abortController.abort();
+    }
+  }
+
+  async shutdown(timeoutMs: number = 30000): Promise<boolean> {
     this._shuttingDown = true;
     // 顺序：先关 watcher（避免 shutdown 期间新事件进队）→ 旧 shutdown 流程
     await this.pendingWatcher?.close();
     this.pendingWatcher = undefined;
 
     // Signal all running tasks to stop
-    for (const state of this.runningTasks.values()) {
-      state.abortController.abort();
-    }
+    this.abort();
 
     // Wait for all tasks with timeout
+    let timedOut = false;
     if (this.runningTasks.size > 0) {
       const promises = Array.from(this.runningTasks.values()).map(s => s.promise);
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -712,7 +726,7 @@ export class AsyncTaskSystem {
             timer = setTimeout(() => reject(new Error('Shutdown timeout')), timeoutMs);
           }),
         ]).catch(() => {
-          // Timeout is acceptable
+          timedOut = true;
           emitShutdownTimeout(this.auditWriter);
         });
       } finally {
@@ -733,5 +747,7 @@ export class AsyncTaskSystem {
 
     this.runningTasks.clear();
     this.pendingQueue = [];
+
+    return timedOut;
   }
 }

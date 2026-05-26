@@ -10,7 +10,7 @@
 
 import { buildRetroPrompt } from '../../prompts/retrospective.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
-import { writePendingSubagentTaskFile } from '../async-task-system/index.js';
+import type { AsyncTaskSystem } from '../async-task-system/system.js';
 import { createSkillSystem } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from './dispatch-skills-paths.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
@@ -29,6 +29,7 @@ export interface RetroConfig {
   baseMessages: Message[];
   audit: AuditLog;  // claw audit (for skill failure log)
   retroSubagentTimeoutMs?: number;   // default 600000ms
+  taskSystem: AsyncTaskSystem;
 }
 
 /**
@@ -58,7 +59,7 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
     config.targetClaw, config.contractId, config.contractYaml, skillsSummary
   );
   // 调度 retro subagent（A.4）
-  await writePendingSubagentTaskFile(config.motionFs, config.motionAudit, {
+  await config.taskSystem.schedule('subagent', {
     kind: 'subagent',
     mode: 'standard',
     intent: retroPrompt,

@@ -23,6 +23,7 @@ import { makeAudit } from '../../helpers/audit.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 import { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 import type { DialogStore } from '../../../src/foundation/dialog-store/index.js';
 import { SHADOW_AUDIT_EVENTS } from '../../../src/core/shadow-system/audit-events.js';
 import { DONE_TOOL_NAME } from '../../../src/core/subagent/tools/done.js';
@@ -110,6 +111,7 @@ describe('shadow tool (phase 767)', () => {
       registry: makeRegistry(),
       mainDialogStore: makeMockDialogStore(),
       currentToolUseId: 'tu-1',
+      taskSystem: createMockTaskSystem(fs, audit.audit),
     });
     shadowTool = createShadowTool({
       getTurnSnapshot: () => ({
@@ -281,6 +283,7 @@ describe('shadow tool (phase 767)', () => {
         llm: makeLLM(),
         registry: makeRegistry(),
         isShadow: true,
+        taskSystem: createMockTaskSystem(fs, audit.audit),
       });
 
       const result = await spawnTool.execute({ intent: 'test', async: true }, shadowCtx);
@@ -324,6 +327,7 @@ describe('shadow tool (phase 767)', () => {
         fs,
         auditWriter: audit.audit,
         isShadow: true,
+        taskSystem: createMockTaskSystem(fs, audit.audit),
       });
 
       const result = await summonTool.execute({ goal: 'test' }, shadowCtx);

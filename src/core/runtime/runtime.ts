@@ -21,6 +21,7 @@ import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../signals.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-events.js';
+import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
 import { HEARTBEAT_AUDIT_EVENTS } from './heartbeat-audit-events.js';
 import { CLAW_SUBDIRS } from '../../foundation/paths.js';
 import { DIALOG_DIR } from '../../foundation/dialog-store/dirs.js';
@@ -184,6 +185,7 @@ export class Runtime {
       llm: this.llm,
       maxSteps: this.options.maxSteps ?? DEFAULT_MAX_STEPS,
       auditWriter: this.auditWriter,
+      taskSystem: this.taskSystem,
     });
 
     // phase 766: inject registry into execContext for sync spawn path
@@ -291,7 +293,16 @@ export class Runtime {
    */
   async stop(): Promise<void> {
     this.abort();
-    await this.taskSystem.shutdown(30_000);
+    const timedOut = await this.taskSystem.shutdown(120_000);
+    if (timedOut) {
+      // phase 1332 N4: timeout edge case abort path — ensure tasks are killed before llm.close
+      // 防 phase 1286 100M tokens cascade 后 task 长跑 1-2min / 子代理资源继承
+      this.taskSystem.abort();
+      this.auditWriter.write(
+        TASK_AUDIT_EVENTS.TASK_SHUTDOWN_TIMEOUT_HIT,
+        `timeout_ms=120000`,
+      );
+    }
     // phase 1024 G.3: await pending dialogStore.save() flush before close
     // 防 SIGTERM 时半写 dialog 落盘 / DP「外部信号到达不能丢失状态」
     await this.sessionManager.getFlushPromise().catch(() => {

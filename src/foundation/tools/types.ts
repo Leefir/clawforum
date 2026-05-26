@@ -80,6 +80,16 @@ export interface ExecContext {
   requestStop(): void;
   /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
   permissionChecker?: PermissionChecker;
+  /** phase 1332: injected task scheduler for subagent scheduling (N2 cross-L4 leak fix) */
+  taskSystem?: TaskScheduler;
+}
+
+/**
+ * Minimal task scheduler interface injected into ExecContext.
+ * Mirrors AsyncTaskSystem.schedule() without introducing L2→L4 dependency.
+ */
+export interface TaskScheduler {
+  schedule(kind: 'subagent', payload: Record<string, unknown>): Promise<string>;
 }
 
 /**

@@ -12,6 +12,7 @@ import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { TASKS_QUEUES_PENDING_DIR } from '../../../src/core/async-task-system/index.js';
 import type { Message } from '../../../src/foundation/llm-provider/types.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
+import { createMockTaskSystem } from '../../helpers/task-system.js';
 
 async function createTempDir(): Promise<string> {
   const d = path.join(tmpdir(), `summon-default-test-${randomUUID()}`);
@@ -52,6 +53,7 @@ describe('Phase 1166 — default mode shadow', () => {
   });
 
   function makeCtx() {
+    const auditWriter = { write: vi.fn() } as any;
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -59,7 +61,8 @@ describe('Phase 1166 — default mode shadow', () => {
       callerType: 'claw',
       fs: mockFs,
       llm: {} as unknown as LLMOrchestrator,
-      auditWriter: { write: vi.fn() } as any,
+      auditWriter,
+      taskSystem: createMockTaskSystem(mockFs, auditWriter),
     });
   }
 

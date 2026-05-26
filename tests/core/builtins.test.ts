@@ -28,12 +28,8 @@ import { ToolExecutor } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import { createToolRegistry } from '../../src/foundation/tools/index.js';
 
-const { mockWriteFile } = vi.hoisted(() => ({
-  mockWriteFile: vi.fn(),
-}));
-
-vi.mock('../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWriteFile,
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn(),
 }));
 
 describe('Builtin Tools', () => {
@@ -1017,11 +1013,11 @@ describe('Builtin Tools', () => {
 
   describe('spawn tool', () => {
     beforeEach(() => {
-      mockWriteFile.mockClear();
+      mockSchedule.mockClear();
     });
 
     it('should pass maxSteps from context', async () => {
-      mockWriteFile.mockResolvedValue('task-xxx');
+      mockSchedule.mockResolvedValue('task-xxx');
 
       const ctxWithMaxSteps = new ExecContextImpl({
         clawId: 'test-claw',
@@ -1031,6 +1027,7 @@ describe('Builtin Tools', () => {
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         outboxWriter,
         maxSteps: 42,
+        taskSystem: { schedule: mockSchedule } as any,
         permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
       });
 
@@ -1039,9 +1036,9 @@ describe('Builtin Tools', () => {
       }, ctxWithMaxSteps);
 
       expect(result.success).toBe(true);
-      expect(mockWriteFile).toHaveBeenCalled();
-      expect(mockWriteFile.mock.calls[0][2].maxSteps).toBe(42);
-      expect(mockWriteFile.mock.calls[0][2].intent).toBe('test task');
+      expect(mockSchedule).toHaveBeenCalled();
+      expect(mockSchedule.mock.calls[0][1].maxSteps).toBe(42);
+      expect(mockSchedule.mock.calls[0][1].intent).toBe('test task');
     });
   });
 

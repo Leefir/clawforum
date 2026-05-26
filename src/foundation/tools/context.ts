@@ -80,6 +80,8 @@ export interface ExecContextImplOptions {
   permissionChecker?: PermissionChecker;
   /** Tool-level wall-clock timeout, inherited from globalConfig.tool_timeout_ms / Assembly 装配期注入 (phase 1029 / F-2) */
   toolTimeoutMs?: number;
+  /** phase 1332: injected task scheduler for subagent scheduling (N2 cross-L4 leak fix) */
+  taskSystem?: import('./types.js').TaskScheduler;
 }
 
 /**
@@ -145,6 +147,7 @@ export class ExecContextImpl implements ExecContext {
   isShadow?: boolean;
   permissionChecker?: PermissionChecker;
   toolTimeoutMs?: number;
+  taskSystem?: import('./types.js').TaskScheduler;
   stopRequested: boolean = false;
   
   private startTime: number;
@@ -170,6 +173,7 @@ export class ExecContextImpl implements ExecContext {
     this.isShadow = options.isShadow;
     this.permissionChecker = options.permissionChecker;
     this.toolTimeoutMs = options.toolTimeoutMs;
+    this.taskSystem = options.taskSystem;
     this.stepNumber = 0;
     this.startTime = Date.now();
   }

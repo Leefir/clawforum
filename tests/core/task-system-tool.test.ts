@@ -1407,17 +1407,20 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const neverResolve = new Promise<void>(() => {});
 
       const slowCb = vi.fn().mockImplementation(async () => {
+        await new Promise(r => setTimeout(r, 200)); // long enough to exceed shutdown(50)
         await neverResolve; // hangs forever — shutdown must use timeout path
         return { success: true, content: 'done' };
       });
 
       await scheduleToolCompat(taskSystem, 'slowTool', slowCb, 'test-claw');
       await waitFor(() => taskSystem.listRunning().length > 0);
+      // Give the task time to enter the long callback (past the abort-signal gate)
+      await new Promise(r => setTimeout(r, 30));
 
       // shutdown(50) — task won't finish, Promise.race timeout fires
       // The hanging promise is intentionally never resolved to avoid post-shutdown monitor errors
-      const shutdownPromise = taskSystem.shutdown(50);
-      await expect(shutdownPromise).resolves.toBeUndefined();
+      const result = await taskSystem.shutdown(50);
+      expect(result).toBe(true);
     });
   });
 });

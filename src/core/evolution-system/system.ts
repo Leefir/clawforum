@@ -281,6 +281,7 @@ export class EvolutionSystem {
         baseMessages,
         audit: this.deps.audit,
         retroSubagentTimeoutMs: this.deps.retroSubagentTimeoutMs,
+        taskSystem: this.deps.taskSystem,
       });
     } catch (e) {
       this.deps.audit.write(

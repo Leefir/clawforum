@@ -8,7 +8,7 @@ import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../../evolution-sys
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../foundation/llm-orchestrator/index.js';
 import { buildSummonContractTask, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { ASK_MOTION_TOOL_NAME, ASK_MOTION_TOOL_DESCRIPTION, ASK_MOTION_TOOL_SCHEMA } from './ask-motion.js';
-import { writePendingSubagentTaskFile } from '../../async-task-system/tools/_pending-task-writer.js';
+
 import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
 import { spawnShadowSubagent } from '../../shadow-system/spawn-shadow-subagent.js';
 import { stripIncompleteToolUse } from '../../shadow-system/_helpers.js';
@@ -163,7 +163,7 @@ export class SummonTool implements Tool {
         });
         taskId = result.taskId;
       } else {
-        taskId = await writePendingSubagentTaskFile(ctx.fs, ctx.auditWriter, {
+        taskId = await ctx.taskSystem!.schedule('subagent', {
           kind: 'subagent',
           mode: 'standard',
           intent: userMessage,

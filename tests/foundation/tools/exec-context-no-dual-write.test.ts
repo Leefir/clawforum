@@ -37,6 +37,7 @@ describe('phase 1174 ExecContext 7-site dual-write eviction', () => {
       callerType: 'claw',
       fs: mockFs,
       auditWriter: auditWriter as any,
+      taskSystem: { schedule: vi.fn().mockResolvedValue('task-xxx') } as any,
     });
 
     const result = await tool.execute({ goal: 'test goal', mode: 'shadow' }, ctx);
@@ -81,6 +82,7 @@ describe('phase 1174 ExecContext 7-site dual-write eviction', () => {
       syncDir: path.join(tempDir, 'tasks', 'sync'),
       profile: 'full',
       fs: mockFs,
+      taskSystem: { schedule: vi.fn().mockResolvedValue('task-xxx') } as any,
     });
 
     // execute with async=false triggers sync path; async path also calls getTurnSnapshot

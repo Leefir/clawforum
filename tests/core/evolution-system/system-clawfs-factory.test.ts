@@ -11,12 +11,8 @@ import { createToolRegistry } from '../../../src/foundation/tools/index.js';
 // ============================================================================
 // Mock: writePendingSubagentTaskFile
 // ============================================================================
-const { mockWritePending } = vi.hoisted(() => ({
-  mockWritePending: vi.fn().mockResolvedValue('mock-task-id'),
-}));
-
-vi.mock('../../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWritePending,
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn().mockResolvedValue('mock-task-id'),
 }));
 
 // ============================================================================
@@ -78,7 +74,7 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
     const evolutionSystem = new EvolutionSystem({
       fs: motionFs,
       audit: mockAudit as any,
-      taskSystem: {} as any,
+      taskSystem: { schedule: mockSchedule } as any,
       contractManager: {} as any,
     });
 
@@ -118,7 +114,7 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
     const evolutionSystem = new EvolutionSystem({
       fs: motionFs,
       audit: mockAudit as any,
-      taskSystem: {} as any,
+      taskSystem: { schedule: mockSchedule } as any,
       contractManager: {} as any,
     });
 
@@ -165,7 +161,7 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
     const evolutionSystem = new EvolutionSystem({
       fs: motionFs,
       audit: mockAudit as any,
-      taskSystem: {} as any,
+      taskSystem: { schedule: mockSchedule } as any,
       contractManager: {} as any,
     });
 

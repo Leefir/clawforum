@@ -197,12 +197,14 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
     createOutboxWriter: vi.fn(() => ({ write: vi.fn().mockResolvedValue(undefined) })),
     createMessaging: vi.fn(() => ({ drainOutboxes: vi.fn().mockResolvedValue({ delivered: 0, failed: 0 }) })),
     readInboxFileMeta: vi.fn(),
+    cleanupRetention: vi.fn().mockResolvedValue(0),
   };
 });
 
 vi.mock('../../src/foundation/dialog-store/index.js', () => ({
   DialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), systemPrompt: '' })),
   createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), restorePrefix: vi.fn() })),
+  cleanupArchives: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock('../../src/foundation/config/index.js', () => ({

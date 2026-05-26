@@ -271,53 +271,59 @@
       "excerpt": "    const mockAudit = { write: vi.fn() } as unknown as AuditWriter;"
     },
     {
+      "file": "core/async-task-system/cleanup-task-retention.test.ts",
+      "line": 71,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "core/async-task-system/cleanup-task-retention.test.ts",
+      "line": 90,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "core/async-task-system/cleanup-task-retention.test.ts",
+      "line": 100,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
       "file": "core/async-task-system/sent-marker-idempotency.test.ts",
       "line": 13,
       "excerpt": "    write: vi.fn().mockResolvedValue(undefined),"
     },
-    {
-      "file": "core/builtins/_pending-task-writer.test.ts",
-      "line": 19,
-      "excerpt": "    write: vi.fn().mockResolvedValue(undefined),"
-    },
-    {
-      "file": "core/builtins/_pending-task-writer.test.ts",
-      "line": 37,
-      "excerpt": "    write: vi.fn().mockReturnValue(undefined),"
-    },
+
     {
       "file": "core/builtins.test.ts",
-      "line": 702,
+      "line": 698,
       "excerpt": "      const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/builtins.test.ts",
-      "line": 720,
+      "line": 716,
       "excerpt": "      const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/builtins.test.ts",
-      "line": 752,
+      "line": 748,
       "excerpt": "      const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/builtins.test.ts",
-      "line": 837,
+      "line": 833,
       "excerpt": "      const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/builtins.test.ts",
-      "line": 899,
+      "line": 895,
       "excerpt": "      const auditWriter = { write: vi.fn() };"
     },
     {
       "file": "core/builtins.test.ts",
-      "line": 922,
+      "line": 918,
       "excerpt": "      const auditWriter = { write: vi.fn() };"
     },
     {
       "file": "core/builtins.test.ts",
-      "line": 946,
+      "line": 942,
       "excerpt": "      const auditWriter = { write: vi.fn() };"
     },
     {
@@ -432,12 +438,12 @@
     },
     {
       "file": "core/contract-review-request.test.ts",
-      "line": 81,
+      "line": 77,
       "excerpt": "  const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/contract-review-request.test.ts",
-      "line": 99,
+      "line": 95,
       "excerpt": "      audit: { write: vi.fn() } as any,"
     },
     {
@@ -459,6 +465,16 @@
       "file": "core/cron/handler-sync-throw.test.ts",
       "line": 7,
       "excerpt": "  return { write: vi.fn() };"
+    },
+    {
+      "file": "core/cron/jobs/retention-cleanup-orchestrator.test.ts",
+      "line": 94,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "core/cron/jobs/retention-cleanup-orchestrator.test.ts",
+      "line": 112,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
     },
     {
       "file": "core/cron/parse-schedule-unit.test.ts",
@@ -527,97 +543,97 @@
     },
     {
       "file": "core/evolution-system/retro-scheduler.test.ts",
-      "line": 36,
+      "line": 32,
       "excerpt": "    motionAudit: { write: vi.fn() } as unknown as AuditLog,"
     },
     {
       "file": "core/evolution-system/retro-scheduler.test.ts",
-      "line": 39,
+      "line": 35,
       "excerpt": "    audit: { write: vi.fn() } as unknown as AuditLog,"
     },
     {
       "file": "core/evolution-system/state-corrupt.test.ts",
-      "line": 51,
+      "line": 47,
       "excerpt": "  const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system/state-corrupt.test.ts",
-      "line": 92,
-      "excerpt": "      motionAudit: { write: vi.fn() } as any,"
-    },
-    {
-      "file": "core/evolution-system/state-corrupt.test.ts",
-      "line": 126,
-      "excerpt": "      motionAudit: { write: vi.fn() } as any,"
-    },
-    {
-      "file": "core/evolution-system/state-corrupt.test.ts",
-      "line": 157,
-      "excerpt": "      motionAudit: { write: vi.fn() } as any,"
-    },
-    {
-      "file": "core/evolution-system/state-file.test.ts",
       "line": 88,
+      "excerpt": "      motionAudit: { write: vi.fn() } as any,"
+    },
+    {
+      "file": "core/evolution-system/state-corrupt.test.ts",
+      "line": 122,
+      "excerpt": "      motionAudit: { write: vi.fn() } as any,"
+    },
+    {
+      "file": "core/evolution-system/state-corrupt.test.ts",
+      "line": 153,
+      "excerpt": "      motionAudit: { write: vi.fn() } as any,"
+    },
+    {
+      "file": "core/evolution-system/state-file.test.ts",
+      "line": 84,
       "excerpt": "  const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system/state-file.test.ts",
-      "line": 107,
+      "line": 103,
       "excerpt": "      audit: { write: vi.fn() } as any,"
     },
     {
       "file": "core/evolution-system/system-clawfs-factory.test.ts",
-      "line": 46,
+      "line": 42,
       "excerpt": "  const motionAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system/system-clawfs-factory.test.ts",
-      "line": 47,
+      "line": 43,
       "excerpt": "  const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system/system-clawfs-factory.test.ts",
-      "line": 72,
+      "line": 68,
       "excerpt": "        audit: { write: vi.fn() } as any,"
     },
     {
       "file": "core/evolution-system/system-clawfs-factory.test.ts",
-      "line": 112,
+      "line": 108,
       "excerpt": "        audit: { write: vi.fn() } as any,"
     },
     {
       "file": "core/evolution-system/system-clawfs-factory.test.ts",
-      "line": 159,
+      "line": 155,
       "excerpt": "        audit: { write: vi.fn() } as any,"
     },
     {
       "file": "core/evolution-system/system-contract-factory.test.ts",
-      "line": 46,
+      "line": 42,
       "excerpt": "  const motionAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system/system-contract-factory.test.ts",
-      "line": 47,
+      "line": 43,
       "excerpt": "  const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system/system-contract-factory.test.ts",
-      "line": 65,
+      "line": 61,
       "excerpt": "        audit: { write: vi.fn() } as any,"
     },
     {
       "file": "core/evolution-system/system-contract-factory.test.ts",
-      "line": 109,
+      "line": 105,
       "excerpt": "        audit: { write: vi.fn() } as any,"
     },
     {
       "file": "core/evolution-system.test.ts",
-      "line": 75,
+      "line": 71,
       "excerpt": "  const mockAudit = { write: vi.fn() };"
     },
     {
       "file": "core/evolution-system.test.ts",
-      "line": 92,
+      "line": 88,
       "excerpt": "      audit: { write: vi.fn() } as any,"
     },
     {
@@ -832,23 +848,28 @@
     },
     {
       "file": "core/summon-system/summon-default-mode-shadow.test.ts",
-      "line": 62,
-      "excerpt": "      auditWriter: { write: vi.fn() } as any,"
+      "line": 56,
+      "excerpt": "    const auditWriter = { write: vi.fn() } as any;"
     },
     {
       "file": "core/summon-system/summon.test.ts",
-      "line": 346,
+      "line": 349,
       "excerpt": "      return { write: vi.fn() };"
     },
     {
       "file": "core/summon-system/summon.test.ts",
-      "line": 493,
+      "line": 496,
       "excerpt": "      const auditWriter = { write: vi.fn() };"
     },
     {
       "file": "core/summon-system/summon.test.ts",
-      "line": 518,
+      "line": 522,
       "excerpt": "      const auditWriter = { write: vi.fn() };"
+    },
+    {
+      "file": "core/task-system-tool-executor-routing.test.ts",
+      "line": 25,
+      "excerpt": "  write: vi.fn().mockResolvedValue(undefined),"
     },
     {
       "file": "core/task-system-tool.test.ts",
@@ -866,6 +887,21 @@
       "excerpt": "  return { write: vi.fn() };"
     },
     {
+      "file": "foundation/dialog-store/cleanup-archives.test.ts",
+      "line": 63,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "foundation/dialog-store/cleanup-archives.test.ts",
+      "line": 81,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "foundation/dialog-store/cleanup-archives.test.ts",
+      "line": 91,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
       "file": "foundation/dialog-store/re-entry-storm.test.ts",
       "line": 9,
       "excerpt": "  return { write: vi.fn() };"
@@ -874,6 +910,21 @@
       "file": "foundation/dialog-store/restore-prefix-corrupted.test.ts",
       "line": 9,
       "excerpt": "  return { write: vi.fn() };"
+    },
+    {
+      "file": "foundation/messaging/cleanup-retention.test.ts",
+      "line": 71,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "foundation/messaging/cleanup-retention.test.ts",
+      "line": 90,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
+    },
+    {
+      "file": "foundation/messaging/cleanup-retention.test.ts",
+      "line": 100,
+      "excerpt": "    const audit: AuditLog = { write: vi.fn() };"
     },
     {
       "file": "foundation/snapshot/cleanup-race-cluster.test.ts",
@@ -912,7 +963,7 @@
     },
     {
       "file": "helpers/task-system.ts",
-      "line": 25,
+      "line": 28,
       "excerpt": "      write: vi.fn().mockResolvedValue(undefined),"
     },
     {
@@ -964,11 +1015,6 @@
       "file": "watchdog/watchdog-state-schema-version.test.ts",
       "line": 112,
       "excerpt": "    const mockAudit = { write: vi.fn() } as unknown as AuditLog;"
-    },
-    {
-      "file": "core/task-system-tool-executor-routing.test.ts",
-      "line": 25,
-      "excerpt": "  write: vi.fn().mockResolvedValue(undefined),"
     }
   ],
   "allowed_patterns": []

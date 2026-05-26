@@ -30,12 +30,8 @@ vi.mock('../../src/foundation/skill-system/registry.js', () => ({
 // ============================================================================
 // Mock: writePendingSubagentTaskFile（窄 mock 避免真写 tasks/queues/pending）
 // ============================================================================
-const { mockWritePending } = vi.hoisted(() => ({
-  mockWritePending: vi.fn().mockResolvedValue('mock-task-id'),
-}));
-
-vi.mock('../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWritePending,
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn().mockResolvedValue('mock-task-id'),
 }));
 
 // ============================================================================
@@ -83,7 +79,7 @@ async function setupFixtures(): Promise<TestFixtures> {
   const evolutionSystem = new EvolutionSystem({
     fs: motionFs,
     audit: mockAudit as any,
-    taskSystem: {} as any,
+    taskSystem: { schedule: mockSchedule } as any,
     contractManager: mockContractManager,
   });
   const ctx: MotionReviewContext = {
@@ -133,9 +129,8 @@ describe('EvolutionSystem.runRetroForContract - happy path', () => {
     expect(result.status).toBe('finished');
 
     // writePending 被调用（含关键 payload 字段）
-    expect(mockWritePending).toHaveBeenCalledWith(
-      ctx.motionFs,
-      ctx.motionAudit,
+    expect(mockSchedule).toHaveBeenCalledWith(
+      'subagent',
       expect.objectContaining({
         kind: 'subagent',
         parentClawId: 'motion',
@@ -143,7 +138,7 @@ describe('EvolutionSystem.runRetroForContract - happy path', () => {
     );
 
     // intent 包含 contractId
-    const args = mockWritePending.mock.calls[0][2];
+    const args = mockSchedule.mock.calls[0][1];
     expect(args.intent).toContain(contractId);
 
     // by-contract 索引被删
@@ -187,7 +182,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('contractId='),
       'reason=invalid_json',
     );
-    expect(mockWritePending).not.toHaveBeenCalled();
+    expect(mockSchedule).not.toHaveBeenCalled();
 
     // sub-case B: 格式错（非 object）
     vi.clearAllMocks();
@@ -236,7 +231,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('contractId='),
       expect.stringContaining('error='),
     );
-    expect(mockWritePending).not.toHaveBeenCalled();
+    expect(mockSchedule).not.toHaveBeenCalled();
   });
 
   // ============================================================================
@@ -256,7 +251,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('contractId='),
       expect.stringContaining('error='),
     );
-    expect(mockWritePending).not.toHaveBeenCalled();
+    expect(mockSchedule).not.toHaveBeenCalled();
   });
 
   // ============================================================================
@@ -276,9 +271,8 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('error='),
     );
     // writePending 仍被调（退化继续，不 skip）
-    expect(mockWritePending).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
+    expect(mockSchedule).toHaveBeenCalledWith(
+      'subagent',
       expect.objectContaining({
         kind: 'subagent',
         parentClawId: 'motion',
@@ -310,9 +304,8 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       expect.stringContaining('taskId='),
       'reason=ENOENT',
     );
-    expect(mockWritePending).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
+    expect(mockSchedule).toHaveBeenCalledWith(
+      'subagent',
       expect.objectContaining({
         kind: 'subagent',
         parentClawId: 'motion',
@@ -329,7 +322,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
     const freshEvolutionSystem = new EvolutionSystem({
       fs: ctx.motionFs,
       audit: fixtures.mockAudit as any,
-      taskSystem: {} as any,
+      taskSystem: { schedule: mockSchedule } as any,
       contractManager: {} as ContractSystem,
     });
     await fs.writeFile(byContractPath, JSON.stringify({
@@ -356,7 +349,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
       motionDir, 'clawspace', 'pending-retrospective', 'by-contract', `${contractId}.json`
     );
 
-    mockWritePending.mockRejectedValueOnce(new Error('mock dispatch crash'));
+    mockSchedule.mockRejectedValueOnce(new Error('mock dispatch crash'));
 
     const result = await evolutionSystem.runRetroForContract(contractId, ctx);
     expect(result.status).toBe('error');
@@ -376,7 +369,7 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
     );
 
     // 在 writePending resolve 前删掉 by-contract 文件 → cleanup unlink 抛 ENOENT
-    mockWritePending.mockImplementationOnce(async () => {
+    mockSchedule.mockImplementationOnce(async () => {
       await fs.rm(byContractPath);
       return 'mock-task-id';
     });
