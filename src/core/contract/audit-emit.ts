@@ -700,5 +700,37 @@ export function emitContractObserverStateLoadFailed(
   );
 }
 
+// ─── ARCHIVE_PARTIAL_RECOVERY_FAILED ────────────────────────────────────────
+export function emitContractArchivePartialRecoveryFailed(
+  audit: AuditLog,
+  opts: {
+    contractId: ContractId;
+    context?: string;
+    message?: string;
+    error?: string;
+  },
+): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractArchivePartialRecoveryFailed')) return;
+  const cols: string[] = [`contractId=${opts.contractId}`];
+  if (opts.context !== undefined) cols.push(`context=${opts.context}`);
+  if (opts.message !== undefined) cols.push(`message=${opts.message}`);
+  if (opts.error !== undefined) cols.push(`error=${opts.error}`);
+  audit.write(CONTRACT_AUDIT_EVENTS.ARCHIVE_PARTIAL_RECOVERY_FAILED, ...cols);
+}
+
+// ─── ARCHIVE_RECOVERED ────────────────────────────────────────────────────────
+export function emitContractArchiveRecovered(
+  audit: AuditLog,
+  opts: {
+    contractId: ContractId;
+    context?: string;
+  },
+): void {
+  if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractArchiveRecovered')) return;
+  const cols: string[] = [`contractId=${opts.contractId}`];
+  if (opts.context !== undefined) cols.push(`context=${opts.context}`);
+  audit.write(CONTRACT_AUDIT_EVENTS.ARCHIVE_RECOVERED, ...cols);
+}
+
 // ─── Legacy helper: format error ──────────────────────────────────────────────
 export { formatErr };

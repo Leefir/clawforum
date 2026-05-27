@@ -66,6 +66,9 @@ export const CONTRACT_AUDIT_EVENTS = {
   CONTRACT_BOOT_RECONCILE: 'contract_boot_reconcile',
   // phase 1362 (r140): contractDir → acquireLock TOCTOU race retry audit trace
   CONTRACT_DIR_RACE_RETRY: 'contract_dir_race_retry',
+  // phase 1371 sub-2: archiveAndEmit partial recovery audit trace
+  ARCHIVE_PARTIAL_RECOVERY_FAILED: 'contract_archive_partial_recovery_failed',
+  ARCHIVE_RECOVERED: 'contract_archive_recovered',
   // phase 1235 B.3: typed emit empty contractId invariant
   TYPED_EMIT_INVARIANT_VIOLATION: 'contract_typed_emit_invariant_violation',
 } as const;
