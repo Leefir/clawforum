@@ -18,7 +18,7 @@ import {
 } from './audit-emit.js';
 import { AskMotionTool } from '../summon-system/tools/ask-motion.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from './dirs.js';
-import { buildSubagentSystemPrompt, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/subagent.js';
+import { buildSubagentSystemPrompt, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import { sendResult, sendFallbackError } from './result-delivery.js';
 
 import type { PostProcessor } from './post-processors/types.js';

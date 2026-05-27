@@ -13,7 +13,7 @@ import {
   renderStepFull,
   type Turn,
 } from './_message-renderer.js';
-import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/dirs.js';
+import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/index.js';
 import { TASKS_SUBAGENTS_DIR } from '../../core/subagent/constants.js';
 import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';

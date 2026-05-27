@@ -16,7 +16,7 @@ import { runSpawnSync } from '../system.js';
  * 直接写 tasks/queues/pending/ 文件，由 async-task-system watcher 异步调度。
  */
 import { formatErr } from '../_helpers.js';
-import { DEFAULT_MAX_STEPS } from '../../agent-executor/defaults.js';
+import { DEFAULT_MAX_STEPS } from '../../agent-executor/index.js';
 export const SPAWN_TOOL_NAME = 'spawn' as const;
 
 export const spawnTool: Tool = {
