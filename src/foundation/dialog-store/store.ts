@@ -368,10 +368,13 @@ export class DialogStore {
    * Commit turn transaction: snapshot is discarded; save() already wrote incrementally.
    * No-op if no transaction in progress.
    */
-  async commitTurn(): Promise<void> {
+  async commitTurn(reason?: string): Promise<void> {
     if (!this._turnSnapshot) return;
     this._turnSnapshot = null;
-    this.audit.write(DIALOG_AUDIT_EVENTS.TURN_COMMIT);
+    this.audit.write(
+      DIALOG_AUDIT_EVENTS.TURN_COMMIT,
+      reason ? `reason=${reason}` : 'reason=normal_end',
+    );
   }
 
   /**

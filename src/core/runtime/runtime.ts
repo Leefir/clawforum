@@ -712,12 +712,21 @@ export class Runtime {
     } catch (err) {
       // Turn-level error/interrupt event
       this._handleTurnInterrupt(err, callbacks);
-      if (err instanceof PriorityInboxInterrupt) {
-        // 步间优先消息中断：上一步已在 onStepComplete 中 save() 落盘
-        // commitTurn + ack 保留已完成工作，消息不退回 pending/
-        await this.sessionManager.commitTurn();
+      if (err instanceof PriorityInboxInterrupt
+          || err instanceof UserInterrupt
+          || err instanceof IdleTimeoutSignal) {
+        // graceful interrupt：保留已完成 step 工作（dialog repair 在下次 load 处理悬空 tool_use）
+        const reason = err instanceof PriorityInboxInterrupt ? 'priority_inbox'
+                     : err instanceof UserInterrupt          ? 'user_interrupt'
+                     :                                         'idle_timeout';
+        await this.sessionManager.commitTurn(reason);
         for (const h of addressedHandles) {
-          await this.inboxReader.ack(h);
+          // PriorityInboxInterrupt: ack（既有）/ UserInterrupt + IdleTimeoutSignal: nack 让下轮 redrive
+          if (err instanceof PriorityInboxInterrupt) {
+            await this.inboxReader.ack(h);
+          } else {
+            await this.inboxReader.nack(h, formatErr(err));
+          }
         }
       } else {
         await this.sessionManager.rollbackTurn(formatErr(err));

@@ -88,7 +88,7 @@ describe('Runtime processBatch orchestrator (phase 1285)', () => {
     return runtime;
   }
 
-  it('UserInterrupt calls rollbackTurn + nack + rethrows', async () => {
+  it('UserInterrupt calls commitTurn(reason=user_interrupt) + nack + rethrows (phase 1375)', async () => {
     const runtime = await makeInterruptRuntime();
     const nackSpy = vi.spyOn((runtime as any).inboxReader, 'nack').mockResolvedValue(undefined);
     const rollbackSpy = vi.spyOn((runtime as any).sessionManager, 'rollbackTurn').mockResolvedValue(undefined);
@@ -108,9 +108,9 @@ describe('Runtime processBatch orchestrator (phase 1285)', () => {
 
     await expect(runtime.processBatch()).rejects.toBeInstanceOf(UserInterrupt);
 
-    expect(rollbackSpy).toHaveBeenCalled();
+    expect(commitSpy).toHaveBeenCalledWith('user_interrupt');
     expect(nackSpy).toHaveBeenCalled();
-    expect(commitSpy).not.toHaveBeenCalled();
+    expect(rollbackSpy).not.toHaveBeenCalled();
   });
 
   it('successful turn calls commitTurn + ack', async () => {
