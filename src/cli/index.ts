@@ -10,8 +10,11 @@ if (!process.env.CLAWFORUM_ROOT) {
 import { program } from 'commander';
 import { CliError } from './errors.js';
 import { withCliErrorHandling } from './with-cli-error-handling.js';
-import { initCommand } from './commands/init.js';
-import { startCommand } from './commands/start.js';
+// `initCommand` and `startCommand` are lazy-loaded inside their action handlers
+// (phase 1379): these modules transitively pull in llm-orchestrator + core/contract
+// + foundation/tools (combined ~10s vitest cold load), forcing every CLI subcommand
+// (e.g. `claw daemon`) to pay that cost. Lazy imports defer the cost to the user
+// who actually runs `start` or `init`.
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
@@ -82,6 +85,7 @@ program
   .command('start')
   .description('Start the system (initializes if needed) and open Motion chat')
   .action(withCliErrorHandling(async () => {
+    const { startCommand } = await import('./commands/start.js');
     const { audit } = createDirContext({ fsFactory }, getClawforumRoot());
     await startCommand({ fsFactory }, { audit });
   }));
@@ -91,6 +95,7 @@ program
   .command('init')
   .description('Initialize clawforum workspace')
   .action(withCliErrorHandling(async () => {
+    const { initCommand } = await import('./commands/init.js');
     const { audit } = createDirContext({ fsFactory }, getClawforumRoot());
     await initCommand({ fsFactory }, false, { audit });
   }));

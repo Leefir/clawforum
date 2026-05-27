@@ -63,6 +63,12 @@ const VI_MOCK_FILES = [
   'tests/core/contract/verifier-job.test.ts',
   'tests/core/contract/verifier-robustness.test.ts',
   // phase 1351: contract_manager.test.ts moved out (LOCK tests extracted to contract_manager-locks.test.ts)
+  // phase 1338 split: sister fire-and-forget extracted; fire-and-forget tests
+  // drive async verification pipeline (completeSubtask → fire-and-forget chain
+  // → status update), waitFor polls async transitions; under fast project
+  // isolate:false + concurrent worker, transitions delayed beyond waitFor budget
+  // (e.g. retry_count test 3 sequential pipelines). Sister files already isolated.
+  'tests/core/contract_manager-fire-and-forget.test.ts',
   'tests/core/contract_manager-locks.test.ts',
   'tests/core/contract_manager_llm.test.ts',
   'tests/core/evolution-system.test.ts',
@@ -126,6 +132,12 @@ const VI_MOCK_FILES = [
   'tests/foundation/snapshot/cleanup-race-cluster.test.ts',
   'tests/foundation/snapshot/commit-throttle.test.ts',
   'tests/foundation/snapshot/consecutive-failures-singleton.test.ts',
+  // task.test.ts uses chokidar watcher (25 waitFor/listRunning sites): task
+  // scheduled by writing pending file, watcher async-fires 'add' event to
+  // ingest. Under fast project isolate:false + concurrent workers, watcher
+  // event delivery can exceed 5000ms waitFor timeout (OS-bound) → flaky
+  // (TASK_SHUTDOWN_TIMEOUT 等待 task 入 running 时 5000ms 超).
+  'tests/core/task.test.ts',
   'tests/foundation/spawn-defaults.test.ts',
   'tests/foundation/stream-reader-race.test.ts',
   'tests/watchdog/handler-idempotent-install.test.ts',

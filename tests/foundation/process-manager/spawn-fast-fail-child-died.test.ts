@@ -69,15 +69,13 @@ describe('spawn poll child-died fast-fail（phase 1136 / F.1，phase 1317 升级
       resolveDir: (id: string) => path.join(tempDir, 'claws', id),
       isAlive: () => {
         aliveCallCount++;
-        // call 1 = initial check (L25) → false to pass
-        // call 2+ = poll loop → false to simulate child died during boot
-        if (aliveCallCount === 1) return false;
+        // call 1 = initial check at spawnProcess entry (must be false to proceed)
+        // call 2 = first poll iteration → false to simulate child died during boot
         return false;
       },
       isReady: () => false,
     };
 
-    const start = Date.now();
     await expect(
       spawnProcess(ctx, clawId, {
         command: 'node',
@@ -85,9 +83,15 @@ describe('spawn poll child-died fast-fail（phase 1136 / F.1，phase 1317 升级
         logFile: path.join(tempDir, 'claws', clawId, 'logs', 'daemon.log'),
       }),
     ).rejects.toThrow(`Process "${clawId}" died during boot`);
-    const elapsed = Date.now() - start;
-    // phase 1317: event-driven fast-fail (< 200ms) without wall-clock deadline magic
-    expect(elapsed).toBeLessThan(200);
+
+    // Event-driven fast-fail causal signature (phase 1317 + phase 1379):
+    // - call 1 = initial entry check (spawn.ts:28)
+    // - call 2 = first poll iteration alive check (spawn.ts:195) → throws
+    // exactly 2 calls proves no wall-clock deadline / no slow-poll fallback.
+    // Replaces prior `elapsed < 200ms` magic-number timing assertion (flaky
+    // under concurrent worker CPU load even when logic is correctly fast-fail).
+    const EXPECTED_ISALIVE_CALLS_ON_FAST_FAIL = 2;
+    expect(aliveCallCount).toBe(EXPECTED_ISALIVE_CALLS_ON_FAST_FAIL);
   });
 
   it('反向 2：isReady eventually true → happy path + 0 throw', async () => {
