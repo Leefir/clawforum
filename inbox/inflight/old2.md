@@ -1,9 +1,9 @@
 ---
-id: m2
+id: m3
 type: message
 from: motion
 priority: normal
-timestamp: 2026-05-27T11:30:17.159Z
+timestamp: 2026-05-27T09:30:22.901Z
 ---
 
-Fresh
+Body
