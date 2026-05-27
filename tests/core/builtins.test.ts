@@ -28,6 +28,10 @@ import { ToolExecutor } from '../../src/foundation/tools/executor.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import { createToolRegistry } from '../../src/foundation/tools/index.js';
 
+const { mockSchedule } = vi.hoisted(() => ({
+  mockSchedule: vi.fn(),
+}));
+
 describe('Builtin Tools', () => {
   let tempDir: string;
   const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
@@ -1007,3 +1011,355 @@ describe('Builtin Tools', () => {
     });
   });
 
+  describe('spawn tool', () => {
+    beforeEach(() => {
+      mockSchedule.mockClear();
+    });
+
+    it('should pass maxSteps from context', async () => {
+      mockSchedule.mockResolvedValue('task-xxx');
+
+      const ctxWithMaxSteps = new ExecContextImpl({
+        clawId: 'test-claw',
+        clawDir: tempDir,
+        profile: 'full',
+        fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        outboxWriter,
+        maxSteps: 42,
+        taskSystem: { schedule: mockSchedule } as any,
+        permissionChecker: createClawPermissionChecker({ clawDir: tempDir, strict: true }),
+      });
+
+      const result = await spawnTool.execute({
+        intent: 'test task',
+      }, ctxWithMaxSteps);
+
+      expect(result.success).toBe(true);
+      expect(mockSchedule).toHaveBeenCalled();
+      expect(mockSchedule.mock.calls[0][1].maxSteps).toBe(42);
+      expect(mockSchedule.mock.calls[0][1].intent).toBe('test task');
+    });
+  });
+
+  describe('read tool - claw parameter', () => {
+    it('should allow Motion to read another claw\'s file', async () => {
+      // Create directory structure: .clawforum/motion/ and .clawforum/claws/claw1/
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'test.txt'), 'Hello from claw1');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await readTool.execute({ path: 'clawspace/test.txt', claw: 'claw1' }, motionCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('Hello from claw1');
+    });
+
+    it('should allow Motion subagent (originClawId=motion) to read another claw\'s file', async () => {
+      // Create directory structure
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'note.txt'), 'Note from claw1');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const subagentCtx = new ExecContextImpl({
+        clawId: 'task-uuid-123',
+        clawDir: motionDir,
+        profile: 'full',
+        callerType: 'subagent',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        originClawId: 'motion',
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, subagentCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('Note from claw1');
+    });
+
+    it('should allow specific claw target for non-Motion (D11 align)', async () => {
+      const mainClawDir = path.join(tempDir, 'main-claw');
+      await fs.mkdir(mainClawDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'note.txt'), 'Note from claw1');
+
+      const mainCtx = new ExecContextImpl({
+        clawId: 'main-claw',
+        clawDir: mainClawDir,
+        syncDir: path.join(mainClawDir, 'tasks/sync'),
+        profile: 'full',
+        fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
+      });
+      const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, mainCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('Note from claw1');
+    });
+
+    it('should reject invalid claw ID (path traversal)', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await readTool.execute({ path: 'test.txt', claw: '../etc/passwd' }, motionCtx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Invalid');
+    });
+
+    it('should reject claw ID with slash', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await readTool.execute({ path: 'test.txt', claw: 'claw/sub' }, motionCtx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toContain('Invalid');
+    });
+
+    // Phase 537: cross-claw 路径校验
+    it('rejects sibling-claw prefix traversal (claw="c1" + path="../c11/x")', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const c1Dir = path.join(tempDir, 'claws', 'c1', 'clawspace');
+      const c11Dir = path.join(tempDir, 'claws', 'c11', 'clawspace');
+      await fs.mkdir(c1Dir, { recursive: true });
+      await fs.mkdir(c11Dir, { recursive: true });
+      await fs.writeFile(path.join(c11Dir, 'secret.md'), 'secret content');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await readTool.execute({ path: '../c11/secret.md', claw: 'c1' }, motionCtx);
+
+      expect(result.success).toBe(false);
+      expect(result.content).toMatch(/Path escapes target claw directory/);
+    });
+
+    it('allows cross-claw read when targetPath equals clawRoot (path="")', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const c1Dir = path.join(tempDir, 'claws', 'c1', 'clawspace');
+      await fs.mkdir(c1Dir, { recursive: true });
+      await fs.writeFile(path.join(c1Dir, 'note.md'), 'note content');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      // path="" resolves to clawRoot; trailing-sep prefix must allow this
+      // actual read will fail because clawRoot is a directory, but guard must pass
+      const result = await readTool.execute({ path: '', claw: 'c1' }, motionCtx);
+      expect(result.content).not.toMatch(/Path escapes target claw directory/);
+    });
+
+    it('cross-claw read does NOT pollute caller fullyReadPaths (write gate intact)', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      // Create c1 with a file
+      const c1Dir = path.join(tempDir, 'claws', 'c1', 'clawspace');
+      await fs.mkdir(c1Dir, { recursive: true });
+      await fs.writeFile(path.join(c1Dir, 'foo.md'), 'c1 content');
+
+      // Cross-claw read c1/clawspace/foo.md from motion context
+      const readResult = await readTool.execute({ path: 'clawspace/foo.md', claw: 'c1' }, motionCtx);
+      expect(readResult.success).toBe(true);
+
+      // Create a local file that motion same-claw write 'clawspace/foo.md' resolves to
+      const localFile = path.join(motionDir, 'clawspace', 'clawspace', 'foo.md');
+      await fs.mkdir(path.dirname(localFile), { recursive: true });
+      await fs.writeFile(localFile, 'local content');
+
+      // Same-claw write to 'clawspace/foo.md' should still be rejected
+      // because cross-claw read must not add to same-claw write gate
+      const writeResult = await writeTool.execute({
+        path: 'clawspace/foo.md',
+        content: 'attack',
+      }, motionCtx);
+
+      expect(writeResult.success).toBe(false);
+      expect(writeResult.content).toMatch(/Use append=true, or read the file first/i);
+    });
+  });
+
+  describe('ls tool - claw parameter', () => {
+    it('should allow Motion to list another claw\'s directory', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'file1.txt'), 'content1');
+      await fs.writeFile(path.join(claw1Dir, 'file2.txt'), 'content2');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await lsTool.execute({ path: 'clawspace', claw: 'claw1' }, motionCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('file1.txt');
+      expect(result.content).toContain('file2.txt');
+    });
+
+    it('should allow Motion subagent to list another claw\'s directory', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'skills');
+      await fs.mkdir(claw1Dir, { recursive: true });
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const subagentCtx = new ExecContextImpl({
+        clawId: 'subagent-456',
+        clawDir: motionDir,
+        profile: 'full',
+        callerType: 'subagent',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        originClawId: 'motion',
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await lsTool.execute({ path: 'skills', claw: 'claw1' }, subagentCtx);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should allow specific claw target for non-Motion (D11 align)', async () => {
+      const mainClawDir = path.join(tempDir, 'main-claw');
+      await fs.mkdir(mainClawDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'file.txt'), 'content');
+
+      const mainCtx = new ExecContextImpl({
+        clawId: 'main-claw',
+        clawDir: mainClawDir,
+        syncDir: path.join(mainClawDir, 'tasks/sync'),
+        profile: 'full',
+        fs: mockFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
+      });
+      const result = await lsTool.execute({ path: 'clawspace', claw: 'claw1' }, mainCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('file.txt');
+    });
+  });
+
+  describe('search tool - claw parameter (supplementary)', () => {
+    it('should allow Motion to search a single claw (claw: "claw1")', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'note.txt'), 'Error in claw1: disk full');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const motionCtx = new ExecContextImpl({
+        clawId: 'motion',
+        clawDir: motionDir,
+        profile: 'full',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await searchTool.execute({ query: 'Error', path: 'clawspace', claw: 'claw1' }, motionCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('disk full');
+    });
+
+    it('should allow Motion subagent to search another claw', async () => {
+      const motionDir = path.join(tempDir, 'motion');
+      await fs.mkdir(motionDir, { recursive: true });
+      const claw1Dir = path.join(tempDir, 'claws', 'claw1', 'clawspace');
+      await fs.mkdir(claw1Dir, { recursive: true });
+      await fs.writeFile(path.join(claw1Dir, 'log.txt'), 'Warning: timeout');
+
+      const motionFs = new NodeFileSystem({ baseDir: motionDir });
+      const subagentCtx = new ExecContextImpl({
+        clawId: 'task-uuid',
+        clawDir: motionDir,
+        profile: 'full',
+        callerType: 'subagent',
+        fs: motionFs,
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+        originClawId: 'motion',
+        permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
+      });
+
+      const result = await searchTool.execute({ query: 'Warning', path: 'clawspace', claw: 'claw1' }, subagentCtx);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('timeout');
+    });
+  });
+});
