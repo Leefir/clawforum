@@ -39,6 +39,9 @@ export async function spawnShadowSubagent(
     instructionArgs,
   });
 
+  // phase 1373 anchor: shadow-mode subagent 不继承 caller signal by-design
+  // (shadow 是异步 detach / caller abort 不应级联 abort shadow / 业务语义 mutually exclusive lifecycle)
+  // 若 future shadow abort 需求 N≥1 → 加 NEW shadowSignal parameter + propagate
   const taskId = await opts.ctx.taskSystem!.schedule('subagent', {
     kind: 'subagent',
     mode: 'shadow',                            // δ discriminated union 新字段
