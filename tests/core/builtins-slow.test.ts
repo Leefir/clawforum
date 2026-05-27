@@ -14,6 +14,7 @@ import { createClawPermissionChecker } from '../../src/core/permissions/claw-per
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { OutboxWriter } from '../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../src/foundation/messaging/index.js';
 import { makeAudit } from '../helpers/audit.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 
@@ -32,7 +33,7 @@ describe('Builtin Tools (slow outliers)', () => {
     // exec tool default cwd = clawspace; ensure it exists for subprocess tests
     await fs.mkdir(path.join(tempDir, 'clawspace'), { recursive: true });
     mockFs = new NodeFileSystem({ baseDir: tempDir });
-    outboxWriter = new OutboxWriter('test-claw', tempDir, mockFs, makeAudit().audit);
+    outboxWriter = createOutboxWriter('test-claw', tempDir, mockFs, makeAudit().audit);
     ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,

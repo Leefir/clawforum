@@ -141,6 +141,7 @@ export async function reconcileFallbackDumps(fs: FileSystem): Promise<void> {
 export const AUDIT_FILE = 'audit.tsv';
 
 export class AuditWriter implements AuditLog {
+  readonly __brand = 'AuditLog' as const;
   private readonly maxBytes: number | null;
   private seq = 0; // NEW phase 1125
 

@@ -26,7 +26,7 @@ import { ContractSystem } from '../../core/contract/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { createDirContext } from '../utils/factories.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
-import { InboxWriter } from '../../foundation/messaging/index.js';
+import { notifyClaw } from '../../foundation/messaging/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
 import { CliError } from '../errors.js';
@@ -347,8 +347,6 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     return;
   }
 
-  const inboxDir = path.join(motionDir, 'inbox', 'pending');
-
   if (wasFirstRun && onboarding.state === 'not_found') {
     // ★ 首次运行：后台启动 daemon，前台展示语言选择（并行）
     const pm = createProcessManagerForCLI(deps);
@@ -382,13 +380,13 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     });
 
     
-    new InboxWriter(notifyFs, inboxDir, notifyAudit).writeSync({
+    notifyClaw(notifyFs, path.dirname(motionDir), MOTION_CLAW_ID, {
       type: 'message',
       source: 'system',
       priority: 'high',
       body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
       idPrefix: 'start',
-    });
+    }, notifyAudit);
 
   } else {
     // 非首次但 not_found（极少），或 in_progress
@@ -408,18 +406,18 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
         subtasks: buildOnboardingSubtasks('auto'),
         verification: [],
       });
-      new InboxWriter(notifyFs, inboxDir, notifyAudit).writeSync({
+      notifyClaw(notifyFs, path.dirname(motionDir), MOTION_CLAW_ID, {
         type: 'message', source: 'system', priority: 'high',
         body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
         idPrefix: 'start',
-      });
+      }, notifyAudit);
     } else {
       const pendingList = onboarding.pending?.join(', ') ?? '';
-      new InboxWriter(notifyFs, inboxDir, notifyAudit).writeSync({
+      notifyClaw(notifyFs, path.dirname(motionDir), MOTION_CLAW_ID, {
         type: 'message', source: 'system', priority: 'high',
         body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
         idPrefix: 'start',
-      });
+      }, notifyAudit);
     }
   }
 

@@ -22,6 +22,7 @@ export interface BatchedAuditWriterOptions {
 }
 
 export class BatchedAuditWriter implements AuditLog {
+  readonly __brand = 'AuditLog' as const;
   private buffer: string[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
   private readonly fs: FileSystem;

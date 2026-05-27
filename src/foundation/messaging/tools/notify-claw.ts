@@ -13,7 +13,7 @@ import { MOTION_CLAW_ID } from '../../../constants.js';
 import type { ToolResult } from '../../tool-protocol/index.js';
 import type { FileSystem } from '../../fs/types.js';
 import type { AuditLog } from '../../audit/index.js';
-import { InboxWriter } from '../inbox-writer.js';
+import { InboxWriter, makeInboxPath } from '../inbox-writer.js';
 import { MESSAGING_AUDIT_EVENTS } from '../audit-events.js';
 export const NOTIFY_CLAW_TOOL_NAME = 'notify_claw' as const;
 
@@ -92,7 +92,7 @@ export function createNotifyClawTool(deps: NotifyClawDeps): Tool {
       const targetInboxDir = path.join(targetClawRoot, 'inbox', 'pending');
 
       try {
-        new InboxWriter(deps.fs, targetInboxDir, deps.audit).writeSync({
+        InboxWriter.__internal_create(deps.fs, makeInboxPath(targetInboxDir), deps.audit).writeSync({
           type,
           source: MOTION_CLAW_ID,
           priority,

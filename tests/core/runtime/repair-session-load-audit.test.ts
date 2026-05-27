@@ -18,7 +18,9 @@ import { AuditWriter } from '../../../src/foundation/audit/writer.js';
 import { Snapshot } from '../../../src/foundation/snapshot/index.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from '../../../src/assembly/snapshot-patterns.js';
 import { InboxReader } from '../../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../../src/foundation/messaging/index.js';
 import { OutboxWriter } from '../../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../../src/foundation/messaging/index.js';
 import { DialogStore } from '../../../src/foundation/dialog-store/index.js';
 import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../../src/foundation/messaging/dirs.js';
 import { RUNTIME_AUDIT_EVENTS } from '../../../src/core/runtime/runtime-audit-events.js';
@@ -39,7 +41,7 @@ describe('Runtime — repairSessionIfNeeded load failure observability (R72-P1-2
 
     const sessionManager = new DialogStore(systemFs, 'dialog', auditWriter, 'current.json', 'test-claw');
     const inboxReader = new InboxReader(INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, systemFs, auditWriter);
-    const outboxWriter = new OutboxWriter('test-claw', clawDir, systemFs, auditWriter);
+    const outboxWriter = createOutboxWriter('test-claw', clawDir, systemFs, auditWriter);
 
     return { systemFs, clawFs, auditWriter, snapshot, sessionManager, inboxReader, outboxWriter };
   }

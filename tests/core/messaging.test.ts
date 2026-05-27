@@ -9,7 +9,9 @@ import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 import { InboxReader } from '../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../src/foundation/messaging/index.js';
 import { OutboxWriter } from '../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../src/foundation/messaging/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { makeAudit } from '../helpers/audit.js';
 import type { InboxMessage } from '../../src/foundation/messaging/types.js';
@@ -276,7 +278,7 @@ describe('Messaging', () => {
     beforeEach(async () => {
       tempDir = await createTempDir();
       mockFs = new NodeFileSystem({ baseDir: tempDir });
-      writer = new OutboxWriter('test-claw', tempDir, mockFs, makeAudit().audit);
+      writer = createOutboxWriter('test-claw', tempDir, mockFs, makeAudit().audit);
     });
 
     afterEach(async () => {

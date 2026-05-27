@@ -6,11 +6,11 @@
  * Dependencies: FileSystem
  */
 
-export { OutboxWriter } from './outbox-writer.js';
-export type { OutboxWriteOptions } from './outbox-writer.js';
+export { OutboxWriter, makeOutboxPath } from './outbox-writer.js';
+export type { OutboxWriteOptions, OutboxPath } from './outbox-writer.js';
 
-export { InboxWriter } from './inbox-writer.js';
-export type { InboxMessageOptionsBase, InboxMessageMeta } from './inbox-writer.js';
+export { InboxWriter, makeInboxPath } from './inbox-writer.js';
+export type { InboxMessageOptionsBase, InboxMessageMeta, InboxPath } from './inbox-writer.js';
 
 export { InboxReader } from './inbox-reader.js';
 export type { InboxEntry } from './inbox-reader.js';
@@ -21,7 +21,7 @@ export type { InboxMoveOp, InboxMetaError } from './errors.js';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { InboxReader } from './inbox-reader.js';
-import { OutboxWriter } from './outbox-writer.js';
+import { OutboxWriter, makeOutboxPath } from './outbox-writer.js';
 
 export function createInboxReader(
   fs: FileSystem,
@@ -46,7 +46,7 @@ export function createOutboxWriter(
   fs: FileSystem,
   audit: AuditLog,
 ): OutboxWriter {
-  return new OutboxWriter(clawId, clawDir, fs, audit);
+  return OutboxWriter.__internal_create(clawId, makeOutboxPath(clawId, clawDir), fs, audit);
 }
 
 export { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';

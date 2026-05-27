@@ -5,7 +5,7 @@
  */
 
 import * as path from 'path';
-import { InboxWriter } from './inbox-writer.js';
+import { InboxWriter, makeInboxPath } from './inbox-writer.js';
 import type { InboxMessageOptionsBase } from './inbox-writer.js';
 import type { InboxMessage } from './types.js';
 import type { FileSystem } from '../fs/types.js';
@@ -29,7 +29,7 @@ export function notifyClaw(
     : path.join(clawforumRoot, 'claws', targetClawId, 'inbox', 'pending');
 
   try {
-    new InboxWriter(fs, targetInboxDir, audit).writeSync(message);
+    InboxWriter.__internal_create(fs, makeInboxPath(targetInboxDir), audit).writeSync(message);
   } catch {
     // InboxWriter.writeSync already audits INBOX_WRITE_FAILED.
     // This catch is a best-effort barrier against TUI raw-mode render pollution.
@@ -48,7 +48,7 @@ export async function writeInboxAsync(
   message: InboxMessage,
   audit: AuditLog,
 ): Promise<void> {
-  await new InboxWriter(fs, inboxDir, audit).write(message);
+  await InboxWriter.__internal_create(fs, makeInboxPath(inboxDir), audit).write(message);
 }
 
 /**
@@ -67,7 +67,7 @@ export function notifyInbox(
 ): void {
   try {
     const { inboxDir, ...rest } = opts;
-    new InboxWriter(fs, inboxDir, audit).writeSync(rest);
+    InboxWriter.__internal_create(fs, makeInboxPath(inboxDir), audit).writeSync(rest);
   } catch {
     // InboxWriter.writeSync 已 audit INBOX_WRITE_FAILED
     // 此处 catch 是防 TUI raw mode 渲染污染的 best-effort barrier

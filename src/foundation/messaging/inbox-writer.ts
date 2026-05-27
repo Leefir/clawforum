@@ -32,12 +32,26 @@ export interface InboxMessageOptionsBase {
   extraFields?: Record<string, string>;
 }
 
+/** Branded inbox directory path — only makeInboxPath() can construct. */
+declare const InboxPathBrand: unique symbol;
+export type InboxPath = string & { readonly [InboxPathBrand]: true };
+
+/** Factory: construct an InboxPath from an absolute directory string. */
+export function makeInboxPath(absoluteDir: string): InboxPath {
+  return absoluteDir as InboxPath;
+}
+
 export class InboxWriter {
-  constructor(
+  private constructor(
     private readonly fs: FileSystem,
-    private readonly inboxDir: string,
+    private readonly inboxDir: InboxPath,
     private readonly audit: AuditLog,
   ) {}
+
+  /** Internal factory — only callable within the Messaging module. */
+  static __internal_create(fs: FileSystem, inboxDir: InboxPath, audit: AuditLog): InboxWriter {
+    return new InboxWriter(fs, inboxDir, audit);
+  }
 
   /** async 写，atomic */
   async write(msg: InboxMessage, extraFields?: Record<string, string>): Promise<void> {

@@ -45,7 +45,7 @@ import { DEFAULT_DISK_WARNING_MB } from '../watchdog/constants.js';
 import { spawnTool } from '../core/spawn-system/index.js';
 import { createShadowTool } from '../core/shadow-system/index.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
-import { createInboxReader, createOutboxWriter, notifyInbox, notifyClaw, InboxWriter, createMessaging } from '../foundation/messaging/index.js';
+import { createInboxReader, createOutboxWriter, notifyInbox, notifyClaw, InboxWriter, createMessaging, makeInboxPath } from '../foundation/messaging/index.js';
 import type { Messaging } from '../foundation/messaging/index.js';
 import { createSubmitSubtaskTool } from '../core/contract/index.js';
 import { createDoneTool } from '../core/subagent/index.js';
@@ -303,7 +303,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       ],
     });
     const motionInboxDir = path.join(clawDir, 'inbox', 'pending');
-    const motionInbox = new InboxWriter(systemFs, motionInboxDir, auditWriter);
+    const motionInbox = InboxWriter.__internal_create(systemFs, makeInboxPath(motionInboxDir), auditWriter);
 
     // --- L3-L5: taskSystem（仅构造，不调 initialize / startDispatch；业务动作归 Runtime） ---
     let taskSystem: AsyncTaskSystem;
@@ -643,7 +643,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
       // phase 724 α single audit pipe：cron handler 复用主 auditWriter / 删冗余 instance
       // （ML M#3 资源唯一归属 / motion/audit.tsv 单一 owner = L126 主 auditWriter）
-      const diskMonitorInbox = new InboxWriter(clawforumFs, motionInboxDir, auditWriter);
+      const diskMonitorInbox = InboxWriter.__internal_create(clawforumFs, makeInboxPath(motionInboxDir), auditWriter);
 
       try {
         cronRunner = createCronRunner([

@@ -19,6 +19,7 @@ import { spawnTool } from '../../src/core/spawn-system/index.js';
 import { ExecContextImpl } from '../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 import { OutboxWriter } from '../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../src/foundation/messaging/index.js';
 import { makeAudit } from '../helpers/audit.js';
 import { ContractSystem } from '../../src/core/contract/manager.js';
 
@@ -45,7 +46,7 @@ describe('Builtin Tools', () => {
     // exec tool default cwd = clawspace; ensure it exists for subprocess tests
     await fs.mkdir(path.join(tempDir, 'clawspace'), { recursive: true });
     mockFs = new NodeFileSystem({ baseDir: tempDir });
-    outboxWriter = new OutboxWriter('test-claw', tempDir, mockFs, makeAudit().audit);
+    outboxWriter = createOutboxWriter('test-claw', tempDir, mockFs, makeAudit().audit);
     ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
@@ -528,7 +529,7 @@ describe('Builtin Tools', () => {
       
       // Create Motion context with motion's clawDir
       const motionFs = new NodeFileSystem({ baseDir: motionDir });
-      const motionOutboxWriter = new OutboxWriter('motion', motionDir, motionFs, makeAudit().audit);
+      const motionOutboxWriter = createOutboxWriter('motion', motionDir, motionFs, makeAudit().audit);
       const motionCtx = new ExecContextImpl({
         clawId: 'motion',
         clawDir: motionDir,
@@ -573,7 +574,7 @@ describe('Builtin Tools', () => {
       // Create Motion context with a clawDir whose parent doesn't exist
       const nonExistentDir = path.join(tempDir, 'nonexistent', 'motion');
       const motionFs = new NodeFileSystem({ baseDir: nonExistentDir });
-      const motionOutboxWriter = new OutboxWriter('motion', nonExistentDir, motionFs);
+      const motionOutboxWriter = createOutboxWriter('motion', nonExistentDir, motionFs);
       const motionCtx = new ExecContextImpl({
         clawId: 'motion',
         clawDir: nonExistentDir,
@@ -598,7 +599,7 @@ describe('Builtin Tools', () => {
       
       // Create Motion context with motion's clawDir
       const motionFs = new NodeFileSystem({ baseDir: motionDir });
-      const motionOutboxWriter = new OutboxWriter('motion', motionDir, motionFs, makeAudit().audit);
+      const motionOutboxWriter = createOutboxWriter('motion', motionDir, motionFs, makeAudit().audit);
       const motionCtx = new ExecContextImpl({
         clawId: 'motion',
         clawDir: motionDir,
@@ -635,7 +636,7 @@ describe('Builtin Tools', () => {
       await fs.mkdir(motionDir, { recursive: true });
 
       const motionFs = new NodeFileSystem({ baseDir: motionDir });
-      const motionOutboxWriter = new OutboxWriter('motion', motionDir, motionFs, makeAudit().audit);
+      const motionOutboxWriter = createOutboxWriter('motion', motionDir, motionFs, makeAudit().audit);
       const motionCtx = new ExecContextImpl({
         clawId: 'motion',
         clawDir: motionDir,

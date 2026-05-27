@@ -9,6 +9,7 @@ import { TEST_LLM_TIMEOUT_MS } from './test-timeouts.js';
  */
 export function makeMockAudit(): AuditLog {
   return {
+    __brand: 'AuditLog',
     write: vi.fn<(type: string, ...cols: (string | number)[]) => void>(),
   };
 }
@@ -21,6 +22,7 @@ export function makeAudit() {
   const events: Array<[string, ...(string | number)[]]> = [];
   const emitter = new EventEmitter();
   const audit: AuditLog = {
+    __brand: 'AuditLog',
     write: (type: string, ...cols: (string | number)[]) => {
       events.push([type, ...cols]);
       emitter.emit('write', type, ...cols);
