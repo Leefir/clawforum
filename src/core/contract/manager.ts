@@ -62,7 +62,7 @@ import {
   type PersistenceContext,
   PROGRESS_CURRENT_SCHEMA_VERSION,
 } from './persistence.js';
-import { type ContractId, makeContractId, type SubtaskId } from './types.js';
+import { type ContractId, makeContractId, type SubtaskId, type ArchiveDir, makeArchiveDir } from './types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
 import { runContractVerifier } from './verifier-job.js';
 import {
@@ -116,7 +116,7 @@ export class ContractSystem {
 
   private activeDir = CONTRACT_ACTIVE_DIR;
   private pausedDir = CONTRACT_PAUSED_DIR;
-  private archiveDir = CONTRACT_ARCHIVE_DIR;
+  private archiveDir: ArchiveDir = makeArchiveDir(CONTRACT_ARCHIVE_DIR);
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
   private contractCompletedCallbacks: Set<(contractId: ContractId) => Promise<void>> = new Set();
