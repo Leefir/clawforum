@@ -24,19 +24,30 @@ export interface OutboxWriteOptions {
   priority?: 'critical' | 'high' | 'normal' | 'low';
 }
 
+/** Branded outbox directory path — only makeOutboxPath() can construct. */
+declare const OutboxPathBrand: unique symbol;
+export type OutboxPath = string & { readonly [OutboxPathBrand]: true };
+
+/** Factory: construct an OutboxPath from a clawId and clawDir. */
+export function makeOutboxPath(clawId: string, clawDir: string): OutboxPath {
+  void clawId; // semantic param — aligns with createOutboxWriter signature
+  return path.join(clawDir, 'outbox', 'pending') as OutboxPath;
+}
+
 /**
  * Outbox message writer
  */
 export class OutboxWriter {
-  private readonly outboxDir: string;
-
-  constructor(
+  private constructor(
     private readonly clawId: string,
-    clawDir: string,
+    private readonly outboxDir: OutboxPath,
     private readonly fs: FileSystem,
     private readonly audit: AuditLog,
-  ) {
-    this.outboxDir = path.join(clawDir, 'outbox', 'pending');
+  ) {}
+
+  /** Internal factory — only callable within the Messaging module. */
+  static __internal_create(clawId: string, outboxDir: OutboxPath, fs: FileSystem, audit: AuditLog): OutboxWriter {
+    return new OutboxWriter(clawId, outboxDir, fs, audit);
   }
 
   /**

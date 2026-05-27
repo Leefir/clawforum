@@ -6,6 +6,7 @@ import { SNAPSHOT_IGNORE_PATTERNS } from '../../src/assembly/snapshot-patterns.j
 
 import { DialogStore, createDialogStore } from '../../src/foundation/dialog-store/index.js';
 import { InboxReader, OutboxWriter } from '../../src/foundation/messaging/index.js';
+import { createOutboxWriter } from '../../src/foundation/messaging/index.js';
 import { LLMOrchestratorImpl } from '../../src/foundation/llm-orchestrator/orchestrator.js';
 import { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
 import { ToolExecutorImpl } from '../../src/foundation/tools/executor.js';
@@ -37,7 +38,7 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
   const snapshot = new Snapshot(clawDir, systemFs, auditWriter, SNAPSHOT_IGNORE_PATTERNS);
   const sessionManager = new DialogStore(systemFs, 'dialog', auditWriter, 'current.json', clawId);
   const inboxReader = new InboxReader(INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, systemFs, auditWriter);
-  const outboxWriter = new OutboxWriter(clawId, clawDir, systemFs, auditWriter);
+  const outboxWriter = createOutboxWriter(clawId, clawDir, systemFs, auditWriter);
   const llm = new LLMOrchestratorImpl(input.llmConfig ?? {
     primary: { name: 'mock', apiKey: 'test', model: 'test', maxTokens: 1024, temperature: 0.7, timeoutMs: TEST_LLM_TIMEOUT_MS, apiFormat: 'anthropic' },
     maxAttempts: 1,
