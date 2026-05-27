@@ -1,6 +1,5 @@
 import { getReadyFile, getPidFile, ensureStatusDir } from './paths.js';
-import { isAlive as l1IsAlive } from '../process-exec/index.js';
-import { getProcessStartTime } from '../process-exec/process-starttime.js';
+import { isAlive as l1IsAlive, getProcessStartTime, makeProcessStartTime, type ProcessStartTime } from '../process-exec/index.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import type { ProcessManagerContext } from './types.js';
 import type { PidFileContent } from './pid.js';
@@ -71,14 +70,14 @@ export function isReady(ctx: ProcessManagerContext, clawId: ClawId): boolean {
     return false;
   }
   let readyPid: number;
-  let readyStartTime: string | undefined;
+  let readyStartTime: ProcessStartTime | undefined;
   let pidFilePid: number;
   try {
     const ready = JSON.parse(readyContent.trim());
     const pidData = JSON.parse(pidContent.trim());
     if (typeof ready?.pid !== 'number' || typeof pidData?.pid !== 'number') return false;
     readyPid = ready.pid;
-    readyStartTime = typeof ready.startTime === 'string' ? ready.startTime : undefined;
+    readyStartTime = typeof ready.startTime === 'string' ? makeProcessStartTime(ready.startTime) : undefined;
     pidFilePid = pidData.pid;
   } catch (err: any) {
     ctx.audit.write(

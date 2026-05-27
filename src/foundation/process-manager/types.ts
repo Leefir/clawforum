@@ -1,6 +1,7 @@
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import type { ClawId } from '../identity/index.js';
+import type { ProcessStartTime } from '../process-exec/index.js';
 
 
 export class LockConflictError extends Error {
@@ -38,5 +39,5 @@ export interface ProcessManagerContext {
   /** Optional ready override (used by tests spying on ProcessManager.prototype.isReady) */
   isReady?: (clawId: ClawId) => boolean;
   /** Optional readLockPid override (used by tests spying on ProcessManager.prototype.readLockPid) */
-  readLockPid?: (clawId: ClawId) => { pid: number; startTime?: string } | null;
+  readLockPid?: (clawId: ClawId) => { pid: number; startTime?: ProcessStartTime } | null;
 }

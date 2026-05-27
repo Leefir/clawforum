@@ -11,6 +11,7 @@ import * as path from 'path';
 
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
+import type { ProcessStartTime } from '../process-exec/index.js';
 
 import * as pidOps from './pid.js';
 import * as aliveOps from './alive.js';
@@ -50,7 +51,7 @@ export class ProcessManager {
   }
 
   // pid CRUD
-  readPid(clawId: ClawId): Promise<{ pid: number; startTime?: string } | null> {
+  readPid(clawId: ClawId): Promise<{ pid: number; startTime?: ProcessStartTime } | null> {
     return pidOps.readPid(this._ctx, clawId);
   }
   removePid(clawId: ClawId): Promise<void> { return pidOps.removePid(this._ctx, clawId); }
@@ -67,7 +68,7 @@ export class ProcessManager {
   markNotReady(clawId: ClawId): Promise<void> { return readyOps.markNotReady(this._ctx, clawId); }
 
   // lock
-  readLockPid(clawId: ClawId): { pid: number; startTime?: string } | null { return lockOps.readLockPid(this._ctx, clawId); }
+  readLockPid(clawId: ClawId): { pid: number; startTime?: ProcessStartTime } | null { return lockOps.readLockPid(this._ctx, clawId); }
   acquireLock(clawId: ClawId): void { lockOps.acquireLock(this._ctx, clawId); }
   releaseLock(clawId: ClawId): void { lockOps.releaseLock(this._ctx, clawId); }
 

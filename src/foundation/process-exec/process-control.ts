@@ -6,8 +6,8 @@
  * POSIX-only (Stage 2 跨 OS 同 sh 硬编码 / Transport UDS 同型决策)。
  */
 
-import { ProcessExecError } from './types.js';
-import { getProcessStartTime } from './process-starttime.js';
+import { ProcessExecError } from './errors.js';
+import { getProcessStartTime, type ProcessStartTime } from './process-starttime.js';
 
 export type Signal = 'TERM' | 'KILL' | 'INT';
 
@@ -45,7 +45,7 @@ export function kill(pid: number, signal: Signal): void {
  *          false if ESRCH or invalid pid.
  *          If startTime mismatch (PID recycled), returns false.
  */
-export function isAlive(pid: number, expectedStartTime?: string): boolean {
+export function isAlive(pid: number, expectedStartTime?: ProcessStartTime): boolean {
   try {
     process.kill(pid, 0);
   } catch (err: any) {

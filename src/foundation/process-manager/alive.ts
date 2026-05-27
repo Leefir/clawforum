@@ -1,4 +1,4 @@
-import { isAlive as l1IsAlive } from '../process-exec/index.js';
+import { isAlive as l1IsAlive, makeProcessStartTime, type ProcessStartTime } from '../process-exec/index.js';
 import { getPidFile } from './paths.js';
 import type { ProcessManagerContext } from './types.js';
 import type { ClawId } from '../identity/index.js';
@@ -17,12 +17,12 @@ export function getAliveStatus(
     }
 
     let pid: number;
-    let startTime: string | undefined;
+    let startTime: ProcessStartTime | undefined;
     try {
       const parsed = JSON.parse(trimmed);
       if (typeof parsed === 'object' && parsed !== null && typeof parsed.pid === 'number') {
         pid = parsed.pid;
-        startTime = typeof parsed.startTime === 'string' ? parsed.startTime : undefined;
+        startTime = typeof parsed.startTime === 'string' ? makeProcessStartTime(parsed.startTime) : undefined;
       } else {
         throw new Error('invalid JSON pidfile');
       }

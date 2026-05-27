@@ -1,6 +1,5 @@
 import * as path from 'path';
-import { isAlive as l1IsAlive } from '../process-exec/index.js';
-import { getProcessStartTime } from '../process-exec/process-starttime.js';
+import { isAlive as l1IsAlive, getProcessStartTime, makeProcessStartTime, type ProcessStartTime } from '../process-exec/index.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { getLockFile } from './paths.js';
 import { LockConflictError, type ProcessManagerContext } from './types.js';
@@ -10,7 +9,7 @@ import { makeClawId, type ClawId } from '../identity/index.js';
 export function readLockPid(
   ctx: ProcessManagerContext,
   clawId: ClawId,
-): { pid: number; startTime?: string } | null {
+): { pid: number; startTime?: ProcessStartTime } | null {
   try {
     const lockFile = getLockFile(ctx, clawId);
     const content = ctx.fs.readSync(lockFile).trim();
@@ -26,7 +25,7 @@ export function readLockPid(
           pid: (parsed as { pid: number }).pid,
           startTime:
             typeof (parsed as { startTime?: unknown }).startTime === 'string'
-              ? (parsed as { startTime: string }).startTime
+              ? makeProcessStartTime((parsed as { startTime: string }).startTime)
               : undefined,
         };
       }

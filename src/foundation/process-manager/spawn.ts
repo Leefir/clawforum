@@ -11,9 +11,8 @@ import { readLockPid } from './lock.js';
 import { readPid, removePid } from './pid.js';
 import type { PidFileContent } from './pid.js';
 import { findProcesses } from './find.js';
-import { getProcessStartTime } from '../process-exec/process-starttime.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../audit/index.js';
-import { isAlive as l1IsAlive } from '../process-exec/index.js';
+import { isAlive as l1IsAlive, getProcessStartTime } from '../process-exec/index.js';
 import type { ProcessManagerContext, SpawnOptions } from './types.js';
 import { makeClawId, type ClawId } from '../identity/index.js';
 

@@ -1,13 +1,13 @@
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { getPidFile, ensureStatusDir } from './paths.js';
-import { getProcessStartTime } from '../process-exec/process-starttime.js';
+import { getProcessStartTime, makeProcessStartTime, type ProcessStartTime } from '../process-exec/index.js';
 import type { ProcessManagerContext } from './types.js';
 import type { ClawId } from '../identity/index.js';
 
 
 export interface PidFileContent {
   pid: number;
-  startTime?: string;
+  startTime?: ProcessStartTime;
 }
 
 export async function readPid(ctx: ProcessManagerContext, clawId: ClawId): Promise<PidFileContent | null> {
@@ -26,7 +26,7 @@ export async function readPid(ctx: ProcessManagerContext, clawId: ClawId): Promi
           pid: (parsed as { pid: number }).pid,
           startTime:
             typeof (parsed as { startTime?: unknown }).startTime === 'string'
-              ? (parsed as { startTime: string }).startTime
+              ? makeProcessStartTime((parsed as { startTime: string }).startTime)
               : undefined,
         };
       }
@@ -99,7 +99,7 @@ export async function removePidIfMatch(
   ctx: ProcessManagerContext,
   clawId: ClawId,
   expectedPid: number,
-  expectedStartTime?: string,
+  expectedStartTime?: ProcessStartTime,
 ): Promise<boolean> {
   const stored = await readPid(ctx, clawId);
   if (stored === null) return false;
