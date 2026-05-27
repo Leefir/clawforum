@@ -148,6 +148,13 @@ const VI_GLOBALS_FILES: string[] = [];
 const ISOLATED_FILES = [...VI_MOCK_FILES, ...VI_DOMOCK_FILES, ...VI_GLOBALS_FILES];
 
 export default defineConfig({
+  /**
+   * phase 1367: cacheDir 落 worktree-local
+   * 默认 'node_modules/.vite' 跨 worktree 共享 (node_modules symlink to bare repo)
+   * → 多 worktree 并行跑 vitest 时 results.json / transform cache race / ordering 错乱
+   * 落 worktree CWD 后每 worktree 独立 / .gitignore 加 .vitest-cache/
+   */
+  cacheDir: '.vitest-cache',
   esbuild: {
     target: 'es2022', // phase 1218 γ kept / phase 1231 待评估是否 revert
   },

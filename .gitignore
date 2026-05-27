@@ -40,6 +40,9 @@ clawspace/
 .tsbuildinfo
 .tsbuildinfo.test
 
+# Vitest cache (phase 1367: worktree-local / 避免 multi-worktree node_modules/.vite share race)
+.vitest-cache/
+
 # Design docs (untracked, kept outside repo)
 design/
 memory/
