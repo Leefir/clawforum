@@ -5,6 +5,7 @@
 
 import { resolveClawDir, scanSubagentResults, formatDate, formatDuration, truncateId, type SubagentKind, type SubagentStatus } from './subagent-helpers.js';
 import { handleCliError, CliError } from '../errors.js';
+import { makeClawId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 interface ListOptions {
@@ -20,7 +21,7 @@ interface ListOptions {
 
 export async function subagentListCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, options: ListOptions): Promise<void> {
   try {
-    const clawDir = resolveClawDir(options.claw);
+    const clawDir = resolveClawDir(makeClawId(options.claw));
     const clawFs = deps.fsFactory(clawDir);
     if (!clawFs.existsSync('.')) {
       throw new CliError(`Claw "${options.claw}" does not exist`);

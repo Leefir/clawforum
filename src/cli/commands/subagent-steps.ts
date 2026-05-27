@@ -17,6 +17,8 @@ import { TASKS_QUEUES_RESULTS_DIR } from '../../core/async-task-system/dirs.js';
 import { TASKS_SUBAGENTS_DIR } from '../../core/subagent/constants.js';
 import { TASKS_SYNC_SUBAGENT_DIR } from '../../core/subagent/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 // ─── Resolve result dir ──────────────────────────────────────
 
@@ -50,7 +52,7 @@ function turnToJson(turn: Turn): unknown {
   };
 }
 
-export async function subagentStepsCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, id: string, clawId: string, opts?: { json?: boolean }): Promise<void> {
+export async function subagentStepsCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, id: string, clawId: ClawId, opts?: { json?: boolean }): Promise<void> {
   const clawDir = resolveClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
   if (!clawFs.existsSync('.')) {
@@ -90,7 +92,7 @@ function parseStepRef(s: string): { turn: number; slot?: number } {
   return { turn, slot };
 }
 
-export async function subagentStepCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, n: string, id: string, clawId: string, opts?: { json?: boolean }): Promise<void> {
+export async function subagentStepCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, n: string, id: string, clawId: ClawId, opts?: { json?: boolean }): Promise<void> {
   const clawDir = resolveClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
   if (!clawFs.existsSync('.')) {

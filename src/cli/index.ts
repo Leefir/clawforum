@@ -46,6 +46,8 @@ import { createDirContext } from './utils/factories.js';
 import { getClawforumRoot, getClawDir, loadGlobalConfig } from '../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../assembly/config-defaults.js';
 import { parseIntOption } from './parse-int-option.js';
+import { makeClawId } from '../foundation/identity/index.js';
+import { MOTION_CLAW_ID } from '../constants.js';
 
 const fsFactory = (baseDir: string): FileSystem => new NodeFileSystem({ baseDir });
 
@@ -178,7 +180,7 @@ clawCmd
   .option('--step <n>', 'Show full content of step N (no truncation)', parseInt)
   .action(withCliErrorHandling(async (opts: { claw: string; contract: string; step?: number }) => {
     const { clawTraceCommand } = await import('./commands/claw.js');
-    await clawTraceCommand({ fsFactory }, opts.claw, opts.contract, opts.step);
+    await clawTraceCommand({ fsFactory }, makeClawId(opts.claw), opts.contract, opts.step);
   }));
 
 // claw steps
@@ -216,7 +218,7 @@ clawCmd
     const nodeFs = fsFactory(baseDir);
     const systemAudit = createSystemAudit(nodeFs, baseDir);
     const pm = createAgentProcessManager({ fsFactory }, systemAudit);
-    if (pm.isAlive(name)) {
+    if (pm.isAlive(makeClawId(name))) {
       console.warn(`⚠ Claw "${name}" is already running`);
       return;
     }
@@ -225,7 +227,7 @@ clawCmd
     const bundleFs = fsFactory(thisDir);
     const relBundle = path.relative(thisDir, bundleEntry);
     const daemonEntryPath = bundleFs.existsSync(relBundle) ? bundleEntry : path.resolve(thisDir, '..', 'daemon-entry.js');
-    const pid = await pm.spawn(name, {
+    const pid = await pm.spawn(makeClawId(name), {
       command: 'node',
       args: [daemonEntryPath, name],
       logFile: path.join(clawDir, DAEMON_LOG),
@@ -306,7 +308,7 @@ motionCmd
     const nodeFs = fsFactory(baseDir);
     const systemAudit = createSystemAudit(nodeFs, baseDir);
     const pm = createAgentProcessManager({ fsFactory }, systemAudit);
-    if (pm.isAlive('motion')) {
+    if (pm.isAlive(MOTION_CLAW_ID)) {
       console.warn('⚠ Motion is already running');
       return;
     }
@@ -314,9 +316,9 @@ motionCmd
     const bundleEntry = path.join(thisDir, 'daemon-entry.js');
     const bundleFs = fsFactory(thisDir);
     const daemonEntryPath = bundleFs.existsSync('daemon-entry.js') ? bundleEntry : path.resolve(thisDir, '..', 'daemon-entry.js');
-    const pid = await pm.spawn('motion', {
+    const pid = await pm.spawn(MOTION_CLAW_ID, {
       command: 'node',
-      args: [daemonEntryPath, 'motion'],
+      args: [daemonEntryPath, MOTION_CLAW_ID],
       logFile: path.join(motionDir, DAEMON_LOG),
       env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
     });
@@ -350,9 +352,9 @@ contractCmd
     if (opts.file && opts.dir) {
       throw new CliError('--file and --dir are mutually exclusive. Use one of --file or --dir, not both.');
     } else if (opts.file) {
-      await contractCreateCommand({ fsFactory }, opts.claw, opts.file, { audit });
+      await contractCreateCommand({ fsFactory }, makeClawId(opts.claw), opts.file, { audit });
     } else if (opts.dir) {
-      await contractCreateFromDirCommand({ fsFactory }, opts.claw, opts.dir, { audit });
+      await contractCreateFromDirCommand({ fsFactory }, makeClawId(opts.claw), opts.dir, { audit });
     } else {
       throw new CliError('must provide --file or --dir');
     }
@@ -364,7 +366,7 @@ contractCmd
   .requiredOption('-c, --claw <id>', 'Target claw ID')
   .option('--contract <id>', 'Contract ID (default: active contract)')
   .action(withCliErrorHandling(async (opts: { claw: string; contract?: string }) => {
-    await contractLogCommand({ fsFactory }, opts.claw, opts.contract);
+    await contractLogCommand({ fsFactory }, makeClawId(opts.claw), opts.contract);
   }));
 
 contractCmd
@@ -373,7 +375,7 @@ contractCmd
   .requiredOption('--since <timestamp>', 'Unix timestamp in milliseconds')
   .action(withCliErrorHandling(async (claw: string, opts: { since: string }) => {
     const since = parseIntOption(opts.since, '--since must be a Unix timestamp in milliseconds');
-    await contractEventsCommand({ fsFactory }, claw, since);
+    await contractEventsCommand({ fsFactory }, makeClawId(claw), since);
   }));
 
 contractCmd.on('command:*', (ops) => {
@@ -402,7 +404,7 @@ skillCmd
       }
       loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
       const { audit } = createDirContext({ fsFactory }, getClawDir(opts.claw));
-      await skillInstallClawCommand({ fsFactory }, opts.claw, opts.skill, { audit });
+      await skillInstallClawCommand({ fsFactory }, makeClawId(opts.claw), opts.skill, { audit });
     } else {
       if (!source) {
         throw new CliError('source path is required');

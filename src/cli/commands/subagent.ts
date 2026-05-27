@@ -6,6 +6,7 @@
 import { Command } from 'commander';
 import { subagentListCommand } from './subagent-list.js';
 import { subagentStepsCommand, subagentStepCommand } from './subagent-steps.js';
+import { makeClawId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export function createSubagentCommand(deps: { fsFactory: (baseDir: string) => FileSystem }): Command {
@@ -33,7 +34,7 @@ export function createSubagentCommand(deps: { fsFactory: (baseDir: string) => Fi
     .requiredOption('-c, --claw <claw>', 'Claw to query')
     .option('--json', 'Output as JSON (machine-readable)')
     .action(async (id: string, opts: { claw: string; json?: boolean }) => {
-      await subagentStepsCommand(deps, id, opts.claw, { json: opts.json });
+      await subagentStepsCommand(deps, id, makeClawId(opts.claw), { json: opts.json });
     });
 
   cmd
@@ -42,7 +43,7 @@ export function createSubagentCommand(deps: { fsFactory: (baseDir: string) => Fi
     .requiredOption('-c, --claw <claw>', 'Claw to query')
     .option('--json', 'Output as JSON (machine-readable)')
     .action(async (n: string, id: string, opts: { claw: string; json?: boolean }) => {
-      await subagentStepCommand(deps, n, id, opts.claw, { json: opts.json });
+      await subagentStepCommand(deps, n, id, makeClawId(opts.claw), { json: opts.json });
     });
 
   return cmd;

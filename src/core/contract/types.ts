@@ -8,6 +8,8 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { Priority } from '../../foundation/messaging/types.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 // ============================================================================
 // Contract domain types (canonical owner per interfaces/l4.md)
@@ -122,7 +124,7 @@ export interface VerifierConfig {
   agentId: string;
   prompt: string;
   clawDir: string;
-  clawId: string;               // phase 514 / caller's clawId for subagent context
+  clawId: ClawId;               // phase 514 / caller's clawId for subagent context
   llm: LLMOrchestrator;
   fs: FileSystem;
   maxSteps: number;
@@ -151,7 +153,7 @@ export interface VerifierResult {
 
 /** Phase 1335 (r138 F fork): cross-module query API — archive contract reference */
 export interface ArchiveContractRef {
-  clawId: string;
+  clawId: ClawId;
   contractId: string;
   contractDir: string;
   archivedAt?: string;

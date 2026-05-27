@@ -91,6 +91,9 @@ import { createAskUserTool } from '../core/gateway/index.js';
 import { createStreamReader, STREAM_FILE, findRecentTurnStartOffset } from '../foundation/stream/index.js';
 import { TASKS_SYNC_DIR } from '../core/async-task-system/index.js';
 import { DIALOG_DIR } from '../foundation/dialog-store/dirs.js';
+import { makeClawId, type ClawId } from '../foundation/identity/index.js';
+import { MOTION_CLAW_ID } from '../constants.js';
+
 
 /**
  * dream-trigger 是 assembly 装配 memorySystem capability 的 cron wrapper、
@@ -362,7 +365,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           motionAudit: auditWriter,
           clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
           clawFsFactory: fsFactory,
-          clawContractManagerFactory: (d: string, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: id, fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory }),
+          clawContractManagerFactory: (d: string, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: makeClawId(id), fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory }),
         };
         contractManager.onContractCompleted(async (contractId) => {
           if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)
@@ -503,7 +506,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     try {
       runtime = createRuntime({
         identity: isMotion ? 'motion' : 'claw',
-        clawId: isMotion ? 'motion' : clawId,
+        clawId: isMotion ? MOTION_CLAW_ID : clawId,
         clawDir,
         llmConfig,
         maxSteps,
@@ -608,7 +611,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           }
           contractSystemCache.clear();
         };
-        const getContractProgress = async (clawId: string, contractId: string): Promise<import('../core/contract/index.js').ProgressData> => {
+        const getContractProgress = async (clawId: ClawId, contractId: string): Promise<import('../core/contract/index.js').ProgressData> => {
           let cs = contractSystemCache.get(clawId);
           if (!cs) {
             const cDir = path.join(clawforumDir, CLAWS_DIR, clawId);

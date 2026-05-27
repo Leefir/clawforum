@@ -6,6 +6,8 @@ import { collectContractEvents } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 import { CLAWS_DIR } from '../../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
+import { makeClawId } from '../../../foundation/identity/index.js';
+
 
 /**
  * Cron job timeout (ms) / 防 stuck handler 占 cron tick.
@@ -78,7 +80,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     if (options.signal?.aborted) return;
     try {
       const clawDir = path.join(clawforumDir, CLAWS_DIR, clawId);
-      const clawEvents = collectContractEvents(fs, clawDir, clawId, lastCheckTs, motionAudit);
+      const clawEvents = collectContractEvents(fs, clawDir, makeClawId(clawId), lastCheckTs, motionAudit);
       if (clawEvents.length > 0) {
         events.push(clawEvents.join('\n'));
       }

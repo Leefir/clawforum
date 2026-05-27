@@ -6,6 +6,7 @@
  * 不含身份段；身份锚由 ShadowSystem.buildShadowInstruction wrap。
  */
 
+
 export function buildSummonContractTask(
   goal: string,
   skillsSummary?: string,

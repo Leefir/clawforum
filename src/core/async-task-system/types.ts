@@ -15,6 +15,8 @@ import type { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 import type { CallerType } from '../caller-types.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 export interface AsyncTaskSystemOptions {
   maxConcurrent?: number;
@@ -54,7 +56,7 @@ interface CommonSubAgentTaskFields {
    */
   motionClawDir?: string;
   postProcessor?: string;            // 声明式 post-processor 名称（registry lookup）
-  mainContextSnapshot?: { clawId: string; toolUseId: string };  // NEW marker mode
+  mainContextSnapshot?: { clawId: ClawId; toolUseId: string };  // NEW marker mode
   systemPrompt?: string;                 // phase 546 internal field：caller-side specialized system prompt（agent 不可见 / 与 phase 470 砍 agent-facing spawn schema 不冲突 / fall-back DEFAULT_SUBAGENT_SYSTEM_PROMPT）
   // phase 1087：shadow async 上下文快照字段
   isShadow?: boolean;

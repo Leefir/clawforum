@@ -13,6 +13,7 @@ import { runChatViewport } from './chat-viewport.js';
 import { createDirContext, createProcessManagerForCLI } from '../utils/factories.js';
 import { getWorkspaceRoot } from '../../foundation/paths.js';
 import { DAEMON_LOG } from '../constants.js';
+import { makeClawId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string): Promise<void> {
@@ -32,14 +33,14 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
     fsFactory: deps.fsFactory,
     ensureDaemon: async () => {
       const pm = createProcessManagerForCLI(deps);
-      if (!pm.isAlive(name)) {
+      if (!pm.isAlive(makeClawId(name))) {
         console.log(`Starting Claw "${name}" daemon...`);
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
         const bundleEntry = path.join(thisDir, 'daemon-entry.js');
         const bundleFs = deps.fsFactory(thisDir);
         const relBundle = path.relative(thisDir, bundleEntry);
         const daemonEntryPath = bundleFs.existsSync(relBundle) ? bundleEntry : path.resolve(thisDir, '..', '..', 'daemon-entry.js');
-        const pid = await pm.spawn(name, {
+        const pid = await pm.spawn(makeClawId(name), {
           command: 'node',
           args: [daemonEntryPath, name],
           logFile: path.join(clawDir, DAEMON_LOG),

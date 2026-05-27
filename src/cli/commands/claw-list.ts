@@ -13,6 +13,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import { getLastActiveMs } from './claw-shared.js';
+import { makeClawId } from '../../foundation/identity/index.js';
 import { handleCliError } from '../errors.js';
 
 /**
@@ -106,12 +107,12 @@ export async function listCommand(deps: { fsFactory: (baseDir: string) => FileSy
     for (const entry of entries) {
       const clawFs = deps.fsFactory(path.join(clawsDir, entry));
       if (clawFs.existsSync('config.yaml')) {
-        const isRunning = processManager.isAlive(entry);
+        const isRunning = processManager.isAlive(makeClawId(entry));
         let pid: number | undefined;
 
         if (isRunning) {
           try {
-            const stored = await processManager.readPid(entry);
+            const stored = await processManager.readPid(makeClawId(entry));
             if (stored !== null) pid = stored.pid;
           } catch { /* silent: ignore read errors */ }
         }

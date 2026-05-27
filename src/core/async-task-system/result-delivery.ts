@@ -15,6 +15,7 @@ import { SUMMARY_MAX_CHARS } from '../../foundation/utils/format.js';
 import type { SubAgentTask, ToolTask } from './types.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 
+
 export const SENT_MARKER = (taskId: string): string =>
   `${TASKS_QUEUES_RESULTS_DIR}/${taskId}/result.txt.sent`;
 

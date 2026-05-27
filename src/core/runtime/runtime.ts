@@ -47,6 +47,8 @@ import {
 import { TASKS_SYNC_DIR } from '../async-task-system/index.js';
 
 import { formatTimeAgo } from './utils.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 function auditError(
   audit: AuditLog,
@@ -179,7 +181,7 @@ export class Runtime {
       clawDir: this.options.clawDir,
       syncDir: path.join(this.options.clawDir, TASKS_SYNC_DIR),
       profile: this.options.toolProfile ?? 'full',
-      allowedGroups: CALLER_TYPE_TO_GROUPS[this.options.systemPromptBuilder ? MOTION_CLAW_ID : 'claw'],
+      allowedGroups: CALLER_TYPE_TO_GROUPS[this.options.systemPromptBuilder ? 'motion' : 'claw'],
       callerLabel: this.options.systemPromptBuilder ? MOTION_CLAW_ID : 'claw',
       permissionChecker: deps.permissionChecker,  // NEW phase 1273
       fs: this.systemFs,
@@ -1021,7 +1023,7 @@ export class Runtime {
    */
   getStatus(): {
     initialized: boolean;
-    clawId: string;
+    clawId: ClawId;
   } {
     return {
       initialized: this.initialized,

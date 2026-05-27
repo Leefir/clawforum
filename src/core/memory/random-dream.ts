@@ -8,6 +8,7 @@ import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import { notifyClaw } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import type { ProgressData } from '../contract/index.js';
+import type { ClawId } from '../../foundation/identity/index.js';
 import { listArchiveContracts } from '../contract/index.js';
 import {
   RANDOM_DREAM_SYSTEM_PROMPT,
@@ -36,11 +37,11 @@ export interface RandomDreamOptions {
   subagentMaxSteps?: number;
   signal?: AbortSignal;
   /** 读取指定 claw+contract 的 progress（M#3：不走直接文件访问） */
-  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>;
+  getContractProgress?: (clawId: ClawId, contractId: string) => Promise<ProgressData>;
 }
 
 interface WeightedContract {
-  clawId: string;
+  clawId: ClawId;
   contractId: string;
   contractDir: string;
   weight: number;
@@ -105,11 +106,11 @@ async function computeWeight(
   fs: FileSystem,
   contractId: string,
   contractDir: string,
-  clawId: string,
+  clawId: ClawId,
   processedIds: Set<string>,
   clawsSeen: Set<string>,     // 本次已选中的 clawId 集合
   audit: AuditLog,
-  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>,
+  getContractProgress?: (clawId: ClawId, contractId: string) => Promise<ProgressData>,
 ): Promise<{ weight: number; hint: string }> {
   let weight = 10;
   const hints: string[] = [];
@@ -199,7 +200,7 @@ async function discoverWeightedContracts(
   fs: FileSystem,
   state: RandomDreamState,
   audit: AuditLog,
-  getContractProgress?: (clawId: string, contractId: string) => Promise<ProgressData>,
+  getContractProgress?: (clawId: ClawId, contractId: string) => Promise<ProgressData>,
 ): Promise<WeightedContract[]> {
   const processedIds = new Set(state.processedContractIds);
   const clawsSeen = new Set<string>();

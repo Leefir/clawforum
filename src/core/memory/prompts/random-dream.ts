@@ -25,6 +25,8 @@
  * ```
  */
 
+import type { ClawId } from '../../../foundation/identity/index.js';
+
 export const RANDOM_DREAM_SYSTEM_PROMPT = `\
 你是跨 claw 梦境引擎，运行在 motion 进程中。
 你的任务是从多个 claw 的已归档契约中随机探索，提炼跨 claw 的共性经验和洞见。
@@ -64,7 +66,7 @@ export const RANDOM_DREAM_SYSTEM_PROMPT = `\
  */
 export function buildRandomDreamPrompt(
   weightedContracts: Array<{
-    clawId: string;
+    clawId: ClawId;
     contractId: string;
     contractDir: string;   // 绝对路径
     weight: number;

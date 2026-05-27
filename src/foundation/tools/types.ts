@@ -12,6 +12,8 @@ import type { AuditLog } from '../audit/index.js';
 import type { ToolDescriptor, ToolResult } from '../tool-protocol/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
+import type { ClawId } from '../identity/index.js';
+
 
 /**
  * phase 1337 r138 D fork: L2c capability-tag enum.
@@ -56,7 +58,7 @@ export function escapeForLog(s: string): string {
  * for eviction to per-module factory injection.
  */
 export interface ExecContext {
-  clawId: string;
+  clawId: ClawId;
   clawDir: string;
   /** phase 509 NEW / 装配期 per-callerType resolve / 主代理=clawDir/clawspace / 子代理=clawDir/tasks/subagents/<task-id> (phase 512 落地) */
   workspaceDir: string;

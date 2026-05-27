@@ -7,19 +7,21 @@ import type { CronRunner } from '../core/cron/index.js';
 import type { ClawGlobalConfig, ClawConfig } from '../foundation/config/index.js';
 import type { Gateway } from '../core/gateway/index.js';
 import type { EvolutionSystem } from '../core/evolution-system/index.js';
+import type { ClawId } from '../foundation/identity/index.js';
+
 
 export type Identity = 'motion' | 'claw';
 
 export interface AssembleConfig {
   readonly identity: Identity;
-  readonly clawId: string;
+  readonly clawId: ClawId;
   readonly clawDir: string;
   readonly globalConfig: ClawGlobalConfig;
   readonly clawConfig: ClawConfig | null;  // identity='claw' 必填；'motion' 为 null
 }
 
 export interface Instances {
-  readonly clawId: string;
+  readonly clawId: ClawId;
   readonly runtime: Runtime;
   readonly streamWriter: StreamWriter;
   readonly snapshot: Snapshot;

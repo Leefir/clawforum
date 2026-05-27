@@ -4,10 +4,12 @@ import { getProcessStartTime } from '../process-exec/process-starttime.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { getLockFile } from './paths.js';
 import { LockConflictError, type ProcessManagerContext } from './types.js';
+import { makeClawId, type ClawId } from '../identity/index.js';
+
 
 export function readLockPid(
   ctx: ProcessManagerContext,
-  clawId: string,
+  clawId: ClawId,
 ): { pid: number; startTime?: string } | null {
   try {
     const lockFile = getLockFile(ctx, clawId);
@@ -50,7 +52,7 @@ export function readLockPid(
   }
 }
 
-export function acquireLock(ctx: ProcessManagerContext, clawId: string): void {
+export function acquireLock(ctx: ProcessManagerContext, clawId: ClawId): void {
   const lockFile = getLockFile(ctx, clawId);
   ctx.fs.ensureDirSync(path.dirname(lockFile));
   try {
@@ -61,7 +63,7 @@ export function acquireLock(ctx: ProcessManagerContext, clawId: string): void {
     if (err?.code !== 'EEXIST') throw err;
   }
 
-  const readLockPidFn = ctx.readLockPid ?? ((id: string) => readLockPid(ctx, id));
+  const readLockPidFn = ctx.readLockPid ?? ((id: string) => readLockPid(ctx, makeClawId(id)));
   const holder = readLockPidFn(clawId);
   if (holder !== null) {
     const holderStartTime = holder.startTime ?? getProcessStartTime(holder.pid);
@@ -111,8 +113,8 @@ export function acquireLock(ctx: ProcessManagerContext, clawId: string): void {
   }
 }
 
-export function releaseLock(ctx: ProcessManagerContext, clawId: string): void {
-  const readLockPidFn = ctx.readLockPid ?? ((id: string) => readLockPid(ctx, id));
+export function releaseLock(ctx: ProcessManagerContext, clawId: ClawId): void {
+  const readLockPidFn = ctx.readLockPid ?? ((id: string) => readLockPid(ctx, makeClawId(id)));
   const holder = readLockPidFn(clawId);
   if (holder === null || holder.pid !== process.pid) return;
   const lockFile = getLockFile(ctx, clawId);

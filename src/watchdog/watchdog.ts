@@ -23,6 +23,7 @@ import { fileURLToPath } from 'url';
 import { setTimeout } from 'timers/promises';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { MOTION_CLAW_ID } from '../constants.js';
+import { makeClawId } from '../foundation/identity/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/factories.js';
@@ -153,7 +154,8 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
       for (const entry of fs.listSync(CLAWS_DIR, { includeDirs: true })) {
         if (entry.isDirectory) {
           presentClawIds.push(entry.name);
-          if (pm.isAlive(entry.name)) aliveIds.push(entry.name);
+          const clawId = makeClawId(entry.name);
+          if (pm.isAlive(clawId)) aliveIds.push(entry.name);
         }
       }
     }

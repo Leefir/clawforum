@@ -8,6 +8,7 @@
 import * as path from 'path';
 import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, OUTBOX_PENDING_DIR } from './messaging/dirs.js';
 
+
 // ── Path constants ──
 
 export const CLAWS_DIR = 'claws' as const;

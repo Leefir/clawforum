@@ -62,6 +62,7 @@ import {
   type PersistenceContext,
   PROGRESS_CURRENT_SCHEMA_VERSION,
 } from './persistence.js';
+import type { ClawId } from '../../foundation/identity/index.js';
 import { runContractVerifier } from './verifier-job.js';
 import {
   pauseContract, resumeContract, cancelContract,
@@ -92,7 +93,7 @@ export {
 
 export interface ContractSystemDeps {
   clawDir: string;
-  clawId: string;
+  clawId: ClawId;
   fs: FileSystem;
   audit: AuditLog;
   llm?: LLMOrchestrator;
@@ -104,7 +105,7 @@ export interface ContractSystemDeps {
 export class ContractSystem {
   private fs: FileSystem;
   private clawDir: string;
-  private readonly clawId: string;
+  private readonly clawId: ClawId;
   private readonly audit: AuditLog;
   private llm?: LLMOrchestrator;
   private toolRegistry: ToolRegistry;

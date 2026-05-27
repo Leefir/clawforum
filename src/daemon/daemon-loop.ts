@@ -46,6 +46,8 @@ import { LLMAllProvidersFailedError } from '../foundation/llm-orchestrator/error
 import { CONTRACT_DIR } from '../core/contract/index.js';
 import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
 import { INBOX_PENDING_DIR } from '../foundation/messaging/dirs.js';
+import type { ClawId } from '../foundation/identity/index.js';
+
 
 
 /**
@@ -147,7 +149,7 @@ export interface DaemonLoopOptions {
   fsFactory: (baseDir: string) => FileSystem;
   runtime: Runtime;
   agentDir: string;          // agent root directory (listens for interrupt signals)
-  clawId: string;            // agent identifier (kebab-case)
+  clawId: ClawId;            // agent identifier (kebab-case)
   label: string;             // log prefix, e.g. '[motion daemon]' or '[daemon]'
   audit: AuditLog;              // audit sink for createWatcher
 

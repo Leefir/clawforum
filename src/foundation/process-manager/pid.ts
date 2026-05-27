@@ -2,13 +2,15 @@ import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { getPidFile, ensureStatusDir } from './paths.js';
 import { getProcessStartTime } from '../process-exec/process-starttime.js';
 import type { ProcessManagerContext } from './types.js';
+import type { ClawId } from '../identity/index.js';
+
 
 export interface PidFileContent {
   pid: number;
   startTime?: string;
 }
 
-export async function readPid(ctx: ProcessManagerContext, clawId: string): Promise<PidFileContent | null> {
+export async function readPid(ctx: ProcessManagerContext, clawId: ClawId): Promise<PidFileContent | null> {
   try {
     const pidFile = getPidFile(ctx, clawId);
     const content = (await ctx.fs.read(pidFile)).trim();
@@ -50,7 +52,7 @@ export async function readPid(ctx: ProcessManagerContext, clawId: string): Promi
   }
 }
 
-export async function removePid(ctx: ProcessManagerContext, clawId: string): Promise<void> {
+export async function removePid(ctx: ProcessManagerContext, clawId: ClawId): Promise<void> {
   try {
     const pidFile = getPidFile(ctx, clawId);
     await ctx.fs.delete(pidFile);
@@ -67,7 +69,7 @@ export async function removePid(ctx: ProcessManagerContext, clawId: string): Pro
   }
 }
 
-export async function selfWritePid(ctx: ProcessManagerContext, clawId: string): Promise<void> {
+export async function selfWritePid(ctx: ProcessManagerContext, clawId: ClawId): Promise<void> {
   try {
     await ensureStatusDir(ctx, clawId);
     const pidFile = getPidFile(ctx, clawId);
@@ -86,7 +88,7 @@ export async function selfWritePid(ctx: ProcessManagerContext, clawId: string): 
   }
 }
 
-export async function selfRemovePid(ctx: ProcessManagerContext, clawId: string): Promise<void> {
+export async function selfRemovePid(ctx: ProcessManagerContext, clawId: ClawId): Promise<void> {
   const stored = await readPid(ctx, clawId);
   if (stored !== null && stored.pid === process.pid) {
     await removePid(ctx, clawId);
@@ -95,7 +97,7 @@ export async function selfRemovePid(ctx: ProcessManagerContext, clawId: string):
 
 export async function removePidIfMatch(
   ctx: ProcessManagerContext,
-  clawId: string,
+  clawId: ClawId,
   expectedPid: number,
   expectedStartTime?: string,
 ): Promise<boolean> {

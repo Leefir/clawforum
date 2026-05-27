@@ -7,6 +7,7 @@ import type { LLMOrchestratorConfig } from '../../foundation/llm-orchestrator/in
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../foundation/llm-provider/types.js';
 import { notifyInbox } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
+import { type ClawId, makeClawId } from '../../foundation/identity/index.js';
 import { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
@@ -79,7 +80,7 @@ function estimateTokens(text: string): number {
 
 const DEEP_DREAM_STATE_FILE = '.deep-dream-state.json';
 
-function loadDreamState(clawFs: FileSystem, audit: AuditLog, clawId: string): DreamStateData {
+function loadDreamState(clawFs: FileSystem, audit: AuditLog, clawId: ClawId): DreamStateData {
   try {
     return JSON.parse(clawFs.readSync(DEEP_DREAM_STATE_FILE)) as DreamStateData;
   } catch (err) {
@@ -97,7 +98,7 @@ function loadDreamState(clawFs: FileSystem, audit: AuditLog, clawId: string): Dr
   }
 }
 
-function saveDreamState(clawFs: FileSystem, state: DreamStateData, audit: AuditLog, clawId: string): void {
+function saveDreamState(clawFs: FileSystem, state: DreamStateData, audit: AuditLog, clawId: ClawId): void {
   try {
     clawFs.writeAtomicSync(DEEP_DREAM_STATE_FILE, JSON.stringify(state, null, 2));
   } catch (err) {
@@ -168,7 +169,7 @@ async function maybeMergeCompressions(
 // ─── 单 claw 处理 ─────────────────────────────────────────────
 
 async function runDeepDreamForClaw(
-  clawId: string,
+  clawId: ClawId,
   clawDir: string,
   clawFs: FileSystem,
   motionFs: FileSystem | undefined,
@@ -355,7 +356,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
     const clawDir = path.join(opts.clawforumDir, CLAWS_DIR, clawId);
     try {
       const clawFs = opts.clawFsFactory(clawDir);
-      await runDeepDreamForClaw(clawId, clawDir, clawFs, opts.motionFs, llm, maxCompressionTokens, opts.audit, opts.signal);
+      await runDeepDreamForClaw(makeClawId(clawId), clawDir, clawFs, opts.motionFs, llm, maxCompressionTokens, opts.audit, opts.signal);
     } catch (err) {
       opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_UNEXPECTED, `step=unexpected`, `clawId=${clawId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
       // 单 claw 失败不阻断其他 claw

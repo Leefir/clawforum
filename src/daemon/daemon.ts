@@ -24,13 +24,15 @@ import { LockConflictError } from '../foundation/process-manager/index.js';
 import { DAEMON_AUDIT_EVENTS } from './audit-events.js';
 import type { DaemonInstances } from './types.js';
 import type { ConfigDefaults } from '../foundation/config/schemas.js';
+import { makeClawId, type ClawId } from '../foundation/identity/index.js';
+
 
 export interface DaemonCommandDeps {
   fsFactory: (baseDir: string) => FileSystem;
   configDefaults: ConfigDefaults;
   assemble: (config: {
     identity: 'motion' | 'claw';
-    clawId: string;
+    clawId: ClawId;
     clawDir: string;
     globalConfig: any;
     clawConfig: any | null;
@@ -45,6 +47,7 @@ export interface DaemonCommandDeps {
 
 export function createDaemonCommand(deps: DaemonCommandDeps) {
   return async function daemonCommand(name: string): Promise<void> {
+    const clawId = makeClawId(name);
     const globalConfig = loadGlobalConfig({ fsFactory: deps.fsFactory }, deps.configDefaults);
     const isMotion = name === MOTION_CLAW_ID;
 
@@ -59,7 +62,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
     const processManager = createAgentProcessManager({ fsFactory: deps.fsFactory }, preAssembleAudit);
 
     // 写 PID 文件（兜底：无论启动方式都确保 PID 可查）
-    await processManager.selfWritePid(name);
+    await processManager.selfWritePid(clawId);
 
     const clawConfig = isMotion ? null : loadClawConfig({ fsFactory: deps.fsFactory }, name, deps.configDefaults);
 
@@ -67,8 +70,8 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
     let instances: DaemonInstances;
     try {
       instances = await deps.assemble({
-        identity: isMotion ? MOTION_CLAW_ID : 'claw',
-        clawId: name,
+        identity: isMotion ? 'motion' : 'claw',
+        clawId: clawId,
         clawDir: dir,
         globalConfig,
         clawConfig,
@@ -115,7 +118,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       promptHash = createHash('sha256').update(agentsContent).digest('hex').slice(0, 6);
     } catch { /* silent: AGENTS.md is optional, missing is expected */ }
     auditWriter.write(deps.auditEvents.daemonStart, `sha256:${promptHash}`);
-    await processManager.markReady(name);
+    await processManager.markReady(clawId);
 
     // daemon-start commit（不阻塞启动）
     snapshot.commit(`daemon-start ${new Date().toISOString()}`).then((result) => {
@@ -158,7 +161,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       fsFactory: deps.fsFactory,
       runtime,
       agentDir: dir,
-      clawId: name,
+      clawId: clawId,
       label: isMotion ? '[motion daemon]' : '[daemon]',
       audit: auditWriter,
       inbox: { pendingDir: inboxPendingDir },
@@ -175,7 +178,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
 
       // pid 文件清理（业务）
       try {
-        await processManager.selfRemovePid(name);
+        await processManager.selfRemovePid(clawId);
       } catch (e: any) {
         instances.auditWriter.write(DAEMON_AUDIT_EVENTS.CLEANUP_PID_FAILED, `reason=${e?.message}`);
       }

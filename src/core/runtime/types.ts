@@ -20,6 +20,8 @@ import type { PermissionChecker } from '../permissions/claw-permissions.js';
 
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import type { ToolProfile } from '../../foundation/tool-protocol/index.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 /** 1:1 保 runtime.ts:47-72 body */
 export interface RuntimeDependencies {
@@ -57,7 +59,7 @@ export interface RuntimeDependencies {
 
 /** 1:1 保 runtime.ts:74-101 body */
 export interface RuntimeOptions {
-  clawId: string;
+  clawId: ClawId;
   clawDir: string;
   llmConfig: LLMOrchestratorConfig;
   maxSteps?: number;

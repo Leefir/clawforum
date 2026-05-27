@@ -1,9 +1,11 @@
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
+import type { ClawId } from '../identity/index.js';
+
 
 export class LockConflictError extends Error {
-  readonly clawId: string;
-  constructor(clawId: string, message?: string) {
+  readonly clawId: ClawId;
+  constructor(clawId: ClawId, message?: string) {
     super(message ?? `Lock conflict: another process holds the lock for ${clawId}`);
     this.name = 'LockConflictError';
     this.clawId = clawId;
@@ -30,11 +32,11 @@ export interface SpawnOptions {
 export interface ProcessManagerContext {
   fs: FileSystem;
   audit: AuditLog;
-  resolveDir: (clawId: string) => string;
+  resolveDir: (clawId: ClawId) => string;
   /** Optional alive override (used by tests spying on ProcessManager.prototype.isAlive) */
-  isAlive?: (clawId: string) => boolean;
+  isAlive?: (clawId: ClawId) => boolean;
   /** Optional ready override (used by tests spying on ProcessManager.prototype.isReady) */
-  isReady?: (clawId: string) => boolean;
+  isReady?: (clawId: ClawId) => boolean;
   /** Optional readLockPid override (used by tests spying on ProcessManager.prototype.readLockPid) */
-  readLockPid?: (clawId: string) => { pid: number; startTime?: string } | null;
+  readLockPid?: (clawId: ClawId) => { pid: number; startTime?: string } | null;
 }

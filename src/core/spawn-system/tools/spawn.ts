@@ -17,6 +17,7 @@ import { runSpawnSync } from '../system.js';
  */
 import { formatErr } from '../_helpers.js';
 import { DEFAULT_MAX_STEPS } from '../../agent-executor/defaults.js';
+
 export const SPAWN_TOOL_NAME = 'spawn' as const;
 
 export const spawnTool: Tool = {

@@ -19,6 +19,8 @@ import { STREAM_FILE, createPerResourceStreamWriter, type StreamEvent } from '..
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 
 function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
@@ -35,7 +37,7 @@ function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
   return contract;
 }
 
-export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: string, clawId: string, contractId: string, contract: ContractYaml): void {
+export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: string, clawId: ClawId, contractId: string, contract: ContractYaml): void {
   const { fs, audit: contractAudit } = createDirContext(deps, clawDir);
 
   // best-effort：通知 viewport via stream.jsonl（失败不中断 contract 创建）
@@ -75,7 +77,7 @@ export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => Fi
 /**
  * Create a contract for a claw
  */
-export async function contractCreateCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: string, filePath: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
+export async function contractCreateCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, filePath: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
   const audit = extraDeps?.audit;
   const absFilePath = path.resolve(filePath);
   const fileSystem = deps.fsFactory(path.dirname(absFilePath));
@@ -96,7 +98,7 @@ export async function contractCreateCommand(deps: { fsFactory: (baseDir: string)
 /**
  * Create a contract from a directory containing contract.yaml + verification/
  */
-export async function contractCreateFromDirCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: string, dirPath: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
+export async function contractCreateFromDirCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, dirPath: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
   const audit = extraDeps?.audit;
   const absDir = path.resolve(dirPath);
   const srcFs = deps.fsFactory(absDir);
@@ -135,7 +137,7 @@ export async function contractCreateFromDirCommand(deps: { fsFactory: (baseDir: 
 /**
  * Show contract execution log for a claw
  */
-export async function contractEventsCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: string, sinceTs: number): Promise<void> {
+export async function contractEventsCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, sinceTs: number): Promise<void> {
   const clawDir = getClawDir(clawId);
   const fs = deps.fsFactory(clawDir);
   const audit = createSystemAudit(fs, clawDir);
@@ -145,7 +147,7 @@ export async function contractEventsCommand(deps: { fsFactory: (baseDir: string)
   }
 }
 
-export async function contractLogCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: string, contractId?: string): Promise<void> {
+export async function contractLogCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
   const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory });

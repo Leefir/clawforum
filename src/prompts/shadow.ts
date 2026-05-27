@@ -8,6 +8,7 @@
  * 调整时确认是 const 文本变化（一次性影响后续所有 shadow，archive 不影响）。
  */
 
+
 export const SHADOW_INSTRUCTION_PREFIX = `[SHADOW INSTRUCTION — YOU ARE NO LONGER THE MAIN AGENT]`;
 
 export interface BuildShadowInstructionArgs {

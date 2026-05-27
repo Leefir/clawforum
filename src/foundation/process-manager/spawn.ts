@@ -15,14 +15,16 @@ import { getProcessStartTime } from '../process-exec/process-starttime.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../audit/index.js';
 import { isAlive as l1IsAlive } from '../process-exec/index.js';
 import type { ProcessManagerContext, SpawnOptions } from './types.js';
+import { makeClawId, type ClawId } from '../identity/index.js';
+
 
 export async function spawnProcess(
   ctx: ProcessManagerContext,
-  clawId: string,
+  clawId: ClawId,
   options: SpawnOptions,
 ): Promise<number> {
   const startMs = Date.now();
-  const isAliveByPidFile = ctx.isAlive ?? ((id: string) => checkAlive(ctx, id));
+  const isAliveByPidFile = ctx.isAlive ?? ((id: string) => checkAlive(ctx, makeClawId(id)));
   if (isAliveByPidFile(clawId)) {
     throw new Error(`Claw "${clawId}" is already running (PID file exists)`);
   }
@@ -183,7 +185,7 @@ export async function spawnProcess(
     const pidPayload: PidFileContent = { pid, ...(childStartTime !== undefined ? { startTime: childStartTime } : {}) };
     await ctx.fs.writeAtomic(pidFile, JSON.stringify(pidPayload));
 
-    const isReady = ctx.isReady ?? ((id: string) => checkReady(ctx, id));
+    const isReady = ctx.isReady ?? ((id: string) => checkReady(ctx, makeClawId(id)));
     // Event-driven readiness: poll until ready file appears OR child dies.
     // No wall-clock deadline — readiness is causal, not temporal (phase 1317).
     // Child died → fast-fail via isAliveByPidFile (existing path).

@@ -1,3 +1,5 @@
+import type { ClawId } from '../identity/index.js';
+
 export type Priority = 'low' | 'normal' | 'high' | 'critical';
 
 export const PRIORITY_VALUES: Record<Priority, number> = {
@@ -38,7 +40,7 @@ export interface InboxHandle {
 }
 
 export interface HeartbeatEntry {
-  claw_id: string;
+  claw_id: ClawId;
   timestamp: string;
   status: 'idle' | 'working' | 'error';
   current_contract?: string;

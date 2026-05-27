@@ -16,6 +16,8 @@ import type { AuditLog } from '../audit/index.js';
 import { DIALOG_AUDIT_EVENTS } from './audit-events.js';
 import { randomUUID } from 'crypto';
 import { UUID_SHORT_LEN } from '../../constants.js';
+import type { ClawId } from '../identity/index.js';
+
 
 const SESSION_CURRENT_VERSION = 2;
 
@@ -872,7 +874,7 @@ export function validateSessionData(
 
 export class MarkerNotFoundError extends Error {
   constructor(
-    readonly clawId: string,
+    readonly clawId: ClawId,
     readonly toolUseId: string,
   ) {
     super(`marker not found: clawId=${clawId} toolUseId=${toolUseId}`);

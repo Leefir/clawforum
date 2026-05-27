@@ -25,6 +25,8 @@ import { type CallerType, callerTypeToProfile, CALLER_TYPE_TO_GROUPS } from '../
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
 import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
+import { makeClawId } from '../../foundation/identity/index.js';
+
 
 export interface SubAgentOptions {
   agentId: string;
@@ -307,7 +309,7 @@ private callerType?: CallerType;
           llm: this.llm,
           executor,
           ctx: executor.getExecContext(executorProfile, {
-            clawId: this.agentId,
+            clawId: makeClawId(this.agentId),
             maxSteps: this.maxSteps,
             signal: timeoutController.signal,
             allowedGroups: CALLER_TYPE_TO_GROUPS[callerType],

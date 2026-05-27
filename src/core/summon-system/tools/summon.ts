@@ -13,6 +13,7 @@ import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
 import { spawnShadowSubagent } from '../../shadow-system/spawn-shadow-subagent.js';
 import { stripIncompleteToolUse } from '../../shadow-system/_helpers.js';
 
+
 const SUMMON_SUBAGENT_TIMEOUT_MS = 3600 * 1000;   // 1 hour
 
 export const SUMMON_TOOL_NAME = 'summon' as const;

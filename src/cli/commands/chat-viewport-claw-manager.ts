@@ -10,10 +10,12 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { createChatViewportWatcher } from './chat-viewport-watcher.js';
 import { type ClawTrack, makeClawTrack } from './chat-viewport-claw-line.js';
+import { type ClawId, makeClawId } from '../../foundation/identity/index.js';
+
 
 export interface ClawManagerDeps {
   fs: FileSystem;
-  pm: { readPid: (label: string) => Promise<{ pid: number; startTime?: string } | null> };
+  pm: { readPid: (label: ClawId) => Promise<{ pid: number; startTime?: string } | null> };
   audit: AuditLog;
   isMotion: boolean;
   clawsDir: string;
@@ -23,10 +25,10 @@ export interface ClawManagerDeps {
 }
 
 export interface ClawManager {
-  attachClawWatcher(clawId: string, streamFile: string): void;
-  refreshClawStatus(clawId: string): void;
+  attachClawWatcher(clawId: ClawId, streamFile: string): void;
+  refreshClawStatus(clawId: ClawId): void;
   refreshAllClawStatus(): Promise<void>;
-  detachWatcher(clawId: string): Promise<void>;
+  detachWatcher(clawId: ClawId): Promise<void>;
   detachAllWatchers(): Promise<void>;
   closeAll(): Promise<void>;
 }
@@ -49,7 +51,7 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
   const clawWatchers = new Map<string, Watcher>();
   const clawWatcherVersions = new Map<string, number>();
 
-  const attachClawWatcher = (clawId: string, streamFile: string) => {
+  const attachClawWatcher = (clawId: ClawId, streamFile: string) => {
     const ver = (clawWatcherVersions.get(clawId) ?? 0) + 1;
     clawWatcherVersions.set(clawId, ver);
     try {
@@ -69,7 +71,7 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
     } catch { /* polling fallback */ }
   };
 
-  const refreshClawStatus = (clawId: string): void => {
+  const refreshClawStatus = (clawId: ClawId): void => {
     if (!isMotion) return;
     const track = clawTrackMap.get(clawId);
     if (!track) return;
@@ -180,7 +182,8 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
       }
     }
 
-    for (const clawId of clawIds) {
+    for (const rawClawId of clawIds) {
+      const clawId = makeClawId(rawClawId);
       const streamFile = path.join(clawsDir, clawId, STREAM_FILE);
       if (!clawTrackMap.has(clawId)) {
         const clawDir = path.join(clawsDir, clawId);
@@ -209,7 +212,7 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
     }
   };
 
-  const detachWatcher = async (clawId: string): Promise<void> => {
+  const detachWatcher = async (clawId: ClawId): Promise<void> => {
     await clawWatchers.get(clawId)?.close();
     clawWatchers.delete(clawId);
   };

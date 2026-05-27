@@ -26,6 +26,7 @@ import { TASKS_SUBAGENTS_DIR } from '../subagent/constants.js';
 import { buildSubagentSystemPrompt, CONTRACT_VERIFIER_SYSTEM_PROMPT } from '../../prompts/subagent.js';
 import type { VerifierConfig, VerifierResult } from './types.js';
 
+
 export async function runContractVerifier(config: VerifierConfig): Promise<VerifierResult> {
   // phase 1080: crash-recovery — skip verifier if contract was cancelled
   if (config.contractId) {

@@ -21,13 +21,15 @@ import type { AuditLog } from '../audit/index.js';
 
 import type { ToolRegistry } from './types.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
+import type { ClawId } from '../identity/index.js';
+
 
 /**
  * Options for creating execution context
  */
 export interface ExecContextImplOptions {
   /** Claw identifier */
-  clawId: string;
+  clawId: ClawId;
   
   /** Claw workspace directory */
   clawDir: string;
@@ -128,7 +130,7 @@ export function cloneExecContext(
  * Execution context implementation
  */
 export class ExecContextImpl implements ExecContext {
-  clawId: string;
+  clawId: ClawId;
   clawDir: string;
   workspaceDir: string;
   syncDir: string;

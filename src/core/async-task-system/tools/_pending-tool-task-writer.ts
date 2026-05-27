@@ -11,6 +11,7 @@ import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { AsyncToolTaskArgs } from '../../../foundation/tools/index.js';
 import { emitTaskScheduled } from '../audit-emit.js';
 
+
 /**
  * Write a pending tool task file. Watcher will pick it up.
  * @returns The generated taskId.

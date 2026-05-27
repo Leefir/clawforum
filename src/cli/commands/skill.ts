@@ -14,6 +14,8 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 /**
  * Copy directory recursively
@@ -74,7 +76,7 @@ export async function skillInstallUserCommand(deps: { fsFactory: (baseDir: strin
  * - Copy from motion/clawspace/dispatch-skills/{skillName}/
  * - To clawDir/skills/{skillName}/
  */
-export async function skillInstallClawCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: string, skillName: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
+export async function skillInstallClawCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, skillName: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
   const audit = extraDeps?.audit;
   // Phase 537 — traversal guard for both identifier params
   if (

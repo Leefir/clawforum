@@ -41,7 +41,7 @@ export function createInboxReader(
 }
 
 export function createOutboxWriter(
-  clawId: string,
+  clawId: ClawId,
   clawDir: string,
   fs: FileSystem,
   audit: AuditLog,
@@ -53,6 +53,7 @@ export { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';
 
 export { notifyInbox, notifySystem, notifyClaw, writeInboxAsync } from './notify.js';
 
+import type { ClawId } from '../identity/index.js';
 import * as path from 'path';
 import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from './dirs.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';

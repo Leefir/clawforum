@@ -23,6 +23,8 @@ import { LLM_OUTPUT_EVENTS } from '../foundation/stream/index.js';
 import { CONTRACT_DIR } from '../core/contract/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr } from '../foundation/utils/format.js';
+import type { ClawId } from '../foundation/identity/index.js';
+
 
 // Parse stream.jsonl, return the timestamp of the last event and the last error message
 export interface ClawActivityInfo {
@@ -110,7 +112,7 @@ export interface ProcessLiveness {
 
 const AUDIT_TAIL_N = 5;
 
-export function gatherClawSnapshot(clawDir: string, fsFactory: (baseDir: string) => FileSystem, pm: ProcessLiveness, clawId: string): ClawSnapshot {
+export function gatherClawSnapshot(clawDir: string, fsFactory: (baseDir: string) => FileSystem, pm: ProcessLiveness, clawId: ClawId): ClawSnapshot {
   const status = pm.isAlive(clawId) ? 'running' : 'stopped';
 
   const fs = fsFactory(clawDir);

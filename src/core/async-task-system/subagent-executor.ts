@@ -26,6 +26,7 @@ import type { SubAgentTask } from './types.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
 
 
+
 /** M9: 闭包 ≥ 6 依赖 → deps interface */
 export interface ExecuteSubAgentTaskDeps {
   fs: FileSystem;

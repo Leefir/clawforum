@@ -18,7 +18,9 @@ import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { MOTION_CLAW_ID } from '../constants.js';
+import { makeClawId } from '../foundation/identity/index.js';
 import { CLAWS_DIR } from '../foundation/paths.js';
+
 
 // Check for claws with an active contract but no progress for a long time, and send a reminder
 /** 1:1 保 watchdog.ts:271-349 / 78 行 / inactivity timeout + backoff */
@@ -39,9 +41,10 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
   }
 
   const now = Date.now();
-  for (const clawId of clawEntries.map(e => e.name)) {
+  for (const rawClawId of clawEntries.map(e => e.name)) {
+    const clawId = makeClawId(rawClawId);
     try {
-      const clawDir = path.join(getClawforumDir(), CLAWS_DIR, clawId);
+      const clawDir = path.join(getClawforumDir(), CLAWS_DIR, rawClawId);
 
       // Has an active contract?
       if (!clawHasContract(clawDir, fsFactory, audit)) continue;
@@ -59,12 +62,12 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
       if (now - referenceMs < timeoutMs) continue;
 
       // Reset count if claw has made new progress since last notification
-      const lastNotified = lastInactivityNotified.get(clawId) ?? 0;
+      const lastNotified = lastInactivityNotified.get(rawClawId) ?? 0;
       if (shouldResetNotifyCount(referenceMs, lastNotified)) {
-        inactivityNotifyCount.set(clawId, 0);
+        inactivityNotifyCount.set(rawClawId, 0);
       }
 
-      const notifyCount = inactivityNotifyCount.get(clawId) ?? 0;
+      const notifyCount = inactivityNotifyCount.get(rawClawId) ?? 0;
 
       // Backoff interval: first 2 notifications use timeoutMs, from the 3rd onward use 3x
       const effectiveInterval = getEffectiveInterval(notifyCount, timeoutMs);
@@ -79,10 +82,10 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
       let body = `Claw ${clawId} no progress for ${inactiveMin}m (notification #${displayCount}). Status: ${snapshot.status}, contract: ${snapshot.contract}, inbox_pending: ${snapshot.inboxPending}, outbox_pending: ${snapshot.outboxPending}`;
       if (lastError) body += `, last error: ${lastError}`;
 
-      log(fsFactory, `[watchdog] Claw ${clawId} no progress ${inactiveMin}m (notify #${displayCount}) with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
+      log(fsFactory, `[watchdog] Claw ${rawClawId} no progress ${inactiveMin}m (notify #${displayCount}) with active contract${lastError ? ` (last error: ${lastError})` : ''}`);
       writeWatchdogInboxMessage(fsFactory, 'claw_inactivity', {
         message: body,
-        claw_id: clawId,
+        claw_id: rawClawId,
         inactive_ms: now - referenceMs,
         status: snapshot.status,
         contract: snapshot.contract,
@@ -92,10 +95,10 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
         as_of: new Date().toISOString(),
         ...(lastError ? { last_error: lastError } : {}),
       });
-      inactivityNotifyCount.set(clawId, displayCount);
-      lastInactivityNotified.set(clawId, now);
+      inactivityNotifyCount.set(rawClawId, displayCount);
+      lastInactivityNotified.set(rawClawId, now);
     } catch (err) {
-      log(fsFactory, `[watchdog] Error checking claw ${clawId}: ${err instanceof Error ? err.message : String(err)}`);
+      log(fsFactory, `[watchdog] Error checking claw ${rawClawId}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }
@@ -118,38 +121,39 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
     }
   }
 
-  for (const clawId of clawEntries.map(e => e.name)) {
-    const clawDir = path.join(getClawforumDir(), CLAWS_DIR, clawId);
+  for (const rawClawId of clawEntries.map(e => e.name)) {
+    const clawId = makeClawId(rawClawId);
+    const clawDir = path.join(getClawforumDir(), CLAWS_DIR, rawClawId);
     const currentlyAlive = pm.isAlive(clawId);
-    const wasAlive = clawPreviouslyAlive.get(clawId);
+    const wasAlive = clawPreviouslyAlive.get(rawClawId);
 
     if (currentlyAlive) {
-      everSpawned.add(clawId);
+      everSpawned.add(rawClawId);
     }
 
-    if ((wasAlive === true || everSpawned.has(clawId)) && !currentlyAlive) {
+    if ((wasAlive === true || everSpawned.has(rawClawId)) && !currentlyAlive) {
       const detectMethod = wasAlive === true ? 'previous_tick' : 'ever_spawned';
 
       // Dedup: skip re-emitting crash_notification for already-notified claw
-      if (clawPreviouslyNotified.has(clawId)) {
+      if (clawPreviouslyNotified.has(rawClawId)) {
         audit.write(
           WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_NOTIFY_DEDUPED,
-          `claw=${clawId}`,
+          `claw=${rawClawId}`,
           `reason=already_notified`,
         );
-        clawPreviouslyAlive.set(clawId, currentlyAlive);
+        clawPreviouslyAlive.set(rawClawId, currentlyAlive);
         continue;
       }
 
       // Only notify motion when there is an active/paused contract (no notification needed if claw stops without a contract)
       if (!clawHasContract(clawDir, fsFactory, audit)) {
-        log(fsFactory, `[watchdog] Claw ${clawId} stopped (no active contract, skipping notification) [${detectMethod}]`);
-        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=false', `detected_by=${detectMethod}`);
-        clawPreviouslyAlive.set(clawId, currentlyAlive);
+        log(fsFactory, `[watchdog] Claw ${rawClawId} stopped (no active contract, skipping notification) [${detectMethod}]`);
+        audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${rawClawId}`, 'has_contract=false', `detected_by=${detectMethod}`);
+        clawPreviouslyAlive.set(rawClawId, currentlyAlive);
         continue;
       }
-      log(fsFactory, `[watchdog] Claw ${clawId} crashed (${detectMethod}, was alive, now stopped)`);
-      audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${clawId}`, 'has_contract=true', `detected_by=${detectMethod}`);
+      log(fsFactory, `[watchdog] Claw ${rawClawId} crashed (${detectMethod}, was alive, now stopped)`);
+      audit.write(WATCHDOG_AUDIT_EVENTS.CLAW_CRASH_DETECTED, `claw=${rawClawId}`, 'has_contract=true', `detected_by=${detectMethod}`);
 
       // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
@@ -162,12 +166,12 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
       const clawforumRoot = path.dirname(getNamedSubrootDir('motion'));
       notifyClaw(motionFs, clawforumRoot, MOTION_CLAW_ID, {
         type: 'crash_notification',
-        source: clawId,
+        source: rawClawId,
         priority: 'high',
         body,
       }, motionAudit);
 
-      clawPreviouslyNotified.set(clawId, Date.now());
+      clawPreviouslyNotified.set(rawClawId, Date.now());
     }
 
     // Alive recovery transition: allow next crash to re-notify

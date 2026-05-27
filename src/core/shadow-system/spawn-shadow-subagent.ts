@@ -16,6 +16,7 @@ import { synthesizeFormB } from './_helpers.js';
 import { type BuildShadowInstructionArgs } from '../../prompts/index.js';
 import type { SpawnShadowSubagentOptions, SpawnShadowSubagentResult } from './types.js';
 
+
 export async function spawnShadowSubagent(
   opts: SpawnShadowSubagentOptions,
 ): Promise<SpawnShadowSubagentResult> {

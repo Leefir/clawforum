@@ -11,6 +11,8 @@
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { formatErr } from '../../foundation/utils/format.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 // ─── phase 1235 B.3: invariant assert for empty contractId ─────────────────
 function assertContractIdNonEmpty(
@@ -594,7 +596,7 @@ export function emitContractVerifierSkipped(
 // ─── VERIFIER_STARTED ─────────────────────────────────────────────────────────
 export function emitContractVerifierStarted(
   audit: AuditLog,
-  opts: { contractId: string; agentId: string; clawId: string },
+  opts: { contractId: string; agentId: string; clawId: ClawId },
 ): void {
   if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierStarted')) return;
   audit.write(
@@ -621,7 +623,7 @@ export function emitContractVerifierPassed(
 // ─── VERIFIER_RESULT_PARSE_FAILED ─────────────────────────────────────────────
 export function emitContractVerifierResultParseFailed(
   audit: AuditLog,
-  opts: { contractId: string; agentId: string; clawId: string; stage: string; reason: string },
+  opts: { contractId: string; agentId: string; clawId: ClawId; stage: string; reason: string },
 ): void {
   if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierResultParseFailed')) return;
   audit.write(

@@ -1,3 +1,4 @@
+
 export function buildMinerSystemPrompt(): string {
   return `你是由 Motion 通过 \`summon\` 启动的意图挖掘子代理。
 

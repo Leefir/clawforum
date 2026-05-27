@@ -5,8 +5,10 @@ import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import type { ProcessManagerContext } from './types.js';
 import type { PidFileContent } from './pid.js';
 import { isFileNotFound } from '../fs/types.js';
+import type { ClawId } from '../identity/index.js';
 
-export async function markReady(ctx: ProcessManagerContext, clawId: string): Promise<void> {
+
+export async function markReady(ctx: ProcessManagerContext, clawId: ClawId): Promise<void> {
   try {
     await ensureStatusDir(ctx, clawId);
     const readyFile = getReadyFile(ctx, clawId);
@@ -30,7 +32,7 @@ export async function markReady(ctx: ProcessManagerContext, clawId: string): Pro
   }
 }
 
-export async function markNotReady(ctx: ProcessManagerContext, clawId: string): Promise<void> {
+export async function markNotReady(ctx: ProcessManagerContext, clawId: ClawId): Promise<void> {
   const readyFile = getReadyFile(ctx, clawId);
   try {
     await ctx.fs.delete(readyFile);
@@ -49,7 +51,7 @@ export async function markNotReady(ctx: ProcessManagerContext, clawId: string): 
   }
 }
 
-export function isReady(ctx: ProcessManagerContext, clawId: string): boolean {
+export function isReady(ctx: ProcessManagerContext, clawId: ClawId): boolean {
   const readyFile = getReadyFile(ctx, clawId);
   const pidFile = getPidFile(ctx, clawId);
   let readyContent: string;

@@ -22,9 +22,11 @@ import type { PermissionChecker } from '../../foundation/tool-protocol/permissio
 
 import { SubAgent } from './agent.js';
 import { DONE_TOOL_NAME } from './tools/done.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 export interface MainContextSnapshot {
-  clawId: string;
+  clawId: ClawId;
   toolUseId: string;
 }
 

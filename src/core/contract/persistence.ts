@@ -148,6 +148,7 @@ export async function checkAllSubtasksCompleted(
 import { CONTRACT_ARCHIVE_DIR } from './dirs.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import type { ArchiveContractRef } from './types.js';
+import { makeClawId } from '../../foundation/identity/index.js';
 
 /**
  * Phase 1335 (r138 F fork): cross-module query API — list archived contracts
@@ -185,7 +186,7 @@ export async function listArchiveContracts(opts: {
         if (filter.untilMs !== undefined && at > filter.untilMs) continue;
       }
 
-      results.push({ clawId, contractId, contractDir, archivedAt });
+      results.push({ clawId: makeClawId(clawId), contractId, contractDir, archivedAt });
     }
   }
 

@@ -13,6 +13,7 @@
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
+import { makeClawId } from '../identity/index.js';
 import type { InboxMessage, InboxHandle } from '../messaging/types.js';
 import { PRIORITY_VALUES, type Priority } from '../messaging/types.js';
 import { decodeInbox } from './codec-inbox.js';
@@ -35,6 +36,7 @@ import {
 import { InboxWriter, type InboxMessageMeta } from './inbox-writer.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { InboxListFailed, InboxMoveFailed } from './errors.js';
+
 
 function classifyErrno(err: unknown): 'ENOSPC' | 'EACCES' | 'EIO' | 'EMFILE' | 'ENOENT' | 'OTHER' {
   if (err && typeof err === 'object' && 'code' in err) {
@@ -165,7 +167,7 @@ export class InboxReader {
         if (message.extraMeta?.__legacy_claw_id !== undefined) {
           emitInboxLegacyClawIdField(this.audit, {
             file: entry.name,
-            clawId: message.extraMeta.__legacy_claw_id,
+            clawId: makeClawId(message.extraMeta.__legacy_claw_id),
           });
         }
 

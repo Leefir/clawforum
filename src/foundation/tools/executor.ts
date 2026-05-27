@@ -33,6 +33,8 @@ import {
   type ToolExecutorOptions,
 } from './types.js';
 import { safeNumber } from '../utils/format.js';
+import type { ClawId } from '../identity/index.js';
+
 
 // Re-export types from ./types.js for caller compat (18 caller 0 改)
 export type {
@@ -368,7 +370,7 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: string; maxSteps: number; signal?: AbortSignal; allowedGroups: ReadonlySet<ToolGroup>; callerLabel: string; originClawId?: string; isShadow?: boolean; permissionChecker?: PermissionChecker }
+    options: { clawId: ClawId; maxSteps: number; signal?: AbortSignal; allowedGroups: ReadonlySet<ToolGroup>; callerLabel: string; originClawId?: string; isShadow?: boolean; permissionChecker?: PermissionChecker }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,

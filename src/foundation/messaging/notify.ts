@@ -12,6 +12,7 @@ import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
+
 /**
  * NEW: phase 1334 r138 E fork — abstract destination-level inbox notification.
  * Caller expresses targetClawId business semantics; Messaging internally resolves

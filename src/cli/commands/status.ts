@@ -15,6 +15,7 @@ import {
   getWatchdogEntryPath,
 } from '../../watchdog/watchdog.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
+import { makeClawId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export function findOrphanProcesses(
@@ -57,7 +58,7 @@ export async function statusCommand(deps: { fsFactory: (baseDir: string) => File
       .map(e => e.name);
 
     for (const name of clawEntries) {
-      const s = pm.getAliveStatus(name);
+      const s = pm.getAliveStatus(makeClawId(name));
       console.log(`  ${name}: ${s.alive ? `running (${s.reason})` : `stopped (${s.reason})`}`);
       clawStatuses.push({ name, status: s });
     }

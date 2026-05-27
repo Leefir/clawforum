@@ -16,6 +16,8 @@ import { CliError } from '../errors.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { DIALOG_DIR } from '../../foundation/dialog-store/dirs.js';
 import { migrateAndValidateSession, validateSessionData } from '../../foundation/dialog-store/store.js';
+import type { ClawId } from '../../foundation/identity/index.js';
+
 
 interface StreamEvent {
   ts: number;
@@ -51,7 +53,7 @@ interface ToolResultBlock {
  */
 export async function clawTraceCommand(
   deps: { fsFactory: (baseDir: string) => FileSystem },
-  clawId: string,
+  clawId: ClawId,
   contractId: string,
   step?: number,
 ): Promise<void> {
@@ -193,7 +195,7 @@ async function readStreamEvents(fileSystem: FileSystem, startedAt: string): Prom
  * 概览输出
  */
 function showTraceOverview(
-  clawId: string,
+  clawId: ClawId,
   contractId: string,
   title: string | undefined,
   startedAt: string,
