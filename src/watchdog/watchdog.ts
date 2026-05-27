@@ -23,7 +23,7 @@ import { fileURLToPath } from 'url';
 import { setTimeout } from 'timers/promises';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { MOTION_CLAW_ID } from '../constants.js';
-import { makeClawId, makeClawforumRoot } from '../foundation/identity/index.js';
+import { makeClawId, makeClawforumRoot, makeClawDir } from '../foundation/identity/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/factories.js';
@@ -185,7 +185,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
         const pid = await pm.spawn(MOTION_CLAW_ID, {
           command: 'node',
           args: [daemonEntryPath, MOTION_CLAW_ID],
-          logFile: path.join(getNamedSubrootDir('motion'), DAEMON_LOG),
+          logFile: path.join(makeClawDir(getNamedSubrootDir('motion')), DAEMON_LOG),
           env: { ...process.env, CLAWFORUM_ROOT: path.dirname(clawforumRoot) } as Record<string, string | undefined>,
         });
         log(fsFactory, `[watchdog] motion restarted (PID=${pid})`);

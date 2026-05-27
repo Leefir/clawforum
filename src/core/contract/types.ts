@@ -9,6 +9,7 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { Priority } from '../../foundation/messaging/types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
+import { type ClawDir } from '../../foundation/identity/index.js';
 
 
 
@@ -124,7 +125,7 @@ export interface VerificationResult {
 export interface VerifierConfig {
   agentId: string;
   prompt: string;
-  clawDir: string;
+  clawDir: ClawDir;
   clawId: ClawId;               // phase 514 / caller's clawId for subagent context
   llm: LLMOrchestrator;
   fs: FileSystem;

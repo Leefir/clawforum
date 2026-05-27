@@ -6,6 +6,7 @@ import { CLAWS_DIR } from '../../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import { type ClawId, makeClawId } from '../../../foundation/identity/index.js'
 import { type ClawforumRoot } from '../../../foundation/identity/index.js';
+import { type ClawDir } from '../../../foundation/identity/index.js';
 
 
 /**
@@ -54,7 +55,7 @@ export interface LlmStatsSummary {
 
 export interface LlmStatsOptions {
   clawforumRoot: ClawforumRoot;
-  motionDir: string;
+  motionDir: ClawDir;
   clawforumFs: FileSystem;   // baseDir = clawforumRoot
   motionFs: FileSystem;       // baseDir = motionDir
   audit: AuditLog;

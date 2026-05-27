@@ -14,6 +14,7 @@ import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import { INBOX_PENDING_DIR } from '../../foundation/messaging/dirs.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
+import { type ClawDir, makeClawDir } from '../../foundation/identity/index.js';
 import {
   DEEP_DREAM_SYSTEM_PROMPT,
   buildDreamInput,
@@ -39,7 +40,7 @@ export interface DeepDreamOptions {
   fs: FileSystem;
   audit: AuditLog;
   /** 临时构建 per-claw FileSystem 的 factory（memory/system.ts 注入 / 业务 0 触 L1 impl）*/
-  clawFsFactory: (clawDir: string) => FileSystem;
+  clawFsFactory: (clawDir: ClawDir) => FileSystem;
   signal?: AbortSignal;
 }
 
@@ -171,7 +172,7 @@ async function maybeMergeCompressions(
 
 async function runDeepDreamForClaw(
   clawId: ClawId,
-  clawDir: string,
+  clawDir: ClawDir,
   clawFs: FileSystem,
   motionFs: FileSystem | undefined,
   llm: LLMOrchestrator,
@@ -354,7 +355,7 @@ export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
 
   // 串行处理每个 claw
   for (const clawId of clawIds) {
-    const clawDir = path.join(opts.clawforumRoot, CLAWS_DIR, clawId);
+    const clawDir = makeClawDir(path.join(opts.clawforumRoot, CLAWS_DIR, clawId));
     try {
       const clawFs = opts.clawFsFactory(clawDir);
       await runDeepDreamForClaw(makeClawId(clawId), clawDir, clawFs, opts.motionFs, llm, maxCompressionTokens, opts.audit, opts.signal);

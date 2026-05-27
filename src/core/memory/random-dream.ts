@@ -13,6 +13,7 @@ import type { ContractId } from '../contract/types.js';
 import { type TaskId, makeTaskId } from '../../foundation/identity/index.js'
 import { type ClawforumRoot, makeClawforumRoot } from '../../foundation/identity/index.js';
 import { listArchiveContracts } from '../contract/index.js';
+import { type ClawDir } from '../../foundation/identity/index.js';
 import {
   RANDOM_DREAM_SYSTEM_PROMPT,
   buildRandomDreamPrompt,
@@ -25,7 +26,7 @@ const DEFAULT_RANDOM_DREAM_MAX_STEPS = 200;
 
 export interface RandomDreamOptions {
   clawforumRoot: ClawforumRoot;
-  motionDir: string;
+  motionDir: ClawDir;
   taskSystem: AsyncTaskSystem;
   fs: FileSystem;             // baseDir = clawforumRoot
   motionFs: FileSystem;       // baseDir = motionDir / NEW

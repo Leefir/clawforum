@@ -42,7 +42,7 @@ export function createInboxReader(
 
 export function createOutboxWriter(
   clawId: ClawId,
-  clawDir: string,
+  clawDir: ClawDir,
   fs: FileSystem,
   audit: AuditLog,
 ): OutboxWriter {
@@ -58,6 +58,7 @@ import * as path from 'path';
 import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from './dirs.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 import { emitOutboxProcessingOrphanCleaned } from './audit-emit.js';
+import { type ClawDir } from '../identity/index.js';
 import {
   drainOutboxes,
   type DrainOutboxesOptions,
@@ -88,7 +89,7 @@ export function createMessaging(deps: {
 }
 
 export async function cleanupRetention(opts: {
-  motionDir: string;
+  motionDir: ClawDir;
   fs: FileSystem;
   audit: AuditLog;
   maxDays: { inbox?: number; outbox?: number };

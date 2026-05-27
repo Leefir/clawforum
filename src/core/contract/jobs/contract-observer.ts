@@ -8,6 +8,7 @@ import { CLAWS_DIR } from '../../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import { makeClawId } from '../../../foundation/identity/index.js'
 import { type ClawforumRoot } from '../../../foundation/identity/index.js';
+import { makeClawDir } from '../../../foundation/identity/index.js';
 
 
 /**
@@ -80,7 +81,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   for (const clawId of clawIds) {
     if (options.signal?.aborted) return;
     try {
-      const clawDir = path.join(clawforumRoot, CLAWS_DIR, clawId);
+      const clawDir = makeClawDir(path.join(clawforumRoot, CLAWS_DIR, clawId));
       const clawEvents = collectContractEvents(fs, clawDir, makeClawId(clawId), lastCheckTs, motionAudit);
       if (clawEvents.length > 0) {
         events.push(clawEvents.join('\n'));

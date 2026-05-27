@@ -9,12 +9,13 @@ import { runRandomDream } from './random-dream.js';
 import type { ClawId } from '../../foundation/identity/index.js'
 import { type ClawforumRoot } from '../../foundation/identity/index.js';
 import type { ContractId } from '../contract/types.js';
+import { type ClawDir } from '../../foundation/identity/index.js';
 
 
 
 export interface MemorySystemOptions {
   clawforumRoot: ClawforumRoot;
-  motionDir: string;
+  motionDir: ClawDir;
   fs: FileSystem;
   motionFs: FileSystem;               // baseDir = motionDir / NEW
   audit: AuditLog;
@@ -23,7 +24,7 @@ export interface MemorySystemOptions {
   llmConfig: LLMOrchestratorConfig;   // deep-dream 内部仍需 config（state file 路径等）
   maxCompressionTokens?: number;
   /** 临时构建 per-claw FileSystem 的 factory（assembly 注入 / 业务 0 触 L1 impl）*/
-  clawFsFactory: (clawDir: string) => FileSystem;
+  clawFsFactory: (clawDir: ClawDir) => FileSystem;
   /** M#3：random-dream 读取 contract progress 走 ContractSystem API */
   getContractProgress?: (clawId: ClawId, contractId: ContractId) => Promise<ProgressData>;
 }

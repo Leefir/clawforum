@@ -91,7 +91,7 @@ import { createAskUserTool } from '../core/gateway/index.js';
 import { createStreamReader, STREAM_FILE, findRecentTurnStartOffset } from '../foundation/stream/index.js';
 import { TASKS_SYNC_DIR } from '../core/async-task-system/index.js';
 import { DIALOG_DIR } from '../foundation/dialog-store/dirs.js';
-import { makeClawId, type ClawId, makeClawforumRoot } from '../foundation/identity/index.js';
+import { makeClawId, type ClawId, makeClawforumRoot, type ClawDir, makeClawDir } from '../foundation/identity/index.js';
 import type { ContractId } from '../core/contract/types.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 
@@ -367,7 +367,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           motionAudit: auditWriter,
           clawsBaseDir: path.resolve(clawDir, '..', CLAWS_DIR),
           clawFsFactory: fsFactory,
-          clawContractManagerFactory: (d: string, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: makeClawId(id), fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory }),
+          clawContractManagerFactory: (d: ClawDir, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: makeClawId(id), fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory }),
         };
         contractManager.onContractCompleted(async (contractId) => {
           if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)
@@ -617,7 +617,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         const getContractProgress = async (clawId: ClawId, contractId: ContractId): Promise<import('../core/contract/index.js').ProgressData> => {
           let cs = contractSystemCache.get(clawId);
           if (!cs) {
-            const cDir = path.join(clawforumRoot, CLAWS_DIR, clawId);
+            const cDir = makeClawDir(path.join(clawforumRoot, CLAWS_DIR, clawId));
             const cFs = fsFactory(cDir);
             const cAudit = createSystemAudit(cFs, cDir);
             cs = createContractSystem({ clawDir: cDir, clawId, fs: cFs, audit: cAudit, llm, toolRegistry, toolTimeoutMs, fsFactory });
@@ -698,7 +698,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.metrics_snapshot?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.metrics_snapshot?.schedule ?? 'interval:5m', auditWriter),
             handler: (signal) => runMetricsSnapshot({
-              motionDir: path.join(clawforumRoot, 'motion'),
+              motionDir: makeClawDir(path.join(clawforumRoot, 'motion')),
               fs: clawforumFs,
               audit: auditWriter,
               signal,
