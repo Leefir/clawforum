@@ -621,6 +621,17 @@ export class Runtime {
               `model=${meta.llm.model}`,
             );
           },
+          onMaxTokensStateAOrphanDrop: (args) => {
+            for (const orphan of args.orphans) {
+              this.auditWriter?.write(
+                RUNTIME_AUDIT_EVENTS.MAX_TOKENS_STATE_A_ORPHAN_DROP,
+                `tool_use_id=${orphan.tool_use_id}`,
+                `is_error=${orphan.is_error}`,
+                `content_preview=${escapeForLog(orphan.content_preview)}`,
+                `model=${args.llm.model}`,
+              );
+            }
+          },
         });
       await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools, trace_id: this.currentTraceId });
 
@@ -981,6 +992,17 @@ export class Runtime {
             RUNTIME_AUDIT_EVENTS.MAX_TOKENS_ASSISTANT_EMPTY_SKIPPED,
             `model=${meta.llm.model}`,
           );
+        },
+        onMaxTokensStateAOrphanDrop: (args) => {
+          for (const orphan of args.orphans) {
+            this.auditWriter?.write(
+              RUNTIME_AUDIT_EVENTS.MAX_TOKENS_STATE_A_ORPHAN_DROP,
+              `tool_use_id=${orphan.tool_use_id}`,
+              `is_error=${orphan.is_error}`,
+              `content_preview=${escapeForLog(orphan.content_preview)}`,
+              `model=${args.llm.model}`,
+            );
+          }
         },
       });
 

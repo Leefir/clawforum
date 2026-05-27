@@ -103,6 +103,25 @@ export function handleMaxTokensStop(
     );
     const prebuiltIds = new Set(parseErrorPrebuilt.map(r => r.tool_use_id));
     const newToolCallIds = toolCalls.map(tc => tc.id).filter(id => !prebuiltIds.has(id));
+
+    // phase 1383: detect orphan prebuilt (非 parseError + tool_use_id 不在当前 toolCalls)
+    // 该路径 prebuilt 仍 drop (messages[] schema pair invariant ratify 锚不破) / 补 audit observability
+    const toolCallIdSet = new Set(toolCalls.map(tc => tc.id));
+    const orphanPrebuilt = prebuiltResults.filter(pr =>
+      !/^Tool input JSON parse failed for/.test(pr.content) &&
+      !toolCallIdSet.has(pr.tool_use_id)
+    );
+    if (orphanPrebuilt.length > 0) {
+      input.callbacks?.onMaxTokensStateAOrphanDrop?.({
+        orphans: orphanPrebuilt.map(pr => ({
+          tool_use_id: pr.tool_use_id,
+          content_preview: pr.content.slice(0, 200),
+          is_error: pr.is_error === true,
+        })),
+        llm: llmInfo,
+      });
+    }
+
     const truncatedResults: ToolResultBlock[] = newToolCallIds.map(id => ({
       type: 'tool_result' as const,
       tool_use_id: id,
