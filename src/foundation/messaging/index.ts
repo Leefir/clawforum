@@ -54,6 +54,7 @@ export { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';
 export { notifyInbox, notifySystem, notifyClaw, writeInboxAsync } from './notify.js';
 
 import * as path from 'path';
+import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from './dirs.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 import {
   drainOutboxes,
@@ -95,8 +96,8 @@ export async function cleanupRetention(opts: {
   let totalDeleted = 0;
 
   const dirs: Array<{ relPath: string; maxDaysKey: 'inbox' | 'outbox' }> = [
-    { relPath: 'inbox/done', maxDaysKey: 'inbox' },
-    { relPath: 'inbox/failed', maxDaysKey: 'inbox' },
+    { relPath: INBOX_DONE_DIR, maxDaysKey: 'inbox' },
+    { relPath: INBOX_FAILED_DIR, maxDaysKey: 'inbox' },
     { relPath: 'outbox/done', maxDaysKey: 'outbox' },
     { relPath: 'outbox/failed', maxDaysKey: 'outbox' },
   ];

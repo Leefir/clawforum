@@ -10,6 +10,7 @@ import { createSystemAudit } from '../../foundation/audit/index.js';
 import { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
+import { INBOX_PENDING_DIR } from '../../foundation/messaging/dirs.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import {
   DEEP_DREAM_SYSTEM_PROMPT,
@@ -323,7 +324,7 @@ async function runDeepDreamForClaw(
   // 投递到 claw inbox（self-notify / chrooted fs / 走 deprecated notifyInbox helper）
   const clawAudit = createSystemAudit(clawFs, clawDir);
   notifyInbox(clawFs, {
-    inboxDir: 'inbox/pending',
+    inboxDir: INBOX_PENDING_DIR,
     type: 'deep_dream',
     source: 'cron:dream',
     priority: 'low',

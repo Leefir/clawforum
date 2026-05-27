@@ -2,6 +2,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { cleanupRetention } from '../../../foundation/messaging/index.js';
+import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../../foundation/messaging/dirs.js';
 import { cleanupTaskRetention } from '../../async-task-system/index.js';
 import { cleanupArchives } from '../../../foundation/dialog-store/index.js';
 
@@ -25,8 +26,8 @@ export interface RetentionCleanupOptions {
 }
 
 const DIRS: Array<{ relPath: string; maxDaysKey: keyof RetentionCleanupOptions['maxDays'] }> = [
-  { relPath: 'inbox/done', maxDaysKey: 'inbox' },
-  { relPath: 'inbox/failed', maxDaysKey: 'inbox' },
+  { relPath: INBOX_DONE_DIR, maxDaysKey: 'inbox' },
+  { relPath: INBOX_FAILED_DIR, maxDaysKey: 'inbox' },
   { relPath: 'outbox/done', maxDaysKey: 'outbox' },
   { relPath: 'outbox/failed', maxDaysKey: 'outbox' },
   { relPath: 'tasks/done', maxDaysKey: 'tasks' },

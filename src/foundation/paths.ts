@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, OUTBOX_PENDING_DIR } from './messaging/dirs.js';
 
 // ── Path constants ──
 
@@ -21,10 +22,10 @@ export const DISPATCH_SKILLS_PATH = `${CLAWSPACE_DIR}/${DISPATCH_SKILLS_SUBDIR}`
 export const CLAW_SUBDIRS = [
   'dialog',
   'dialog/archive',
-  'inbox/pending',
-  'inbox/done',
-  'inbox/failed',
-  'outbox/pending',
+  INBOX_PENDING_DIR,
+  INBOX_DONE_DIR,
+  INBOX_FAILED_DIR,
+  OUTBOX_PENDING_DIR,
   'outbox/done',
   'outbox/failed',
   'tasks/queues/pending',
