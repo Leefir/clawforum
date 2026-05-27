@@ -1,20 +1,20 @@
 {
   "version": 2,
   "clawId": "test-claw",
-  "createdAt": "2026-05-27T11:30:13.610Z",
-  "updatedAt": "2026-05-27T11:30:13.806Z",
+  "createdAt": "2026-05-27T11:30:14.589Z",
+  "updatedAt": "2026-05-27T11:30:14.629Z",
   "systemPrompt": "## Available Skills\nNo skills loaded.\n",
   "messages": [
     {
       "role": "user",
-      "content": "What is 2+2?"
+      "content": "[system message (0s ago)] good"
     },
     {
       "role": "assistant",
       "content": [
         {
           "type": "text",
-          "text": "Retry answer"
+          "text": "ok"
         }
       ]
     }
@@ -61,5 +61,5 @@
       }
     }
   ],
-  "trace_id": "1196bd6dfe743c39"
+  "trace_id": "0f212ad4561aab69"
 }
