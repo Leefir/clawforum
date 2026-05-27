@@ -11,7 +11,7 @@ import {
 import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { InboxWriter } from '../../foundation/messaging/index.js';
+import { writeInboxAsync } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 
@@ -34,7 +34,7 @@ export async function sendCommand(
   const audit = createSystemAudit(fileSystem, clawDir);
   const inboxPendingRel = path.join('inbox', 'pending');
 
-  await new InboxWriter(fileSystem, inboxPendingRel, audit).write({
+  await writeInboxAsync(fileSystem, inboxPendingRel, {
     id: randomUUID(),
     type: 'user_inbox_message',
     from: 'user',
@@ -42,7 +42,7 @@ export async function sendCommand(
     content: message,
     priority: options?.priority ?? 'normal',
     timestamp: new Date().toISOString(),
-  });
+  }, audit);
 
   console.log(`Message sent to "${name}"`);
 }

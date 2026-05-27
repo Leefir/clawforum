@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 
 import { decodeInbox } from '../../../src/foundation/messaging/codec-inbox.js';
 import { InboxReader, InboxWriter } from '../../../src/foundation/messaging/index.js';
+import { makeInboxPath } from '../../../src/foundation/messaging/index.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { MESSAGING_AUDIT_EVENTS } from '../../../src/foundation/messaging/audit-events.js';
 import { INBOX_PENDING_DIR } from '../../../src/foundation/messaging/dirs.js';
@@ -60,7 +61,7 @@ describe('phase 1132 D.2: inbox-reader legacy claw_id audit', () => {
         auditCalls.push({ type, cols: cols.map(String) });
       },
     };
-    writer = new InboxWriter(nfs, INBOX_PENDING_DIR, audit);
+    writer = InboxWriter.__internal_create(nfs, makeInboxPath(INBOX_PENDING_DIR), audit);
     reader = new InboxReader(
       path.join(testDir, 'inbox', 'pending'),
       path.join(testDir, 'inbox', 'done'),

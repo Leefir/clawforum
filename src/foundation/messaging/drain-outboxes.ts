@@ -12,7 +12,7 @@ import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
 import { isFileNotFound } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
-import { InboxWriter } from './inbox-writer.js';
+import { InboxWriter, makeInboxPath } from './inbox-writer.js';
 import { decodeInbox } from './codec-inbox.js';
 import { CLAWS_DIR } from '../paths.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
@@ -106,7 +106,7 @@ export async function drainOutboxes(opts: DrainOutboxesOptions): Promise<DrainRe
           ? path.join(clawforumDir, MOTION_CLAW_ID, 'inbox', 'pending')
           : path.join(clawsDir, to, 'inbox', 'pending');
 
-        const inboxWriter = new InboxWriter(fs, targetInboxDir, audit);
+        const inboxWriter = InboxWriter.__internal_create(fs, makeInboxPath(targetInboxDir), audit);
         await inboxWriter.write(msg);
 
         // mv processing → done

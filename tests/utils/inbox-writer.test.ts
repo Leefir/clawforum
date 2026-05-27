@@ -12,6 +12,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
+import { makeInboxPath } from '../../src/foundation/messaging/index.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import type { AuditLog } from '../../src/foundation/audit/index.js';
 
@@ -39,7 +40,7 @@ function readWrittenFile(): string {
 
 describe('yamlQuote — numeric extraFields', () => {
   it('integer values are written unquoted', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -52,7 +53,7 @@ describe('yamlQuote — numeric extraFields', () => {
   });
 
   it('float values are written unquoted', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -69,7 +70,7 @@ describe('yamlQuote — numeric extraFields', () => {
 
 describe('yamlQuote — boolean extraFields', () => {
   it('true/false are written unquoted', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -86,7 +87,7 @@ describe('yamlQuote — boolean extraFields', () => {
 
 describe('yamlQuote — string escaping', () => {
   it('backslash is escaped to \\\\', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -99,7 +100,7 @@ describe('yamlQuote — string escaping', () => {
   });
 
   it('double-quote is escaped to \\"', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -111,7 +112,7 @@ describe('yamlQuote — string escaping', () => {
   });
 
   it('newline in value is escaped to \\n', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -123,7 +124,7 @@ describe('yamlQuote — string escaping', () => {
   });
 
   it('carriage return in value is escaped to \\r', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -139,7 +140,7 @@ describe('yamlQuote — string escaping', () => {
 
 describe('writeInboxMessage atomic write', () => {
   it('leaves no .tmp file after write', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'test',
       source: 'test',
       priority: 'normal',
@@ -150,7 +151,7 @@ describe('writeInboxMessage atomic write', () => {
   });
 
   it('final file has complete YAML frontmatter and body', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'ping',
       source: 'motion',
       priority: 'high',
@@ -170,7 +171,7 @@ describe('writeInboxMessage atomic write', () => {
 
 describe('readInboxFileMeta', () => {
   it('should return ok with meta for valid inbox file', () => {
-    new InboxWriter(mockFs, tmpDir, mockAudit).writeSync({
+    InboxWriter.__internal_create(mockFs, makeInboxPath(tmpDir), mockAudit).writeSync({
       type: 'ping',
       source: 'motion',
       priority: 'high',

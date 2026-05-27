@@ -9,6 +9,7 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { InboxWriter } from '../../../src/foundation/messaging/index.js';
+import { makeInboxPath } from '../../../src/foundation/messaging/index.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import type { InboxMessage } from '../../../src/foundation/messaging/types.js';
 import { INBOX_PENDING_DIR } from '../../../src/foundation/messaging/dirs.js';
@@ -30,7 +31,7 @@ describe('InboxWriter', () => {
         auditCalls.push(`${type}:${cols.join(',')}`);
       },
     };
-    writer = new InboxWriter(nfs, INBOX_PENDING_DIR, audit);
+    writer = InboxWriter.__internal_create(nfs, makeInboxPath(INBOX_PENDING_DIR), audit);
   });
 
   afterEach(async () => {
