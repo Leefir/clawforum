@@ -15,7 +15,7 @@ import type { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 import type { CallerType } from '../caller-types.js';
-import type { ClawId } from '../../foundation/identity/index.js';
+import type { ClawId, TaskId } from '../../foundation/identity/index.js';
 import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
 
 
@@ -90,8 +90,7 @@ export interface ToolTask {
 
 // ============================================================================
 // phase 1358: TaskId branded type (compile-time ID discrimination)
+// phase 1365 r-phase1365: 物理迁 foundation/identity / 暂保 re-export for sub-1 backward compat / sub-2 删
 // ============================================================================
 
-export declare const TaskIdBrand: unique symbol;
-export type TaskId = string & { readonly [TaskIdBrand]: true };
-export function makeTaskId(s: string): TaskId { return s as TaskId; }
+export { type TaskId, makeTaskId } from '../../foundation/identity/index.js';
