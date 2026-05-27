@@ -161,12 +161,12 @@ export interface ArchiveContractRef {
 }
 
 // ============================================================================
-// phase 1358: ContractId branded type (compile-time ID discrimination)
+// phase 1378 r-phase1378: ContractId 物理迁 foundation/identity / 暂保 re-export for sub-1 backward compat / sub-2 删
 // ============================================================================
 
-declare const ContractIdBrand: unique symbol;
-export type ContractId = string & { readonly [ContractIdBrand]: true };
-export function makeContractId(s: string): ContractId { return s as ContractId; }
+import type { ContractId } from '../../foundation/identity/index.js';
+export type { ContractId };
+export { makeContractId } from '../../foundation/identity/index.js';
 
 // ============================================================================
 // phase 1366: SubtaskId branded type (compile-time ID discrimination)
