@@ -2,7 +2,7 @@
  * shadow async tests (phase 1087)
  *
  * Coverage:
- * - default async=true queues shadow task via writePendingSubagentTaskFile
+ * - default async=true queues shadow task via AsyncTaskSystem.schedule
  * - async=true captures ctx snapshot (messages, systemPrompt, toolsForLLM)
  * - async=false takes sync path via runShadow (behavior unchanged)
  */

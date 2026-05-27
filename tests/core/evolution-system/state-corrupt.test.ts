@@ -24,7 +24,7 @@ vi.mock('../../../src/foundation/skill-system/registry.js', () => ({
 }));
 
 // ============================================================================
-// Mock: writePendingSubagentTaskFile
+// Mock: AsyncTaskSystem.schedule
 // ============================================================================
 const { mockSchedule } = vi.hoisted(() => ({
   mockSchedule: vi.fn().mockResolvedValue('mock-task-id'),

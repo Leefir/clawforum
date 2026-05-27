@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import { createToolRegistry } from '../../../src/foundation/tools/index.js';
 
 // ============================================================================
-// Mock: writePendingSubagentTaskFile
+// Mock: AsyncTaskSystem.schedule
 // ============================================================================
 const { mockSchedule } = vi.hoisted(() => ({
   mockSchedule: vi.fn().mockResolvedValue('mock-task-id'),

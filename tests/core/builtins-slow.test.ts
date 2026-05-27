@@ -18,7 +18,7 @@ import { createOutboxWriter } from '../../src/foundation/messaging/index.js';
 import { makeAudit } from '../helpers/audit.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 
-// phase 1353: removed dead vi.mock(writePendingSubagentTaskFile) — mockWriteFile never used in tests
+// phase 1353: removed dead vi.mock(AsyncTaskSystem.schedule) — mockWriteFile never used in tests
 // file mock-free → moves to fast project
 
 describe('Builtin Tools (slow outliers)', () => {

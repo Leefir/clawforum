@@ -39,7 +39,7 @@ export interface MotionReviewContext {
   motionFs: FileSystem;
   /** Motion agent 根目录绝对路径（NodeFileSystem.options.baseDir 同义，供 path.join 使用） */
   motionBaseDir: string;
-  /** Motion audit sink（writePendingSubagentTaskFile 调用需要）*/
+  /** Motion audit sink（AsyncTaskSystem.schedule 调用需要）*/
   motionAudit: AuditLog;
   /** Claws 基础目录（解析目标 claw 路径：`path.resolve(clawsBaseDir, targetClaw)`）*/
   clawsBaseDir: string;

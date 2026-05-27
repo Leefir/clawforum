@@ -16,16 +16,8 @@ import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 import { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
 
-const { mockWriteFile } = vi.hoisted(() => ({
-  mockWriteFile: vi.fn(),
-}));
-
 const { mockRunSubagent } = vi.hoisted(() => ({
   mockRunSubagent: vi.fn(),
-}));
-
-vi.mock('../../../src/core/async-task-system/tools/_pending-task-writer.js', () => ({
-  writePendingSubagentTaskFile: mockWriteFile,
 }));
 
 vi.mock('../../../src/core/subagent/index.js', async (importOriginal) => {
@@ -90,7 +82,6 @@ describe('spawn signal propagation (phase 874)', () => {
     tempDir = await createTempDir();
     fs = new NodeFileSystem({ baseDir: tempDir });
     audit = makeAudit();
-    mockWriteFile.mockClear();
     mockRunSubagent.mockClear();
   });
 

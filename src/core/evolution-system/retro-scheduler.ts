@@ -4,7 +4,7 @@
  *
  * 内化 A.3+A.4+A.5（phase364）：
  * - buildRetroPrompt（A.3 / from prompts/retrospective）
- * - writePendingSubagentTaskFile（A.4 / from async-task-system 公开 API / phase 763 升级）
+ * - AsyncTaskSystem.schedule（phase 1332 N2 inlined / 替原 writePendingSubagentTaskFile）
  * - createSkillSystem（A.5 / from core/skill）
  */
 

@@ -1,7 +1,7 @@
 /**
  * @module L4.ShadowSystem.SpawnShadowSubagent
  * @layer L4
- * @depends L4.AsyncTaskSystem.writePendingSubagentTaskFile, L4.ShadowSystem._helpers (synthesizeFormB), L2.Prompts (buildShadowInstruction)
+ * @depends L4.AsyncTaskSystem.schedule, L4.ShadowSystem._helpers (synthesizeFormB), L2.Prompts (buildShadowInstruction)
  *
  * 装配 shadow subagent task 唯一入口 (ML#1 + ML#2 + ML#3 align)。
  *
