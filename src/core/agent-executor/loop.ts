@@ -52,6 +52,11 @@ export interface ReactOptions {
   onSafeCallbackError?: (label: string, err: unknown) => void;
   onMaxTokensPrebuiltOnlyFinal?: (meta: { prebuiltCount: number; llm: LLMCallInfo }) => void;
   onMaxTokensAssistantEmptySkipped?: (meta: { llm: LLMCallInfo }) => void;
+  /** phase 1383: State A orphan prebuilt drop observability */
+  onMaxTokensStateAOrphanDrop?(args: {
+    orphans: Array<{ tool_use_id: string; content_preview: string; is_error: boolean }>;
+    llm: LLMCallInfo;
+  }): void;
 }
 
 export interface ReactResult {

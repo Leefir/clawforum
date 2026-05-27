@@ -252,6 +252,7 @@
       "llm_unparseable_tool_use",
       "max_tokens_assistant_empty_skipped",
       "max_tokens_prebuilt_only_final",
+      "max_tokens_state_a_orphan_drop",
       "outbox_write_failed",
       "regime_switch",
       "regime_switch_committed",

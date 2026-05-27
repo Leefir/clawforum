@@ -52,6 +52,8 @@ export const RUNTIME_AUDIT_EVENTS = {
   MAX_TOKENS_PREBUILT_ONLY_FINAL: 'max_tokens_prebuilt_only_final',
   // phase 1274: max_tokens stop handler empty assistant skipped
   MAX_TOKENS_ASSISTANT_EMPTY_SKIPPED: 'max_tokens_assistant_empty_skipped',
+  // phase 1383: max_tokens stop handler State A orphan prebuilt drop observability
+  MAX_TOKENS_STATE_A_ORPHAN_DROP: 'max_tokens_state_a_orphan_drop',
 } as const;
 
 /**
