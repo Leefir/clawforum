@@ -145,6 +145,9 @@ export async function executeSubAgentTask(
       systemPrompt: task.systemPrompt ?? DEFAULT_SUBAGENT_SYSTEM_PROMPT,
     });
 
+    // phase 1373 sub-5: task abort signal cascade to runSubagent
+    const compositeSignal = AbortSignal.any?.([signal].filter(Boolean)) ?? signal;
+
     const { text, capturedResult } = await runSubagent({
       agentId: task.id,
       callerType: task.callerType,
@@ -157,7 +160,7 @@ export async function executeSubAgentTask(
       systemPrompt: task.shadowSystemPrompt ?? finalSystemPrompt,
       resultDir: taskResultDir,
       maxSteps: task.maxSteps,
-      signal,
+      signal: compositeSignal,
       toolsForLLM,
       timeoutMs: task.timeoutMs,
       originClawId: task.originClawId,
