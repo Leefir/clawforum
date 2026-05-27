@@ -217,6 +217,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     );
     mainUI.withScope('main', () => {
       // fallback render — let user know stream tail unavailable but viewport survives
+      // `} as any`: synthetic system_message event 不在 ChatViewportEvent union (fallback-only literal / phase 1382 audit-trail B-3 ratify)
       handleEvent({ type: 'system_message', text: 'Stream reader 启动失败，部分实时更新功能受限。Audit log 已记录。' } as any);
     });
   }

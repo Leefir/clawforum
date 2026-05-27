@@ -137,6 +137,9 @@ export function detectUncleanExit(_auditDir: string, auditWriter: AuditLog, fs: 
   }
 }
 
+// phase 1382 audit-trail B-2 REFRAMED note: detectUncleanExit (above) returns void early on no-op
+// (file 0/empty/clean-stop) — NOT error path. assemble (below) throws on validation failure (real error).
+// Two functions = two patterns by-design; audit B-2 framing「throw + return error model mix」reframe-out.
 export async function assemble(config: AssembleConfig): Promise<Instances> {
   const { identity, clawId, clawDir, globalConfig, clawConfig } = config;
   if (identity === 'claw' && !clawConfig) {
