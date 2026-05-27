@@ -175,3 +175,12 @@ export function makeContractId(s: string): ContractId { return s as ContractId; 
 declare const SubtaskIdBrand: unique symbol;
 export type SubtaskId = string & { readonly [SubtaskIdBrand]: true };
 export function makeSubtaskId(s: string): SubtaskId { return s as SubtaskId; }
+
+// ============================================================================
+// phase 1376: ArchiveDir branded path type (compile-time path discrimination)
+// per ML#3 资源唯一归属 / contract archive 业务专属 → contract types own
+// ============================================================================
+
+declare const ArchiveDirBrand: unique symbol;
+export type ArchiveDir = string & { readonly [ArchiveDirBrand]: true };
+export function makeArchiveDir(s: string): ArchiveDir { return s as ArchiveDir; }

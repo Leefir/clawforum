@@ -12,3 +12,16 @@ export function makeClawId(s: string): ClawId { return s as ClawId; }
 declare const TaskIdBrand: unique symbol;
 export type TaskId = string & { readonly [TaskIdBrand]: true };
 export function makeTaskId(s: string): TaskId { return s as TaskId; }
+
+// ============================================================================
+// phase 1376: ClawDir + ClawforumRoot branded path types (compile-time path discrimination)
+// per ML#3 资源唯一归属 + phase 1358 brand template mirror
+// ============================================================================
+
+declare const ClawDirBrand: unique symbol;
+export type ClawDir = string & { readonly [ClawDirBrand]: true };
+export function makeClawDir(s: string): ClawDir { return s as ClawDir; }
+
+declare const ClawforumRootBrand: unique symbol;
+export type ClawforumRoot = string & { readonly [ClawforumRootBrand]: true };
+export function makeClawforumRoot(s: string): ClawforumRoot { return s as ClawforumRoot; }
