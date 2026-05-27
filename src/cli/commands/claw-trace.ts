@@ -20,6 +20,7 @@ import type { ClawId } from '../../foundation/identity/index.js';
 import type { ContractId } from '../../core/contract/types.js';
 
 
+
 interface StreamEvent {
   ts: number;
   type: string;

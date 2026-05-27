@@ -21,6 +21,8 @@ import type { PermissionChecker } from '../permissions/claw-permissions.js';
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import type { ToolProfile } from '../../foundation/tool-protocol/index.js';
 import type { ClawId } from '../../foundation/identity/index.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 /** 1:1 保 runtime.ts:47-72 body */
@@ -88,8 +90,8 @@ export interface StreamCallbacks {
   onTextDelta?: (delta: string) => void;
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
-  onToolCall?: (toolName: string, toolUseId: string) => void;
-  onToolResult?: (toolName: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+  onToolCall?: (toolName: string, toolUseId: ToolUseId) => void;
+  onToolResult?: (toolName: string, toolUseId: ToolUseId, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
   onTurnStart?: (sources: Array<{ text: string; type: string }>) => void;
   onTurnEnd?: () => void;
   onTurnError?: (error: string) => void;

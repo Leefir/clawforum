@@ -26,6 +26,8 @@ import type { DialogStore } from '../../foundation/dialog-store/index.js';
 import { DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 import { makeClawId } from '../../foundation/identity/index.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 export interface SubAgentOptions {
@@ -280,10 +282,10 @@ private callerType?: CallerType;
         onTextEnd: () => {
           safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TEXT_END });
         },
-        onToolCall: (name: string, toolUseId: string) => {
+        onToolCall: (name: string, toolUseId: ToolUseId) => {
           safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TOOL_CALL, name, tool_use_id: toolUseId });
         },
-        onToolResult: (name: string, toolUseId: string, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
+        onToolResult: (name: string, toolUseId: ToolUseId, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           this.auditWriter.write(
             'tool_result', name, toolUseId,
             result.success ? 'ok' : 'err',

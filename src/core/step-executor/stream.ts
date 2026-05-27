@@ -10,6 +10,8 @@ import type { LLMResponse } from '../../foundation/llm-provider/types.js';
 import type { StepCallbacks } from './types.js';
 import { safeCallback, parseToolInput } from './utils.js';
 import { throwAbortError } from './abort-helpers.js';
+import { makeToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 export interface StreamState {
   contentBlocks: ContentBlock[];
@@ -59,14 +61,14 @@ export function flushToolUse(state: StreamState, callbacks?: StepCallbacks): voi
     if (!parsed.ok) {
       safeCallback(
         'onToolInputParseError',
-        () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, state.currentToolUse!.id, parsed.raw),
+        () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, makeToolUseId(state.currentToolUse!.id), parsed.raw),
         callbacks,
       );
       // phase 1282: emit tool_use 占位块满足 pair invariant（ML#9 + ML#5 stream 自验合法）
       //            input={} 占位 / 下游 handleToolUseStop + handleMaxTokensStop State A 经 prebuiltIds dedup 不 execute / 不再 synthesize
       state.contentBlocks.push({
         type: 'tool_use',
-        id: state.currentToolUse.id,
+        id: makeToolUseId(state.currentToolUse.id),
         name: state.currentToolUse.name,
         input: {},
       });
@@ -114,7 +116,7 @@ export function finalizeContent(state: StreamState, callbacks?: StepCallbacks): 
     if (!parsed.ok) {
       safeCallback(
         'onToolInputParseError',
-        () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, state.currentToolUse!.id, parsed.raw),
+        () => callbacks?.onToolInputParseError?.(state.currentToolUse!.name, makeToolUseId(state.currentToolUse!.id), parsed.raw),
         callbacks,
       );
       // phase 1282: emit tool_use 占位块满足 pair invariant（ML#9 + ML#5 stream 自验合法）
@@ -180,7 +182,7 @@ export async function collectStreamResponse(
           // 用 safeCallback 守护：callback throw 不中断 stream loop（保 stream chunk 完整收 / tool_use_delta 等不丢）
           {
             const toolUseStart = chunk.toolUse!;
-            safeCallback('onToolCall', () => callbacks?.onToolCall?.(toolUseStart.name, toolUseStart.id), callbacks);
+            safeCallback('onToolCall', () => callbacks?.onToolCall?.(toolUseStart.name, makeToolUseId(toolUseStart.id)), callbacks);
           }
           break;
         case 'tool_use_delta':

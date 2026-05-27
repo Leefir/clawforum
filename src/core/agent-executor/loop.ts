@@ -18,6 +18,8 @@ import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.j
 import { DEFAULT_MAX_STEPS } from './defaults.js';
 import { runAgent } from './agent-executor.js';
 import type { StepCallbacks, LLMCallInfo } from '../step-executor/step-executor.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 export interface ReactOptions {
   messages: Message[];
@@ -30,9 +32,9 @@ export interface ReactOptions {
   maxConsecutiveMaxTokensToolUse?: number;
   idleTimeoutMs?: number;
   wallTimeDeadlineMs?: number;
-  onToolCall?: (toolName: string, toolUseId: string) => void | Promise<void>;
+  onToolCall?: (toolName: string, toolUseId: ToolUseId) => void | Promise<void>;
   onBeforeLLMCall?: () => void;
-  onToolResult?: (toolName: string, toolUseId: string, result: ToolResult, step: number, maxSteps: number) => void;
+  onToolResult?: (toolName: string, toolUseId: ToolUseId, result: ToolResult, step: number, maxSteps: number) => void;
   onStepComplete?: () => Promise<void>;
   tools?: ToolDefinition[];
   registry?: ToolRegistry;
@@ -45,8 +47,8 @@ export interface ReactOptions {
   onEmptyResponse?: (stopReason: string) => void;
   onUnknownStopReason?: (stopReason: string) => void;
   onUnparseableToolUse: (stopReason: string) => void;
-  onToolInputParseError?: (toolName: string, toolUseId: string, rawInput: string) => void;
-  onToolExecutionFailed?: (toolName: string, toolUseId: string, errorType: string, errorMsg: string) => void;
+  onToolInputParseError?: (toolName: string, toolUseId: ToolUseId, rawInput: string) => void;
+  onToolExecutionFailed?: (toolName: string, toolUseId: ToolUseId, errorType: string, errorMsg: string) => void;
   onSafeCallbackError?: (label: string, err: unknown) => void;
   onMaxTokensPrebuiltOnlyFinal?: (meta: { prebuiltCount: number; llm: LLMCallInfo }) => void;
   onMaxTokensAssistantEmptySkipped?: (meta: { llm: LLMCallInfo }) => void;

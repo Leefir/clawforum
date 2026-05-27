@@ -7,6 +7,8 @@ import type { Message, ToolDefinition } from '../../foundation/llm-provider/type
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { ExecContext } from '../../foundation/tools/index.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 export interface LLMCallInfo {
   model: string;
@@ -22,15 +24,15 @@ export interface StepCallbacks {
   onTextDelta?: (delta: string) => void;
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
-  onToolCall?: (toolName: string, toolUseId: string) => void | Promise<void>;
-  onToolResult?: (toolName: string, toolUseId: string, result: ToolResult) => void;
+  onToolCall?: (toolName: string, toolUseId: ToolUseId) => void | Promise<void>;
+  onToolResult?: (toolName: string, toolUseId: ToolUseId, result: ToolResult) => void;
   onReset?: (provider: string, timeoutMs: number) => void;
   onProviderFailed?: (provider: string, model: string, error: string) => void;
   onEmptyResponse?: (stopReason: string) => void;
   onUnknownStopReason?: (stopReason: string) => void;
   onUnparseableToolUse: (stopReason: string) => void;
-  onToolInputParseError?: (toolName: string, toolUseId: string, rawInput: string) => void;
-  onToolExecutionFailed?: (toolName: string, toolUseId: string, errorType: string, errorMsg: string) => void;
+  onToolInputParseError?: (toolName: string, toolUseId: ToolUseId, rawInput: string) => void;
+  onToolExecutionFailed?: (toolName: string, toolUseId: ToolUseId, errorType: string, errorMsg: string) => void;
   onSafeCallbackError?: (label: string, err: unknown) => void;
   onMessageAppended?: (role: 'assistant' | 'user', blocks: number) => void;
   onMaxTokensPrebuiltOnlyFinal?: (meta: { prebuiltCount: number; llm: LLMCallInfo }) => void;

@@ -9,13 +9,15 @@
  */
 
 
+import type { ToolUseId } from '../foundation/tool-protocol/index.js';
+
 export const SHADOW_INSTRUCTION_PREFIX = `[SHADOW INSTRUCTION — YOU ARE NO LONGER THE MAIN AGENT]`;
 
 export interface BuildShadowInstructionArgs {
   shadowId: string;
   spawnedAt: string;
   spawnedByClawId: string;
-  toolUseId: string;
+  toolUseId: ToolUseId;
   task: string;
   /**
    * Shadow tool name (caller injected / phase 1306 DIP / 防 prompts/ 反向 import core/ 违 ML#5).

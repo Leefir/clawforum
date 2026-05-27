@@ -5,6 +5,8 @@
 
 import type { Message, ContentBlock, ToolUseBlock, ToolResultBlock } from '../../foundation/llm-provider/types.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 /**
  * Execute a callback safely, swallowing errors to protect the executor loop.
@@ -71,7 +73,7 @@ export function appendToolResults(messages: Message[], results: ToolResultBlock[
   });
 }
 
-export function toToolResultBlock(toolUseId: string, result: ToolResult): ToolResultBlock {
+export function toToolResultBlock(toolUseId: ToolUseId, result: ToolResult): ToolResultBlock {
   return {
     type: 'tool_result',
     tool_use_id: toolUseId,

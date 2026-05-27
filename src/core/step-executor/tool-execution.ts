@@ -17,6 +17,8 @@ import type { StepCallbacks } from './types.js';
 import { safeCallback, toToolResultBlock } from './utils.js';
 import { throwAbortError } from './abort-helpers.js';
 import { safeNumber } from '../../foundation/utils/format.js';
+import { makeToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 interface CategorizedCalls {
@@ -58,8 +60,8 @@ async function executeSequential(
   for (const call of toolCalls) {
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     const result = await executeSingleTool(call, executor, ctx, callbacks);
-    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, result), callbacks);
-    results.push(toToolResultBlock(call.id, result));
+    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, makeToolUseId(call.id), result), callbacks);
+    results.push(toToolResultBlock(makeToolUseId(call.id), result));
   }
   return results;
 }
@@ -85,12 +87,12 @@ async function executeReadonlyAsync(
     const result = parallelResults[i];
     if (!result) {
       const singleResult = await executeSingleTool(call, executor, ctx, callbacks);
-      safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, singleResult), callbacks);
-      results.set(index, toToolResultBlock(call.id, singleResult));
+      safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, makeToolUseId(call.id), singleResult), callbacks);
+      results.set(index, toToolResultBlock(makeToolUseId(call.id), singleResult));
       continue;
     }
-    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, result), callbacks);
-    results.set(index, toToolResultBlock(call.id, result));
+    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, makeToolUseId(call.id), result), callbacks);
+    results.set(index, toToolResultBlock(makeToolUseId(call.id), result));
   }
 }
 
@@ -115,12 +117,12 @@ async function executeReadonlySync(
     const result = parallelResults[i];
     if (!result) {
       const singleResult = await executeSingleTool(call, executor, ctx, callbacks);
-      safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, singleResult), callbacks);
-      results.set(index, toToolResultBlock(call.id, singleResult));
+      safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, makeToolUseId(call.id), singleResult), callbacks);
+      results.set(index, toToolResultBlock(makeToolUseId(call.id), singleResult));
       continue;
     }
-    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, result), callbacks);
-    results.set(index, toToolResultBlock(call.id, result));
+    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, makeToolUseId(call.id), result), callbacks);
+    results.set(index, toToolResultBlock(makeToolUseId(call.id), result));
   }
 }
 
@@ -135,8 +137,8 @@ async function executeWriteCalls(
   for (const { call, index } of group) {
     if (ctx.signal?.aborted) throwAbortError(ctx.signal);
     const result = await executeSingleTool(call, executor, ctx, callbacks);
-    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, call.id, result), callbacks);
-    results.set(index, toToolResultBlock(call.id, result));
+    safeCallback('onToolResult', () => callbacks?.onToolResult?.(call.name, makeToolUseId(call.id), result), callbacks);
+    results.set(index, toToolResultBlock(makeToolUseId(call.id), result));
   }
 }
 
@@ -179,7 +181,7 @@ export async function executeSingleTool(
         'onToolInputParseError',
         () => callbacks?.onToolInputParseError?.(
           toolCall.name,
-          toolCall.id,
+          makeToolUseId(toolCall.id),
           `incomplete tool_use: missing required [${missing.join(', ')}] (stream aborted mid-tool_use)`,
         ),
         callbacks,
@@ -199,7 +201,7 @@ export async function executeSingleTool(
       toolName: toolCall.name,
       args: toolCall.input,
       ctx,
-      toolUseId: toolCall.id,
+      toolUseId: makeToolUseId(toolCall.id),
       timeoutMs: safeNumber(toolCall.input?.timeoutMs),
     });
   } catch (err) {
@@ -207,7 +209,7 @@ export async function executeSingleTool(
     const errorMsg = err instanceof Error ? err.message : String(err);
     safeCallback(
       'onToolExecutionFailed',
-      () => callbacks?.onToolExecutionFailed?.(toolCall.name, toolCall.id, errorType, errorMsg),
+      () => callbacks?.onToolExecutionFailed?.(toolCall.name, makeToolUseId(toolCall.id), errorType, errorMsg),
       callbacks,
     );
     return {

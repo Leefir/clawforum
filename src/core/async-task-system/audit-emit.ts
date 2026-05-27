@@ -11,6 +11,8 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { formatErr } from '../../foundation/utils/format.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import type { TaskId } from './types.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 // ─── TASK_SCHEDULED ───────────────────────────────────────────────────────────
@@ -308,7 +310,7 @@ export function emitToolRetry(
 // ─── TOOL_ASYNC_RESULT ────────────────────────────────────────────────────────
 export function emitToolAsyncResult(
   audit: AuditLog,
-  opts: { taskId: TaskId; toolName: string; toolUseId: string },
+  opts: { taskId: TaskId; toolName: string; toolUseId: ToolUseId },
 ): void {
   audit.write(
     TASK_AUDIT_EVENTS.TOOL_ASYNC_RESULT,

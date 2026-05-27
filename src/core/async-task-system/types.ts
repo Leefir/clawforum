@@ -16,6 +16,8 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 import type { CallerType } from '../caller-types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
+import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 
@@ -57,7 +59,7 @@ interface CommonSubAgentTaskFields {
    */
   motionClawDir?: string;
   postProcessor?: string;            // 声明式 post-processor 名称（registry lookup）
-  mainContextSnapshot?: { clawId: ClawId; toolUseId: string };  // NEW marker mode
+  mainContextSnapshot?: { clawId: ClawId; toolUseId: ToolUseId };  // NEW marker mode
   systemPrompt?: string;                 // phase 546 internal field：caller-side specialized system prompt（agent 不可见 / 与 phase 470 砍 agent-facing spawn schema 不冲突 / fall-back DEFAULT_SUBAGENT_SYSTEM_PROMPT）
   // phase 1087：shadow async 上下文快照字段
   isShadow?: boolean;
@@ -81,7 +83,7 @@ export interface ToolTask {
   maxRetries: number;     // Max retry attempts (default 2)
   retryCount: number;     // Current retry count (initial 0)
   callerType?: CallerType;  // 决定 inbox 消息 from 字段
-  toolUseId?: string;   // 对应 LLM tool_use block id，用于 tool_async_result
+  toolUseId?: ToolUseId;   // 对应 LLM tool_use block id，用于 tool_async_result
   /** phase 858：sourced from ExecContext.isShadow at schedule time */
   isShadow?: boolean;
 }

@@ -18,6 +18,8 @@ import { SHADOW_AUDIT_EVENTS } from './audit-events.js';
 import { synthesizeFormB, formatErr } from './_helpers.js';
 import { classifyTaskError } from '../async-task-system/index.js';
 import type { BuildShadowInstructionArgs } from '../../prompts/index.js';
+import { type ToolUseId, makeToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 
@@ -36,7 +38,7 @@ export interface RunShadowOptions {
   };
 }
 
-function findLastAssistantWithToolUse(messages: Message[], toolUseId: string): number {
+function findLastAssistantWithToolUse(messages: Message[], toolUseId: ToolUseId): number {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
@@ -88,13 +90,13 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
       shadowId,
       spawnedAt,
       spawnedByClawId: opts.ctx.clawId,
-      toolUseId: opts.ctx.currentToolUseId,
+      toolUseId: makeToolUseId(opts.ctx.currentToolUseId),
       task: opts.task,
     };
     // pre-stripped by shadow.ts → already before the marker. Otherwise find + slice.
     const mainMessagesBeforeMarker = opts.mainMessages
       ?? (() => {
-        const idx = findLastAssistantWithToolUse(mainMessages, opts.ctx.currentToolUseId);
+        const idx = findLastAssistantWithToolUse(mainMessages, makeToolUseId(opts.ctx.currentToolUseId));
         if (idx < 0) throw new Error(`marker not found: ${opts.ctx.currentToolUseId}`);
         return mainMessages.slice(0, idx);
       })();

@@ -16,6 +16,8 @@ import { synthesizeFormB } from './_helpers.js';
 import { type BuildShadowInstructionArgs } from '../../prompts/index.js';
 import type { SpawnShadowSubagentOptions, SpawnShadowSubagentResult } from './types.js';
 import { makeTaskId } from '../async-task-system/types.js';
+import { makeToolUseId } from '../../foundation/tool-protocol/index.js';
+
 
 
 export async function spawnShadowSubagent(
@@ -28,7 +30,7 @@ export async function spawnShadowSubagent(
     shadowId,
     spawnedAt: new Date().toISOString(),
     spawnedByClawId: opts.ctx.clawId ?? '',
-    toolUseId: opts.ctx.currentToolUseId ?? '',
+    toolUseId: makeToolUseId(opts.ctx.currentToolUseId ?? ''),
     task: opts.task,
   };
   // synthesizeFormB 内部调 buildShadowInstruction(instructionArgs) 嵌 task 到 SHADOW INSTRUCTION

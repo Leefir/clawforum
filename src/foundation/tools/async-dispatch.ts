@@ -1,4 +1,6 @@
 
+import type { ToolUseId } from '../tool-protocol/index.js';
+
 export interface AsyncToolTaskArgs {
   toolName: string;
   args: Record<string, unknown>;
@@ -9,7 +11,7 @@ export interface AsyncToolTaskArgs {
   retryCount: number;
   /** phase 1337: opaque audit label (replaces callerType semantic) */
   callerLabel?: string;
-  toolUseId?: string;
+  toolUseId?: ToolUseId;
   /** phase 858：propagate ExecContext.isShadow through async tool dispatch boundary */
   isShadow?: boolean;
 }

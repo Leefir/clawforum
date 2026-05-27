@@ -13,6 +13,8 @@ import type { ToolDescriptor, ToolResult } from '../tool-protocol/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
 import type { ClawId } from '../identity/index.js';
+import type { ToolUseId } from '../tool-protocol/index.js';
+
 
 
 /**
@@ -159,7 +161,7 @@ export interface ExecuteOptions {
   ctx: ExecContext;
   timeoutMs?: number;
   async?: boolean;   // 新增：true 时走异步路径
-  toolUseId?: string;   // 新增：LLM 生成的 tool_use block id
+  toolUseId?: ToolUseId;   // 新增：LLM 生成的 tool_use block id
 }
 
 /**

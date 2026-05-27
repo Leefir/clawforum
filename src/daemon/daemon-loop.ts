@@ -47,6 +47,8 @@ import { CONTRACT_DIR } from '../core/contract/index.js';
 import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
 import { INBOX_PENDING_DIR } from '../foundation/messaging/dirs.js';
 import type { ClawId } from '../foundation/identity/index.js';
+import type { ToolUseId } from '../foundation/tool-protocol/index.js';
+
 
 
 
@@ -71,10 +73,10 @@ function createStreamCallbacks(sink: StreamLog, _audit: AuditLog): StreamCallbac
     onTextEnd: () => {
       checkWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TEXT_END });
     },
-    onToolCall: (name: string, toolUseId: string) => {
+    onToolCall: (name: string, toolUseId: ToolUseId) => {
       checkWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TOOL_CALL, name, tool_use_id: toolUseId });
     },
-    onToolResult: (name: string, toolUseId: string, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
+    onToolResult: (name: string, toolUseId: ToolUseId, result: { success: boolean; content: string }, step: number, maxSteps: number) => {
       const summary = oneLine(result.content);
       checkWrite({
         ts: Date.now(),
