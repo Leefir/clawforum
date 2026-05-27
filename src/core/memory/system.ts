@@ -7,7 +7,7 @@ import type { ProgressData } from '../contract/index.js';
 import { runDeepDream } from './deep-dream.js';
 import { runRandomDream } from './random-dream.js';
 import type { ClawId } from '../../foundation/identity/index.js';
-import type { ContractId } from '../contract/types.js';
+import type { ContractId } from '../../foundation/identity/index.js';
 
 
 
