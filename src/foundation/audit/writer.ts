@@ -6,7 +6,8 @@ import { FileNotFoundError } from '../fs/types.js';
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from './types.js';
 
-const FALLBACK_BUFFER_CAP = 1000;
+export const FALLBACK_BUFFER_CAP = 1000;
+const FALLBACK_FRONTMATTER_PREFIX = '# drop_count_since_last_dump=';
 function getFallbackDir(): string { return tmpdir(); }
 interface FallbackEntry {
   origin: string;
@@ -17,6 +18,12 @@ let exitHandlerInstalled = false;
 let overflowMetaEmitted = false;
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 
+// phase 1380: drop observability counters (phase 586 D1.b ratify 顺延 + observability 补完)
+let dropCountTotal = 0;            // module-level、never reset (process lifetime)
+let dropCountSinceLastDump = 0;    // reset after successful dump
+let firstDropTs: number | null = null;
+let lastDropTs: number | null = null;
+
 function ensureExitHandler(): void {
   if (exitHandlerInstalled) return;
   exitHandlerInstalled = true;
@@ -25,11 +32,16 @@ function ensureExitHandler(): void {
 
 export function pushFallback(line: string, origin: string): void {
   if (pendingFallback.length >= FALLBACK_BUFFER_CAP) {
-    pendingFallback.shift();   // FIFO drop-oldest
+    pendingFallback.shift();   // FIFO drop-oldest (phase 586 D1.b ratify 不动)
+    dropCountTotal++;
+    dropCountSinceLastDump++;
+    const now = Date.now();
+    if (firstDropTs === null) firstDropTs = now;
+    lastDropTs = now;
     if (!overflowMetaEmitted) {
       overflowMetaEmitted = true;
       console.error(
-        `[AUDIT CRITICAL] fallback buffer overflow (cap=${FALLBACK_BUFFER_CAP}), oldest entries dropped`,
+        `[AUDIT CRITICAL] fallback buffer overflow (cap=${FALLBACK_BUFFER_CAP}), oldest entries dropped — drop counts accumulating to next fallback dump frontmatter`,
       );
     }
   }
@@ -47,8 +59,12 @@ function ensurePeriodicFlush(): void {
 }
 
 function dumpFallback(): void {
-  if (pendingFallback.length === 0) return;
+  if (pendingFallback.length === 0 && dropCountSinceLastDump === 0) return;
   const batch = pendingFallback.splice(0); // atomic: clear + capture
+  // phase 1380: drop metadata frontmatter (旧文件无此行、reconcile parser 兼容)
+  const dropFrontmatter = dropCountSinceLastDump > 0
+    ? `${FALLBACK_FRONTMATTER_PREFIX}${dropCountSinceLastDump} drop_count_total=${dropCountTotal} first_drop_ts=${firstDropTs} last_drop_ts=${lastDropTs}\n`
+    : '';
   let written = false;
   try {
     const fallbackPath = `${getFallbackDir()}/clawforum-audit-fallback-${process.pid}-${Date.now()}.tsv`;
@@ -56,7 +72,7 @@ function dumpFallback(): void {
     const body = batch
       .map(e => `${esc(e.origin)}\t${e.line}`)
       .join('');
-    nodeFs.writeFileSync(fallbackPath, body);
+    nodeFs.writeFileSync(fallbackPath, dropFrontmatter + body);
     written = true;
     try {
       const fd = nodeFs.openSync(fallbackPath, 'r+');
@@ -72,10 +88,15 @@ function dumpFallback(): void {
         `[AUDIT WARNING] fallback fsync failed: path=${fallbackPath} reason=${reason}`,
       );
     }
+    // phase 1380: 成功 dump 后 reset since-last，total 维持
+    dropCountSinceLastDump = 0;
+    firstDropTs = null;
+    lastDropTs = null;
   } catch (err) {
     // write 失败：恢复 entries 到 buffer（best-effort、顺序非关键）
     if (!written) {
       pendingFallback.unshift(...batch);
+      // drop counter 不动（dropCountSinceLastDump 维持、下次 dump 重试 frontmatter）
     }
     const reason = err instanceof Error ? err.message : String(err);
     console.error(
@@ -96,6 +117,8 @@ function dumpFallback(): void {
  * See `design/modules/l2_audit_log.md` §7.A
  * `A.phase1153-reconcile-snapshot-bounded-race-window-invariant`.
  */
+const FRONTMATTER_RE = /^# drop_count_since_last_dump=(\d+) drop_count_total=(\d+) first_drop_ts=(\d+) last_drop_ts=(\d+)$/;
+
 export async function reconcileFallbackDumps(fs: FileSystem): Promise<void> {
   const tmp = getFallbackDir();
   const pattern = /^clawforum-audit-fallback-\d+-\d+\.tsv$/;
@@ -110,8 +133,18 @@ export async function reconcileFallbackDumps(fs: FileSystem): Promise<void> {
     const dumpPath = `${tmp}/${entry.name}`;
     try {
       const content = await fs.read(dumpPath);
+      const allLines = content.split('\n');
+      let dropMeta: { since: number; total: number; first: number; last: number } | null = null;
+      // phase 1380: detect optional frontmatter (旧文件首行不以 prefix 起、跳过)
+      if (allLines[0] && allLines[0].startsWith(FALLBACK_FRONTMATTER_PREFIX)) {
+        const m = allLines[0].match(FRONTMATTER_RE);
+        if (m) {
+          dropMeta = { since: +m[1], total: +m[2], first: +m[3], last: +m[4] };
+          allLines.shift();
+        }
+      }
       const byOrigin = new Map<string, string[]>();
-      for (const line of content.split('\n')) {
+      for (const line of allLines) {
         if (!line) continue;
         const tabIdx = line.indexOf('\t');
         if (tabIdx === -1) continue;
@@ -130,6 +163,14 @@ export async function reconcileFallbackDumps(fs: FileSystem): Promise<void> {
           } catch (syncErr) {
             const reason = syncErr instanceof Error ? syncErr.message : String(syncErr);
             console.error(`[AUDIT WARNING] reconcile fallback fsync failed: origin=${origin} reason=${reason}`);
+          }
+          // phase 1380: drop metadata audit emit per origin
+          if (dropMeta && dropMeta.since > 0) {
+            const dropLine = `audit_fallback_dropped\tdrop_count=${dropMeta.since}\tdrop_count_total=${dropMeta.total}\tfirst_drop_ts=${dropMeta.first}\tlast_drop_ts=${dropMeta.last}\n`;
+            try {
+              await fs.appendSync(origin, dropLine);
+              try { fs.syncSync(origin); } catch (_) { /* silent: fsync best-effort */ }
+            } catch (_) { /* silent: per-origin best-effort */ }
           }
         } catch {
           // silent: 目标文件可能已被删 / 权限变（best-effort per-file、其他 origin 仍继续）
@@ -214,6 +255,11 @@ export function _resetFallbackForTest(): void {
   pendingFallback.length = 0;
   exitHandlerInstalled = false;
   overflowMetaEmitted = false;
+  // phase 1380: reset drop counters for test isolation
+  dropCountTotal = 0;
+  dropCountSinceLastDump = 0;
+  firstDropTs = null;
+  lastDropTs = null;
   if (flushTimer) {
     clearInterval(flushTimer);
     flushTimer = null;

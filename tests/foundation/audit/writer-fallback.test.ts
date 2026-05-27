@@ -80,11 +80,13 @@ describe('AuditWriter fallback buffer (phase 586 / α)', () => {
     );
     expect(overflowCalls).toHaveLength(1);
 
-    // dump 验证：buffer 有 1000 行（drop oldest）
+    // dump 验证：buffer 有 1000 行（drop oldest），兼容 frontmatter
     exitListeners[0]!();
     expect(nodeFs.writeFileSync).toHaveBeenCalled();
     const dumpedContent = (vi.mocked(nodeFs.writeFileSync).mock.calls[0] as any)[1] as string;
-    const lineCount = dumpedContent.split('\n').filter(l => l.length > 0).length;
+    const allLines = dumpedContent.split('\n').filter(l => l.length > 0);
+    const hasFrontmatter = allLines[0] && allLines[0].startsWith('# drop_count_since_last_dump=');
+    const lineCount = hasFrontmatter ? allLines.length - 1 : allLines.length;
     expect(lineCount).toBe(1000);
   });
 

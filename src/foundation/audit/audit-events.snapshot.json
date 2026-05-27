@@ -436,6 +436,9 @@
       "skill_namespace_invalid",
       "skill_registry_loaded"
     ],
+    "foundation_audit_audit-events": [
+      "audit_fallback_dropped"
+    ],
     "foundation_snapshot_audit-events": [
       "snapshot_commit_failed",
       "snapshot_committed",

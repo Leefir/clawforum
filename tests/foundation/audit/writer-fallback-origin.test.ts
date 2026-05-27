@@ -85,7 +85,9 @@ describe('AuditWriter — fallback buffer origin tag (P1.13)', () => {
     exitListeners[0]!();
     expect(nodeFs.writeFileSync).toHaveBeenCalled();
     const dumpedContent = (vi.mocked(nodeFs.writeFileSync).mock.calls[0] as any)[1] as string;
-    const lines = dumpedContent.split('\n').filter(l => l.length > 0);
+    const allLines = dumpedContent.split('\n').filter(l => l.length > 0);
+    const hasFrontmatter = allLines[0] && allLines[0].startsWith('# drop_count_since_last_dump=');
+    const lines = hasFrontmatter ? allLines.slice(1) : allLines;
     expect(lines.length).toBe(1000);
 
     // 前 10 行（i=0..9，origin=a 交替）已 drop，剩余应同时含 a 和 b
@@ -111,7 +113,9 @@ describe('AuditWriter — fallback buffer origin tag (P1.13)', () => {
     expect(nodeFs.writeFileSync).toHaveBeenCalled();
     const dumpedContent = (vi.mocked(nodeFs.writeFileSync).mock.calls[0] as any)[1] as string;
     // esc 将 tab 转义为 \t，所以内容中不应出现未转义的 tab（除了 origin 与 line 之间的分隔符）
-    const firstLine = dumpedContent.split('\n')[0]!;
+    const allLines = dumpedContent.split('\n').filter(l => l.length > 0);
+    const hasFrontmatter = allLines[0] && allLines[0].startsWith('# drop_count_since_last_dump=');
+    const firstLine = hasFrontmatter ? allLines[1] : allLines[0];
     // 格式: <esc(origin)>\t<line>
     // origin 中的真实 tab 已被转义为 \t，所以 firstLine 中不应包含 '/test/foo\tbar.tsv' 的未转义形式
     expect(firstLine).toContain('/test/foo\\tbar.tsv');
