@@ -92,6 +92,7 @@ import { createStreamReader, STREAM_FILE, findRecentTurnStartOffset } from '../f
 import { TASKS_SYNC_DIR } from '../core/async-task-system/index.js';
 import { DIALOG_DIR } from '../foundation/dialog-store/dirs.js';
 import { makeClawId, type ClawId } from '../foundation/identity/index.js';
+import type { ContractId } from '../core/contract/types.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 
 
@@ -611,7 +612,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           }
           contractSystemCache.clear();
         };
-        const getContractProgress = async (clawId: ClawId, contractId: string): Promise<import('../core/contract/index.js').ProgressData> => {
+        const getContractProgress = async (clawId: ClawId, contractId: ContractId): Promise<import('../core/contract/index.js').ProgressData> => {
           let cs = contractSystemCache.get(clawId);
           if (!cs) {
             const cDir = path.join(clawforumDir, CLAWS_DIR, clawId);

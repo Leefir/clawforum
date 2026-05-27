@@ -5,10 +5,12 @@
  */
 
 import type { ClawId } from '../foundation/identity/index.js';
+import type { ContractId } from '../core/contract/types.js';
+
 
 export function buildRetroPrompt(
   clawId: ClawId,
-  contractId: string,
+  contractId: ContractId,
   contractYaml: string,
   skillsSummary?: string,
 ): string {

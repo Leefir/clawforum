@@ -12,10 +12,12 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { CLAWSPACE_DIR } from '../../foundation/paths.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUMMON_AUDIT_EVENTS } from './audit-events.js';
+import { type ContractId, makeContractId } from '../contract/types.js';
+
 
 /** Phase 1335 (r138 F fork): cross-module query API — pending retrospective reference */
 export interface PendingRetroRef {
-  contractId: string;
+  contractId: ContractId;
   targetClaw: string;
   mode?: string;
   miningTaskId?: string;
@@ -40,7 +42,7 @@ export class UnexpectedFormatError extends Error {
 // NEW single-file precise API
 export async function readPendingRetrospective(opts: {
   fs: FileSystem;
-  contractId: string;
+  contractId: ContractId;
 }): Promise<PendingRetroRef> {
   const filePath = `${CLAWSPACE_DIR}/pending-retrospective/by-contract/${opts.contractId}.json`;
   const raw = await opts.fs.read(filePath); // FileNotFoundError / EISDIR / etc propagate
@@ -76,7 +78,7 @@ export async function listPendingRetrospectives(opts: {
 
   for (const e of opts.fs.listSync(dir, { includeDirs: false })) {
     if (!e.name.endsWith('.json')) continue;
-    const contractId = e.name.replace(/\.json$/, '');
+    const contractId = makeContractId(e.name.replace(/\.json$/, ''));
     if (opts.filter?.contractId !== undefined && contractId !== opts.filter.contractId) continue;
     try {
       const ref = await readPendingRetrospective({ fs: opts.fs, contractId });

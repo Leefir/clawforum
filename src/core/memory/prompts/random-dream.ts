@@ -26,6 +26,8 @@
  */
 
 import type { ClawId } from '../../../foundation/identity/index.js';
+import type { ContractId } from '../../contract/types.js';
+
 
 export const RANDOM_DREAM_SYSTEM_PROMPT = `\
 你是跨 claw 梦境引擎，运行在 motion 进程中。
@@ -67,7 +69,7 @@ export const RANDOM_DREAM_SYSTEM_PROMPT = `\
 export function buildRandomDreamPrompt(
   weightedContracts: Array<{
     clawId: ClawId;
-    contractId: string;
+    contractId: ContractId;
     contractDir: string;   // 绝对路径
     weight: number;
     hint: string;          // 权重原因，如 "近期完成" "执行困难" "尚未被梦境处理"

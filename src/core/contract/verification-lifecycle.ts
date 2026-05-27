@@ -8,6 +8,7 @@ import type { VerificationResult } from './types.js';
 import { safeNotify } from './verification-notify.js';
 import { formatValidIds } from './verification-format.js';
 import { formatErr } from '../../foundation/utils/format.js';
+import type { ContractId } from './types.js';
 import {
   emitContractCompleted,
   emitContractMoveArchiveFailed,
@@ -23,7 +24,7 @@ import {
 
 export async function archiveAndEmit(
   ctx: VerificationContext,
-  contractId: string,
+  contractId: ContractId,
   title: string,
   contextLabel: string,
 ): Promise<void> {
@@ -67,7 +68,7 @@ export async function archiveAndEmit(
 
 export async function completeSubtaskSync(
   ctx: VerificationContext,
-  contractId: string,
+  contractId: ContractId,
   subtaskId: string,
   evidence: string,
   artifacts?: string[],

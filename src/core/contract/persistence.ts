@@ -23,13 +23,13 @@ export const PROGRESS_CURRENT_SCHEMA_VERSION = 1;
 export interface PersistenceContext {
   fs: FileSystem;
   audit: AuditLog;
-  contractDir: (contractId: string) => Promise<string>;
-  getProgress: (contractId: string) => Promise<ProgressData>;
+  contractDir: (contractId: ContractId) => Promise<string>;
+  getProgress: (contractId: ContractId) => Promise<ProgressData>;
 }
 
 export async function loadContractYaml(
   ctx: PersistenceContext,
-  contractId: string,
+  contractId: ContractId,
 ): Promise<ContractYaml> {
   const dir = await ctx.contractDir(contractId);
   const contractPath = `${dir}/${contractId}/contract.yaml`;
@@ -81,7 +81,7 @@ export async function loadContractYaml(
 
 export async function readContractYamlRaw(
   ctx: PersistenceContext,
-  contractId: string,
+  contractId: ContractId,
 ): Promise<string> {
   const dir = await ctx.contractDir(contractId);
   const contractPath = `${dir}/${contractId}/contract.yaml`;
@@ -90,7 +90,7 @@ export async function readContractYamlRaw(
 
 export async function loadContract(
   ctx: PersistenceContext,
-  contractId: string,
+  contractId: ContractId,
 ): Promise<Contract> {
   const yamlContract = await loadContractYaml(ctx, contractId);
   const progress = await ctx.getProgress(contractId);
@@ -120,7 +120,7 @@ export async function loadContract(
 
 export async function saveProgress(
   ctx: PersistenceContext,
-  contractId: string,
+  contractId: ContractId,
   progress: ProgressData,
 ): Promise<void> {
   const dir = await ctx.contractDir(contractId);
@@ -135,7 +135,7 @@ export async function saveProgress(
 
 export async function checkAllSubtasksCompleted(
   ctx: PersistenceContext,
-  contractId: string,
+  contractId: ContractId,
   progress: ProgressData,
 ): Promise<boolean> {
   const contractYaml = await loadContractYaml(ctx, contractId);
@@ -149,6 +149,8 @@ import { CONTRACT_ARCHIVE_DIR } from './dirs.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import type { ArchiveContractRef } from './types.js';
 import { makeClawId } from '../../foundation/identity/index.js';
+import { type ContractId, makeContractId } from './types.js';
+
 
 /**
  * Phase 1335 (r138 F fork): cross-module query API — list archived contracts
@@ -186,7 +188,7 @@ export async function listArchiveContracts(opts: {
         if (filter.untilMs !== undefined && at > filter.untilMs) continue;
       }
 
-      results.push({ clawId: makeClawId(clawId), contractId, contractDir, archivedAt });
+      results.push({ clawId: makeClawId(clawId), contractId: makeContractId(contractId), contractDir, archivedAt });
     }
   }
 

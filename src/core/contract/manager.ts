@@ -62,6 +62,7 @@ import {
   type PersistenceContext,
   PROGRESS_CURRENT_SCHEMA_VERSION,
 } from './persistence.js';
+import { type ContractId, makeContractId } from './types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
 import { runContractVerifier } from './verifier-job.js';
 import {
@@ -117,7 +118,7 @@ export class ContractSystem {
   private archiveDir = CONTRACT_ARCHIVE_DIR;
   onNotify?: (type: string, data: Record<string, unknown>) => void;
 
-  private contractCompletedCallbacks: Set<(contractId: string) => Promise<void>> = new Set();
+  private contractCompletedCallbacks: Set<(contractId: ContractId) => Promise<void>> = new Set();
 
   /**
    * phase 1020 (r124 C fork): per-contract active verifier controllers
@@ -126,7 +127,7 @@ export class ContractSystem {
    */
   private _activeContractControllers = new Map<string, Set<{ controller: AbortController; promise: Promise<unknown> }>>();
 
-  private _registerVerifierController(contractId: string, ctrl: AbortController, promise: Promise<unknown>): void {
+  private _registerVerifierController(contractId: ContractId, ctrl: AbortController, promise: Promise<unknown>): void {
     let s = this._activeContractControllers.get(contractId);
     if (!s) {
       s = new Set();
@@ -135,7 +136,7 @@ export class ContractSystem {
     s.add({ controller: ctrl, promise });
   }
 
-  private _unregisterVerifierController(contractId: string, ctrl: AbortController): void {
+  private _unregisterVerifierController(contractId: ContractId, ctrl: AbortController): void {
     const s = this._activeContractControllers.get(contractId);
     if (!s) return;
     for (const entry of s) {
@@ -147,7 +148,7 @@ export class ContractSystem {
     if (s.size === 0) this._activeContractControllers.delete(contractId);
   }
 
-  hasActiveVerifiers(contractId: string): boolean {
+  hasActiveVerifiers(contractId: ContractId): boolean {
     const set = this._activeContractControllers.get(contractId);
     return set ? set.size > 0 : false;
   }
@@ -160,7 +161,7 @@ export class ContractSystem {
     return total;
   }
 
-  private _abortContractVerifiers(contractId: string, reason: string): void {
+  private _abortContractVerifiers(contractId: ContractId, reason: string): void {
     const s = this._activeContractControllers.get(contractId);
     if (!s) return;
     const err = new Error(`contract ${contractId} cancelled: ${reason}`);
@@ -199,7 +200,7 @@ export class ContractSystem {
   // contractDir helper
   // ============================================================================
 
-  private async contractDir(contractId: string): Promise<string> {
+  private async contractDir(contractId: ContractId): Promise<string> {
     if (await this.fs.exists(`${this.activeDir}/${contractId}/progress.json`)) {
       return this.activeDir;
     }
@@ -320,7 +321,7 @@ export class ContractSystem {
 
   // Verification
   async completeSubtask(params: {
-    contractId: string;
+    contractId: ContractId;
     subtaskId: string;
     evidence: string;
     artifacts?: string[];
@@ -329,34 +330,34 @@ export class ContractSystem {
   }
 
   // Lifecycle
-  async pause(contractId: string, checkpointNote: string): Promise<void> {
+  async pause(contractId: ContractId, checkpointNote: string): Promise<void> {
     return pauseContract(this._lifecycleCtx(), contractId, checkpointNote);
   }
 
-  async resume(contractId: string): Promise<Contract> {
+  async resume(contractId: ContractId): Promise<Contract> {
     return resumeContract(this._lifecycleCtx(), contractId);
   }
 
-  async cancel(contractId: string, reason: string): Promise<void> {
+  async cancel(contractId: ContractId, reason: string): Promise<void> {
     return cancelContract(this._lifecycleCtx(), contractId, reason);
   }
 
-  async isComplete(contractId: string): Promise<boolean> {
+  async isComplete(contractId: ContractId): Promise<boolean> {
     return isContractComplete(this._lifecycleCtx(), contractId);
   }
 
   // Persistence
-  public async readContractYamlRaw(contractId: string): Promise<string> {
+  public async readContractYamlRaw(contractId: ContractId): Promise<string> {
     return readYaml(this._persistenceCtx(), contractId);
   }
 
   // Events
-  onContractCompleted(cb: (contractId: string) => Promise<void>): () => void {
+  onContractCompleted(cb: (contractId: ContractId) => Promise<void>): () => void {
     this.contractCompletedCallbacks.add(cb);
     return () => { this.contractCompletedCallbacks.delete(cb); };
   }
 
-  private async _emitContractCompleted(contractId: string): Promise<void> {
+  private async _emitContractCompleted(contractId: ContractId): Promise<void> {
     for (const cb of this.contractCompletedCallbacks) {
       try {
         await cb(contractId);
@@ -380,7 +381,7 @@ export class ContractSystem {
     if (contractYaml.id !== undefined && contractYaml.id.trim() === '') {
       throw new Error('contract id must not be empty');
     }
-    const contractId = contractYaml.id || `${Date.now()}-${randomUUID().slice(0, UUID_SHORT_LEN)}`;
+    const contractId = makeContractId(contractYaml.id || `${Date.now()}-${randomUUID().slice(0, UUID_SHORT_LEN)}`);
 
     // Check uniqueness against archived contracts too
     if (await this.fs.exists(`${this.archiveDir}/${contractId}`)) {
@@ -421,7 +422,7 @@ export class ContractSystem {
         { old: existing.id, new: contractId },
       );
       try {
-        await this.moveToArchive(existing.id);
+        await this.moveToArchive(makeContractId(existing.id));
       } catch (err) {
         emitContractMoveArchiveFailed(
           this.audit,
@@ -525,7 +526,7 @@ export class ContractSystem {
     return contractId;
   }
 
-  async getProgress(contractId: string): Promise<ProgressData> {
+  async getProgress(contractId: ContractId): Promise<ProgressData> {
     const dir = await this.contractDir(contractId);
     const progressPath = `${dir}/${contractId}/progress.json`;
     const content = await this.fs.read(progressPath);
@@ -569,32 +570,32 @@ export class ContractSystem {
   // private thin delegate（保 method 名 / tests white-box 调用面 + spy 保护）
   // ============================================================================
 
-  private async withProgressLock<T>(contractId: string, fn: () => Promise<T>): Promise<T> {
+  private async withProgressLock<T>(contractId: ContractId, fn: () => Promise<T>): Promise<T> {
     const dir = await this.contractDir(contractId);
     return wpl(this._lockCtx(), dir, contractId, fn);
   }
 
-  private async loadContractYaml(contractId: string): Promise<ContractYaml> {
+  private async loadContractYaml(contractId: ContractId): Promise<ContractYaml> {
     return loadYaml(this._persistenceCtx(), contractId);
   }
 
-  async _writeVerificationError(contractId: string, subtaskId: string, error: unknown): Promise<void> {
+  async _writeVerificationError(contractId: ContractId, subtaskId: string, error: unknown): Promise<void> {
     return writeVerificationError(this._verificationCtx(), contractId, subtaskId, error);
   }
 
-  private async loadContract(contractId: string): Promise<Contract> {
+  private async loadContract(contractId: ContractId): Promise<Contract> {
     return loadCt(this._persistenceCtx(), contractId);
   }
 
-  private async saveProgress(contractId: string, progress: ProgressData): Promise<void> {
+  private async saveProgress(contractId: ContractId, progress: ProgressData): Promise<void> {
     return saveProg(this._persistenceCtx(), contractId, progress);
   }
 
-  private async checkAllCompleted(contractId: string, progress: ProgressData): Promise<boolean> {
+  private async checkAllCompleted(contractId: ContractId, progress: ProgressData): Promise<boolean> {
     return checkAllSubtasksCompleted(this._persistenceCtx(), contractId, progress);
   }
 
-  private async moveToArchive(contractId: string): Promise<void> {
+  private async moveToArchive(contractId: ContractId): Promise<void> {
     return moveContractToArchive(this._lifecycleCtx(), contractId);
   }
 
@@ -605,7 +606,7 @@ export class ContractSystem {
   private async runLLMVerification(
     promptFile: string,
     contractAbsDir: string,
-    contractId: string,
+    contractId: ContractId,
     subtaskId: string,
     subtaskDesc: string,
     evidence: string,

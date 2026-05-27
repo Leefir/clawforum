@@ -3,6 +3,7 @@
  * Contract loading from active / paused dir
  */
 
+import { type ContractId, makeContractId } from './types.js';
 import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Contract } from '../contract/types.js';
@@ -16,7 +17,7 @@ import {
 export interface DiscoveryContext {
   fs: FileSystem;
   audit: AuditLog;
-  loadContract: (contractId: string) => Promise<Contract>;
+  loadContract: (contractId: ContractId) => Promise<Contract>;
 }
 
 interface LatestEntry { name: string; startedAt: string; }
@@ -82,7 +83,7 @@ export async function loadActiveContract(
 ): Promise<Contract | null> {
   const latest = await findLatestContract(ctx, activeDir, 'ContractSystem.loadActive');
   if (!latest) return null;
-  const contract = await ctx.loadContract(latest.name);
+  const contract = await ctx.loadContract(makeContractId(latest.name));
   contract.status = 'running';
   return contract;
 }
@@ -93,7 +94,7 @@ export async function loadPausedContract(
 ): Promise<Contract | null> {
   const latest = await findLatestContract(ctx, pausedDir, 'ContractSystem.loadPaused');
   if (!latest) return null;
-  const contract = await ctx.loadContract(latest.name);
+  const contract = await ctx.loadContract(makeContractId(latest.name));
   contract.status = 'paused';
   return contract;
 }

@@ -13,6 +13,8 @@ import type { Message } from '../../foundation/llm-provider/types.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { isProgrammingBug } from '../../foundation/errors.js';
 import { readPendingRetrospective, InvalidJSONError, UnexpectedFormatError } from '../summon-system/index.js';
+import type { ContractId } from '../contract/types.js';
+
 
 export interface EvolutionSystemDeps {
   fs: FileSystem;
@@ -164,7 +166,7 @@ export class EvolutionSystem {
 
   /** handleReviewRequest 6 步业务（phase411 Step B 物理迁自 ContractSystem） */
   async runRetroForContract(
-    contractId: string,
+    contractId: ContractId,
     ctx: MotionReviewContext,
   ): Promise<RetroResult> {
     // Step 0: lazy load state (first call only / atomic via Promise cache)

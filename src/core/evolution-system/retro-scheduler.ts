@@ -19,11 +19,13 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import { RETRO_AUDIT_EVENTS } from './retro-audit-events.js';
 import { makeClawId } from '../../foundation/identity/index.js';
+import type { ContractId } from '../contract/types.js';
+
 
 
 export interface RetroConfig {
   targetClaw: string;
-  contractId: string;
+  contractId: ContractId;
   contractYaml: string;
   motionFs: FileSystem;
   motionAudit: AuditLog;

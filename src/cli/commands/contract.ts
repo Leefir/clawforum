@@ -20,6 +20,7 @@ import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
+import { type ContractId, makeContractId } from '../../core/contract/types.js';
 
 
 
@@ -37,7 +38,7 @@ function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
   return contract;
 }
 
-export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: string, clawId: ClawId, contractId: string, contract: ContractYaml): void {
+export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: string, clawId: ClawId, contractId: ContractId, contract: ContractYaml): void {
   const { fs, audit: contractAudit } = createDirContext(deps, clawDir);
 
   // best-effort：通知 viewport via stream.jsonl（失败不中断 contract 创建）
@@ -92,7 +93,7 @@ export async function contractCreateCommand(deps: { fsFactory: (baseDir: string)
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=file`);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
 
-  notifyContractCreated(deps, clawDir, clawId, contractId, contract);
+  notifyContractCreated(deps, clawDir, clawId, makeContractId(contractId), contract);
 }
 
 /**
@@ -131,7 +132,7 @@ export async function contractCreateFromDirCommand(deps: { fsFactory: (baseDir: 
     }
   }
 
-  notifyContractCreated(deps, clawDir, clawId, contractId, contract);
+  notifyContractCreated(deps, clawDir, clawId, makeContractId(contractId), contract);
 }
 
 /**
@@ -166,7 +167,7 @@ export async function contractLogCommand(deps: { fsFactory: (baseDir: string) =>
   // 读契约 YAML（active/paused/archive 均可）
   let contractYaml: ContractYaml;
   try {
-    const raw = await manager.readContractYamlRaw(resolvedId);
+    const raw = await manager.readContractYamlRaw(makeContractId(resolvedId));
     contractYaml = yaml.load(raw) as ContractYaml;
   } catch (err) {
     // phase 906 r115 O fork (audit-2026-05-16 NEW.P2.6): preserve Error cause chain
@@ -179,7 +180,7 @@ export async function contractLogCommand(deps: { fsFactory: (baseDir: string) =>
   // 读 progress（active/paused/archive 均可）
   let progress: ProgressData | null = null;
   try {
-    progress = await manager.getProgress(resolvedId);
+    progress = await manager.getProgress(makeContractId(resolvedId));
   } catch (err) {
     // phase 906 r115 O fork (audit-2026-05-16 NEW.P2.6): narrow to ENOENT only
     // file missing = expected (注释原意「progress 文件缺失」)，其他错误 = real bug bubble

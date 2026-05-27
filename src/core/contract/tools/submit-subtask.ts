@@ -8,6 +8,7 @@
 import type { Tool, ExecContext } from '../../../foundation/tools/index.js';
 import type { ToolResult } from '../../../foundation/tool-protocol/index.js';
 import type { ContractSystem } from '../manager.js';
+import { makeContractId } from '../types.js';
 
 /**
  * Done tool implementation
@@ -61,7 +62,7 @@ export function createSubmitSubtaskTool(contractManager: ContractSystem): Tool {
       const artifacts = (args.artifacts as string[]) || [];
 
       const result = await contractManager.completeSubtask({
-        contractId: active.id,
+        contractId: makeContractId(active.id),
         subtaskId,
         evidence,
         artifacts,

@@ -3,6 +3,7 @@
  * Contract status transitions: pause / resume / cancel / archive / completion check
  */
 
+import type { ContractId } from './types.js';
 import type { Contract } from '../contract/types.js';
 import type { ProgressData } from './types.js';
 import { acquireLock, releaseLock, type LockContext } from './lock.js';
@@ -18,18 +19,18 @@ export interface LifecycleContext extends LockContext {
   activeDir: string;
   pausedDir: string;
   archiveDir: string;
-  contractDir: (contractId: string) => Promise<string>;
-  loadContract: (contractId: string) => Promise<Contract>;
-  getProgress: (contractId: string) => Promise<ProgressData>;
-  saveProgress: (contractId: string, progress: ProgressData) => Promise<void>;
-  checkAllSubtasksCompleted: (contractId: string, progress: ProgressData) => Promise<boolean>;
+  contractDir: (contractId: ContractId) => Promise<string>;
+  loadContract: (contractId: ContractId) => Promise<Contract>;
+  getProgress: (contractId: ContractId) => Promise<ProgressData>;
+  saveProgress: (contractId: ContractId, progress: ProgressData) => Promise<void>;
+  checkAllSubtasksCompleted: (contractId: ContractId, progress: ProgressData) => Promise<boolean>;
   /** phase 1020 (r124 C fork): cancelContract abort propagation to active verifier subagents */
-  abortContractVerifiers: (contractId: string, reason: string) => void;
+  abortContractVerifiers: (contractId: ContractId, reason: string) => void;
 }
 
 export async function pauseContract(
   ctx: LifecycleContext,
-  contractId: string,
+  contractId: ContractId,
   checkpointNote: string,
 ): Promise<void> {
   const dir = await ctx.contractDir(contractId);
@@ -79,7 +80,7 @@ export async function pauseContract(
 
 export async function resumeContract(
   ctx: LifecycleContext,
-  contractId: string,
+  contractId: ContractId,
 ): Promise<Contract> {
   const dir = await ctx.contractDir(contractId);
   if (dir !== ctx.pausedDir) {
@@ -111,7 +112,7 @@ export async function resumeContract(
 
 export async function cancelContract(
   ctx: LifecycleContext,
-  contractId: string,
+  contractId: ContractId,
   reason: string,
 ): Promise<void> {
   const dir = await ctx.contractDir(contractId);
@@ -163,7 +164,7 @@ export async function cancelContract(
 
 export async function isContractComplete(
   ctx: LifecycleContext,
-  contractId: string,
+  contractId: ContractId,
 ): Promise<boolean> {
   const progress = await ctx.getProgress(contractId);
   return ctx.checkAllSubtasksCompleted(contractId, progress);
@@ -171,7 +172,7 @@ export async function isContractComplete(
 
 export async function moveContractToArchive(
   ctx: LifecycleContext,
-  contractId: string,
+  contractId: ContractId,
 ): Promise<void> {
   const dir = await ctx.contractDir(contractId);
   if (dir === ctx.archiveDir) return;

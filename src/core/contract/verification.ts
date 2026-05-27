@@ -27,6 +27,8 @@ import { archiveAndEmit, completeSubtaskSync } from './verification-lifecycle.js
 import { writeVerificationInbox, writeVerificationError, safeNotify } from './verification-notify.js';
 import { formatRejectionFeedback, formatValidIds } from './verification-format.js';
 import type { VerificationContext } from './verification-types.js';
+import type { ContractId } from './types.js';
+
 
 export type { VerificationContext } from './verification-types.js';
 
@@ -38,7 +40,7 @@ async function runVerificationByType(
   ctx: VerificationContext,
   verificationConfig: VerificationConfig,
   contractAbsDir: string,
-  contractId: string,
+  contractId: ContractId,
   subtaskId: string,
   subtaskDesc: string,
   evidence: string,
@@ -83,7 +85,7 @@ async function runVerificationByType(
 
 async function applyVerificationOutcome(
   ctx: VerificationContext,
-  contractId: string,
+  contractId: ContractId,
   subtaskId: string,
   subtaskDesc: string,
   result: VerificationResult,
@@ -206,7 +208,7 @@ async function applyVerificationOutcome(
 
 export async function runVerificationPipeline(
   ctx: VerificationContext,
-  params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
+  params: { contractId: ContractId; subtaskId: string; evidence: string; artifacts?: string[] },
 ): Promise<VerificationResult> {
   const { contractId, subtaskId, evidence, artifacts } = params;
   const contractYaml = await ctx.loadContractYaml(contractId);
@@ -274,7 +276,7 @@ export async function runVerificationPipeline(
 
 export async function runVerificationInBackground(
   ctx: VerificationContext,
-  params: { contractId: string; subtaskId: string; evidence: string; artifacts?: string[] },
+  params: { contractId: ContractId; subtaskId: string; evidence: string; artifacts?: string[] },
   contractYaml: ContractYaml,
   verificationConfig: VerificationConfig,
 ): Promise<void> {

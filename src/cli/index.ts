@@ -47,6 +47,7 @@ import { getClawforumRoot, getClawDir, loadGlobalConfig } from '../foundation/co
 import { CONFIG_DEFAULTS } from '../assembly/config-defaults.js';
 import { parseIntOption } from './parse-int-option.js';
 import { makeClawId } from '../foundation/identity/index.js';
+import { makeContractId } from '../core/contract/types.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 
 const fsFactory = (baseDir: string): FileSystem => new NodeFileSystem({ baseDir });
@@ -180,7 +181,7 @@ clawCmd
   .option('--step <n>', 'Show full content of step N (no truncation)', parseInt)
   .action(withCliErrorHandling(async (opts: { claw: string; contract: string; step?: number }) => {
     const { clawTraceCommand } = await import('./commands/claw.js');
-    await clawTraceCommand({ fsFactory }, makeClawId(opts.claw), opts.contract, opts.step);
+    await clawTraceCommand({ fsFactory }, makeClawId(opts.claw), makeContractId(opts.contract), opts.step);
   }));
 
 // claw steps

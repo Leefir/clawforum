@@ -21,6 +21,8 @@ import { TASKS_SYNC_SHADOW_DIR } from '../../core/shadow-system/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
+import { type ContractId, makeContractId } from '../../core/contract/types.js';
+
 
 
 export type SubagentKind = 'summon' | 'spawn' | 'shadow' | 'verifier' | 'random_dream' | 'cron';
@@ -229,11 +231,11 @@ function scanSyncDir(
       }
     }
     // contractId only meaningful for verifier-<contractId>-<subtaskId>
-    let contractId: string | undefined;
+    let contractId: ContractId | undefined;
     if (id.startsWith('verifier-')) {
       const rest = id.slice('verifier-'.length);
       const lastDash = rest.lastIndexOf('-');
-      if (lastDash > 0) contractId = rest.slice(0, lastDash);
+      if (lastDash > 0) contractId = makeContractId(rest.slice(0, lastDash));
     }
     results.push({ id, kind, status, startedAt, durationMs, contractId });
   }

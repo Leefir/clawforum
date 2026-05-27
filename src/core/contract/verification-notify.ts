@@ -7,6 +7,7 @@ import * as path from 'path';
 import type { VerificationContext } from './verification-types.js';
 import { notifyClaw } from '../../foundation/messaging/index.js';
 
+import type { ContractId } from './types.js';
 import { formatErr } from '../../foundation/utils/format.js';
 import { ToolTimeoutError } from '../../foundation/errors.js';
 import type { LastFailedFeedback, AcceptanceFailedNotification } from './types.js';
@@ -35,7 +36,7 @@ export function safeNotify(
 
 export function writeVerificationInbox(
   ctx: VerificationContext,
-  contractId: string,
+  contractId: ContractId,
   subtaskId: string,
   verdict: 'passed' | 'rejected',
   allCompleted: boolean,
@@ -71,7 +72,7 @@ export function writeVerificationInbox(
 
 export async function writeVerificationError(
   ctx: VerificationContext,
-  contractId: string,
+  contractId: ContractId,
   subtaskId: string,
   error: unknown,
 ): Promise<void> {
