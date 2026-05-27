@@ -3,10 +3,20 @@
 // mirror phase 964+1019+1244+1265+1266+1277+1278+1324 mechanical invariant 三件套 N=9 累达
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 
-const DESIGN_ROOT = join(import.meta.dirname, '../../../../design/interfaces');
+function findDesignRoot(startDir: string): string {
+  let dir = startDir;
+  for (let i = 0; i < 6; i++) {
+    const candidate = join(dir, 'design', 'interfaces');
+    if (existsSync(candidate)) return candidate;
+    dir = dirname(dir);
+  }
+  throw new Error('design/interfaces not found from ' + startDir);
+}
+
+const DESIGN_ROOT = findDesignRoot(import.meta.dirname);
 const SRC_ROOT = join(import.meta.dirname, '../../src');
 
 describe('design interfaces sync invariant (phase 1327 r137 E fork)', () => {

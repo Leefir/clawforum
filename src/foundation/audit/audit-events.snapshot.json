@@ -184,11 +184,11 @@
     "core_evolution-system_retro-audit-events": [
       "contract_retro_cleanup_failed",
       "contract_retro_index_failed",
-      "evolution_boot_reconcile",
       "contract_retro_mining_failed",
       "contract_retro_schedule_failed",
       "contract_retro_skill_failed",
       "contract_retro_yaml_failed",
+      "evolution_boot_reconcile",
       "retro_skipped_duplicate",
       "retro_state_load_failed",
       "retro_state_save_failed"
@@ -302,12 +302,12 @@
       "turn_start"
     ],
     "core_summon-system_audit-events": [
+      "retro_index_parse_failed",
       "summon_contract_done_missing_fields",
       "summon_contract_done_not_found",
       "summon_contract_done_parse_failed",
       "summon_load_skills_failed",
       "summon_no_dialog_context",
-      "summon_retro_index_parse_failed",
       "summon_write_by_contract_failed"
     ],
     "daemon_audit-events": [
