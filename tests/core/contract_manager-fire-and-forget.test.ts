@@ -29,6 +29,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * Retry completeSubtask on transient mutex race ("already active"),
+ * with exponential backoff (50/100/200/400/800ms, 5 attempts).
+ */
+async function completeSubtaskWithRetry(
+  manager: ContractSystem,
+  params: { contractId: string; subtaskId: string; evidence: string },
+  maxRetries = 5,
+): Promise<ReturnType<ContractSystem['completeSubtask']>> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await manager.completeSubtask(params);
+    } catch (e: any) {
+      if (e?.message?.includes('already active') && attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 50 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('unreachable');
+}
+
 describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback driven)', () => {
   let manager: ContractSystem;
   let nodeFs: NodeFileSystem;
@@ -239,7 +262,7 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
       });
 
       for (let i = 0; i < 3; i++) {
-        await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: `attempt ${i + 1}` });
+        await completeSubtaskWithRetry(testManager, { contractId, subtaskId: 't1', evidence: `attempt ${i + 1}` });
         await waitFor(
           async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
           5000,
@@ -294,7 +317,7 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
         passed: false,
         feedback: 'first reject',
       });
-      await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done1' });
+      await completeSubtaskWithRetry(testManager, { contractId, subtaskId: 't1', evidence: 'done1' });
       await waitFor(
         async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
         5000,
@@ -305,7 +328,7 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
       spy = vi.spyOn(testManager as any, 'runLLMVerification').mockRejectedValueOnce(
         new Error('bug')
       );
-      await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done2' });
+      await completeSubtaskWithRetry(testManager, { contractId, subtaskId: 't1', evidence: 'done2' });
       await waitFor(
         async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
         5000,
@@ -316,7 +339,7 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
       spy = vi.spyOn(testManager as any, 'runLLMVerification').mockRejectedValueOnce(
         new ToolTimeoutError('verifier', 3000)
       );
-      await testManager.completeSubtask({ contractId, subtaskId: 't1', evidence: 'done3' });
+      await completeSubtaskWithRetry(testManager, { contractId, subtaskId: 't1', evidence: 'done3' });
       await waitFor(
         async () => (await testManager.getProgress(contractId)).subtasks['t1'].status !== 'in_progress',
         5000,
