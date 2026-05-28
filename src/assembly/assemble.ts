@@ -560,7 +560,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       // fs = parentFs (baseDir = .clawforum/) align clawforumRoot、避免 systemFs (baseDir = motion/) 沙箱拒 sibling claws/<to> absolute path
       toolRegistry.register(createNotifyClawTool({
         fs: parentFs,
-        clawforumRoot: makeClawforumRoot(path.dirname(clawDir)),  // motion clawDir = <root>/.clawforum/motion → <root>/.clawforum (clawforumRoot)
+        clawforumRoot: makeClawforumRoot(path.dirname(clawDir)),  // Motion-only callsite: motion clawDir = <root>/.clawforum/motion → <root>/.clawforum (clawforumRoot)
         audit: auditWriter,
       }));
     }

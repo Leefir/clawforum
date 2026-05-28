@@ -61,7 +61,9 @@ export function writeVerificationInbox(
     body = feedback || 'No feedback provided';
   }
 
-  const clawforumRoot = makeClawforumRoot(path.dirname(path.dirname(ctx.clawDir)));
+  // phase 1388 Bug B fix: dirname 双层在 Motion 布局错位 (`.clawforum/motion` → workspaceRoot 而非 `.clawforum`)
+  // 改用从 clawDir 中锚定 .clawforum 段的推导，兼容真实生产布局 + 测试简化布局
+  const clawforumRoot = makeClawforumRoot(deriveClawforumRoot(ctx.clawDir as unknown as string));
   notifyClaw(ctx.fs, clawforumRoot, ctx.clawId, {
     type: verdict === 'passed' ? 'verification_result' : 'verification_rejection',
     source: 'contract_system',
@@ -86,7 +88,7 @@ export async function writeVerificationError(
       ? `Acceptance verifier timed out after ${(error as ToolTimeoutError).context?.timeoutMs ?? '?'}ms. 资源 / 网络问题 / 重试可能修复。Error: ${errorMsg}`
       : `Acceptance verification crashed (system bug). Error: ${errorMsg}. 修代码后再 retry。`;
 
-  const clawforumRoot = makeClawforumRoot(path.dirname(path.dirname(ctx.clawDir)));
+  const clawforumRoot = makeClawforumRoot(deriveClawforumRoot(ctx.clawDir as unknown as string));
   notifyClaw(ctx.fs, clawforumRoot, ctx.clawId, {
     type: 'verification_error',
     source: 'contract_system',
@@ -146,4 +148,22 @@ export async function writeVerificationError(
       { context: 'ContractSystem._writeVerificationError.resetStatus', error: formatErr(e) },
     );
   }
+}
+
+/**
+ * phase 1388 Bug B fix: 从 clawDir 推导 clawforumRoot。
+ * 真实生产布局中 clawDir 含 `.clawforum` 段（Motion: .clawforum/motion, 普通 claw: .clawforum/claws/<id>），
+ * 直接锚定 `.clawforum` 提取根目录，避免 dirname 层数硬编码在 Motion 端错位。
+ * 测试简化布局（无 .clawforum 段）回退到旧双 dirname 推导以保持兼容。
+ */
+function deriveClawforumRoot(dir: string): string {
+  const normalized = path.normalize(dir);
+  const parts = normalized.split(path.sep);
+  const idx = parts.indexOf('.clawforum');
+  if (idx !== -1) {
+    return parts.slice(0, idx + 1).join(path.sep);
+  }
+  // 测试 fixture 简化布局 fallback
+  const parent = path.dirname(dir);
+  return path.dirname(parent);
 }
