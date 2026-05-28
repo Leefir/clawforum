@@ -382,6 +382,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     });
 
     
+    // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
     notifyClaw(notifyFs, makeClawforumRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
       type: 'message',
       source: 'system',
@@ -408,6 +409,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
         subtasks: buildOnboardingSubtasks('auto'),
         verification: [],
       });
+      // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
       notifyClaw(notifyFs, makeClawforumRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
         type: 'message', source: 'system', priority: 'high',
         body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
@@ -415,6 +417,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
       }, notifyAudit);
     } else {
       const pendingList = onboarding.pending?.join(', ') ?? '';
+      // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
       notifyClaw(notifyFs, makeClawforumRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
         type: 'message', source: 'system', priority: 'high',
         body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,

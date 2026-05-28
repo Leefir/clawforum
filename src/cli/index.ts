@@ -310,6 +310,7 @@ motionCmd
     const { createAgentProcessManager } = await import('../foundation/process-manager/agent-factory.js');
     loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
     const motionDir = makeClawDir(getNamedSubrootDir('motion'));
+    // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
     const baseDir = path.dirname(motionDir);
     const nodeFs = fsFactory(baseDir);
     const systemAudit = createSystemAudit(nodeFs, baseDir);

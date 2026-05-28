@@ -45,6 +45,7 @@ export function logWithAudit(
 /** 1:1 保 watchdog.ts:178-191 */
 export function writeWatchdogInboxMessage(fsFactory: (baseDir: string) => FileSystem, type: string, content: Record<string, unknown>): void {
   const motionDir = makeClawDir(getNamedSubrootDir('motion'));
+  // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
   const clawforumRoot = makeClawforumRoot(path.dirname(motionDir));
   const { fs, audit } = getMotionContext(fsFactory);
   const body = typeof content.message === 'string' ? content.message : JSON.stringify(content);
