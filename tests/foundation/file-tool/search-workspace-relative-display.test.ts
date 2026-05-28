@@ -118,7 +118,7 @@ describe('search tool — workspace-relative display (phase 776)', () => {
   });
 
   it('cross-claw search: keeps target claw-relative display (unchanged)', async () => {
-    const mainClawDir = path.join(tempDir, 'main-claw');
+    const mainClawDir = path.join(tempDir, '.clawforum', 'claws', 'main-claw');
     await fs.mkdir(mainClawDir, { recursive: true });
     const otherClawDir = path.join(tempDir, 'claws', 'other-claw', 'clawspace');
     await fs.mkdir(otherClawDir, { recursive: true });

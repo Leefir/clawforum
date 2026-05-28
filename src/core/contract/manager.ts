@@ -62,7 +62,7 @@ import {
   type PersistenceContext,
   PROGRESS_CURRENT_SCHEMA_VERSION,
 } from './persistence.js';
-import { type ContractId, makeContractId } from '../../foundation/identity/index.js';
+import { type ContractId, makeContractId, makeClawforumRoot } from '../../foundation/identity/index.js';
 import { type SubtaskId, type ArchiveDir, makeArchiveDir } from './types.js';
 import type { ClawId, ClawforumRoot } from '../../foundation/identity/index.js';
 import { runContractVerifier } from './verifier-job.js';
@@ -72,6 +72,7 @@ import {
   type LifecycleContext,
 } from './lifecycle.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
+import * as path from 'path';
 import {
   runVerificationPipeline,
   runScriptVerification as runScriptVerificationFn,
@@ -193,7 +194,7 @@ export class ContractSystem {
     this.fs = deps.fs;
     this.audit = deps.audit;
     this.llm = deps.llm;
-    this.clawforumRoot = deps.clawforumRoot;
+    this.clawforumRoot = deps.clawforumRoot ?? makeClawforumRoot(path.join(deps.clawDir, '..', '..'));
     this.toolRegistry = deps.toolRegistry;
     this.toolTimeoutMs = deps.toolTimeoutMs;
     this.fsFactory = deps.fsFactory;
@@ -265,6 +266,7 @@ export class ContractSystem {
       ...this._lockCtx(),
       clawDir: this.clawDir,
       clawId: this.clawId,
+      clawforumRoot: this.clawforumRoot,
       llm: this.llm,
       contractDir: (id) => this.contractDir(id),
       loadContractYaml: (id) => this.loadContractYaml(id),

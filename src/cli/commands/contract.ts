@@ -88,7 +88,8 @@ export async function contractCreateCommand(deps: { fsFactory: (baseDir: string)
 
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..'));
+  // phase 1389: regular claw clawforumRoot 双层 up / mirror assemble.ts:279 模板 (phase 1387 Step B + bff2dcfc follow-up)
+  const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..', '..'));
   const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
 
   const contractId = await manager.create(contract);
@@ -111,7 +112,7 @@ export async function contractCreateFromDirCommand(deps: { fsFactory: (baseDir: 
 
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..'));
+  const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..', '..'));
   const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
 
   const contractId = await manager.create(contract);
@@ -154,7 +155,7 @@ export async function contractEventsCommand(deps: { fsFactory: (baseDir: string)
 export async function contractLogCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..'));
+  const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..', '..'));
   const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
 
   // 若未指定 contractId，用 active 契约

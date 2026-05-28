@@ -27,7 +27,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
   });
 
   it('walkNative finds matches without abort signal', async () => {
-    const mainClawDir = path.join(tempDir, 'main-claw');
+    const mainClawDir = path.join(tempDir, '.clawforum', 'claws', 'main-claw');
     const otherClawDir = path.join(tempDir, 'claws', 'other-claw', 'clawspace');
     await fs.mkdir(otherClawDir, { recursive: true });
     await fs.writeFile(path.join(otherClawDir, 'note.txt'), 'needle in haystack');
@@ -54,7 +54,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
   });
 
   it('aborted signal interrupts walkNative recursion (反向 1)', async () => {
-    const mainClawDir = path.join(tempDir, 'main-claw');
+    const mainClawDir = path.join(tempDir, '.clawforum', 'claws', 'main-claw');
     const otherClawDir = path.join(tempDir, 'claws', 'other-claw', 'clawspace');
     await fs.mkdir(otherClawDir, { recursive: true });
     await fs.writeFile(path.join(otherClawDir, 'note.txt'), 'needle in haystack');

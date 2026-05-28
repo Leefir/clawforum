@@ -583,7 +583,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 0;
       if (heartbeatIntervalMs > 0) {
         try {
-          heartbeat = createHeartbeat(makeClawforumRoot(path.join(clawDir, '..')), {
+          heartbeat = createHeartbeat(makeClawforumRoot(path.join(clawDir, '..')), {  // Motion-only callsite: isMotion guard
             interval: heartbeatIntervalMs / 1000,
             fs: parentFs,
             audit: auditWriter,
@@ -600,7 +600,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     let cronRunner: CronRunner | undefined;
     let messaging: Messaging | undefined;
     if (isMotion && (globalConfig.cron?.enabled ?? true)) {
-      const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..'));
+      const clawforumRoot = makeClawforumRoot(path.join(clawDir, '..'));  // Motion-only callsite: isMotion+cron guard
       const tickMs = globalConfig.cron?.tick_interval_ms ?? CRON_TICK_INTERVAL_MS;
       const diskLimitMB = globalConfig.watchdog?.disk_warning_mb ?? DEFAULT_DISK_WARNING_MB;
       const diskScheduleStr = globalConfig.cron?.jobs?.disk_monitor?.schedule ?? 'hourly';
