@@ -25,3 +25,4 @@ export { healthCommand } from './claw-health.js';
 export { sendCommand } from './claw-send.js';
 export { outboxCommand } from './claw-outbox.js';
 export { clawTraceCommand } from './claw-trace.js';
+export { cpCommand } from './claw-cp.js';

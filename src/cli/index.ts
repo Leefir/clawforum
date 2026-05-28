@@ -27,6 +27,7 @@ import {
   healthCommand,
   sendCommand,
   outboxCommand,
+  cpCommand,
 } from './commands/claw.js';
 
 import { 
@@ -175,6 +176,15 @@ clawCmd
     const { audit } = createDirContext({ fsFactory }, getClawDir(name));
     const limit = parseIntOption(opts.limit, '--limit must be a non-negative integer');
     await outboxCommand({ fsFactory }, name, { limit }, { audit });
+  }));
+
+// claw cp
+clawCmd
+  .command('cp <source> <name>')
+  .description('Copy a local file/directory into a Claw\'s clawspace')
+  .option('-t, --target <subdir>', 'Target subdirectory under clawspace')
+  .action(withCliErrorHandling(async (source: string, name: string, opts: { target?: string }) => {
+    await cpCommand({ fsFactory }, source, name, opts.target);
   }));
 
 // claw trace

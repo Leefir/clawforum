@@ -13,7 +13,7 @@ import { READ_MAX_LINES, READ_MAX_CHARS } from './constants.js';
 import { resolveWorkspacePath } from './_resolve-path.js';
 import { safeNumber } from '../utils/format.js';
 
-import { CLAWS_DIR } from '../paths.js';
+import { CLAWS_DIR, CLAWSPACE_DIR } from '../paths.js';
 export const READ_TOOL_NAME = 'read' as const;
 
 export const readTool: Tool = {
@@ -84,23 +84,23 @@ export const readTool: Tool = {
           content: `Error: Invalid claw ID: "${clawParam}"`,
         };
       }
-      // Resolve path to target claw's directory
-      const targetPath = nodePath.resolve(ctx.clawforumRoot, CLAWS_DIR, clawParam, nodePath.normalize(filePath));
-      // Escape check: must be within the target claw's directory
+      // Resolve path relative to target claw's workspaceDir (clawspace), same contract as local read.
+      // "../" escapes clawspace to claw root, blocked from going beyond.
       const clawsDir = nodePath.join(ctx.clawforumRoot, CLAWS_DIR);
-      const clawRoot = nodePath.join(clawsDir, clawParam);
-      if (targetPath !== clawRoot && !targetPath.startsWith(clawRoot + nodePath.sep)) {
+      const targetClawDir = nodePath.join(clawsDir, clawParam);
+      const targetWorkspaceDir = nodePath.join(targetClawDir, CLAWSPACE_DIR);
+      const normalizedPath = nodePath.normalize(filePath);
+      const targetPath = nodePath.resolve(targetWorkspaceDir, normalizedPath);
+      if (targetPath !== targetClawDir && !targetPath.startsWith(targetClawDir + nodePath.sep)) {
         return {
           success: false,
           content: `Error: Path escapes target claw directory: "${filePath}"`,
         };
       }
-      // Cross-claw read: per-target NodeFileSystem
-      // Phase 1105: cross-claw permission check is a design decision — current PermissionChecker is caller-scoped,
-      // not target-scoped. Direct claw-to-claw read permission is managed by hub-and-spoke topology (motion routes).
+      // Cross-claw read: per-target NodeFileSystem scoped to target clawspace
       try {
-        const targetFs = ctx.fsFactory(nodePath.join(clawsDir, clawParam));
-        content = await targetFs.read(nodePath.normalize(filePath));
+        const targetFs = ctx.fsFactory(targetWorkspaceDir);
+        content = await targetFs.read(normalizedPath);
       } catch (error) {
         return {
           success: false,

@@ -1076,7 +1076,7 @@ describe('Builtin Tools', () => {
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
-      const result = await readTool.execute({ path: 'clawspace/test.txt', claw: 'claw1' }, motionCtx);
+      const result = await readTool.execute({ path: 'test.txt', claw: 'claw1' }, motionCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('Hello from claw1');
@@ -1103,7 +1103,7 @@ describe('Builtin Tools', () => {
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
-      const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, subagentCtx);
+      const result = await readTool.execute({ path: 'note.txt', claw: 'claw1' }, subagentCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('Note from claw1');
@@ -1126,7 +1126,7 @@ describe('Builtin Tools', () => {
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
-      const result = await readTool.execute({ path: 'clawspace/note.txt', claw: 'claw1' }, mainCtx);
+      const result = await readTool.execute({ path: 'note.txt', claw: 'claw1' }, mainCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('Note from claw1');
@@ -1193,10 +1193,12 @@ describe('Builtin Tools', () => {
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
+      // "../c11/secret.md" from clawspace resolves to <clawDir>/c11/secret.md (within claw).
+      // NodeFileSystem.read blocks "../" prefix as base directory escape.
       const result = await readTool.execute({ path: '../c11/secret.md', claw: 'c1' }, motionCtx);
 
       expect(result.success).toBe(false);
-      expect(result.content).toMatch(/Path escapes target claw directory/);
+      expect(result.content).toMatch(/attempts to escape base directory/);
     });
 
     it('allows cross-claw read when targetPath equals clawRoot (path="")', async () => {
@@ -1243,18 +1245,18 @@ describe('Builtin Tools', () => {
       await fs.writeFile(path.join(c1Dir, 'foo.md'), 'c1 content');
 
       // Cross-claw read c1/clawspace/foo.md from motion context
-      const readResult = await readTool.execute({ path: 'clawspace/foo.md', claw: 'c1' }, motionCtx);
+      const readResult = await readTool.execute({ path: 'foo.md', claw: 'c1' }, motionCtx);
       expect(readResult.success).toBe(true);
 
-      // Create a local file that motion same-claw write 'clawspace/foo.md' resolves to
-      const localFile = path.join(motionDir, 'clawspace', 'clawspace', 'foo.md');
+      // Create a local file that motion same-claw write 'foo.md' resolves to
+      const localFile = path.join(motionDir, 'clawspace', 'foo.md');
       await fs.mkdir(path.dirname(localFile), { recursive: true });
       await fs.writeFile(localFile, 'local content');
 
-      // Same-claw write to 'clawspace/foo.md' should still be rejected
+      // Same-claw write to 'foo.md' (resolves to clawspace/foo.md) should still be rejected
       // because cross-claw read must not add to same-claw write gate
       const writeResult = await writeTool.execute({
-        path: 'clawspace/foo.md',
+        path: 'foo.md',
         content: 'attack',
       }, motionCtx);
 

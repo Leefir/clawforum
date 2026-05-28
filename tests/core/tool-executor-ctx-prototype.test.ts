@@ -71,7 +71,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
     const ctx = makeMotionCtx();
     const result = await executor.execute({
       toolName: 'read',
-      args: { path: 'clawspace/note.md', claw: 'other-claw' },
+      args: { path: 'note.md', claw: 'other-claw' },
       ctx,
     });
     expect(result.success).toBe(true);
@@ -124,7 +124,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
     });
     const result = await executor.execute({
       toolName: 'read',
-      args: { path: 'clawspace/note.md', claw: 'other-claw' },
+      args: { path: 'note.md', claw: 'other-claw' },
       ctx,
     });
     expect(result.success).toBe(true);
