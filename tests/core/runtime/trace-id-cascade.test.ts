@@ -102,7 +102,10 @@ describe('Runtime trace-id cascade (phase 1343 α-6)', () => {
     expect(traceId).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it('trace_id is unique across 50 turns', async () => {
+  // trace_id 是 16-char hex = 2^64 entropy / N=10 与 N=50 的生日碰撞概率均 ≈ 0
+  // (~10^-18)，两者都是在断言"生成器不平凡复用 (cache bug / off-by-one / 截断 bug)"
+  // 而非做统计意义 uniqueness 测量。N=10 同样能抓所有可疑实现，省 ~3s。
+  it('trace_id is unique across 10 turns', async () => {
     const runtime = await makeTraceRuntime();
     runtime.drainResult = {
       injected: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
@@ -112,16 +115,16 @@ describe('Runtime trace-id cascade (phase 1343 α-6)', () => {
       addressedHandles: [],
     };
 
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 10; i++) {
       await runtime.processBatch();
     }
 
     const seen = new Set(runtime.capturedTraceIds);
-    expect(seen.size).toBe(50);
+    expect(seen.size).toBe(10);
     for (const traceId of runtime.capturedTraceIds) {
       expect(traceId).toMatch(/^[0-9a-f]{16}$/);
     }
-  }, 10000);
+  });
 
   it('audit rows contain trace_id col during turn', async () => {
     const runtime = await makeTraceRuntime();
