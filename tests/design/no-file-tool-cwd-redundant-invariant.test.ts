@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-describe('phase 1390: read/write/ls/edit/multi_edit 不再含 cwd schema field', () => {
+describe('phase 1390 + 1427: file-tool 6 工具不再含 cwd schema field（search.cwd 由 phase 1427 删）', () => {
   const ROOT = path.resolve(__dirname, '../..');
-  const TOOLS = ['read', 'write', 'ls', 'edit', 'multi_edit'];
+  // phase 1390: 5 tool / phase 1427: search 加入
+  const TOOLS = ['read', 'write', 'ls', 'edit', 'multi_edit', 'search'];
 
-  it('5 file tool schema 0 cwd field', () => {
+  it('6 file tool schema 0 cwd field', () => {
     for (const tool of TOOLS) {
       const file = readFileSync(`${ROOT}/src/foundation/file-tool/${tool}.ts`, 'utf-8');
       // match a property declaration `  cwd: {` at line start with indent
@@ -14,7 +15,7 @@ describe('phase 1390: read/write/ls/edit/multi_edit 不再含 cwd schema field',
     }
   });
 
-  it('5 file tool execute 0 cwdArg 解构', () => {
+  it('6 file tool execute 0 cwdArg 解构', () => {
     for (const tool of TOOLS) {
       const file = readFileSync(`${ROOT}/src/foundation/file-tool/${tool}.ts`, 'utf-8');
       expect(file).not.toMatch(/args\.cwd\s+as\s+string/);
@@ -22,10 +23,8 @@ describe('phase 1390: read/write/ls/edit/multi_edit 不再含 cwd schema field',
     }
   });
 
-  it('search + exec 仍含 cwd schema (sanity / regression-guard)', () => {
-    const search = readFileSync(`${ROOT}/src/foundation/file-tool/search.ts`, 'utf-8');
+  it('exec 仍含 cwd schema (sanity / regression-guard — exec.cwd 独立 shell-WD 语义、本 file-tool invariant 不约束)', () => {
     const exec = readFileSync(`${ROOT}/src/foundation/command-tool/exec.ts`, 'utf-8');
-    expect(search).toMatch(/^\s+cwd:\s*\{/m);
     expect(exec).toMatch(/^\s+cwd:\s*\{/m);
   });
 

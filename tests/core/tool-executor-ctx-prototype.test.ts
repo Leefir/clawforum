@@ -101,7 +101,7 @@ describe('ToolExecutor: ctx prototype preservation across spread', () => {
     const ctx = makeMotionCtx();
     const result = await executor.execute({
       toolName: 'search',
-      args: { pattern: 'hello', path: 'clawspace', claw: 'other-claw' },
+      args: { text: 'hello', path: 'clawspace', claw: 'other-claw' },
       ctx,
     });
     expect(result.success).toBe(true);

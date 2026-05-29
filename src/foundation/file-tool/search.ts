@@ -318,21 +318,17 @@ export const searchTool: Tool = {
   name: SEARCH_TOOL_NAME,
   profiles: ['full', 'readonly', 'subagent', 'miner'],
   group: 'fs-read',
-  description: 'Search LOCAL files (not web/network) for a substring pattern in filenames AND contents (unified). Returns segmented [Filename matches] / [Content matches] / [Skipped]. Case-insensitive by default. Full scan with no result cap; first 20 returned as preview, overflow saved to tasks/sync/search/<uuid>.md. Default base: clawspace. `claw: "<id>"` searches another claw\'s resources (read-only); `claw: "*"` broadcast across all claws is Motion-only.',
+  description: 'Search LOCAL files (not web/network) for literal text in filenames AND contents (unified). Returns segmented [Filename matches] / [Content matches] / [Skipped]. Case-insensitive by default, no regex/glob. Full scan with no result cap; first 20 returned as preview, overflow saved to tasks/sync/search/<uuid>.md. Default base: clawspace. `claw: "<id>"` searches another claw\'s resources (read-only); `claw: "*"` broadcast across all claws is Motion-only.',
   schema: {
     type: 'object',
     properties: {
-      pattern: {
+      text: {
         type: 'string',
-        description: 'Substring to search for (case-insensitive by default, no regex/glob). Non-empty, length <= 1024.',
+        description: 'Literal text to search for (case-insensitive by default, no regex/glob — searched as substring). Non-empty, length <= 1024.',
       },
       path: {
         type: 'string',
-        description: 'Directory to search in, relative to clawspace. Default: clawspace root.',
-      },
-      cwd: {
-        type: 'string',
-        description: 'Override base for path resolution, relative to clawspace. Use ".." to escape clawspace to claw root (e.g. cwd: "../memory"). Default: clawspace.',
+        description: 'Directory to search in, relative to clawspace. Use ".." to escape clawspace to claw root (e.g. path: "../memory"). Default: clawspace root.',
       },
       caseSensitive: {
         type: 'boolean',
@@ -340,37 +336,36 @@ export const searchTool: Tool = {
       },
       claw: {
         type: 'string',
-        description: 'Target claw ID (specific target: any agent; "*" broadcast: Motion only). Both prefix matches with [clawId]. Example: { pattern: "error", path: "logs/", claw: "*" }',
+        description: 'Target claw ID (specific target: any agent; "*" broadcast: Motion only). Both prefix matches with [clawId]. Example: { text: "error", path: "logs/", claw: "*" }',
       },
       async: {
         type: 'boolean',
         description: 'If true, run in background. Result delivered to inbox when complete.',
       },
     },
-    required: ['pattern'],
+    required: ['text'],
   },
   readonly: true,
   idempotent: true,
   supportsAsync: true,
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
-    const rawPattern = args.pattern as string;
-    if (typeof rawPattern !== 'string' || rawPattern.length === 0) {
-      return { success: false, content: 'Error: pattern must be a non-empty string' };
+    const rawText = args.text as string;
+    if (typeof rawText !== 'string' || rawText.length === 0) {
+      return { success: false, content: 'Error: text must be a non-empty string' };
     }
-    if (rawPattern.length > PATTERN_MAX_LEN) {
-      return { success: false, content: `Error: pattern length exceeds ${PATTERN_MAX_LEN}` };
+    if (rawText.length > PATTERN_MAX_LEN) {
+      return { success: false, content: `Error: text length exceeds ${PATTERN_MAX_LEN}` };
     }
-    const pattern = rawPattern;
+    const pattern = rawText;
     const caseSensitive = args.caseSensitive === true;
 
     const pathArg = (args.path as string) ?? '.';
-    const cwdArg = args.cwd as string | undefined;
-    const searchPath = resolveWorkspacePath(ctx, pathArg, cwdArg);
+    const searchPath = resolveWorkspacePath(ctx, pathArg);
     if (searchPath.startsWith('..') || searchPath.startsWith('/')) {
       return {
         success: false,
-        content: `Error: Path escapes claw root: "${pathArg}"${cwdArg ? ` (cwd: ${cwdArg})` : ''}`,
+        content: `Error: Path escapes claw root: "${pathArg}"`,
       };
     }
 

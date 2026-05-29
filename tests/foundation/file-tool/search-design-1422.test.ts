@@ -43,22 +43,22 @@ describe('phase 1422: search design completion', () => {
     await cleanupTempDir(tempDir);
   });
 
-  it('Q1: rejects missing pattern arg with error', async () => {
+  it('Q1: rejects missing text arg with error', async () => {
     const ctx = makeCtx(clawDir);
     const result = await searchTool.execute({}, ctx);
     expect(result.success).toBe(false);
-    expect(result.content).toContain('pattern');
+    expect(result.content).toContain('text');
   });
 
-  it('Q1: rejects empty pattern', async () => {
+  it('Q1: rejects empty text', async () => {
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: '' }, ctx);
+    const result = await searchTool.execute({ text: '' }, ctx);
     expect(result.success).toBe(false);
   });
 
-  it('Q1: rejects pattern longer than 1024 chars', async () => {
+  it('Q1: rejects text longer than 1024 chars', async () => {
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'x'.repeat(1025) }, ctx);
+    const result = await searchTool.execute({ text: 'x'.repeat(1025) }, ctx);
     expect(result.success).toBe(false);
     expect(result.content).toContain('1024');
   });
@@ -67,7 +67,7 @@ describe('phase 1422: search design completion', () => {
     await fs.writeFile(path.join(clawDir, 'clawspace', 'foo-config.txt'), 'unrelated\nmiddle line\nfoo somewhere here');
     await fs.writeFile(path.join(clawDir, 'clawspace', 'other.txt'), 'nothing relevant');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'foo' }, ctx);
+    const result = await searchTool.execute({ text: 'foo' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toContain('[Filename matches]');
     expect(result.content).toContain('foo-config.txt');
@@ -78,7 +78,7 @@ describe('phase 1422: search design completion', () => {
   it('Q3 caseSensitive default false: matches FOO with pattern foo', async () => {
     await fs.writeFile(path.join(clawDir, 'clawspace', 'a.txt'), 'FOO line here');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'foo' }, ctx);
+    const result = await searchTool.execute({ text: 'foo' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toContain('FOO line here');
   });
@@ -86,7 +86,7 @@ describe('phase 1422: search design completion', () => {
   it('Q3 caseSensitive true: does NOT match FOO with pattern foo', async () => {
     await fs.writeFile(path.join(clawDir, 'clawspace', 'a.txt'), 'FOO line here');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'foo', caseSensitive: true }, ctx);
+    const result = await searchTool.execute({ text: 'foo', caseSensitive: true }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toBe('No matches for "foo".');
   });
@@ -96,7 +96,7 @@ describe('phase 1422: search design completion', () => {
     await fs.writeFile(path.join(clawDir, 'clawspace', 'logo.bin'), bin);
     await fs.writeFile(path.join(clawDir, 'clawspace', 'normal.txt'), 'has hi inside');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'hi' }, ctx);
+    const result = await searchTool.execute({ text: 'hi' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toContain('[Skipped]');
     expect(result.content).toContain('logo.bin (binary)');
@@ -109,7 +109,7 @@ describe('phase 1422: search design completion', () => {
     await fs.writeFile(path.join(clawDir, 'clawspace', 'node_modules', 'pkg', 'index.js'), 'needle in module');
     await fs.writeFile(path.join(clawDir, 'clawspace', 'src.txt'), 'needle in src');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'needle' }, ctx);
+    const result = await searchTool.execute({ text: 'needle' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toContain('needle in src');
     expect(result.content).not.toContain('needle in module');
@@ -119,7 +119,7 @@ describe('phase 1422: search design completion', () => {
     await fs.mkdir(path.join(clawDir, 'clawspace', 'node_modules', 'pkg'), { recursive: true });
     await fs.writeFile(path.join(clawDir, 'clawspace', 'node_modules', 'pkg', 'index.js'), 'needle in module');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'needle', path: 'node_modules' }, ctx);
+    const result = await searchTool.execute({ text: 'needle', path: 'node_modules' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toContain('needle in module');
   });
@@ -127,7 +127,7 @@ describe('phase 1422: search design completion', () => {
   it('Q5: zero matches uses English message', async () => {
     await fs.writeFile(path.join(clawDir, 'clawspace', 'a.txt'), 'nothing here');
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'absent' }, ctx);
+    const result = await searchTool.execute({ text: 'absent' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toBe('No matches for "absent".');
   });
@@ -136,7 +136,7 @@ describe('phase 1422: search design completion', () => {
     const lines = Array.from({ length: SEARCH_PREVIEW_LIMIT - 1 }, () => 'needle line').join('\n');
     await fs.writeFile(path.join(clawDir, 'clawspace', 'a.txt'), lines);
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'needle' }, ctx);
+    const result = await searchTool.execute({ text: 'needle' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).not.toContain('Showing 1-');
     expect(result.content).not.toContain('Full results saved at');
@@ -149,7 +149,7 @@ describe('phase 1422: search design completion', () => {
     const lines = Array.from({ length: SEARCH_PREVIEW_LIMIT + 10 }, () => 'needle line').join('\n');
     await fs.writeFile(path.join(clawDir, 'clawspace', 'a.txt'), lines);
     const ctx = makeCtx(clawDir);
-    const result = await searchTool.execute({ pattern: 'needle' }, ctx);
+    const result = await searchTool.execute({ text: 'needle' }, ctx);
     expect(result.success).toBe(true);
     expect(result.content).toContain(`Showing 1-${SEARCH_PREVIEW_LIMIT} of ${SEARCH_PREVIEW_LIMIT + 10} matches.`);
     // workspace-relative path: workspace defaults to clawspace/, so persisted file at
