@@ -53,6 +53,8 @@ export type UserActionHint =
   | 'switch_primary'
   | 'wait_retry_after'
   | 'check_quota'
+  | 'check_endpoint'
+  | 'check_network'
   | null;
 
 export function getUserActionHint(err: unknown): UserActionHint {
@@ -65,5 +67,7 @@ export function getUserActionHint(err: unknown): UserActionHint {
   }
   if (err instanceof LLMModelNotFoundError) return 'switch_primary';
   if (err instanceof LLMRateLimitError) return 'wait_retry_after';
+  if (err instanceof LLMTimeoutError) return 'check_endpoint';
+  if (err instanceof LLMNetworkError) return 'check_network';
   return null;
 }

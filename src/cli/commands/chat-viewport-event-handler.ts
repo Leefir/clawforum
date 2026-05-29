@@ -165,20 +165,45 @@ export function createEventHandler(deps: EventHandlerDeps) {
         const errorClass = event.errorClass as string | undefined;
         const userActionHint = event.userActionHint as string | undefined;
         const errorMsg = event.error as string;
-        if (errorClass === 'permanent') {
+        // phase 1425: surface 所有非 abort 失败到用户（含 transient timeout/network）/ 用户必须可观察 primary 故障
+        if (errorClass && errorClass !== 'abort') {
           const hint = userActionHint === 'rotate_api_key' ? 'rotate or update API key'
             : userActionHint === 'switch_primary' ? 'check model name or switch primary provider'
             : userActionHint === 'wait_retry_after' ? 'wait for rate-limit cooldown or switch primary'
             : userActionHint === 'check_quota' ? 'check quota or top up'
+            : userActionHint === 'check_endpoint' ? 'check provider endpoint / URL config'
+            : userActionHint === 'check_network' ? 'check network connectivity'
             : 'see audit log for details';
           const classLabel = errorClass === 'permanent' ? 'auth/quota/model error'
             : errorClass === 'transient' ? 'network/service unavailable'
             : errorClass === 'rate_limit' ? 'rate limited'
-            : errorClass === 'abort' ? 'aborted'
             : 'unknown error';
           const shortErr = typeof errorMsg === 'string' && errorMsg.length > 60 ? errorMsg.slice(0, 57) + '...' : errorMsg;
-          deps.appendOutput('\x1b[2m', `\x1b[38;5;203m✗\x1b[0m \x1b[2m${providerName} ${classLabel} (${shortErr}) / failed over / suggestion: ${hint}\x1b[0m`);
+          deps.appendOutput('\x1b[2m', `\x1b[38;5;203m✗\x1b[0m \x1b[2m${providerName} ${classLabel} (${shortErr}) / suggestion: ${hint}\x1b[0m`);
         }
+        break;
+      }
+
+      case 'breaker_opened': {
+        const providerName = event.provider as string;
+        const failures = event.consecutiveFailures as number | undefined;
+        deps.appendOutput('\x1b[2m', `\x1b[38;5;203m⚠\x1b[0m \x1b[2m${providerName} circuit breaker opened (${failures ?? '?'} consecutive failures), temporarily using fallback. Suggestion: check primary config / network / endpoint.\x1b[0m`);
+        break;
+      }
+
+      case 'fallback_switched': {
+        const from = event.from as string;
+        const to = event.to as string;
+        const reason = event.reason as string;
+        deps.appendOutput('\x1b[2m', `\x1b[38;5;214m→\x1b[0m \x1b[2mswitched from ${from} to ${to} (${reason})\x1b[0m`);
+        break;
+      }
+
+      case 'provider_exhausted': {
+        const providerName = event.provider as string;
+        const errorMsg = event.error as string;
+        const shortErr = typeof errorMsg === 'string' && errorMsg.length > 60 ? errorMsg.slice(0, 57) + '...' : errorMsg;
+        deps.appendOutput('\x1b[2m', `\x1b[38;5;203m✗\x1b[0m \x1b[2m${providerName} exhausted retries (${shortErr})\x1b[0m`);
         break;
       }
 
