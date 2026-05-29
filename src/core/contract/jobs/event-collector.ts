@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { isFileNotFound, type FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { ProgressData } from '../manager.js';
@@ -6,6 +7,45 @@ import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 import { CONTRACT_DIR } from '../dirs.js';
 import type { ClawId } from '../../../foundation/identity/index.js';
 import { type ClawDir } from '../../../foundation/identity/index.js';
+
+function readContractMeta(
+  fs: FileSystem,
+  contractDir: string,
+): { title?: string; goal?: string } {
+  try {
+    const raw = fs.readSync(path.join(contractDir, 'contract.yaml'));
+    const parsed = yaml.load(raw) as { title?: unknown; goal?: unknown } | undefined;
+    return {
+      title: typeof parsed?.title === 'string' ? parsed.title : undefined,
+      goal: typeof parsed?.goal === 'string' ? parsed.goal : undefined,
+    };
+  } catch {
+    // silent: contract.yaml meta is decorative for event-collector; missing/corrupt yaml falls back to bare event (claw+contract still emitted)
+    return {};
+  }
+}
+
+function formatContractCompletedEvent(
+  clawId: ClawId,
+  contractDirName: string,
+  meta: { title?: string; goal?: string },
+  progress: ProgressData,
+): string {
+  const lines: string[] = [`[contract_completed] claw=${clawId} contract=${contractDirName}`];
+  if (meta.title) lines.push(`  title: ${meta.title}`);
+  if (meta.goal) lines.push(`  goal: ${meta.goal}`);
+
+  const completed = Object.entries(progress.subtasks)
+    .filter(([, st]) => st.status === 'completed');
+  if (completed.length > 0) {
+    lines.push('  subtasks:');
+    for (const [stId, st] of completed) {
+      const ev = st.evidence ?? '';
+      lines.push(`    [${stId}] ${ev}`);
+    }
+  }
+  return lines.join('\n');
+}
 
 
 export function collectContractEvents(
@@ -44,7 +84,8 @@ export function collectContractEvents(
         const completedAfter = Object.values(progress.subtasks)
           .some(s => s.completed_at && new Date(s.completed_at).getTime() > sinceTs);
         if (completedAfter && progress.status === 'completed') {
-          events.push(`[contract_completed] claw=${clawId} contract=${d.name}`);
+          const meta = readContractMeta(fs, path.join(archiveDir, d.name));
+          events.push(formatContractCompletedEvent(clawId, d.name, meta, progress));
         }
       } catch (err) {
         // phase 1154 r+ derive: ENOENT-equivalent = progress.json absent (archive 常态 + active 升级 race)、非 corruption 语义
