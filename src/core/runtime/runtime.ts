@@ -11,10 +11,12 @@ import { MOTION_CLAW_ID } from '../../constants.js';
 import { CALLER_TYPE_TO_GROUPS } from '../caller-types.js';
 
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
+import { type FileSystem } from '../../foundation/fs/types.js';
+// phase 1414: isFileNotFound import removed — HEARTBEAT.md 读迁 Heartbeat 模块 inbox-formatter
 import type { Message } from '../../foundation/llm-provider/types.js';
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import { InboxListFailed, InboxMoveFailed, isUserTypedInbox } from '../../foundation/messaging/index.js';
+import type { MessageFormatterRegistry } from '../../foundation/messaging/index.js';
 
 import { DialogStore, performRegimeSwitch } from '../../foundation/dialog-store/index.js';
 // phase 1406: SummonTool import removed — Assembly 标准注册路径，G→F 单向依赖恢复
@@ -24,7 +26,7 @@ import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../sig
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-events.js';
 import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
-import { HEARTBEAT_AUDIT_EVENTS } from '../heartbeat/audit-events.js';
+// phase 1414: HEARTBEAT_AUDIT_EVENTS import removed — heartbeat 自家 inbox-formatter 持 audit
 import { CLAW_SUBDIRS } from '../../foundation/paths.js';
 // phase 1406: DIALOG_DIR no longer used here — regime-switch recovery path is owned by performRegimeSwitch helper
 import { oneLine, formatErr } from '../../foundation/utils/format.js';
@@ -115,6 +117,8 @@ export class Runtime {
   private inboxReader!: InboxReader;
   private outboxWriter!: OutboxWriter;
   private snapshot!: Snapshot;
+  // phase 1414: inbox 消息 formatter 注册表（Assembly 装配期填、各业主自家）
+  private formatterRegistry!: MessageFormatterRegistry;
 
   // phase 521: regime switch coordination
   private dialogStoreFactory!: () => DialogStore;
@@ -130,6 +134,7 @@ export class Runtime {
     this.auditWriter = options.dependencies.auditWriter;
     const deps = options.dependencies;
     this.dialogStoreFactory = deps.dialogStoreFactory;
+    this.formatterRegistry = deps.formatterRegistry;   // phase 1414: ctor-time bind（formatInboxMessage 可在 initialize 前调）
     if (deps.parentStreamLog) {
       deps.taskSystem.setParentStreamLog(deps.parentStreamLog);
     }
@@ -173,6 +178,7 @@ export class Runtime {
       throw e;
     }
     this.outboxWriter = deps.outboxWriter;
+    // phase 1414: formatterRegistry 已在 ctor 期初始化（initialize 前可用）
     this.toolRegistry = deps.toolRegistry;
     this.toolExecutor = deps.toolExecutor;
     this.contractManager = deps.contractManager;
@@ -330,42 +336,27 @@ export class Runtime {
    * user_inbox_message: [user inbox message] prefix (user sent a message via CLI)
    * system events: [system message] prefix
    */
+  /**
+   * phase 1414: Runtime 收窄为纯 dispatch + DP 不静默 fallback。
+   * 各业主模块（Messaging / Heartbeat / Watchdog / Gateway）在 Assembly 装配期
+   * 通过 formatterRegistry 自家 register 自家 message type formatter。
+   * Runtime 不字面持任何上下游 message type / 措辞 / FS 读 / 业主 audit。
+   */
   protected async formatInboxMessage(type: string, from: string, body: string, timestamp?: string): Promise<string> {
     const ago = timestamp ? formatTimeAgo(timestamp) : '';
     const t = ago ? ` (${ago})` : '';
 
-    switch (type) {
-      case 'user_chat':
-        return body;
-      case 'user_inbox_message':
-        return `[user inbox message${t}]\n${body}`;
-      case 'crash_notification':
-        return `[system message${t}] Claw "${from}" process exited abnormally.\n${body}`;
-      case 'heartbeat': {
-        const base = `[system message${t}] Heartbeat triggered. Please perform a routine check.`;
-        try {
-          const checklist = (await this.systemFs.read('HEARTBEAT.md')).trim();
-          return checklist ? `${base}\n\n${checklist}` : base;
-        } catch (e) {
-          // phase 1154 r+ derive: 双码 narrow via foundation helper (FileSystem 抽象层抛 FS_NOT_FOUND)
-          if (!isFileNotFound(e)) {
-            const code = (e as NodeJS.ErrnoException)?.code;
-            this.auditWriter.write(
-              HEARTBEAT_AUDIT_EVENTS.CHECKLIST_READ_FAILED,
-              `code=${code ?? 'unknown'}`,
-              `error=${e instanceof Error ? e.message : String(e)}`,
-            );
-          }
-          return base;
-        }
-      }
-      case 'message':
-        return `[system message${t}] ${body}`;
-      default:
-        this.auditWriter.write(RUNTIME_AUDIT_EVENTS.INBOX_UNKNOWN_TYPE,
-          `type=${type}`, `from=${from}`);
-        return `[system message${t}] ${body}`;
+    const formatter = this.formatterRegistry.resolve(type);
+    if (!formatter) {
+      // DP 不静默：未注册 type 必 audit + 走默 fallback（不丢消息）
+      this.auditWriter.write(
+        RUNTIME_AUDIT_EVENTS.INBOX_UNKNOWN_TYPE,
+        `type=${type}`,
+        `from=${from}`,
+      );
+      return `[system message${t}] ${body}`;
     }
+    return formatter({ from, body, timestampSec: t });
   }
 
   /**

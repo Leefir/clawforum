@@ -201,6 +201,17 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
     makeOutboxPath: vi.fn((_clawId: string, clawDir: string) => clawDir + '/outbox/pending'),
     readInboxFileMeta: vi.fn(),
     cleanupRetention: vi.fn().mockResolvedValue(0),
+    // phase 1414: formatter registry + Messaging 自家 formatter mock
+    createMessageFormatterRegistry: vi.fn(() => {
+      const map = new Map<string, unknown>();
+      return {
+        register: vi.fn((type: string, fn: unknown) => { map.set(type, fn); }),
+        resolve: vi.fn((type: string) => map.get(type)),
+      };
+    }),
+    registerMessagingFormatters: vi.fn(),
+    formatUserInboxMessage: vi.fn(),
+    formatGenericMessage: vi.fn(),
   };
 });
 

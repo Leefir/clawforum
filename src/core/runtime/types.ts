@@ -9,7 +9,7 @@ import type { LLMOrchestratorConfig } from '../../foundation/llm-orchestrator/in
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
-import type { InboxReader, OutboxWriter } from '../../foundation/messaging/index.js';
+import type { InboxReader, OutboxWriter, MessageFormatterRegistry } from '../../foundation/messaging/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { IToolExecutor } from '../../foundation/tools/index.js';
 import type { ContextInjector } from '../dialog/index.js';
@@ -58,6 +58,9 @@ export interface RuntimeDependencies {
 
   /** phase 521: regime 切换协调装配 / Assembly own factory / per L5.G1-G4 closure 2026-05-07 */
   readonly dialogStoreFactory: () => DialogStore;
+
+  /** phase 1414: inbox 消息 formatter 注册表（Assembly 装配期填、各业主自家 formatter）*/
+  readonly formatterRegistry: MessageFormatterRegistry;
 }
 
 /** 1:1 保 runtime.ts:74-101 body */

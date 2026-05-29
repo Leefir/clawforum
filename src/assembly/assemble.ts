@@ -47,6 +47,13 @@ import { SummonTool } from '../core/summon-system/index.js';
 import { createShadowTool } from '../core/shadow-system/index.js';
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { createInboxReader, createOutboxWriter, notifyInbox, notifyClaw, InboxWriter, createMessaging, makeInboxPath } from '../foundation/messaging/index.js';
+// phase 1414: formatter registry + Messaging 自家通用 formatter
+import { createMessageFormatterRegistry, registerMessagingFormatters } from '../foundation/messaging/index.js';
+import type { MessageFormatterRegistry } from '../foundation/messaging/index.js';
+// phase 1414: 业主自家 inbox-formatter
+import { formatCrashNotification } from '../watchdog/inbox-formatter.js';
+import { formatUserChat } from '../core/gateway/index.js';
+import { createHeartbeatInboxFormatter } from '../core/heartbeat/index.js';
 import type { Messaging } from '../foundation/messaging/index.js';
 import { createSubmitSubtaskTool } from '../core/contract/index.js';
 import { createDoneTool } from '../core/subagent/index.js';
@@ -443,6 +450,19 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       throw new Error(`Assembly: InboxReader construct failed: ${errMsg(e)}`, { cause: e });
     }
 
+    // phase 1414: inbox 消息 formatter 注册表（业主自家 register、Runtime 仅 dispatch）
+    const formatterRegistry: MessageFormatterRegistry = createMessageFormatterRegistry();
+    registerMessagingFormatters(formatterRegistry);                        // 'user_inbox_message' + 'message'
+    formatterRegistry.register('user_chat', formatUserChat);               // Gateway 业主
+    formatterRegistry.register('crash_notification', formatCrashNotification);  // Watchdog 业主
+    if (isMotion) {
+      // 与 createHeartbeat 同 guard：只 motion 装 heartbeat formatter
+      formatterRegistry.register(
+        'heartbeat',
+        createHeartbeatInboxFormatter({ systemFs, audit: auditWriter }),
+      );
+    }
+
     // --- Snapshot（phase155B 已搬，但需保证在 Runtime 之前） ---
     let snapshot: Snapshot;
     try {
@@ -514,6 +534,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       contractNotifyCallback,
       // phase 521: regime switch coordination / Assembly own factory / closure capture 5 const
       dialogStoreFactory: makeDialogStore,
+      // phase 1414: inbox 消息 formatter 注册表（业主自家 register）
+      formatterRegistry,
     };
 
     // 孤儿临时文件清理（从 Runtime.initialize 搬来；Assembly 负责一次性的启动清理）

@@ -19,6 +19,19 @@ export { isUserTypedInbox } from './types.js';
 export { InboxListFailed, InboxMoveFailed } from './errors.js';
 export type { InboxMoveOp, InboxMetaError } from './errors.js';
 
+// phase 1414: inbox 消息格式化协议（散到各业主自管）
+export { createMessageFormatterRegistry } from './formatter-registry.js';
+export type {
+  MessageFormatter,
+  MessageFormatterRegistry,
+  MessageFormatterContext,
+} from './formatter-registry.js';
+export {
+  formatUserInboxMessage,
+  formatGenericMessage,
+  registerMessagingFormatters,
+} from './inbox-formatters.js';
+
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { InboxReader } from './inbox-reader.js';

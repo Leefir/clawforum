@@ -163,6 +163,16 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
     makeInboxPath: vi.fn((dir: string) => dir),
     makeOutboxPath: vi.fn((_clawId: string, clawDir: string) => clawDir + '/outbox/pending'),
     readInboxFileMeta: vi.fn(),
+    createMessageFormatterRegistry: vi.fn(() => {
+      const map = new Map();
+      return {
+        register: vi.fn((type, fn) => { map.set(type, fn); }),
+        resolve: vi.fn((type) => map.get(type)),
+      };
+    }),
+    registerMessagingFormatters: vi.fn(),
+    formatUserInboxMessage: vi.fn(),
+    formatGenericMessage: vi.fn(),
   };
 });
 
