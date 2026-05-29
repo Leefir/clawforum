@@ -34,6 +34,11 @@ export const RUNTIME_AUDIT_EVENTS = {
   INBOX_DRAIN_FAILED: 'runtime_inbox_drain_failed',
   // TOOL / OUTBOX
   TOOL_RESULT: 'tool_result',
+  // phase 1411 (reframe of phase 1409): generic tool_call index row.
+  // γ 同源复制 with src/core/subagent/audit-events.ts TOOL_CALL_INPUT / 0 漂移.
+  // 仅 name + tool_use_id + args_size — args body 0 入 audit (dialog 是权威源).
+  // 详 design/modules/l3_subagent.md §A.phase1409-on-tool-call-args-emit.
+  TOOL_CALL_INPUT: 'tool_call_input',
   OUTBOX_WRITE_FAILED: 'outbox_write_failed',
   // INITIALIZE phase failures (phase 454: 替代 Runtime 借 ASSEMBLE_FAILED)
   INBOX_INIT_FAILED: 'runtime_inbox_init_failed',

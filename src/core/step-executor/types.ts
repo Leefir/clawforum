@@ -25,6 +25,17 @@ export interface StepCallbacks {
   onTextEnd?: () => void;
   onThinkingDelta?: (delta: string) => void;
   onToolCall?: (toolName: string, toolUseId: ToolUseId) => void | Promise<void>;
+  /**
+   * phase 1411: fires after args fully parsed (post LLM stream complete) and
+   * before executor.execute. Carries full args (post parse-failure guard).
+   *
+   * Distinct from onToolCall (tool_use_start, args not yet streamed) —
+   * onToolCallInput is the audit-quality emit point. SubAgent uses it to emit
+   * `tool_call_input` index row (name + tool_use_id + args_size) per
+   * design/modules/l3_subagent.md §A.phase1409-on-tool-call-args-emit
+   * (amended-by phase 1411).
+   */
+  onToolCallInput?: (toolName: string, toolUseId: ToolUseId, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, toolUseId: ToolUseId, result: ToolResult) => void;
   onReset?: (provider: string, timeoutMs: number) => void;
   onProviderFailed?: (provider: string, model: string, error: string) => void;

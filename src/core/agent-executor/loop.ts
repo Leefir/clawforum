@@ -33,6 +33,8 @@ export interface ReactOptions {
   idleTimeoutMs?: number;
   wallTimeDeadlineMs?: number;
   onToolCall?: (toolName: string, toolUseId: ToolUseId) => void | Promise<void>;
+  /** phase 1411: fires when tool args fully parsed (post-stream, pre-execute). See StepCallbacks.onToolCallInput. */
+  onToolCallInput?: (toolName: string, toolUseId: ToolUseId, args: Record<string, unknown>) => void;
   onBeforeLLMCall?: () => void;
   onToolResult?: (toolName: string, toolUseId: ToolUseId, result: ToolResult, step: number, maxSteps: number) => void;
   onStepComplete?: () => Promise<void>;
@@ -76,7 +78,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     maxConsecutiveMaxTokensToolUse,
     idleTimeoutMs,
     wallTimeDeadlineMs,
-    onToolCall, onBeforeLLMCall, onToolResult, onStepComplete,
+    onToolCall, onToolCallInput, onBeforeLLMCall, onToolResult, onStepComplete,
     tools = [],
     registry,
     onTextDelta, onTextEnd, onThinkingDelta,
@@ -95,6 +97,7 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
     onTextEnd,
     onThinkingDelta,
     onToolCall,
+    onToolCallInput,
     onToolResult: onToolResult
       ? (name, toolUseId, result) => onToolResult(name, toolUseId, result, stepCount, maxSteps)
       : undefined,

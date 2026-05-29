@@ -275,6 +275,7 @@
       "step_executor_callback_failed",
       "task_system_init_failed",
       "task_system_start_dispatch_failed",
+      "tool_call_input",
       "tool_execution_failed",
       "tool_input_parse_failed",
       "tool_result",
@@ -308,6 +309,7 @@
       "subagent_persist_failed",
       "subagent_step_complete_failed",
       "subagent_timeout_rejection",
+      "tool_call_input",
       "turn_end",
       "turn_error",
       "turn_interrupted",
@@ -318,8 +320,10 @@
       "summon_contract_done_missing_fields",
       "summon_contract_done_not_found",
       "summon_contract_done_parse_failed",
+      "summon_dispatched",
       "summon_load_skills_failed",
       "summon_no_dialog_context",
+      "summon_rejected_shadow",
       "summon_write_by_contract_failed"
     ],
     "daemon_audit-events": [

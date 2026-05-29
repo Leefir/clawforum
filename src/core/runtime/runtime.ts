@@ -535,6 +535,19 @@ export class Runtime {
       origOnToolResult?.(name, toolUseId, result, step, maxSteps);
     };
 
+    // phase 1411 (reframe of phase 1409): emit `tool_call_input` index row
+    // (name + tool_use_id + args_size). args body 0 入 audit / dialog 是权威源 /
+    // CLI 凭 tool_use_id 跨源 join.
+    const auditOnToolCallInput = (
+      name: string, toolUseId: ToolUseId, args: Record<string, unknown>
+    ) => {
+      const argsSize = JSON.stringify(args).length;
+      this.auditWriter.write(
+        RUNTIME_AUDIT_EVENTS.TOOL_CALL_INPUT, name, toolUseId,
+        `args_size=${argsSize}`,
+      );
+    };
+
     try {
       await runReact({
           messages: messages,
@@ -566,6 +579,7 @@ export class Runtime {
           onTextEnd: callbacks?.onTextEnd,
           onThinkingDelta: (d) => { emitProviderInfoOnce(); callbacks?.onThinkingDelta?.(d); },
           onToolCall: (n, id) => { callbacks?.onToolCall?.(n, id); },
+          onToolCallInput: auditOnToolCallInput,
           onToolResult: auditOnToolResult,
           onBeforeLLMCall: () => { callbacks?.onBeforeLLMCall?.(); },
           onReset: (provider, timeoutMs) => {
@@ -980,6 +994,14 @@ export class Runtime {
           }
         },
         onToolCall: options?.onToolCall,
+        onToolCallInput: (name, toolUseId, args) => {
+          // phase 1411 (reframe of phase 1409): generic tool_call index emit (chat path).
+          const argsSize = JSON.stringify(args).length;
+          this.auditWriter.write(
+            RUNTIME_AUDIT_EVENTS.TOOL_CALL_INPUT, name, toolUseId,
+            `args_size=${argsSize}`,
+          );
+        },
         onBeforeLLMCall: options?.onBeforeLLMCall,
         onToolResult: options?.onToolResult,
         onTextDelta: (d) => { emitChatProviderInfoOnce(); options?.onTextDelta?.(d); },
