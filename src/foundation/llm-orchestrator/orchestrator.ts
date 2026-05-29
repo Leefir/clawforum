@@ -46,11 +46,6 @@ const CONTEXT_EXCEEDED_STOP_REASONS = new Set<string>([
 ]);
 
 /**
- * Provider factory - creates appropriate adapter for config
- */
-
-
-/**
  * Sleep for `ms` milliseconds; abortable via `signal`.
  *
  * - `signal.aborted === true` at call time → rejects immediately with AbortError
@@ -849,7 +844,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
       try { await primaryIter.return?.(); } catch { /* silent: generator already closed, ignore */ }
       this.events.emit({ type: 'race_loser_cleaned', provider: this.primary.name, reason: 'hedge_trackB_won' });
       cleanupSignals();
-      yield* wrapResponseAsStream(winner.response, winner.provider);
+      yield* wrapResponseAsStream(winner.response);
       return;
     }
 
@@ -869,7 +864,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
         });
         this.updateLastSuccess(bResult.provider, true);
         cleanupSignals();
-        yield* wrapResponseAsStream(bResult.response, bResult.provider);
+        yield* wrapResponseAsStream(bResult.response);
         return;
       }
       // 双失败
@@ -930,7 +925,6 @@ function isContentChunk(chunk: StreamChunk): boolean {
 
 async function* wrapResponseAsStream(
   response: LLMResponse,
-  _provider: LLMProvider,
 ): AsyncIterableIterator<StreamChunk> {
   for (const block of response.content) {
     if (block.type === 'text') {
