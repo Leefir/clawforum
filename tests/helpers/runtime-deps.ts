@@ -20,6 +20,14 @@ import type { RuntimeDependencies } from '../../src/core/runtime/index.js';
 import type { LLMOrchestratorConfig } from '../../src/foundation/llm-orchestrator/types.js';
 import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../src/foundation/messaging/dirs.js';
 import { createToolRegistry } from '../../src/foundation/tools/index.js';
+// phase 1414: formatter registry + 业主自家 formatter
+import {
+  createMessageFormatterRegistry,
+  registerMessagingFormatters,
+} from '../../src/foundation/messaging/index.js';
+import { formatUserChat } from '../../src/core/gateway/index.js';
+import { formatCrashNotification } from '../../src/watchdog/inbox-formatter.js';
+import { createHeartbeatInboxFormatter } from '../../src/core/heartbeat/index.js';
 import { TEST_LLM_TIMEOUT_MS } from './test-timeouts.js';
 
 const TEST_CLAW_ID = 'test-claw';
@@ -64,6 +72,13 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
   const toolExecutor = new ToolExecutorImpl(toolRegistry, 60000);
   const permissionChecker = createClawPermissionChecker({ clawDir, strict: true, audit: auditWriter, fs: clawFs });
 
+  // phase 1414: formatter registry + 5 业主 formatter（test 装配 = motion 全开）
+  const formatterRegistry = createMessageFormatterRegistry();
+  registerMessagingFormatters(formatterRegistry);
+  formatterRegistry.register('user_chat', formatUserChat);
+  formatterRegistry.register('crash_notification', formatCrashNotification);
+  formatterRegistry.register('heartbeat', createHeartbeatInboxFormatter({ systemFs, audit: auditWriter }));
+
   return {
     systemFs, clawFs, auditWriter, snapshot, sessionManager,
     inboxReader, outboxWriter, llm, toolRegistry, toolExecutor,
@@ -75,5 +90,6 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
     dialogStoreFactory: (systemPrompt: string) => {
       return createDialogStore(systemFs, 'dialog', auditWriter, 'current.json', clawId);
     },
+    formatterRegistry,
   };
 }

@@ -15,3 +15,5 @@ export type {
 
 export { createGateway } from './gateway.js';
 export { createAskUserTool } from './ask-user-tool.js';
+// phase 1414: 业主自管 'user_chat' inbox 消息 formatter
+export { formatUserChat } from './inbox-formatter.js';
