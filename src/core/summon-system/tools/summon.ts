@@ -9,7 +9,7 @@ import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../../foundation/llm-orchestrato
 import { buildSummonContractTask, buildMinerSystemPrompt, buildMiningUserMessage } from '../../../prompts/index.js';
 import { ASK_MOTION_TOOL_NAME, ASK_MOTION_TOOL_DESCRIPTION, ASK_MOTION_TOOL_SCHEMA } from './ask-motion.js';
 
-import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
+import { SUMMON_AUDIT_EVENTS, emitSummonDispatched, emitSummonRejectedShadow } from '../audit-events.js';
 import { spawnShadowSubagent, stripIncompleteToolUse } from '../../shadow-system/index.js';
 import { type TaskId, makeTaskId } from '../../../foundation/identity/index.js';
 
@@ -82,6 +82,12 @@ export class SummonTool implements Tool {
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     // shadow 防御（phase 767）：summon 是 async-only routing，shadow 内调用会导致 orphan
     if (ctx.isShadow) {
+      if (ctx.auditWriter && ctx.currentToolUseId) {
+        emitSummonRejectedShadow(ctx.auditWriter, {
+          toolUseId: ctx.currentToolUseId,
+          reason: 'shadow_call_orphan_async_routing',
+        });
+      }
       return {
         success: false,
         content: 'summon is not callable from within shadow (async-only routing would orphan after shadow exits).',
@@ -196,6 +202,16 @@ export class SummonTool implements Tool {
           mainContextSnapshot,
           systemPrompt,                            // phase 546: 透传 caller-side specialized prompt（mining: buildMinerSystemPrompt）
         }));
+      }
+
+      if (ctx.auditWriter && ctx.currentToolUseId) {
+        emitSummonDispatched(ctx.auditWriter, {
+          toolUseId: ctx.currentToolUseId,
+          taskId,
+          mode,
+          targetClaw: args.targetClaw as string | undefined,
+          verify,
+        });
       }
 
       return {

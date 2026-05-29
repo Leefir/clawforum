@@ -193,6 +193,14 @@ export async function executeSingleTool(
     }
   }
 
+  // phase 1411: fire onToolCallInput after parse-failure guard, before execute.
+  // SubAgent listens and emits `tool_call_input` index row (typed emit).
+  safeCallback(
+    'onToolCallInput',
+    () => callbacks?.onToolCallInput?.(toolCall.name, makeToolUseId(toolCall.id), toolCall.input),
+    callbacks,
+  );
+
   try {
     // async is NOT a universal meta-parameter — some tools (spawn) use it as
     // an internal parameter. Only readonly tools with supportsAsync use

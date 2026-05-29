@@ -18,7 +18,7 @@ import { SUBAGENT_TIMEOUT_MS } from './constants.js';
 import { oneLine } from '../../foundation/utils/format.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import { SUBAGENT_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './audit-events.js';
+import { SUBAGENT_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS, emitToolCallInput } from './audit-events.js';
 import { AGENT_STREAM_EVENTS } from '../agent-executor/index.js';
 import type { StreamLog } from '../../foundation/stream/index.js';
 import { type CallerType, callerTypeToProfile, CALLER_TYPE_TO_GROUPS } from '../caller-types.js';
@@ -291,6 +291,12 @@ private callerType?: CallerType;
         onToolCall: (name: string, toolUseId: ToolUseId) => {
           safeSwWrite({ ts: Date.now(), type: AGENT_STREAM_EVENTS.TOOL_CALL, name, tool_use_id: toolUseId });
         },
+        onToolCallInput: (name: string, toolUseId: ToolUseId, args: Record<string, unknown>) => {
+          // phase 1411 (reframe of phase 1409): typed emit `tool_call_input` index row.
+          // args body 0 入 audit / dialog/current.json 是全文权威源 / CLI 凭 tool_use_id join.
+          const argsSize = JSON.stringify(args).length;
+          emitToolCallInput(this.auditWriter, { name, toolUseId, argsSize });
+        },
         onToolResult: (name: string, toolUseId: ToolUseId, result: { success: boolean; content?: string }, step: number, maxSteps: number) => {
           this.auditWriter.write(
             'tool_result', name, toolUseId,
@@ -347,6 +353,9 @@ private callerType?: CallerType;
             streamCallbacks.onToolCall?.(name, toolUseId);
             auditStepTools.push(name);
             await this.appendToLog(`Tool called: ${name}\n`);
+          },
+          onToolCallInput: (name, toolUseId, args) => {
+            streamCallbacks.onToolCallInput?.(name, toolUseId, args);
           },
           onToolResult: (name, toolUseId, result, step, maxSteps) => {
             streamCallbacks.onToolResult?.(name, toolUseId, result, step, maxSteps);
