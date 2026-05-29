@@ -5,7 +5,7 @@
  */
 import type { FileSystem } from '../foundation/fs/types.js';
 import { kill, isAlive } from '../foundation/process-exec/index.js';
-import { createProcessManagerForCLI } from '../foundation/process-manager/factories.js';
+import { createProcessManagerForCLI } from '../foundation/process-manager/index.js';
 import { getWatchdogEntryPath } from './watchdog-context.js';
 import { getWatchdogPid } from './watchdog-pid.js';
 import { getAuditWriter } from './watchdog-context.js';

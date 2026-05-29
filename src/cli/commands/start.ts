@@ -20,7 +20,7 @@ import {
   initCommand as motionInitCommand,
   chatCommand as motionChatCommand,
 } from './motion.js';
-import { createProcessManagerForCLI } from '../../foundation/process-manager/factories.js';
+import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { passwordQuestion } from '../utils/password-prompt.js';
 import { ContractSystem } from '../../core/contract/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';

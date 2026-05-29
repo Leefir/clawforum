@@ -42,7 +42,7 @@ import {
 } from './constants.js';
 import { notifyInbox } from '../foundation/messaging/index.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../core/signals.js';
-import { LLMAllProvidersFailedError } from '../foundation/llm-orchestrator/errors.js';
+import { LLMAllProvidersFailedError } from '../foundation/llm-orchestrator/index.js';
 import { CONTRACT_DIR } from '../core/contract/index.js';
 import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
 import { INBOX_PENDING_DIR } from '../foundation/messaging/dirs.js';

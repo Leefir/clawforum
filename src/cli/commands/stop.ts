@@ -15,7 +15,7 @@ import { ProcessListUnavailable } from '../../foundation/process-manager/index.j
 import { kill } from '../../foundation/process-exec/index.js';
 import { createSystemAudit, type AuditLog } from '../../foundation/audit/index.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from '../../foundation/process-manager/audit-events.js';
-import { createProcessManagerForCLI } from '../../foundation/process-manager/factories.js';
+import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { makeClawId } from '../../foundation/identity/index.js';

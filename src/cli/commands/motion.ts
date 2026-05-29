@@ -19,7 +19,7 @@ import { runChatViewport } from './chat-viewport.js';
 import { CliError } from '../errors.js';
 import { Snapshot } from '../../foundation/snapshot/index.js';
 import { createDirContext } from '../../foundation/audit/index.js';
-import { createProcessManagerForCLI } from '../../foundation/process-manager/factories.js';
+import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from '../../assembly/snapshot-patterns.js';
 import { CLAWS_DIR, getWorkspaceRoot } from '../../foundation/paths.js';
 import { DAEMON_LOG } from '../../daemon/constants.js';

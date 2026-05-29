@@ -26,7 +26,7 @@ import { MOTION_CLAW_ID } from '../constants.js';
 import { makeClawId, makeClawforumRoot, makeClawDir } from '../foundation/identity/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
-import { createProcessManagerForCLI } from '../foundation/process-manager/factories.js';
+import { createProcessManagerForCLI } from '../foundation/process-manager/index.js';
 import { LockConflictError } from '../foundation/process-manager/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { CLAWS_DIR } from '../foundation/paths.js';

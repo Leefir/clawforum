@@ -13,7 +13,7 @@ import {
   DEFAULT_LLM_RETRY_ATTEMPTS,
   DEFAULT_RETRY_DELAY_MS,
   INIT_LLM_IDLE_TIMEOUT_MS,
-} from '../../foundation/llm-orchestrator/defaults.js';
+} from '../../foundation/llm-orchestrator/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import {
   WATCHDOG_INTERVAL_MS,

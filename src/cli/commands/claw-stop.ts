@@ -8,7 +8,7 @@ import {
 } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
-import { createProcessManagerForCLI } from '../../foundation/process-manager/factories.js';
+import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { makeClawId } from '../../foundation/identity/index.js';
