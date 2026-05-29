@@ -42,7 +42,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
       permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
-    const result = await searchTool.execute({ pattern: 'needle' }, ctx);
+    const result = await searchTool.execute({ text: 'needle' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('[Content matches]');
@@ -51,7 +51,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
     expect(result.content).not.toContain('clawspace/foo.txt');
   });
 
-  it('same-claw cwd: "..": displays MEMORY.md not clawspace/MEMORY.md', async () => {
+  it('same-claw path: "..": displays MEMORY.md not clawspace/MEMORY.md', async () => {
     const clawDir = path.join(tempDir, 'claw');
     await fs.mkdir(path.join(clawDir, 'clawspace'), { recursive: true });
     await fs.writeFile(path.join(clawDir, 'MEMORY.md'), 'needle memory');
@@ -66,7 +66,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
       permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
-    const result = await searchTool.execute({ pattern: 'needle', cwd: '..' }, ctx);
+    const result = await searchTool.execute({ text: 'needle', path: '..' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('MEMORY.md');
@@ -89,7 +89,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
       permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
-    const result = await searchTool.execute({ pattern: 'needle' }, ctx);
+    const result = await searchTool.execute({ text: 'needle' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('sub/bar.txt');
@@ -114,7 +114,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
       permissionChecker: createClawPermissionChecker({ clawDir, strict: true }),
     });
 
-    const result = await searchTool.execute({ pattern: 'needle' }, ctx);
+    const result = await searchTool.execute({ text: 'needle' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('foo.txt');
@@ -141,7 +141,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
       permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
     });
 
-    const result = await searchTool.execute({ pattern: 'needle', path: 'clawspace', claw: 'other-claw' }, ctx);
+    const result = await searchTool.execute({ text: 'needle', path: 'clawspace', claw: 'other-claw' }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.content).toContain('[other-claw]');

@@ -458,7 +458,7 @@ describe('Builtin Tools', () => {
       await mockFs.writeAtomic('clawspace/note1.txt', 'Hello world\nThis is a test\nHello again');
       await mockFs.writeAtomic('clawspace/note2.txt', 'Goodbye world');
 
-      const result = await searchTool.execute({ pattern: 'hello' }, ctx);
+      const result = await searchTool.execute({ text: 'hello' }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('[Content matches]');
@@ -471,14 +471,14 @@ describe('Builtin Tools', () => {
       await mockFs.ensureDir('clawspace');
       await mockFs.writeAtomic('clawspace/empty.txt', 'Nothing here');
 
-      const result = await searchTool.execute({ pattern: 'xyz' }, ctx);
+      const result = await searchTool.execute({ text: 'xyz' }, ctx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('No matches for "xyz".');
     });
 
     it('should reject claw="*" for non-Motion (broadcast still Motion-only)', async () => {
-      const result = await searchTool.execute({ pattern: 'test', path: 'clawspace', claw: '*' }, ctx);
+      const result = await searchTool.execute({ text: 'test', path: 'clawspace', claw: '*' }, ctx);
 
       expect(result.success).toBe(false);
       expect(result.content).toContain('Motion-only');
@@ -501,7 +501,7 @@ describe('Builtin Tools', () => {
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
         permissionChecker: createClawPermissionChecker({ clawDir: mainClawDir, strict: true }),
       });
-      const result = await searchTool.execute({ pattern: 'cross-claw', path: 'clawspace', claw: 'other-claw' }, mainCtx);
+      const result = await searchTool.execute({ text: 'cross-claw', path: 'clawspace', claw: 'other-claw' }, mainCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('[other-claw]');
@@ -552,7 +552,7 @@ describe('Builtin Tools', () => {
       const claw3Dir = path.join(clawsDir, 'claw3');
       await fs.mkdir(claw3Dir, { recursive: true });
 
-      const result = await searchTool.execute({ pattern: 'error', path: 'clawspace/', claw: '*' }, motionCtx);
+      const result = await searchTool.execute({ text: 'error', path: 'clawspace/', claw: '*' }, motionCtx);
 
       expect(result.success).toBe(true);
       // Results should have [clawId] prefix
@@ -581,7 +581,7 @@ describe('Builtin Tools', () => {
         permissionChecker: createClawPermissionChecker({ clawDir: nonExistentDir, strict: true }),
       });
 
-      const result = await searchTool.execute({ pattern: 'test', path: 'clawspace/', claw: '*' }, motionCtx);
+      const result = await searchTool.execute({ text: 'test', path: 'clawspace/', claw: '*' }, motionCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toBe('No matches for "test".');
@@ -614,7 +614,7 @@ describe('Builtin Tools', () => {
       await fs.mkdir(claw2Dir, { recursive: true });
       await fs.writeFile(path.join(claw2Dir, 'many.txt'), 'target\ntarget\ntarget');
 
-      const result = await searchTool.execute({ pattern: 'target', path: 'clawspace/', claw: '*' }, motionCtx);
+      const result = await searchTool.execute({ text: 'target', path: 'clawspace/', claw: '*' }, motionCtx);
 
       expect(result.success).toBe(true);
       // 6 content matches total (3 per claw × 2 claws) — under preview limit 20, full return
@@ -658,7 +658,7 @@ describe('Builtin Tools', () => {
       await fs.mkdir(mClawDir, { recursive: true });
       await fs.writeFile(path.join(mClawDir, 'file.txt'), 'match\nmatch\nmatch');
 
-      const result = await searchTool.execute({ pattern: 'match', path: 'clawspace/', claw: '*' }, motionCtx);
+      const result = await searchTool.execute({ text: 'match', path: 'clawspace/', claw: '*' }, motionCtx);
 
       expect(result.success).toBe(true);
       // a_claw should appear before m_claw before z_claw in the output (stable alphabetical order)
@@ -1363,7 +1363,7 @@ describe('Builtin Tools', () => {
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
-      const result = await searchTool.execute({ pattern: 'Error', path: 'clawspace', claw: 'claw1' }, motionCtx);
+      const result = await searchTool.execute({ text: 'Error', path: 'clawspace', claw: 'claw1' }, motionCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('[claw1]');
@@ -1390,7 +1390,7 @@ describe('Builtin Tools', () => {
         permissionChecker: createClawPermissionChecker({ clawDir: motionDir, strict: true }),
       });
 
-      const result = await searchTool.execute({ pattern: 'Warning', path: 'clawspace', claw: 'claw1' }, subagentCtx);
+      const result = await searchTool.execute({ text: 'Warning', path: 'clawspace', claw: 'claw1' }, subagentCtx);
 
       expect(result.success).toBe(true);
       expect(result.content).toContain('[claw1]');

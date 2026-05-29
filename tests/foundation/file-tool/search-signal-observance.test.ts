@@ -45,7 +45,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
     });
 
     const result = await searchTool.execute(
-      { pattern: 'needle', path: 'clawspace', claw: 'other-claw' },
+      { text: 'needle', path: 'clawspace', claw: 'other-claw' },
       ctx,
     );
 
@@ -76,7 +76,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
     });
 
     const result = await searchTool.execute(
-      { pattern: 'needle', path: 'clawspace', claw: 'other-claw' },
+      { text: 'needle', path: 'clawspace', claw: 'other-claw' },
       ctx,
     );
 
