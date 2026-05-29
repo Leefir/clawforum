@@ -15,9 +15,9 @@ import { MOTION_CLAW_ID } from '../constants.js';
 
 import { startDaemonLoop } from './daemon-loop.js';
 import { createSystemAudit, type AuditLog } from '../foundation/audit/index.js';
-import { createAgentProcessManager } from '../foundation/process-manager/agent-factory.js';
+import { createAgentProcessManager } from '../foundation/process-manager/index.js';
 import { isFileNotFound } from '../foundation/fs/types.js';
-import { INBOX_PENDING_DIR } from '../foundation/messaging/dirs.js';
+import { INBOX_PENDING_DIR } from '../foundation/messaging/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 
 import { LockConflictError } from '../foundation/process-manager/index.js';

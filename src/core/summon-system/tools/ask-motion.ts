@@ -5,7 +5,7 @@ import type { Message } from '../../../foundation/llm-provider/types.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
 import { DialogStore } from '../../../foundation/dialog-store/index.js';
 
-import { formatErr } from '../../../foundation/utils/format.js';
+import { formatErr } from '../../../foundation/utils/index.js';
 export const ASK_MOTION_TOOL_NAME = 'ask_motion' as const;
 
 export const ASK_MOTION_TOOL_DESCRIPTION = `向 Motion 分身提问，获取 Motion 对用户意图、背景、偏好的判断。

@@ -7,7 +7,7 @@
 import * as path from 'path';
 import type { AcceptanceFailedNotification, ContractYaml, VerificationResult, SubtaskId } from './types.js';
 import { ToolError, isProgrammingBug } from '../../foundation/errors.js';
-import { formatErr } from '../../foundation/utils/format.js';
+import { formatErr } from '../../foundation/utils/index.js';
 import { type ClawDir, makeClawDir } from '../../foundation/identity/index.js';
 import {
   emitContractCompleteOnCancelled,

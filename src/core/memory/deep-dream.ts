@@ -12,7 +12,7 @@ import { type ClawforumRoot } from '../../foundation/identity/index.js';
 import { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
-import { INBOX_PENDING_DIR } from '../../foundation/messaging/dirs.js';
+import { INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { type ClawDir, makeClawDir } from '../../foundation/identity/index.js';
 import {

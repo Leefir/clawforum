@@ -1,6 +1,6 @@
 import type { PostProcessor } from '../../async-task-system/post-processors/types.js';
 import { SUMMON_AUDIT_EVENTS } from '../audit-events.js';
-import { formatErr } from '../../../foundation/utils/format.js';
+import { formatErr } from '../../../foundation/utils/index.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../../../foundation/audit/index.js';
 
 

@@ -2,7 +2,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { cleanupRetention } from '../../../foundation/messaging/index.js';
-import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../../foundation/messaging/dirs.js';
+import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../../foundation/messaging/index.js';
 import { cleanupTaskRetention } from '../../async-task-system/index.js';
 import { cleanupArchives } from '../../../foundation/dialog-store/index.js';
 import { type ClawDir } from '../../../foundation/identity/index.js';

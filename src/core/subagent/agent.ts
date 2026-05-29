@@ -15,7 +15,7 @@ import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../sig
 import type { AbortReason } from '../../foundation/llm-provider/index.js';
 import { makeExternalAbortError } from '../../foundation/llm-provider/index.js';
 import { SUBAGENT_TIMEOUT_MS } from './constants.js';
-import { oneLine } from '../../foundation/utils/format.js';
+import { oneLine } from '../../foundation/utils/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUBAGENT_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS, emitToolCallInput } from './audit-events.js';

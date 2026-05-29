@@ -16,7 +16,7 @@ import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.j
 import type { StepCallbacks } from './types.js';
 import { safeCallback, toToolResultBlock } from './utils.js';
 import { throwAbortError } from './abort-helpers.js';
-import { safeNumber } from '../../foundation/utils/format.js';
+import { safeNumber } from '../../foundation/utils/index.js';
 import { makeToolUseId } from '../../foundation/tool-protocol/index.js';
 
 

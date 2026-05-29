@@ -13,7 +13,7 @@ import {
 } from '../../foundation/config/index.js';
 import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
-import { createAgentProcessManager } from '../../foundation/process-manager/agent-factory.js';
+import { createAgentProcessManager } from '../../foundation/process-manager/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { makeClawDir } from '../../foundation/identity/index.js';
 import { getWorkspaceRoot } from '../../foundation/paths.js';

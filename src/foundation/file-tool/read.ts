@@ -11,7 +11,7 @@ import type { ToolResult } from '../tool-protocol/index.js';
 import { READ_MAX_LINES, READ_MAX_CHARS } from './constants.js';
 
 import { resolveWorkspacePath } from './resolve-path.js';
-import { safeNumber } from '../utils/format.js';
+import { safeNumber } from '../utils/index.js';
 
 import { CLAWS_DIR, CLAWSPACE_DIR } from '../paths.js';
 export const READ_TOOL_NAME = 'read' as const;

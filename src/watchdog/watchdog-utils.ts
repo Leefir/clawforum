@@ -22,7 +22,7 @@ import { LLM_OUTPUT_EVENTS } from '../foundation/stream/index.js';
 // If new stream event types are added, this set must be evaluated for inclusion
 import { CONTRACT_DIR } from '../core/contract/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
-import { formatErr } from '../foundation/utils/format.js';
+import { formatErr } from '../foundation/utils/index.js';
 import type { ClawId } from '../foundation/identity/index.js';
 import { type ClawDir } from '../foundation/identity/index.js';
 

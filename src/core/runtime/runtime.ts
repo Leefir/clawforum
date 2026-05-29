@@ -29,7 +29,7 @@ import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
 // phase 1414: HEARTBEAT_AUDIT_EVENTS import removed — heartbeat 自家 inbox-formatter 持 audit
 import { CLAW_SUBDIRS } from '../../foundation/paths.js';
 // phase 1406: DIALOG_DIR no longer used here — regime-switch recovery path is owned by performRegimeSwitch helper
-import { oneLine, formatErr } from '../../foundation/utils/format.js';
+import { oneLine, formatErr } from '../../foundation/utils/index.js';
 import { escapeForLog } from '../../foundation/tools/index.js';
 import { MaxStepsExceededError } from '../agent-executor/index.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';

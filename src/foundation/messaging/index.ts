@@ -18,6 +18,16 @@ export type { InboxHandle } from './types.js';
 export { InboxListFailed, InboxMoveFailed } from './errors.js';
 export type { InboxMoveOp, InboxMetaError } from './errors.js';
 
+// phase 1423 F4: dirs path const re-export — 跨模块 (daemon / core) 路径合成走 barrel。
+// sister L2 foundation/paths.ts 内部 sister 保留 deep import (depcruise rule allowlist)。
+export {
+  INBOX_PENDING_DIR,
+  INBOX_DONE_DIR,
+  INBOX_FAILED_DIR,
+  INBOX_INFLIGHT_DIR,
+  OUTBOX_PENDING_DIR,
+} from './dirs.js';
+
 // phase 1414: inbox 消息格式化协议（散到各业主自管）
 export { createMessageFormatterRegistry } from './formatter-registry.js';
 export type {

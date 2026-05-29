@@ -171,7 +171,8 @@ vi.mock('../../src/foundation/tools/context.js', () => ({
   ExecContextImpl: vi.fn(() => ({ signal: undefined })),
 }));
 
-vi.mock('../../src/foundation/messaging/index.js', () => {
+vi.mock('../../src/foundation/messaging/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/foundation/messaging/index.js')>();
   const MockInboxWriter = vi.fn().mockImplementation(() => ({
     write: vi.fn().mockResolvedValue(undefined),
     writeSync: vi.fn(),
@@ -179,6 +180,7 @@ vi.mock('../../src/foundation/messaging/index.js', () => {
   (MockInboxWriter as any).readMeta = vi.fn();
   (MockInboxWriter as any).__internal_create = vi.fn(() => ({ write: vi.fn().mockResolvedValue(undefined), writeSync: vi.fn() }));
   return {
+    ...actual,
     InboxReader: vi.fn(() => ({ init: vi.fn().mockResolvedValue(undefined), drainInbox: vi.fn(() => []), drainAndDeliver: vi.fn(() => ({ entries: [], handles: [] })), markDone: vi.fn(), markFailed: vi.fn(), ack: vi.fn(), nack: vi.fn() })),
     OutboxWriter: vi.fn(() => ({ write: vi.fn().mockResolvedValue(undefined) })),
     InboxWriter: MockInboxWriter,

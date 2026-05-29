@@ -33,7 +33,7 @@ import {
   type IToolExecutor,
   type ToolExecutorOptions,
 } from './types.js';
-import { safeNumber } from '../utils/format.js';
+import { safeNumber } from '../utils/index.js';
 import type { ClawId, ClawforumRoot } from '../identity/index.js';
 import { type ClawDir } from '../identity/index.js';
 

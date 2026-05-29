@@ -3,7 +3,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import { writeInboxAsync } from '../../foundation/messaging/index.js';
-import { INBOX_PENDING_DIR } from '../../foundation/messaging/dirs.js';
+import { INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';
 import { formatErr } from './_helpers.js';
 import {
   emitResultWriteFailed,
@@ -11,7 +11,7 @@ import {
   emitResultDeliveryEnsureDirFailed,
 } from './audit-emit.js';
 import { TASKS_QUEUES_RESULTS_DIR } from './dirs.js';
-import { SUMMARY_MAX_CHARS } from '../../foundation/utils/format.js';
+import { SUMMARY_MAX_CHARS } from '../../foundation/utils/index.js';
 import type { SubAgentTask, ToolTask } from './types.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { TaskId } from '../../foundation/identity/index.js';

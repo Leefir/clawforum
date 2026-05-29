@@ -25,7 +25,7 @@ import { MESSAGING_AUDIT_EVENTS } from '../foundation/messaging/audit-events.js'
 import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES, LOOP_INTERRUPT_CAUSES } from './audit-events.js';
 
 import { AGENT_STREAM_EVENTS } from '../core/agent-executor/index.js';
-import { oneLine } from '../foundation/utils/format.js';
+import { oneLine } from '../foundation/utils/index.js';
 
 import type { Heartbeat } from '../core/runtime/index.js';
 
@@ -45,7 +45,7 @@ import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../cor
 import { LLMAllProvidersFailedError } from '../foundation/llm-orchestrator/index.js';
 import { CONTRACT_DIR } from '../core/contract/index.js';
 import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
-import { INBOX_PENDING_DIR } from '../foundation/messaging/dirs.js';
+import { INBOX_PENDING_DIR } from '../foundation/messaging/index.js';
 import type { ClawId } from '../foundation/identity/index.js';
 import type { ToolUseId } from '../foundation/tool-protocol/index.js';
 

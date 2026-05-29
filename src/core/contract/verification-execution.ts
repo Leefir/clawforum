@@ -10,7 +10,7 @@ import { exec } from '../../foundation/process-exec/index.js';
 import { ProcessExecError } from '../../foundation/process-exec/index.js';
 import { CONTRACT_SCRIPT_TIMEOUT_MS } from './constants.js';
 import { ToolTimeoutError } from '../../foundation/errors.js';
-import { formatErr } from '../../foundation/utils/format.js';
+import { formatErr } from '../../foundation/utils/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
 import type { ContractId } from '../../foundation/identity/index.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';

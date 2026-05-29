@@ -8,11 +8,13 @@ import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
 import { SUBAGENT_SHORT_TIMEOUT_MS } from '../../helpers/test-timeouts.js';
 
-vi.mock('../../../src/foundation/messaging/index.js', () => {
+vi.mock('../../../src/foundation/messaging/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/foundation/messaging/index.js')>();
   const MockInboxWriter = vi.fn().mockImplementation(() => ({
     write: vi.fn().mockResolvedValue(undefined),
   }));
   return {
+    ...actual,
     InboxWriter: MockInboxWriter,
     writeInboxAsync: vi.fn().mockImplementation((fs, inboxDir, message, audit) => {
       return new MockInboxWriter(fs, inboxDir, audit).write(message);

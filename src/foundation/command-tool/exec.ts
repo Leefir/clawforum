@@ -16,7 +16,7 @@ import { TASKS_SYNC_EXEC_DIR } from './constants.js';
 import { exec } from '../process-exec/index.js';
 import { ProcessExecError } from '../process-exec/index.js';
 import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../process-exec/index.js';
-import { formatErr, safeNumber } from '../utils/format.js';
+import { formatErr, safeNumber } from '../utils/index.js';
 
 function truncate(str: string, maxLen: number): string {
   if (!str || str.length <= maxLen) return str || '';

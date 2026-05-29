@@ -1,4 +1,4 @@
-import { formatErr } from './utils/format.js';
+import { formatErr } from './utils/index.js';
 import { type ClawDir } from '../foundation/identity/index.js';
 
 export type ErrorCode =

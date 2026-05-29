@@ -1,6 +1,6 @@
 import stringWidth from 'string-width';
 
-export { oneLine } from '../../foundation/utils/format.js';
+export { oneLine } from '../../foundation/utils/index.js';
 
 /**
  * 按视觉列宽从头截取字符串（正确处理 emoji / CJK 等宽字符）
