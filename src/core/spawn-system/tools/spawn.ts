@@ -16,7 +16,7 @@ import { runSpawnSync } from '../system.js';
  * 直接写 tasks/queues/pending/ 文件，由 async-task-system watcher 异步调度。
  */
 import { formatErr } from '../_helpers.js';
-import { DEFAULT_MAX_STEPS } from '../../agent-executor/index.js';
+// phase 1490: tool description 字符串不再泄 DEFAULT_MAX_STEPS const 值到 LLM docs — agent-executor 自持默认值。
 export const SPAWN_TOOL_NAME = 'spawn' as const;
 
 export const spawnTool: Tool = {
@@ -39,7 +39,7 @@ export const spawnTool: Tool = {
       },
       maxSteps: {
         type: 'number',
-        description: `Maximum number of ReAct steps the subagent can take (default: inherits caller main loop maxSteps, typically DEFAULT_MAX_STEPS = ${DEFAULT_MAX_STEPS}). Increase for complex multi-file tasks; decrease for simple lookups.`,
+        description: `Maximum number of ReAct steps the subagent can take (default: inherits caller's main loop maxSteps). Increase for complex multi-file tasks; decrease for simple lookups.`,
       },
       async: {
         type: 'boolean',

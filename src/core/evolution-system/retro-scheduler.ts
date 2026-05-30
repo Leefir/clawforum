@@ -13,7 +13,7 @@ import { MOTION_CLAW_ID } from '../../constants.js';
 import type { AsyncTaskSystem } from '../async-task-system/index.js';
 import { createSkillSystem } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../../foundation/paths.js';
-import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
+// phase 1490: 不再传 maxSteps、task.maxSteps optional / undefined 透传到 SubAgent boundary fallback。
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
@@ -68,7 +68,7 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
     mode: 'standard',
     intent: retroPrompt,
     timeoutMs: config.retroSubagentTimeoutMs ?? 600000,
-    maxSteps: DEFAULT_MAX_STEPS,
+    // phase 1490: maxSteps 不传、task.maxSteps optional / undefined → SubAgent boundary fallback
     parentClawId: MOTION_CLAW_ID,
     originClawId: MOTION_CLAW_ID,
   });

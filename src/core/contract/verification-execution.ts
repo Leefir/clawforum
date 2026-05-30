@@ -13,7 +13,7 @@ import { ToolTimeoutError } from '../../foundation/errors.js';
 import { formatErr } from '../../foundation/utils/index.js';
 import { DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
 import type { ContractId } from '../../foundation/identity/index.js';
-import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
+// phase 1490: 不再传 maxSteps、VerifierConfig.maxSteps optional / undefined 透传到 SubAgent boundary fallback。
 import { type ClawDir } from '../../foundation/identity/index.js';
 // phase 1376: contractAbsDir is clawDir, branded
 import {
@@ -93,7 +93,7 @@ export async function runLLMVerification(
       llm: ctx.llm!,
       fs: ctx.fs,
       audit: ctx.audit,
-      maxSteps: DEFAULT_MAX_STEPS,
+      // phase 1490: maxSteps 不传、SubAgent boundary fallback to agent-executor DEFAULT_MAX_STEPS
       idleTimeoutMs: DEFAULT_LLM_IDLE_TIMEOUT_MS,
       onIdleTimeout: () => {
         emitContractVerificationTimeout(

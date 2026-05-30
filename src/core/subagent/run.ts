@@ -55,7 +55,8 @@ export interface RunSubagentOptions {
   resultDir: string;
 
   // 行为参数（per phase 747 ctor required 模板）
-  maxSteps: number;
+  // phase 1490: maxSteps optional / undefined → SubAgent boundary fallback to DEFAULT_MAX_STEPS
+  maxSteps?: number;
   idleTimeoutMs?: number;
 
   // optional

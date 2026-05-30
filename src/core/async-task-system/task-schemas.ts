@@ -17,7 +17,8 @@ const commonSubAgentFields = {
   kind: z.literal('subagent'),
   id: z.string(),
   timeoutMs: z.number(),
-  maxSteps: z.number(),
+  // phase 1490: maxSteps optional / undefined → SubAgent boundary fallback to DEFAULT_MAX_STEPS
+  maxSteps: z.number().optional(),
   parentClawId: z.string(),
   createdAt: z.string(),
   callerType: CallerTypeSchema.optional(),

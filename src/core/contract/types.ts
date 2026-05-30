@@ -131,7 +131,8 @@ export interface VerifierConfig {
   clawId: ClawId;               // phase 514 / caller's clawId for subagent context
   llm: LLMOrchestrator;
   fs: FileSystem;
-  maxSteps: number;
+  // phase 1490: maxSteps optional / undefined propagate → SubAgent boundary fallback to DEFAULT_MAX_STEPS (agent-executor owner)
+  maxSteps?: number;
   idleTimeoutMs: number;
   onIdleTimeout?: () => void;
   /** Audit writer / phase 646 ⚓ verifier cleanup audit / per `feedback_audit_injection_alpha_template` */

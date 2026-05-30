@@ -4,7 +4,7 @@
  * SubAgent runs with restricted permissions and cannot spawn other agents.
  */
 
-import { runReact } from '../agent-executor/index.js';
+import { runReact, DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import { ToolExecutor } from '../../foundation/tools/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -44,7 +44,8 @@ export interface SubAgentOptions {
   registry: ToolRegistry;
   fs: FileSystem;
   fsFactory?: (baseDir: string) => FileSystem;
-  maxSteps: number;
+  // phase 1490: maxSteps optional / undefined → boundary fallback to DEFAULT_MAX_STEPS at ExecContext 构造点 (agent.ts:327)
+  maxSteps?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
   toolsForLLM?: ToolDefinition[];  // Pre-filtered tool list for LLM, overrides registry.getAll()
@@ -77,7 +78,7 @@ export class SubAgent {
   private registry: ToolRegistry;
   private fs: FileSystem;
   private fsFactory?: (baseDir: string) => FileSystem;
-  private maxSteps: number;
+  private maxSteps?: number;
   private maxConsecutiveParseErrors?: number;
   private maxConsecutiveMaxTokensToolUse?: number;
   private timeoutMs: number;
@@ -324,7 +325,8 @@ private callerType?: CallerType;
           executor,
           ctx: executor.getExecContext(executorProfile, {
             clawId: makeClawId(this.agentId),
-            maxSteps: this.maxSteps,
+            // phase 1490: SubAgent boundary resolve ExecContext.maxSteps（mirror runtime.ts:212 / runtime-boundary owns single resolve point）
+            maxSteps: this.maxSteps ?? DEFAULT_MAX_STEPS,
             signal: timeoutController.signal,
             allowedGroups: CALLER_TYPE_TO_GROUPS[callerType],
             callerLabel: callerType,

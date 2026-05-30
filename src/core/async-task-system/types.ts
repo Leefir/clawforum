@@ -50,7 +50,8 @@ interface CommonSubAgentTaskFields {
   kind: 'subagent';
   id: TaskId;
   timeoutMs: number;
-  maxSteps: number;
+  // phase 1490: maxSteps optional / undefined → SubAgent boundary fallback to DEFAULT_MAX_STEPS
+  maxSteps?: number;
   parentClawId: string;
   createdAt: string;
   callerType?: CallerType;

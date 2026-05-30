@@ -13,7 +13,7 @@
  */
 
 import { fitLine } from '../utils/string.js';
-import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
+// phase 1490: TaskTrack.maxSteps 初值不再 import DEFAULT_MAX_STEPS — UI render 不显示该字段、event 驱动更新（line 119）即填真值。
 import type { TaskId } from '../../foundation/identity/index.js';
 
 
@@ -38,7 +38,7 @@ export function makeTaskTrack(taskId: TaskId, callerType: 'subagent' | 'shadow')
     textBuffer: '',
     bufferType: null,
     step: 0,
-    maxSteps: DEFAULT_MAX_STEPS,
+    maxSteps: 0,
     lastError: null,
   };
 }
