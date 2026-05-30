@@ -18,7 +18,7 @@ import type { FileSystem } from '../fs/types.js';
 import { isFileNotFound } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import type { ExecContext, FileState } from '../tools/types.js';
-import { formatErr } from '../utils/format.js';
+import { formatErr } from '../utils/index.js';
 import { FILE_TOOL_AUDIT_EVENTS } from './audit-events.js';
 
 /** Relative-to-fs-baseDir path of the persistence file. */
@@ -64,6 +64,20 @@ export async function persistReadFileState(ctx: ExecContext): Promise<void> {
  *   - parse error / unknown version / IO error: audit + return empty Map (fail-safe — claw must re-read).
  *
  * Returns a fresh Map for caller to assign to `ctx.readFileState`.
+ *
+ * Version migration policy (phase 1452 / F-NEXT.2):
+ *   The persistence format is versioned (currently v1). When a future v2 ships:
+ *     - **Downgrade** (new disk file v2, old binary v1): unknown version → discard +
+ *       `READ_FILE_STATE_LOADED result=skipped_unknown_version` audit + empty Map. claw
+ *       must re-read files of interest in current session (idempotent).
+ *     - **Upgrade** (old disk file v1, new binary v2): same policy in reverse.
+ *     - This «discard + rebuild on next read» strategy is **by design** — readFileState is
+ *       a gate accelerator, not a primary data source. Losing it costs at most one re-read
+ *       per file; preserving it across format changes adds complexity (migration table,
+ *       bilateral codec) for negligible benefit (daemon restarts are rare; re-reads cheap).
+ *     - A binary that wants to honor older v1 files MAY add explicit branch (e.g.
+ *       `if (parsed.version === 1) loadV1(); else if (parsed.version === 2) loadV2()`)
+ *       — current load() is single-branch; future v2 work owns adding sister branch.
  */
 export async function loadReadFileState(
   fs: FileSystem,

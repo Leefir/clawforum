@@ -17,16 +17,17 @@ import { withCliErrorHandling } from './with-cli-error-handling.js';
 // who actually runs `start` or `init`.
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
 import type { FileSystem } from '../foundation/fs/types.js';
-import { 
-  createCommand, 
-  chatCommand, 
-  stopCommand, 
-  listCommand, 
+import {
+  createCommand,
+  chatCommand,
+  stopCommand,
+  listCommand,
   healthCommand,
   sendCommand,
   outboxCommand,
   cpCommand,
   readCommand,
+  readStateCommand,
 } from './commands/claw.js';
 
 import { 
@@ -191,6 +192,15 @@ clawCmd
   .option('--limit <n>', 'Max lines to read', parseInt)
   .action(withCliErrorHandling(async (name: string, filePath: string, opts: { offset?: number; limit?: number }) => {
     await readCommand({ fsFactory }, name, filePath, opts);
+  }));
+
+// claw read-state (phase 1452 / F-NEXT.1)
+clawCmd
+  .command('read-state <name>')
+  .description('Inspect a Claw\'s overwrite-gate state (read-state.json)')
+  .option('--json', 'Output as JSON (machine-readable)')
+  .action(withCliErrorHandling(async (name: string, opts: { json?: boolean }) => {
+    await readStateCommand({ fsFactory }, name, opts);
   }));
 
 // claw trace
