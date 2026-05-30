@@ -51,10 +51,16 @@ describe('claw-send — confinement baseDir vs root (P0.2 phase 611)', () => {
 
     await sendCommand({ fsFactory }, 'test-claw', 'hello');
 
-    // NodeFileSystem 应该被构造了，且 baseDir 不是 '/'，而是包含 test-claw 的目录
-    expect(NodeFileSystem).toHaveBeenCalledTimes(1);
-    const ctorCall = vi.mocked(NodeFileSystem).mock.calls[0];
-    expect(ctorCall[0].baseDir).not.toBe('/');
-    expect(ctorCall[0].baseDir).toContain('test-claw');
+    // Contract (phase 611 P0.2)：inbox-writing NodeFileSystem 必 clawDir-confined、不可 baseDir=/。
+    // 注：phase 8c83be84 加 daemon-alive 检查后、sendCommand 内会额外构造 ProcessManager 的
+    //   NodeFileSystem (baseDir 不一定相同)。本测试只断 confinement 契约、不锁 ctor 计数。
+    const calls = vi.mocked(NodeFileSystem).mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+    for (const ctorCall of calls) {
+      expect(ctorCall[0].baseDir).not.toBe('/');
+    }
+    // 至少一次构造是为了写 inbox、其 baseDir 应包含 test-claw clawDir。
+    const clawDirCall = calls.find((c) => c[0].baseDir.includes('test-claw'));
+    expect(clawDirCall).toBeDefined();
   });
 });
