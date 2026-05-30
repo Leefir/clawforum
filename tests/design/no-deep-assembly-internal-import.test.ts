@@ -26,7 +26,7 @@ describe('phase 1413: CONFIG_DEFAULTS barrel-only invariant', () => {
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*assembly/config-defaults\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/assembly/"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*assembly/config-defaults\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/assembly/"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -51,5 +51,14 @@ describe('phase 1413: CONFIG_DEFAULTS barrel-only invariant', () => {
     const goodSample = `import { CONFIG_DEFAULTS } from '../../assembly/index.js';`;
     const re = /from ['"][^'"]*assembly\/config-defaults\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/assembly/index.ts:13:export { CONFIG_DEFAULTS } from './config-defaults.js';`;
+    const crossModuleDeep = `${srcRoot}/cli/commands/init.ts:8:import { CONFIG_DEFAULTS } from '../../assembly/config-defaults.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/assembly/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });

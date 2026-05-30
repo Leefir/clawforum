@@ -17,7 +17,7 @@ describe('phase 1435 F9: skill-system/skill-paths barrel-only invariant', () => 
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*skill-system/skill-paths\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/skill-system/"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*skill-system/skill-paths\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/skill-system/"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -42,5 +42,14 @@ describe('phase 1435 F9: skill-system/skill-paths barrel-only invariant', () => 
     const goodSample = `import { SKILLS_DIR_DEFAULT } from '../../foundation/skill-system/index.js';`;
     const re = /from ['"][^'"]*skill-system\/skill-paths\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/skill-system/index.ts:11:export { SKILLS_DIR_DEFAULT } from './skill-paths.js';`;
+    const crossModuleDeep = `${srcRoot}/cli/commands/skill-list.ts:7:import { SKILLS_DIR_DEFAULT } from '../../foundation/skill-system/skill-paths.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/skill-system/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });

@@ -17,7 +17,7 @@ describe('phase 1435 F8: messaging/audit-events barrel-only invariant', () => {
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*messaging/audit-events\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/messaging/"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*messaging/audit-events\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/messaging/"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -42,5 +42,14 @@ describe('phase 1435 F8: messaging/audit-events barrel-only invariant', () => {
     const goodSample = `import { MESSAGING_AUDIT_EVENTS } from '../foundation/messaging/index.js';`;
     const re = /from ['"][^'"]*messaging\/audit-events\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/messaging/index.ts:9:export { MESSAGING_AUDIT_EVENTS } from './audit-events.js';`;
+    const crossModuleDeep = `${srcRoot}/cli/commands/claw-send.ts:42:import { MESSAGING_AUDIT_EVENTS } from '../../foundation/messaging/audit-events.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/messaging/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });
