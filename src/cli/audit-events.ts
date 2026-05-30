@@ -13,8 +13,14 @@ export const CLI_AUDIT_EVENTS = {
   CLAW_OUTBOX_DRAIN_DONE: 'cli_claw_outbox_drain_done',
   CLAW_OUTBOX_DRAIN_RACE_LOST: 'cli_claw_outbox_drain_race_lost',          // NEW phase 1222 α-2: atomic claim loser
   CONTRACT_CREATE: 'cli_contract_create',
+  CONTRACT_CANCEL: 'cli_contract_cancel',                                    // NEW phase 1471: contract cancel CLI
   CONTRACT_UPDATE: 'cli_contract_update',
   INIT_DONE: 'cli_init_done',
+  INIT_PROBE_ATTEMPTED: 'cli_init_probe_attempted',
+  INIT_PROBE_SUCCEEDED: 'cli_init_probe_succeeded',
+  INIT_PROBE_FAILED: 'cli_init_probe_failed',
+  INIT_PROBE_RECONFIGURED: 'cli_init_probe_reconfigured',
+  INIT_PROBE_SKIPPED: 'cli_init_probe_skipped',
   MOTION_INIT: 'cli_motion_init',
   MOTION_STOP: 'cli_motion_stop',
   SKILL_INSTALL: 'cli_skill_install',

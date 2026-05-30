@@ -20,6 +20,16 @@ import {
 import { type StatusMotionGuidance, formatMotionGuidance } from './motion-guidance.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
+// merge note (phase 1472 ← main phase 1468)：
+// main side（phase 1468）re-export 3 内联 helper（getContractStatus / getTaskStatus /
+// getStorageStatus）作 `__test_*` 测试 surface（F9 audit-2026-05-30）。phase 1472 Step A
+// refactor 已把这 3 helper 抽成 `aggregators.ts` 中 pure function (computeContractView /
+// computeTaskView / computeStorageView) + format helper、tests/core/status-service/
+// aggregators.test.ts 14 case 覆盖等价计算逻辑（含 ENOENT / FS_NOT_FOUND silent + 错误折进 view）。
+// audit-emission 路径（pure aggregator 不写 audit、由本 wrapper 写）由
+// status-tool-helpers.test.ts 重写为 createStatusTool integration test 保持 phase 1468
+// F9 cov 意图（CONTRACT_ERROR / TASK_PENDING_ERROR / TASK_RUNNING_ERROR 三条 audit emit）。
+
 export const STATUS_TOOL_NAME = 'status' as const;
 
 /**

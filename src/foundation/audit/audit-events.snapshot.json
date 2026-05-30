@@ -41,12 +41,18 @@
       "cli_claw_outbox_drain_race_lost",
       "cli_claw_outbox_drain_start",
       "cli_claw_stop",
+      "cli_contract_cancel",
       "cli_contract_create",
       "cli_contract_update",
       "cli_daemon_spawn_race_failed",
       "cli_daemon_start",
       "cli_daemon_stop",
       "cli_init_done",
+      "cli_init_probe_attempted",
+      "cli_init_probe_failed",
+      "cli_init_probe_reconfigured",
+      "cli_init_probe_skipped",
+      "cli_init_probe_succeeded",
       "cli_motion_init",
       "cli_motion_stop",
       "cli_skill_install"
@@ -451,6 +457,9 @@
     ],
     "foundation_audit_audit-events": [
       "audit_fallback_dropped"
+    ],
+    "foundation_command-tool_audit-events": [
+      "exec_motion_self_kill_blocked"
     ],
     "foundation_tools_audit-events": [
       "tool_caller_access_violation"
