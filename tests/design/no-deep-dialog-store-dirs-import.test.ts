@@ -20,7 +20,7 @@ describe('phase 1432 F6: dialog-store/dirs barrel-only invariant', () => {
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*dialog-store/dirs\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/dialog-store/" | grep -v "^${srcRoot}/assembly/assemble.ts:"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*dialog-store/dirs\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/dialog-store/" | grep -v "^${srcRoot}/assembly/assemble.ts:"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -45,5 +45,14 @@ describe('phase 1432 F6: dialog-store/dirs barrel-only invariant', () => {
     const goodSample = `import { DIALOG_DIR } from '../../foundation/dialog-store/index.js';`;
     const re = /from ['"][^'"]*dialog-store\/dirs\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/dialog-store/index.ts:6:export { DIALOG_DIR } from './dirs.js';`;
+    const crossModuleDeep = `${srcRoot}/cli/commands/claw-chat.ts:33:import { DIALOG_DIR } from '../../foundation/dialog-store/dirs.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/dialog-store/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });

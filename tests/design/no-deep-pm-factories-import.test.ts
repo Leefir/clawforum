@@ -26,7 +26,7 @@ describe('phase 1416 F1 + phase 1423 F5: PM factories + agent-factory barrel-onl
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*process-manager/(factories|agent-factory)\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/process-manager/" | grep -v "^${srcRoot}/assembly/assemble.ts:"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*process-manager/(factories|agent-factory)\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/process-manager/" | grep -v "^${srcRoot}/assembly/assemble.ts:"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -53,5 +53,14 @@ describe('phase 1416 F1 + phase 1423 F5: PM factories + agent-factory barrel-onl
     const goodSample = `import { createProcessManagerForCLI, createAgentProcessManager } from '../../foundation/process-manager/index.js';`;
     const re = /from ['"][^'"]*process-manager\/(factories|agent-factory)\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/process-manager/index.ts:14:export { createProcessManagerForCLI } from './factories.js';`;
+    const crossModuleDeep = `${srcRoot}/cli/commands/claw-create.ts:21:import { createProcessManagerForCLI } from '../../foundation/process-manager/factories.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/process-manager/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });

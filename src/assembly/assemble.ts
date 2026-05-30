@@ -861,6 +861,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
                 'pid_file_legacy_format',
                 'inbox_legacy_claw_id_field',
                 'legacy_pending_task_no_mode',
+                'contract_yaml_legacy_acceptance_field',
+                'contract_yaml_legacy_escalation_field',
               ],
               motionInbox: diskMonitorInbox,
               signal,
