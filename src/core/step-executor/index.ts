@@ -9,5 +9,5 @@ export { executeStep } from './step-executor.js';
 export { throwAbortError } from './abort-helpers.js';
 export { REACT_DEFAULT_MAX_TOKENS } from './constants.js';
 export type {
-  StepInput, StepResult, StepCallbacks, StepMeta, LLMCallInfo,
+  StepInput, StepResult, StepCallbacks, StepMeta, LLMCallInfo, FinalStopReason,
 } from './types.js';

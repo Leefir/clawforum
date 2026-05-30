@@ -77,7 +77,13 @@ export interface StepMeta {
   toolNames?: string;
 }
 
+/**
+ * StepResult 'final' variant 的 stopReason 字面联合。
+ * phase 1483: 抽 named type、让 AgentExecutor 编译期复用、消除独立字面声明漂移风险（M#9 编译器可检）。
+ */
+export type FinalStopReason = 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown';
+
 export type StepResult =
-  | { kind: 'final'; stopReason: 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown'; finalText: string }
+  | { kind: 'final'; stopReason: FinalStopReason; finalText: string }
   | { kind: 'continue'; meta: StepMeta }
   | { kind: 'max_tokens_tool_use'; meta: StepMeta };

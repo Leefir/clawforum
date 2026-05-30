@@ -17,7 +17,7 @@ import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.js';
 import { DEFAULT_MAX_STEPS } from './defaults.js';
 import { runAgent } from './agent-executor.js';
-import type { StepCallbacks, LLMCallInfo } from '../step-executor/index.js';
+import type { StepCallbacks, LLMCallInfo, FinalStopReason } from '../step-executor/index.js';
 import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
 
 
@@ -65,9 +65,9 @@ export interface ReactResult {
   finalText: string;
   stepsUsed: number;
   // phase 788: 'unknown' propagate（audit-2026-05-14 P0.15）
-  // LLM 返 unrecognized stop_reason（refusal、content_filter、safety、stop_sequence 等）
-  // 经 step-executor 映射 'unknown'，本字段保留 'unknown' 给 caller 区分 true end_turn
-  stopReason: 'end_turn' | 'no_tool' | 'max_tokens' | 'unknown';
+  // LLM 返 unrecognized stop_reason（refusal、safety、stop_sequence 等）经 step-executor 映射 'unknown'，本字段保留区分 true end_turn。
+  // phase 1483: 'content_filter' 字面单独保留（不再折叠为 'unknown'）— Design Principle「运行中信息不丢弃」+ 唯一 caller subagent/agent.ts:411 仅 appendToLog 字符串拼接安全。
+  stopReason: 'end_turn' | 'no_tool' | 'max_tokens' | 'content_filter' | 'unknown';
 }
 
 export async function runReact(options: ReactOptions): Promise<ReactResult> {
@@ -136,10 +136,11 @@ export async function runReact(options: ReactOptions): Promise<ReactResult> {
 }
 
 function mapStopReason(
-  r: 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown'
-): 'end_turn' | 'no_tool' | 'max_tokens' | 'unknown' {
+  r: FinalStopReason
+): 'end_turn' | 'no_tool' | 'max_tokens' | 'content_filter' | 'unknown' {
   if (r === 'max_tokens_text') return 'max_tokens';
   if (r === 'no_tool') return 'no_tool';
-  if (r === 'unknown' || r === 'content_filter') return 'unknown';   // phase 788: propagate refusal/safety/etc 不折叠 end_turn
+  if (r === 'content_filter') return 'content_filter';   // phase 1483: propagate distinct content_filter（不再折叠 unknown）
+  if (r === 'unknown') return 'unknown';                  // phase 788: propagate refusal/safety/etc 不折叠 end_turn
   return 'end_turn';  // 'end_turn' 与 'stop' 均映射为 'end_turn'（向后兼容 shim）
 }

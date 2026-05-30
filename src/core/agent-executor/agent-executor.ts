@@ -12,7 +12,7 @@ import type { Message, ToolDefinition } from '../../foundation/llm-provider/type
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { ExecContext } from '../../foundation/tools/index.js';
 import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.js';
-import { executeStep, throwAbortError, type StepCallbacks, type StepMeta } from '../step-executor/index.js';
+import { executeStep, throwAbortError, type StepCallbacks, type StepMeta, type FinalStopReason } from '../step-executor/index.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError, WallTimeExceededError } from './errors.js';
 import { DEFAULT_MAX_STEPS } from './defaults.js';
 import { MAX_CONSECUTIVE_PARSE_ERRORS, MAX_CONSECUTIVE_MAX_TOKENS_TOOL_USE } from './constants.js';
@@ -39,7 +39,7 @@ export interface AgentInput {
 export interface AgentResult {
   finalText: string;
   stepsUsed: number;
-  stopReason: 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown';
+  stopReason: FinalStopReason;
 }
 
 export async function runAgent(input: AgentInput): Promise<AgentResult> {
@@ -55,6 +55,11 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
 
   let stepCount = 0;
   let consecutiveParseErrors = 0;
+  // phase 1483 doc: 两个熔断器计数器独立累积、互不重置。
+  // 'continue' 路径在无 parse error 时重置 consecutiveParseErrors=0、并无条件重置 consecutiveMaxTokensToolUse=0；
+  // 'max_tokens_tool_use' 路径只递增自身、不动 consecutiveParseErrors。
+  // 设计后果：parse_err → max_tokens → parse_err 交替序列里 parse counter 不被 max_tokens 步重置（合规：交替仍计入连续 parse 失败）；
+  //          max_tokens → continue(成功) → max_tokens 序列里 max_tokens counter 被成功 'continue' 重置。
   let consecutiveMaxTokensToolUse = 0;
 
   const startMs = Date.now();

@@ -1053,8 +1053,10 @@ describe('ReAct Loop', () => {
     });
   });
 
-  // Step B: unknown stop_reason propagation (phase 788 / P0.15)
-  it('propagates unknown stop_reason instead of collapsing to end_turn (phase 788 / P0.15)', async () => {
+  // Step B: unknown/content_filter stop_reason propagation
+  // phase 788 / P0.15: 不折叠 end_turn
+  // phase 1483 #3: content_filter 单独保留、不再折叠为 unknown（audit-2026-05-30 finding #3）
+  it('propagates unrecognized stop_reason as content_filter (phase 1483 #3 / phase 788 P0.15)', async () => {
     // Mock LLM returning unrecognized stop_reason (e.g., refusal/safety/content_filter)
     (mockLLM.stream as ReturnType<typeof vi.fn>).mockImplementationOnce(async function* () {
       yield { type: 'text_delta', delta: 'partial refused response' };
@@ -1072,8 +1074,8 @@ describe('ReAct Loop', () => {
       maxSteps: 5,
     });
 
-    // Verify: stopReason propagates as 'unknown' (not collapsed to 'end_turn')
-    expect(result.stopReason).toBe('unknown');
+    // phase 1483: content_filter 保留字面（不再折叠 unknown）
+    expect(result.stopReason).toBe('content_filter');
     // finalText still has partial content
     expect(result.finalText).toContain('partial refused response');
   });
