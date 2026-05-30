@@ -47,3 +47,7 @@ clawspace/
 design/
 memory/
 !tests/design/
+
+# Root-level markdown notes (PHASE*.md etc.) — only README.md tracked
+/*.md
+!/README.md
