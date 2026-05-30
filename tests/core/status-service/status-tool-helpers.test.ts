@@ -1,282 +1,158 @@
 /**
- * phase 1468 — status-service test cov 补强 (F9 partial 续治 from audit-2026-05-30)
+ * status-service status-tool integration tests
  *
- * 覆盖 status-tool.ts 3 internal async helpers:
- * - getContractStatus / getTaskStatus / getStorageStatus
+ * 历史：phase 1468 — F9 partial 续治 from audit-2026-05-30。原 18 case 针对 status-tool.ts
+ * 3 内联 async helper（getContractStatus / getTaskStatus / getStorageStatus）经 `__test_*`
+ * test-only export 测试面。
  *
- * scope 严守：仅 helper unit tests / 不动 createStatusTool public API surface
- * mirror phase 1467 form (memory-system tests). Tier 1 feedback_test_magic_treatment_kit
- * 应用：audit event 名走 STATUS_AUDIT_EVENTS const、不写 magic string.
+ * phase 1472 Step A refactor 把 3 helper 抽成 `aggregators.ts` 中 pure function +
+ * format helper、`__test_*` 退役。原 case 拆两层：
+ *   - 计算逻辑（view shape、format、ENOENT/FS_NOT_FOUND silent）→ `aggregators.test.ts` 14 case
+ *   - audit-emission 路径（CONTRACT_ERROR / TASK_PENDING_ERROR / TASK_RUNNING_ERROR
+ *     这 3 条 STATUS_AUDIT_EVENTS 由 wrapper layer 写）→ 本文件 integration test
+ *
+ * 本文件聚焦后者：调 `createStatusTool().execute()` 真走 wrapper、断 auditWriter.write
+ * 收到对应 event name + error 消息片段。复用 phase 1468 audit-emit case 三条 + ENOENT
+ * silent 对照、保证 F9 audit-emit cov 不漏。
  */
 import { describe, it, expect, vi } from 'vitest';
-import {
-  __test_getContractStatus,
-  __test_getTaskStatus,
-  __test_getStorageStatus,
-} from '../../../src/core/status-service/status-tool.js';
+import { createStatusTool } from '../../../src/core/status-service/status-tool.js';
 import { STATUS_AUDIT_EVENTS } from '../../../src/core/status-service/audit-events.js';
+import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { FileNotFoundError } from '../../../src/foundation/fs/types.js';
-import type { FileSystem, FileEntry } from '../../../src/foundation/fs/types.js';
+import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { ContractSystem } from '../../../src/core/contract/index.js';
-import type { ExecContext } from '../../../src/foundation/tools/index.js';
 
-function makeMockCtx(fs: Partial<FileSystem>, auditWrite?: ReturnType<typeof vi.fn>): ExecContext {
-  const auditWriter = auditWrite ? { write: auditWrite } : undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { fs, auditWriter } as any;
+function makeMockCtx(fs: Partial<FileSystem>, auditWrite?: ReturnType<typeof vi.fn>) {
+  const auditWriter = auditWrite ? ({ write: auditWrite } as unknown as never) : undefined;
+  return new ExecContextImpl({
+    clawId: 'test-claw',
+    clawDir: '/tmp/test-claw',
+    profile: 'full',
+    fs: fs as FileSystem,
+    auditWriter,
+  });
 }
 
 function makeMockContractSystem(loadActive: () => Promise<unknown>): ContractSystem {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { loadActive: vi.fn(loadActive) } as any;
+  return { loadActive: vi.fn(loadActive) } as unknown as ContractSystem;
 }
 
-function makeEntry(name: string, isDir = false): FileEntry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { name, isDirectory: isDir } as any;
-}
+describe('status-tool integration (audit emission paths — phase 1468 F9 cov preserved)', () => {
+  // ── Contract audit emission ────────────────────────────────────────────────
 
-describe('status-service helpers (phase 1468)', () => {
-  describe('getContractStatus', () => {
-    it('no active contract returns "No active contract"', async () => {
-      const ctx = makeMockCtx({});
-      const cs = makeMockContractSystem(async () => null);
-      const out = await __test_getContractStatus(ctx, cs);
-      expect(out).toBe('Contract: No active contract');
+  it('contract loadActive throws → STATUS_AUDIT_EVENTS.CONTRACT_ERROR emitted with error msg', async () => {
+    const auditWrite = vi.fn();
+    const fs: Partial<FileSystem> = {
+      list: vi.fn().mockResolvedValue([]),
+      exists: vi.fn().mockResolvedValue(false),
+    };
+    const ctx = makeMockCtx(fs, auditWrite);
+    const cs = makeMockContractSystem(async () => {
+      throw new Error('database connection lost');
     });
-
-    it('active contract with all pending shows 0/N + subtasks list with ○', async () => {
-      const ctx = makeMockCtx({});
-      const cs = makeMockContractSystem(async () => ({
-        title: 'Test Contract',
-        subtasks: [
-          { id: 't1', status: 'todo', description: 'first task' },
-          { id: 't2', status: 'todo', description: 'second task' },
-        ],
-      }));
-      const out = await __test_getContractStatus(ctx, cs);
-      expect(out).toContain('Contract: "Test Contract" (0/2 subtasks done)');
-      expect(out).toContain('  ○ t1: first task');
-      expect(out).toContain('  ○ t2: second task');
-    });
-
-    it('active contract with partial completion shows correct count + mixed icons', async () => {
-      const ctx = makeMockCtx({});
-      const cs = makeMockContractSystem(async () => ({
-        title: 'Partial',
-        subtasks: [
-          { id: 't1', status: 'completed', description: 'done' },
-          { id: 't2', status: 'todo', description: 'pending' },
-          { id: 't3', status: 'completed', description: 'also done' },
-        ],
-      }));
-      const out = await __test_getContractStatus(ctx, cs);
-      expect(out).toContain('(2/3 subtasks done)');
-      expect(out).toContain('  ✓ t1: done');
-      expect(out).toContain('  ○ t2: pending');
-      expect(out).toContain('  ✓ t3: also done');
-    });
-
-    it('loadActive throws emits CONTRACT_ERROR audit + returns "Error loading"', async () => {
-      const auditWrite = vi.fn();
-      const ctx = makeMockCtx({}, auditWrite);
-      const cs = makeMockContractSystem(async () => {
-        throw new Error('database connection lost');
-      });
-      const out = await __test_getContractStatus(ctx, cs);
-      expect(out).toBe('Contract: Error loading');
-      expect(auditWrite).toHaveBeenCalledTimes(1);
-      const call = auditWrite.mock.calls[0];
-      expect(call[0]).toBe(STATUS_AUDIT_EVENTS.CONTRACT_ERROR);
-      expect(call.some((s: unknown) => typeof s === 'string' && s.includes('database connection lost'))).toBe(true);
-    });
+    const tool = createStatusTool(cs);
+    const result = await tool.execute({}, ctx);
+    expect(result.success).toBe(true);
+    expect(result.content).toContain('Contract: Error loading');
+    const contractCall = auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.CONTRACT_ERROR);
+    expect(contractCall).toBeDefined();
+    expect(contractCall!.some((s: unknown) => typeof s === 'string' && s.includes('database connection lost'))).toBe(true);
   });
 
-  describe('getTaskStatus', () => {
-    it('both empty returns "idle"', async () => {
-      const fs: Partial<FileSystem> = {
-        list: vi.fn().mockResolvedValue([]),
-      };
-      const ctx = makeMockCtx(fs);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: idle');
-    });
+  // ── Task audit emission ────────────────────────────────────────────────────
 
-    it('running > 0 reports both running + pending counts', async () => {
-      const fs: Partial<FileSystem> = {
-        list: vi.fn()
-          .mockResolvedValueOnce([makeEntry('t1.json'), makeEntry('t2.json')])  // pending
-          .mockResolvedValueOnce([makeEntry('t3.json')]),                       // running
-      };
-      const ctx = makeMockCtx(fs);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: 1 running, 2 pending');
-    });
-
-    it('only pending (running empty) reports pending count', async () => {
-      const fs: Partial<FileSystem> = {
-        list: vi.fn()
-          .mockResolvedValueOnce([makeEntry('p1.json'), makeEntry('p2.json'), makeEntry('p3.json')])
-          .mockResolvedValueOnce([]),
-      };
-      const ctx = makeMockCtx(fs);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: 3 pending');
-    });
-
-    it('pending ENOENT silent (no audit) — first-startup case', async () => {
-      const auditWrite = vi.fn();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const enoent: any = new Error('ENOENT');
-      enoent.code = 'ENOENT';
-      const fs: Partial<FileSystem> = {
-        list: vi.fn()
-          .mockRejectedValueOnce(enoent)
-          .mockResolvedValueOnce([]),
-      };
-      const ctx = makeMockCtx(fs, auditWrite);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: idle');
-      // no TASK_PENDING_ERROR audit
-      expect(auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR)).toBeUndefined();
-    });
-
-    it('pending non-ENOENT (EACCES) emits TASK_PENDING_ERROR audit', async () => {
-      const auditWrite = vi.fn();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eacces: any = new Error('EACCES: permission denied');
-      eacces.code = 'EACCES';
-      const fs: Partial<FileSystem> = {
-        list: vi.fn()
-          .mockRejectedValueOnce(eacces)
-          .mockResolvedValueOnce([]),
-      };
-      const ctx = makeMockCtx(fs, auditWrite);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: idle');
-      expect(auditWrite).toHaveBeenCalledTimes(1);
-      const call = auditWrite.mock.calls[0];
-      expect(call[0]).toBe(STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR);
-      expect(call.some((s: unknown) => typeof s === 'string' && s.includes('EACCES'))).toBe(true);
-    });
-
-    it('running non-ENOENT emits TASK_RUNNING_ERROR audit', async () => {
-      const auditWrite = vi.fn();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ioerr: any = new Error('EIO: I/O error');
-      ioerr.code = 'EIO';
-      const fs: Partial<FileSystem> = {
-        list: vi.fn()
-          .mockResolvedValueOnce([])
-          .mockRejectedValueOnce(ioerr),
-      };
-      const ctx = makeMockCtx(fs, auditWrite);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: idle');
-      expect(auditWrite).toHaveBeenCalledTimes(1);
-      const call = auditWrite.mock.calls[0];
-      expect(call[0]).toBe(STATUS_AUDIT_EVENTS.TASK_RUNNING_ERROR);
-      expect(call.some((s: unknown) => typeof s === 'string' && s.includes('EIO'))).toBe(true);
-    });
-
-    it('FS_NOT_FOUND code treated as ENOENT silent (sister handling for L1 FileNotFoundError)', async () => {
-      const auditWrite = vi.fn();
-      const fnf = new FileNotFoundError('/missing/dir');
-      const fs: Partial<FileSystem> = {
-        list: vi.fn()
-          .mockRejectedValueOnce(fnf)
-          .mockResolvedValueOnce([]),
-      };
-      const ctx = makeMockCtx(fs, auditWrite);
-      const out = await __test_getTaskStatus(ctx);
-      expect(out).toBe('Tasks: idle');
-      expect(auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR)).toBeUndefined();
-    });
+  it('pending EACCES → STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR emitted with error msg', async () => {
+    const auditWrite = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const eacces: any = new Error('EACCES: permission denied');
+    eacces.code = 'EACCES';
+    const fs: Partial<FileSystem> = {
+      list: vi.fn()
+        .mockRejectedValueOnce(eacces)  // pending
+        .mockResolvedValueOnce([]),     // running
+      exists: vi.fn().mockResolvedValue(false),
+    };
+    const ctx = makeMockCtx(fs, auditWrite);
+    const cs = makeMockContractSystem(async () => null);
+    const tool = createStatusTool(cs);
+    const result = await tool.execute({}, ctx);
+    expect(result.success).toBe(true);
+    expect(result.content).toContain('Tasks: idle');
+    const pendingCall = auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR);
+    expect(pendingCall).toBeDefined();
+    expect(pendingCall!.some((s: unknown) => typeof s === 'string' && s.includes('EACCES'))).toBe(true);
   });
 
-  describe('getStorageStatus', () => {
-    it('MEMORY.md exists returns size in KB', async () => {
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(true),
-        read: vi.fn().mockResolvedValue('x'.repeat(2048)),  // 2KB
-        list: vi.fn().mockResolvedValue([]),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines).toEqual(expect.arrayContaining([
-        'MEMORY.md: 2.0KB',
-        'Clawspace: 0 files',
-      ]));
-    });
+  it('running EIO → STATUS_AUDIT_EVENTS.TASK_RUNNING_ERROR emitted with error msg', async () => {
+    const auditWrite = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ioerr: any = new Error('EIO: I/O error');
+    ioerr.code = 'EIO';
+    const fs: Partial<FileSystem> = {
+      list: vi.fn()
+        .mockResolvedValueOnce([])      // pending
+        .mockRejectedValueOnce(ioerr),  // running
+      exists: vi.fn().mockResolvedValue(false),
+    };
+    const ctx = makeMockCtx(fs, auditWrite);
+    const cs = makeMockContractSystem(async () => null);
+    const tool = createStatusTool(cs);
+    const result = await tool.execute({}, ctx);
+    expect(result.success).toBe(true);
+    expect(result.content).toContain('Tasks: idle');
+    const runningCall = auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.TASK_RUNNING_ERROR);
+    expect(runningCall).toBeDefined();
+    expect(runningCall!.some((s: unknown) => typeof s === 'string' && s.includes('EIO'))).toBe(true);
+  });
 
-    it('MEMORY.md missing reports "Not found"', async () => {
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(false),
-        list: vi.fn().mockResolvedValue([]),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines[0]).toBe('MEMORY.md: Not found');
-    });
+  // ── Silent paths (no audit emission) ───────────────────────────────────────
 
-    it('MEMORY.md read fail returns "Error (...)" with message', async () => {
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(true),
-        read: vi.fn().mockRejectedValue(new Error('permission denied')),
-        list: vi.fn().mockResolvedValue([]),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines[0]).toBe('MEMORY.md: Error (permission denied)');
-    });
+  it('pending ENOENT (NodeJS code) silent → no TASK_PENDING_ERROR audit', async () => {
+    const auditWrite = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enoent: any = new Error('ENOENT');
+    enoent.code = 'ENOENT';
+    const fs: Partial<FileSystem> = {
+      list: vi.fn()
+        .mockRejectedValueOnce(enoent)
+        .mockResolvedValueOnce([]),
+      exists: vi.fn().mockResolvedValue(false),
+    };
+    const ctx = makeMockCtx(fs, auditWrite);
+    const tool = createStatusTool(makeMockContractSystem(async () => null));
+    const result = await tool.execute({}, ctx);
+    expect(result.success).toBe(true);
+    expect(auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR)).toBeUndefined();
+  });
 
-    it('clawspace populated reports correct count', async () => {
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(false),
-        list: vi.fn().mockResolvedValue([
-          makeEntry('a.md'), makeEntry('b.md'), makeEntry('c.md'),
-        ]),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines[1]).toBe('Clawspace: 3 files');
-    });
+  it('pending FS_NOT_FOUND (L1 abstraction code) silent → no TASK_PENDING_ERROR audit', async () => {
+    const auditWrite = vi.fn();
+    const fs: Partial<FileSystem> = {
+      list: vi.fn()
+        .mockRejectedValueOnce(new FileNotFoundError('/tasks/queues/pending'))
+        .mockResolvedValueOnce([]),
+      exists: vi.fn().mockResolvedValue(false),
+    };
+    const ctx = makeMockCtx(fs, auditWrite);
+    const tool = createStatusTool(makeMockContractSystem(async () => null));
+    const result = await tool.execute({}, ctx);
+    expect(result.success).toBe(true);
+    expect(auditWrite.mock.calls.find(c => c[0] === STATUS_AUDIT_EVENTS.TASK_PENDING_ERROR)).toBeUndefined();
+  });
 
-    it('clawspace ENOENT treated as 0 files (silent)', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const enoent: any = new Error('ENOENT');
-      enoent.code = 'ENOENT';
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(false),
-        list: vi.fn().mockRejectedValue(enoent),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines[1]).toBe('Clawspace: 0 files');
-    });
+  // ── Reverse 1：no audit when all clean ─────────────────────────────────────
 
-    it('clawspace FS_NOT_FOUND treated as 0 files (silent sister code)', async () => {
-      const fnf = new FileNotFoundError('/clawspace');
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(false),
-        list: vi.fn().mockRejectedValue(fnf),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines[1]).toBe('Clawspace: 0 files');
-    });
-
-    it('clawspace other error reports "Error (msg)"', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ioerr: any = new Error('EIO: bad');
-      ioerr.code = 'EIO';
-      const fs: Partial<FileSystem> = {
-        exists: vi.fn().mockResolvedValue(false),
-        list: vi.fn().mockRejectedValue(ioerr),
-      };
-      const ctx = makeMockCtx(fs);
-      const lines = await __test_getStorageStatus(ctx);
-      expect(lines[1]).toBe('Clawspace: Error (EIO: bad)');
-    });
+  it('happy path (no errors) → 0 audit write across the run', async () => {
+    const auditWrite = vi.fn();
+    const fs: Partial<FileSystem> = {
+      list: vi.fn().mockResolvedValue([]),
+      exists: vi.fn().mockResolvedValue(false),
+    };
+    const ctx = makeMockCtx(fs, auditWrite);
+    const tool = createStatusTool(makeMockContractSystem(async () => null));
+    const result = await tool.execute({}, ctx);
+    expect(result.success).toBe(true);
+    expect(auditWrite).not.toHaveBeenCalled();
   });
 });
