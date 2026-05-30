@@ -1,9 +1,16 @@
 /**
  * @module L2.FileTool
- * edit / multi_edit shared format helpers (phase 1434).
+ * edit / multi_edit shared text-scanning + format utilities.
  *
- * Provides a small self-implemented "diff context" renderer for the
- * tool-result preview (no external diff dependency).
+ * Cluster:
+ *   - format helpers (phase 1434): formatEditDiff, findFirstMatchLine, lineDelta
+ *   - error diagnostic helpers (phase 1456): findNearMatches, findAllMatchLines
+ *
+ * No external diff dependency; all helpers are pure functions over string
+ * input. Cheap heuristics designed for tool-result UX (not full fuzzy match).
+ *
+ * phase 1457 rename: was `edit-format.ts` — name aligns extended scope (text +
+ * line scanning, not only diff format).
  */
 
 const CONTEXT_LINES = 3;

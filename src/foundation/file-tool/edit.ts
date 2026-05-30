@@ -18,7 +18,7 @@ import { backupToSync } from './sync-backup.js';
 import { resolveWorkspacePath } from './resolve-path.js';
 import { recordEditResult } from './file-state-manager.js';
 import { enforceFullReadGate } from './fullread-gate.js';
-import { formatEditDiff, lineDelta, findNearMatches, findAllMatchLines } from './edit-format.js';
+import { formatEditDiff, lineDelta, findNearMatches, findAllMatchLines } from './edit-text-utils.js';
 export const EDIT_TOOL_NAME = 'edit' as const;
 
 function countMatches(s: string, pattern: string): number {

@@ -1,12 +1,12 @@
 /**
- * phase 1434 — edit-format helpers unit tests
+ * phase 1434 + 1456 — edit-text-utils helpers unit tests
  *
  * Covers: findFirstMatchLine (incl. boundaries), formatEditDiff (mid-file,
  * first-line, last-line, multi-line, delete-only), lineDelta.
  */
 
 import { describe, it, expect } from 'vitest';
-import { findFirstMatchLine, formatEditDiff, lineDelta } from '../../../src/foundation/file-tool/edit-format.js';
+import { findFirstMatchLine, formatEditDiff, lineDelta } from '../../../src/foundation/file-tool/edit-text-utils.js';
 
 describe('phase 1434: findFirstMatchLine', () => {
   it('returns 1 for match in first line', () => {
@@ -107,7 +107,7 @@ describe('phase 1434: lineDelta', () => {
 });
 
 // phase 1456: error diagnostic helpers
-import { findNearMatches, findAllMatchLines } from '../../../src/foundation/file-tool/edit-format.js';
+import { findNearMatches, findAllMatchLines } from '../../../src/foundation/file-tool/edit-text-utils.js';
 
 describe('phase 1456: findNearMatches', () => {
   it('exact-prefix: detects line containing first 20 chars of needle', () => {
