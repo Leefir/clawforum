@@ -117,12 +117,16 @@ export const editTool: Tool = {
       : content.replace(oldText, newText);
 
     await ctx.fs.writeAtomic(resolved, replaced);
-    // edit operates on whole content (read full, replace, write back) → counts as full read post-edit
+    // phase 1437: 不能 unconditionally 升 isFullRead=true。
+    // edit 工具内部 ctx.fs.read 读全文是私事，claw 只显式知道 old_string→new_string 一处替换。
+    // 只有 claw 此前真通过 read 工具看过全文（prevState.isFullRead===true），edit 后才仍算"看过全文"
+    // （claw 可基于旧全文 + 自己 commit 的 edit 推算新全文）。否则保持 false。
+    const prevState = ctx.readFileState.get(resolved);
     const newStat = await ctx.fs.stat(resolved);
     ctx.readFileState.set(resolved, {
       hash: computeContentHash(replaced),
       timestamp: newStat.mtime.getTime(),
-      isFullRead: true,
+      isFullRead: prevState?.isFullRead ?? false,
     });
 
     const replacedCount = replaceAll ? matches : 1;

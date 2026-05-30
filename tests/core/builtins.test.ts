@@ -376,6 +376,100 @@ describe('Builtin Tools', () => {
       expect(writeResult.content).toMatch(/not been fully read/);
     });
 
+    // phase 1437: edit/multi_edit 不能 unconditionally 升 isFullRead=true
+    // ——claw 工具内部 read 全文是私事、claw 视角仍是 partial / 未读
+
+    it('phase 1437: edit on never-read file does NOT enable overwrite (silent X 治理)', async () => {
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/edit-gate.txt', 'foo bar baz');
+
+      // claw 不 read、直接 edit
+      const editResult = await editTool.execute({
+        path: 'edit-gate.txt',
+        old_string: 'bar',
+        new_string: 'qux',
+      }, ctx);
+      expect(editResult.success).toBe(true);
+
+      // 后续 overwrite 必须仍被拒（claw 视角从未看过全文）
+      const writeResult = await writeTool.execute({
+        path: 'edit-gate.txt',
+        content: 'totally new',
+      }, ctx);
+      expect(writeResult.success).toBe(false);
+      expect(writeResult.content).toMatch(/not been fully read/);
+
+      const state = ctx.readFileState.get('clawspace/edit-gate.txt');
+      expect(state?.isFullRead).toBe(false);
+    });
+
+    it('phase 1437: edit after partial-range read does NOT enable overwrite', async () => {
+      await mockFs.ensureDir('clawspace');
+      const big = Array.from({ length: 100 }, (_, i) => `Line ${i + 1}`).join('\n');
+      await mockFs.writeAtomic('clawspace/partial-edit.txt', big);
+
+      // partial read (lines 50-60 only)
+      await readTool.execute({ path: 'partial-edit.txt', offset: 50, limit: 10 }, ctx);
+      // edit something in that range
+      await editTool.execute({
+        path: 'partial-edit.txt',
+        old_string: 'Line 55',
+        new_string: 'Line FIFTY-FIVE',
+      }, ctx);
+
+      // overwrite must still be rejected
+      const writeResult = await writeTool.execute({
+        path: 'partial-edit.txt',
+        content: 'wipe',
+      }, ctx);
+      expect(writeResult.success).toBe(false);
+      expect(writeResult.content).toMatch(/not been fully read/);
+    });
+
+    it('phase 1437: edit after full read preserves isFullRead=true (allows subsequent overwrite)', async () => {
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/full-edit.txt', 'alpha beta gamma');
+
+      // full read first
+      await readTool.execute({ path: 'full-edit.txt' }, ctx);
+      // edit
+      await editTool.execute({
+        path: 'full-edit.txt',
+        old_string: 'beta',
+        new_string: 'BETA',
+      }, ctx);
+
+      // overwrite should pass — claw knew full content + made explicit edit
+      const writeResult = await writeTool.execute({
+        path: 'full-edit.txt',
+        content: 'replacement based on full knowledge',
+      }, ctx);
+      expect(writeResult.success).toBe(true);
+    });
+
+    it('phase 1437: multi_edit mirrors edit semantics — no full-read promotion', async () => {
+      await mockFs.ensureDir('clawspace');
+      await mockFs.writeAtomic('clawspace/multi-gate.txt', 'a b c d');
+
+      // claw 不 read、直接 multi_edit
+      const multiResult = await multiEditTool.execute({
+        path: 'multi-gate.txt',
+        edits: [
+          { old_string: 'a', new_string: 'A' },
+          { old_string: 'b', new_string: 'B' },
+        ],
+      }, ctx);
+      expect(multiResult.success).toBe(true);
+
+      // overwrite 仍拒
+      const writeResult = await writeTool.execute({
+        path: 'multi-gate.txt',
+        content: 'replaced',
+      }, ctx);
+      expect(writeResult.success).toBe(false);
+      expect(writeResult.content).toMatch(/not been fully read/);
+    });
+
     it('should allow append without fully-read gate', async () => {
       await mockFs.ensureDir('clawspace');
       await mockFs.writeAtomic('clawspace/append-gate.txt', 'existing');

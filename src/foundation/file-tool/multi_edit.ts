@@ -146,11 +146,15 @@ export const multiEditTool: Tool = {
 
     // All edits succeeded — single atomic write
     await ctx.fs.writeAtomic(resolved, current);
+    // phase 1437: 同 edit.ts，不能 unconditionally 升 isFullRead=true。
+    // multi_edit 工具内部 read 全文是私事，claw 只显式知道一组 old_string→new_string 替换。
+    // 保留 prev isFullRead 让 read-then-multi_edit-then-write 全文链通过、partial-then-multi_edit-then-write 仍拒。
+    const prevState = ctx.readFileState.get(resolved);
     const newStat = await ctx.fs.stat(resolved);
     ctx.readFileState.set(resolved, {
       hash: computeContentHash(current),
       timestamp: newStat.mtime.getTime(),
-      isFullRead: true,
+      isFullRead: prevState?.isFullRead ?? false,
     });
 
     const backupHint = backupPath ? ` (backup: ${backupPath})` : '';
