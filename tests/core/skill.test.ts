@@ -1,5 +1,5 @@
 /**
- * skill tool - skillsDir parameter tests
+ * skill tool - scope parameter tests
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
@@ -16,7 +16,7 @@ async function createTempDir(): Promise<string> {
   return d;
 }
 
-describe('skill tool skillsDir parameter', () => {
+describe('skill tool scope parameter', () => {
   let tempDir: string;
   let mockFs: NodeFileSystem;
 
@@ -38,7 +38,7 @@ describe('skill tool skillsDir parameter', () => {
     });
   }
 
-  it('should load skill from custom skillsDir', async () => {
+  it('should load skill from dispatch pool when scope="dispatch" and Motion identity', async () => {
     await fs.mkdir(path.join(tempDir, 'clawspace', 'dispatch-skills', 'my-skill'), { recursive: true });
     await fs.writeFile(
       path.join(tempDir, 'clawspace', 'dispatch-skills', 'my-skill', 'SKILL.md'),
@@ -52,9 +52,9 @@ Full content.
     );
 
     const ctx = makeCtx();
-    const skillTool = createSkillTool({} as any);
+    const skillTool = createSkillTool({} as any, { dispatchSkillsDir: 'clawspace/dispatch-skills' });
     const result = await skillTool.execute(
-      { name: 'my-skill', skillsDir: 'clawspace/dispatch-skills' },
+      { name: 'my-skill', scope: 'dispatch' },
       ctx
     );
 
@@ -62,17 +62,30 @@ Full content.
     expect(result.content).toContain('Full content.');
   });
 
-  it('should return error (not throw) when skill not found in skillsDir', async () => {
+  it('should return error (not throw) when skill not found in dispatch pool', async () => {
     await fs.mkdir(path.join(tempDir, 'clawspace', 'dispatch-skills'), { recursive: true });
 
     const ctx = makeCtx();
-    const skillTool = createSkillTool({} as any);
+    const skillTool = createSkillTool({} as any, { dispatchSkillsDir: 'clawspace/dispatch-skills' });
     const result = await skillTool.execute(
-      { name: 'non-existent', skillsDir: 'clawspace/dispatch-skills' },
+      { name: 'non-existent', scope: 'dispatch' },
       ctx
     );
 
     expect(result.success).toBe(false);
     expect(result.content).toContain('non-existent');
+  });
+
+  it('should reject scope="dispatch" when identity has no dispatch pool (non-Motion claw)', async () => {
+    const ctx = makeCtx();
+    const skillTool = createSkillTool({} as any);  // no dispatchSkillsDir
+    const result = await skillTool.execute(
+      { name: 'my-skill', scope: 'dispatch' },
+      ctx
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('dispatch_scope_unavailable');
+    expect(result.content).toContain('Motion only');
   });
 });

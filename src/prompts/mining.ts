@@ -60,7 +60,7 @@ exec: clawforum skill install --claw <id> --skill <name>
 
 如需查看某个 dispatch-skill 完整内容：
 \`\`\`
-skill: { "name": "<skill-name>", "skillsDir": "clawspace/dispatch-skills" }
+skill: { "name": "<skill-name>", "scope": "dispatch" }
 \`\`\`
 
 ### 第三步：写契约文件

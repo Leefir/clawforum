@@ -19,7 +19,7 @@ import { createRuntime } from '../core/runtime/index.js';
 import { createLLMOrchestrator, type LLMOrchestrator, DEFAULT_LLM_IDLE_TIMEOUT_MS } from '../foundation/llm-orchestrator/index.js';
 import { createLLMAuditSink } from './llm-audit-sink.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
-import { CLAWS_DIR } from '../foundation/paths.js';
+import { CLAWS_DIR, DISPATCH_SKILLS_PATH } from '../foundation/paths.js';
 import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index.js';
 import { createToolExecutor } from '../foundation/tools/index.js';
 import type { IToolExecutor } from '../foundation/tools/index.js';
@@ -410,7 +410,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     toolRegistry.register(createStatusTool(contractManager));   // phase 446: builtins/index.ts 不再 register / Assembly 显式（同 phase 440 send + phase 442 skill 模板）
 
     // skill 注册：phase442 后 skill 业务归 SkillSystem / 不再经 registerBuiltinTools / Assembly 显式注册
-    toolRegistry.register(createSkillTool(skillRegistry));
+    // Motion 注入 dispatchSkillsDir（dispatch 模板池 own / DISPATCH_SKILLS_PATH 物理路径不上 LLM 表面）；
+    // 其他 claw 不传 = scope='dispatch' 运行期 reject（Motion→claw 单向访问原则）。
+    toolRegistry.register(createSkillTool(skillRegistry, isMotion ? { dispatchSkillsDir: DISPATCH_SKILLS_PATH } : {}));
 
     // send 注册：phase440 后 send 业务归 Messaging / 不再经 registerBuiltinTools / Assembly 显式注册
     toolRegistry.register(createSendTool(outboxWriter));
