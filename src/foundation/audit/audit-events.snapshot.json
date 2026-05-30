@@ -453,6 +453,9 @@
     "foundation_audit_audit-events": [
       "audit_fallback_dropped"
     ],
+    "foundation_command-tool_audit-events": [
+      "exec_motion_self_kill_blocked"
+    ],
     "foundation_tools_audit-events": [
       "tool_caller_access_violation"
     ],
