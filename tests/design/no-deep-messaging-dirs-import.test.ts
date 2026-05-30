@@ -19,7 +19,7 @@ describe('phase 1423 F4: messaging/dirs barrel-only invariant', () => {
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*messaging/dirs\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/messaging/" | grep -v "^${srcRoot}/foundation/paths.ts:"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*messaging/dirs\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/messaging/" | grep -v "^${srcRoot}/foundation/paths.ts:"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -44,5 +44,14 @@ describe('phase 1423 F4: messaging/dirs barrel-only invariant', () => {
     const goodSample = `import { INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';`;
     const re = /from ['"][^'"]*messaging\/dirs\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/messaging/index.ts:7:export { INBOX_PENDING_DIR } from './dirs.js';`;
+    const crossModuleDeep = `${srcRoot}/daemon/loop.ts:88:import { INBOX_PENDING_DIR } from '../foundation/messaging/dirs.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/messaging/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });

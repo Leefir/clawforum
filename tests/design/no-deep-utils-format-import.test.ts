@@ -24,7 +24,7 @@ describe('phase 1423 F2: utils/format barrel-only invariant', () => {
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*utils/format\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/utils/" | grep -v "^${srcRoot}/index.ts:" | grep -vE "_helpers\\.ts:"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*utils/format\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/utils/" | grep -v "^${srcRoot}/index.ts:" | grep -vE "_helpers\\.ts:"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -49,5 +49,14 @@ describe('phase 1423 F2: utils/format barrel-only invariant', () => {
     const goodSample = `import { formatErr } from '../../foundation/utils/index.js';`;
     const re = /from ['"][^'"]*utils\/format\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/utils/index.ts:42:import { fmt } from './format.js';`;
+    const crossModuleDeep = `${srcRoot}/foundation/file-tool/read.ts:25:import { formatErr } from '../utils/format.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/utils/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });

@@ -27,7 +27,7 @@ describe('phase 1416 F3: llm-orchestrator defaults/errors barrel-only invariant'
     let hits = '';
     try {
       hits = execSync(
-        `grep -rnE "from ['\\\"][^'\\\"]*llm-orchestrator/(defaults|errors)\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -v "/llm-orchestrator/" | grep -v "^${srcRoot}/index.ts:" | grep -v "^${srcRoot}/foundation/config/schemas.ts:"`,
+        `grep -rnE "from ['\\\"][^'\\\"]*llm-orchestrator/(defaults|errors)\\.js['\\\"]" ${srcRoot} --include='*.ts' | grep -vE "^${srcRoot}/foundation/llm-orchestrator/" | grep -v "^${srcRoot}/index.ts:" | grep -v "^${srcRoot}/foundation/config/schemas.ts:"`,
         { encoding: 'utf8' },
       );
     } catch (e: any) {
@@ -52,5 +52,14 @@ describe('phase 1416 F3: llm-orchestrator defaults/errors barrel-only invariant'
     const goodSample = `import { DEFAULT_LLM_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';`;
     const re = /from ['"][^'"]*llm-orchestrator\/(defaults|errors)\.js['"]/;
     expect(re.test(goodSample)).toBe(false);
+  });
+
+  it('反向自检 — path-prefix anchor 只排除 owner module 内部、不误排除 cross-module deep import (phase 1440 治 P0-2 substring false-green)', () => {
+    const srcRoot = '/test/src';
+    const ownerInternal = `${srcRoot}/foundation/llm-orchestrator/index.ts:8:export { DEFAULT_LLM_TIMEOUT_MS } from './defaults.js';`;
+    const crossModuleDeep = `${srcRoot}/cli/commands/init.ts:42:import { DEFAULT_LLM_TIMEOUT_MS } from '../../foundation/llm-orchestrator/defaults.js';`;
+    const ownerPrefix = new RegExp(`^${srcRoot}/foundation/llm-orchestrator/`);
+    expect(ownerPrefix.test(ownerInternal)).toBe(true);
+    expect(ownerPrefix.test(crossModuleDeep)).toBe(false);
   });
 });
