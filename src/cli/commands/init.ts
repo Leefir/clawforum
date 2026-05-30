@@ -21,7 +21,7 @@ import {
   CLAW_INACTIVITY_TIMEOUT_MS,
 } from '../../watchdog/constants.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../core/async-task-system/constants.js';
-import { DEFAULT_MAX_STEPS } from '../../core/agent-executor/index.js';
+// phase 1485: clawforum init 生成的 config 不再写 max_steps 字段 — agent-executor 自持默认值、user 需覆盖时再加。
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -298,7 +298,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
       },
       motion: {
         heartbeat_interval_ms: 0,
-        max_steps: DEFAULT_MAX_STEPS,
+        // phase 1485: max_steps 不写入初始 config — agent-executor 持默认值、user 显式覆盖时再设。
         max_concurrent_tasks: DEFAULT_MAX_CONCURRENT_TASKS,
         llm_idle_timeout_ms: INIT_LLM_IDLE_TIMEOUT_MS,
       },

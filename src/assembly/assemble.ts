@@ -98,7 +98,6 @@ import { AUDIT_SIZE_MONITOR_CRON_TIMEOUT_MS } from '../core/cron/jobs/audit-size
 import { SUNSET_MONITOR_CRON_TIMEOUT_MS } from '../core/cron/jobs/sunset-monitor.js';
 import { buildLLMConfig } from '../foundation/config/index.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../core/async-task-system/constants.js';
-import { DEFAULT_MAX_STEPS } from '../core/agent-executor/index.js';
 
 import type { AssembleConfig, Instances } from './types.js';
 import { createGateway } from '../core/gateway/index.js';
@@ -232,8 +231,10 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     }
 
     // --- L3-L5: 派生配置统一求值（motion vs claw 分叉） ---
-    const globalDefaultMaxSteps = globalConfig.default_max_steps ?? DEFAULT_MAX_STEPS;
-    const maxSteps = isMotion
+    // phase 1485: 不再在 assembly 层 fallback DEFAULT_MAX_STEPS — undefined 直传 Runtime、
+    // runReact 内部持有唯一 fallback（agent-executor 自持默认值）。
+    const globalDefaultMaxSteps = globalConfig.default_max_steps;
+    const maxSteps: number | undefined = isMotion
       ? (globalConfig.motion?.max_steps ?? globalDefaultMaxSteps)
       : (clawConfig!.max_steps ?? globalDefaultMaxSteps);
     const maxConcurrent = isMotion

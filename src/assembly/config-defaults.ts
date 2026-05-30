@@ -12,7 +12,9 @@
  *
  * phase 942 r115+/r116+ Cluster 3 site #2 ε-inject 落地
  */
-import { DEFAULT_MAX_STEPS } from '../core/agent-executor/index.js';
+// phase 1485: DEFAULT_MAX_STEPS 不再在 config-defaults 出现 — agent-executor 自己持默认值、
+// 其他模块通过 runReact 接口传 maxSteps 或留 undefined 让 agent-executor 内部 fallback。
+// config-defaults 不再为 maxSteps 写「config-time 默认」（与 agent-executor 重复且会让 user config 被静默 baked）。
 import { REACT_DEFAULT_MAX_TOKENS } from '../core/step-executor/index.js';
 import { CRON_TICK_INTERVAL_MS } from '../core/cron/constants.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../core/async-task-system/constants.js';
@@ -27,7 +29,6 @@ import type { ConfigDefaults } from '../foundation/config/schemas.js';
 const CONFIG_DEFAULT_TOOL_TIMEOUT_MS = 60_000;
 
 export const CONFIG_DEFAULTS: ConfigDefaults = {
-  maxSteps: DEFAULT_MAX_STEPS,
   toolTimeoutMs: CONFIG_DEFAULT_TOOL_TIMEOUT_MS,
   cronTickIntervalMs: CRON_TICK_INTERVAL_MS,
   reactDefaultMaxTokens: REACT_DEFAULT_MAX_TOKENS,

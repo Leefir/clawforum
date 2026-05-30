@@ -26,7 +26,8 @@ export const FORMAT_MAP: Record<string, string> = {
  * 装配期单点聚合见 `src/assembly/config-defaults.ts`。
  */
 export interface ConfigDefaults {
-  maxSteps: number;
+  // phase 1485: maxSteps 不在 ConfigDefaults — agent-executor 自持默认值、
+  // motion.max_steps 字段在用户 config 中可选、不设置时由 runReact 内部 fallback。
   toolTimeoutMs: number;
   cronTickIntervalMs: number;
   reactDefaultMaxTokens: number;
@@ -79,7 +80,7 @@ export function createClawGlobalConfigSchema(defaults: ConfigDefaults) {
     }),
     motion: z.object({
       heartbeat_interval_ms: z.number().min(0).default(0),
-      max_steps: z.number().min(1).max(1000).default(defaults.maxSteps),
+      max_steps: z.number().min(1).max(1000).optional(),
       subagent_max_steps: z.number().min(1).max(200).optional(),
       max_concurrent_tasks: z.number().min(1).max(20).default(defaults.defaultMaxConcurrentTasks),
       llm_idle_timeout_ms: z.number().min(0).max(600000).default(DEFAULT_LLM_IDLE_TIMEOUT_MS),

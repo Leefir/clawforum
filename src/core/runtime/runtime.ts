@@ -129,8 +129,9 @@ export class Runtime {
   protected lastIdentityHash?: string;  // protected: TestRuntime subclass needs read access for regime switch tests
 
   constructor(options: RuntimeOptions) {
+    // phase 1485: ctor 不再 fallback DEFAULT_MAX_STEPS — assemble 层 undefined 直传、
+    // runReact 接口接受 maxSteps?: number 并内部 fallback / ExecContext.maxSteps 在 :211 resolve（运行时不变量 boundary）。
     this.options = {
-      maxSteps: DEFAULT_MAX_STEPS,
       toolProfile: 'full',
       ...options,
     };
