@@ -51,7 +51,7 @@ export function loadGlobalConfig(deps: { fsFactory: (baseDir: string) => FileSys
 
   if (!fs.existsSync(path.basename(configPath))) {
     throw new Error(
-      'Global config not found. Run "clawforum init" first.'
+      'Global config not found. Run "chestnut init" first.'
     );
   }
 

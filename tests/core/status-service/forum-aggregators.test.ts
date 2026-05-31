@@ -336,7 +336,7 @@ describe('formatForumStatusView', () => {
     });
     expect(lines).toMatchInlineSnapshot(`
       [
-        "clawforum status                                    2026-05-30T14:23:07.000Z",
+        "chestnut status                                    2026-05-30T14:23:07.000Z",
         "",
         "System",
         "  watchdog  running   PID 52933   uptime 4h 12m",
@@ -365,7 +365,7 @@ describe('formatForumStatusView', () => {
       orphans: { watchdog: [], daemon: [] },
     });
     expect(lines).toEqual([
-      'clawforum status                                    2026-05-30T14:23:07.000Z',
+      'chestnut status                                    2026-05-30T14:23:07.000Z',
       '',
       'System',
       '  watchdog  stopped',

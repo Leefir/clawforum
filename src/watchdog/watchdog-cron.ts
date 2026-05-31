@@ -8,7 +8,7 @@ import type { FileSystem } from '../foundation/fs/types.js';
 import type { ProcessManager } from '../foundation/process-manager/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import {
-  getClawforumDir, getClawforumFs, getGlobalConfig, getMotionContext,
+  getChestnutDir, getChestnutFs, getGlobalConfig, getMotionContext,
   lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned, clawPreviouslyNotified,
 } from './watchdog-context.js';
 import { log, writeClawInactivityInbox } from './watchdog-log.js';
@@ -16,7 +16,7 @@ import { clawHasContract, clawHasActiveContract, getClawActivityInfo, gatherClaw
 import { getContractCreatedMs } from '../core/contract/index.js';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
-import { makeClawforumRoot, makeClawDir } from '../foundation/identity/index.js';
+import { makeChestnutRoot, makeClawDir } from '../foundation/identity/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 import { makeClawId } from '../foundation/identity/index.js';
@@ -28,7 +28,7 @@ import { CLAWS_DIR } from '../foundation/paths.js';
 /** 1:1 保 watchdog.ts:271-349 / 78 行 / inactivity timeout + backoff */
 export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLog, fsFactory: (baseDir: string) => FileSystem): Promise<void> {
   const timeoutMs = getGlobalConfig(fsFactory).watchdog?.claw_inactivity_timeout_ms ?? 300000;
-  const fs = getClawforumFs(fsFactory);
+  const fs = getChestnutFs(fsFactory);
   if (!fs.existsSync(CLAWS_DIR)) return;
 
   // 清理已不存在的 claw 的 Map 条目
@@ -46,7 +46,7 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
   for (const rawClawId of clawEntries.map(e => e.name)) {
     const clawId = makeClawId(rawClawId);
     try {
-      const clawDir = makeClawDir(path.join(getClawforumDir(), CLAWS_DIR, rawClawId));
+      const clawDir = makeClawDir(path.join(getChestnutDir(), CLAWS_DIR, rawClawId));
 
       // phase 1482: inactivity 仅对 ACTIVE contract 触发 / paused 本就该停（不算 inactivity / D 类 root cause fix）
       if (!clawHasActiveContract(clawDir, fsFactory, audit)) continue;
@@ -122,7 +122,7 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
 // Detect claw process crashes and notify motion
 /** 1:1 保 watchdog.ts:350-401 / 51 行 / crash 检测 */
 export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactory: (baseDir: string) => FileSystem): void {
-  const fs = getClawforumFs(fsFactory);
+  const fs = getChestnutFs(fsFactory);
   if (!fs.existsSync(CLAWS_DIR)) return;
 
   // 清理已不存在的 claw 的 Map 条目
@@ -139,7 +139,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
 
   for (const rawClawId of clawEntries.map(e => e.name)) {
     const clawId = makeClawId(rawClawId);
-    const clawDir = makeClawDir(path.join(getClawforumDir(), CLAWS_DIR, rawClawId));
+    const clawDir = makeClawDir(path.join(getChestnutDir(), CLAWS_DIR, rawClawId));
     const currentlyAlive = pm.isAlive(clawId);
     const wasAlive = clawPreviouslyAlive.get(rawClawId);
 
@@ -179,8 +179,8 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
       const body = `contract: ${snapshot.contract}, outbox_pending: ${snapshot.outboxPending}${lastEventsStr}`;
 
       const { fs: motionFs, audit: motionAudit } = getMotionContext(fsFactory);
-      const clawforumRoot = makeClawforumRoot(path.dirname(makeClawDir(getNamedSubrootDir('motion'))));
-      notifyClaw(motionFs, clawforumRoot, MOTION_CLAW_ID, {
+      const chestnutRoot = makeChestnutRoot(path.dirname(makeClawDir(getNamedSubrootDir('motion'))));
+      notifyClaw(motionFs, chestnutRoot, MOTION_CLAW_ID, {
         type: 'crash_notification',
         source: rawClawId,
         priority: 'high',

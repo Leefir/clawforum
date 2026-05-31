@@ -34,7 +34,7 @@ function build(opts: MinOpts): TestRuntime {
   return new TestRuntime({
     clawId: 'test-claw',
     clawDir: '/tmp/test-claw',
-    clawforumRoot: '/tmp' as any,
+    chestnutRoot: '/tmp' as any,
     idleTimeoutMs: 0,
     llmConfig: {
       primary: { name: 'mock', apiKey: 'k', model: 'm', maxTokens: 1, temperature: 0, timeoutMs: 1, apiFormat: 'anthropic' as const },

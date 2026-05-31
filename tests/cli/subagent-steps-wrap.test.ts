@@ -19,9 +19,9 @@ describe('subagent-steps wrap', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawforum-test-'));
-    originalRoot = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = tmpDir;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chestnut-test-'));
+    originalRoot = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = tmpDir;
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
@@ -34,15 +34,15 @@ describe('subagent-steps wrap', () => {
     consoleErrSpy.mockRestore();
     exitSpy.mockRestore();
     if (originalRoot === undefined) {
-      delete process.env.CLAWFORUM_ROOT;
+      delete process.env.CHESTNUT_ROOT;
     } else {
-      process.env.CLAWFORUM_ROOT = originalRoot;
+      process.env.CHESTNUT_ROOT = originalRoot;
     }
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   function setupClaw(name: string) {
-    const clawDir = path.join(tmpDir, '.clawforum', 'claws', name);
+    const clawDir = path.join(tmpDir, '.chestnut', 'claws', name);
     fs.mkdirSync(clawDir, { recursive: true });
     return clawDir;
   }

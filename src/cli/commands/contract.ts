@@ -21,7 +21,7 @@ import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { ClawId } from '../../foundation/identity/index.js';
 import { type ContractId, makeContractId } from '../../foundation/identity/index.js';
-import { type ClawDir, resolveClawforumRoot } from '../../foundation/identity/index.js';
+import { type ClawDir, resolveChestnutRoot } from '../../foundation/identity/index.js';
 
 
 
@@ -89,9 +89,9 @@ export async function contractCreateCommand(deps: { fsFactory: (baseDir: string)
 
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  // phase 1389: regular claw clawforumRoot 双层 up / mirror assemble.ts:279 模板 (phase 1387 Step B + bff2dcfc follow-up)
-  const clawforumRoot = resolveClawforumRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
-  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
+  // phase 1389: regular claw chestnutRoot 双层 up / mirror assemble.ts:279 模板 (phase 1387 Step B + bff2dcfc follow-up)
+  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
+  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot });
 
   const contractId = await manager.create(contract);
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=file`);
@@ -113,8 +113,8 @@ export async function contractCreateFromDirCommand(deps: { fsFactory: (baseDir: 
 
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  const clawforumRoot = resolveClawforumRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
-  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
+  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
+  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot });
 
   const contractId = await manager.create(contract);
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=dir`);
@@ -169,8 +169,8 @@ export async function contractCancelCommand(
   const audit = extraDeps?.audit;
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  const clawforumRoot = resolveClawforumRoot(clawDir, /* isMotion */ false);
-  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
+  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);
+  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot });
 
   let resolvedId = contractIdInput;
   if (!resolvedId) {
@@ -202,8 +202,8 @@ export async function contractCancelCommand(
 export async function contractLogCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
-  const clawforumRoot = resolveClawforumRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
-  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot });
+  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
+  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot });
 
   // 若未指定 contractId，用 active 契约
   let resolvedId = contractId;

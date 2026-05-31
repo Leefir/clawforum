@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { type ClawforumRoot } from '../../../foundation/identity/index.js';
+import { type ChestnutRoot } from '../../../foundation/identity/index.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
@@ -37,7 +37,7 @@ function getDirSize(dir: string, fs: FileSystem, audit?: AuditLog, signal?: Abor
 }
 
 export interface DiskMonitorOptions {
-  clawforumRoot: ClawforumRoot;   // .clawforum/ 根目录
+  chestnutRoot: ChestnutRoot;   // .chestnut/ 根目录
   limitMB: number;        // 告警阈值
   fs: FileSystem;
   audit: AuditLog;
@@ -47,7 +47,7 @@ export interface DiskMonitorOptions {
 }
 
 export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
-  const clawsDir = path.join(opts.clawforumRoot, CLAWS_DIR);
+  const clawsDir = path.join(opts.chestnutRoot, CLAWS_DIR);
   if (!opts.fs.existsSync(clawsDir)) return;
 
   let totalSize = 0;

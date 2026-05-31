@@ -11,7 +11,7 @@ import type { ProgressData } from '../contract/index.js';
 import type { ClawId } from '../../foundation/identity/index.js';
 import type { ContractId } from '../../foundation/identity/index.js';
 import { type TaskId, makeTaskId } from '../../foundation/identity/index.js';
-import { type ClawforumRoot, makeClawforumRoot } from '../../foundation/identity/index.js';
+import { type ChestnutRoot, makeChestnutRoot } from '../../foundation/identity/index.js';
 import { listArchiveContracts } from '../contract/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
 import {
@@ -25,10 +25,10 @@ const DEFAULT_RANDOM_DREAM_MAX_STEPS = 200;
 // ─── 类型定义 ────────────────────────────────────────────────
 
 export interface RandomDreamOptions {
-  clawforumRoot: ClawforumRoot;
+  chestnutRoot: ChestnutRoot;
   motionDir: ClawDir;
   taskSystem: AsyncTaskSystem;
-  fs: FileSystem;             // baseDir = clawforumRoot
+  fs: FileSystem;             // baseDir = chestnutRoot
   motionFs: FileSystem;       // baseDir = motionDir / NEW
   audit: AuditLog;
   /** Poll interval (ms) for waitForTaskResult / default 30_000 / phase 633 ⚓11 α */
@@ -404,8 +404,8 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   );
 
   // 投递到 motion inbox（motionAudit 已在调度前实例化，直接复用）
-  const clawforumRoot = makeClawforumRoot(path.dirname(opts.motionDir));
-  notifyClaw(opts.fs, clawforumRoot, MOTION_CLAW_ID, {
+  const chestnutRoot = makeChestnutRoot(path.dirname(opts.motionDir));
+  notifyClaw(opts.fs, chestnutRoot, MOTION_CLAW_ID, {
     type: 'random_dream',
     source: 'cron:dream',
     priority: 'low',

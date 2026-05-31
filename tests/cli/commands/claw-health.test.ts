@@ -50,8 +50,8 @@ describe('claw-health', () => {
     const { loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath } = await import('../../../src/foundation/config/index.js');
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
     vi.mocked(clawExists).mockReturnValue(true);
-    vi.mocked(getClawDir).mockImplementation((name: string) => path.join('/tmp/clawforum/claws', name));
-    vi.mocked(getGlobalConfigPath).mockReturnValue('/tmp/clawforum/config.yaml');
+    vi.mocked(getClawDir).mockImplementation((name: string) => path.join('/tmp/chestnut/claws', name));
+    vi.mocked(getGlobalConfigPath).mockReturnValue('/tmp/chestnut/config.yaml');
   });
 
   afterEach(() => {

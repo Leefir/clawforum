@@ -1,5 +1,5 @@
 /**
- * init command - Initialize clawforum workspace
+ * init command - Initialize chestnut workspace
  */
 
 import * as readline from 'readline';
@@ -21,7 +21,7 @@ import {
   CLAW_INACTIVITY_TIMEOUT_MS,
 } from '../../watchdog/constants.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../../core/async-task-system/constants.js';
-// phase 1485: clawforum init 生成的 config 不再写 max_steps 字段 — agent-executor 自持默认值、user 需覆盖时再加。
+// phase 1485: chestnut init 生成的 config 不再写 max_steps 字段 — agent-executor 自持默认值、user 需覆盖时再加。
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -45,11 +45,11 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
   const audit = extraDeps?.audit;
   // Check if already initialized
   if (isInitialized(deps)) {
-    console.log('✓ Already initialized (.clawforum/config.yaml exists)');
+    console.log('✓ Already initialized (.chestnut/config.yaml exists)');
     return;
   }
 
-  console.log('Initializing clawforum...\n');
+  console.log('Initializing chestnut...\n');
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -310,7 +310,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
     // Create logs directory
     const root = getWorkspaceRoot();
     const fs = deps.fsFactory(root);
-    fs.ensureDirSync('.clawforum/logs');
+    fs.ensureDirSync('.chestnut/logs');
 
     // ── Verify LLM API reachable ─────────────────────────────────────────────
     // Per DP「事后审计」+ DP「智能体是决策主体」(init 阶段 user 主体):
@@ -341,12 +341,12 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
           audit?.write(CLI_AUDIT_EVENTS.INIT_PROBE_RECONFIGURED, `preset=${presetId}`);
         } else {
           audit?.write(CLI_AUDIT_EVENTS.INIT_PROBE_SKIPPED, `preset=${presetId}`, `reason=user_exit_reconfigure`);
-          console.log('  ⚠ LLM not verified. Run "clawforum config" later to fix.');
+          console.log('  ⚠ LLM not verified. Run "chestnut config" later to fix.');
         }
       } else {
         // network / rate_limit / unknown — 可能 transient、warn 不阻断
         audit?.write(CLI_AUDIT_EVENTS.INIT_PROBE_SKIPPED, `preset=${presetId}`, `reason=transient_${probe.errorType}`);
-        console.log('  ⚠ Continuing anyway — fix later with "clawforum config" if needed.');
+        console.log('  ⚠ Continuing anyway — fix later with "chestnut config" if needed.');
       }
     }
 
@@ -354,8 +354,8 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
     console.log('\n✓ Initialized successfully!');
     if (!silent) {
       console.log('\nNext steps:');
-      console.log('  1. Create a Claw: clawforum claw <name> create');
-      console.log('  2. Start chatting: clawforum claw <name> chat');
+      console.log('  1. Create a Claw: chestnut claw <name> create');
+      console.log('  2. Start chatting: chestnut claw <name> chat');
     }
 
   } catch (error) {

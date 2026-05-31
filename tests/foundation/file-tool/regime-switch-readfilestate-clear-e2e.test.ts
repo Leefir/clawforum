@@ -30,7 +30,7 @@ import { FILE_TOOL_AUDIT_EVENTS } from '../../../src/foundation/file-tool/audit-
 import { performRegimeSwitch } from '../../../src/foundation/dialog-store/index.js';
 import type { DialogStore } from '../../../src/foundation/dialog-store/index.js';
 import { createClawPermissionChecker } from '../../../src/core/permissions/claw-permissions.js';
-import { makeClawforumRoot } from '../../../src/foundation/identity/index.js';
+import { makeChestnutRoot } from '../../../src/foundation/identity/index.js';
 import { CALLER_TYPE_TO_GROUPS } from '../../../src/core/caller-types.js';
 
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
@@ -45,7 +45,7 @@ async function makeCtx(clawDir: string): Promise<E2eCtx> {
   const audit = makeAudit();
   const nfs = new NodeFileSystem({ baseDir: clawDir });
   const ctx = new ExecContextImpl({
-    clawforumRoot: makeClawforumRoot(path.dirname(clawDir)),
+    chestnutRoot: makeChestnutRoot(path.dirname(clawDir)),
     clawId: 'test-claw',
     clawDir,
     syncDir: path.join(clawDir, 'tasks', 'sync'),

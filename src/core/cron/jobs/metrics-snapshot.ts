@@ -11,7 +11,7 @@ export const METRICS_SNAPSHOT_CRON_TIMEOUT_MS = 30_000;
 
 export interface MetricsSnapshotOptions {
   motionDir: ClawDir;   // motion 目录完整路径
-  fs: FileSystem;       // baseDir 可访问 motionDir（用于 clawforumFs）
+  fs: FileSystem;       // baseDir 可访问 motionDir（用于 chestnutFs）
   audit: AuditLog;
   signal?: AbortSignal;
 }

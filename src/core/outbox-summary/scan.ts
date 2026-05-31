@@ -10,20 +10,20 @@
 import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { isFileNotFound } from '../../foundation/fs/types.js';
-import type { ClawforumRoot } from '../../foundation/identity/index.js';
+import type { ChestnutRoot } from '../../foundation/identity/index.js';
 import { CLAWS_DIR } from '../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { computeHash } from './hash.js';
 import type { OutboxSummaryState } from './types.js';
 
 export interface ScanDeps {
-  clawforumRoot: ClawforumRoot;
+  chestnutRoot: ChestnutRoot;
   fs: FileSystem;
 }
 
 export function scanOutboxes(deps: ScanDeps): OutboxSummaryState {
-  const { clawforumRoot, fs } = deps;
-  const clawsDir = path.join(clawforumRoot, CLAWS_DIR);
+  const { chestnutRoot, fs } = deps;
+  const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
 
   let clawIds: string[];
   try {

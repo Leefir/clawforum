@@ -75,9 +75,9 @@ const { CONFIG_DEFAULTS } = await import('../../src/assembly/config-defaults.js'
 let tempDir: string;
 
 function setupTempDir() {
-  tempDir = path.join(tmpdir(), `clawforum-init-probe-test-${randomUUID()}`);
+  tempDir = path.join(tmpdir(), `chestnut-init-probe-test-${randomUUID()}`);
   fs.mkdirSync(tempDir, { recursive: true });
-  vi.stubEnv('CLAWFORUM_ROOT', tempDir);
+  vi.stubEnv('CHESTNUT_ROOT', tempDir);
 }
 
 function teardownTempDir() {

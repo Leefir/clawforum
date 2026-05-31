@@ -26,14 +26,14 @@ describe('CLI Config', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    originalRoot = process.env.CLAWFORUM_ROOT;
+    originalRoot = process.env.CHESTNUT_ROOT;
     tempDir = await createTempDir();
-    process.env.CLAWFORUM_ROOT = tempDir;
+    process.env.CHESTNUT_ROOT = tempDir;
   });
 
   afterEach(async () => {
-    if (originalRoot === undefined) delete process.env.CLAWFORUM_ROOT;
-    else process.env.CLAWFORUM_ROOT = originalRoot;
+    if (originalRoot === undefined) delete process.env.CHESTNUT_ROOT;
+    else process.env.CHESTNUT_ROOT = originalRoot;
     cleanupTempDirSync(tempDir);
   });
 
@@ -104,7 +104,7 @@ describe('CLI Config', () => {
 
   describe('loadGlobalConfig', () => {
     it('should throw error when config not found', () => {
-      expect(() => loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS)).toThrow('Run "clawforum init" first');
+      expect(() => loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS)).toThrow('Run "chestnut init" first');
     });
 
     it('should throw error for invalid yaml', () => {

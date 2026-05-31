@@ -42,7 +42,7 @@ describe('ContractSystem — 并发幂等与锁', () => {
   let nodeFs: NodeFileSystem;
 
   beforeEach(async () => {
-    testDir = path.join(os.tmpdir(), `clawforum-concurrency-${randomUUID()}`);
+    testDir = path.join(os.tmpdir(), `chestnut-concurrency-${randomUUID()}`);
     clawDir = path.join(testDir, 'claws', 'test-claw');
     await fs.mkdir(clawDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: clawDir });

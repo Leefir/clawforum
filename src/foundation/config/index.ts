@@ -30,7 +30,7 @@ export {
   getWorkspaceRoot,
   getGlobalConfigPath,
   getClawDir,
-  getClawforumRoot,
+  getChestnutRoot,
   getNamedSubrootDir,
   getClawConfigPath,
 } from '../paths.js';

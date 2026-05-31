@@ -4,7 +4,7 @@
  * Phase 1477：把命令族 verb-fact 拼成最终 CLI help 文本。
  *
  * 职责：
- * - 拥有 binary 字面 `clawforum`（Assembly 是装配方、本就需知部署形态）
+ * - 拥有 binary 字面 `chestnut`（Assembly 是装配方、本就需知部署形态）
  * - 拥有分组顺序、格式约定、缩进对齐等渲染选择
  * - 输出两形态：顶层 help（全 verb 分组）+ 单 verb help（详尽参数）
  *
@@ -18,7 +18,7 @@
 import type { VerbFact, VerbGroup } from '../../cli/help/index.js';
 
 /** CLI binary 字面 —— 与 motion-guidance-composer 同源约定、Assembly 内 source of truth。 */
-const CLI_BINARY = 'clawforum';
+const CLI_BINARY = 'chestnut';
 
 const GROUP_HEADERS: Record<VerbGroup, string> = {
   lifecycle: 'Lifecycle:',
@@ -75,10 +75,10 @@ function renderGroup(group: VerbGroup, facts: readonly VerbFact[]): string[] {
 }
 
 /**
- * Compose top-level `clawforum claw --help` text.
+ * Compose top-level `chestnut claw --help` text.
  *
  * Layout: Usage block + verb groups.
- * Replaces commander's default `Usage: clawforum claw [options] <subject> [args...]`
+ * Replaces commander's default `Usage: chestnut claw [options] <subject> [args...]`
  * which is opaque to users (`<subject>` is a commander internal abstraction).
  * Per-verb examples live on `claw help <verb>`, not in the top-level summary.
  */
@@ -104,7 +104,7 @@ export function composeClawHelp(facts: readonly VerbFact[]): string {
 }
 
 /**
- * Compose per-verb help: `clawforum claw help <verb>` or `claw <name> <verb> --help`.
+ * Compose per-verb help: `chestnut claw help <verb>` or `claw <name> <verb> --help`.
  *
  * Layout: signature + summary + args + options + examples + note.
  */

@@ -176,7 +176,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
     const edgeRuntimes: Runtime[] = [];
 
     beforeEach(async () => {
-      testTempDir = path.join(tmpdir(), `clawforum-runtime-edge-${randomUUID()}`);
+      testTempDir = path.join(tmpdir(), `chestnut-runtime-edge-${randomUUID()}`);
       testClawDir = path.join(testTempDir, 'claws', 'edge-claw');
       await fs.mkdir(testClawDir, { recursive: true });
     });
@@ -347,7 +347,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
     let interruptClawDir: string;
 
     beforeEach(async () => {
-      interruptTempDir = path.join(tmpdir(), `clawforum-interrupt-test-${randomUUID()}`);
+      interruptTempDir = path.join(tmpdir(), `chestnut-interrupt-test-${randomUUID()}`);
       interruptClawDir = path.join(interruptTempDir, 'claws', 'int-claw');
       await fs.mkdir(interruptClawDir, { recursive: true });
       runtime = await createTestRuntime({

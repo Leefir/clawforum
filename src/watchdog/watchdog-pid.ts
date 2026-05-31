@@ -4,7 +4,7 @@
  */
 
 import type { FileSystem } from '../foundation/fs/types.js';
-import { getClawforumFs } from './watchdog-context.js';
+import { getChestnutFs } from './watchdog-context.js';
 import { isAlive } from '../foundation/process-exec/index.js';
 import { getWorkspaceRoot } from '../foundation/paths.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
@@ -15,14 +15,14 @@ import { isFileNotFound } from '../foundation/fs/types.js';
 /** 1:1 保 watchdog.ts:85-89 */
 export function writeWatchdogPid(fsFactory: (baseDir: string) => FileSystem, pid: number): void {
   const root = getWorkspaceRoot();
-  const fs = getClawforumFs(fsFactory);
+  const fs = getChestnutFs(fsFactory);
   fs.writeAtomicSync('watchdog.pid', JSON.stringify({ pid, root }));
 }
 
 /** 1:1 保 watchdog.ts:91-98 */
 export function removeWatchdogPid(fsFactory: (baseDir: string) => FileSystem): void {
   try {
-    const fs = getClawforumFs(fsFactory);
+    const fs = getChestnutFs(fsFactory);
     fs.deleteSync('watchdog.pid');
   } catch {
     // silent: stale pid cleanup best-effort
@@ -43,7 +43,7 @@ function validatePidShape(parsed: unknown): parsed is WatchdogPidShape {
 }
 
 function backupCorruptPid(fsFactory: (baseDir: string) => FileSystem, _content: string, err: unknown): void {
-  const fs = getClawforumFs(fsFactory);
+  const fs = getChestnutFs(fsFactory);
   const backupPath = `watchdog.pid.corrupt-${Date.now()}`;
   let moveOk = true;
   let moveErr: unknown = undefined;
@@ -66,7 +66,7 @@ function backupCorruptPid(fsFactory: (baseDir: string) => FileSystem, _content: 
 /** 1:1 保 watchdog.ts:121-130 */
 export function getWatchdogPid(fsFactory: (baseDir: string) => FileSystem): number | null {
   try {
-    const fs = getClawforumFs(fsFactory);
+    const fs = getChestnutFs(fsFactory);
     const content = fs.readSync('watchdog.pid');
     let parsed: unknown;
     try {
@@ -95,7 +95,7 @@ export class WatchdogPidForeignWorkspaceError extends Error {
 
 /** 1:1 保 watchdog.ts:132-149 */
 export function isWatchdogAlive(fsFactory: (baseDir: string) => FileSystem): boolean {
-  const fs = getClawforumFs(fsFactory);
+  const fs = getChestnutFs(fsFactory);
   let content: string;
   try {
     content = fs.readSync('watchdog.pid');
@@ -136,7 +136,7 @@ export function isWatchdogAlive(fsFactory: (baseDir: string) => FileSystem): boo
       removeWatchdogPid(fsFactory);
       return false;
     }
-    // foreign 活 → audit + throw（不删 + 不放行 spawn / user 需 cd + clawforum stop）
+    // foreign 活 → audit + throw（不删 + 不放行 spawn / user 需 cd + chestnut stop）
     auditWriter?.write(
       WATCHDOG_AUDIT_EVENTS.PID_FOREIGN_WORKSPACE,
       `foreign_pid=${parsed.pid}`,

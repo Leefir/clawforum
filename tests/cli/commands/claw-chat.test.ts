@@ -12,12 +12,12 @@ describe('claw-chat', () => {
   let originalRoot: string | undefined;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawforum-chat-test-'));
-    originalRoot = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = tmpDir;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chestnut-chat-test-'));
+    originalRoot = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = tmpDir;
 
     // Create global config so loadGlobalConfig passes
-    const configPath = path.join(tmpDir, '.clawforum', 'config.yaml');
+    const configPath = path.join(tmpDir, '.chestnut', 'config.yaml');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(
       configPath,
@@ -26,12 +26,12 @@ describe('claw-chat', () => {
   });
 
   afterEach(() => {
-    if (originalRoot === undefined) delete process.env.CLAWFORUM_ROOT;
-    else process.env.CLAWFORUM_ROOT = originalRoot;
+    if (originalRoot === undefined) delete process.env.CHESTNUT_ROOT;
+    else process.env.CHESTNUT_ROOT = originalRoot;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('error msg contains Try guidance hint when claw does not exist (phase 981 E-α2)', async () => {
-    await expect(chatCommand({ fsFactory }, 'nonexistent-claw')).rejects.toThrow(/Try `clawforum claw list`/);
+    await expect(chatCommand({ fsFactory }, 'nonexistent-claw')).rejects.toThrow(/Try `chestnut claw list`/);
   });
 });

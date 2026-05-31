@@ -9,7 +9,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { Priority } from '../../foundation/messaging/types.js';
-import type { ClawId, ClawforumRoot } from '../../foundation/identity/index.js';
+import type { ClawId, ChestnutRoot } from '../../foundation/identity/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
 
 
@@ -126,8 +126,8 @@ export interface VerifierConfig {
   agentId: string;
   prompt: string;
   clawDir: ClawDir;
-  /** phase 1387: Assembly 装配期注入的 clawforum 根目录 */
-  clawforumRoot: ClawforumRoot;
+  /** phase 1387: Assembly 装配期注入的 chestnut 根目录 */
+  chestnutRoot: ChestnutRoot;
   clawId: ClawId;               // phase 514 / caller's clawId for subagent context
   llm: LLMOrchestrator;
   fs: FileSystem;

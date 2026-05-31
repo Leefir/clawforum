@@ -455,7 +455,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   // 兜底：SIGINT 退出（终端未进 raw mode 时 Ctrl+C 转为 SIGINT）
   const sigintHandler = () => resolveExit();
   process.on('SIGINT', sigintHandler);
-  // SIGTERM 退出（clawforum stop 发送 / 让 stop 命令能 kill viewport process）
+  // SIGTERM 退出（chestnut stop 发送 / 让 stop 命令能 kill viewport process）
   const sigtermHandler = () => resolveExit();
   process.on('SIGTERM', sigtermHandler);
 

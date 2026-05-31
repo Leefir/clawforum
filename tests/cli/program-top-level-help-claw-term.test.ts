@@ -1,8 +1,8 @@
 /**
- * Program top-level `clawforum --help` claw term cleanup — phase 1488.
+ * Program top-level `chestnut --help` claw term cleanup — phase 1488.
  *
  * Coverage:
- * - `clawforum --help` 顶层 Commands 列表 `claw` 行只显 `claw`
+ * - `chestnut --help` 顶层 Commands 列表 `claw` 行只显 `claw`
  *   （不漏 commander 内部抽象 `[subject]` / `[args...]`）
  * - `claw` 的 description 仍正确
  * - motion 子命令 `step <n>` 的 positional 仍正常显示（防 side-effect 泄露）
@@ -23,7 +23,7 @@ function runHelp(args: string[]): string {
   return (r.stdout || '') + (r.stderr || '');
 }
 
-describe('clawforum top-level help (phase 1488)', () => {
+describe('chestnut top-level help (phase 1488)', () => {
   it('top-level `claw` row shows only `claw` (no commander internal `[subject]`/`[args...]`)', () => {
     const out = runHelp(['--help']);
     // 顶层应有 `  claw ` 行（行起头两空格 + claw + 至少一空格 + description）
@@ -35,7 +35,7 @@ describe('clawforum top-level help (phase 1488)', () => {
 
   it('top-level `claw` description preserved', () => {
     const out = runHelp(['--help']);
-    expect(out).toContain('Manage Claws (run `clawforum claw help` for full reference)');
+    expect(out).toContain('Manage Claws (run `chestnut claw help` for full reference)');
   });
 
   it('motion subcommand `step <n>` positional preserved (no side-effect leak)', () => {

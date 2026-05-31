@@ -5,8 +5,8 @@
 
 import type { VerificationContext } from './verification-types.js';
 import { notifyClaw } from '../../foundation/messaging/index.js';
-import { makeClawforumRoot } from '../../foundation/identity/index.js';
-import { getClawforumRoot } from '../../foundation/paths.js';
+import { makeChestnutRoot } from '../../foundation/identity/index.js';
+import { getChestnutRoot } from '../../foundation/paths.js';
 
 import type { ContractId } from '../../foundation/identity/index.js';
 import type { SubtaskId } from './types.js';
@@ -61,8 +61,8 @@ export function writeVerificationInbox(
     body = feedback || 'No feedback provided';
   }
 
-  const clawforumRoot = ctx.clawforumRoot ?? makeClawforumRoot(getClawforumRoot());
-  notifyClaw(ctx.fs, clawforumRoot, ctx.clawId, {
+  const chestnutRoot = ctx.chestnutRoot ?? makeChestnutRoot(getChestnutRoot());
+  notifyClaw(ctx.fs, chestnutRoot, ctx.clawId, {
     type: verdict === 'passed' ? 'verification_result' : 'verification_rejection',
     source: 'contract_system',
     to: ctx.clawId,
@@ -96,8 +96,8 @@ export function writeForceAcceptInbox(
     ? `Subtask ${subtaskId} force-accepted after ${retryCount} attempts. All subtasks complete!${summary}`
     : `Subtask ${subtaskId} force-accepted after ${retryCount} attempts.${summary}`;
 
-  const clawforumRoot = ctx.clawforumRoot ?? makeClawforumRoot(getClawforumRoot());
-  notifyClaw(ctx.fs, clawforumRoot, ctx.clawId, {
+  const chestnutRoot = ctx.chestnutRoot ?? makeChestnutRoot(getChestnutRoot());
+  notifyClaw(ctx.fs, chestnutRoot, ctx.clawId, {
     type: 'verification_result',
     source: 'contract_system',
     to: ctx.clawId,
@@ -127,8 +127,8 @@ export async function writeVerificationError(
       ? `Acceptance verifier timed out after ${(error as ToolTimeoutError).context?.timeoutMs ?? '?'}ms. 资源 / 网络问题 / 重试可能修复。Error: ${errorMsg}`
       : `Acceptance verification crashed (system bug). Error: ${errorMsg}. 修代码后再 retry。`;
 
-  const clawforumRoot = ctx.clawforumRoot ?? makeClawforumRoot(getClawforumRoot());
-  notifyClaw(ctx.fs, clawforumRoot, ctx.clawId, {
+  const chestnutRoot = ctx.chestnutRoot ?? makeChestnutRoot(getChestnutRoot());
+  notifyClaw(ctx.fs, chestnutRoot, ctx.clawId, {
     type: 'verification_error',
     source: 'contract_system',
     to: ctx.clawId,

@@ -6,7 +6,7 @@
  * - 非 motion claw + composer 注入 → 0 尾段（guidance 被 motion-only guard 过滤）
  * - motion claw + 0 composer → 0 尾段（assembly 未注入时不崩 / 不写假 hint）
  *
- * 反向 1：composer 输出含 `clawforum` binary 字面（确认 composer 物理拼装）
+ * 反向 1：composer 输出含 `chestnut` binary 字面（确认 composer 物理拼装）
  * 反向 2：StatusMotionGuidance.commands[0].invocation 含 `claw <name> status` verb 片段
  *        （确认业主 fact → composer 拼接链路）
  */
@@ -39,8 +39,8 @@ describe('status-tool motion guidance injection (phase 1472 Step D)', () => {
     const result = await tool.execute({}, mkCtx(MOTION_CLAW_ID));
     expect(result.success).toBe(true);
     expect(result.content).toContain('[CLI hints for motion]');
-    expect(result.content).toContain('clawforum claw <name> status');
-    expect(result.content).toContain('clawforum claw list');
+    expect(result.content).toContain('chestnut claw <name> status');
+    expect(result.content).toContain('chestnut claw list');
   });
 
   it('non-motion claw + composer 注入 → 0 尾段（guard 过滤）', async () => {
@@ -57,11 +57,11 @@ describe('status-tool motion guidance injection (phase 1472 Step D)', () => {
     expect(result.content).not.toContain('[CLI hints for motion]');
   });
 
-  it('reverse: composer 物理拼 binary `clawforum`', () => {
+  it('reverse: composer 物理拼 binary `chestnut`', () => {
     const g = composeStatusMotionGuidance();
     expect(g.commands.length).toBeGreaterThan(0);
     for (const c of g.commands) {
-      expect(c.invocation.startsWith('clawforum ')).toBe(true);
+      expect(c.invocation.startsWith('chestnut ')).toBe(true);
     }
   });
 

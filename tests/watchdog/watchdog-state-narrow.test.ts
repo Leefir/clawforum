@@ -23,12 +23,12 @@ vi.mock('../../src/watchdog/watchdog-context.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/watchdog/watchdog-context.js')>();
   return {
     ...actual,
-    getClawforumFs: vi.fn(),
+    getChestnutFs: vi.fn(),
     getAuditWriter: vi.fn(),
   };
 });
 
-import { getClawforumFs, getAuditWriter } from '../../src/watchdog/watchdog-context.js';
+import { getChestnutFs, getAuditWriter } from '../../src/watchdog/watchdog-context.js';
 
 describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   it('reverse 1: FileNotFoundError → 0 audit emit + Maps empty', () => {
     const audit = { write: vi.fn() };
     vi.mocked(getAuditWriter).mockReturnValue(audit as any);
-    vi.mocked(getClawforumFs).mockReturnValue({
+    vi.mocked(getChestnutFs).mockReturnValue({
       readSync: vi.fn().mockImplementation(() => {
         throw new FileNotFoundError('watchdog-state.json');
       }),
@@ -68,7 +68,7 @@ describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
     const audit = { write: vi.fn() };
     vi.mocked(getAuditWriter).mockReturnValue(audit as any);
     const err = Object.assign(new Error('no such file'), { code: 'ENOENT' });
-    vi.mocked(getClawforumFs).mockReturnValue({
+    vi.mocked(getChestnutFs).mockReturnValue({
       readSync: vi.fn().mockImplementation(() => {
         throw err;
       }),
@@ -86,7 +86,7 @@ describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   it('reverse 3: corrupt JSON → emit STATE_LOAD_FAILED + Maps cleared', () => {
     const audit = { write: vi.fn() };
     vi.mocked(getAuditWriter).mockReturnValue(audit as any);
-    vi.mocked(getClawforumFs).mockReturnValue({
+    vi.mocked(getChestnutFs).mockReturnValue({
       readSync: vi.fn().mockReturnValue('{broken json'),
       moveSync: vi.fn().mockReturnValue(undefined),
     } as any);

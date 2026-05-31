@@ -4,7 +4,7 @@
  * Validates: happy path, default-active resolution, error path (no active),
  * audit emit, stdout message.
  *
- * Uses CLAWFORUM_ROOT env override + real ContractSystem (no mocks of core).
+ * Uses CHESTNUT_ROOT env override + real ContractSystem (no mocks of core).
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
@@ -44,10 +44,10 @@ async function seedActiveContract(): Promise<string> {
 }
 
 beforeEach(async () => {
-  prevRoot = process.env.CLAWFORUM_ROOT;
+  prevRoot = process.env.CHESTNUT_ROOT;
   workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'phase1471-cancel-'));
-  process.env.CLAWFORUM_ROOT = workspaceRoot;
-  clawDir = path.join(workspaceRoot, '.clawforum', 'claws', CLAW_ID);
+  process.env.CHESTNUT_ROOT = workspaceRoot;
+  clawDir = path.join(workspaceRoot, '.chestnut', 'claws', CLAW_ID);
   await fs.mkdir(clawDir, { recursive: true });
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
@@ -55,8 +55,8 @@ beforeEach(async () => {
 afterEach(async () => {
   logSpy.mockRestore();
   vi.restoreAllMocks();
-  if (prevRoot === undefined) delete process.env.CLAWFORUM_ROOT;
-  else process.env.CLAWFORUM_ROOT = prevRoot;
+  if (prevRoot === undefined) delete process.env.CHESTNUT_ROOT;
+  else process.env.CHESTNUT_ROOT = prevRoot;
   try {
     fsNative.chmodSync(workspaceRoot, 0o700);
   } catch { /* ignore */ }

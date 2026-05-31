@@ -14,7 +14,7 @@ describe('phase 1476: claw-outbox-summary composer', () => {
       counts: JSON.stringify({ clawA: 3, clawB: 1 }),
     });
     expect(result).not.toBeNull();
-    expect(result!.text).toContain('clawforum claw <claw-id> outbox');
+    expect(result!.text).toContain('chestnut claw <claw-id> outbox');
     expect(result!.text).toContain('--limit 4');
   });
 

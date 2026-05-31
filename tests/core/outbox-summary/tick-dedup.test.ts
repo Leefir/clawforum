@@ -18,7 +18,7 @@ import { randomUUID } from 'crypto';
 import { runOutboxSummaryTick } from '../../../src/core/outbox-summary/tick.js';
 import { SUMMARY_FILENAME_PATTERN, DEDUP_DONE_WINDOW_MS } from '../../../src/core/outbox-summary/dedup.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
-import { makeClawforumRoot } from '../../../src/foundation/identity/index.js';
+import { makeChestnutRoot } from '../../../src/foundation/identity/index.js';
 
 function makeAudit() {
   const events: Array<[string, ...(string | number)[]]> = [];
@@ -55,7 +55,7 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   });
 
   it('0 unread + no existing summary → no write, no audit', async () => {
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     expect(await listSummaries(root, 'pending')).toEqual([]);
     expect(events.filter(e => String(e[0]).startsWith('cron_outbox_summary')).length).toBe(0);
   });
@@ -63,7 +63,7 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   it('first tick with unread → writes new summary + emits WRITTEN', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const summaries = await listSummaries(root, 'pending');
     expect(summaries.length).toBe(1);
     expect(events.some(e => e[0] === 'cron_outbox_summary_written')).toBe(true);
@@ -72,10 +72,10 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   it('re-tick same state → SKIPPED (pending hit)', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const firstSummary = (await listSummaries(root, 'pending'))[0];
     events.length = 0;
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     expect((await listSummaries(root, 'pending'))[0]).toBe(firstSummary);
     expect(events.some(e => e[0] === 'cron_outbox_summary_skipped' && e.includes('reason=pending'))).toBe(true);
   });
@@ -83,7 +83,7 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   it('after motion CLI consumed (mv done) re-tick → SKIPPED (done hit within 24h)', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const summary = (await listSummaries(root, 'pending'))[0];
     // simulate motion CLI consumption
     await fsAsync.rename(
@@ -91,7 +91,7 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
       path.join(root, 'motion/inbox/done', summary),
     );
     events.length = 0;
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     expect(await listSummaries(root, 'pending')).toEqual([]);
     expect(events.some(e => e[0] === 'cron_outbox_summary_skipped' && e.includes('reason=done'))).toBe(true);
   });
@@ -99,7 +99,7 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   it('done file aged > 24h → write new (mtime window expired)', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const summary = (await listSummaries(root, 'pending'))[0];
     await fsAsync.rename(
       path.join(root, 'motion/inbox/pending', summary),
@@ -109,7 +109,7 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
     const old = Date.now() - DEDUP_DONE_WINDOW_MS - 60_000;
     await fsAsync.utimes(path.join(root, 'motion/inbox/done', summary), old / 1000, old / 1000);
     events.length = 0;
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     expect((await listSummaries(root, 'pending')).length).toBe(1);
     expect(events.some(e => e[0] === 'cron_outbox_summary_written')).toBe(true);
   });
@@ -117,13 +117,13 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   it('state change → archive old pending to done + write new (DP 不丢弃)', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const firstSummary = (await listSummaries(root, 'pending'))[0];
 
     // add new msg → different hash
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m2.md'), 'y');
     events.length = 0;
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const summaries = await listSummaries(root, 'pending');
     expect(summaries.length).toBe(1);
     expect(summaries[0]).not.toBe(firstSummary);
@@ -135,12 +135,12 @@ describe('phase 1476: runOutboxSummaryTick orchestration', () => {
   it('all unread消费 + new tick → CLEARED (archive 旧 pending summary to done / DP 不丢弃)', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     const summary = (await listSummaries(root, 'pending'))[0];
     // simulate motion consumed all outbox via CLI
     await fsAsync.rm(path.join(root, 'claws/clawA/outbox/pending/m1.md'));
     events.length = 0;
-    await runOutboxSummaryTick({ clawforumRoot: makeClawforumRoot(root), fs, audit });
+    await runOutboxSummaryTick({ chestnutRoot: makeChestnutRoot(root), fs, audit });
     expect(await listSummaries(root, 'pending')).toEqual([]);
     // 旧 summary 必须在 done 内（archive、不 delete）
     expect(await listSummaries(root, 'done')).toContain(summary);

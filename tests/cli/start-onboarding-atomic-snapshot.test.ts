@@ -20,13 +20,13 @@ const { getInitializationSnapshot, getOnboardingStatus } =
   await import('../../src/cli/commands/start.js');
 
 function makeTempDir(): string {
-  const dir = path.join(tmpdir(), `clawforum-snapshot-test-${randomUUID()}`);
+  const dir = path.join(tmpdir(), `chestnut-snapshot-test-${randomUUID()}`);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
 function writeConfig(tempDir: string): void {
-  const configDir = path.join(tempDir, '.clawforum');
+  const configDir = path.join(tempDir, '.chestnut');
   fs.mkdirSync(configDir, { recursive: true });
   fs.writeFileSync(
     path.join(configDir, 'config.yaml'),
@@ -54,7 +54,7 @@ describe('getInitializationSnapshot', () => {
 
   beforeEach(() => {
     tmpDir = makeTempDir();
-    vi.stubEnv('CLAWFORUM_ROOT', tmpDir);
+    vi.stubEnv('CHESTNUT_ROOT', tmpDir);
   });
   afterEach(() => {
     vi.unstubAllEnvs();

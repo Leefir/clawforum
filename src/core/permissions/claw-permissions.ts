@@ -3,7 +3,7 @@
  * Claw permission policy (L4 业务 / phase377 从 L1 迁出 / phase430 彻底归 L4)
  *
  * Enforces access rules:
- * - System space (read-only): AGENTS.md, dialog/, config.yaml, .clawforum/, system/
+ * - System space (read-only): AGENTS.md, dialog/, config.yaml, .chestnut/, system/
  * - Claw writable space: MEMORY.md, memory/, USER.md, IDENTITY.md, SOUL.md,
  *   clawspace/, prompts/, skills/, inbox/, outbox/, tasks/queues/{pending,running,done,failed}, logs/
  * - Claw readable space: + contract/, tasks/queues/results/, tasks/sync/subagent/, tasks/sync/spawn/, tasks/sync/shadow/, tasks/subagents/
@@ -47,7 +47,7 @@ const SYSTEM_PATHS = [
   'AGENTS.md',
   'dialog',
   'config.yaml',
-  '.clawforum',
+  '.chestnut',
   'system',
 ];
 

@@ -1,4 +1,4 @@
-import { type ClawforumRoot } from '../../foundation/identity/index.js';/**
+import { type ChestnutRoot } from '../../foundation/identity/index.js';/**
  * Notification utilities - Unified notification helpers
  *
  * Standardizes error handling and formatting for inbox notifications.
@@ -22,16 +22,16 @@ import { randomUUID } from 'crypto';
  */
 export function notifyClaw(
   fs: FileSystem,
-  clawforumRoot: ClawforumRoot,
+  chestnutRoot: ChestnutRoot,
   targetClawId: string,
   message: InboxMessageOptionsBase,
   audit: AuditLog,
 ): void {
   // phase 1372 sub-4: DLQ for unknown destination — prevent silent orphan dir creation
   if (targetClawId !== MOTION_CLAW_ID && typeof fs.existsSync === 'function') {
-    const targetClawRoot = path.join(clawforumRoot, 'claws', targetClawId);
+    const targetClawRoot = path.join(chestnutRoot, 'claws', targetClawId);
     if (!fs.existsSync(targetClawRoot)) {
-      const dlqDir = path.join(clawforumRoot, MOTION_CLAW_ID, 'inbox', 'dead-letter');
+      const dlqDir = path.join(chestnutRoot, MOTION_CLAW_ID, 'inbox', 'dead-letter');
       const fileName = `${Date.now()}_${randomUUID().slice(0, 8)}_${targetClawId}.md`;
       try {
         fs.ensureDirSync(dlqDir);
@@ -52,8 +52,8 @@ export function notifyClaw(
   }
 
   const targetInboxDir = targetClawId === MOTION_CLAW_ID
-    ? path.join(clawforumRoot, MOTION_CLAW_ID, 'inbox', 'pending')
-    : path.join(clawforumRoot, 'claws', targetClawId, 'inbox', 'pending');
+    ? path.join(chestnutRoot, MOTION_CLAW_ID, 'inbox', 'pending')
+    : path.join(chestnutRoot, 'claws', targetClawId, 'inbox', 'pending');
 
   try {
     InboxWriter.__internal_create(fs, makeInboxPath(targetInboxDir), audit).writeSync(message);
@@ -82,7 +82,7 @@ export async function writeInboxAsync(
  * Send an inbox notification with standardized error handling.
  * Logs warning on failure but does not throw.
  *
- * @deprecated since phase 1334 — use notifyClaw(fs, clawforumRoot, targetClawId, ...) instead.
+ * @deprecated since phase 1334 — use notifyClaw(fs, chestnutRoot, targetClawId, ...) instead.
  * Caller expressing fs path inboxDir is the wrong abstraction level;
  * cross-claw delivery destination = Messaging business semantics;
  * caller should express targetClawId.
@@ -106,7 +106,7 @@ export function notifyInbox(
  * Send a system message to inbox with high priority.
  * Convenience wrapper for common system notification pattern.
  *
- * @deprecated since phase 1334 — use notifyClaw(fs, clawforumRoot, MOTION_CLAW_ID, ...) instead.
+ * @deprecated since phase 1334 — use notifyClaw(fs, chestnutRoot, MOTION_CLAW_ID, ...) instead.
  */
 export function notifySystem(
   fs: FileSystem,

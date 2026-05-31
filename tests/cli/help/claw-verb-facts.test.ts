@@ -6,11 +6,11 @@
  * - name 在 fact 表内唯一
  * - instance-form fact 名集合 = router VERB_NAMES（防双源 silent-X drift）
  * - flat-form 含且仅含 ['list', 'help']（β 基础设施约定）
- * - example 字面以 `clawforum claw` 起头（防漂移到旧 verb-first 形态）
+ * - example 字面以 `chestnut claw` 起头（防漂移到旧 verb-first 形态）
  *
  * 反向 1：故意改一个 fact name → router VERB_NAMES 同步检查应失败
  * 反向 2：fact 表新增 instance verb 但 router 未加 → 失败
- * 反向 3：example 字面写 `clawforum claw create alice`（旧 verb-first）→ 失败
+ * 反向 3：example 字面写 `chestnut claw create alice`（旧 verb-first）→ 失败
  */
 
 import { describe, it, expect } from 'vitest';
@@ -56,10 +56,10 @@ describe('CLAW_VERB_FACTS invariants', () => {
     expect(flatNames).toEqual(['help', 'list']);
   });
 
-  it('every example begins with `clawforum claw` (no verb-first regression)', () => {
+  it('every example begins with `chestnut claw` (no verb-first regression)', () => {
     for (const fact of CLAW_VERB_FACTS) {
       for (const ex of fact.examples ?? []) {
-        expect(ex.startsWith('clawforum claw ')).toBe(true);
+        expect(ex.startsWith('chestnut claw ')).toBe(true);
       }
     }
   });

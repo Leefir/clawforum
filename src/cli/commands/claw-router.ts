@@ -137,7 +137,7 @@ export async function dispatchClawSubcommand(
   args: string[],
   deps: RouterDeps,
 ): Promise<void> {
-  // Path 0z: bare `clawforum claw` (no subject) → top-level help. Friendlier
+  // Path 0z: bare `chestnut claw` (no subject) → top-level help. Friendlier
   // than commander's `error: missing required argument 'subject'`. Same
   // intent as `claw help` / `claw --help`.
   if (subject === undefined) {
@@ -189,7 +189,7 @@ export async function dispatchClawSubcommand(
   const verbToken = args[0];
   if (!verbToken) {
     throw new CliError(
-      `missing verb. usage: 'clawforum claw <name> <verb>' (available verbs: ${VERB_NAMES.join(', ')})`,
+      `missing verb. usage: 'chestnut claw <name> <verb>' (available verbs: ${VERB_NAMES.join(', ')})`,
     );
   }
   if (!VERB_SET.has(verbToken)) {

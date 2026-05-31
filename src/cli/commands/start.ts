@@ -23,7 +23,7 @@ import { createToolRegistry } from '../../foundation/tools/index.js';
 import { createDirContext } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { notifyClaw } from '../../foundation/messaging/index.js';
-import { makeClawforumRoot } from '../../foundation/identity/index.js';
+import { makeChestnutRoot } from '../../foundation/identity/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
 import { CliError } from '../errors.js';
@@ -61,7 +61,7 @@ export function buildOnboardingSubtasks(language: string): Array<{ id: string; d
     },
     {
       id: 'first-claw',
-      description: 'Help the user create their first Claw. Ask what task or project they want to work on. A Claw is a separate context window for a specific ongoing task — all Claws have identical capabilities, they just handle different work. Run both commands: exec: clawforum claw <name> create, then exec: clawforum claw <name> daemon',
+      description: 'Help the user create their first Claw. Ask what task or project they want to work on. A Claw is a separate context window for a specific ongoing task — all Claws have identical capabilities, they just handle different work. Run both commands: exec: chestnut claw <name> create, then exec: chestnut claw <name> daemon',
     },
     {
       id: 'first-contract',
@@ -117,7 +117,7 @@ export async function startCommand(deps: { fsFactory: (baseDir: string) => FileS
   try {
     await _start(deps, audit);
   } catch (error) {
-    throw new CliError('clawforum start failed: ' + (error instanceof Error ? error.message : String(error)));
+    throw new CliError('chestnut start failed: ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -139,7 +139,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
         try {
           const fixed = await promptReconfigure(deps, rl, connResult.errorType);
           if (!fixed) {
-            throw new CliError('LLM not configured. Run "clawforum init" or fix your config.');
+            throw new CliError('LLM not configured. Run "chestnut init" or fix your config.');
           }
         } finally {
           rl.close();
@@ -160,7 +160,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     command: 'node' as const,
     args: [daemonEntryPath, MOTION_CLAW_ID],
     logFile: path.join(motionDir, DAEMON_LOG),
-    env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
+    env: { ...process.env, CHESTNUT_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
   };
   const motionFs = deps.fsFactory(motionDir);
   if (!motionFs.existsSync('AGENTS.md')) {
@@ -206,7 +206,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     const { ensureWatchdog } = await import('../../watchdog/ensure.js');
     await ensureWatchdog(deps.fsFactory);
 
-    const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot: makeClawforumRoot(path.dirname(motionDir)) });
+    const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot: makeChestnutRoot(path.dirname(motionDir)) });
     const contractId = await manager.create({
       title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
@@ -215,8 +215,8 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     });
 
     
-    // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
-    notifyClaw(notifyFs, makeClawforumRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
+    // Motion-only callsite: motionDir = <chestnutRoot>/motion → dirname 一层即 chestnutRoot
+    notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
       type: 'message',
       source: 'system',
       priority: 'high',
@@ -235,23 +235,23 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
 
     
     if (onboarding.state === 'not_found') {
-      const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawforumRoot: makeClawforumRoot(path.dirname(motionDir)) });
+      const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot: makeChestnutRoot(path.dirname(motionDir)) });
       const contractId = await manager.create({
         title: 'Onboarding',
         goal: 'Get to know the user and establish your identity before anything else.',
         subtasks: buildOnboardingSubtasks('auto'),
         verification: [],
       });
-      // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
-      notifyClaw(notifyFs, makeClawforumRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
+      // Motion-only callsite: motionDir = <chestnutRoot>/motion → dirname 一层即 chestnutRoot
+      notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
         type: 'message', source: 'system', priority: 'high',
         body: `New contract created (${contractId}): Onboarding. Please begin execution.`,
         idPrefix: 'start',
       }, notifyAudit);
     } else {
       const pendingList = onboarding.pending?.join(', ') ?? '';
-      // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
-      notifyClaw(notifyFs, makeClawforumRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
+      // Motion-only callsite: motionDir = <chestnutRoot>/motion → dirname 一层即 chestnutRoot
+      notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), MOTION_CLAW_ID, {
         type: 'message', source: 'system', priority: 'high',
         body: `Resuming Onboarding contract (${onboarding.contractId}). Pending subtasks: ${pendingList}. Please continue.`,
         idPrefix: 'start',

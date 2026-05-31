@@ -3,7 +3,7 @@
  *
  * Phase 1480：列 claw clawspace 内容（与 read/import 配套）。
  *
- * 形态：`clawforum claw <name> ls [path] [--recursive] [--json]`
+ * 形态：`chestnut claw <name> ls [path] [--recursive] [--json]`
  *
  * 应然边界：
  * - clawDir-scoped fs（不能 escape `..`）

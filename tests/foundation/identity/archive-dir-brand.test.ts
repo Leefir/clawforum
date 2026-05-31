@@ -9,8 +9,8 @@ import * as path from 'path';
 
 describe('ArchiveDir brand', () => {
   it('正向: makeArchiveDir 构造合法', () => {
-    const archiveDir: ArchiveDir = makeArchiveDir('/abs/.clawforum/claws/test/contract/archive');
-    expect(archiveDir).toBe('/abs/.clawforum/claws/test/contract/archive');
+    const archiveDir: ArchiveDir = makeArchiveDir('/abs/.chestnut/claws/test/contract/archive');
+    expect(archiveDir).toBe('/abs/.chestnut/claws/test/contract/archive');
   });
 
   it('// @ts-expect-error: 字符串字面量不能直接赋 ArchiveDir', () => {

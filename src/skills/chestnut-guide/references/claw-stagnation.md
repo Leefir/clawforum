@@ -3,8 +3,8 @@
 ## 诊断步骤
 
 ```
-clawforum contract log --claw <claw-id>
-clawforum claw <claw-id> trace --contract <contract-id>
+chestnut contract log --claw <claw-id>
+chestnut claw <claw-id> trace --contract <contract-id>
 ```
 
 - `contract log`：看哪些 subtask 仍是 todo
@@ -14,8 +14,8 @@ clawforum claw <claw-id> trace --contract <contract-id>
 
 | 情况 | 行动 |
 |------|------|
-| `status: stopped` 且有契约 | 重启：`clawforum claw <claw-id> daemon` |
-| `outbox_pending > 0` | 先查收：`clawforum claw <claw-id> outbox` |
+| `status: stopped` 且有契约 | 重启：`chestnut claw <claw-id> daemon` |
+| `outbox_pending > 0` | 先查收：`chestnut claw <claw-id> outbox` |
 | notification #N >= 3 | 不干预，摘要里说明，让 Motion 上报用户 |
 | `inactive` 且有 todo subtask | 发 inbox 消息（见下方模板） |
 | `running` 且无 todo subtask | 正在执行中，无需干预 |
@@ -32,7 +32,7 @@ clawforum claw <claw-id> trace --contract <contract-id>
 3. 写完后必须调用 `submit_subtask` 工具提交
 
 ```
-clawforum claw <claw-id> send "请继续完成 <subtask-id> 子任务。必须用 write 工具把产出写入 clawspace/<contract-slug>/<文件名>，不要只在回复里输出文字。写完后调用 submit_subtask 工具提交。"
+chestnut claw <claw-id> send "请继续完成 <subtask-id> 子任务。必须用 write 工具把产出写入 clawspace/<contract-slug>/<文件名>，不要只在回复里输出文字。写完后调用 submit_subtask 工具提交。"
 ```
 
 发了 2 次消息后 trace 仍无新步骤 → claw 上下文可能已混乱，在摘要里说明，让 Motion 用 spawn 另起子代理完成剩余工作。

@@ -22,7 +22,7 @@ export interface TransportOptions {
   /**
    * Path for local IPC (Unix socket / named pipe).
    * Caller should place this within a claw-owned directory
-   * (e.g., `~/.clawforum/<clawId>/transport.sock`); Transport serves
+   * (e.g., `~/.chestnut/<clawId>/transport.sock`); Transport serves
    * same-claw local processes only.
    */
   socketPath?: string;

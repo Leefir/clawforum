@@ -7,14 +7,14 @@ import type { ProgressData } from '../contract/index.js';
 import { runDeepDream } from './deep-dream.js';
 import { runRandomDream } from './random-dream.js';
 import type { ClawId } from '../../foundation/identity/index.js';
-import { type ClawforumRoot } from '../../foundation/identity/index.js';
+import { type ChestnutRoot } from '../../foundation/identity/index.js';
 import type { ContractId } from '../../foundation/identity/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
 
 
 
 export interface MemorySystemOptions {
-  clawforumRoot: ClawforumRoot;
+  chestnutRoot: ChestnutRoot;
   motionDir: ClawDir;
   fs: FileSystem;
   motionFs: FileSystem;               // baseDir = motionDir / NEW
@@ -34,7 +34,7 @@ export class MemorySystem {
 
   async runDeepDream(maxCompressionTokens?: number, opts?: { signal?: AbortSignal }): Promise<void> {
     return runDeepDream({
-      clawforumRoot: this.opts.clawforumRoot,
+      chestnutRoot: this.opts.chestnutRoot,
       motionDir: this.opts.motionDir,
       motionFs: this.opts.motionFs,
       llmConfig: this.opts.llmConfig,
@@ -49,7 +49,7 @@ export class MemorySystem {
 
   async runRandomDream(opts?: { signal?: AbortSignal }): Promise<void> {
     return runRandomDream({
-      clawforumRoot: this.opts.clawforumRoot,
+      chestnutRoot: this.opts.chestnutRoot,
       motionDir: this.opts.motionDir,
       taskSystem: this.opts.taskSystem,
       fs: this.opts.fs,

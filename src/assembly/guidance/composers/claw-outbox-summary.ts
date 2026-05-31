@@ -3,7 +3,7 @@
  * phase 1476 γ2: motion guidance for `claw_outbox_summary` (γ2 首个 non-NO_GUIDANCE real composer).
  *
  * 业主 (core/outbox-summary) own facts (counts / total_claws / total_msgs / hash).
- * Assembly 此处 own motion-side CLI 教学：拼 `clawforum claw <claw-id> outbox --limit N`.
+ * Assembly 此处 own motion-side CLI 教学：拼 `chestnut claw <claw-id> outbox --limit N`.
  *
  * State 接 via Runtime extraMeta wire (toExtraMeta serializes fields to Record<string,string>).
  * - state.total_msgs: total unread count, used for --limit hint

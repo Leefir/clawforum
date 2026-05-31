@@ -39,7 +39,7 @@ export const SEARCH_DEFAULT_EXCLUDE: ReadonlyArray<string> = Object.freeze([
   'dist',
   'build',
   'coverage',
-  '.clawforum',
+  '.chestnut',
 ]);
 
 /** Skip 段单条 path 显示上限：超出聚合为 `+N more`（phase 1422）*/

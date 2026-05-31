@@ -50,16 +50,16 @@ export async function startCommand(fsFactory: (baseDir: string) => FileSystem): 
         `Watchdog already running for foreign workspace.\n` +
         `  PID:   ${err.foreignPid}\n` +
         `  Root:  ${err.foreignRoot}\n\n` +
-        `Run "clawforum stop" in that workspace.`
+        `Run "chestnut stop" in that workspace.`
       );
     }
     throw err;
   }
 
-  // spawn watchdog，显式传 CLAWFORUM_ROOT
-  const clawforumRoot = getWorkspaceRoot();
+  // spawn watchdog，显式传 CHESTNUT_ROOT
+  const chestnutRoot = getWorkspaceRoot();
   spawnDetached('node', [watchdogEntryPath], {
-    env: { ...process.env, CLAWFORUM_ROOT: clawforumRoot },
+    env: { ...process.env, CHESTNUT_ROOT: chestnutRoot },
   });
 
   // 等待 PID 文件写入

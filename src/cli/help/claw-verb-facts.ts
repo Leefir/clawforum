@@ -27,21 +27,21 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     group: 'lifecycle',
     form: 'instance',
     summary: 'Create a new claw and start its daemon',
-    examples: ['clawforum claw alice create'],
+    examples: ['chestnut claw alice create'],
   },
   {
     name: 'stop',
     group: 'lifecycle',
     form: 'instance',
     summary: 'Stop the claw daemon',
-    examples: ['clawforum claw alice stop'],
+    examples: ['chestnut claw alice stop'],
   },
   {
     name: 'daemon',
     group: 'lifecycle',
     form: 'instance',
     summary: 'Start the claw daemon explicitly (auto-backgrounds)',
-    examples: ['clawforum claw alice daemon'],
+    examples: ['chestnut claw alice daemon'],
   },
   {
     name: 'health',
@@ -49,7 +49,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     form: 'instance',
     summary: 'Check claw daemon liveness',
     options: [{ flag: '--json', desc: 'Output as JSON (machine-readable)' }],
-    examples: ['clawforum claw alice health', 'clawforum claw alice health --json'],
+    examples: ['chestnut claw alice health', 'chestnut claw alice health --json'],
   },
   {
     name: 'status',
@@ -57,7 +57,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     form: 'instance',
     summary: 'Show current runtime status of the claw',
     options: [{ flag: '--json', desc: 'Output as JSON (machine-readable)' }],
-    examples: ['clawforum claw alice status'],
+    examples: ['chestnut claw alice status'],
   },
 
   // ── Messaging ──────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     group: 'messaging',
     form: 'instance',
     summary: 'Open an interactive chat with the claw',
-    examples: ['clawforum claw alice chat'],
+    examples: ['chestnut claw alice chat'],
   },
   {
     name: 'send',
@@ -82,8 +82,8 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
       },
     ],
     examples: [
-      'clawforum claw alice send "please check the build"',
-      'clawforum claw alice send "urgent" --priority high',
+      'chestnut claw alice send "please check the build"',
+      'chestnut claw alice send "urgent" --priority high',
     ],
   },
   {
@@ -92,7 +92,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     form: 'instance',
     summary: "Read the claw's outbox (pulled messages are marked consumed)",
     options: [{ flag: '--limit <n>', desc: 'Max messages to read', defaultValue: '1' }],
-    examples: ['clawforum claw alice outbox', 'clawforum claw alice outbox --limit 5'],
+    examples: ['chestnut claw alice outbox', 'chestnut claw alice outbox --limit 5'],
   },
   {
     name: 'read',
@@ -104,7 +104,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
       { flag: '--offset <n>', desc: 'Starting line (1-indexed, negative counts from end)' },
       { flag: '--limit <n>', desc: 'Max lines to read' },
     ],
-    examples: ['clawforum claw alice read notes/today.md'],
+    examples: ['chestnut claw alice read notes/today.md'],
   },
   {
     name: 'import',
@@ -116,8 +116,8 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
       { flag: '-t, --target <subdir>', desc: 'Target subdirectory under clawspace' },
     ],
     examples: [
-      'clawforum claw alice import ./design.md',
-      'clawforum claw alice import ./drafts -t inbox',
+      'chestnut claw alice import ./design.md',
+      'chestnut claw alice import ./drafts -t inbox',
     ],
   },
   {
@@ -131,9 +131,9 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
       { flag: '--json', desc: 'Output as JSON (machine-readable)' },
     ],
     examples: [
-      'clawforum claw alice ls',
-      'clawforum claw alice ls notes',
-      'clawforum claw alice ls --recursive',
+      'chestnut claw alice ls',
+      'chestnut claw alice ls notes',
+      'chestnut claw alice ls --recursive',
     ],
   },
 
@@ -143,7 +143,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     group: 'observation',
     form: 'instance',
     summary: 'List recorded LLM call steps for the claw',
-    examples: ['clawforum claw alice steps'],
+    examples: ['chestnut claw alice steps'],
   },
   {
     name: 'step',
@@ -151,7 +151,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     form: 'instance',
     summary: 'Show full detail of a single LLM step',
     args: [{ name: 'n', required: true, desc: 'Step index (1-based)' }],
-    examples: ['clawforum claw alice step 7'],
+    examples: ['chestnut claw alice step 7'],
   },
   {
     name: 'trace',
@@ -165,8 +165,8 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
       { flag: '--step <n>', desc: 'Show full content of step N or N.x (e.g. 5 or 5.a)' },
     ],
     examples: [
-      'clawforum claw alice trace --contract C-123',
-      'clawforum claw alice trace --contract C-123 --step 5.a',
+      'chestnut claw alice trace --contract C-123',
+      'chestnut claw alice trace --contract C-123 --step 5.a',
     ],
   },
 
@@ -177,7 +177,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     form: 'flat',
     summary: 'List all claws in the workspace',
     options: [{ flag: '--json', desc: 'Output as JSON (machine-readable)' }],
-    examples: ['clawforum claw list', 'clawforum claw list --json'],
+    examples: ['chestnut claw list', 'chestnut claw list --json'],
   },
   {
     name: 'help',
@@ -185,7 +185,7 @@ export const CLAW_VERB_FACTS: readonly VerbFact[] = [
     form: 'flat',
     summary: 'Show top-level help, or per-verb help when a verb name follows',
     args: [{ name: 'verb', required: false, desc: 'Verb name to describe in detail' }],
-    examples: ['clawforum claw help', 'clawforum claw help send'],
+    examples: ['chestnut claw help', 'chestnut claw help send'],
   },
 ] as const;
 

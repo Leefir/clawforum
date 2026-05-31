@@ -13,7 +13,7 @@ import { searchTool } from '../../../src/foundation/file-tool/index.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { createClawPermissionChecker } from '../../../src/core/permissions/claw-permissions.js';
-import { makeClawforumRoot } from '../../../src/foundation/identity/index.js';
+import { makeChestnutRoot } from '../../../src/foundation/identity/index.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 
 describe('search tool — workspace-relative display (phase 776 + 1422)', () => {
@@ -123,7 +123,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
   });
 
   it('cross-claw search: prefixes matches with [clawId]', async () => {
-    const mainClawDir = path.join(tempDir, '.clawforum', 'claws', 'main-claw');
+    const mainClawDir = path.join(tempDir, '.chestnut', 'claws', 'main-claw');
     await fs.mkdir(mainClawDir, { recursive: true });
     const otherClawDir = path.join(tempDir, 'claws', 'other-claw', 'clawspace');
     await fs.mkdir(otherClawDir, { recursive: true });
@@ -133,7 +133,7 @@ describe('search tool — workspace-relative display (phase 776 + 1422)', () => 
     const ctx = new ExecContextImpl({
       clawId: 'main-claw',
       clawDir: mainClawDir,
-      clawforumRoot: makeClawforumRoot(tempDir),
+      chestnutRoot: makeChestnutRoot(tempDir),
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,

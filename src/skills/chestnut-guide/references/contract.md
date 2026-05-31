@@ -49,7 +49,7 @@ escalation:
 
 ### 验收脚本示例
 
-脚本从 `clawDir`（`.clawforum/claws/{clawId}/`）运行，用相对路径：
+脚本从 `clawDir`（`.chestnut/claws/{clawId}/`）运行，用相对路径：
 
 ```bash
 #!/bin/bash

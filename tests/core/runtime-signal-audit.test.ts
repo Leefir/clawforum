@@ -66,7 +66,7 @@ describe('Runtime SignalAudit', () => {
     const signalRuntimes: Runtime[] = [];
 
     beforeEach(async () => {
-      tempDir2 = path.join(tmpdir(), `clawforum-signal-test-${randomUUID()}`);
+      tempDir2 = path.join(tmpdir(), `chestnut-signal-test-${randomUUID()}`);
       clawDir2 = path.join(tempDir2, 'claws', 'sig-claw');
       await fs.mkdir(clawDir2, { recursive: true });
     });
@@ -149,7 +149,7 @@ describe('Runtime SignalAudit', () => {
     const piRuntimes: Runtime[] = [];
 
     beforeEach(async () => {
-      piTempDir = path.join(tmpdir(), `clawforum-pi-test-${randomUUID()}`);
+      piTempDir = path.join(tmpdir(), `chestnut-pi-test-${randomUUID()}`);
       piClawDir = path.join(piTempDir, 'claws', 'pi-claw');
       await fs.mkdir(piClawDir, { recursive: true });
     });

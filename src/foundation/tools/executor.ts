@@ -34,7 +34,7 @@ import {
   type ToolExecutorOptions,
 } from './types.js';
 import { safeNumber } from '../utils/index.js';
-import type { ClawId, ClawforumRoot } from '../identity/index.js';
+import type { ClawId, ChestnutRoot } from '../identity/index.js';
 import { type ClawDir } from '../identity/index.js';
 
 
@@ -386,7 +386,7 @@ export class ToolExecutorImpl implements IToolExecutor {
  */
 export class ToolExecutor extends ToolExecutorImpl {
   private clawDir: ClawDir;
-  private clawforumRoot: ClawforumRoot;
+  private chestnutRoot: ChestnutRoot;
   private syncDir: string;
   private workspaceDir: string;
   private fs: FileSystem;
@@ -397,7 +397,7 @@ export class ToolExecutor extends ToolExecutorImpl {
   constructor(options: ToolExecutorOptions) {
     super(options.registry, options.defaultTimeoutMs, options.scheduleAsyncTool);
     this.clawDir = options.clawDir;
-    this.clawforumRoot = options.clawforumRoot;
+    this.chestnutRoot = options.chestnutRoot;
     this.syncDir = options.syncDir;
     this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.fs = options.fs;
@@ -417,7 +417,7 @@ export class ToolExecutor extends ToolExecutorImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
       clawDir: this.clawDir,
-      clawforumRoot: this.clawforumRoot,
+      chestnutRoot: this.chestnutRoot,
       workspaceDir: this.workspaceDir,
       syncDir: this.syncDir,
       profile,

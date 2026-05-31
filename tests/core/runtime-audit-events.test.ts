@@ -49,7 +49,7 @@ describe('Runtime audit events', () => {
 
   describe('session_loaded audit timing', () => {
     it('session_loaded should not pollute summarizeLastExit tail-read on restart', async () => {
-      const clawDir = await fs.mkdtemp(path.join(tmpdir(), 'clawforum-runtime-audit-'));
+      const clawDir = await fs.mkdtemp(path.join(tmpdir(), 'chestnut-runtime-audit-'));
       const clawSubDir = path.join(clawDir, 'claws', 'audit-claw');
       await fs.mkdir(clawSubDir, { recursive: true });
 
@@ -83,7 +83,7 @@ describe('Runtime audit events', () => {
 
   describe('Runtime session-repair failure branches (phase155C)', () => {
     it('snapshot.commit 抛错 → audit snapshot_commit_failed context=session-repair + 不抛', async () => {
-      const tmpDir = path.join(tmpdir(), `clawforum-repair-test-${randomUUID()}`);
+      const tmpDir = path.join(tmpdir(), `chestnut-repair-test-${randomUUID()}`);
       const clawSubDir = path.join(tmpDir, 'claws', 'repair-claw');
       await fs.mkdir(clawSubDir, { recursive: true });
       await writeSessionWithIncompleteToolUse(clawSubDir, 'repair-claw');
@@ -115,7 +115,7 @@ describe('Runtime audit events', () => {
     });
 
     it('snapshot.commit 返 uncategorized error → audit snapshot_commit_uncategorized + 不抛', async () => {
-      const tmpDir = path.join(tmpdir(), `clawforum-repair-test-${randomUUID()}`);
+      const tmpDir = path.join(tmpdir(), `chestnut-repair-test-${randomUUID()}`);
       const clawSubDir = path.join(tmpDir, 'claws', 'repair-claw');
       await fs.mkdir(clawSubDir, { recursive: true });
       await writeSessionWithIncompleteToolUse(clawSubDir, 'repair-claw');

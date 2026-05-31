@@ -52,7 +52,7 @@ describe('fallback periodic flush and reconcile', () => {
     vi.advanceTimersByTime(5000);
     expect(vi.mocked(nodeFs.writeFileSync)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(nodeFs.writeFileSync)).toHaveBeenCalledWith(
-      expect.stringMatching(/^.*clawforum-audit-fallback-\d+-\d+\.tsv$/),
+      expect.stringMatching(/^.*chestnut-audit-fallback-\d+-\d+\.tsv$/),
       expect.stringContaining('evt1'),
     );
     const dumpedContent = (vi.mocked(nodeFs.writeFileSync).mock.calls[0] as any)[1] as string;
@@ -97,7 +97,7 @@ describe('fallback periodic flush and reconcile', () => {
   });
 
   it('reconcileFallbackDumps recovers prior crash dump and deletes it', async () => {
-    const dumpFileName = `clawforum-audit-fallback-${process.pid}-${Date.now()}.tsv`;
+    const dumpFileName = `chestnut-audit-fallback-${process.pid}-${Date.now()}.tsv`;
 
     // Write a fake crash dump with 2 origins
     const dumpContent = [

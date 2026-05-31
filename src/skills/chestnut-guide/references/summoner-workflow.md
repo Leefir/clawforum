@@ -78,7 +78,7 @@ escalation:
 ## 提交契约
 
 ```
-exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
+exec: chestnut contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
 ```
 
 ## 最终回复末尾输出标记（格式不可变）

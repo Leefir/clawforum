@@ -31,7 +31,7 @@ describe('Runtime processBatch orchestrator (phase 1285)', () => {
   const runtimes: Runtime[] = [];
 
   beforeEach(async () => {
-    testTempDir = path.join(tmpdir(), `clawforum-orchestrator-${randomUUID()}`);
+    testTempDir = path.join(tmpdir(), `chestnut-orchestrator-${randomUUID()}`);
     testClawDir = path.join(testTempDir, 'claws', 'edge-claw');
     await fs.mkdir(testClawDir, { recursive: true });
   });

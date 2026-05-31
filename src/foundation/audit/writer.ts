@@ -67,7 +67,7 @@ function dumpFallback(): void {
     : '';
   let written = false;
   try {
-    const fallbackPath = `${getFallbackDir()}/clawforum-audit-fallback-${process.pid}-${Date.now()}.tsv`;
+    const fallbackPath = `${getFallbackDir()}/chestnut-audit-fallback-${process.pid}-${Date.now()}.tsv`;
     // origin 作 synthetic col 0 prepend / esc(origin) 防 tab 污染
     const body = batch
       .map(e => `${esc(e.origin)}\t${e.line}`)
@@ -121,7 +121,7 @@ const FRONTMATTER_RE = /^# drop_count_since_last_dump=(\d+) drop_count_total=(\d
 
 export async function reconcileFallbackDumps(fs: FileSystem): Promise<void> {
   const tmp = getFallbackDir();
-  const pattern = /^clawforum-audit-fallback-\d+-\d+\.tsv$/;
+  const pattern = /^chestnut-audit-fallback-\d+-\d+\.tsv$/;
   let entries: { name: string }[];
   try {
     entries = await fs.list(tmp, { includeDirs: false });

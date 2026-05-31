@@ -1,5 +1,5 @@
 /**
- * `clawforum status` — global overview of clawforum runtime.
+ * `chestnut status` — global overview of chestnut runtime.
  *
  * Phase 1478 重塑：从原全量 claw dump 改为「最重要状态」聚合：
  *   System（watchdog + motion + orphan ⚠）+ Active claws (N / total)

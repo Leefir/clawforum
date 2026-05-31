@@ -1,4 +1,4 @@
-# Contributing to Clawforum
+# Contributing to Chestnut
 
 ## Development setup
 

@@ -1,4 +1,4 @@
-import { type ClawforumRoot } from '../../foundation/identity/index.js';
+import { type ChestnutRoot } from '../../foundation/identity/index.js';
 
 /**
  * @module L2.ProcessManager.SignalCleanStop
@@ -15,11 +15,11 @@ import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 
 export async function signalCleanStop(
   fs: FileSystem,
-  clawforumRoot: ClawforumRoot,
+  chestnutRoot: ChestnutRoot,
   clawName: string,
   audit?: AuditLog,
 ): Promise<void> {
-  const flagPath = path.join(clawforumRoot, clawName, 'clean-stop');
+  const flagPath = path.join(chestnutRoot, clawName, 'clean-stop');
   await fs.writeAtomic(flagPath, '');
   audit?.write(PROCESS_MANAGER_AUDIT_EVENTS.CLEAN_STOP_SIGNALED, `claw=${clawName}`);
 }

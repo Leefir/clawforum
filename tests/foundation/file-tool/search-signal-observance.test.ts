@@ -12,7 +12,7 @@ import { searchTool } from '../../../src/foundation/file-tool/index.js';
 import { ExecContextImpl } from '../../../src/foundation/tools/context.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 import { createClawPermissionChecker } from '../../../src/core/permissions/claw-permissions.js';
-import { makeClawforumRoot } from '../../../src/foundation/identity/index.js';
+import { makeChestnutRoot } from '../../../src/foundation/identity/index.js';
 import { createTempDir, cleanupTempDir } from '../../utils/temp.js';
 
 describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
@@ -27,7 +27,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
   });
 
   it('walkNative finds matches without abort signal', async () => {
-    const mainClawDir = path.join(tempDir, '.clawforum', 'claws', 'main-claw');
+    const mainClawDir = path.join(tempDir, '.chestnut', 'claws', 'main-claw');
     const otherClawDir = path.join(tempDir, 'claws', 'other-claw', 'clawspace');
     await fs.mkdir(otherClawDir, { recursive: true });
     await fs.writeFile(path.join(otherClawDir, 'note.txt'), 'needle in haystack');
@@ -36,7 +36,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
     const ctx = new ExecContextImpl({
       clawId: 'main-claw',
       clawDir: mainClawDir,
-      clawforumRoot: makeClawforumRoot(tempDir),
+      chestnutRoot: makeChestnutRoot(tempDir),
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,
@@ -54,7 +54,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
   });
 
   it('aborted signal interrupts walkNative recursion (反向 1)', async () => {
-    const mainClawDir = path.join(tempDir, '.clawforum', 'claws', 'main-claw');
+    const mainClawDir = path.join(tempDir, '.chestnut', 'claws', 'main-claw');
     const otherClawDir = path.join(tempDir, 'claws', 'other-claw', 'clawspace');
     await fs.mkdir(otherClawDir, { recursive: true });
     await fs.writeFile(path.join(otherClawDir, 'note.txt'), 'needle in haystack');
@@ -66,7 +66,7 @@ describe('phase 1036: search.ts walkNative signal observance (F-4)', () => {
     const ctx = new ExecContextImpl({
       clawId: 'main-claw',
       clawDir: mainClawDir,
-      clawforumRoot: makeClawforumRoot(tempDir),
+      chestnutRoot: makeChestnutRoot(tempDir),
       syncDir: path.join(mainClawDir, 'tasks/sync'),
       profile: 'full',
       fs: mockFs,

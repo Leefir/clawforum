@@ -24,22 +24,22 @@ vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
 
 describe('watchdog-pid foreign workspace fail-loud', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let auditWriter: AuditWriter;
   let auditSpy: ReturnType<typeof vi.spyOn>;
-  const originalRoot = process.env.CLAWFORUM_ROOT;
+  const originalRoot = process.env.CHESTNUT_ROOT;
   const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-pid-foreign-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
-    process.env.CLAWFORUM_ROOT = '/test/root';
+    process.env.CHESTNUT_ROOT = '/test/root';
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -49,9 +49,9 @@ describe('watchdog-pid foreign workspace fail-loud', () => {
 
   afterEach(() => {
     if (originalRoot !== undefined) {
-      process.env.CLAWFORUM_ROOT = originalRoot;
+      process.env.CHESTNUT_ROOT = originalRoot;
     } else {
-      delete process.env.CLAWFORUM_ROOT;
+      delete process.env.CHESTNUT_ROOT;
     }
     setAuditWriter(null);
     vi.clearAllMocks();
@@ -60,7 +60,7 @@ describe('watchdog-pid foreign workspace fail-loud', () => {
   });
 
   it('foreign workspace alive: throws WatchdogPidForeignWorkspaceError + audit PID_FOREIGN_WORKSPACE + does NOT delete pid file', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     // Use current process PID as a guaranteed-alive foreign PID
     const foreignAlivePid = process.pid;
     fs.writeFileSync(pidFile, JSON.stringify({ pid: foreignAlivePid, root: '/foreign/root' }));
@@ -77,7 +77,7 @@ describe('watchdog-pid foreign workspace fail-loud', () => {
   });
 
   it('foreign workspace dead: returns false + audit PID_STALE_AUTO_CLEANED + deletes pid file', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     fs.writeFileSync(pidFile, JSON.stringify({ pid: DEAD_PID, root: '/foreign/root' }));
 
     const result = isWatchdogAlive(fsFactory);
@@ -100,7 +100,7 @@ describe('watchdog-pid foreign workspace fail-loud', () => {
   });
 
   it('pid file read EACCES: throws + audit PID_READ_FAILED', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     fs.writeFileSync(pidFile, 'locked');
     fs.chmodSync(pidFile, 0o000);
 
@@ -117,11 +117,11 @@ describe('watchdog-pid foreign workspace fail-loud', () => {
   });
 
   it('startCommand surfaces foreign workspace as CliError with guidance', async () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     const foreignAlivePid = process.pid;
     fs.writeFileSync(pidFile, JSON.stringify({ pid: foreignAlivePid, root: '/foreign/root' }));
 
     await expect(startCommand(fsFactory)).rejects.toThrow('Watchdog already running for foreign workspace');
-    await expect(startCommand(fsFactory)).rejects.toThrow('clawforum stop');
+    await expect(startCommand(fsFactory)).rejects.toThrow('chestnut stop');
   });
 });

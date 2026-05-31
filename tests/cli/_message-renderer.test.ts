@@ -269,7 +269,7 @@ describe('_message-renderer', () => {
   describe('loadSessionFromFile', () => {
     let tmpDir: string;
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawforum-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chestnut-test-'));
     });
     afterEach(() => {
       fs.rmSync(tmpDir, { recursive: true, force: true });

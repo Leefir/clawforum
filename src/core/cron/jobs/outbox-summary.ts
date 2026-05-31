@@ -11,7 +11,7 @@
 
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
-import type { ClawforumRoot } from '../../../foundation/identity/index.js';
+import type { ChestnutRoot } from '../../../foundation/identity/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { runOutboxSummaryTick } from '../../outbox-summary/index.js';
 
@@ -19,7 +19,7 @@ import { runOutboxSummaryTick } from '../../outbox-summary/index.js';
 export const OUTBOX_SUMMARY_CRON_TIMEOUT_MS = 5_000;
 
 export interface OutboxSummaryJobOptions {
-  clawforumRoot: ClawforumRoot;
+  chestnutRoot: ChestnutRoot;
   fs: FileSystem;
   audit: AuditLog;
   signal?: AbortSignal;
@@ -28,7 +28,7 @@ export interface OutboxSummaryJobOptions {
 export async function runOutboxSummary(opts: OutboxSummaryJobOptions): Promise<void> {
   try {
     await runOutboxSummaryTick({
-      clawforumRoot: opts.clawforumRoot,
+      chestnutRoot: opts.chestnutRoot,
       fs: opts.fs,
       audit: opts.audit,
     });

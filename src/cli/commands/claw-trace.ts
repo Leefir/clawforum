@@ -97,7 +97,7 @@ export async function clawTraceCommand(
  *   - `5.a`   → turn 5, slot a
  *   - `5.b`   → turn 5, slot b
  *
- * Same N.x convention as `clawforum claw <name> step <n>` so the two CLI
+ * Same N.x convention as `chestnut claw <name> step <n>` so the two CLI
  * surfaces share the same addressing (phase 1484 numbering coherence).
  */
 function parseStepArg(raw: string): { turn: number; slotIdx: number } {

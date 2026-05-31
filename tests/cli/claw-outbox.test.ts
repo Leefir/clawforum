@@ -18,18 +18,18 @@ const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 const { outboxCommand } = await import('../../src/cli/commands/claw.js');
 
 function makeTempRoot(): string {
-  const dir = path.join(tmpdir(), `clawforum-outbox-cli-test-${randomUUID()}`);
+  const dir = path.join(tmpdir(), `chestnut-outbox-cli-test-${randomUUID()}`);
   fs.mkdirSync(dir, { recursive: true });
-  fs.mkdirSync(path.join(dir, '.clawforum'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.chestnut'), { recursive: true });
   fs.writeFileSync(
-    path.join(dir, '.clawforum', 'config.yaml'),
+    path.join(dir, '.chestnut', 'config.yaml'),
     'llm:\n  primary:\n    api_key: test\n'
   );
   return dir;
 }
 
 function seedPending(root: string, clawId: string, count: number): string {
-  const pending = path.join(root, '.clawforum', 'claws', clawId, 'outbox', 'pending');
+  const pending = path.join(root, '.chestnut', 'claws', clawId, 'outbox', 'pending');
   fs.mkdirSync(pending, { recursive: true });
   for (let i = 0; i < count; i++) {
     fs.writeFileSync(path.join(pending, `msg${i}.md`), `message ${i}`);
@@ -45,29 +45,29 @@ describe('outboxCommand', () => {
 
   beforeEach(() => {
     root = makeTempRoot();
-    prevRoot = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = root;
+    prevRoot = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = root;
     logs = [];
     origLog = console.log;
     console.log = (...args: unknown[]) => { logs.push(args.map(String).join(' ')); };
   });
 
   afterEach(() => {
-    if (prevRoot === undefined) delete process.env.CLAWFORUM_ROOT;
-    else process.env.CLAWFORUM_ROOT = prevRoot;
+    if (prevRoot === undefined) delete process.env.CHESTNUT_ROOT;
+    else process.env.CHESTNUT_ROOT = prevRoot;
     console.log = origLog;
     fs.rmSync(root, { recursive: true, force: true });
   });
 
   it('drains orphan claw outbox (dir exists, no config.yaml)', async () => {
     const pending = seedPending(root, 'orphan-claw', 3);
-    expect(fs.existsSync(path.join(root, '.clawforum', 'claws', 'orphan-claw', 'config.yaml'))).toBe(false);
+    expect(fs.existsSync(path.join(root, '.chestnut', 'claws', 'orphan-claw', 'config.yaml'))).toBe(false);
 
     await outboxCommand({ fsFactory }, 'orphan-claw', { limit: 99 });
 
     const remaining = fs.readdirSync(pending).filter(f => f.endsWith('.md'));
     expect(remaining).toEqual([]);
-    const done = fs.readdirSync(path.join(root, '.clawforum', 'claws', 'orphan-claw', 'outbox', 'done'));
+    const done = fs.readdirSync(path.join(root, '.chestnut', 'claws', 'orphan-claw', 'outbox', 'done'));
     expect(done.filter(f => f.endsWith('.md'))).toHaveLength(3);
   });
 
@@ -76,7 +76,7 @@ describe('outboxCommand', () => {
   });
 
   it('prints "outbox is empty" when pending dir missing but clawDir exists', async () => {
-    fs.mkdirSync(path.join(root, '.clawforum', 'claws', 'claw-empty'), { recursive: true });
+    fs.mkdirSync(path.join(root, '.chestnut', 'claws', 'claw-empty'), { recursive: true });
 
     await outboxCommand({ fsFactory }, 'claw-empty');
 

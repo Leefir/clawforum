@@ -7,7 +7,7 @@
  *   - 非职责：不装配 Runtime / Snapshot / Stream 等 L2+ 对象（由 Assembly 负责）
  *
  * §5 隐式依赖：
- *   - getClawforumRoot()（config.ts）：createProcessManagerForCLI 的 PM / audit 根
+ *   - getChestnutRoot()（config.ts）：createProcessManagerForCLI 的 PM / audit 根
  *   - NodeFileSystem 构造签名（foundation/fs）、AuditWriter 构造签名、createAgentProcessManager 签名
  *
  * §6 历史：
@@ -19,18 +19,18 @@ import { createSystemAudit } from '../audit/index.js';
 import type { FileSystem } from '../fs/types.js';
 import type { ProcessManager } from './manager.js';
 import { createAgentProcessManager } from './agent-factory.js';
-import { getClawforumRoot } from '../config/index.js';
+import { getChestnutRoot } from '../config/index.js';
 
 /**
  * createProcessManagerForCLI
  *
  * 输入：
- *   - 无参数（内部固定 getClawforumRoot()）
+ *   - 无参数（内部固定 getChestnutRoot()）
  *
  * 输出：
  *   - ProcessManager 实例；每次调用返回新对象（无缓存、无单例）
- *   - PID / lockfile 根：clawforumRoot（不可配置，由 ProcessManager 内部决定）
- *   - audit 落盘：clawforumRoot/audit.tsv（跨 agent 的进程管理属 clawforum 层资源）
+ *   - PID / lockfile 根：chestnutRoot（不可配置，由 ProcessManager 内部决定）
+ *   - audit 落盘：chestnutRoot/audit.tsv（跨 agent 的进程管理属 chestnut 层资源）
  *   - 回归原 createMotionPM 语义（phase154 定义）
  *
  * 边界：
@@ -42,7 +42,7 @@ import { getClawforumRoot } from '../config/index.js';
  *   - 不包装；调用方（CLI 命令）通常不 catch，让错误直接打印
  */
 export function createProcessManagerForCLI(deps: { fsFactory: (baseDir: string) => FileSystem }): ProcessManager {
-  const baseDir = getClawforumRoot();
+  const baseDir = getChestnutRoot();
   const fs = deps.fsFactory(baseDir);
   const systemAudit = createSystemAudit(fs, baseDir);
   return createAgentProcessManager(deps, systemAudit);

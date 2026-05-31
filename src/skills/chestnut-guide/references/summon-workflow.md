@@ -28,16 +28,16 @@
 ### 1. 确定目标 claw
 
 ```
-exec: clawforum claw list
+exec: chestnut claw list
 ```
 
 根据输出判断复用还是新建：
 - **复用**：选择对话状态与本次任务相关的 claw
 - **新建**：现有 claw 专注于不同项目或任务域时
   ```
-  exec: clawforum claw <name> create
-  exec: clawforum claw <name> daemon
-  exec: clawforum claw list   ← 确认 daemon 已运行再继续
+  exec: chestnut claw <name> create
+  exec: chestnut claw <name> daemon
+  exec: chestnut claw list   ← 确认 daemon 已运行再继续
   ```
 - targetClaw 必须是 claw id（kebab-case），不能是 UUID 或 taskId
 - 若 targetClaw 已由上游指定，执行 `claw list` 确认其存在且处于 running 状态；未运行则先启动
@@ -53,7 +53,7 @@ skill: { "name": "<skill-name>", "skillsDir": "clawspace/dispatch-skills" }
 
 将 dispatch-skill 安装到目标 claw：
 ```
-exec: clawforum skill install --claw <id> --skill <name>
+exec: chestnut skill install --claw <id> --skill <name>
 ```
 
 注意：直接调用 `skill: { "name": "..." }`（不带 `skillsDir`）只查 Motion 自己的 `skills/`，找不到 dispatch-skill。
@@ -82,7 +82,7 @@ clawspace/contract-drafts/<contract-slug>/
 ### 4. 提交契约
 
 ```
-exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
+exec: chestnut contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
 ```
 
 ### 5. 在最终回复末尾输出（格式不可变）

@@ -35,7 +35,7 @@ export async function clawDaemonCommand(
 ): Promise<void> {
   loadGlobalConfig({ fsFactory: deps.fsFactory }, CONFIG_DEFAULTS);
   if (!clawExists({ fsFactory: deps.fsFactory }, name)) {
-    throw new CliError(`Claw "${name}" does not exist. Try \`clawforum claw list\` to see existing claws.`);
+    throw new CliError(`Claw "${name}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }
   const clawDir = getClawDir(name);
   const baseDir = path.dirname(getGlobalConfigPath());
@@ -52,7 +52,7 @@ export async function clawDaemonCommand(
     command: 'node',
     args: [daemonEntryPath, name],
     logFile: path.join(clawDir, DAEMON_LOG),
-    env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
+    env: { ...process.env, CHESTNUT_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
   });
   console.log(`Started Claw "${name}" (PID: ${pid})`);
 }

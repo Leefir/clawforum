@@ -14,9 +14,9 @@ describe('notify_claw tool', () => {
   let tempDir: string;
   let fs: NodeFileSystem;
   let audit: ReturnType<typeof makeAudit>;
-  const clawforumRoot = '/test/root';
+  const chestnutRoot = '/test/root';
   const targetClaw = 'worker-1';
-  const targetInboxDir = path.join(clawforumRoot, 'claws', targetClaw, 'inbox', 'pending');
+  const targetInboxDir = path.join(chestnutRoot, 'claws', targetClaw, 'inbox', 'pending');
 
   beforeEach(async () => {
     tempDir = await createTempDir();
@@ -32,13 +32,13 @@ describe('notify_claw tool', () => {
 
   describe('schema + identity', () => {
     it('tool name = notify_claw', () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot, audit: audit.audit });
       expect(tool.name).toBe('notify_claw');
       expect(tool.name).toBe(NOTIFY_CLAW_TOOL_NAME);
     });
 
     it('schema required = to + body', () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot, audit: audit.audit });
       expect(tool.schema.required).toEqual(['to', 'body']);
       expect(tool.schema.properties).toHaveProperty('to');
       expect(tool.schema.properties).toHaveProperty('body');
@@ -47,7 +47,7 @@ describe('notify_claw tool', () => {
     });
 
     it('readonly=false + idempotent=false（motion-only push write tool）', () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot, audit: audit.audit });
       expect(tool.readonly).toBe(false);
       expect(tool.idempotent).toBe(false);
     });
@@ -57,7 +57,7 @@ describe('notify_claw tool', () => {
 
   describe('happy path cross-claw write', () => {
     it('default (omitted interrupt) → priority=high metadata + NOTIFY_CLAW_SENT audit (phase 1427: default=true)', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: targetClaw, body: 'hello worker' },
         motionCtx,
@@ -83,7 +83,7 @@ describe('notify_claw tool', () => {
     });
 
     it('explicit interrupt=true → priority=high metadata + interrupt=true audit field', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       await tool.execute(
         { to: targetClaw, body: 'urgent', type: 'alert', interrupt: true },
         motionCtx,
@@ -98,7 +98,7 @@ describe('notify_claw tool', () => {
     });
 
     it('explicit interrupt=false → priority=normal metadata + interrupt=false audit (phase 1427: 不打扰路径)', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       await tool.execute(
         { to: targetClaw, body: 'gentle nudge', interrupt: false },
         motionCtx,
@@ -112,7 +112,7 @@ describe('notify_claw tool', () => {
     });
 
     it('custom type default → "message"', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       await tool.execute({ to: targetClaw, body: 'plain' }, motionCtx);
       const files = await fs.list(path.join('claws', targetClaw, 'inbox', 'pending'));
       const content = await fs.read(path.join('claws', targetClaw, 'inbox', 'pending', files[0].name));
@@ -131,7 +131,7 @@ describe('notify_claw tool', () => {
         existsSync: vi.fn(() => true),
       } as unknown as NodeFileSystem;
 
-      const tool = createNotifyClawTool({ fs: failFs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs: failFs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: targetClaw, body: 'should fail' },
         motionCtx,
@@ -154,7 +154,7 @@ describe('notify_claw tool', () => {
     // happy path 既有 test 已 cover valid `to` → 此处仅反向 reject path
 
     it('rejects to="../motion" (path traversal) → NOTIFY_CLAW_FAILED + success=false + no file written', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: '../motion', body: 'attack' },
         motionCtx,
@@ -177,7 +177,7 @@ describe('notify_claw tool', () => {
     });
 
     it('rejects to="" (empty) → NOTIFY_CLAW_FAILED + success=false', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: '', body: 'empty' },
         motionCtx,
@@ -191,7 +191,7 @@ describe('notify_claw tool', () => {
     });
 
     it('rejects to="." (dot) → NOTIFY_CLAW_FAILED + success=false', async () => {
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: '.', body: 'dot' },
         motionCtx,
@@ -205,7 +205,7 @@ describe('notify_claw tool', () => {
 
     it('rejects nonexistent claw → NOTIFY_CLAW_FAILED reason=claw_not_found + no orphan dir created', async () => {
       // 不预建 claws/ghost-claw — 实测 orphan prevention
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: 'ghost-claw', body: 'orphan' },
         motionCtx,
@@ -239,7 +239,7 @@ describe('notify_claw tool', () => {
         existsSync: vi.fn(() => true),
       } as unknown as NodeFileSystem;
 
-      const tool = createNotifyClawTool({ fs: failFs, clawforumRoot: tempDir, audit: audit.audit });
+      const tool = createNotifyClawTool({ fs: failFs, chestnutRoot: tempDir, audit: audit.audit });
       const result = await tool.execute(
         { to: targetClaw, body: 'should fail ensureDir' },
         motionCtx,
@@ -273,7 +273,7 @@ describe('notify_claw tool', () => {
         }),
       } as any;
 
-      const tool = createNotifyClawTool({ fs, clawforumRoot: tempDir, audit: failAudit });
+      const tool = createNotifyClawTool({ fs, chestnutRoot: tempDir, audit: failAudit });
 
       let caught: Error | undefined;
       try {

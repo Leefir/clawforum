@@ -14,9 +14,9 @@ const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 let tempDir: string;
 
 function setupTempDir() {
-  tempDir = path.join(tmpdir(), `clawforum-crud-test-${randomUUID()}`);
+  tempDir = path.join(tmpdir(), `chestnut-crud-test-${randomUUID()}`);
   fs.mkdirSync(tempDir, { recursive: true });
-  vi.stubEnv('CLAWFORUM_ROOT', tempDir);
+  vi.stubEnv('CHESTNUT_ROOT', tempDir);
 }
 
 function teardownTempDir() {
@@ -29,7 +29,7 @@ describe('loadGlobalConfig', () => {
   afterEach(teardownTempDir);
 
   it('throws on invalid YAML', () => {
-    const configPath = path.join(tempDir, '.clawforum', 'config.yaml');
+    const configPath = path.join(tempDir, '.chestnut', 'config.yaml');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, '{ invalid yaml: [ }');
 
@@ -37,7 +37,7 @@ describe('loadGlobalConfig', () => {
   });
 
   it('throws on missing env var reference', () => {
-    const configPath = path.join(tempDir, '.clawforum', 'config.yaml');
+    const configPath = path.join(tempDir, '.chestnut', 'config.yaml');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, `
 version: '1'
@@ -50,7 +50,7 @@ llm:
   });
 
   it('throws on read failure (permission)', () => {
-    const configPath = path.join(tempDir, '.clawforum', 'config.yaml');
+    const configPath = path.join(tempDir, '.chestnut', 'config.yaml');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, 'version: "1"\n');
     fs.chmodSync(configPath, 0o000);
@@ -69,7 +69,7 @@ describe('loadClawConfig', () => {
 
   it('expands env vars in claw config', () => {
     vi.stubEnv('TEST_CLAW_KEY', 'sk-claw-123');
-    const clawDir = path.join(tempDir, '.clawforum', 'claws', 'testclaw');
+    const clawDir = path.join(tempDir, '.chestnut', 'claws', 'testclaw');
     fs.mkdirSync(clawDir, { recursive: true });
     fs.writeFileSync(path.join(clawDir, 'config.yaml'), `
 name: testclaw
@@ -83,7 +83,7 @@ llm:
   });
 
   it('throws on invalid YAML in claw config', () => {
-    const clawDir = path.join(tempDir, '.clawforum', 'claws', 'badclaw');
+    const clawDir = path.join(tempDir, '.chestnut', 'claws', 'badclaw');
     fs.mkdirSync(clawDir, { recursive: true });
     fs.writeFileSync(path.join(clawDir, 'config.yaml'), '{ bad');
 
@@ -96,7 +96,7 @@ describe('patchGlobalConfig', () => {
   afterEach(teardownTempDir);
 
   it('throws on array root YAML', () => {
-    const configPath = path.join(tempDir, '.clawforum', 'config.yaml');
+    const configPath = path.join(tempDir, '.chestnut', 'config.yaml');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, '- item1\n- item2\n');
 

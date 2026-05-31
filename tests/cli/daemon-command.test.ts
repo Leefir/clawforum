@@ -76,7 +76,7 @@ vi.mock('../../src/foundation/audit/index.js', () => ({
 vi.mock('../../src/foundation/config/index.js', () => ({
   loadGlobalConfig: vi.fn(() => ({})),
   loadClawConfig: vi.fn(() => ({})),
-  getClawforumRoot: vi.fn(() => '/tmp/test-root'),
+  getChestnutRoot: vi.fn(() => '/tmp/test-root'),
   getClawDir: vi.fn((name: string) => `/tmp/test-root/claws/${name}`),
   getNamedSubrootDir: vi.fn((name: string) => `/tmp/test-root/${name}`),
   resolveAgentDir: vi.fn((id: string) => id === 'motion' ? '/tmp/test-root/motion' : `/tmp/test-root/claws/${id}`),

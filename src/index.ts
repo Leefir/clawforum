@@ -1,5 +1,5 @@
 /**
- * Clawforum - AI Agent Orchestration System
+ * Chestnut - AI Agent Orchestration System
  * 
  * Main library exports
  */

@@ -2,7 +2,7 @@
  * Forum-level status formatter — pure ForumStatusView → text lines.
  *
  * Phase 1478 — output format locked by §0 D1-D12:
- *   - top: `clawforum status` + timestamp
+ *   - top: `chestnut status` + timestamp
  *   - System: watchdog / motion (motion includes inbox)
  *   - orphan warnings inline (only when hit)
  *   - Active claws (N / total) section, each claw 3 lines
@@ -19,7 +19,7 @@ const SYS_NAME_PAD = 10;
 export function formatForumStatusView(view: ForumStatusView): string[] {
   const lines: string[] = [];
 
-  lines.push(`clawforum status${pad('', 36)}${view.timestamp}`);
+  lines.push(`chestnut status${pad('', 36)}${view.timestamp}`);
   lines.push('');
 
   // ── System ──

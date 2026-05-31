@@ -21,7 +21,7 @@ import type { AuditLog } from '../audit/index.js';
 
 import type { ToolRegistry } from './types.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
-import type { ClawId, ClawforumRoot } from '../identity/index.js';
+import type { ClawId, ChestnutRoot } from '../identity/index.js';
 import { type ClawDir } from '../identity/index.js';
 
 
@@ -35,8 +35,8 @@ export interface ExecContextImplOptions {
   /** Claw workspace directory */
   clawDir: ClawDir;
 
-  /** phase 1387: clawforumRoot Assembly 装配期注入 */
-  clawforumRoot: ClawforumRoot;
+  /** phase 1387: chestnutRoot Assembly 装配期注入 */
+  chestnutRoot: ChestnutRoot;
   
   /** phase 509 / 可选 / 默认 fallback = path.join(clawDir, CLAWSPACE_DIR) */
   workspaceDir?: string;
@@ -149,7 +149,7 @@ export function cloneExecContext(
 export class ExecContextImpl implements ExecContext {
   clawId: ClawId;
   clawDir: ClawDir;
-  clawforumRoot: ClawforumRoot;  // NEW phase 1387
+  chestnutRoot: ChestnutRoot;  // NEW phase 1387
   workspaceDir: string;
   syncDir: string;
   profile: ToolProfile;
@@ -181,7 +181,7 @@ export class ExecContextImpl implements ExecContext {
   constructor(options: ExecContextImplOptions) {
     this.clawId = options.clawId;
     this.clawDir = options.clawDir;
-    this.clawforumRoot = options.clawforumRoot;  // NEW
+    this.chestnutRoot = options.chestnutRoot;  // NEW
     this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.syncDir = options.syncDir;
     this.profile = options.profile;

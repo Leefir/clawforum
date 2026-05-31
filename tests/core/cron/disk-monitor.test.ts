@@ -35,7 +35,7 @@ function makeOpts(overrides: Partial<{
 }> = {}) {
   const writeSyncMock = vi.fn();
   return {
-    clawforumRoot: '/tmp/test',
+    chestnutRoot: '/tmp/test',
     motionInboxDir: '/tmp/test/motion/inbox/pending',
     limitMB: 100,
     fs: makeFsMock(0),

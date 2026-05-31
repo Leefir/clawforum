@@ -1,7 +1,7 @@
 /**
- * Forum-level status aggregators — pure data views for `clawforum status` CLI.
+ * Forum-level status aggregators — pure data views for `chestnut status` CLI.
  *
- * Phase 1478 — 重塑 `clawforum status` 从全量 claw dump 到 system + active claws
+ * Phase 1478 — 重塑 `chestnut status` 从全量 claw dump 到 system + active claws
  * 聚合视图。aggregator 与现有 per-claw `aggregators.ts` 平行（per-claw 是 contract/
  * task/storage 业务层、本模块是进程层 + 全局活跃概览）。
  *
@@ -139,8 +139,8 @@ export function computeClawLastActivityAgoMs(clawFs: FileSystem, now: number): n
 
 export interface ForumStatusDeps {
   fsFactory: (baseDir: string) => FileSystem;
-  baseDir: string; // workspace root containing .clawforum/claws/*
-  motionDir: string; // .clawforum/motion (for motion-side inbox)
+  baseDir: string; // workspace root containing .chestnut/claws/*
+  motionDir: string; // .chestnut/motion (for motion-side inbox)
   pm: ProcessManager;
   now: () => number;
   getStartTime: (pid: number) => string | undefined;

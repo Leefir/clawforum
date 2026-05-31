@@ -68,7 +68,7 @@ describe('claw-trace numbering coherence (phase 1484)', () => {
       logs.push(String(msg));
     });
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'claw-trace-test-'));
-    clawDir = path.join(tmpRoot, '.clawforum', 'claws', 'alice');
+    clawDir = path.join(tmpRoot, '.chestnut', 'claws', 'alice');
     fs.mkdirSync(clawDir, { recursive: true });
 
     const { loadGlobalConfig, clawExists, getClawDir } = await import(

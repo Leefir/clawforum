@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 
-// Mock config so getClawforumDir() returns controllable values
+// Mock config so getChestnutDir() returns controllable values
 vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/foundation/config/index.js')>();
   return {
@@ -36,13 +36,13 @@ const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
 describe('watchdog-state schema_version invariant — phase 1134', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-schema-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
   });
 
@@ -57,7 +57,7 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
   });
 
   it('rejects schema_version > CURRENT and emits STATE_SCHEMA_INVALID + backup', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, JSON.stringify({
       schema_version: 99,
       lastInactivityNotified: {},
@@ -95,12 +95,12 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
 
     // Original file should be quarantined (backed up)
     expect(fs.existsSync(stateFile)).toBe(false);
-    const files = fs.readdirSync(clawforumDir);
+    const files = fs.readdirSync(chestnutDir);
     expect(files.some(f => f.match(/watchdog-state\.json\.corrupt-\d+/))).toBe(true);
   });
 
   it('reads legacy `version: 1` file (without schema_version) gracefully', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, JSON.stringify({
       version: 1,
       lastInactivityNotified: { claw1: 100 },

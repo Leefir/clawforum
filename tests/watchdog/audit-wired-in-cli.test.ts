@@ -39,15 +39,15 @@ vi.mock('../../src/foundation/process-exec/index.js', async (importOriginal) => 
 
 describe('audit wired in CLI', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   const originalConsoleError = console.error;
   const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-audit-wire-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
 
     setAuditWriter(null);
@@ -75,7 +75,7 @@ describe('audit wired in CLI', () => {
     expect(killed).toEqual([2000]);
     expect(getAuditWriter()).not.toBeNull();
 
-    const auditPath = path.join(clawforumDir, 'audit.tsv');
+    const auditPath = path.join(chestnutDir, 'audit.tsv');
     expect(fs.existsSync(auditPath)).toBe(true);
     const content = fs.readFileSync(auditPath, 'utf8');
     expect(content).toContain(WATCHDOG_AUDIT_EVENTS.ORPHAN_SWEEP_KILLED);
@@ -91,7 +91,7 @@ describe('audit wired in CLI', () => {
     expect(mockWriter.write).not.toHaveBeenCalled();
   });
 
-  it('ensureAuditWired fail-soft when getClawforumFs throws, preserving null audit writer', () => {
+  it('ensureAuditWired fail-soft when getChestnutFs throws, preserving null audit writer', () => {
     vi.mocked(getNamedSubrootDir).mockImplementation(() => {
       throw new Error('fs unreachable');
     });

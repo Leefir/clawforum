@@ -37,7 +37,7 @@ async function promptRestartDaemon(deps: { fsFactory: (baseDir: string) => FileS
       if (stopped) {
         console.log('✓ Daemon stopped. Watchdog will restart it automatically.');
       } else {
-        console.log('Failed to stop daemon. You can restart manually: clawforum stop && clawforum motion chat');
+        console.log('Failed to stop daemon. You can restart manually: chestnut stop && chestnut motion chat');
       }
     }
   } finally {
@@ -354,7 +354,7 @@ async function providerMove(deps: { fsFactory: (baseDir: string) => FileSystem }
 // Build the config command
 export function createConfigCommand(deps: { fsFactory: (baseDir: string) => FileSystem }): Command {
   const configCommand = new Command('config')
-    .description('Manage clawforum configuration');
+    .description('Manage chestnut configuration');
 
   // provider subcommand
   const providerCmd = new Command('provider')

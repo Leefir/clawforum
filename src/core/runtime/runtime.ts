@@ -200,7 +200,7 @@ export class Runtime {
     this.execContext = new ExecContextImpl({
       clawId: this.options.clawId,
       clawDir: this.options.clawDir,
-      clawforumRoot: this.options.clawforumRoot,
+      chestnutRoot: this.options.chestnutRoot,
       syncDir: path.join(this.options.clawDir, TASKS_SYNC_DIR),
       profile: this.options.toolProfile ?? 'full',
       allowedGroups: CALLER_TYPE_TO_GROUPS[this.options.systemPromptBuilder ? 'motion' : 'claw'], // caller='motion' index

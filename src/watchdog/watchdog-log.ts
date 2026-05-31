@@ -4,9 +4,9 @@
  */
 
 import * as path from 'path';
-import { makeClawforumRoot, makeClawDir } from '../foundation/identity/index.js';
+import { makeChestnutRoot, makeClawDir } from '../foundation/identity/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
-import { getClawforumFs, getAuditWriter, getMotionContext } from './watchdog-context.js';
+import { getChestnutFs, getAuditWriter, getMotionContext } from './watchdog-context.js';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 import { WATCHDOG_LOG } from './constants.js';
@@ -19,7 +19,7 @@ export function log(fsFactory: (baseDir: string) => FileSystem, message: string)
   console.log(logLine.trim());
 
   try {
-    const fs = getClawforumFs(fsFactory);
+    const fs = getChestnutFs(fsFactory);
     fs.ensureDirSync(path.dirname(WATCHDOG_LOG));
     fs.appendSync(WATCHDOG_LOG, logLine);
   } catch {
@@ -51,8 +51,8 @@ export function writeClawInactivityInbox(
   content: Record<string, unknown>,
 ): void {
   const motionDir = makeClawDir(getNamedSubrootDir('motion'));
-  // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
-  const clawforumRoot = makeClawforumRoot(path.dirname(motionDir));
+  // Motion-only callsite: motionDir = <chestnutRoot>/motion → dirname 一层即 chestnutRoot
+  const chestnutRoot = makeChestnutRoot(path.dirname(motionDir));
   const { fs, audit } = getMotionContext(fsFactory);
   const body = typeof content.message === 'string' ? content.message : JSON.stringify(content);
 
@@ -64,7 +64,7 @@ export function writeClawInactivityInbox(
     extraFields[k] = typeof v === 'string' ? v : String(v);
   }
 
-  notifyClaw(fs, clawforumRoot, MOTION_CLAW_ID, {
+  notifyClaw(fs, chestnutRoot, MOTION_CLAW_ID, {
     type: 'claw_inactivity',
     source: 'watchdog',
     priority: 'high',

@@ -14,7 +14,7 @@
 import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
-import type { ClawforumRoot } from '../../foundation/identity/index.js';
+import type { ChestnutRoot } from '../../foundation/identity/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { CRON_AUDIT_EVENTS } from '../cron/audit-events.js';
 import { scanOutboxes } from './scan.js';
@@ -22,15 +22,15 @@ import { findExistingSummaryByHash } from './dedup.js';
 import { archivePendingSummaries, writeNewSummary } from './write.js';
 
 export interface OutboxSummaryTickDeps {
-  clawforumRoot: ClawforumRoot;
+  chestnutRoot: ChestnutRoot;
   fs: FileSystem;
   audit: AuditLog;
   now?: () => number;
 }
 
 export async function runOutboxSummaryTick(deps: OutboxSummaryTickDeps): Promise<void> {
-  const motionInboxDir = path.join(deps.clawforumRoot, MOTION_CLAW_ID, 'inbox');
-  const state = scanOutboxes({ clawforumRoot: deps.clawforumRoot, fs: deps.fs });
+  const motionInboxDir = path.join(deps.chestnutRoot, MOTION_CLAW_ID, 'inbox');
+  const state = scanOutboxes({ chestnutRoot: deps.chestnutRoot, fs: deps.fs });
 
   // (2) 0 unread → archive 旧 summary（mv pending→done 保信息、DP 不丢弃）+ return
   if (state.total_msgs === 0) {

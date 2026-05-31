@@ -39,19 +39,19 @@ vi.mock('../../src/foundation/process-exec/index.js', async (importOriginal) => 
 
 describe('watchdog orphan sweep', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let auditWriter: AuditWriter;
   let auditSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-sweep-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -74,7 +74,7 @@ describe('watchdog orphan sweep', () => {
     try {
       const { sweepOrphanWatchdogs } = await import('../../src/watchdog/orphan-sweep.js');
 
-      const pidFile = path.join(clawforumDir, 'watchdog.pid');
+      const pidFile = path.join(chestnutDir, 'watchdog.pid');
       fs.writeFileSync(pidFile, JSON.stringify({ pid: 1000, root: '/test/root' }));
 
       mockFindProcesses.mockReturnValue([1000, 2000, 3000]);

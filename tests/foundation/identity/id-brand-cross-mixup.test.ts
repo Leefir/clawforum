@@ -9,8 +9,8 @@ import type { ToolUseId } from '../../../src/foundation/tool-protocol/index.js';
 import { makeToolUseId } from '../../../src/foundation/tool-protocol/index.js';
 import type { SubtaskId, ArchiveDir } from '../../../src/core/contract/types.js';
 import { makeSubtaskId, makeArchiveDir } from '../../../src/core/contract/types.js';
-import type { ClawDir, ClawforumRoot } from '../../../src/foundation/identity/types.js';
-import { makeClawDir, makeClawforumRoot } from '../../../src/foundation/identity/types.js';
+import type { ClawDir, ChestnutRoot } from '../../../src/foundation/identity/types.js';
+import { makeClawDir, makeChestnutRoot } from '../../../src/foundation/identity/types.js';
 
 describe('ID brand cross-mixup forbidden (32 combinations)', () => {
   const clawId: ClawId = makeClawId('claw');
@@ -141,9 +141,9 @@ describe('ID brand cross-mixup forbidden (32 combinations)', () => {
     expect(true).toBe(true);
   });
 
-  it('ClawforumRoot ↔ TaskId', () => {
-    const root: ClawforumRoot = makeClawforumRoot('/root');
-    function takeRoot(_: ClawforumRoot): void {}
+  it('ChestnutRoot ↔ TaskId', () => {
+    const root: ChestnutRoot = makeChestnutRoot('/root');
+    function takeRoot(_: ChestnutRoot): void {}
     function takeTask(_: TaskId): void {}
     // @ts-expect-error TS2345
     takeRoot(taskId);

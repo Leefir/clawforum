@@ -181,8 +181,8 @@ export class Snapshot {
     try {
       await this.fs.writeAtomic(path.join(this.dir, '.gitignore'), this.buildGitignore());
       await Snapshot.git(this.dir, ['init']);
-      await Snapshot.git(this.dir, ['config', 'user.name', 'clawforum']);
-      await Snapshot.git(this.dir, ['config', 'user.email', 'clawforum@local']);
+      await Snapshot.git(this.dir, ['config', 'user.name', 'chestnut']);
+      await Snapshot.git(this.dir, ['config', 'user.email', 'chestnut@local']);
       await Snapshot.git(this.dir, ['add', '.']);
       await Snapshot.git(this.dir, ['commit', '--allow-empty', '-m', 'init']);
       if (shouldResetCounter) {

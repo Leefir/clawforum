@@ -4,7 +4,7 @@
  * Coverage:
  * - golden text path: empty claw → "no active contract / idle / not found / 0 files"
  * - --json path: structured output
- * - claw does not exist → CliError with `clawforum claw list` hint
+ * - claw does not exist → CliError with `chestnut claw list` hint
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -31,7 +31,7 @@ describe('claw-status (phase 1472 Step C)', () => {
   beforeEach(async () => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'claw-status-test-'));
-    clawDir = path.join(tmpRoot, '.clawforum', 'claws', 'foo');
+    clawDir = path.join(tmpRoot, '.chestnut', 'claws', 'foo');
     fs.mkdirSync(clawDir, { recursive: true });
 
     const { loadGlobalConfig, clawExists, getClawDir } = await import(
@@ -88,9 +88,9 @@ describe('claw-status (phase 1472 Step C)', () => {
     expect(out).toContain('Clawspace: 2 files');
   });
 
-  it('rejects unknown claw with `clawforum claw list` hint', async () => {
+  it('rejects unknown claw with `chestnut claw list` hint', async () => {
     await expect(clawStatusCommand({ fsFactory }, 'nonexistent', {})).rejects.toThrow(
-      /clawforum claw list/,
+      /chestnut claw list/,
     );
     await expect(clawStatusCommand({ fsFactory }, 'nonexistent', {})).rejects.toThrow(CliError);
   });

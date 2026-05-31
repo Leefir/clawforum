@@ -15,24 +15,24 @@ describe('claw-steps', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawforum-test-'));
-    originalRoot = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = tmpDir;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chestnut-test-'));
+    originalRoot = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = tmpDir;
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
     consoleLogSpy.mockRestore();
     if (originalRoot === undefined) {
-      delete process.env.CLAWFORUM_ROOT;
+      delete process.env.CHESTNUT_ROOT;
     } else {
-      process.env.CLAWFORUM_ROOT = originalRoot;
+      process.env.CHESTNUT_ROOT = originalRoot;
     }
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   function writeCurrentJson(subPath: string, session: unknown) {
-    const dir = path.join(tmpDir, '.clawforum', subPath, 'dialog');
+    const dir = path.join(tmpDir, '.chestnut', subPath, 'dialog');
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'current.json'), JSON.stringify(session));
   }
@@ -67,7 +67,7 @@ describe('claw-steps', () => {
     });
 
     it('dialog/current.json 缺失 → CliError「dialog session not found」', async () => {
-      const dir = path.join(tmpDir, '.clawforum', 'claws', 'empty-claw', 'dialog');
+      const dir = path.join(tmpDir, '.chestnut', 'claws', 'empty-claw', 'dialog');
       fs.mkdirSync(dir, { recursive: true });
       await expect(clawStepsCommand({ fsFactory }, 'empty-claw')).rejects.toThrow('dialog session not found');
     });

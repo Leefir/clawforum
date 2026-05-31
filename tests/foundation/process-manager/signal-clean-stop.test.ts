@@ -8,10 +8,10 @@ describe('signalCleanStop (phase 1373 sub-3)', () => {
     } as any;
     const audit = { write: vi.fn() } as any;
 
-    await signalCleanStop(fs, '/data/clawforum', 'motion', audit);
+    await signalCleanStop(fs, '/data/chestnut', 'motion', audit);
 
     expect(fs.writeAtomic).toHaveBeenCalledWith(
-      '/data/clawforum/motion/clean-stop',
+      '/data/chestnut/motion/clean-stop',
       '',
     );
     expect(audit.write).toHaveBeenCalledWith(
@@ -26,11 +26,11 @@ describe('signalCleanStop (phase 1373 sub-3)', () => {
     } as any;
 
     await expect(
-      signalCleanStop(fs, '/data/clawforum', 'claw-a', undefined),
+      signalCleanStop(fs, '/data/chestnut', 'claw-a', undefined),
     ).resolves.toBeUndefined();
 
     expect(fs.writeAtomic).toHaveBeenCalledWith(
-      '/data/clawforum/claw-a/clean-stop',
+      '/data/chestnut/claw-a/clean-stop',
       '',
     );
   });

@@ -20,7 +20,7 @@ describe('InboxReader', () => {
   let nfs: NodeFileSystem;
 
   beforeEach(async () => {
-    testDir = path.join(tmpdir(), `clawforum-inbox-${randomUUID()}`);
+    testDir = path.join(tmpdir(), `chestnut-inbox-${randomUUID()}`);
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(testDir, { recursive: true });
     nfs = new NodeFileSystem({ baseDir: testDir });

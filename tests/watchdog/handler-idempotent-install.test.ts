@@ -36,10 +36,10 @@ describe('watchdog handler idempotent install (phase 1034 / audit-2026-05-17 NEW
 
   beforeEach(() => {
     tmpDir = path.join(tmpdir(), `wd-idem-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(path.join(clawforumDir, 'motion', 'logs'), { recursive: true });
-    fs.mkdirSync(path.join(clawforumDir, 'logs'), { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(path.join(chestnutDir, 'motion', 'logs'), { recursive: true });
+    fs.mkdirSync(path.join(chestnutDir, 'logs'), { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({
       watchdog: { interval_ms: 100, claw_inactivity_timeout_ms: 300_000 },
       audit: { retention: { max_size_mb: null } },

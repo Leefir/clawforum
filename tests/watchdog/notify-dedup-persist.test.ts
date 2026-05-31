@@ -49,7 +49,7 @@ vi.mock('../../src/foundation/messaging/index.js', async (importOriginal) => {
 
 describe('watchdog notify dedup persist (phase 1269 sub-3)', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let clawsDir: string;
   let auditWriter: AuditWriter;
   let auditSpy: ReturnType<typeof vi.spyOn>;
@@ -58,12 +58,12 @@ describe('watchdog notify dedup persist (phase 1269 sub-3)', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-dedup-persist-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    clawsDir = path.join(clawforumDir, 'claws');
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    clawsDir = path.join(chestnutDir, 'claws');
     fs.mkdirSync(clawsDir, { recursive: true });
-    fs.mkdirSync(path.join(clawforumDir, 'motion', 'inbox', 'pending'), { recursive: true });
+    fs.mkdirSync(path.join(chestnutDir, 'motion', 'inbox', 'pending'), { recursive: true });
 
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
     vi.mocked(clawHasContract).mockReturnValue(true);
     vi.mocked(gatherClawSnapshot).mockReturnValue({
@@ -71,7 +71,7 @@ describe('watchdog notify dedup persist (phase 1269 sub-3)', () => {
     } as any);
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -191,7 +191,7 @@ describe('watchdog notify dedup persist (phase 1269 sub-3)', () => {
     fs.mkdirSync(path.join(clawsDir, clawId), { recursive: true });
 
     // Write v1 state file (no clawPreviouslyNotified field)
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, JSON.stringify({
       schema_version: 1,
       lastInactivityNotified: {},

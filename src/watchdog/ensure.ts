@@ -4,8 +4,8 @@
  * OS-level advisory lock 保 atomic check-and-spawn (ML#9)
  */
 import type { FileSystem } from '../foundation/fs/types.js';
-import { makeClawforumRoot } from '../foundation/identity/index.js';
-import { getClawforumDir, getAuditWriter } from './watchdog-context.js';
+import { makeChestnutRoot } from '../foundation/identity/index.js';
+import { getChestnutDir, getAuditWriter } from './watchdog-context.js';
 import { isWatchdogAlive } from './watchdog-pid.js';
 import { startCommand as rawStartCommand } from './watchdog-cli.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
@@ -25,8 +25,8 @@ export async function ensureWatchdog(fsFactory: (baseDir: string) => FileSystem)
   ensureAuditWired(fsFactory);
   if (isWatchdogAlive(fsFactory)) return; // throws WatchdogPidForeignWorkspaceError if foreign
 
-  const clawforumRoot = makeClawforumRoot(getClawforumDir());
-  const fs = fsFactory(clawforumRoot);
+  const chestnutRoot = makeChestnutRoot(getChestnutDir());
+  const fs = fsFactory(chestnutRoot);
   const relLockPath = 'watchdog.lock';
   const acquired = await tryAcquireLock(fs, relLockPath, LOCK_ACQUIRE_TIMEOUT_MS);
   if (!acquired) {

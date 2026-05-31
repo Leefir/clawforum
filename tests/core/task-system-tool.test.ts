@@ -116,7 +116,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
   let testClawDir: string;
 
   beforeEach(async () => {
-    testDir = path.join(tmpdir(), `clawforum-task-sys-${randomUUID()}`);
+    testDir = path.join(tmpdir(), `chestnut-task-sys-${randomUUID()}`);
     await fs.mkdir(testDir, { recursive: true });
     testClawDir = path.join(testDir, `test-${Date.now()}`);
     await fs.mkdir(testClawDir, { recursive: true });

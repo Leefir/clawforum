@@ -38,7 +38,7 @@ const POSITIONAL_ARG_MAP: Record<string, string> = {
   WebSearch: 'query',
   ToolSearch: 'query',
   NotebookEdit: 'notebook_path',
-  // clawforum subagent tools
+  // chestnut subagent tools
   exec: 'command',
   skill: 'name',
   ask_motion: 'question',

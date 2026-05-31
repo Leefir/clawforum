@@ -17,8 +17,8 @@ import { CRON_AUDIT_EVENTS } from '../../../src/core/cron/audit-events.js';
 
 describe('phase 930: LLM_STATS audit emit avg_latency_ms key', () => {
   it('audit emit row 含 avg_latency_ms= snake_case key', async () => {
-    const clawforumDir = await createTempDir();
-    const motionDir = path.join(clawforumDir, 'motion');
+    const chestnutDir = await createTempDir();
+    const motionDir = path.join(chestnutDir, 'motion');
     await fs.mkdir(motionDir, { recursive: true });
 
     const yesterday = new Date(Date.now() - 86400000);
@@ -36,9 +36,9 @@ describe('phase 930: LLM_STATS audit emit avg_latency_ms key', () => {
     const audit = { write: (...args: any[]) => writes.push(args) };
 
     const opts: LlmStatsOptions = {
-      clawforumDir,
+      chestnutDir,
       motionDir,
-      clawforumFs: new NodeFileSystem({ baseDir: clawforumDir }),
+      chestnutFs: new NodeFileSystem({ baseDir: chestnutDir }),
       motionFs: new NodeFileSystem({ baseDir: motionDir }),
       audit: audit as any,
     };
@@ -63,6 +63,6 @@ describe('phase 930: LLM_STATS audit emit avg_latency_ms key', () => {
     // (200 + 300) / 2 = 250
     expect(latencyArg).toBe('avg_latency_ms=250');
 
-    await cleanupTempDir(clawforumDir);
+    await cleanupTempDir(chestnutDir);
   });
 });

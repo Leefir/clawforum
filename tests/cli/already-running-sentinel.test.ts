@@ -27,9 +27,9 @@ describe('already-running sentinel (phase 981 E-α3 / phase 1421 DI)', () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawforum-ar-test-'));
-    originalRoot = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = tmpDir;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chestnut-ar-test-'));
+    originalRoot = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = tmpDir;
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     setupConfig();
@@ -38,13 +38,13 @@ describe('already-running sentinel (phase 981 E-α3 / phase 1421 DI)', () => {
   afterEach(() => {
     warnSpy.mockRestore();
     logSpy.mockRestore();
-    if (originalRoot === undefined) delete process.env.CLAWFORUM_ROOT;
-    else process.env.CLAWFORUM_ROOT = originalRoot;
+    if (originalRoot === undefined) delete process.env.CHESTNUT_ROOT;
+    else process.env.CHESTNUT_ROOT = originalRoot;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   function setupConfig() {
-    const configPath = path.join(tmpDir, '.clawforum', 'config.yaml');
+    const configPath = path.join(tmpDir, '.chestnut', 'config.yaml');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(
       configPath,
@@ -53,7 +53,7 @@ describe('already-running sentinel (phase 981 E-α3 / phase 1421 DI)', () => {
   }
 
   function setupClaw(name: string) {
-    const clawDir = path.join(tmpDir, '.clawforum', 'claws', name);
+    const clawDir = path.join(tmpDir, '.chestnut', 'claws', name);
     fs.mkdirSync(clawDir, { recursive: true });
     fs.writeFileSync(path.join(clawDir, 'config.yaml'), `name: ${name}\n`);
   }

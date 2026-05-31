@@ -28,7 +28,7 @@ export async function outboxCommand(
   if (!clawFs.existsSync('.')) {
     throw new CliError(
       `Claw directory not found: ${clawDir}. ` +
-      `Expected at {CLAWFORUM_ROOT}/.clawforum/claws/<name>/.`
+      `Expected at {CHESTNUT_ROOT}/.chestnut/claws/<name>/.`
     );
   }
 

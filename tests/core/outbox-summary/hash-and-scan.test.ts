@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import { computeHash } from '../../../src/core/outbox-summary/hash.js';
 import { scanOutboxes } from '../../../src/core/outbox-summary/scan.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
-import { makeClawforumRoot } from '../../../src/foundation/identity/index.js';
+import { makeChestnutRoot } from '../../../src/foundation/identity/index.js';
 
 describe('phase 1476: computeHash', () => {
   it('returns 12-char hex', () => {
@@ -53,7 +53,7 @@ describe('phase 1476: scanOutboxes (real fs)', () => {
   });
 
   it('empty claws dir → empty state', () => {
-    const state = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
+    const state = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
     expect(state.counts).toEqual({});
     expect(state.total_claws).toBe(0);
     expect(state.total_msgs).toBe(0);
@@ -63,7 +63,7 @@ describe('phase 1476: scanOutboxes (real fs)', () => {
   it('skips motion claw', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/motion/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/motion/outbox/pending/foo.md'), 'x');
-    const state = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
+    const state = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
     expect(state.counts).toEqual({});
   });
 
@@ -73,7 +73,7 @@ describe('phase 1476: scanOutboxes (real fs)', () => {
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/a1.md'), 'x');
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/a2.md'), 'x');
     await fsAsync.writeFile(path.join(root, 'claws/clawB/outbox/pending/b1.md'), 'x');
-    const state = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
+    const state = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
     expect(state.counts).toEqual({ clawA: 2, clawB: 1 });
     expect(state.total_claws).toBe(2);
     expect(state.total_msgs).toBe(3);
@@ -84,13 +84,13 @@ describe('phase 1476: scanOutboxes (real fs)', () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/a1.md'), 'x');
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/junk.txt'), 'x');
-    const state = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
+    const state = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
     expect(state.counts).toEqual({ clawA: 1 });
   });
 
   it('claws/<id>/outbox missing → silent skip', async () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA'), { recursive: true });
-    const state = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
+    const state = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
     expect(state.counts).toEqual({});
   });
 
@@ -98,8 +98,8 @@ describe('phase 1476: scanOutboxes (real fs)', () => {
     await fsAsync.mkdir(path.join(root, 'claws/clawA/outbox/pending'), { recursive: true });
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m1.md'), 'x');
     await fsAsync.writeFile(path.join(root, 'claws/clawA/outbox/pending/m2.md'), 'x');
-    const a = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
-    const b = scanOutboxes({ clawforumRoot: makeClawforumRoot(root), fs });
+    const a = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
+    const b = scanOutboxes({ chestnutRoot: makeChestnutRoot(root), fs });
     expect(a.hash).toBe(b.hash);
   });
 });

@@ -2,7 +2,7 @@
  * Motion CLI commands
  *
  * Commands:
- * - motion init: create the .clawforum/motion/ directory and write template files
+ * - motion init: create the .chestnut/motion/ directory and write template files
  * - motion chat: start an interactive chat session
  *
  * Motion is the manager; it manages other Claws by calling the CLI via exec and has no dedicated tools.
@@ -109,7 +109,7 @@ async function installBuiltinSkills(deps: { fsFactory: (baseDir: string) => File
  * Get Motion configuration directory
  */
 function getMotionConfigDir(): string {
-  return path.join(process.env.HOME || process.env.USERPROFILE || '.', '.clawforum');
+  return path.join(process.env.HOME || process.env.USERPROFILE || '.', '.chestnut');
 }
 
 /**
@@ -197,7 +197,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
   audit?.write(CLI_AUDIT_EVENTS.MOTION_INIT);
   console.log('\n✓ Motion initialized successfully');
   if (!silent) {
-    console.log(`\nYou can now run: clawforum motion chat`);
+    console.log(`\nYou can now run: chestnut motion chat`);
   }
 }
 
@@ -214,7 +214,7 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
   try {
     await motionFs.exists('AGENTS.md');
   } catch {
-    throw new CliError('Motion not initialized. Run: clawforum motion init');
+    throw new CliError('Motion not initialized. Run: chestnut motion init');
   }
 
   await runChatViewport({
@@ -231,7 +231,7 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
           command: 'node',
           args: [daemonEntryPath, MOTION_CLAW_ID],
           logFile: path.join(motionDir, DAEMON_LOG),
-          env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
+          env: { ...process.env, CHESTNUT_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
         });
         console.log(`✓ Started (PID: ${pid})`);
       }

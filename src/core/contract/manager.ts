@@ -62,9 +62,9 @@ import {
   type PersistenceContext,
   PROGRESS_CURRENT_SCHEMA_VERSION,
 } from './persistence.js';
-import { type ContractId, makeContractId, resolveClawforumRoot } from '../../foundation/identity/index.js';
+import { type ContractId, makeContractId, resolveChestnutRoot } from '../../foundation/identity/index.js';
 import { type SubtaskId, type ArchiveDir, makeArchiveDir } from './types.js';
-import type { ClawId, ClawforumRoot } from '../../foundation/identity/index.js';
+import type { ClawId, ChestnutRoot } from '../../foundation/identity/index.js';
 import { runContractVerifier } from './verifier-job.js';
 import {
   pauseContract, resumeContract, cancelContract,
@@ -72,7 +72,7 @@ import {
   type LifecycleContext,
 } from './lifecycle.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
-// phase 1406: path import removed — clawforumRoot 推算迁 resolveClawforumRoot
+// phase 1406: path import removed — chestnutRoot 推算迁 resolveChestnutRoot
 import {
   runVerificationPipeline,
   runScriptVerification as runScriptVerificationFn,
@@ -101,8 +101,8 @@ export {
 export interface ContractSystemDeps {
   clawDir: ClawDir;
   clawId: ClawId;
-  /** phase 1387: Assembly 装配期注入的 clawforum 根目录 */
-  clawforumRoot: ClawforumRoot;
+  /** phase 1387: Assembly 装配期注入的 chestnut 根目录 */
+  chestnutRoot: ChestnutRoot;
   fs: FileSystem;
   audit: AuditLog;
   llm?: LLMOrchestrator;
@@ -117,7 +117,7 @@ export class ContractSystem {
   private readonly clawId: ClawId;
   private readonly audit: AuditLog;
   private llm?: LLMOrchestrator;
-  private clawforumRoot: ClawforumRoot;
+  private chestnutRoot: ChestnutRoot;
   private toolRegistry: ToolRegistry;
   private toolTimeoutMs?: number;
   private fsFactory: (baseDir: string) => FileSystem;
@@ -211,7 +211,7 @@ export class ContractSystem {
     this.fs = deps.fs;
     this.audit = deps.audit;
     this.llm = deps.llm;
-    this.clawforumRoot = deps.clawforumRoot ?? resolveClawforumRoot(deps.clawDir, /* isMotion */ false);
+    this.chestnutRoot = deps.chestnutRoot ?? resolveChestnutRoot(deps.clawDir, /* isMotion */ false);
     this.toolRegistry = deps.toolRegistry;
     this.toolTimeoutMs = deps.toolTimeoutMs;
     this.fsFactory = deps.fsFactory;
@@ -362,7 +362,7 @@ export class ContractSystem {
       ...this._lockCtx(),
       clawDir: this.clawDir,
       clawId: this.clawId,
-      clawforumRoot: this.clawforumRoot,
+      chestnutRoot: this.chestnutRoot,
       llm: this.llm,
       contractDir: (id) => this.contractDir(id),
       loadContractYaml: (id) => this.loadContractYaml(id),
@@ -381,7 +381,7 @@ export class ContractSystem {
       verificationMutex: this.verificationMutex,
       runVerifierWithCancel: async (contractId, config) => {
         const controller = new AbortController();
-        const promise = runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory, clawforumRoot: this.clawforumRoot });
+        const promise = runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory, chestnutRoot: this.chestnutRoot });
         this._registerVerifierController(contractId, controller, promise);
         try {
           return await promise;

@@ -1,7 +1,7 @@
 /**
  * FileSystem types and interfaces (L1)
  *
- * Type definitions for all file I/O within clawforum.
+ * Type definitions for all file I/O within chestnut.
  * Atomic writes, path guarding.
  */
 

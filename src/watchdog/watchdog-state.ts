@@ -4,7 +4,7 @@
  */
 
 import type { FileSystem } from '../foundation/fs/types.js';
-import { getClawforumFs, getAuditWriter, lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned, clawPreviouslyNotified } from './watchdog-context.js';
+import { getChestnutFs, getAuditWriter, lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned, clawPreviouslyNotified } from './watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
 import { isFileNotFound } from '../foundation/fs/types.js';
@@ -35,7 +35,7 @@ class WatchdogSchemaError extends Error {
 /** 1:1 保 watchdog.ts:208-238 / load 2 Map */
 export function loadWatchdogState(fsFactory: (baseDir: string) => FileSystem): void {
   try {
-    const fs = getClawforumFs(fsFactory);
+    const fs = getChestnutFs(fsFactory);
     const raw = fs.readSync('watchdog-state.json');
     const state = JSON.parse(raw) as WatchdogState;
     const stateVersion = state.schema_version ?? state.version;
@@ -71,7 +71,7 @@ export function loadWatchdogState(fsFactory: (baseDir: string) => FileSystem): v
     everSpawned.clear();
     clawPreviouslyNotified.clear();
 
-    const fs = getClawforumFs(fsFactory);
+    const fs = getChestnutFs(fsFactory);
     const backupPath = `watchdog-state.json.corrupt-${Date.now()}`;
     let moveOk = true;
     let moveErr: unknown = undefined;
@@ -107,7 +107,7 @@ export function saveWatchdogState(fsFactory: (baseDir: string) => FileSystem): v
     // NEW — phase 1269
     clawPreviouslyNotified: Object.fromEntries(clawPreviouslyNotified),
   };
-  const fs = getClawforumFs(fsFactory);
+  const fs = getChestnutFs(fsFactory);
   fs.writeAtomicSync('watchdog-state.json', JSON.stringify(state, null, 2));
 }
 

@@ -18,7 +18,7 @@ function createMockFs(opts: {
 
   const mockFs: FileSystem = {
     list: vi.fn(async () => [
-      { name: 'clawforum-audit-fallback-123-456.tsv', path: 'clawforum-audit-fallback-123-456.tsv', isDirectory: false, isFile: true, size: opts.dumpContent.length },
+      { name: 'chestnut-audit-fallback-123-456.tsv', path: 'chestnut-audit-fallback-123-456.tsv', isDirectory: false, isFile: true, size: opts.dumpContent.length },
     ]),
     read: vi.fn(async () => opts.dumpContent),
     appendSync: vi.fn((origin: string, content: string) => {

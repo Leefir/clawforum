@@ -117,7 +117,7 @@ describe('phase 1010 — silent X TODO cluster narrow', () => {
     } as unknown as FileSystem;
     const notifyInbox = vi.fn();
     await runContractObserver({
-      clawforumRoot: '/tmp/test',
+      chestnutRoot: '/tmp/test',
       fs,
       motionAudit: audit,
       notifyClaw: notifyInbox,
@@ -142,7 +142,7 @@ describe('phase 1010 — silent X TODO cluster narrow', () => {
     } as unknown as FileSystem;
     const notifyInbox = vi.fn();
     await runContractObserver({
-      clawforumRoot: '/tmp/test',
+      chestnutRoot: '/tmp/test',
       fs,
       motionAudit: audit,
       notifyClaw: notifyInbox,

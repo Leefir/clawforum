@@ -31,7 +31,7 @@ function makeTextResponse(text: string) {
 
 function makeOpts(overrides: Partial<DeepDreamOptions> = {}): DeepDreamOptions {
   return {
-    clawforumRoot: '',
+    chestnutRoot: '',
     llmConfig: fakeLlmConfig,
     llmService: mockLlmService as any,
     fs: new NodeFileSystem({ baseDir: '' }),
@@ -51,8 +51,8 @@ describe('runDeepDream — clawFsFactory 注入路径（caller DIP enforce）', 
   });
 
   it('多 claw 迭代各自调 factory（per-claw dynamic）', async () => {
-    const clawforumDir = path.join(os.tmpdir(), `phase609-dd-${randomUUID()}`);
-    const clawsDir = path.join(clawforumDir, 'claws');
+    const chestnutDir = path.join(os.tmpdir(), `phase609-dd-${randomUUID()}`);
+    const clawsDir = path.join(chestnutDir, 'claws');
 
     for (const clawId of ['a', 'b', 'c']) {
       const clawDir = path.join(clawsDir, clawId);
@@ -62,32 +62,32 @@ describe('runDeepDream — clawFsFactory 注入路径（caller DIP enforce）', 
 
     const factory = vi.fn().mockImplementation((clawDir: string) => new NodeFileSystem({ baseDir: clawDir }));
 
-    await runDeepDream(makeOpts({ clawforumRoot: clawforumDir, fs: new NodeFileSystem({ baseDir: clawforumDir }), clawFsFactory: factory }));
+    await runDeepDream(makeOpts({ chestnutRoot: chestnutDir, fs: new NodeFileSystem({ baseDir: chestnutDir }), clawFsFactory: factory }));
 
     expect(factory).toHaveBeenCalledTimes(3);
     expect(factory).toHaveBeenCalledWith(path.join(clawsDir, 'a'));
     expect(factory).toHaveBeenCalledWith(path.join(clawsDir, 'b'));
     expect(factory).toHaveBeenCalledWith(path.join(clawsDir, 'c'));
 
-    await fs.rm(clawforumDir, { recursive: true, force: true });
+    await fs.rm(chestnutDir, { recursive: true, force: true });
   });
 
   it('clawIds 空时 factory 0 call', async () => {
-    const clawforumDir = path.join(os.tmpdir(), `phase609-dd-empty-${randomUUID()}`);
-    await fs.mkdir(path.join(clawforumDir, 'claws'), { recursive: true });
+    const chestnutDir = path.join(os.tmpdir(), `phase609-dd-empty-${randomUUID()}`);
+    await fs.mkdir(path.join(chestnutDir, 'claws'), { recursive: true });
 
     const factory = vi.fn().mockImplementation((clawDir: string) => new NodeFileSystem({ baseDir: clawDir }));
 
-    await runDeepDream(makeOpts({ clawforumRoot: clawforumDir, fs: new NodeFileSystem({ baseDir: clawforumDir }), clawFsFactory: factory }));
+    await runDeepDream(makeOpts({ chestnutRoot: chestnutDir, fs: new NodeFileSystem({ baseDir: chestnutDir }), clawFsFactory: factory }));
 
     expect(factory).not.toHaveBeenCalled();
 
-    await fs.rm(clawforumDir, { recursive: true, force: true });
+    await fs.rm(chestnutDir, { recursive: true, force: true });
   });
 
   it('factory 抛错时单 claw 失败不阻断其他 claw（既有契约保持）', async () => {
-    const clawforumDir = path.join(os.tmpdir(), `phase609-dd-fail-${randomUUID()}`);
-    const clawsDir = path.join(clawforumDir, 'claws');
+    const chestnutDir = path.join(os.tmpdir(), `phase609-dd-fail-${randomUUID()}`);
+    const clawsDir = path.join(chestnutDir, 'claws');
 
     for (const clawId of ['ok1', 'fail', 'ok2']) {
       const clawDir = path.join(clawsDir, clawId);
@@ -104,7 +104,7 @@ describe('runDeepDream — clawFsFactory 注入路径（caller DIP enforce）', 
       return new NodeFileSystem({ baseDir: clawDir });
     });
 
-    await runDeepDream(makeOpts({ clawforumRoot: clawforumDir, fs: new NodeFileSystem({ baseDir: clawforumDir }), clawFsFactory: factory }));
+    await runDeepDream(makeOpts({ chestnutRoot: chestnutDir, fs: new NodeFileSystem({ baseDir: chestnutDir }), clawFsFactory: factory }));
 
     expect(factory).toHaveBeenCalledTimes(3);
     expect(factory).toHaveBeenCalledWith(path.join(clawsDir, 'ok1'));
@@ -119,6 +119,6 @@ describe('runDeepDream — clawFsFactory 注入路径（caller DIP enforce）', 
       'reason=factory-fail-for-claw-fail',
     );
 
-    await fs.rm(clawforumDir, { recursive: true, force: true });
+    await fs.rm(chestnutDir, { recursive: true, force: true });
   });
 });

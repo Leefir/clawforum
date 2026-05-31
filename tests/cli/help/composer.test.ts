@@ -6,11 +6,11 @@
  * - 顶层 help 含每 verb 的 summary 字面（防 composer 漏渲染）
  * - 顶层 help 不出现 commander 内部抽象 `<subject>` 字面（替代 commander 默认 Usage 的契约）
  * - 顶层 help 不包含旧 verb-first 形态字面 `claw create <name>` 等（防回归）
- * - per-verb help (instance form) 含 `clawforum claw <claw-name> <verb>` Usage 行
- * - per-verb help (flat form) 含 `clawforum claw <verb>` Usage 行（无 <claw-name>）
+ * - per-verb help (instance form) 含 `chestnut claw <claw-name> <verb>` Usage 行
+ * - per-verb help (flat form) 含 `chestnut claw <verb>` Usage 行（无 <claw-name>）
  * - per-verb help 含 args / options / examples 段（当 fact 提供时）
  *
- * 反向 1：composer 输出含 `clawforum` binary 字面（确认 Assembly 物理拼装）
+ * 反向 1：composer 输出含 `chestnut` binary 字面（确认 Assembly 物理拼装）
  * 反向 2：顶层 help 含 `claw help [<verb>]` 入口字面（α 路由文档化）
  */
 
@@ -35,9 +35,9 @@ describe('composeClawHelp (top-level)', () => {
   });
 
   it('contains Usage block with three forms', () => {
-    expect(help).toContain('clawforum claw <claw-name> <verb> [args]');
-    expect(help).toContain('clawforum claw list [--json]');
-    expect(help).toContain('clawforum claw help [<verb>]');
+    expect(help).toContain('chestnut claw <claw-name> <verb> [args]');
+    expect(help).toContain('chestnut claw list [--json]');
+    expect(help).toContain('chestnut claw help [<verb>]');
   });
 
   it('contains every verb summary string', () => {
@@ -69,8 +69,8 @@ describe('composeClawHelp (top-level)', () => {
     expect(help).not.toMatch(/claw send <name>/);
   });
 
-  it('includes the `clawforum` binary literal (composer is the assembly point)', () => {
-    expect(help).toContain('clawforum');
+  it('includes the `chestnut` binary literal (composer is the assembly point)', () => {
+    expect(help).toContain('chestnut');
   });
 });
 
@@ -78,13 +78,13 @@ describe('composeClawVerbHelp (per-verb)', () => {
   it('instance form: Usage row carries `<claw-name>` placeholder', () => {
     const fact = findVerbFact(CLAW_VERB_FACTS, 'send')!;
     const out = composeClawVerbHelp(fact);
-    expect(out).toContain('Usage: clawforum claw <claw-name> send <message>');
+    expect(out).toContain('Usage: chestnut claw <claw-name> send <message>');
   });
 
   it('flat form: Usage row omits `<claw-name>`', () => {
     const fact = findVerbFact(CLAW_VERB_FACTS, 'list')!;
     const out = composeClawVerbHelp(fact);
-    expect(out).toContain('Usage: clawforum claw list');
+    expect(out).toContain('Usage: chestnut claw list');
     expect(out).not.toContain('<claw-name>');
   });
 
@@ -106,7 +106,7 @@ describe('composeClawVerbHelp (per-verb)', () => {
     const fact = findVerbFact(CLAW_VERB_FACTS, 'create')!;
     const out = composeClawVerbHelp(fact);
     expect(out).toContain('Examples:');
-    expect(out).toContain('clawforum claw alice create');
+    expect(out).toContain('chestnut claw alice create');
   });
 
   it('handles fact with neither args nor options', () => {

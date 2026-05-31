@@ -53,13 +53,13 @@ export const CLAW_SUBDIRS = [
 
 // ── Runtime path resolution ──
 
-/** Workspace root — prefers CLAWFORUM_ROOT env var (inherited by exec child processes). */
+/** Workspace root — prefers CHESTNUT_ROOT env var (inherited by exec child processes). */
 export function getWorkspaceRoot(): string {
-  return process.env.CLAWFORUM_ROOT ?? process.cwd();
+  return process.env.CHESTNUT_ROOT ?? process.cwd();
 }
 
 export function getGlobalConfigPath(): string {
-  return path.join(getWorkspaceRoot(), '.clawforum', 'config.yaml');
+  return path.join(getWorkspaceRoot(), '.chestnut', 'config.yaml');
 }
 
 /**
@@ -85,22 +85,22 @@ import { type ClawDir, makeClawDir } from './identity/index.js';
 
 export function getClawDir(name: string): ClawDir {
   assertSafeClawId(name);
-  return makeClawDir(path.join(getWorkspaceRoot(), '.clawforum', 'claws', name));
+  return makeClawDir(path.join(getWorkspaceRoot(), '.chestnut', 'claws', name));
 }
 
-export function getClawforumRoot(): string {
-  return path.join(getWorkspaceRoot(), '.clawforum');
+export function getChestnutRoot(): string {
+  return path.join(getWorkspaceRoot(), '.chestnut');
 }
 
 /**
- * Generic helper to get a named subroot dir under .clawforum/.
+ * Generic helper to get a named subroot dir under .chestnut/.
  * Caller side owns the name (e.g., motion reserved name).
  *
  * @param name - subroot name (caller-owned, e.g., motion, claws)
- * @returns path joined under workspaceRoot/.clawforum/<name>
+ * @returns path joined under workspaceRoot/.chestnut/<name>
  */
 export function getNamedSubrootDir(name: string): string {
-  return path.join(getWorkspaceRoot(), '.clawforum', name);
+  return path.join(getWorkspaceRoot(), '.chestnut', name);
 }
 
 export function getClawConfigPath(name: string): string {

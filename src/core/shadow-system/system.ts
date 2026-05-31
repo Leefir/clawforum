@@ -68,14 +68,14 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
     return {
       success: false,
       content:
-        '[clawforum shadow] missing main agent in-memory state (clawId, currentToolUseId, systemPrompt, or tools)',
+        '[chestnut shadow] missing main agent in-memory state (clawId, currentToolUseId, systemPrompt, or tools)',
       error: 'no_main_context',
     };
   }
   if (!opts.mainMessages && !ts?.messages) {
     return {
       success: false,
-      content: '[clawforum shadow] missing main agent in-memory state (dialogMessages)',
+      content: '[chestnut shadow] missing main agent in-memory state (dialogMessages)',
       error: 'no_main_context',
     };
   }
@@ -108,7 +108,7 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
   } catch (err) {
     const errMsg = formatErr(err);
     opts.ctx.auditWriter?.write(SHADOW_AUDIT_EVENTS.FAILED, shadowId, 'prefix_restore_failed', errMsg);
-    return { success: false, content: `[clawforum shadow] prefix synthesis failed: ${errMsg}`, error: 'prefix_synthesis_failed' };
+    return { success: false, content: `[chestnut shadow] prefix synthesis failed: ${errMsg}`, error: 'prefix_synthesis_failed' };
   }
 
   // shadow ctx 注入 isShadow=true（透传到所有工具 execute()）
@@ -127,7 +127,7 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
       agentId: shadowId,
       callerType: 'shadow',
       clawDir: opts.ctx.clawDir,
-      clawforumRoot: opts.ctx.clawforumRoot,
+      chestnutRoot: opts.ctx.chestnutRoot,
       fs: opts.ctx.fs,
       fsFactory: opts.ctx.fsFactory,
       llm: opts.ctx.llm,
@@ -158,7 +158,7 @@ export async function runShadow(opts: RunShadowOptions): Promise<ToolResult> {
     opts.ctx.auditWriter?.write(SHADOW_AUDIT_EVENTS.FAILED, shadowId, errMsg);
     return {
       success: false,
-      content: `[clawforum shadow] execution failed: ${errMsg}`,
+      content: `[chestnut shadow] execution failed: ${errMsg}`,
       error: classifyTaskError(err),
       metadata: { shadowId, shadowAuditPath: `${resultDir}/audit.tsv` },
     };

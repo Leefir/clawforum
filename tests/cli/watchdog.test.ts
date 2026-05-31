@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import type { ProcessManager } from '../../src/foundation/process-manager/index.js';
 import { FAKE_LIVE_PID, FAKE_LIVE_PID_ALT } from '../helpers/test-pids.js';
 
-// Mock config so getClawforumDir() and getGlobalConfig() return controllable values
+// Mock config so getChestnutDir() and getGlobalConfig() return controllable values
 vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/foundation/config/index.js')>();
   return {
@@ -86,7 +86,7 @@ import {
 } from '../../src/watchdog/watchdog.js';
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { clawHasContract, clawHasActiveContract, gatherClawSnapshot } from '../../src/watchdog/watchdog-utils.js';
-import { lastInactivityNotified, inactivityNotifyCount, getClawforumFs } from '../../src/watchdog/watchdog-context.js';
+import { lastInactivityNotified, inactivityNotifyCount, getChestnutFs } from '../../src/watchdog/watchdog-context.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
 import { spawnDetached } from '../../src/foundation/process-exec/spawn-detached.js';
 import { setTimeout as setTimeoutP } from 'timers/promises';
@@ -107,14 +107,14 @@ describe('maybeCronClawInactivity — fix 4: per-claw error isolation', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wdfix4-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    clawsDir = path.join(clawforumDir, 'claws');
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    clawsDir = path.join(chestnutDir, 'claws');
     fs.mkdirSync(clawsDir, { recursive: true });
 
     fs.mkdirSync(path.join(clawsDir, 'claw-a'), { recursive: true });
     fs.mkdirSync(path.join(clawsDir, 'claw-b'), { recursive: true });
 
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
 
     mockPm = { isAlive: vi.fn().mockReturnValue(false) } as unknown as ProcessManager;
@@ -177,14 +177,14 @@ describe('logWithAudit — A1 clearance', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-audit-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(path.join(clawforumDir, 'motion'), { recursive: true });
-    fs.mkdirSync(path.join(clawforumDir, 'logs'), { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(path.join(chestnutDir, 'motion'), { recursive: true });
+    fs.mkdirSync(path.join(chestnutDir, 'logs'), { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -204,7 +204,7 @@ describe('logWithAudit — A1 clearance', () => {
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('test message'));
 
-    const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
+    const auditPath = path.join(tmpDir, '.chestnut', 'audit.tsv');
     const auditLines = fs.readFileSync(auditPath, 'utf-8');
     expect(auditLines).toContain('watchdog_cleanup_failed');
     expect(auditLines).toContain('test payload');
@@ -220,7 +220,7 @@ describe('logWithAudit — A1 clearance', () => {
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('no audit message'));
 
-    const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
+    const auditPath = path.join(tmpDir, '.chestnut', 'audit.tsv');
     const auditLines = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditLines).not.toContain('no audit message');
 
@@ -248,14 +248,14 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
   beforeEach(() => {
     _resetShutdownGuard();
     tmpDir = path.join(os.tmpdir(), `wd-fix5-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(path.join(clawforumDir, 'motion'), { recursive: true });
-    fs.writeFileSync(path.join(clawforumDir, 'watchdog.pid'), JSON.stringify({ pid: FAKE_LIVE_PID }));
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(path.join(chestnutDir, 'motion'), { recursive: true });
+    fs.writeFileSync(path.join(chestnutDir, 'watchdog.pid'), JSON.stringify({ pid: FAKE_LIVE_PID }));
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -269,7 +269,7 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
   it('calls saveWatchdogState before removeWatchdogPid and process.exit', () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
 
-    const stateFile = path.join(tmpDir, '.clawforum', 'watchdog-state.json');
+    const stateFile = path.join(tmpDir, '.chestnut', 'watchdog-state.json');
     expect(fs.existsSync(stateFile)).toBe(false);
 
     expect(() => shutdownWatchdog(fsFactory, auditWriter, 'SIGTERM')).toThrow('exit');
@@ -279,10 +279,10 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
     expect(savedState).toHaveProperty('lastInactivityNotified');
     expect(savedState).toHaveProperty('inactivityNotifyCount');
 
-    const auditLines = fs.readFileSync(path.join(tmpDir, '.clawforum', 'audit.tsv'), 'utf-8');
+    const auditLines = fs.readFileSync(path.join(tmpDir, '.chestnut', 'audit.tsv'), 'utf-8');
     expect(auditLines).toContain('watchdog_stop');
 
-    expect(fs.existsSync(path.join(tmpDir, '.clawforum', 'watchdog.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, '.chestnut', 'watchdog.pid'))).toBe(false);
 
     exitSpy.mockRestore();
   });
@@ -291,7 +291,7 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
 
     // Make watchdog-state.json a directory so atomic rename fails (EISDIR) while audit remains writable
-    const stateFile = path.join(tmpDir, '.clawforum', 'watchdog-state.json');
+    const stateFile = path.join(tmpDir, '.chestnut', 'watchdog-state.json');
     fs.rmSync(stateFile, { force: true });
     fs.mkdirSync(stateFile);
 
@@ -299,7 +299,7 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
 
     fs.rmdirSync(stateFile);
 
-    const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
+    const auditPath = path.join(tmpDir, '.chestnut', 'audit.tsv');
     const auditLines = fs.readFileSync(auditPath, 'utf-8');
     expect(auditLines).toContain('watchdog_stop');
     expect(auditLines).toContain('save_failed=');
@@ -318,7 +318,7 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
     expect(() => shutdownWatchdog(fsFactory, auditWriter, 'SIGINT')).not.toThrow();
 
     // audit 只写了第一次的 SIGTERM
-    const auditPath = path.join(tmpDir, '.clawforum', 'audit.tsv');
+    const auditPath = path.join(tmpDir, '.chestnut', 'audit.tsv');
     const auditLines = fs.readFileSync(auditPath, 'utf-8');
     expect(auditLines).toContain('watchdog_stop');
     expect(auditLines).toContain('signal=SIGTERM');
@@ -334,9 +334,9 @@ describe('getWatchdogPid', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-pid-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
   });
 
   afterEach(() => {
@@ -345,7 +345,7 @@ describe('getWatchdogPid', () => {
   });
 
   it('returns pid when pid file exists with valid content', () => {
-    const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
+    const pidFile = path.join(tmpDir, '.chestnut', 'watchdog.pid');
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/some/root' }));
     expect(getWatchdogPid(fsFactory)).toBe(FAKE_LIVE_PID_ALT);
   });
@@ -357,21 +357,21 @@ describe('getWatchdogPid', () => {
 
 describe('isWatchdogAlive', () => {
   let tmpDir: string;
-  const originalRoot = process.env.CLAWFORUM_ROOT;
+  const originalRoot = process.env.CHESTNUT_ROOT;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-alive-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
-    process.env.CLAWFORUM_ROOT = '/test/root';
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
+    process.env.CHESTNUT_ROOT = '/test/root';
   });
 
   afterEach(() => {
     if (originalRoot !== undefined) {
-      process.env.CLAWFORUM_ROOT = originalRoot;
+      process.env.CHESTNUT_ROOT = originalRoot;
     } else {
-      delete process.env.CLAWFORUM_ROOT;
+      delete process.env.CHESTNUT_ROOT;
     }
     vi.clearAllMocks();
     vi.restoreAllMocks();
@@ -379,7 +379,7 @@ describe('isWatchdogAlive', () => {
   });
 
   it('returns true when pid file exists, root matches, and process is alive', () => {
-    const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
+    const pidFile = path.join(tmpDir, '.chestnut', 'watchdog.pid');
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/test/root' }));
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
     expect(isWatchdogAlive(fsFactory)).toBe(true);
@@ -387,7 +387,7 @@ describe('isWatchdogAlive', () => {
   });
 
   it('returns false and removes pid file when root does not match', () => {
-    const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
+    const pidFile = path.join(tmpDir, '.chestnut', 'watchdog.pid');
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/different/root' }));
     expect(isWatchdogAlive(fsFactory)).toBe(false);
     expect(fs.existsSync(pidFile)).toBe(false);
@@ -418,9 +418,9 @@ describe('startCommand', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-start-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(spawnDetached).mockReturnValue({ pid: FAKE_LIVE_PID });
   });
 
@@ -430,8 +430,8 @@ describe('startCommand', () => {
   });
 
   it('logs "already running" if watchdog is alive before spawn', async () => {
-    const pidFile = path.join(tmpDir, '.clawforum', 'watchdog.pid');
-    const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
+    const pidFile = path.join(tmpDir, '.chestnut', 'watchdog.pid');
+    const root = process.env.CHESTNUT_ROOT ?? process.cwd();
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root }));
     vi.spyOn(process, 'kill').mockImplementation(() => true);
 
@@ -470,9 +470,9 @@ describe('stopCommand', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-stop-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
   });
 
   afterEach(() => {
@@ -489,9 +489,9 @@ describe('stopCommand', () => {
   });
 
   it('sends SIGTERM to running watchdog', async () => {
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
-    const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
+    const root = process.env.CHESTNUT_ROOT ?? process.cwd();
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root }));
 
     const killSpy = vi.spyOn(process, 'kill')
@@ -507,9 +507,9 @@ describe('stopCommand', () => {
   });
 
   it('reports failure if SIGTERM send throws', async () => {
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
-    const root = process.env.CLAWFORUM_ROOT ?? process.cwd();
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
+    const root = process.env.CHESTNUT_ROOT ?? process.cwd();
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root }));
 
     vi.spyOn(process, 'kill')
@@ -527,16 +527,16 @@ describe('stopCommand', () => {
 
 describe('runWatchdogLoop', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let mockPm: ProcessManager;
   let capturedHandlers: Record<string, Function>;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-loop-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(path.join(clawforumDir, 'motion', 'logs'), { recursive: true });
-    fs.mkdirSync(path.join(clawforumDir, 'logs'), { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(path.join(chestnutDir, 'motion', 'logs'), { recursive: true });
+    fs.mkdirSync(path.join(chestnutDir, 'logs'), { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({
       watchdog: { interval_ms: 100, claw_inactivity_timeout_ms: 300_000 },
       audit: { retention: { max_size_mb: null } },
@@ -583,7 +583,7 @@ describe('runWatchdogLoop', () => {
   it('writes watchdog_start audit on startup', async () => {
     await runLoopForOneTick();
 
-    const auditPath = path.join(clawforumDir, 'audit.tsv');
+    const auditPath = path.join(chestnutDir, 'audit.tsv');
     const auditContent = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditContent).toContain('watchdog_start');
   });
@@ -591,7 +591,7 @@ describe('runWatchdogLoop', () => {
   it('writes watchdog_check audit each tick', async () => {
     await runLoopForOneTick();
 
-    const auditPath = path.join(clawforumDir, 'audit.tsv');
+    const auditPath = path.join(chestnutDir, 'audit.tsv');
     const auditContent = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditContent).toContain('watchdog_check');
     expect(auditContent).toContain('present=');
@@ -603,7 +603,7 @@ describe('runWatchdogLoop', () => {
 
     await runLoopForOneTick();
 
-    const auditPath = path.join(clawforumDir, 'audit.tsv');
+    const auditPath = path.join(chestnutDir, 'audit.tsv');
     const auditContent = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditContent).toContain('watchdog_restart_triggered');
     expect(auditContent).toContain('process_spawn');
@@ -616,7 +616,7 @@ describe('runWatchdogLoop', () => {
 
     await runLoopForOneTick();
 
-    const auditPath = path.join(clawforumDir, 'audit.tsv');
+    const auditPath = path.join(chestnutDir, 'audit.tsv');
     const auditContent = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditContent).toContain('process_spawn_failed');
   });
@@ -626,7 +626,7 @@ describe('runWatchdogLoop', () => {
 
     await runLoopForOneTick();
 
-    const auditPath = path.join(clawforumDir, 'audit.tsv');
+    const auditPath = path.join(chestnutDir, 'audit.tsv');
     const auditContent = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditContent).not.toContain('watchdog_restart_triggered');
     expect(auditContent).not.toContain('process_spawn_failed');
@@ -644,12 +644,12 @@ describe('maybeCronClawCrash — crash audit', () => {
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wdcrash-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    clawsDir = path.join(clawforumDir, 'claws');
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    clawsDir = path.join(chestnutDir, 'claws');
     fs.mkdirSync(clawsDir, { recursive: true });
-    fs.mkdirSync(path.join(clawforumDir, 'motion', 'inbox', 'pending'), { recursive: true });
+    fs.mkdirSync(path.join(chestnutDir, 'motion', 'inbox', 'pending'), { recursive: true });
 
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
     vi.mocked(clawHasContract).mockReturnValue(true);
     vi.mocked(gatherClawSnapshot).mockReturnValue({
@@ -731,13 +731,13 @@ describe('writeWatchdogCrash', () => {
 
 describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-state-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
   });
 
@@ -748,7 +748,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
   });
 
   it('loads legacy state without version field', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, JSON.stringify({
       lastInactivityNotified: { 'claw-1': 1000 },
       inactivityNotifyCount:  { 'claw-1': 2 },
@@ -765,7 +765,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
   });
 
   it('writes WATCHDOG_STATE_LOAD_FAILED audit and renames corrupt file', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, 'NOT_VALID_JSON{{{{');
 
     const mockAudit = makeMockAudit() as unknown as AuditWriter;
@@ -780,12 +780,12 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
       expect.stringContaining('error='),
     );
     expect(fs.existsSync(stateFile)).toBe(false);
-    const files = fs.readdirSync(clawforumDir);
+    const files = fs.readdirSync(chestnutDir);
     expect(files.some(f => f.includes('.corrupt-'))).toBe(true);
   });
 
   it('loadWatchdogState clears Maps on corrupt JSON (no partial leak)', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
 
     // 先 populate Maps with stale data
     lastInactivityNotified.set('stale-claw', 12345);
@@ -805,12 +805,12 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
   });
 
   it('loadWatchdogState audits move failure separately', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, 'NOT_VALID_JSON{{{{');
 
-    // 让 moveSync 抛错（spyOn getClawforumFs 返回的实例）
-    const clawforumFs = getClawforumFs(fsFactory);
-    const moveSpy = vi.spyOn(clawforumFs, 'moveSync').mockImplementation(() => {
+    // 让 moveSync 抛错（spyOn getChestnutFs 返回的实例）
+    const chestnutFs = getChestnutFs(fsFactory);
+    const moveSpy = vi.spyOn(chestnutFs, 'moveSync').mockImplementation(() => {
       throw new Error('mock move failure');
     });
 
@@ -831,7 +831,7 @@ describe('loadWatchdogState / saveWatchdogState — A2+A3+A4', () => {
   });
 
   it('saveWatchdogState uses atomic write (new inode)', () => {
-    const stateFile = path.join(clawforumDir, 'watchdog-state.json');
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, JSON.stringify({ old: true }));
     const oldStat = fs.statSync(stateFile);
 

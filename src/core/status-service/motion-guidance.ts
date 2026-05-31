@@ -5,11 +5,11 @@
  * convention + l6_assembly.md §A motion-guidance-composer）：
  *
  * - **业主层（本文件）**：export motion 相关的状态查询 facts —— verb 片段 + 注释、
- *   **不含 CLI binary 字面**（`clawforum`）、**不含完整 invocation 字面**。业主只
+ *   **不含 CLI binary 字面**（`chestnut`）、**不含完整 invocation 字面**。业主只
  *   表达「motion 在 status 视角下应当知道哪些 CLI verb 关键字 + 各自语义」。这样
  *   ML#5「底层模块不预设上层语义」满足：StatusService 不假设 binary 叫什么。
  *
- * - **composer 层（assembly/motion-guidance-composer.ts）**：物理拼装 `clawforum`
+ * - **composer 层（assembly/motion-guidance-composer.ts）**：物理拼装 `chestnut`
  *   binary 前缀 + facts.verb → 完整 invocation 字面。typed const Record 让编译期
  *   check 漂移（cli/index.ts 命令族重命名时 composer 输出会同步、不留 stale CLI 字面）。
  *
@@ -33,7 +33,7 @@ export interface StatusMotionGuidanceVerb {
 /**
  * Status 工具相关 verb facts —— 业主自己唯一懂的 motion 视角动作集。
  *
- * 字面只含 `<name>` 占位 + verb 关键字。binary `clawforum` 由 composer 加。
+ * 字面只含 `<name>` 占位 + verb 关键字。binary `chestnut` 由 composer 加。
  */
 export const STATUS_MOTION_GUIDANCE_FACTS: StatusMotionGuidanceFacts = {
   verbs: [

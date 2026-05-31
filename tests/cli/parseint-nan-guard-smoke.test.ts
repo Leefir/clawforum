@@ -79,9 +79,9 @@ function runCli(args: string[], env: Record<string, string> = {}): Promise<{ std
 
 function makeTempRoot(): string {
   const dir = path.join(tmpdir(), `phase915-smoke-${randomUUID()}`);
-  fs.mkdirSync(path.join(dir, '.clawforum', 'claws', 'test-claw', 'outbox', 'pending'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.chestnut', 'claws', 'test-claw', 'outbox', 'pending'), { recursive: true });
   fs.writeFileSync(
-    path.join(dir, '.clawforum', 'config.yaml'),
+    path.join(dir, '.chestnut', 'config.yaml'),
     'llm:\n  primary:\n    api_key: test\n'
   );
   return dir;
@@ -93,20 +93,20 @@ describe('CLI smoke - parseInt NaN guard Layer B canary', () => {
 
   beforeEach(() => {
     root = makeTempRoot();
-    prevRoot = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = root;
+    prevRoot = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = root;
   });
 
   afterEach(() => {
-    if (prevRoot === undefined) delete process.env.CLAWFORUM_ROOT;
-    else process.env.CLAWFORUM_ROOT = prevRoot;
+    if (prevRoot === undefined) delete process.env.CHESTNUT_ROOT;
+    else process.env.CHESTNUT_ROOT = prevRoot;
     fs.rmSync(root, { recursive: true, force: true });
   });
 
   it('outbox --limit 10 → exit 0, no NaN error (Layer B integration canary)', async () => {
     const { stderr, exitCode } = await runCli(
       ['claw', 'test-claw', 'outbox', '--limit', '10'],
-      { CLAWFORUM_ROOT: root }
+      { CHESTNUT_ROOT: root }
     );
     expect(exitCode).toBe(0);
     expect(stderr).not.toContain('--limit must be a non-negative integer');

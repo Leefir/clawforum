@@ -145,7 +145,7 @@ export const readTool: Tool = {
       }
       // Resolve path relative to target claw's workspaceDir (clawspace), same contract as local read.
       // "../" escapes clawspace to claw root, blocked from going beyond.
-      const clawsDir = nodePath.join(ctx.clawforumRoot, CLAWS_DIR);
+      const clawsDir = nodePath.join(ctx.chestnutRoot, CLAWS_DIR);
       const targetClawDir = nodePath.join(clawsDir, clawParam);
       const targetWorkspaceDir = nodePath.join(targetClawDir, CLAWSPACE_DIR);
       const normalizedPath = nodePath.normalize(filePath);

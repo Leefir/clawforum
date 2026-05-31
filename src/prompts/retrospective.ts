@@ -40,7 +40,7 @@ ${contractYaml}
 ### 第一步：读取执行结果
 
 \`\`\`
-clawforum contract log --claw ${clawId} --contract ${contractId}
+chestnut contract log --claw ${clawId} --contract ${contractId}
 \`\`\`
 
 查看各 subtask 的最终状态、重试次数、失败原因、验收 evidence。
@@ -48,14 +48,14 @@ clawforum contract log --claw ${clawId} --contract ${contractId}
 ### 第二步：还原工作过程
 
 \`\`\`
-clawforum claw ${clawId} trace --contract ${contractId}
+chestnut claw ${clawId} trace --contract ${contractId}
 \`\`\`
 
 阅读 claw 的完整工作过程（多轮执行，步骤统一编号 #1, #2, ...），包含每步工具调用的结果摘要。
 如某步骤摘要不够，需要看完整输入/输出时：
 
 \`\`\`
-clawforum claw ${clawId} trace --contract ${contractId} --step <n>
+chestnut claw ${clawId} trace --contract ${contractId} --step <n>
 \`\`\`
 
 ### 第三步：评估执行质量

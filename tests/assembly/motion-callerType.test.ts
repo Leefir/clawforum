@@ -11,13 +11,13 @@ import { CALLER_TYPE_TO_GROUPS } from '../../src/core/caller-types.js';
 
 describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
   let tempDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let audit: ReturnType<typeof makeAudit>;
 
   beforeEach(() => {
     tempDir = path.join(os.tmpdir(), `motion-callerType-${randomUUID()}`);
-    clawforumDir = path.join(tempDir, '.clawforum');
-    fsNative.mkdirSync(clawforumDir, { recursive: true });
+    chestnutDir = path.join(tempDir, '.chestnut');
+    fsNative.mkdirSync(chestnutDir, { recursive: true });
     audit = makeAudit();
   });
 
@@ -28,11 +28,11 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
 
   // 反向 1: motion identity → callerType === motion (production wiring)
   it('反向 1: motion identity → callerLabel === motion', () => {
-    const fs = new NodeFileSystem({ baseDir: clawforumDir });
+    const fs = new NodeFileSystem({ baseDir: chestnutDir });
     const ctx = new ExecContextImpl({
       clawId: 'motion',
-      clawDir: path.join(clawforumDir, 'motion'),
-      syncDir: path.join(clawforumDir, 'motion', 'tasks', 'sync'),
+      clawDir: path.join(chestnutDir, 'motion'),
+      syncDir: path.join(chestnutDir, 'motion', 'tasks', 'sync'),
       profile: 'full',
       allowedGroups: CALLER_TYPE_TO_GROUPS.motion,
       callerLabel: 'motion',
@@ -45,11 +45,11 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
 
   // 反向 2: claw identity → callerType === claw (regression guard)
   it('反向 2: claw identity → callerLabel === claw', () => {
-    const fs = new NodeFileSystem({ baseDir: clawforumDir });
+    const fs = new NodeFileSystem({ baseDir: chestnutDir });
     const ctx = new ExecContextImpl({
       clawId: 'test-claw',
-      clawDir: path.join(clawforumDir, 'claws', 'test-claw'),
-      syncDir: path.join(clawforumDir, 'claws', 'test-claw', 'tasks', 'sync'),
+      clawDir: path.join(chestnutDir, 'claws', 'test-claw'),
+      syncDir: path.join(chestnutDir, 'claws', 'test-claw', 'tasks', 'sync'),
       profile: 'full',
       allowedGroups: CALLER_TYPE_TO_GROUPS.claw,
       callerLabel: 'claw',
@@ -62,13 +62,13 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
 
   // 反向 3: motion → notify-claw guard passes (end-to-end)
   it('反向 3: motion callerLabel → notify-claw guard passes', async () => {
-    const fs = new NodeFileSystem({ baseDir: clawforumDir });
+    const fs = new NodeFileSystem({ baseDir: chestnutDir });
     await fs.ensureDir('claws/target-claw');
 
     const ctx = new ExecContextImpl({
       clawId: 'motion',
-      clawDir: path.join(clawforumDir, 'motion'),
-      syncDir: path.join(clawforumDir, 'motion', 'tasks', 'sync'),
+      clawDir: path.join(chestnutDir, 'motion'),
+      syncDir: path.join(chestnutDir, 'motion', 'tasks', 'sync'),
       profile: 'full',
       allowedGroups: CALLER_TYPE_TO_GROUPS.motion,
       callerLabel: 'motion',
@@ -79,7 +79,7 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
 
     const tool = createNotifyClawTool({
       fs,
-      clawforumRoot: clawforumDir,
+      chestnutRoot: chestnutDir,
       audit: audit.audit,
     });
 
@@ -97,13 +97,13 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
 
   // 反向 4: claw callerType → notify-claw guard rejects (regression)
   it('反向 4: claw callerLabel → notify-claw guard rejects', async () => {
-    const fs = new NodeFileSystem({ baseDir: clawforumDir });
+    const fs = new NodeFileSystem({ baseDir: chestnutDir });
     await fs.ensureDir('claws/target-claw');
 
     const ctx = new ExecContextImpl({
       clawId: 'test-claw',
-      clawDir: path.join(clawforumDir, 'claws', 'test-claw'),
-      syncDir: path.join(clawforumDir, 'claws', 'test-claw', 'tasks', 'sync'),
+      clawDir: path.join(chestnutDir, 'claws', 'test-claw'),
+      syncDir: path.join(chestnutDir, 'claws', 'test-claw', 'tasks', 'sync'),
       profile: 'full',
       allowedGroups: CALLER_TYPE_TO_GROUPS.claw,
       callerLabel: 'claw',
@@ -114,7 +114,7 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
 
     const tool = createNotifyClawTool({
       fs,
-      clawforumRoot: clawforumDir,
+      chestnutRoot: chestnutDir,
       audit: audit.audit,
     });
 

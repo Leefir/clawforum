@@ -63,7 +63,7 @@ export async function skillInstallUserCommand(deps: { fsFactory: (baseDir: strin
   console.log(`${userExists ? 'Updated' : 'Installed'} skills/${skillName}`);
 
   // 2. Sync to motion/clawspace/dispatch-skills/{skillName}/
-  const motionDir = path.join(root, '.clawforum', 'motion');
+  const motionDir = path.join(root, '.chestnut', 'motion');
   const destDispatch = path.join(motionDir, CLAWSPACE_DIR, DISPATCH_SKILLS_SUBDIR, skillName);
   const motionFs = deps.fsFactory(motionDir);
   const dispatchExists = motionFs.existsSync(path.join(CLAWSPACE_DIR, DISPATCH_SKILLS_SUBDIR, skillName));
@@ -93,7 +93,7 @@ export async function skillInstallClawCommand(deps: { fsFactory: (baseDir: strin
   }
 
   const root = getWorkspaceRoot();
-  const motionDir = path.join(root, '.clawforum', 'motion');
+  const motionDir = path.join(root, '.chestnut', 'motion');
   const source = path.join(motionDir, CLAWSPACE_DIR, DISPATCH_SKILLS_SUBDIR, skillName);
   const clawDir = getClawDir(clawId);
   const dest = path.join(clawDir, SKILLS_DIR_DEFAULT, skillName);

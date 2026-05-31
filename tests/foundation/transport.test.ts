@@ -11,7 +11,7 @@ import { NodeFileSystem } from '../../src/foundation/fs/index.js';
 const TIMEOUT_MS = 2000;
 
 function makeSocketPath(): string {
-  return join(tmpdir(), `clawforum-test-${randomUUID()}.sock`);
+  return join(tmpdir(), `chestnut-test-${randomUUID()}.sock`);
 }
 
 // phase 1492: 注入 NodeFileSystem (baseDir=tmpdir) 满足 transport ctor required deps。

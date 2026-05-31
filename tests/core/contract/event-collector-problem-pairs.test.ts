@@ -27,22 +27,22 @@ function makeProgress(opts: {
 }
 
 describe('phase 1487: collectContractEvents result shape', () => {
-  let clawforumRoot: string;
+  let chestnutRoot: string;
   let fs: NodeFileSystem;
   const sinceTs = new Date('2026-01-01').getTime();
 
   beforeEach(async () => {
-    clawforumRoot = path.join(tmpdir(), `event-collector-${randomUUID()}`);
-    await fsAsync.mkdir(clawforumRoot, { recursive: true });
-    fs = new NodeFileSystem({ baseDir: clawforumRoot });
+    chestnutRoot = path.join(tmpdir(), `event-collector-${randomUUID()}`);
+    await fsAsync.mkdir(chestnutRoot, { recursive: true });
+    fs = new NodeFileSystem({ baseDir: chestnutRoot });
   });
 
   afterEach(async () => {
-    await fsAsync.rm(clawforumRoot, { recursive: true, force: true }).catch(() => {});
+    await fsAsync.rm(chestnutRoot, { recursive: true, force: true }).catch(() => {});
   });
 
   async function makeContract(clawSub: string, contractDirName: string, progressJson: string, contractYaml = '') {
-    const archiveDir = path.join(clawforumRoot, clawSub, 'contract/archive', contractDirName);
+    const archiveDir = path.join(chestnutRoot, clawSub, 'contract/archive', contractDirName);
     await fsAsync.mkdir(archiveDir, { recursive: true });
     await fsAsync.writeFile(path.join(archiveDir, 'progress.json'), progressJson);
     if (contractYaml) {
@@ -57,7 +57,7 @@ describe('phase 1487: collectContractEvents result shape', () => {
         'st-1': { status: 'completed', evidence: 'src/login.ts', completed_at: '2026-05-31T00:00:00Z' },
       },
     }));
-    const clawDir = makeClawDir(path.join(clawforumRoot, 'claws/worker-1'));
+    const clawDir = makeClawDir(path.join(chestnutRoot, 'claws/worker-1'));
     const result = collectContractEvents(fs, clawDir, makeClawId('worker-1'), sinceTs, makeAudit());
     expect(result.events.length).toBe(1);
     expect(result.problemPairs).toEqual([]);
@@ -77,7 +77,7 @@ describe('phase 1487: collectContractEvents result shape', () => {
         },
       },
     }));
-    const clawDir = makeClawDir(path.join(clawforumRoot, 'claws/worker-1'));
+    const clawDir = makeClawDir(path.join(chestnutRoot, 'claws/worker-1'));
     const result = collectContractEvents(fs, clawDir, makeClawId('worker-1'), sinceTs, makeAudit());
     expect(result.events.length).toBe(1);
     expect(result.problemPairs).toEqual(['worker-1:1780-cdef']);
@@ -96,7 +96,7 @@ describe('phase 1487: collectContractEvents result shape', () => {
         },
       },
     }));
-    const clawDir = makeClawDir(path.join(clawforumRoot, 'claws/worker-1'));
+    const clawDir = makeClawDir(path.join(chestnutRoot, 'claws/worker-1'));
     const result = collectContractEvents(fs, clawDir, makeClawId('worker-1'), sinceTs, makeAudit());
     expect(result.events[0]).not.toContain('[force-accepted]');
     expect(result.events[0]).toContain('[st-1] src/auth.ts');
@@ -115,7 +115,7 @@ describe('phase 1487: collectContractEvents result shape', () => {
         },
       },
     }));
-    const clawDir = makeClawDir(path.join(clawforumRoot, 'claws/worker-1'));
+    const clawDir = makeClawDir(path.join(chestnutRoot, 'claws/worker-1'));
     const result = collectContractEvents(fs, clawDir, makeClawId('worker-1'), sinceTs, makeAudit());
     expect(result.problemPairs).toEqual(['worker-1:1780-ffff']);  // 单 contract / 1 pair (即便多 subtask)
   });
@@ -127,7 +127,7 @@ describe('phase 1487: collectContractEvents result shape', () => {
         'st-1': { status: 'completed', evidence: 'old.ts', completed_at: '2025-12-01T00:00:00Z' },
       },
     }));
-    const clawDir = makeClawDir(path.join(clawforumRoot, 'claws/worker-1'));
+    const clawDir = makeClawDir(path.join(chestnutRoot, 'claws/worker-1'));
     const result = collectContractEvents(fs, clawDir, makeClawId('worker-1'), sinceTs, makeAudit());
     expect(result.events).toEqual([]);
     expect(result.problemPairs).toEqual([]);

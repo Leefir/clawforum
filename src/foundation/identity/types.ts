@@ -20,7 +20,7 @@ export type ContractId = string & { readonly [ContractIdBrand]: true };
 export function makeContractId(s: string): ContractId { return s as ContractId; }
 
 // ============================================================================
-// phase 1376: ClawDir + ClawforumRoot branded path types (compile-time path discrimination)
+// phase 1376: ClawDir + ChestnutRoot branded path types (compile-time path discrimination)
 // per ML#3 资源唯一归属 + phase 1358 brand template mirror
 // ============================================================================
 
@@ -28,20 +28,20 @@ declare const ClawDirBrand: unique symbol;
 export type ClawDir = string & { readonly [ClawDirBrand]: true };
 export function makeClawDir(s: string): ClawDir { return s as ClawDir; }
 
-declare const ClawforumRootBrand: unique symbol;
-export type ClawforumRoot = string & { readonly [ClawforumRootBrand]: true };
-export function makeClawforumRoot(s: string): ClawforumRoot { return s as ClawforumRoot; }
+declare const ChestnutRootBrand: unique symbol;
+export type ChestnutRoot = string & { readonly [ChestnutRootBrand]: true };
+export function makeChestnutRoot(s: string): ChestnutRoot { return s as ChestnutRoot; }
 
 // ============================================================================
-// phase 1406: clawforumRoot 推算单一 truth source
+// phase 1406: chestnutRoot 推算单一 truth source
 // per design row A.phase1406-motion-config-not-module-and-wires：
 //   消除 8+ site `path.join(*clawDir, '..')` / `path.join(*clawDir, '..', '..')`
-//   散落（phase 1387/1388/1389 反复 fix 实证 Clawforum 模块缺失）。
+//   散落（phase 1387/1388/1389 反复 fix 实证 Chestnut 模块缺失）。
 // ============================================================================
 import * as path from 'node:path';
 
 /**
- * 从 clawDir 推算 clawforumRoot 的单一权威函数。
+ * 从 clawDir 推算 chestnutRoot 的单一权威函数。
  *
  * 目录拓扑（design/architecture.md 系统拓扑节）：
  *   motion claw：`<root>/motion/`         → motion claw clawDir 的父 = root
@@ -50,14 +50,14 @@ import * as path from 'node:path';
  * 调用方需告知是否 motion（来自 Assembly 装配期 isMotion guard）。
  *
  * 本函数是 phase 1387/1388/1389 cluster 反复 fix 的实然终结点：
- * 所有 `path.join(*, '..')` 推算 clawforumRoot 必经此函数（lint enforce 推 Step Z）。
+ * 所有 `path.join(*, '..')` 推算 chestnutRoot 必经此函数（lint enforce 推 Step Z）。
  *
  * @param clawDir 此 claw 的实例目录（branded ClawDir）
  * @param isMotion 是否 motion claw（拓扑差异由配置决定 / 非模块差异）
- * @returns branded ClawforumRoot
+ * @returns branded ChestnutRoot
  */
-export function resolveClawforumRoot(clawDir: ClawDir, isMotion: boolean): ClawforumRoot {
+export function resolveChestnutRoot(clawDir: ClawDir, isMotion: boolean): ChestnutRoot {
   return isMotion
-    ? makeClawforumRoot(path.join(clawDir, '..'))  // Motion-only callsite: motion clawDir = <root>/motion → root
-    : makeClawforumRoot(path.join(clawDir, '..', '..'));
+    ? makeChestnutRoot(path.join(clawDir, '..'))  // Motion-only callsite: motion clawDir = <root>/motion → root
+    : makeChestnutRoot(path.join(clawDir, '..', '..'));
 }

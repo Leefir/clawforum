@@ -2,7 +2,7 @@
  * @module L6.Watchdog.Context
  * Module-level singleton state for watchdog daemon
  *
- * 5 lazy cache（_motionCtx / _clawforumFs / globalConfigCache / _auditWriter）
+ * 5 lazy cache（_motionCtx / _chestnutFs / globalConfigCache / _auditWriter）
  * + 3 Map（cron 状态：lastInactivityNotified / clawPreviouslyAlive / inactivityNotifyCount）
  *
  * ESM live binding 保跨 sub-file 同实例（const Map reference 跨 file 共享 / let 经 getter/setter）
@@ -39,13 +39,13 @@ export const clawPreviouslyNotified: Map<string, number> = new Map();
 // === Lazy cache state（封装 / 经 getter） ===
 
 let _motionCtx: { fs: FileSystem; audit: AuditLog } | null = null;
-let _clawforumFs: FileSystem | null = null;
-let _clawforumFsBaseDir: string | null = null;
+let _chestnutFs: FileSystem | null = null;
+let _chestnutFsBaseDir: string | null = null;
 let globalConfigCache: ReturnType<typeof loadGlobalConfig> | null = null;
 let _auditWriter: AuditLog | null = null;
 
 /** 1:1 保 watchdog.ts:29-31 */
-export function getClawforumDir(): string {
+export function getChestnutDir(): string {
   return path.dirname(makeClawDir(getNamedSubrootDir('motion')));
 }
 
@@ -72,16 +72,16 @@ export function getMotionContext(fsFactory: (baseDir: string) => FileSystem): { 
   return _motionCtx;
 }
 
-// clawforum FileSystem lazy singleton（mirror getMotionContext 模式）
-// 增加 baseDir 缓存校验，使测试环境在 getClawforumDir() 变化时自动重建实例
+// chestnut FileSystem lazy singleton（mirror getMotionContext 模式）
+// 增加 baseDir 缓存校验，使测试环境在 getChestnutDir() 变化时自动重建实例
 /** 1:1 保 watchdog.ts:73-80 */
-export function getClawforumFs(fsFactory: (baseDir: string) => FileSystem): FileSystem {
-  const baseDir = getClawforumDir();
-  if (!_clawforumFs || _clawforumFsBaseDir !== baseDir) {
-    _clawforumFs = fsFactory(baseDir);
-    _clawforumFsBaseDir = baseDir;
+export function getChestnutFs(fsFactory: (baseDir: string) => FileSystem): FileSystem {
+  const baseDir = getChestnutDir();
+  if (!_chestnutFs || _chestnutFsBaseDir !== baseDir) {
+    _chestnutFs = fsFactory(baseDir);
+    _chestnutFsBaseDir = baseDir;
   }
-  return _clawforumFs;
+  return _chestnutFs;
 }
 
 // Global config (loaded lazily on first access)

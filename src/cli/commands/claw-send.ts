@@ -51,7 +51,7 @@ export async function sendCommand(
   const processManager = createProcessManagerForCLI(deps);
   if (!processManager.isAlive(makeClawId(name))) {
     console.log(
-      `Note: claw "${name}" is not running. Start it with: clawforum claw ${name} daemon`,
+      `Note: claw "${name}" is not running. Start it with: chestnut claw ${name} daemon`,
     );
   }
 }

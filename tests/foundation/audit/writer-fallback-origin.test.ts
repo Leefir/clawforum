@@ -57,7 +57,7 @@ describe('AuditWriter — fallback buffer origin tag (P1.13)', () => {
     // 触发 exit → dump 到 OS temp dir
     exitListeners[0]!();
     expect(nodeFs.writeFileSync).toHaveBeenCalledWith(
-      expect.stringMatching(new RegExp(`^${escapeRegex(tmpdir())}/clawforum-audit-fallback-\\d+-\\d+\\.tsv$`)),
+      expect.stringMatching(new RegExp(`^${escapeRegex(tmpdir())}/chestnut-audit-fallback-\\d+-\\d+\\.tsv$`)),
       expect.stringContaining('/test/a.tsv'),
     );
     const dumpedContent = (vi.mocked(nodeFs.writeFileSync).mock.calls[0] as any)[1] as string;

@@ -106,7 +106,7 @@ import { createAskUserTool } from '../core/gateway/index.js';
 import { createStreamReader, STREAM_FILE, findRecentTurnStartOffset } from '../foundation/stream/index.js';
 import { TASKS_SYNC_DIR } from '../core/async-task-system/index.js';
 import { DIALOG_DIR } from '../foundation/dialog-store/dirs.js';
-import { makeClawId, type ClawId, resolveClawforumRoot, type ClawDir, makeClawDir } from '../foundation/identity/index.js';
+import { makeClawId, type ClawId, resolveChestnutRoot, type ClawDir, makeClawDir } from '../foundation/identity/index.js';
 import type { ContractId } from '../foundation/identity/index.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 
@@ -297,7 +297,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         toolRegistry,   // phase 704: toolRegistry 注入 ContractSystem
         toolTimeoutMs,  // phase 1029 / F-2
         fsFactory,
-        clawforumRoot: resolveClawforumRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
+        chestnutRoot: resolveChestnutRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
       });
     } catch (e) {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=contract_manager`, `phase=construct`, `reason=${errMsg(e)}`);
@@ -350,7 +350,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         permissionChecker,          // NEW: permission checker for subagent file tools
         motionInbox,
         fsFactory,
-        clawforumRoot: resolveClawforumRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
+        chestnutRoot: resolveChestnutRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
         askMotionToolFactory: (llm, motionDialogStore) => new AskMotionTool(llm, motionDialogStore),
       });
     } catch (e) {
@@ -394,11 +394,11 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
           motionBaseDir: clawDir,
           motionAudit: auditWriter,
           clawsBaseDir: path.join(
-            resolveClawforumRoot(clawDir, true),  // phase 1406: motion-only context (guarded by if isMotion)
+            resolveChestnutRoot(clawDir, true),  // phase 1406: motion-only context (guarded by if isMotion)
             CLAWS_DIR
           ),
           clawFsFactory: fsFactory,
-          clawContractManagerFactory: (d: ClawDir, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: makeClawId(id), fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory, clawforumRoot: resolveClawforumRoot(d, /* isMotion */ false) }),
+          clawContractManagerFactory: (d: ClawDir, id: string, fs: FileSystem) => createContractSystem({ clawDir: d, clawId: makeClawId(id), fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory, chestnutRoot: resolveChestnutRoot(d, /* isMotion */ false) }),
         };
         contractManager.onContractCompleted(async (contractId) => {
           if (!evolutionSystem) return; // P1.NPE guard (phase 620 / mirror phase 607 dream-trigger)
@@ -610,7 +610,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         identity: isMotion ? 'motion' : 'claw',
         clawId: isMotion ? MOTION_CLAW_ID : clawId,
         clawDir,
-        clawforumRoot: resolveClawforumRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
+        chestnutRoot: resolveChestnutRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
         llmConfig,
         maxSteps,
         toolProfile,
@@ -652,10 +652,10 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       toolRegistry.register(createAskUserTool(gateway));
       // notify_claw 工具：motion-only（D11 单向访问特权 / phase 477 design / phase 822 实施 / phase 1021 P0 三重错位 hotfix）
       // motion → claw inbox push、与 send（claw → 自己 outbox pull）物理不同、§10.3 不对称设计
-      // fs = parentFs (baseDir = .clawforum/) align clawforumRoot、避免 systemFs (baseDir = motion/) 沙箱拒 sibling claws/<to> absolute path
+      // fs = parentFs (baseDir = .chestnut/) align chestnutRoot、避免 systemFs (baseDir = motion/) 沙箱拒 sibling claws/<to> absolute path
       toolRegistry.register(createNotifyClawTool({
         fs: parentFs,
-        clawforumRoot: resolveClawforumRoot(clawDir, true),  // phase 1406: motion-only context (motion clawDir = <root>/motion → root)
+        chestnutRoot: resolveChestnutRoot(clawDir, true),  // phase 1406: motion-only context (motion clawDir = <root>/motion → root)
         audit: auditWriter,
       }));
     }
@@ -669,7 +669,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       const heartbeatIntervalMs = globalConfig.motion?.heartbeat_interval_ms ?? 0;
       if (heartbeatIntervalMs > 0) {
         try {
-          heartbeat = createHeartbeat(resolveClawforumRoot(clawDir, true), {  // phase 1406: motion-only context
+          heartbeat = createHeartbeat(resolveChestnutRoot(clawDir, true), {  // phase 1406: motion-only context
             interval: heartbeatIntervalMs / 1000,
             fs: parentFs,
             audit: auditWriter,
@@ -685,19 +685,19 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
     // --- 7. CronRunner (motion + cron.enabled, daemon.ts L187-248) ---
     let cronRunner: CronRunner | undefined;
     if (isMotion && (globalConfig.cron?.enabled ?? true)) {
-      const clawforumRoot = resolveClawforumRoot(clawDir, true);  // phase 1406: motion-only context (isMotion+cron guard)
+      const chestnutRoot = resolveChestnutRoot(clawDir, true);  // phase 1406: motion-only context (isMotion+cron guard)
       const tickMs = globalConfig.cron?.tick_interval_ms ?? CRON_TICK_INTERVAL_MS;
       const diskLimitMB = globalConfig.watchdog?.disk_warning_mb ?? DEFAULT_DISK_WARNING_MB;
       const diskScheduleStr = globalConfig.cron?.jobs?.disk_monitor?.schedule ?? 'hourly';
 
-      // phase155D：预制 clawforumFs，被 disk-monitor / dream-trigger 闭包共用（冻结 §6）
+      // phase155D：预制 chestnutFs，被 disk-monitor / dream-trigger 闭包共用（冻结 §6）
       // 失败语义：与既有模块（Snapshot / StreamWriter）一致 —— audit 写 assemble_failed 后上抛
-      let clawforumFs: FileSystem;
+      let chestnutFs: FileSystem;
       try {
-        clawforumFs = fsFactory(clawforumRoot);
+        chestnutFs = fsFactory(chestnutRoot);
       } catch (e) {
         auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=cron_runner`, `phase=fs_construct`, `reason=${errMsg(e)}`);
-        throw new Error(`Assembly: clawforumFs construct failed: ${errMsg(e)}`, { cause: e });
+        throw new Error(`Assembly: chestnutFs construct failed: ${errMsg(e)}`, { cause: e });
       }
 
       // --- MemorySystem (L5, motion only) ---
@@ -714,10 +714,10 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
         const getContractProgress = async (clawId: ClawId, contractId: ContractId): Promise<import('../core/contract/index.js').ProgressData> => {
           let cs = contractSystemCache.get(clawId);
           if (!cs) {
-            const cDir = makeClawDir(path.join(clawforumRoot, CLAWS_DIR, clawId));
+            const cDir = makeClawDir(path.join(chestnutRoot, CLAWS_DIR, clawId));
             const cFs = fsFactory(cDir);
             const cAudit = createSystemAudit(cFs, cDir);
-            cs = createContractSystem({ clawDir: cDir, clawId, fs: cFs, audit: cAudit, llm, toolRegistry, toolTimeoutMs, fsFactory, clawforumRoot });
+            cs = createContractSystem({ clawDir: cDir, clawId, fs: cFs, audit: cAudit, llm, toolRegistry, toolTimeoutMs, fsFactory, chestnutRoot });
             contractSystemCache.set(clawId, cs);
           }
           return cs.getProgress(contractId);
@@ -725,9 +725,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
         try {
           memorySystem = createMemorySystem({
-            clawforumRoot,
+            chestnutRoot,
             motionDir: clawDir,
-            fs: clawforumFs,
+            fs: chestnutFs,
             motionFs: systemFs,
             audit: auditWriter,
             taskSystem: runtime.getTaskSystem(),
@@ -746,7 +746,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
       // phase 724 α single audit pipe：cron handler 复用主 auditWriter / 删冗余 instance
       // （ML M#3 资源唯一归属 / motion/audit.tsv 单一 owner = L126 主 auditWriter）
-      const diskMonitorInbox = InboxWriter.__internal_create(clawforumFs, makeInboxPath(motionInboxDir), auditWriter);
+      const diskMonitorInbox = InboxWriter.__internal_create(chestnutFs, makeInboxPath(motionInboxDir), auditWriter);
 
       try {
         cronRunner = createCronRunner([
@@ -755,9 +755,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.disk_monitor?.enabled ?? true,
             schedule: parseSchedule(diskScheduleStr, auditWriter),
             handler: (signal) => runDiskMonitor({
-              clawforumRoot,
+              chestnutRoot,
               limitMB: diskLimitMB,
-              fs: clawforumFs,
+              fs: chestnutFs,
               audit: auditWriter,
               motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
               motionInbox: diskMonitorInbox,
@@ -770,9 +770,9 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.llm_stats?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.llm_stats?.schedule ?? 'daily:06:00', auditWriter),
             handler: (signal) => runLlmStats({
-              clawforumRoot,
+              chestnutRoot,
               motionDir: clawDir,
-              clawforumFs,
+              chestnutFs,
               motionFs: systemFs,
               audit: auditWriter,
               signal,
@@ -795,8 +795,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.metrics_snapshot?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.metrics_snapshot?.schedule ?? 'interval:5m', auditWriter),
             handler: (signal) => runMetricsSnapshot({
-              motionDir: makeClawDir(path.join(clawforumRoot, 'motion')),
-              fs: clawforumFs,
+              motionDir: makeClawDir(path.join(chestnutRoot, 'motion')),
+              fs: chestnutFs,
               audit: auditWriter,
               signal,
             }),
@@ -807,10 +807,10 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.contract_observer?.schedule ?? 'interval:1m', auditWriter),
             handler: (signal) => runContractObserver({
-              clawforumRoot,
-              fs: clawforumFs,
+              chestnutRoot,
+              fs: chestnutFs,
               motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
-              notifyClaw: (fs, clawforumRoot, targetClawId, payload, audit) => notifyClaw(fs, clawforumRoot, targetClawId, payload, audit),
+              notifyClaw: (fs, chestnutRoot, targetClawId, payload, audit) => notifyClaw(fs, chestnutRoot, targetClawId, payload, audit),
               signal,
             }),
             timeoutMs: CONTRACT_OBSERVER_CRON_TIMEOUT_MS,
@@ -820,8 +820,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.git_gc_weekly?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.git_gc_weekly?.schedule ?? 'daily:03:00', auditWriter),
             handler: (signal) => runGitGcWeekly({
-              clawforumRoot,
-              fs: clawforumFs,
+              chestnutRoot,
+              fs: chestnutFs,
               audit: auditWriter,
               signal,
             }),
@@ -833,7 +833,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             schedule: parseSchedule(globalConfig.cron?.jobs?.retention_cleanup?.schedule ?? 'daily:04:00', auditWriter),
             handler: (signal) => runRetentionCleanup({
               motionDir: clawDir,
-              fs: clawforumFs,
+              fs: chestnutFs,
               audit: auditWriter,
               maxDays: {
                 inbox: globalConfig.retention?.inbox_max_days ?? 30,
@@ -850,11 +850,11 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.audit_size_monitor?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.audit_size_monitor?.schedule ?? 'interval:6h', auditWriter),
             handler: (signal) => runAuditSizeMonitor({
-              fs: clawforumFs,
+              fs: chestnutFs,
               audit: auditWriter,
-              clawforumRoot,
-              motionAuditPath: path.join(clawforumRoot, 'motion', 'audit.tsv'),
-              rootAuditPath: path.join(clawforumRoot, 'audit.tsv'),
+              chestnutRoot,
+              motionAuditPath: path.join(chestnutRoot, 'motion', 'audit.tsv'),
+              rootAuditPath: path.join(chestnutRoot, 'audit.tsv'),
               motionInbox: diskMonitorInbox,
               signal,
             }),
@@ -866,8 +866,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.outbox_summary?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.outbox_summary?.schedule ?? 'interval:1s', auditWriter),
             handler: (signal) => runOutboxSummary({
-              clawforumRoot,
-              fs: clawforumFs,
+              chestnutRoot,
+              fs: chestnutFs,
               audit: auditWriter,
               signal,
             }),
@@ -878,11 +878,11 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
             enabled: globalConfig.cron?.jobs?.sunset_monitor?.enabled ?? true,
             schedule: parseSchedule(globalConfig.cron?.jobs?.sunset_monitor?.schedule ?? 'interval:30d', auditWriter),
             handler: (signal) => runSunsetMonitor({
-              fs: clawforumFs,
+              fs: chestnutFs,
               audit: auditWriter,
-              clawforumRoot,
-              motionAuditPath: path.join(clawforumRoot, 'motion', 'audit.tsv'),
-              rootAuditPath: path.join(clawforumRoot, 'audit.tsv'),
+              chestnutRoot,
+              motionAuditPath: path.join(chestnutRoot, 'motion', 'audit.tsv'),
+              rootAuditPath: path.join(chestnutRoot, 'audit.tsv'),
               legacyConsts: [
                 'pid_file_legacy_format',
                 'inbox_legacy_claw_id_field',

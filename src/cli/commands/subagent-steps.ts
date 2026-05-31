@@ -38,7 +38,7 @@ function resolveResultDir(deps: { fsFactory: (baseDir: string) => FileSystem }, 
   const subagentRel = path.join(TASKS_SUBAGENTS_DIR, id);
   if (clawFs.existsSync(subagentRel)) return path.join(clawDir, subagentRel);
 
-  throw new CliError(`Subagent "${id}" not found in claw directory. Try \`clawforum subagent list --claw <name>\` to see subagents.`);
+  throw new CliError(`Subagent "${id}" not found in claw directory. Try \`chestnut subagent list --claw <name>\` to see subagents.`);
 }
 
 // ─── Commands ────────────────────────────────────────────────
@@ -57,7 +57,7 @@ export async function subagentStepsCommand(deps: { fsFactory: (baseDir: string) 
   const clawDir = resolveClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
   if (!clawFs.existsSync('.')) {
-    throw new CliError(`Claw "${clawId}" does not exist. Try \`clawforum claw list\` to see existing claws.`);
+    throw new CliError(`Claw "${clawId}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }
 
   const resultDir = resolveResultDir(deps, clawDir, id);
@@ -97,7 +97,7 @@ export async function subagentStepCommand(deps: { fsFactory: (baseDir: string) =
   const clawDir = resolveClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
   if (!clawFs.existsSync('.')) {
-    throw new CliError(`Claw "${clawId}" does not exist. Try \`clawforum claw list\` to see existing claws.`);
+    throw new CliError(`Claw "${clawId}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }
 
   const resultDir = resolveResultDir(deps, clawDir, id);

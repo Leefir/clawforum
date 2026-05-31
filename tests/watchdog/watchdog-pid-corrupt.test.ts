@@ -24,21 +24,21 @@ vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
 
 describe('watchdog-pid corrupt path', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let auditWriter: AuditWriter;
   let auditSpy: ReturnType<typeof vi.spyOn>;
-  const originalRoot = process.env.CLAWFORUM_ROOT;
+  const originalRoot = process.env.CHESTNUT_ROOT;
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-pid-corrupt-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
-    process.env.CLAWFORUM_ROOT = '/test/root';
+    process.env.CHESTNUT_ROOT = '/test/root';
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -48,9 +48,9 @@ describe('watchdog-pid corrupt path', () => {
 
   afterEach(() => {
     if (originalRoot !== undefined) {
-      process.env.CLAWFORUM_ROOT = originalRoot;
+      process.env.CHESTNUT_ROOT = originalRoot;
     } else {
-      delete process.env.CLAWFORUM_ROOT;
+      delete process.env.CHESTNUT_ROOT;
     }
     setAuditWriter(null);
     vi.clearAllMocks();
@@ -59,7 +59,7 @@ describe('watchdog-pid corrupt path', () => {
   });
 
   it('non-JSON pid file: emits PID_CORRUPT audit + backup exists + returns null', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     fs.writeFileSync(pidFile, '<malformed>');
 
     const result = getWatchdogPid(fsFactory);
@@ -72,14 +72,14 @@ describe('watchdog-pid corrupt path', () => {
       expect.stringContaining('error='),
     );
 
-    const files = fs.readdirSync(clawforumDir);
+    const files = fs.readdirSync(chestnutDir);
     const backupFile = files.find(f => f.startsWith('watchdog.pid.corrupt-'));
     expect(backupFile).toBeDefined();
-    expect(fs.existsSync(path.join(clawforumDir, backupFile!))).toBe(true);
+    expect(fs.existsSync(path.join(chestnutDir, backupFile!))).toBe(true);
   });
 
   it('pid non-number: emits PID_CORRUPT audit + backup exists + returns null', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     fs.writeFileSync(pidFile, JSON.stringify({ pid: 'not-a-number', root: '/test/root' }));
 
     const result = getWatchdogPid(fsFactory);
@@ -92,13 +92,13 @@ describe('watchdog-pid corrupt path', () => {
       expect.stringContaining('error=shape_mismatch'),
     );
 
-    const files = fs.readdirSync(clawforumDir);
+    const files = fs.readdirSync(chestnutDir);
     const backupFile = files.find(f => f.startsWith('watchdog.pid.corrupt-'));
     expect(backupFile).toBeDefined();
   });
 
   it('root non-string: emits PID_CORRUPT audit + backup exists + returns false from isWatchdogAlive', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     // Note: root: 99999 is intentional type-corruption fixture (root field should be string path;
     //       testing corruption recovery). pid: FAKE_LIVE_PID is normal use.
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID, root: 99999 }));
@@ -113,13 +113,13 @@ describe('watchdog-pid corrupt path', () => {
       expect.stringContaining('error=shape_mismatch'),
     );
 
-    const files = fs.readdirSync(clawforumDir);
+    const files = fs.readdirSync(chestnutDir);
     const backupFile = files.find(f => f.startsWith('watchdog.pid.corrupt-'));
     expect(backupFile).toBeDefined();
   });
 
   it('valid pid file still works (no false positive)', () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     fs.writeFileSync(pidFile, JSON.stringify({ pid: FAKE_LIVE_PID_ALT, root: '/test/root' }));
 
     const result = getWatchdogPid(fsFactory);

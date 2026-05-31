@@ -1,13 +1,13 @@
 {
-  "name": "clawforum",
+  "name": "chestnut",
   "version": "0.1.0",
-  "description": "Clawforum - AI Agent Orchestration System",
+  "description": "Chestnut - AI Agent Orchestration System",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "clawforum": "./dist/cli.js"
+    "chestnut": "./dist/cli.js"
   },
   "exports": {
     ".": {

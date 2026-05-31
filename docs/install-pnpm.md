@@ -1,6 +1,6 @@
 # Installing pnpm
 
-[pnpm](https://pnpm.io) is a fast, disk-efficient package manager required by Clawforum.
+[pnpm](https://pnpm.io) is a fast, disk-efficient package manager required by Chestnut.
 
 ## Option 1: via npm (recommended)
 

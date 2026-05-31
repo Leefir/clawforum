@@ -89,7 +89,7 @@ describe('audit fallback FIFO drop observability (phase 1380)', () => {
   });
 
   it('reconcileFallbackDumps emits audit_fallback_dropped row to live audit.tsv', async () => {
-    const dumpFileName = `clawforum-audit-fallback-123-456.tsv`;
+    const dumpFileName = `chestnut-audit-fallback-123-456.tsv`;
     const dumpContent = [
       '# drop_count_since_last_dump=3 drop_count_total=8 first_drop_ts=1000 last_drop_ts=2000',
       '/test/a.tsv\t2026-05-18T10:00:00.000Z\tevt_a\tcol1',

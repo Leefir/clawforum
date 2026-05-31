@@ -20,7 +20,7 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
   loadGlobalConfig(deps, CONFIG_DEFAULTS);
 
   if (!clawExists(deps, name)) {
-    throw new CliError(`Claw "${name}" does not exist. Try \`clawforum claw list\` to see existing claws.`);
+    throw new CliError(`Claw "${name}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }
 
   const clawDir = getClawDir(name);
@@ -40,7 +40,7 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
           command: 'node',
           args: [daemonEntryPath, name],
           logFile: path.join(clawDir, DAEMON_LOG),
-          env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
+          env: { ...process.env, CHESTNUT_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
         });
         console.log(`Started (PID: ${pid})`);
       }

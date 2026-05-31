@@ -1,5 +1,5 @@
 /**
- * stop command - Stop all clawforum processes
+ * stop command - Stop all chestnut processes
  */
 
 import * as path from 'path';
@@ -7,7 +7,7 @@ import { loadGlobalConfig, getGlobalConfigPath, getNamedSubrootDir } from '../..
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { createAuditWriter } from '../../foundation/audit/index.js';
-import { getClawforumFs, getGlobalConfig, setAuditWriter as setWatchdogAuditWriter } from '../../watchdog/watchdog-context.js';
+import { getChestnutFs, getGlobalConfig, setAuditWriter as setWatchdogAuditWriter } from '../../watchdog/watchdog-context.js';
 import { stopCommand as watchdogStop } from '../../watchdog/watchdog.js';
 import { stopCommand as motionStop } from './motion.js';
 import { ProcessListUnavailable } from '../../foundation/process-manager/index.js';
@@ -40,7 +40,7 @@ export async function stopAllCommand(deps: { fsFactory: (baseDir: string) => Fil
   // 防 sub-1/sub-2/sub-4 audit emit 在 CLI 进程 silent no-op
   try {
     const auditMaxSizeMb = getGlobalConfig(deps.fsFactory).audit?.retention?.max_size_mb ?? null;
-    const watchdogAudit = createAuditWriter(getClawforumFs(deps.fsFactory), 'audit.tsv', auditMaxSizeMb);
+    const watchdogAudit = createAuditWriter(getChestnutFs(deps.fsFactory), 'audit.tsv', auditMaxSizeMb);
     setWatchdogAuditWriter(watchdogAudit);
   } catch (err) {
     console.error('Failed to wire watchdog audit:', err);

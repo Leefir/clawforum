@@ -15,8 +15,8 @@ coverage/
 .test-*/
 
 # Runtime data
-.clawforum/
-!tests/fixtures/.clawforum/
+.chestnut/
+!tests/fixtures/.chestnut/
 
 # IDE
 .vscode/

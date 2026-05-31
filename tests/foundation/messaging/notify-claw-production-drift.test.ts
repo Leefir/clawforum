@@ -2,10 +2,10 @@
  * notify_claw production drift regression test (phase 1021)
  *
  * 触发：phase 1004 round 4 audit §F-P0-1 / production motion → claw push 100% fail
- * scope：装配-level fs.baseDir 与 clawforumRoot drift detection
+ * scope：装配-level fs.baseDir 与 chestnutRoot drift detection
  *
- * 既有 notify-claw.test.ts 12+ case 全 clawforumRoot: tempDir + fs.baseDir = tempDir 对齐 → drift 0 cover。
- * 本 test 显式 mock baseDir ≠ clawforumRoot 场景、防 phase 1021 hotfix 之后 regression。
+ * 既有 notify-claw.test.ts 12+ case 全 chestnutRoot: tempDir + fs.baseDir = tempDir 对齐 → drift 0 cover。
+ * 本 test 显式 mock baseDir ≠ chestnutRoot 场景、防 phase 1021 hotfix 之后 regression。
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -29,21 +29,21 @@ describe('notify_claw production drift regression (phase 1021)', () => {
     await cleanupTempDir(tempDir);
   });
 
-  // 反向 1: 模拟 phase 1021 修复前的 production 配线 (systemFs baseDir = motion dir、clawforumRoot = workspaceRoot)
+  // 反向 1: 模拟 phase 1021 修复前的 production 配线 (systemFs baseDir = motion dir、chestnutRoot = workspaceRoot)
   // 期望：existsSync(targetClawRoot) throw PermissionError、execute escape、NOTIFY_CLAW_FAILED 0 emit
-  it('production drift detection: fs.baseDir = motion dir ≠ clawforumRoot → existsSync throws + audit 0 emit', async () => {
-    // 模拟 production layout: workspaceRoot/.clawforum/motion
+  it('production drift detection: fs.baseDir = motion dir ≠ chestnutRoot → existsSync throws + audit 0 emit', async () => {
+    // 模拟 production layout: workspaceRoot/.chestnut/motion
     const workspaceRoot = tempDir;
-    const clawforumDir = path.join(workspaceRoot, '.clawforum');
-    const motionDir = path.join(clawforumDir, 'motion');
-    await new NodeFileSystem({ baseDir: workspaceRoot }).ensureDir('.clawforum/motion');
-    await new NodeFileSystem({ baseDir: workspaceRoot }).ensureDir('.clawforum/claws/worker-1');
+    const chestnutDir = path.join(workspaceRoot, '.chestnut');
+    const motionDir = path.join(chestnutDir, 'motion');
+    await new NodeFileSystem({ baseDir: workspaceRoot }).ensureDir('.chestnut/motion');
+    await new NodeFileSystem({ baseDir: workspaceRoot }).ensureDir('.chestnut/claws/worker-1');
 
-    // production 配线 drift: fs.baseDir = motionDir、clawforumRoot = workspaceRoot (错位 #1)
+    // production 配线 drift: fs.baseDir = motionDir、chestnutRoot = workspaceRoot (错位 #1)
     const driftFs = new NodeFileSystem({ baseDir: motionDir });
-    const driftClawforumRoot = workspaceRoot;  // ← 错位 (应为 clawforumDir)
+    const driftChestnutRoot = workspaceRoot;  // ← 错位 (应为 chestnutDir)
 
-    const tool = createNotifyClawTool({ fs: driftFs, clawforumRoot: driftClawforumRoot, audit: audit.audit });
+    const tool = createNotifyClawTool({ fs: driftFs, chestnutRoot: driftChestnutRoot, audit: audit.audit });
 
     // targetClawRoot = workspaceRoot/claws/worker-1 = absolute path、outside motionDir baseDir
     // existsSync → resolveAndCheck throw PermissionError、escape execute()
@@ -58,15 +58,15 @@ describe('notify_claw production drift regression (phase 1021)', () => {
     expect(sentRows.length).toBe(0);
   });
 
-  // 反向 2: phase 1021 修复后 production 配线 (parentFs baseDir = clawforumRoot)
+  // 反向 2: phase 1021 修复后 production 配线 (parentFs baseDir = chestnutRoot)
   // 期望：existsSync return true、happy path NOTIFY_CLAW_SENT emit
-  it('phase 1021 hotfix: fs.baseDir = clawforumRoot → existsSync resolves + happy path emit', async () => {
+  it('phase 1021 hotfix: fs.baseDir = chestnutRoot → existsSync resolves + happy path emit', async () => {
     const workspaceRoot = tempDir;
-    const clawforumDir = path.join(workspaceRoot, '.clawforum');
-    const correctFs = new NodeFileSystem({ baseDir: clawforumDir });
+    const chestnutDir = path.join(workspaceRoot, '.chestnut');
+    const correctFs = new NodeFileSystem({ baseDir: chestnutDir });
     await correctFs.ensureDir('claws/worker-1');
 
-    const tool = createNotifyClawTool({ fs: correctFs, clawforumRoot: clawforumDir, audit: audit.audit });
+    const tool = createNotifyClawTool({ fs: correctFs, chestnutRoot: chestnutDir, audit: audit.audit });
     const result = await tool.execute({ to: 'worker-1', body: 'hello' }, { callerLabel: 'motion' } as any);
 
     expect(result.success).toBe(true);
@@ -78,11 +78,11 @@ describe('notify_claw production drift regression (phase 1021)', () => {
   // 期望：NOTIFY_CLAW_FAILED reason=claw_not_found emit (走正常 if 分支、不走 throw)
   it('phase 1021 hotfix: claw_not_found graceful failure emits NOTIFY_CLAW_FAILED (not throw)', async () => {
     const workspaceRoot = tempDir;
-    const clawforumDir = path.join(workspaceRoot, '.clawforum');
-    const correctFs = new NodeFileSystem({ baseDir: clawforumDir });
+    const chestnutDir = path.join(workspaceRoot, '.chestnut');
+    const correctFs = new NodeFileSystem({ baseDir: chestnutDir });
     await correctFs.ensureDir('claws');  // claws dir exists but no worker-1 subdir
 
-    const tool = createNotifyClawTool({ fs: correctFs, clawforumRoot: clawforumDir, audit: audit.audit });
+    const tool = createNotifyClawTool({ fs: correctFs, chestnutRoot: chestnutDir, audit: audit.audit });
     const result = await tool.execute({ to: 'worker-1', body: 'hello' }, { callerLabel: 'motion' } as any);
 
     expect(result.success).toBe(false);

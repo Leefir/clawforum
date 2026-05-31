@@ -46,18 +46,18 @@ describe('phase 1405 Fix 1: writeForceAcceptInbox', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase1405-fa-inbox-'));
-    originalEnv = process.env.CLAWFORUM_ROOT;
-    process.env.CLAWFORUM_ROOT = tempDir;
+    originalEnv = process.env.CHESTNUT_ROOT;
+    process.env.CHESTNUT_ROOT = tempDir;
   });
 
   afterEach(() => {
-    if (originalEnv === undefined) delete process.env.CLAWFORUM_ROOT;
-    else process.env.CLAWFORUM_ROOT = originalEnv;
+    if (originalEnv === undefined) delete process.env.CHESTNUT_ROOT;
+    else process.env.CHESTNUT_ROOT = originalEnv;
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   it('writes an inbox file with verdict=passed + force_accepted=true extraField', () => {
-    const clawDir = path.join(tempDir, '.clawforum', 'claws', 'test-claw');
+    const clawDir = path.join(tempDir, '.chestnut', 'claws', 'test-claw');
     const inboxPending = path.join(clawDir, 'inbox', 'pending');
     fs.mkdirSync(inboxPending, { recursive: true });
 
@@ -77,7 +77,7 @@ describe('phase 1405 Fix 1: writeForceAcceptInbox', () => {
   });
 
   it('emits "All subtasks complete!" when allCompleted=true', () => {
-    const clawDir = path.join(tempDir, '.clawforum', 'claws', 'test-claw');
+    const clawDir = path.join(tempDir, '.chestnut', 'claws', 'test-claw');
     const inboxPending = path.join(clawDir, 'inbox', 'pending');
     fs.mkdirSync(inboxPending, { recursive: true });
 

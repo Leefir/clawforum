@@ -388,11 +388,11 @@ export const searchTool: Tool = {
         if (!ctx.isMotionChain) {
           return { success: false, content: 'Error: claw: "*" broadcast is Motion-only. Use claw: "<id>" for specific claw access.' };
         }
-        const clawsDir = nodePath.join(ctx.clawforumRoot, CLAWS_DIR);
-        const clawforumFs = ctx.fsFactory(clawsDir);
+        const clawsDir = nodePath.join(ctx.chestnutRoot, CLAWS_DIR);
+        const chestnutFs = ctx.fsFactory(clawsDir);
         let clawIds: string[];
         try {
-          clawIds = clawforumFs.listSync('', { includeDirs: true })
+          clawIds = chestnutFs.listSync('', { includeDirs: true })
             .filter(e => e.isDirectory && !e.name.startsWith('.'))
             .map(e => e.name)
             .sort();
@@ -433,7 +433,7 @@ export const searchTool: Tool = {
         return { success: false, content: `Error: Invalid claw ID: "${clawParam}"` };
       }
       const rawSearchPath = nodePath.normalize(pathArg);
-      const clawsDir = nodePath.join(ctx.clawforumRoot, CLAWS_DIR);
+      const clawsDir = nodePath.join(ctx.chestnutRoot, CLAWS_DIR);
       const clawRoot = nodePath.join(clawsDir, clawParam);
       const baseDir = nodePath.resolve(clawRoot, rawSearchPath);
       if (baseDir !== clawRoot && !baseDir.startsWith(clawRoot + nodePath.sep)) {

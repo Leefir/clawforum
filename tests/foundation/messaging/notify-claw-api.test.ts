@@ -16,7 +16,7 @@ import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { MESSAGING_AUDIT_EVENTS } from '../../../src/foundation/messaging/audit-events.js';
 
 describe('notifyClaw API', () => {
-  let clawforumRoot: string;
+  let chestnutRoot: string;
   let nodeFs: NodeFileSystem;
   const auditEvents: Array<[string, ...(string | number)[]]> = [];
   const audit = {
@@ -26,19 +26,19 @@ describe('notifyClaw API', () => {
   };
 
   beforeEach(async () => {
-    clawforumRoot = path.join(tmpdir(), `notify-claw-api-${randomUUID()}`);
-    await fs.rm(clawforumRoot, { recursive: true, force: true }).catch(() => {});
-    await fs.mkdir(clawforumRoot, { recursive: true });
-    nodeFs = new NodeFileSystem({ baseDir: clawforumRoot });
+    chestnutRoot = path.join(tmpdir(), `notify-claw-api-${randomUUID()}`);
+    await fs.rm(chestnutRoot, { recursive: true, force: true }).catch(() => {});
+    await fs.mkdir(chestnutRoot, { recursive: true });
+    nodeFs = new NodeFileSystem({ baseDir: chestnutRoot });
     auditEvents.length = 0;
   });
 
   afterEach(async () => {
-    await fs.rm(clawforumRoot, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(chestnutRoot, { recursive: true, force: true }).catch(() => {});
   });
 
   it("notifyClaw('motion', ...) writes to motion/inbox/pending with correct codec", () => {
-    notifyClaw(nodeFs, clawforumRoot, 'motion', {
+    notifyClaw(nodeFs, chestnutRoot, 'motion', {
       type: 'heartbeat',
       source: 'system',
       priority: 'low',
@@ -46,7 +46,7 @@ describe('notifyClaw API', () => {
       idPrefix: 'hb',
     }, audit);
 
-    const motionInboxDir = path.join(clawforumRoot, 'motion', 'inbox', 'pending');
+    const motionInboxDir = path.join(chestnutRoot, 'motion', 'inbox', 'pending');
     const files = fsSync.readdirSync(motionInboxDir);
     expect(files.length).toBe(1);
 
@@ -59,16 +59,16 @@ describe('notifyClaw API', () => {
   });
 
   it("notifyClaw('worker-1', ...) writes to claws/worker-1/inbox/pending", async () => {
-    await fs.mkdir(path.join(clawforumRoot, 'claws', 'worker-1'), { recursive: true });
+    await fs.mkdir(path.join(chestnutRoot, 'claws', 'worker-1'), { recursive: true });
 
-    notifyClaw(nodeFs, clawforumRoot, 'worker-1', {
+    notifyClaw(nodeFs, chestnutRoot, 'worker-1', {
       type: 'test_message',
       source: 'test',
       priority: 'normal',
       body: 'hello worker',
     }, audit);
 
-    const targetInboxDir = path.join(clawforumRoot, 'claws', 'worker-1', 'inbox', 'pending');
+    const targetInboxDir = path.join(chestnutRoot, 'claws', 'worker-1', 'inbox', 'pending');
     const files = fsSync.readdirSync(targetInboxDir);
     expect(files.length).toBe(1);
 
@@ -79,7 +79,7 @@ describe('notifyClaw API', () => {
   });
 
   it('emits INBOX_WRITTEN audit on happy path', () => {
-    notifyClaw(nodeFs, clawforumRoot, 'motion', {
+    notifyClaw(nodeFs, chestnutRoot, 'motion', {
       type: 'audit_test',
       source: 'system',
       body: 'audit me',
@@ -90,14 +90,14 @@ describe('notifyClaw API', () => {
   });
 
   it('uses priority + filename convention via InboxWriter codec', () => {
-    notifyClaw(nodeFs, clawforumRoot, 'motion', {
+    notifyClaw(nodeFs, chestnutRoot, 'motion', {
       type: 'priority_test',
       source: 'priority_src',
       priority: 'high',
       body: 'high priority body',
     }, audit);
 
-    const motionInboxDir = path.join(clawforumRoot, 'motion', 'inbox', 'pending');
+    const motionInboxDir = path.join(chestnutRoot, 'motion', 'inbox', 'pending');
     const files = fsSync.readdirSync(motionInboxDir);
     expect(files.length).toBe(1);
 
@@ -107,14 +107,14 @@ describe('notifyClaw API', () => {
 
   it('dedup: multiple calls produce multiple distinct files', () => {
     for (let i = 0; i < 3; i++) {
-      notifyClaw(nodeFs, clawforumRoot, 'motion', {
+      notifyClaw(nodeFs, chestnutRoot, 'motion', {
         type: 'dedup_test',
         source: 'system',
         body: `msg ${i}`,
       }, audit);
     }
 
-    const motionInboxDir = path.join(clawforumRoot, 'motion', 'inbox', 'pending');
+    const motionInboxDir = path.join(chestnutRoot, 'motion', 'inbox', 'pending');
     const files = fsSync.readdirSync(motionInboxDir);
     expect(files.length).toBe(3);
   });

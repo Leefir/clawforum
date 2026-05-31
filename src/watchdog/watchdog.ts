@@ -22,7 +22,7 @@ import * as path from 'path';
 import { setTimeout } from 'timers/promises';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { MOTION_CLAW_ID } from '../constants.js';
-import { makeClawId, makeClawforumRoot, makeClawDir } from '../foundation/identity/index.js';
+import { makeClawId, makeChestnutRoot, makeClawDir } from '../foundation/identity/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/index.js';
@@ -33,7 +33,7 @@ import { DAEMON_LOG } from '../daemon/constants.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
 
 import {
-  getClawforumDir, getClawforumFs, getGlobalConfig, setAuditWriter,
+  getChestnutDir, getChestnutFs, getGlobalConfig, setAuditWriter,
 } from './watchdog-context.js';
 import {
   writeWatchdogPid, removeWatchdogPid,
@@ -106,7 +106,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
   // 先建 auditWriter，让 loadWatchdogState corrupt 路径可写 audit（N1 修复）
   const auditMaxSizeMb = getGlobalConfig(fsFactory).audit?.retention?.max_size_mb ?? null;
   const auditWriter = createAuditWriter(
-    getClawforumFs(fsFactory),
+    getChestnutFs(fsFactory),
     'audit.tsv',
     auditMaxSizeMb,
   );
@@ -149,7 +149,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
     const aliveIds: string[] = [];
     const presentClawIds: string[] = [];
     if (status.alive) aliveIds.push(MOTION_CLAW_ID);
-    const fs = getClawforumFs(fsFactory);
+    const fs = getChestnutFs(fsFactory);
     if (fs.existsSync(CLAWS_DIR)) {
       for (const entry of fs.listSync(CLAWS_DIR, { includeDirs: true })) {
         if (entry.isDirectory) {
@@ -176,12 +176,12 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
           logWithAudit(fsFactory, msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, AUDIT_MESSAGE_MAX_CHARS));
         });
         const daemonEntryPath = resolveDaemonEntry(fsFactory(process.cwd()));
-        const clawforumRoot = makeClawforumRoot(getClawforumDir());
+        const chestnutRoot = makeChestnutRoot(getChestnutDir());
         const pid = await pm.spawn(MOTION_CLAW_ID, {
           command: 'node',
           args: [daemonEntryPath, MOTION_CLAW_ID],
           logFile: path.join(makeClawDir(getNamedSubrootDir('motion')), DAEMON_LOG),
-          env: { ...process.env, CLAWFORUM_ROOT: path.dirname(clawforumRoot) } as Record<string, string | undefined>,
+          env: { ...process.env, CHESTNUT_ROOT: path.dirname(chestnutRoot) } as Record<string, string | undefined>,
         });
         log(fsFactory, `[watchdog] motion restarted (PID=${pid})`);
         auditWriter.write('process_spawn', MOTION_CLAW_ID, `pid=${pid}`);

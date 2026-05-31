@@ -29,7 +29,7 @@ export interface MotionDaemonDeps {
 export async function motionDaemonCommand(deps: MotionDaemonDeps): Promise<void> {
   loadGlobalConfig({ fsFactory: deps.fsFactory }, CONFIG_DEFAULTS);
   const motionDir = makeClawDir(getNamedSubrootDir('motion'));
-  // Motion-only callsite: motionDir = <clawforumRoot>/motion → dirname 一层即 clawforumRoot
+  // Motion-only callsite: motionDir = <chestnutRoot>/motion → dirname 一层即 chestnutRoot
   const baseDir = path.dirname(motionDir);
   const nodeFs = deps.fsFactory(baseDir);
   const systemAudit = createSystemAudit(nodeFs, baseDir);
@@ -44,7 +44,7 @@ export async function motionDaemonCommand(deps: MotionDaemonDeps): Promise<void>
     command: 'node',
     args: [daemonEntryPath, MOTION_CLAW_ID],
     logFile: path.join(motionDir, DAEMON_LOG),
-    env: { ...process.env, CLAWFORUM_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
+    env: { ...process.env, CHESTNUT_ROOT: getWorkspaceRoot() } as Record<string, string | undefined>,
   });
   console.log(`Started Motion daemon (PID: ${pid})`);
 }

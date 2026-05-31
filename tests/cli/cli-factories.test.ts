@@ -13,7 +13,7 @@ const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 // Track all temp dirs created via freshDir() for cleanup
 const tempDirs: string[] = [];
 // Track env state for restore (per-test capture)
-let envSnapshot: { CLAWFORUM_ROOT: string | undefined } | null = null;
+let envSnapshot: { CHESTNUT_ROOT: string | undefined } | null = null;
 
 afterEach(() => {
   // Cleanup tempDirs (assertion fail 也保 cleanup)
@@ -25,10 +25,10 @@ afterEach(() => {
   }
   // Restore env (assertion fail 也保 restore)
   if (envSnapshot) {
-    if (envSnapshot.CLAWFORUM_ROOT === undefined) {
-      delete process.env.CLAWFORUM_ROOT;
+    if (envSnapshot.CHESTNUT_ROOT === undefined) {
+      delete process.env.CHESTNUT_ROOT;
     } else {
-      process.env.CLAWFORUM_ROOT = envSnapshot.CLAWFORUM_ROOT;
+      process.env.CHESTNUT_ROOT = envSnapshot.CHESTNUT_ROOT;
     }
     envSnapshot = null;
   }
@@ -43,14 +43,14 @@ function freshDir(): string {
 // Snapshot env before mutation (call once per it before mutating)
 function captureEnv(): void {
   if (!envSnapshot) {
-    envSnapshot = { CLAWFORUM_ROOT: process.env.CLAWFORUM_ROOT };
+    envSnapshot = { CHESTNUT_ROOT: process.env.CHESTNUT_ROOT };
   }
 }
 
 describe('createProcessManagerForCLI', () => {
   it('返回值实现 ProcessManager 接口', () => {
     captureEnv();
-    process.env.CLAWFORUM_ROOT = freshDir();
+    process.env.CHESTNUT_ROOT = freshDir();
     const pm = createProcessManagerForCLI({ fsFactory });
     expect(typeof pm.isAlive).toBe('function');
     expect(typeof pm.acquireLock).toBe('function');
@@ -58,14 +58,14 @@ describe('createProcessManagerForCLI', () => {
 
   it('每次调用返回新实例（无缓存）', () => {
     captureEnv();
-    process.env.CLAWFORUM_ROOT = freshDir();
+    process.env.CHESTNUT_ROOT = freshDir();
     expect(createProcessManagerForCLI({ fsFactory })).not.toBe(createProcessManagerForCLI({ fsFactory }));
   });
 
   it('等价性：与手动 createAgentProcessManager(createSystemAudit(...)) 行为一致', () => {
     const dir = freshDir();
     captureEnv();
-    process.env.CLAWFORUM_ROOT = dir;
+    process.env.CHESTNUT_ROOT = dir;
     // 手动路径
     const fs = new NodeFileSystem({ baseDir: dir });
     const manual = createAgentProcessManager({ fsFactory }, createSystemAudit(fs, dir));

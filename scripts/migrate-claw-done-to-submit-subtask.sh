@@ -13,10 +13,10 @@ set -e
 
 cd "$(git rev-parse --show-toplevel)"
 
-CLAWS_DIR=".clawforum/claws"
+CLAWS_DIR=".chestnut/claws"
 
 if [ ! -d "$CLAWS_DIR" ]; then
-  echo "❌ $CLAWS_DIR not found (run from clawforum repo root)"
+  echo "❌ $CLAWS_DIR not found (run from chestnut repo root)"
   exit 1
 fi
 

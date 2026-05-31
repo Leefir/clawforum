@@ -34,11 +34,11 @@ describe('claw-send — confinement baseDir vs root (P0.2 phase 611)', () => {
     tmpRoot = path.join(os.tmpdir(), `phase611-claws-${randomUUID()}`);
     fs.mkdirSync(path.join(tmpRoot, 'claws', 'test-claw'), { recursive: true });
     fs.writeFileSync(path.join(tmpRoot, 'claws', 'test-claw', 'config.yaml'), 'name: test-claw\n');
-    process.env.CLAWFORUM_ROOT = tmpRoot;
+    process.env.CHESTNUT_ROOT = tmpRoot;
   });
 
   afterEach(() => {
-    delete process.env.CLAWFORUM_ROOT;
+    delete process.env.CHESTNUT_ROOT;
     if (fs.existsSync(tmpRoot)) fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 
@@ -47,7 +47,7 @@ describe('claw-send — confinement baseDir vs root (P0.2 phase 611)', () => {
     const { NodeFileSystem } = await import('../../src/foundation/fs/node-fs.js');
     const { getGlobalConfigPath } = await import('../../src/foundation/config/index.js');
 
-    vi.mocked(getGlobalConfigPath).mockReturnValue(path.join(tmpRoot, '.clawforum', 'config.yaml'));
+    vi.mocked(getGlobalConfigPath).mockReturnValue(path.join(tmpRoot, '.chestnut', 'config.yaml'));
 
     await sendCommand({ fsFactory }, 'test-claw', 'hello');
 

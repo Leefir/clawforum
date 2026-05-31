@@ -5,7 +5,7 @@
  * src/cli/commands/ MUST be `MOTION_CLAW_ID` const (from src/constants.ts).
  *
  * Allowlist exempt:
- * - fs path segment `.clawforum/motion` (skill.ts dir name)
+ * - fs path segment `.chestnut/motion` (skill.ts dir name)
  * - template path segment `templates/motion` (motion.ts template fixture)
  *
  * Mirror templates:
@@ -32,8 +32,8 @@ const MOTION_LITERAL_PATTERN = /['"]motion['"]/;
 
 const ALLOWLIST_PATTERNS = [
   // fs path segments (NOT claw id literals)
-  /\.clawforum\/motion/,                    // literal '.clawforum/motion' path segment
-  /path\.join.*\.clawforum.*['"]motion['"]/, // path.join(..., '.clawforum', 'motion')
+  /\.chestnut\/motion/,                    // literal '.chestnut/motion' path segment
+  /path\.join.*\.chestnut.*['"]motion['"]/, // path.join(..., '.chestnut', 'motion')
   /templates\/motion/,                      // literal 'templates/motion' path segment
   /path\.join.*templates.*['"]motion['"]/,  // path.join(..., 'templates', 'motion')
   // line comments with 'motion' as example label
@@ -94,7 +94,7 @@ describe('motion literal invariant (phase 1265 r135 C fork + phase 1279 r136 E f
   });
 
   it('reverse: allowlist patterns exempt fs path segments', () => {
-    expect(ALLOWLIST_PATTERNS.some((p) => p.test(`path.join(root, '.clawforum/motion')`))).toBe(true);
+    expect(ALLOWLIST_PATTERNS.some((p) => p.test(`path.join(root, '.chestnut/motion')`))).toBe(true);
     expect(ALLOWLIST_PATTERNS.some((p) => p.test(`'templates/motion/name'`))).toBe(true);
   });
 });

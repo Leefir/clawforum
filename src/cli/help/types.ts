@@ -59,7 +59,7 @@ export interface VerbFact {
   args?: readonly VerbArg[];
   /** verb 选项。 */
   options?: readonly VerbOption[];
-  /** 末尾示例（每行已含完整 `clawforum claw ...` 形态、composer 直接出）。 */
+  /** 末尾示例（每行已含完整 `chestnut claw ...` 形态、composer 直接出）。 */
   examples?: readonly string[];
   /** 退役 verb / 别名说明等额外提示，仅在 per-verb help 显示。 */
   note?: string;

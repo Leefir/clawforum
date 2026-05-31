@@ -1,4 +1,4 @@
-// clawforum/tests/design/interfaces-sync.test.ts
+// chestnut/tests/design/interfaces-sync.test.ts
 // phase 1327 r137 E fork: design vs src interfaces sync invariant lint
 // mirror phase 964+1019+1244+1265+1266+1277+1278+1324 mechanical invariant 三件套 N=9 累达
 
@@ -16,7 +16,7 @@ function findDesignRoot(startDir: string): string | null {
   return null;
 }
 
-// phase 1491: design dir 不存在时 graceful skip / clawforum 独立 checkout (CI) 上 parent dir 无 design/
+// phase 1491: design dir 不存在时 graceful skip / chestnut 独立 checkout (CI) 上 parent dir 无 design/
 const DESIGN_ROOT = findDesignRoot(import.meta.dirname);
 const SRC_ROOT = join(import.meta.dirname, '../../src');
 

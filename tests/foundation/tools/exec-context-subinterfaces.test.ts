@@ -32,7 +32,7 @@ describe('phase 1459 ExecContext ISP α-1 decomposition', () => {
     return new ExecContextImpl({
       clawId: 'test-claw' as ExecContext['clawId'],
       clawDir: tempDir as ExecContext['clawDir'],
-      clawforumRoot: tempDir as ExecContext['clawforumRoot'],
+      chestnutRoot: tempDir as ExecContext['chestnutRoot'],
       syncDir: tempDir,
       profile: 'full',
       allowedGroups: new Set(['audit']),

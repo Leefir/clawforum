@@ -56,7 +56,7 @@ describe('claw-list', () => {
 
     const { loadGlobalConfig, getGlobalConfigPath } = await import('../../../src/foundation/config/index.js');
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
-    vi.mocked(getGlobalConfigPath).mockReturnValue('/tmp/clawforum/config.yaml');
+    vi.mocked(getGlobalConfigPath).mockReturnValue('/tmp/chestnut/config.yaml');
 
     const { createProcessManagerForCLI } = await import('../../../src/foundation/process-manager/factories.js');
     vi.mocked(createProcessManagerForCLI).mockReturnValue({

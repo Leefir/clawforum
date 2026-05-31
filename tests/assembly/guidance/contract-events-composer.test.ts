@@ -27,7 +27,7 @@ describe('phase 1487: contract-events composer', () => {
   it('single problem (1 pair) → trace cmd with real ids + shadow recommendation', () => {
     const result = composer({ problem_pairs: 'worker-1:1780-abcd' });
     expect(result).not.toBeNull();
-    expect(result!.text).toContain('clawforum claw worker-1 trace 1780-abcd');
+    expect(result!.text).toContain('chestnut claw worker-1 trace 1780-abcd');
     expect(result!.text).toContain('shadow 工具');
     expect(result!.text).toContain('子任务提交但有 last_failure');
   });
@@ -35,8 +35,8 @@ describe('phase 1487: contract-events composer', () => {
   it('multi problem (2 pairs) → enumerate trace cmds + plural intro', () => {
     const result = composer({ problem_pairs: 'worker-1:1780-abcd,worker-2:1780-cdef' });
     expect(result).not.toBeNull();
-    expect(result!.text).toContain('clawforum claw worker-1 trace 1780-abcd');
-    expect(result!.text).toContain('clawforum claw worker-2 trace 1780-cdef');
+    expect(result!.text).toContain('chestnut claw worker-1 trace 1780-abcd');
+    expect(result!.text).toContain('chestnut claw worker-2 trace 1780-cdef');
     expect(result!.text).toContain('2 个 contract');
     expect(result!.text).toContain('shadow 工具');
   });
@@ -44,7 +44,7 @@ describe('phase 1487: contract-events composer', () => {
   it('malformed pair (no colon) → skipped, others kept', () => {
     const result = composer({ problem_pairs: 'malformed,worker-1:1780-abcd' });
     expect(result).not.toBeNull();
-    expect(result!.text).toContain('clawforum claw worker-1 trace 1780-abcd');
+    expect(result!.text).toContain('chestnut claw worker-1 trace 1780-abcd');
     expect(result!.text).not.toContain('malformed');
   });
 
@@ -55,7 +55,7 @@ describe('phase 1487: contract-events composer', () => {
   it('trims whitespace around pairs', () => {
     const result = composer({ problem_pairs: ' worker-1:abc , worker-2:def ' });
     expect(result).not.toBeNull();
-    expect(result!.text).toContain('clawforum claw worker-1 trace abc');
-    expect(result!.text).toContain('clawforum claw worker-2 trace def');
+    expect(result!.text).toContain('chestnut claw worker-1 trace abc');
+    expect(result!.text).toContain('chestnut claw worker-2 trace def');
   });
 });

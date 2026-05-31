@@ -27,7 +27,7 @@ describe('Heartbeat', () => {
   let heartbeat: Heartbeat;
 
   beforeEach(async () => {
-    tempDir = await createTempDir('clawforum-hb-test-');
+    tempDir = await createTempDir('chestnut-hb-test-');
     // 创建 motion/inbox/pending 目录结构
     fs.mkdirSync(path.join(tempDir, 'motion', 'inbox', 'pending'), { recursive: true });
   });

@@ -22,7 +22,7 @@ import type { PermissionChecker } from '../../foundation/tool-protocol/permissio
 
 import { SubAgent } from './agent.js';
 import { DONE_TOOL_NAME, type CapturableTool } from './tools/done.js';
-import type { ClawId, ClawforumRoot } from '../../foundation/identity/index.js';
+import type { ClawId, ChestnutRoot } from '../../foundation/identity/index.js';
 import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
 
@@ -40,8 +40,8 @@ export interface RunSubagentOptions {
 
   // 基础设施依赖（caller 注入）
   clawDir: ClawDir;
-  /** phase 1387: Assembly 装配期注入的 clawforum 根目录 */
-  clawforumRoot: ClawforumRoot;
+  /** phase 1387: Assembly 装配期注入的 chestnut 根目录 */
+  chestnutRoot: ChestnutRoot;
   fs: FileSystem;
   fsFactory?: (baseDir: string) => FileSystem;
   llm: LLMOrchestrator;
@@ -113,7 +113,7 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
     registry: opts.registry,
     defaultTimeoutMs: opts.toolTimeoutMs,
     clawDir: opts.clawDir,
-    clawforumRoot: opts.clawforumRoot,
+    chestnutRoot: opts.chestnutRoot,
     syncDir: path.join(opts.clawDir, 'tasks/sync'),  // TASKS_SYNC_DIR
     workspaceDir: sharedWorkspaceDir,
     fs: opts.fs,

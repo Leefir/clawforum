@@ -35,22 +35,22 @@ vi.mock('../../src/watchdog/watchdog-cli.js', async (importOriginal) => {
 
 describe('ensureWatchdog singleton lock', () => {
   let tmpDir: string;
-  let clawforumDir: string;
+  let chestnutDir: string;
   let auditWriter: AuditWriter;
   let auditSpy: ReturnType<typeof vi.spyOn>;
-  const originalRoot = process.env.CLAWFORUM_ROOT;
+  const originalRoot = process.env.CHESTNUT_ROOT;
   const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
   beforeEach(() => {
     tmpDir = path.join(os.tmpdir(), `wd-ensure-${randomUUID()}`);
-    clawforumDir = path.join(tmpDir, '.clawforum');
-    fs.mkdirSync(clawforumDir, { recursive: true });
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    chestnutDir = path.join(tmpDir, '.chestnut');
+    fs.mkdirSync(chestnutDir, { recursive: true });
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
-    process.env.CLAWFORUM_ROOT = '/test/root';
+    process.env.CHESTNUT_ROOT = '/test/root';
 
     auditWriter = new AuditWriter(
-      new NodeFileSystem({ baseDir: clawforumDir }),
+      new NodeFileSystem({ baseDir: chestnutDir }),
       'audit.tsv',
       null,
     );
@@ -61,9 +61,9 @@ describe('ensureWatchdog singleton lock', () => {
 
   afterEach(() => {
     if (originalRoot !== undefined) {
-      process.env.CLAWFORUM_ROOT = originalRoot;
+      process.env.CHESTNUT_ROOT = originalRoot;
     } else {
-      delete process.env.CLAWFORUM_ROOT;
+      delete process.env.CHESTNUT_ROOT;
     }
     setAuditWriter(null);
     vi.clearAllMocks();
@@ -80,7 +80,7 @@ describe('ensureWatchdog singleton lock', () => {
       spawnCount++;
       // Small delay to exaggerate the race window
       await new Promise(r => setTimeout(r, 30));
-      const pidFile = path.join(clawforumDir, 'watchdog.pid');
+      const pidFile = path.join(chestnutDir, 'watchdog.pid');
       // Use current process PID so isAlive() returns true in double-check
       fs.writeFileSync(pidFile, JSON.stringify({ pid: process.pid, root: '/test/root' }));
     });
@@ -91,7 +91,7 @@ describe('ensureWatchdog singleton lock', () => {
   });
 
   it('stale lock recovery: second caller cleans dead lock holder + spawns', async () => {
-    const lockPath = path.join(clawforumDir, 'watchdog.lock');
+    const lockPath = path.join(chestnutDir, 'watchdog.lock');
     // Write a lock file with a dead PID
     fs.writeFileSync(lockPath, `${999999999}\n`);
 
@@ -101,7 +101,7 @@ describe('ensureWatchdog singleton lock', () => {
     const mockStart = vi.mocked(mockedStart);
     mockStart.mockImplementation(async () => {
       spawnCount++;
-      const pidFile = path.join(clawforumDir, 'watchdog.pid');
+      const pidFile = path.join(chestnutDir, 'watchdog.pid');
       fs.writeFileSync(pidFile, JSON.stringify({ pid: 12345, root: '/test/root' }));
     });
 
@@ -120,7 +120,7 @@ describe('ensureWatchdog singleton lock', () => {
     // Real fs.openSync calls still execute (each fails with EEXIST).
     vi.useFakeTimers();
     try {
-      const lockPath = path.join(clawforumDir, 'watchdog.lock');
+      const lockPath = path.join(chestnutDir, 'watchdog.lock');
       // Write a lock file with the CURRENT process PID (alive, never releases)
       fs.writeFileSync(lockPath, `${process.pid}\n`);
 
@@ -142,7 +142,7 @@ describe('ensureWatchdog singleton lock', () => {
   });
 
   it('foreign workspace pid rethrows WatchdogPidForeignWorkspaceError', async () => {
-    const pidFile = path.join(clawforumDir, 'watchdog.pid');
+    const pidFile = path.join(chestnutDir, 'watchdog.pid');
     const foreignAlivePid = process.pid;
     fs.writeFileSync(pidFile, JSON.stringify({ pid: foreignAlivePid, root: '/foreign/root' }));
 

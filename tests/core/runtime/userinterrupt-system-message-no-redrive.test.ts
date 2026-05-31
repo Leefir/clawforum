@@ -39,7 +39,7 @@ describe('phase 1415: UserInterrupt → system-typed inbox no-redrive invariant'
   const runtimes: Runtime[] = [];
 
   beforeEach(async () => {
-    testTempDir = path.join(tmpdir(), `clawforum-1415-${randomUUID()}`);
+    testTempDir = path.join(tmpdir(), `chestnut-1415-${randomUUID()}`);
     testClawDir = path.join(testTempDir, 'claws', 'edge-claw');
     await fs.mkdir(testClawDir, { recursive: true });
   });

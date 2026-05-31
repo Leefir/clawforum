@@ -66,7 +66,7 @@ describe('claw help routing', () => {
   it('`claw help send` writes per-verb help', async () => {
     await dispatchClawSubcommand('help', ['send'], fakeDeps);
     const out = writes.join('');
-    expect(out).toContain('Usage: clawforum claw <claw-name> send <message>');
+    expect(out).toContain('Usage: chestnut claw <claw-name> send <message>');
     expect(out).toContain('Examples:');
   });
 
@@ -79,13 +79,13 @@ describe('claw help routing', () => {
   it('`claw <name> <verb> --help` short-circuits to per-verb help', async () => {
     await dispatchClawSubcommand('alice', ['send', '--help'], fakeDeps);
     const out = writes.join('');
-    expect(out).toContain('Usage: clawforum claw <claw-name> send <message>');
+    expect(out).toContain('Usage: chestnut claw <claw-name> send <message>');
   });
 
   it('`claw <name> <verb> -h` short-circuits to per-verb help', async () => {
     await dispatchClawSubcommand('alice', ['outbox', '-h'], fakeDeps);
     const out = writes.join('');
-    expect(out).toContain('Usage: clawforum claw <claw-name> outbox');
+    expect(out).toContain('Usage: chestnut claw <claw-name> outbox');
     expect(out).toContain('--limit');
   });
 
@@ -95,7 +95,7 @@ describe('claw help routing', () => {
     // routing wins, so `claw help foo` is interpreted as help-for-verb-foo,
     // not as create-claw-named-help.
     await expect(dispatchClawSubcommand('help', ['create'], fakeDeps)).resolves.toBeUndefined();
-    expect(writes.join('')).toContain('Usage: clawforum claw <claw-name> create');
+    expect(writes.join('')).toContain('Usage: chestnut claw <claw-name> create');
   });
 });
 

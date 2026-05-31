@@ -56,16 +56,16 @@ const clawFsFactory = (clawDir: string): FileSystem => new NodeFileSystem({ base
 // ─── 测试 ─────────────────────────────────────────────────────
 
 describe('runDeepDream', () => {
-  let clawforumDir: string;
+  let chestnutDir: string;
 
   beforeEach(async () => {
-    clawforumDir = await createTempDir();
+    chestnutDir = await createTempDir();
     mockLlmCall.mockReset();
     mockLlmCall.mockResolvedValue(makeTextResponse('dream output'));
   });
 
   afterEach(async () => {
-    await cleanupTempDir(clawforumDir);
+    await cleanupTempDir(chestnutDir);
     vi.clearAllMocks();
     vi.restoreAllMocks(); // phase 880: defense-in-depth, restore prototype-level spies if inline mockRestore skipped due to exception
   });
@@ -73,7 +73,7 @@ describe('runDeepDream', () => {
   // ── 无 claws 目录 ───────────────────────────────────────────
 
   it('claws 目录不存在时直接返回，不调用 LLM', async () => {
-    await expect(runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory })).resolves.toBeUndefined();
+    await expect(runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory })).resolves.toBeUndefined();
     expect(mockLlmCall).not.toHaveBeenCalled();
   });
 
@@ -84,7 +84,7 @@ describe('runDeepDream', () => {
     let archiveDir: string;
 
     beforeEach(async () => {
-      clawDir = path.join(clawforumDir, 'claws', 'test-claw');
+      clawDir = path.join(chestnutDir, 'claws', 'test-claw');
       archiveDir = path.join(clawDir, 'dialog', 'archive');
       await fs.mkdir(archiveDir, { recursive: true });
       await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
@@ -107,7 +107,7 @@ describe('runDeepDream', () => {
           .mockResolvedValueOnce(makeTextResponse('dream'))
           .mockResolvedValueOnce(makeTextResponse('compressed'));
 
-        await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+        await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
         // audit 记录了 load_state 错误
         expect(mockAudit.write).toHaveBeenCalledWith(
@@ -135,7 +135,7 @@ describe('runDeepDream', () => {
           .mockResolvedValueOnce(makeTextResponse('dream'))
           .mockResolvedValueOnce(makeTextResponse('compressed'));
 
-        await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+        await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
         // audit 没有记录 load_state 错误
         expect(mockAudit.write).not.toHaveBeenCalledWith(
@@ -171,7 +171,7 @@ describe('runDeepDream', () => {
           return originalWriteAtomicSync.call(this, p, content);
         });
 
-        await expect(runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory })).resolves.toBeUndefined();
+        await expect(runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory })).resolves.toBeUndefined();
 
         // audit 记录了 save_state 错误
         expect(mockAudit.write).toHaveBeenCalledWith(
@@ -193,7 +193,7 @@ describe('runDeepDream', () => {
         const filename = `1000000000003_corrupt.json`;
         await fs.writeFile(path.join(archiveDir, filename), 'invalid{', 'utf-8');
 
-        await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+        await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
         // audit 记录 step=read_session
         expect(mockAudit.write).toHaveBeenCalledWith(
@@ -216,7 +216,7 @@ describe('runDeepDream', () => {
         await fs.mkdir(path.dirname(currentPath), { recursive: true });
         await fs.writeFile(currentPath, 'invalid{', 'utf-8');
 
-        await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+        await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
         // DialogStore 内部处理 corrupted（不抛错给 deep-dream）→ deep-dream 跳过 current.json
         // 验证：DialogStore 发出内部 corrupted / cold_start audit（不依赖 deep-dream 的 step=read_session）
@@ -238,7 +238,7 @@ describe('runDeepDream', () => {
     });
 
     it('无 session 文件时不调用 LLM', async () => {
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
       expect(mockLlmCall).not.toHaveBeenCalled();
     });
 
@@ -254,7 +254,7 @@ describe('runDeepDream', () => {
         .mockResolvedValueOnce(makeTextResponse('dream insight content'))
         .mockResolvedValueOnce(makeTextResponse('compressed summary'));
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       // LLM 调用了两次（Call 1 梦境 + Call 2 压缩）
       expect(mockLlmCall).toHaveBeenCalledTimes(2);
@@ -285,7 +285,7 @@ describe('runDeepDream', () => {
         .mockResolvedValueOnce(makeTextResponse('dream'))
         .mockResolvedValueOnce(makeTextResponse('compressed'));
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       expect(mockLlmCall).toHaveBeenCalledTimes(2);
       const call1Args = mockLlmCall.mock.calls[0][0] as Record<string, unknown>;
@@ -302,7 +302,7 @@ describe('runDeepDream', () => {
       const filename = `1000000000002_abcd1234.json`;
       await fs.writeFile(path.join(archiveDir, filename), emptySession, 'utf-8');
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       // 空会话无内容，不调用 LLM
       expect(mockLlmCall).not.toHaveBeenCalled();
@@ -330,7 +330,7 @@ describe('runDeepDream', () => {
       const filename = `1000000000003_abcd1234.json`;
       await fs.writeFile(path.join(archiveDir, filename), session, 'utf-8');
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       expect(mockLlmCall).not.toHaveBeenCalled();
 
@@ -357,7 +357,7 @@ describe('runDeepDream', () => {
         currentSessionDreamedDate: '',
       }), 'utf-8');
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       expect(mockLlmCall).not.toHaveBeenCalled();
     });
@@ -377,7 +377,7 @@ describe('runDeepDream', () => {
         .mockRejectedValueOnce(new Error('LLM timeout'));
 
       // 不抛出异常
-      await expect(runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory })).resolves.toBeUndefined();
+      await expect(runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory })).resolves.toBeUndefined();
 
       // state 已更新，inbox 消息已写入（dreamOutput 仍可用）
       const statePath = path.join(clawDir, '.deep-dream-state.json');
@@ -405,7 +405,7 @@ describe('runDeepDream', () => {
         .mockResolvedValueOnce(makeTextResponse('dream'))
         .mockResolvedValueOnce(makeTextResponse('compressed'));
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       expect(mockLlmCall).toHaveBeenCalledTimes(2);
 
@@ -430,13 +430,13 @@ describe('runDeepDream', () => {
         currentSessionDreamedDate: today,
       }), 'utf-8');
 
-      await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+      await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
       expect(mockLlmCall).not.toHaveBeenCalled();
     });
 
   it('传入 motionFs 时 disk snapshot 后 emit DREAM_OUTPUT_PERSISTED 含 dreamId + path + bytes', async () => {
-    const motionDir = path.join(clawforumDir, 'motion');
+    const motionDir = path.join(chestnutDir, 'motion');
     await fs.mkdir(path.join(motionDir, 'inbox', 'pending'), { recursive: true });
     const session = makeSessionJson([
       { role: 'user', content: 'hello' },
@@ -451,10 +451,10 @@ describe('runDeepDream', () => {
 
     const motionFs = new NodeFileSystem({ baseDir: motionDir });
     await runDeepDream({
-      clawforumRoot: clawforumDir,
+      chestnutRoot: chestnutDir,
       llmConfig: fakeLlmConfig,
       llmService: mockLlmService as any,
-      fs: new NodeFileSystem({ baseDir: clawforumDir }),
+      fs: new NodeFileSystem({ baseDir: chestnutDir }),
       motionFs,
       audit: mockAudit,
       clawFsFactory,
@@ -479,7 +479,7 @@ describe('runDeepDream', () => {
 
   it('第一个 claw Call 1 失败，第二个 claw 仍正常处理', async () => {
     const makeClawDir = async (clawId: string) => {
-      const clawDir = path.join(clawforumDir, 'claws', clawId);
+      const clawDir = path.join(chestnutDir, 'claws', clawId);
       await fs.mkdir(path.join(clawDir, 'dialog', 'archive'), { recursive: true });
       await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
       return clawDir;
@@ -500,7 +500,7 @@ describe('runDeepDream', () => {
       .mockRejectedValueOnce(new Error('claw-fail error'))
       .mockResolvedValue(makeTextResponse('ok dream'));
 
-    await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+    await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
     // claw-ok 的 inbox 应有消息
     const inboxFiles = fsSync.readdirSync(path.join(clawDir2, 'inbox', 'pending'));
@@ -511,7 +511,7 @@ describe('runDeepDream', () => {
   // ── 元压缩触发 ──────────────────────────────────────────────
 
   it('元压缩：compressions 超过 maxCompressionTokens 时触发第 3 次 LLM 调用', async () => {
-    const clawDir = path.join(clawforumDir, 'claws', 'claw-meta');
+    const clawDir = path.join(chestnutDir, 'claws', 'claw-meta');
     const archiveDir = path.join(clawDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
     await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
@@ -535,7 +535,7 @@ describe('runDeepDream', () => {
       .mockResolvedValueOnce(makeTextResponse('dream 2'))           // Call 1 file2
       .mockResolvedValueOnce(makeTextResponse('compression 2'));    // Call 2 file2
 
-    await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, maxCompressionTokens: 100, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+    await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, maxCompressionTokens: 100, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
     // 5 次 LLM 调用：Call1+Call2 for file1, 元压缩, Call1+Call2 for file2
     expect(mockLlmCall).toHaveBeenCalledTimes(5);
@@ -544,7 +544,7 @@ describe('runDeepDream', () => {
   // ── 时间戳升序处理 ──────────────────────────────────────────
 
   it('archive 文件按时间戳升序处理（旧文件的压缩传给新文件）', async () => {
-    const clawDir = path.join(clawforumDir, 'claws', 'claw-order');
+    const clawDir = path.join(chestnutDir, 'claws', 'claw-order');
     const archiveDir = path.join(clawDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
     await fs.mkdir(path.join(clawDir, 'inbox', 'pending'), { recursive: true });
@@ -565,7 +565,7 @@ describe('runDeepDream', () => {
       return makeTextResponse('response');
     });
 
-    await runDeepDream({ clawforumRoot: clawforumDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: clawforumDir }), audit: mockAudit, clawFsFactory });
+    await runDeepDream({ chestnutRoot: chestnutDir, llmConfig: fakeLlmConfig, llmService: mockLlmService as any, fs: new NodeFileSystem({ baseDir: chestnutDir }), audit: mockAudit, clawFsFactory });
 
     // 4 次调用（两文件各 Call1+Call2）
     expect(mockLlmCall).toHaveBeenCalledTimes(4);

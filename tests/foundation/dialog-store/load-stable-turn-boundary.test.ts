@@ -12,7 +12,7 @@ describe('phase 1184 loadStableTurnBoundary', () => {
   const clawId = 'test-claw';
 
   beforeEach(async () => {
-    tempDir = await createTempDir('clawforum-test-');
+    tempDir = await createTempDir('chestnut-test-');
     fs = new NodeFileSystem({ baseDir: tempDir });
   });
   afterEach(async () => {

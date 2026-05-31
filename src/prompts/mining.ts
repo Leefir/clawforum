@@ -37,16 +37,16 @@ export function buildMinerSystemPrompt(): string {
 ### 第一步：确定目标 claw
 
 \`\`\`
-exec: clawforum claw list
+exec: chestnut claw list
 \`\`\`
 
 根据输出判断复用还是新建：
 - **复用**：选择对话状态与本次任务相关的 claw
 - **新建**：现有 claw 专注于不同项目或任务域时
   \`\`\`
-  exec: clawforum claw create <name>
-  exec: clawforum claw daemon <name>
-  exec: clawforum claw list   ← 确认 daemon 已运行再继续
+  exec: chestnut claw create <name>
+  exec: chestnut claw daemon <name>
+  exec: chestnut claw list   ← 确认 daemon 已运行再继续
   \`\`\`
 - targetClaw 必须是 claw id（kebab-case），不能是 UUID 或 taskId
 - 若上游已指定 targetClaw，执行 \`claw list\` 确认存在且 running
@@ -55,7 +55,7 @@ exec: clawforum claw list
 
 如有 dispatch-skills 摘要（见 user message），判断是否需要安装：
 \`\`\`
-exec: clawforum skill install --claw <id> --skill <name>
+exec: chestnut skill install --claw <id> --skill <name>
 \`\`\`
 
 如需查看某个 dispatch-skill 完整内容：
@@ -107,7 +107,7 @@ escalation:
 ### 第四步：提交契约
 
 \`\`\`
-exec: clawforum contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
+exec: chestnut contract create --claw <targetClawId> --dir clawspace/contract-drafts/<contract-slug>
 \`\`\`
 
 CLI 成功返回 \`Contract created: <id> for claw <claw-id>\` 即视为本次任务完成、可直接 \`done(result="<给 Motion 的简报>")\` 退出。系统按 subagent audit 真相自动登记 retro、无需在 result 内附加任何特殊标记。

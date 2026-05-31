@@ -1,7 +1,7 @@
 /**
  * @module L6.CLI.Claw.Status
  *
- * `clawforum claw <name> status` — read-only inspection of another claw's
+ * `chestnut claw <name> status` — read-only inspection of another claw's
  * business state (contract / tasks / storage). Phase 1472 Step C.
  *
  * 设计：
@@ -9,7 +9,7 @@
  * - fs root 切到目标 claw 的 clawDir、依赖 atomic write 约定（contract/task queue 已 atomic）
  *   不加锁、读到瞬时一致 view
  * - audience：motion 常用（查 worker claw 状态）；用户也可直接调
- *   `clawforum status` （进程层）留给用户看 watchdog/motion/claws alive 概览
+ *   `chestnut status` （进程层）留给用户看 watchdog/motion/claws alive 概览
  * - format 与 agent status tool 输出一致、避免漂移；多 `Claw:` header 标 namespace
  */
 
@@ -20,7 +20,7 @@ import { CliError } from '../errors.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { ContractSystem } from '../../core/contract/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
-import { makeClawId, resolveClawforumRoot } from '../../foundation/identity/index.js';
+import { makeClawId, resolveChestnutRoot } from '../../foundation/identity/index.js';
 import {
   computeContractView,
   computeTaskView,
@@ -43,13 +43,13 @@ export async function clawStatusCommand(
   loadGlobalConfig(deps, CONFIG_DEFAULTS);
 
   if (!clawExists(deps, name)) {
-    throw new CliError(`Claw "${name}" does not exist. Try \`clawforum claw list\` to see existing claws.`);
+    throw new CliError(`Claw "${name}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }
 
   const clawDir = getClawDir(name);
   const clawFs = deps.fsFactory(clawDir);
   const clawId = makeClawId(name);
-  const clawforumRoot = resolveClawforumRoot(clawDir, /* isMotion */ false);
+  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);
 
   const contractSystem = new ContractSystem({
     clawDir,
@@ -58,7 +58,7 @@ export async function clawStatusCommand(
     audit: createSystemAudit(clawFs, clawDir),
     toolRegistry: createToolRegistry(),
     fsFactory: deps.fsFactory,
-    clawforumRoot,
+    chestnutRoot,
   });
 
   const [contractView, taskView, storageView] = await Promise.all([

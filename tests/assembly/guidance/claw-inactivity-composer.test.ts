@@ -9,21 +9,21 @@ describe('phase 1482: claw-inactivity composer', () => {
   it('daemon_stopped → DAEMON restart CLI', () => {
     const r = composer({ failure_class: 'daemon_stopped', claw_id: 'clawA' });
     expect(r).not.toBeNull();
-    expect(r!.text).toContain('clawforum claw clawA daemon');
+    expect(r!.text).toContain('chestnut claw clawA daemon');
     expect(r!.text).toContain('重启');
   });
 
   it('daemon_silent → STEPS CLI', () => {
     const r = composer({ failure_class: 'daemon_silent', claw_id: 'clawA' });
     expect(r).not.toBeNull();
-    expect(r!.text).toContain('clawforum claw clawA steps');
+    expect(r!.text).toContain('chestnut claw clawA steps');
     expect(r!.text).toContain('stuck');
   });
 
   it('daemon_errored → STEPS CLI', () => {
     const r = composer({ failure_class: 'daemon_errored', claw_id: 'clawA' });
     expect(r).not.toBeNull();
-    expect(r!.text).toContain('clawforum claw clawA steps');
+    expect(r!.text).toContain('chestnut claw clawA steps');
     expect(r!.text).toContain('error context');
   });
 
@@ -34,6 +34,6 @@ describe('phase 1482: claw-inactivity composer', () => {
 
   it('missing claw_id → fallback <claw-id> placeholder', () => {
     const r = composer({ failure_class: 'daemon_stopped', claw_id: '' });
-    expect(r!.text).toContain('clawforum claw <claw-id> daemon');
+    expect(r!.text).toContain('chestnut claw <claw-id> daemon');
   });
 });

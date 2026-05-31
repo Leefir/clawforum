@@ -1,10 +1,10 @@
-import { type ClawforumRoot } from '../../../foundation/identity/index.js';
+import { type ChestnutRoot } from '../../../foundation/identity/index.js';
 /**
  * @module L5.Cron.AuditSizeMonitor
  * @layer L5
  * @depends L1.FileSystem, L2.AuditLog
  *
- * Cron job: 周期 stat motion/audit.tsv + .clawforum/audit.tsv 大小、超阈值 emit audit + inbox notify。
+ * Cron job: 周期 stat motion/audit.tsv + .chestnut/audit.tsv 大小、超阈值 emit audit + inbox notify。
  *
  * phase 1154 derive (user 2026-05-23 Terminal SIGABRT 诊断追溯)。
  */
@@ -27,9 +27,9 @@ const AUDIT_SIZE_CRITICAL_BYTES = 1024 * 1024 * 1024;  // 1 GB
 export interface AuditSizeMonitorOptions {
   fs: FileSystem;
   audit: AuditLog;
-  clawforumRoot: ClawforumRoot;
-  motionAuditPath: string;     // <clawforumRoot>/motion/audit.tsv
-  rootAuditPath: string;        // <clawforumRoot>/audit.tsv
+  chestnutRoot: ChestnutRoot;
+  motionAuditPath: string;     // <chestnutRoot>/motion/audit.tsv
+  rootAuditPath: string;        // <chestnutRoot>/audit.tsv
   warnBytes?: number;
   criticalBytes?: number;
   motionInbox?: InboxWriter;

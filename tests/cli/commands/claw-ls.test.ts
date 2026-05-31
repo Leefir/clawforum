@@ -42,11 +42,11 @@ describe('claw-ls (phase 1480)', () => {
 
   beforeEach(() => {
     tmpRoot = path.join(os.tmpdir(), `phase1480-ls-${randomUUID()}`);
-    // Layout under <tmp>/.clawforum/claws/test-claw/ (mirrors getClawDir()):
+    // Layout under <tmp>/.chestnut/claws/test-claw/ (mirrors getClawDir()):
     //   .../clawspace/a.md
     //   .../clawspace/b.md
     //   .../clawspace/notes/inner.md
-    const clawDir = path.join(tmpRoot, '.clawforum', 'claws', 'test-claw');
+    const clawDir = path.join(tmpRoot, '.chestnut', 'claws', 'test-claw');
     clawspace = path.join(clawDir, 'clawspace');
     fs.mkdirSync(clawspace, { recursive: true });
     fs.writeFileSync(path.join(clawDir, 'config.yaml'), 'name: test-claw\n');
@@ -54,7 +54,7 @@ describe('claw-ls (phase 1480)', () => {
     fs.writeFileSync(path.join(clawspace, 'b.md'), 'bbb');
     fs.mkdirSync(path.join(clawspace, 'notes'));
     fs.writeFileSync(path.join(clawspace, 'notes', 'inner.md'), 'inner');
-    process.env.CLAWFORUM_ROOT = tmpRoot;
+    process.env.CHESTNUT_ROOT = tmpRoot;
 
     writes = [];
     writeSpy = vi
@@ -67,7 +67,7 @@ describe('claw-ls (phase 1480)', () => {
 
   afterEach(() => {
     writeSpy.mockRestore();
-    delete process.env.CLAWFORUM_ROOT;
+    delete process.env.CHESTNUT_ROOT;
     if (fs.existsSync(tmpRoot)) fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 

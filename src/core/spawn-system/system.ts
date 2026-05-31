@@ -51,7 +51,7 @@ export async function runSpawnSync(opts: RunSpawnSyncOptions): Promise<ToolResul
       agentId: id,
       callerType: 'subagent',
       clawDir: opts.ctx.clawDir,
-      clawforumRoot: opts.ctx.clawforumRoot,
+      chestnutRoot: opts.ctx.chestnutRoot,
       fs: opts.ctx.fs,
       fsFactory: opts.ctx.fsFactory,
       llm: opts.ctx.llm,
@@ -79,7 +79,7 @@ export async function runSpawnSync(opts: RunSpawnSyncOptions): Promise<ToolResul
     opts.ctx.auditWriter?.write(SPAWN_AUDIT_EVENTS.SYNC_FAILED, id, errMsg);
     return {
       success: false,
-      content: `[clawforum spawn] sync execution failed: ${errMsg}`,
+      content: `[chestnut spawn] sync execution failed: ${errMsg}`,
       error: 'spawn_sync_failed',
     };
   }

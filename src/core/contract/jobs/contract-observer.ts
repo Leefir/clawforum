@@ -7,7 +7,7 @@ import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 import { CLAWS_DIR } from '../../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import { makeClawId } from '../../../foundation/identity/index.js'
-import { type ClawforumRoot } from '../../../foundation/identity/index.js';
+import { type ChestnutRoot } from '../../../foundation/identity/index.js';
 import { makeClawDir } from '../../../foundation/identity/index.js';
 
 
@@ -18,10 +18,10 @@ import { makeClawDir } from '../../../foundation/identity/index.js';
 export const CONTRACT_OBSERVER_CRON_TIMEOUT_MS = 5 * 60_000;
 
 export interface ContractObserverOptions {
-  clawforumRoot: ClawforumRoot;       // .clawforum/ 目录
-  fs: FileSystem;             // baseDir = clawforumRoot (装配方预 build)
+  chestnutRoot: ChestnutRoot;       // .chestnut/ 目录
+  fs: FileSystem;             // baseDir = chestnutRoot (装配方预 build)
   motionAudit: AuditLog;      // motion system audit (装配方预 build)
-  notifyClaw: (fs: FileSystem, clawforumRoot: ClawforumRoot, targetClawId: string, payload: InboxMessageOptionsBase, audit: AuditLog) => void; // 装配方 closure 包装
+  notifyClaw: (fs: FileSystem, chestnutRoot: ChestnutRoot, targetClawId: string, payload: InboxMessageOptionsBase, audit: AuditLog) => void; // 装配方 closure 包装
   signal?: AbortSignal;
 }
 
@@ -29,10 +29,10 @@ export interface ContractObserverOptions {
 const STATE_FILE = 'status/contract-observer-state.json';
 
 export async function runContractObserver(options: ContractObserverOptions): Promise<void> {
-  const { clawforumRoot, fs, motionAudit, notifyClaw: notifyClawFn } = options;
+  const { chestnutRoot, fs, motionAudit, notifyClaw: notifyClawFn } = options;
 
   // 读上次观察时间戳
-  const stateFile = path.join(clawforumRoot, 'motion', STATE_FILE);
+  const stateFile = path.join(chestnutRoot, 'motion', STATE_FILE);
   let lastCheckTs = 0;
   try {
     const raw = fs.readSync(stateFile);
@@ -59,7 +59,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   }
 
   // 扫描 claws/ 目录
-  const clawsDir = path.join(clawforumRoot, CLAWS_DIR);
+  const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
   let clawIds: string[];
   try {
     clawIds = fs.listSync(clawsDir, { includeDirs: true })
@@ -82,7 +82,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   for (const clawId of clawIds) {
     if (options.signal?.aborted) return;
     try {
-      const clawDir = makeClawDir(path.join(clawforumRoot, CLAWS_DIR, clawId));
+      const clawDir = makeClawDir(path.join(chestnutRoot, CLAWS_DIR, clawId));
       const result = collectContractEvents(fs, clawDir, makeClawId(clawId), lastCheckTs, motionAudit);
       if (result.events.length > 0) {
         events.push(result.events.join('\n'));
@@ -105,7 +105,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     // observer 不扫 motion 自家 archive（scan claws/ 只含 worker）→ 不设 source_claw
     //   (composer 见 source_claw 缺 → 走 problem_pairs 分支判 guidance)
     // A3 callback 在 assemble.ts:550 单独透传 source_claw=clawId（含 motion 自家 contract 路径）
-    notifyClawFn(fs, clawforumRoot, MOTION_CLAW_ID, {
+    notifyClawFn(fs, chestnutRoot, MOTION_CLAW_ID, {
       type: 'contract_events',
       source: 'system',
       priority: 'high',

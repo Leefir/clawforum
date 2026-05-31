@@ -6,7 +6,7 @@
  */
 
 import { ProcessManager } from './manager.js';
-import { getClawforumRoot, getNamedSubrootDir, getClawDir } from '../config/index.js';
+import { getChestnutRoot, getNamedSubrootDir, getClawDir } from '../config/index.js';
 import type { AuditLog } from '../audit/index.js';
 import type { FileSystem } from '../fs/types.js';
 
@@ -14,7 +14,7 @@ import { MOTION_CLAW_ID } from '../../constants.js';
 import { makeClawDir } from '../identity/index.js';
 
 export function createAgentProcessManager(deps: { fsFactory: (baseDir: string) => FileSystem }, audit: AuditLog): ProcessManager {
-  const baseDir = getClawforumRoot();
+  const baseDir = getChestnutRoot();
   const fs = deps.fsFactory(baseDir);
   const resolveAgentDir = (id: string) =>
     id === MOTION_CLAW_ID ? makeClawDir(getNamedSubrootDir('motion')) : getClawDir(id);

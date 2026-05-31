@@ -5,7 +5,7 @@ import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { CLAWS_DIR } from '../../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import { type ClawId, makeClawId } from '../../../foundation/identity/index.js'
-import { type ClawforumRoot } from '../../../foundation/identity/index.js';
+import { type ChestnutRoot } from '../../../foundation/identity/index.js';
 import { type ClawDir } from '../../../foundation/identity/index.js';
 
 
@@ -54,9 +54,9 @@ export interface LlmStatsSummary {
 }
 
 export interface LlmStatsOptions {
-  clawforumRoot: ClawforumRoot;
+  chestnutRoot: ChestnutRoot;
   motionDir: ClawDir;
-  clawforumFs: FileSystem;   // baseDir = clawforumRoot
+  chestnutFs: FileSystem;   // baseDir = chestnutRoot
   motionFs: FileSystem;       // baseDir = motionDir
   audit: AuditLog;
   signal?: AbortSignal;
@@ -76,10 +76,10 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
 
   const summary = aggregate(entries, targetDate, opts.signal);
 
-  // 追加到 .clawforum/logs/llm-stats.jsonl
-  opts.clawforumFs.ensureDirSync(path.dirname(LLM_STATS_FILE));
+  // 追加到 .chestnut/logs/llm-stats.jsonl
+  opts.chestnutFs.ensureDirSync(path.dirname(LLM_STATS_FILE));
   const statsFile = LLM_STATS_FILE;
-  opts.clawforumFs.appendSync(statsFile, JSON.stringify(summary) + '\n');
+  opts.chestnutFs.appendSync(statsFile, JSON.stringify(summary) + '\n');
 
   opts.audit.write(CRON_AUDIT_EVENTS.LLM_STATS, `step=report`, `date=${targetDate}`, `totalCalls=${summary.totalCalls}`, `successCalls=${summary.successCalls}`, `failedCalls=${summary.failedCalls}`, `totalInputTokens=${summary.totalInputTokens}`, `totalOutputTokens=${summary.totalOutputTokens}`, `avg_latency_ms=${summary.avgLatencyMs}`);
 }
@@ -90,9 +90,9 @@ function collectEntries(opts: LlmStatsOptions, targetDate: string): ParsedLlmRow
   const candidates: Array<{ fs: FileSystem; file: string; clawId: ClawId }> = [
     { fs: opts.motionFs, file: 'audit.tsv', clawId: MOTION_CLAW_ID },
     ...(() => {
-      if (!opts.clawforumFs.existsSync(CLAWS_DIR)) return [];
-      return opts.clawforumFs.listSync(CLAWS_DIR, { includeDirs: true }).map(e => ({
-        fs: opts.clawforumFs,
+      if (!opts.chestnutFs.existsSync(CLAWS_DIR)) return [];
+      return opts.chestnutFs.listSync(CLAWS_DIR, { includeDirs: true }).map(e => ({
+        fs: opts.chestnutFs,
         file: path.join(CLAWS_DIR, e.name, 'audit.tsv'),
         clawId: makeClawId(e.name),
       }));

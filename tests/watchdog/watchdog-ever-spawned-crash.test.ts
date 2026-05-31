@@ -51,12 +51,12 @@ describe('watchdog everSpawned crash detection (phase 1047)', () => {
 
   beforeEach(() => {
     tmpDir = path.join(tmpdir(), `wd-ever-${randomUUID()}`);
-    const clawforumDir = path.join(tmpDir, '.clawforum');
-    clawsDir = path.join(clawforumDir, 'claws');
+    const chestnutDir = path.join(tmpDir, '.chestnut');
+    clawsDir = path.join(chestnutDir, 'claws');
     fs.mkdirSync(clawsDir, { recursive: true });
-    fs.mkdirSync(path.join(clawforumDir, 'motion', 'inbox', 'pending'), { recursive: true });
+    fs.mkdirSync(path.join(chestnutDir, 'motion', 'inbox', 'pending'), { recursive: true });
 
-    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(clawforumDir, 'motion'));
+    vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
     vi.mocked(clawHasContract).mockReturnValue(true);
     vi.mocked(gatherClawSnapshot).mockReturnValue({

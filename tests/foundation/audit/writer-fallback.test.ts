@@ -61,7 +61,7 @@ describe('AuditWriter fallback buffer (phase 586 / α)', () => {
     // 触发 exit → dump 到 OS temp dir
     exitListeners[0]!();
     expect(nodeFs.writeFileSync).toHaveBeenCalledWith(
-      expect.stringMatching(new RegExp(`^${escapeRegex(tmpdir())}/clawforum-audit-fallback-\\d+-\\d+\\.tsv$`)),
+      expect.stringMatching(new RegExp(`^${escapeRegex(tmpdir())}/chestnut-audit-fallback-\\d+-\\d+\\.tsv$`)),
       expect.stringContaining('test_event'),
     );
   });
@@ -113,7 +113,7 @@ describe('AuditWriter fallback buffer (phase 586 / α)', () => {
 
     listeners[0]!();
     expect(nodeFs.writeFileSync).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/mock-tmp-dir\/clawforum-audit-fallback-\d+-\d+\.tsv$/),
+      expect.stringMatching(/^\/mock-tmp-dir\/chestnut-audit-fallback-\d+-\d+\.tsv$/),
       expect.any(String),
     );
 

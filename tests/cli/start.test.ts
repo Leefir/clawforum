@@ -34,7 +34,7 @@ const { buildOnboardingSubtasks, pickLanguage, getOnboardingStatus } =
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 function makeTempDir(): string {
-  const dir = path.join(tmpdir(), `clawforum-start-test-${randomUUID()}`);
+  const dir = path.join(tmpdir(), `chestnut-start-test-${randomUUID()}`);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

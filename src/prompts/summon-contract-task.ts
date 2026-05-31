@@ -48,19 +48,19 @@ export function buildSummonContractTask(
   if (targetClaw) {
     task += `
 目标 claw 已由用户指定：**${targetClaw}**。
-执行 \`clawforum claw list\` 确认它存在且处于 daemon 状态。
+执行 \`chestnut claw list\` 确认它存在且处于 daemon 状态。
 如未运行，执行：
-  exec: clawforum claw ${targetClaw} daemon
-  exec: clawforum claw list   ← 再次确认状态已变为 running，再继续`;
+  exec: chestnut claw ${targetClaw} daemon
+  exec: chestnut claw list   ← 再次确认状态已变为 running，再继续`;
   } else {
     task += `
-用 \`clawforum claw list\` 查现有 claw，判断复用还是新建：
+用 \`chestnut claw list\` 查现有 claw，判断复用还是新建：
 - 判断依据：上下文效率，不根据 claw 名称推断能力
 - 如果现有 claw 的对话状态专注于不同的项目或任务域，应新建 claw
 - 如需新建：
-  exec: clawforum claw <name> create
-  exec: clawforum claw <name> daemon
-  exec: clawforum claw list   ← 确认 daemon 已运行再继续
+  exec: chestnut claw <name> create
+  exec: chestnut claw <name> daemon
+  exec: chestnut claw list   ← 确认 daemon 已运行再继续
 - targetClaw 必须是 claw id（kebab-case），不能是 UUID 或 taskId`;
   }
 
@@ -69,14 +69,14 @@ export function buildSummonContractTask(
 ### 2. 安装 dispatch 模板（如需要）
 
 **两类技能池，定位不同：**
-- \`scope: "self"\`：Motion 自己用的技能（如 \`clawforum-guide\`）
+- \`scope: "self"\`：Motion 自己用的技能（如 \`chestnut-guide\`）
 - \`scope: "dispatch"\`：可安装到 claw 的任务模板，摘要已在上方列出
 
 如需查看某个 dispatch 模板的完整内容：
 skill: { "name": "<skill-name>", "scope": "dispatch" }
 
 如需将 dispatch 模板安装到目标 claw：
-exec: clawforum skill install --claw <id> --skill <name>
+exec: chestnut skill install --claw <id> --skill <name>
 
 **注意**：直接调用 \`skill: { "name": "..." }\`（不带 \`scope\`，默认 \`scope: "self"\`）只查 Motion 自己的 self 池，找不到 dispatch 模板。
 
@@ -133,7 +133,7 @@ escalation:
 - 每个有产出文件的子任务，description 里必须写明路径（Claw 依赖此路径决定文件写到哪里）
 
 ### 4. 提交契约
-exec: clawforum contract create --claw <targetClawId> --dir ./contract-drafts/<contract-slug>
+exec: chestnut contract create --claw <targetClawId> --dir ./contract-drafts/<contract-slug>
 
 CLI 成功返回 \`Contract created: <id> for claw <claw-id>\` 即视为本次任务完成、可直接 \`done(result="<给 Motion 的简报>")\` 退出。系统按 subagent audit 真相自动登记 retro、无需在 result 内附加任何特殊标记。
 

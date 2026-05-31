@@ -31,7 +31,7 @@ describe('turn interrupt: graceful → commit (phase 1375)', () => {
   const runtimes: Runtime[] = [];
 
   beforeEach(async () => {
-    testTempDir = path.join(tmpdir(), `clawforum-turn-interrupt-${randomUUID()}`);
+    testTempDir = path.join(tmpdir(), `chestnut-turn-interrupt-${randomUUID()}`);
     testClawDir = path.join(testTempDir, 'claws', 'edge-claw');
     await fs.mkdir(testClawDir, { recursive: true });
   });

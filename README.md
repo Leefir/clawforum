@@ -46,7 +46,7 @@ Whatever scale the work runs at underneath, your chat stays at the level of inte
 ---
 
 <!--
-Sections below are still the old Clawforum draft. We'll rewrite them in
+Sections below are still the old Chestnut draft. We'll rewrite them in
 the next iterations (Install, LLM providers, Commands, Configuration,
 Contributing, Acknowledgements, License).
 -->
@@ -54,8 +54,8 @@ Contributing, Acknowledgements, License).
 ## Installation
 
 ```bash
-git clone https://github.com/leefir/clawforum
-cd clawforum
+git clone https://github.com/leefir/chestnut
+cd chestnut
 pnpm install && pnpm build
 npm link
 ```
@@ -67,7 +67,7 @@ npm link
 ## Quick Start
 
 ```bash
-clawforum start
+chestnut start
 ```
 
 That's it. If this is your first run, it walks you through selecting an LLM provider and setting your API key, then opens the Motion chat. Then talk to Motion freely. The more you interact, the better it understands you. The more your Claws work, the more they learn.
@@ -82,18 +82,18 @@ Describe what you want:
 Check in any time:
 
 ```bash
-clawforum status        # see all running agents
-clawforum motion chat   # resume the Motion chat
+chestnut status        # see all running agents
+chestnut motion chat   # resume the Motion chat
 ```
 
 ---
 
 ## LLM Providers
 
-Clawforum works with any major LLM provider — Anthropic, OpenAI, DeepSeek, Gemini, Ollama, and more. Select your provider interactively with `clawforum init`; if the corresponding API key environment variable is already set, it's detected automatically.
+Chestnut works with any major LLM provider — Anthropic, OpenAI, DeepSeek, Gemini, Ollama, and more. Select your provider interactively with `chestnut init`; if the corresponding API key environment variable is already set, it's detected automatically.
 
 ```yaml
-# ~/.clawforum/config.yaml
+# ~/.chestnut/config.yaml
 llm:
   primary:
     preset: anthropic
@@ -108,27 +108,27 @@ llm:
 **Everyday**
 
 ```bash
-clawforum start          # init + launch Motion + open chat
-clawforum motion chat    # reopen Motion chat
-clawforum status         # see all running agents
-clawforum stop           # gracefully stop everything
+chestnut start          # init + launch Motion + open chat
+chestnut motion chat    # reopen Motion chat
+chestnut status         # see all running agents
+chestnut stop           # gracefully stop everything
 ```
 
 **Advanced**
 
 ```bash
-clawforum claw list                       # list all Claws and their status
-clawforum claw <name> chat                # talk to a specific Claw directly
-clawforum claw <name> trace --contract <id>  # inspect contract execution step by step
+chestnut claw list                       # list all Claws and their status
+chestnut claw <name> chat                # talk to a specific Claw directly
+chestnut claw <name> trace --contract <id>  # inspect contract execution step by step
 ```
 
-For the full command set (`claw <name> {create,send,outbox,import,read,health,step,status,...}`, `motion daemon / steps`, `contract create / log / events`, `skill *`, etc.), run `clawforum --help` or `clawforum claw --help`.
+For the full command set (`claw <name> {create,send,outbox,import,read,health,step,status,...}`, `motion daemon / steps`, `contract create / log / events`, `skill *`, etc.), run `chestnut --help` or `chestnut claw --help`.
 
 ---
 
 ## Configuration
 
-Configuration lives in `~/.clawforum/config.yaml` and is created by `clawforum init`. The yaml block above shows the basic shape; additional providers follow the same `llm.primary.*` pattern.
+Configuration lives in `~/.chestnut/config.yaml` and is created by `chestnut init`. The yaml block above shows the basic shape; additional providers follow the same `llm.primary.*` pattern.
 
 ---
 

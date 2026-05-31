@@ -53,7 +53,7 @@ function makeTool(opts: {
 }
 
 async function setup(opts: { withProvider: boolean; snapshotData?: CallerSnapshot }) {
-  const tempDir = path.join(tmpdir(), `clawforum-test-1406-${randomUUID()}`);
+  const tempDir = path.join(tmpdir(), `chestnut-test-1406-${randomUUID()}`);
   await fs.mkdir(tempDir, { recursive: true });
   const mockFs = new NodeFileSystem({ baseDir: tempDir });
   const auditEntries: Array<{ type: string; fields: string[] }> = [];
@@ -65,7 +65,7 @@ async function setup(opts: { withProvider: boolean; snapshotData?: CallerSnapsho
   const ctx = new ExecContextImpl({
     clawId: 'test-claw',
     clawDir: tempDir,
-    clawforumRoot: tempDir,
+    chestnutRoot: tempDir,
     syncDir: tempDir,
     profile: 'full',
     allowedGroups: ALL_GROUPS,
@@ -162,7 +162,7 @@ describe('phase 1406 caller-snapshot access gate', () => {
 
   it('lazy: undeclared tool not calling snapshot() incurs 0 audit emit + 0 provider invocations', async () => {
     let providerInvocations = 0;
-    const tempDir = path.join(tmpdir(), `clawforum-test-1406-${randomUUID()}`);
+    const tempDir = path.join(tmpdir(), `chestnut-test-1406-${randomUUID()}`);
     await fs.mkdir(tempDir, { recursive: true });
     const mockFs = new NodeFileSystem({ baseDir: tempDir });
     const auditEntries: Array<{ type: string; fields: string[] }> = [];
@@ -174,7 +174,7 @@ describe('phase 1406 caller-snapshot access gate', () => {
     const ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,
-      clawforumRoot: tempDir,
+      chestnutRoot: tempDir,
       syncDir: tempDir,
       profile: 'full',
       allowedGroups: ALL_GROUPS,

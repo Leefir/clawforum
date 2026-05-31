@@ -5,7 +5,7 @@
  * Responsible for: argument extraction, context injection, output truncation, ToolResult formatting.
  *
  * phase 1473 exception: 见下方 §guard — motion-chain self-kill 拒绝路径
- * （`looksLikeClawforumSelfKill` + `ctx.isMotionChain`）。范畴属「存活语义」
+ * （`looksLikeChestnutSelfKill` + `ctx.isMotionChain`）。范畴属「存活语义」
  * 而非 application-level 权限管理，与 phase 1280 REFRAMED-OUT 不冲突。
  * 详 ../index.ts 顶 docblock phase 1473 豁免说明段。
  */
@@ -27,17 +27,17 @@ import { COMMAND_TOOL_AUDIT_EVENTS } from './audit-events.js';
  * Detect commands that would kill the motion daemon process itself.
  *
  * Matches:
- *   - `clawforum stop`        (kills watchdog → motion → claws)
- *   - `clawforum motion stop` (kills motion only)
+ *   - `chestnut stop`        (kills watchdog → motion → claws)
+ *   - `chestnut motion stop` (kills motion only)
  *
- * Does NOT match `clawforum watchdog stop` (doesn't directly kill motion).
+ * Does NOT match `chestnut watchdog stop` (doesn't directly kill motion).
  *
- * Accepted false positive: `echo "clawforum stop"` is also blocked.
+ * Accepted false positive: `echo "chestnut stop"` is also blocked.
  * Threat model is well-meaning agent, not adversary — shell evasion
  * (eval, env-var splicing, path tricks) is out of scope.
  */
-function looksLikeClawforumSelfKill(command: string): boolean {
-  return /\bclawforum\s+(motion\s+)?stop\b/i.test(command);
+function looksLikeChestnutSelfKill(command: string): boolean {
+  return /\bchestnut\s+(motion\s+)?stop\b/i.test(command);
 }
 
 function truncate(str: string, maxLen: number): string {
@@ -112,10 +112,10 @@ export function createExecTool(): Tool {
       const command = args.command as string;
 
       // phase 1473: motion-chain self-kill guard
-      //   motion 调 `clawforum stop` / `clawforum motion stop` → SIGTERM 自身进程
+      //   motion 调 `chestnut stop` / `chestnut motion stop` → SIGTERM 自身进程
       //   → in-flight tool_use_result 丢失 → motion 重启回到悬挂 tool_use
       //   → LLM 再次发起 stop → 死循环
-      if (ctx.isMotionChain && looksLikeClawforumSelfKill(command)) {
+      if (ctx.isMotionChain && looksLikeChestnutSelfKill(command)) {
         ctx.auditWriter?.write(
           COMMAND_TOOL_AUDIT_EVENTS.EXEC_MOTION_SELF_KILL_BLOCKED,
           `clawId=${ctx.clawId}`,
@@ -124,7 +124,7 @@ export function createExecTool(): Tool {
         return {
           success: false,
           content:
-            'Error: motion-chain cannot exec `clawforum stop` / `clawforum motion stop` ' +
+            'Error: motion-chain cannot exec `chestnut stop` / `chestnut motion stop` ' +
             'via shell. The command SIGTERMs motion itself; the in-flight tool result ' +
             'is lost, and after restart motion re-issues the same command (infinite ' +
             'loop). To stop motion, ask the user or use an external CLI process. ' +

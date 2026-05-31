@@ -15,26 +15,26 @@ import type { Tool, ToolPermission } from '../../src/types/tool.js';
 
 describe('Tool Path Validation', () => {
   it('should resolve paths correctly', () => {
-    const clawDir = '/workspace/.clawforum/claws/test-claw';
+    const clawDir = '/workspace/.chestnut/claws/test-claw';
     const relativePath = 'clawspace/test.txt';
     const resolved = path.resolve(clawDir, relativePath);
     
-    expect(resolved).toBe('/workspace/.clawforum/claws/test-claw/clawspace/test.txt');
+    expect(resolved).toBe('/workspace/.chestnut/claws/test-claw/clawspace/test.txt');
     expect(resolved.startsWith(clawDir)).toBe(true);
   });
 
   it('should detect path traversal attempts', () => {
-    const clawDir = '/workspace/.clawforum/claws/test-claw';
+    const clawDir = '/workspace/.chestnut/claws/test-claw';
     const maliciousPath = '../outside.txt';
     const resolved = path.resolve(clawDir, maliciousPath);
     
     // 解析后的路径应该在 clawDir 之外
     expect(resolved.startsWith(clawDir)).toBe(false);
-    expect(resolved).toBe('/workspace/.clawforum/claws/outside.txt');
+    expect(resolved).toBe('/workspace/.chestnut/claws/outside.txt');
   });
 
   it('should handle absolute paths within bounds', () => {
-    const clawDir = '/workspace/.clawforum/claws/test-claw';
+    const clawDir = '/workspace/.chestnut/claws/test-claw';
     const fullPath = path.join(clawDir, 'clawspace', 'test.txt');
     
     expect(fullPath.startsWith(clawDir)).toBe(true);
@@ -42,7 +42,7 @@ describe('Tool Path Validation', () => {
   });
 
   it('should identify system paths', () => {
-    const workspaceRoot = '/workspace/.clawforum';
+    const workspaceRoot = '/workspace/.chestnut';
     const systemPaths = [
       '../../config',
       '../motion/status',

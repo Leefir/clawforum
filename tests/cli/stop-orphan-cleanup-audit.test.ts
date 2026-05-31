@@ -36,8 +36,8 @@ vi.mock('../../src/foundation/config/index.js', async (importOriginal) => {
   return {
     ...actual,
     loadGlobalConfig: vi.fn(),
-    getGlobalConfigPath: vi.fn(() => '/tmp/test/.clawforum/config.yaml'),
-    getNamedSubrootDir: vi.fn(() => '/tmp/test/.clawforum/motion'),
+    getGlobalConfigPath: vi.fn(() => '/tmp/test/.chestnut/config.yaml'),
+    getNamedSubrootDir: vi.fn(() => '/tmp/test/.chestnut/motion'),
   };
 });
 

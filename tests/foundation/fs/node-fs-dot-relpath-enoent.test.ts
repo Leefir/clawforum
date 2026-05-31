@@ -46,7 +46,7 @@ describe('phase 1395: resolveAndCheck dot-relpath ENOENT false-positive fix', ()
   });
 
   it('反向 — mirror task acfddf0f skill install 场景不再假阳性', async () => {
-    const clawDir = path.join(tempDir, '.clawforum', 'claws', 'test-claw');
+    const clawDir = path.join(tempDir, '.chestnut', 'claws', 'test-claw');
     fs.mkdirSync(path.join(clawDir, 'skills'), { recursive: true });
     // skillDest 不存在、skills/ parent 存在
     const skillDest = path.join(clawDir, 'skills', 'new-skill');
