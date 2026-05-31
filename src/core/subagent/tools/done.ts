@@ -14,6 +14,14 @@ import type { ToolResult } from '../../../foundation/tool-protocol/index.js';
 export const DONE_TOOL_NAME = 'done' as const;
 
 /**
+ * phase 1489: ML#9 显式表达「Tool 实例携带 captured result 回 caller」这条不可消除的耦合。
+ * caller (run.ts) 凭 registry.get(name) 拿 Tool 后读 capturedResult / 类型推断成立、不需 `as` 断言绕过编译器。
+ */
+export interface CapturableTool<T = unknown> {
+  capturedResult?: T;
+}
+
+/**
  * phase 1459 α-5 ISP narrow helper: done 真依赖仅 `ctx.requestStop` → `ExecutionControl` 子接口 sufficient。
  * Tool.execute 签名保完整 ExecContext（implements Tool 兼容性约束）、内部 delegate 到 narrow ctx。
  * 收益：编译期 audit 真依赖范围 / 测试 fixture 可只 mock `{ requestStop }` / 未来如 stopRequested 迁出可静态 trace。
@@ -33,8 +41,8 @@ function captureDoneResult(
  * 通用 done 工具
  * capturedResult mechanism：tool instance 自身存 `capturedResult` 字段 / runSubagent 取
  */
-export function createDoneTool(): Tool & { capturedResult?: { result: string } } {
-  const tool: Tool & { capturedResult?: { result: string } } = {
+export function createDoneTool(): Tool & CapturableTool<{ result: string }> {
+  const tool: Tool & CapturableTool<{ result: string }> = {
     name: DONE_TOOL_NAME,
     profiles: ['subagent'],
     group: 'subagent-protocol',

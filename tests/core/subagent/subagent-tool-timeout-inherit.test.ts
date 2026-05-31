@@ -1,6 +1,10 @@
 /**
  * phase 1029: subagent ToolExecutor inherits globalConfig.tool_timeout_ms (α-inherit-config / F-2)
- * Reverse tests verify the cascade: RunSubagentOptions → SubAgentOptions → ToolExecutor.defaultTimeoutMs
+ * Reverse tests verify the cascade: RunSubagentOptions → ToolExecutor.defaultTimeoutMs
+ *
+ * phase 1489 update：ToolExecutor 注入 SubAgentOptions、SubAgent 不再 own toolTimeoutMs / ctor / 装配。
+ * cascade source-of-truth 从 `new SubAgent → new ToolExecutor` 迁到 `runSubagent → new ToolExecutor`。
+ * 测试随之 reframe 全走 runSubagent / mirror 原 test 3「runSubagent caller passes through」唯一路径。
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -37,102 +41,60 @@ vi.mock('../../../src/foundation/dialog-store/index.js', () => ({
   createDialogStore: vi.fn().mockReturnValue({ save: vi.fn().mockResolvedValue(undefined) }),
 }));
 
-import { SubAgent } from '../../../src/core/subagent/agent.js';
 import { runSubagent } from '../../../src/core/subagent/run.js';
 import { ToolExecutor } from '../../../src/foundation/tools/executor.js';
 
-function makeMinimalSubAgentOpts(overrides: { toolTimeoutMs?: number } = {}) {
+function makeRunSubagentOpts(overrides: { toolTimeoutMs?: number } = {}) {
+  const mockRegistry = {
+    getAll: vi.fn().mockReturnValue([]),
+    formatForLLM: vi.fn().mockReturnValue([]),
+    get: vi.fn().mockReturnValue({ capturedResult: undefined }),
+  };
+
   const mockFs = {
-    read: vi.fn().mockResolvedValue(''),
-    write: vi.fn().mockResolvedValue(undefined),
-    writeAtomic: vi.fn().mockResolvedValue(undefined),
-    append: vi.fn().mockResolvedValue(undefined),
-    delete: vi.fn().mockResolvedValue(undefined),
-    exists: vi.fn().mockResolvedValue(false),
-    list: vi.fn().mockResolvedValue([]),
     ensureDir: vi.fn().mockResolvedValue(undefined),
-    watch: vi.fn(),
-    move: vi.fn().mockResolvedValue(undefined),
-    copy: vi.fn().mockResolvedValue(undefined),
-    stat: vi.fn().mockResolvedValue({ size: 0, mtime: new Date() }),
-  } as unknown as import('../../../src/foundation/fs/types.js').FileSystem;
+    append: vi.fn().mockResolvedValue(undefined),
+    appendSync: vi.fn(),
+  };
 
   return {
     agentId: 'test-agent',
-    resultDir: 'tasks/queues/results/test-agent',
-    messageStore: { save: vi.fn().mockResolvedValue(undefined) } as any,
-    prompt: 'do something',
     clawDir: '/tmp/test',
-    workspaceDir: path.join('/tmp/test', 'clawspace'),
-    llm: {
-      call: vi.fn(),
-      stream: vi.fn(),
-      close: vi.fn(),
-      healthCheck: vi.fn(),
-      getProviderInfo: vi.fn().mockReturnValue({ name: 'mock', model: 'test', isFallback: false }),
-    } as unknown as import('../../../src/foundation/llm-orchestrator/index.js').LLMOrchestrator,
-    registry: {
-      getAll: vi.fn().mockReturnValue([]),
-      formatForLLM: vi.fn().mockReturnValue([]),
-    } as unknown as import('../../../src/foundation/tools/index.js').ToolRegistry,
-    fs: mockFs,
+    fs: mockFs as any,
+    llm: {} as any,
+    registry: mockRegistry as any,
+    prompt: 'test',
+    systemPrompt: 'system',
+    resultDir: '/tmp/test/result',
     maxSteps: 5,
-    taskStreamWriter: { write: vi.fn() } as any,
-    auditWriter: { write: vi.fn() } as any,
     ...overrides,
   };
 }
 
-describe('phase 1029: subagent inherits tool timeout from caller', () => {
+describe('phase 1029 / phase 1489 reframe: runSubagent → ToolExecutor.defaultTimeoutMs cascade', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('SubAgent.toolTimeoutMs passed to ToolExecutor.defaultTimeoutMs (反向 1)', async () => {
+  it('runSubagent toolTimeoutMs passes through to ToolExecutor.defaultTimeoutMs (反向 1)', async () => {
     const customTimeout = 90_000;
-    const agent = new SubAgent(makeMinimalSubAgentOpts({ toolTimeoutMs: customTimeout }));
-    await agent.run();
+    await runSubagent(makeRunSubagentOpts({ toolTimeoutMs: customTimeout }));
 
     expect(ToolExecutor).toHaveBeenCalledTimes(1);
     const ctorCall = (ToolExecutor as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(ctorCall[0].defaultTimeoutMs).toBe(customTimeout);
   });
 
-  it('0 toolTimeoutMs passes → ToolExecutor fallback L2 const 60s (反向 2 backward compat)', async () => {
-    const agent = new SubAgent(makeMinimalSubAgentOpts());
-    await agent.run();
+  it('0 toolTimeoutMs → ToolExecutor.defaultTimeoutMs undefined / fallback L2 const (反向 2 backward compat)', async () => {
+    await runSubagent(makeRunSubagentOpts());
 
     expect(ToolExecutor).toHaveBeenCalledTimes(1);
     const ctorCall = (ToolExecutor as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(ctorCall[0].defaultTimeoutMs).toBeUndefined();
   });
 
-  it('runSubagent caller passes toolTimeoutMs through to SubAgent → ToolExecutor (反向 3 cascade)', async () => {
-    const mockRegistry = {
-      getAll: vi.fn().mockReturnValue([]),
-      formatForLLM: vi.fn().mockReturnValue([]),
-      get: vi.fn().mockReturnValue({ capturedResult: undefined }),
-    };
-
-    const mockFs = {
-      ensureDir: vi.fn().mockResolvedValue(undefined),
-      append: vi.fn().mockResolvedValue(undefined),
-      appendSync: vi.fn(),
-    };
-
-    await runSubagent({
-      agentId: 'test-agent',
-      callerClawId: 'claw-test',
-      clawDir: '/tmp/test',
-      fs: mockFs as any,
-      llm: {} as any,
-      registry: mockRegistry as any,
-      prompt: 'test',
-      systemPrompt: 'system',
-      resultDir: '/tmp/test/result',
-      maxSteps: 5,
-      toolTimeoutMs: 123_000,
-    });
+  it('caller explicit toolTimeoutMs cascade (反向 3 / phase 1029 original test 3)', async () => {
+    await runSubagent(makeRunSubagentOpts({ toolTimeoutMs: 123_000 }));
 
     expect(ToolExecutor).toHaveBeenCalledTimes(1);
     const ctorCall = (ToolExecutor as unknown as ReturnType<typeof vi.fn>).mock.calls[0];

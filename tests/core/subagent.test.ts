@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
 import { SubAgent } from '../../src/core/subagent/agent.js';
+import type { ToolExecutor } from '../../src/foundation/tools/index.js';
 import { NoopStreamWriter, NoopAuditWriter } from '../../src/core/subagent/noop-writers.js';
 import { createDialogStore } from '../../src/foundation/dialog-store/index.js';
 import type { FileSystem } from '../../src/foundation/fs/types.js';
@@ -17,25 +18,23 @@ vi.mock('../../src/core/agent-executor/loop.js', () => ({
   runReact: vi.fn(),
 }));
 
-// Mock ToolExecutor so SubAgent.run() doesn't need real FS / LLM
-vi.mock('../../src/foundation/tools/executor.js', () => {
-  function MockToolExecutor() {
-    return {
-      getExecContext: () => ({
-        clawId: 'test-agent',
-        clawDir: '/tmp/test',
-        workspaceDir: path.join('/tmp/test', 'clawspace'),
-        profile: 'subagent',
-        fs: {},
-        stepNumber: 0,
-        maxSteps: 20,
-        getElapsedMs: () => 0,
-        incrementStep: vi.fn(),
-      }),
-    };
-  }
-  return { ToolExecutor: MockToolExecutor };
-});
+// phase 1489: ToolExecutor 注入到 SubAgentOptions / 测试不再依赖 vi.mock executor.js、
+// 直接构造一个最小 mock 对象 satisfy `getExecContext` 方法即可。
+function makeMockToolExecutor(): ToolExecutor {
+  return {
+    getExecContext: () => ({
+      clawId: 'test-agent',
+      clawDir: '/tmp/test',
+      workspaceDir: path.join('/tmp/test', 'clawspace'),
+      profile: 'subagent',
+      fs: {},
+      stepNumber: 0,
+      maxSteps: 20,
+      getElapsedMs: () => 0,
+      incrementStep: vi.fn(),
+    }),
+  } as unknown as ToolExecutor;
+}
 
 import { runReact } from '../../src/core/agent-executor/loop.js';
 
@@ -85,8 +84,7 @@ function makeSubAgent(
         'test-system-prompt',
       ),
       prompt: 'do something',
-      clawDir: '/tmp/test',
-      workspaceDir: path.join('/tmp/test', 'clawspace'),
+      toolExecutor: makeMockToolExecutor(),
       llm: mockLLM,
       registry: mockRegistry,
       fs: mockFs,

@@ -12,7 +12,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { createAuditWriter } from '../../foundation/audit/index.js';
 import { STREAM_FILE, createPerResourceStreamWriter, type StreamEvent } from '../../foundation/stream/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
-import type { ToolRegistry } from '../../foundation/tools/index.js';
+import { ToolExecutor, type ToolRegistry } from '../../foundation/tools/index.js';
 // createToolRegistry removed — caller owns registry assembly (M#1 align)
 import type { Message, ToolDefinition } from '../../foundation/llm-provider/types.js';
 import type { CallerType } from '../caller-types.js';
@@ -21,7 +21,7 @@ import { CLAWSPACE_DIR } from '../../foundation/paths.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 
 import { SubAgent } from './agent.js';
-import { DONE_TOOL_NAME } from './tools/done.js';
+import { DONE_TOOL_NAME, type CapturableTool } from './tools/done.js';
 import type { ClawId, ClawforumRoot } from '../../foundation/identity/index.js';
 import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
@@ -107,19 +107,32 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
   // workspace shared with caller workspaceDir 路径决策（mirror async / verifier 既有 phase 518 决策）
   const sharedWorkspaceDir = path.join(opts.clawDir, CLAWSPACE_DIR);
 
+  // phase 1489 (ML#8 derive): caller (run.ts) own ToolExecutor 构造、SubAgent 不再 own
+  // 7 个 executor-only 字段、SubAgentOptions 收窄到「SubAgent 自身真正需要的」最小集合。
+  const toolExecutor = new ToolExecutor({
+    registry: opts.registry,
+    defaultTimeoutMs: opts.toolTimeoutMs,
+    clawDir: opts.clawDir,
+    clawforumRoot: opts.clawforumRoot,
+    syncDir: path.join(opts.clawDir, 'tasks/sync'),  // TASKS_SYNC_DIR
+    workspaceDir: sharedWorkspaceDir,
+    fs: opts.fs,
+    fsFactory: opts.fsFactory,
+    llm: opts.llm,
+    subagentMaxSteps: opts.maxSteps,  // mirror 原 agent.ts: subagentMaxSteps ?? maxSteps 默认（runSubagent 不暴露 subagentMaxSteps、默 maxSteps）
+    auditWriter,
+  });
+
   const agent = new SubAgent({
     agentId: opts.agentId,
     resultDir: opts.resultDir,
     messageStore,
     prompt: opts.prompt,
     systemPrompt: opts.systemPrompt,
-    clawDir: opts.clawDir,
-    clawforumRoot: opts.clawforumRoot,
-    syncDir: path.join(opts.clawDir, 'tasks/sync'),  // TASKS_SYNC_DIR
+    toolExecutor,
     llm: opts.llm,
     registry: opts.registry,
     fs: opts.fs,
-    fsFactory: opts.fsFactory,
     maxSteps: opts.maxSteps,
     idleTimeoutMs: opts.idleTimeoutMs,
     signal: opts.signal,
@@ -127,13 +140,11 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
     toolsForLLM,
     callerType: opts.callerType,
     originClawId: opts.originClawId,
-onIdleTimeout: opts.onIdleTimeout,
-    workspaceDir: sharedWorkspaceDir,
+    onIdleTimeout: opts.onIdleTimeout,
     taskStreamWriter,
     auditWriter,
     messages: opts.messages,
     isShadow: opts.isShadow,
-    toolTimeoutMs: opts.toolTimeoutMs,
     permissionChecker: opts.permissionChecker,
   });
 
@@ -143,8 +154,8 @@ onIdleTimeout: opts.onIdleTimeout,
   // phase 805 设计意图：by-name string 0 import (避 L3→L4 反向 import / mirror shadow-system/system.ts:129 'done')
   // phase 1056: default 改为 DONE_TOOL_NAME — done 是单一 result-capture 工具。
   const toolName = opts.resultTool ?? DONE_TOOL_NAME;
-  const resultToolInstance = opts.registry.get(toolName);
-  const capturedResult = (resultToolInstance as { capturedResult?: unknown })?.capturedResult;
+  const resultToolInstance = opts.registry.get(toolName) as (CapturableTool | undefined);
+  const capturedResult = resultToolInstance?.capturedResult;
 
   return { text, capturedResult };
 }

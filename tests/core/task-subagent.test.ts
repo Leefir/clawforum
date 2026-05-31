@@ -19,6 +19,35 @@ import type { StreamChunk } from '../../src/foundation/llm-orchestrator/types.js
 import { SUBAGENT_AUDIT_EVENTS } from '../../src/core/subagent/audit-events.js';
 import { SUBAGENT_WAIT_TIMEOUT_MS, SUBAGENT_LONG_TIMEOUT_MS } from '../helpers/test-timeouts.js';
 import { makeAudit, makeMockAudit } from '../helpers/audit.js';
+import { ToolExecutor } from '../../src/foundation/tools/index.js';
+import { makeClawforumRoot } from '../../src/foundation/identity/index.js';
+import type { FileSystem } from '../../src/foundation/fs/types.js';
+import type { ToolRegistryImpl } from '../../src/foundation/tools/registry.js';
+import type { AuditLog } from '../../src/foundation/audit/index.js';
+
+/** phase 1489: 测试 helper / 替原 SubAgent 内 new ToolExecutor 装配语义 */
+function makeSubAgentToolExecutor(opts: {
+  clawDir: string;
+  fs: FileSystem;
+  registry: ToolRegistryImpl;
+  llm: LLMOrchestrator;
+  auditWriter: AuditLog;
+  maxSteps?: number;
+  toolTimeoutMs?: number;
+}): ToolExecutor {
+  return new ToolExecutor({
+    registry: opts.registry,
+    defaultTimeoutMs: opts.toolTimeoutMs,
+    clawDir: opts.clawDir as any,
+    clawforumRoot: makeClawforumRoot(opts.clawDir),
+    syncDir: path.join(opts.clawDir, 'tasks/sync'),
+    workspaceDir: path.join(opts.clawDir, 'clawspace'),
+    fs: opts.fs,
+    llm: opts.llm,
+    subagentMaxSteps: opts.maxSteps ?? 20,
+    auditWriter: opts.auditWriter,
+  });
+}
 
 /**
  * Convert LLMResponse to stream chunks for mock (verbatim copy)
@@ -83,8 +112,14 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'messages.json',
           ),
         prompt: 'Do something',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: ctx.mockFs,
+          registry: ctx.registry,
+          llm: mockLLM,
+          auditWriter: new NoopAuditWriter(),
+          maxSteps: 10,
+        }),
         llm: mockLLM,
         registry: ctx.registry,
         fs: ctx.mockFs,
@@ -127,8 +162,14 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'messages.json',
           ),
         prompt: 'Read test.txt',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: ctx.mockFs,
+          registry: ctx.registry,
+          llm: mockLLM,
+          auditWriter: new NoopAuditWriter(),
+          maxSteps: 10,
+        }),
         llm: mockLLM,
         registry: ctx.registry,
         fs: ctx.mockFs,
@@ -170,8 +211,14 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'test-system-prompt',
         ),
         prompt: 'Run echo command',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: ctx.mockFs,
+          registry: ctx.registry,
+          llm: mockLLM,
+          auditWriter: new NoopAuditWriter(),
+          maxSteps: 10,
+        }),
         llm: mockLLM,
         registry: ctx.registry,
         fs: ctx.mockFs,
@@ -222,8 +269,14 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'messages.json',
           ),
         prompt: 'Slow task',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: ctx.mockFs,
+          registry: ctx.registry,
+          llm: mockLLM,
+          auditWriter: new NoopAuditWriter(),
+          maxSteps: 10,
+        }),
         llm: mockLLM,
         registry: ctx.registry,
         fs: ctx.mockFs,
@@ -260,11 +313,17 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'test-system-prompt',
         ),
         prompt: 'Test idle',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: ctx.mockFs,
+          registry: ctx.registry,
+          llm: hangingLLM,
+          auditWriter: new NoopAuditWriter(),
+        }),
         llm: hangingLLM,
         registry: ctx.registry,
         fs: ctx.mockFs,
+        maxSteps: 20,
         timeoutMs: SUBAGENT_LONG_TIMEOUT_MS, // main timeout is long
         idleTimeoutMs: 100, // idle timeout is short
         onIdleTimeout,
@@ -300,14 +359,23 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'test-system-prompt',
         ),
         prompt: 'Test',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: throwingFs,
+          registry: ctx.registry,
+          llm: createMockLLM([{
+            content: [{ type: 'text', text: 'Task done' }],
+            stop_reason: 'end_turn',
+          }]),
+          auditWriter: mockAuditWriter as any,
+        }),
         llm: createMockLLM([{
           content: [{ type: 'text', text: 'Task done' }],
           stop_reason: 'end_turn',
         }]),
         registry: ctx.registry,
         fs: throwingFs,
+        maxSteps: 20,
         taskStreamWriter: new NoopStreamWriter(),
         auditWriter: mockAuditWriter as any,
       });
@@ -341,11 +409,17 @@ function createMockLLM(responses: LLMResponse[]): LLMOrchestrator {
           'test-system-prompt',
         ),
         prompt: 'Test workspaceDir',
-        clawDir: ctx.tempDir,
-        workspaceDir: path.join(ctx.tempDir, 'clawspace'),
+        toolExecutor: makeSubAgentToolExecutor({
+          clawDir: ctx.tempDir,
+          fs: ctx.mockFs,
+          registry: ctx.registry,
+          llm: mockLLM,
+          auditWriter: new NoopAuditWriter(),
+        }),
         llm: mockLLM,
         registry: ctx.registry,
         fs: ctx.mockFs,
+        maxSteps: 20,
         taskStreamWriter: new NoopStreamWriter(),
         auditWriter: new NoopAuditWriter(),
       });

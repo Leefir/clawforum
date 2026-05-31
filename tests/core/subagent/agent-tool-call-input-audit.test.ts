@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as path from 'path';
 import { SubAgent } from '../../../src/core/subagent/agent.js';
+import type { ToolExecutor } from '../../../src/foundation/tools/index.js';
 import type { FileSystem } from '../../../src/foundation/fs/types.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
 import type { ToolRegistryImpl } from '../../../src/foundation/tools/registry.js';
@@ -21,8 +22,9 @@ vi.mock('../../../src/core/agent-executor/loop.js', () => ({
   runReact: vi.fn(),
 }));
 
-vi.mock('../../../src/foundation/tools/executor.js', () => ({
-  ToolExecutor: vi.fn().mockImplementation(() => ({
+// phase 1489: ToolExecutor 注入 SubAgentOptions / 不再 vi.mock executor.js
+function makeMockToolExecutor(): ToolExecutor {
+  return {
     getExecContext: vi.fn().mockReturnValue({
       clawId: 'test-agent',
       clawDir: '/tmp/test',
@@ -34,8 +36,8 @@ vi.mock('../../../src/foundation/tools/executor.js', () => ({
       getElapsedMs: () => 0,
       incrementStep: vi.fn(),
     }),
-  })),
-}));
+  } as unknown as ToolExecutor;
+}
 
 import { runReact } from '../../../src/core/agent-executor/loop.js';
 
@@ -77,8 +79,7 @@ function makeSubAgent() {
     resultDir: 'tasks/queues/results/test-agent',
     messageStore: { save: vi.fn().mockResolvedValue(undefined) } as any,
     prompt: 'do something',
-    clawDir: '/tmp/test',
-    workspaceDir: path.join('/tmp/test', 'clawspace'),
+    toolExecutor: makeMockToolExecutor(),
     llm: mockLLM,
     registry: mockRegistry,
     fs: mockFs,
