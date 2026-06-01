@@ -83,7 +83,10 @@ export class UnixDomainSocketTransport implements Transport {
         reject(new Error(`socket ${this.socketPath} is in use by a live process`));
       });
       probe.once('error', (err: NodeJS.ErrnoException) => {
-        if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
+        // ENOTSOCK = path exists but is a regular file (not a socket) → 显式 stale，unlink。
+        // ECONNREFUSED = socket file 存在但无进程 listen → stale。
+        // ENOENT = 文件已不在 → race 良性、走 unlink ENOENT silent 分支即可。
+        if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT' || err.code === 'ENOTSOCK') {
           this.deps.fs.delete(path.basename(this.socketPath!)).then(
             () => resolve(),
             (err: unknown) => {
