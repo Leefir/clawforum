@@ -17,6 +17,6 @@ export { disassemble } from './disassemble.js';
 // `no-deep-into-assembly-{config-defaults,audit-events,snapshot-patterns}` 守 future drift。
 // 注：daemon-entry / watchdog-entry 物理路径解析归 `foundation/paths.ts`
 // `resolveDaemonEntry` / `resolveWatchdogEntry`（phase 1436 立单一权威）。
-export { CONFIG_DEFAULTS } from './config-defaults.js';
+// Note: CONFIG_DEFAULTS removed in phase 10 Step D (config decentralize)
 export { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 export { SNAPSHOT_IGNORE_PATTERNS } from './snapshot-patterns.js';

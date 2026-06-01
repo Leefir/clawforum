@@ -96,7 +96,7 @@ import { CONTRACT_OBSERVER_CRON_TIMEOUT_MS } from '../core/contract/jobs/contrac
 import { GIT_GC_WEEKLY_CRON_TIMEOUT_MS } from '../core/cron/jobs/git-gc-weekly.js';
 import { RETENTION_CLEANUP_CRON_TIMEOUT_MS } from '../core/cron/jobs/retention-cleanup.js';
 import { AUDIT_SIZE_MONITOR_CRON_TIMEOUT_MS } from '../core/cron/jobs/audit-size-monitor.js';
-import { buildLLMConfig } from '../foundation/config/index.js';
+import { buildLLMConfig } from '../foundation/llm-orchestrator/config-adapter.js';
 import { DEFAULT_MAX_CONCURRENT_TASKS } from '../core/async-task-system/constants.js';
 
 import type { AssembleConfig, Instances } from './types.js';

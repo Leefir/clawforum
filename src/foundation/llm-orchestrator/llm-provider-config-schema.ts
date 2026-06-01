@@ -10,6 +10,12 @@ import {
 
 // phase 10: LLM provider 自 own max_tokens default（ML#2 业务语义自负 / ML#5 消反向 import）
 // 历史同源 step-executor REACT_DEFAULT_MAX_TOKENS、拆后各模块自管。
+export const FORMAT_MAP: Record<string, string> = {
+  '1': 'custom-anthropic',
+  '2': 'custom-openai',
+  '3': 'custom-gemini',
+};
+
 export const LLM_PROVIDER_DEFAULT_MAX_TOKENS = 100_000_000;
 
 export const llmProviderConfigSchema = z.object({

@@ -8,8 +8,8 @@ import {
   loadGlobalConfig,
   saveGlobalConfig,
   type ClawGlobalConfig,
-  type LLMProviderConfig,
 } from '../../foundation/config/index.js';
+import type { LLMProviderConfig } from '../../foundation/llm-orchestrator/llm-provider-config-schema.js';
 import { PRESETS } from '../../foundation/config/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { CliError } from '../errors.js';

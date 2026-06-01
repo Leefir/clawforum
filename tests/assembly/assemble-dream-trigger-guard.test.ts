@@ -182,7 +182,7 @@ vi.mock('../../src/foundation/dialog-store/index.js', () => ({
   createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), restorePrefix: vi.fn() })),
 }));
 
-vi.mock('../../src/foundation/config/index.js', () => ({
+vi.mock('../../src/foundation/llm-orchestrator/config-adapter.js', () => ({
   buildLLMConfig: vi.fn(() => ({ provider: 'mock' })),
 }));
 

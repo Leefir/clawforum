@@ -178,7 +178,7 @@ vi.mock('../../src/foundation/dialog-store/index.js', () => ({
   createDialogStore: vi.fn(() => ({ load: vi.fn(), save: vi.fn(), archive: vi.fn(), restorePrefix: vi.fn() })),
 }));
 
-vi.mock('../../src/foundation/config/index.js', () => ({
+vi.mock('../../src/foundation/llm-orchestrator/config-adapter.js', () => ({
   buildLLMConfig: vi.fn(() => ({ provider: 'mock' })),
 }));
 
@@ -220,7 +220,7 @@ describe('Assembly — lockfile cleanup on throw (F-r72-asm-P0-1 / γ)', () => {
   });
 
   it('releases lockfile when assembly throws after acquireLock', async () => {
-    const { buildLLMConfig } = await import('../../src/foundation/config/index.js');
+    const { buildLLMConfig } = await import('../../src/foundation/llm-orchestrator/config-adapter.js');
     (buildLLMConfig as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('simulated assembly failure');
     });
@@ -246,7 +246,7 @@ describe('Assembly — lockfile cleanup on throw (F-r72-asm-P0-1 / γ)', () => {
   });
 
   it('audits releaseLock failure during cleanup but rethrows original error', async () => {
-    const { buildLLMConfig } = await import('../../src/foundation/config/index.js');
+    const { buildLLMConfig } = await import('../../src/foundation/llm-orchestrator/config-adapter.js');
     (buildLLMConfig as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('simulated assembly failure');
     });

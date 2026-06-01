@@ -3,7 +3,8 @@
  */
 
 import * as readline from 'readline';
-import { saveGlobalConfig, isInitialized, FORMAT_MAP, getWorkspaceRoot } from '../../foundation/config/index.js';
+import { saveGlobalConfig, isInitialized, getWorkspaceRoot } from '../../foundation/config/index.js';
+import { FORMAT_MAP } from '../../foundation/llm-orchestrator/llm-provider-config-schema.js';
 import { passwordQuestion } from '../utils/password-prompt.js';
 import { CliError } from '../errors.js';
 import { PRESETS } from '../../foundation/config/index.js';

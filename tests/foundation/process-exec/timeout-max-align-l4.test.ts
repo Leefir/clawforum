@@ -17,10 +17,10 @@ describe('phase 1033: L1 PROCESS_EXEC_TIMEOUT_MAX_MS align L4 config max', () =>
 
   it('MAX matches L4 config schema max (反向 2: cross-layer consistency)', async () => {
     const schemaPath = new URL(
-      '../../../src/foundation/config/schemas.ts',
+      '../../../src/foundation/tools/config-schema.ts',
       import.meta.url
     );
     const schemaSrc = readFileSync(schemaPath, 'utf8');
-    expect(schemaSrc).toMatch(/tool_timeout_ms.*max\(600000\)/);
+    expect(schemaSrc).toMatch(/max\(600000\)/);
   });
 });

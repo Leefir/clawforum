@@ -222,7 +222,7 @@ vi.mock('../../src/foundation/dialog-store/index.js', () => ({
   cleanupArchives: vi.fn().mockResolvedValue(0),
 }));
 
-vi.mock('../../src/foundation/config/index.js', () => ({
+vi.mock('../../src/foundation/llm-orchestrator/config-adapter.js', () => ({
   buildLLMConfig: vi.fn(() => ({ provider: 'mock' })),
 }));
 
@@ -452,7 +452,7 @@ describe('assemble', () => {
   });
 
   it('buildLLMConfig 失败 → assemble_failed module=llm_config + 抛 Error', async () => {
-    const { buildLLMConfig } = await import('../../src/foundation/config/index.js');
+    const { buildLLMConfig } = await import('../../src/foundation/llm-orchestrator/config-adapter.js');
     (buildLLMConfig as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('llm cfg boom');
     });
