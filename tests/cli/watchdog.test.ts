@@ -652,6 +652,7 @@ describe('maybeCronClawCrash — crash audit', () => {
     vi.mocked(getNamedSubrootDir).mockReturnValue(path.join(chestnutDir, 'motion'));
     vi.mocked(loadGlobalConfig).mockReturnValue({} as any);
     vi.mocked(clawHasContract).mockReturnValue(true);
+    vi.mocked(clawHasActiveContract).mockReturnValue(true);  // phase 2 γ4: crash 检测改用此 helper
     vi.mocked(gatherClawSnapshot).mockReturnValue({
       contract: 'c1', outboxPending: 0, inboxPending: 0, status: 'alive',
     } as any);
