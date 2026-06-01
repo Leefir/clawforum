@@ -6,7 +6,6 @@ import {
   loadGlobalConfig, saveClawConfig, clawExists, getClawDir, CLAW_SUBDIRS,
 } from '../../foundation/config/index.js';
 // path module intentionally not used in this file after refactor
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
 import { buildAgentsMdTemplate } from '../../prompts/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
@@ -16,7 +15,7 @@ import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 export async function createCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string, opts?: { audit?: AuditLog }): Promise<void> {
   const audit = opts?.audit;
   // Load global config (ensures initialized)
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   
   // Check if claw already exists
   if (clawExists(deps, name)) {

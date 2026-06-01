@@ -15,7 +15,6 @@
 
 import * as path from 'path';
 import { loadGlobalConfig, clawExists, getClawDir } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { ContractSystem } from '../../core/contract/index.js';
@@ -40,7 +39,7 @@ export async function clawStatusCommand(
   name: string,
   opts: ClawStatusOpts = {},
 ): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   if (!clawExists(deps, name)) {
     throw new CliError(`Claw "${name}" does not exist. Try \`chestnut claw list\` to see existing claws.`);

@@ -4,7 +4,7 @@ import type { StreamWriter } from '../foundation/stream/index.js';
 import type { ProcessManager } from '../foundation/process-manager/index.js';
 import type { Runtime, Heartbeat } from '../core/runtime/index.js';
 import type { CronRunner } from '../core/cron/index.js';
-import type { ClawGlobalConfig, ClawConfig } from '../foundation/config/index.js';
+import type { ClawGlobalConfig, ClawConfig } from './compose-config.js';
 import type { Gateway } from '../core/gateway/index.js';
 import type { EvolutionSystem } from '../core/evolution-system/index.js';
 import type { ClawId } from '../foundation/identity/index.js';

@@ -10,7 +10,6 @@ import {
   type ClawGlobalConfig,
   type LLMProviderConfig,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { PRESETS } from '../../foundation/config/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { CliError } from '../errors.js';
@@ -112,7 +111,7 @@ function findProviderIndex(config: ClawGlobalConfig, label: string): { type: 'pr
 
 // provider add command
 async function providerAdd(deps: { fsFactory: (baseDir: string) => FileSystem }): Promise<void> {
-  const config = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const config = loadGlobalConfig(deps);
   const rl = createRL();
   
   try {
@@ -226,7 +225,7 @@ function formatApiKey(apiKey: string): string {
 
 // provider list command
 async function providerList(deps: { fsFactory: (baseDir: string) => FileSystem }): Promise<void> {
-  const config = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const config = loadGlobalConfig(deps);
 
   const primary = config.llm.primary;
   const fallbacks = config.llm.fallbacks ?? [];
@@ -263,7 +262,7 @@ async function providerList(deps: { fsFactory: (baseDir: string) => FileSystem }
 
 // provider remove command
 async function providerRemove(deps: { fsFactory: (baseDir: string) => FileSystem }, label: string): Promise<void> {
-  const config = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const config = loadGlobalConfig(deps);
   
   const found = findProviderIndex(config, label);
   if (!found) {
@@ -283,7 +282,7 @@ async function providerRemove(deps: { fsFactory: (baseDir: string) => FileSystem
 
 // provider set-primary command
 async function providerSetPrimary(deps: { fsFactory: (baseDir: string) => FileSystem }, label: string): Promise<void> {
-  const config = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const config = loadGlobalConfig(deps);
   
   const found = findProviderIndex(config, label);
   if (!found) {
@@ -324,7 +323,7 @@ async function providerSetPrimary(deps: { fsFactory: (baseDir: string) => FileSy
 
 // provider move command
 async function providerMove(deps: { fsFactory: (baseDir: string) => FileSystem }, label: string, position: string): Promise<void> {
-  const config = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const config = loadGlobalConfig(deps);
   
   const found = findProviderIndex(config, label);
   if (!found) {

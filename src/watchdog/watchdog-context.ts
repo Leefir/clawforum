@@ -11,7 +11,6 @@
 import * as path from 'path';
 import { resolveWatchdogEntry } from '../foundation/paths.js';
 import { getNamedSubrootDir, loadGlobalConfig } from '../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../assembly/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import { createDirContext } from '../foundation/audit/index.js';
@@ -88,7 +87,7 @@ export function getChestnutFs(fsFactory: (baseDir: string) => FileSystem): FileS
 /** 1:1 保 watchdog.ts:252-257 */
 export function getGlobalConfig(fsFactory: (baseDir: string) => FileSystem) {
   if (!globalConfigCache) {
-    globalConfigCache = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    globalConfigCache = loadGlobalConfig({ fsFactory });
   }
   return globalConfigCache;
 }

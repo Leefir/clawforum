@@ -11,7 +11,6 @@
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getNamedSubrootDir } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
@@ -205,7 +204,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
  * motion chat - start interactive chat session (viewport mode)
  */
 export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSystem }): Promise<void> {
-  const globalConfig = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const globalConfig = loadGlobalConfig(deps);
   const motionDir = makeClawDir(getNamedSubrootDir(MOTION_CLAW_ID));
   const { audit: systemAudit } = createDirContext(deps, motionDir);
 
@@ -251,7 +250,7 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
  */
 export async function stopCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, extraDeps?: { audit?: AuditLog }): Promise<void> {
   const audit = extraDeps?.audit;
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   const pm = createProcessManagerForCLI(deps);
 
   if (!pm.isAlive(MOTION_CLAW_ID)) {

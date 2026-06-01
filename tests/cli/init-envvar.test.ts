@@ -56,7 +56,6 @@ afterEach(() => {
 
 const { initCommand } = await import('../../src/cli/commands/init.js');
 const { loadGlobalConfig } = await import('../../src/foundation/config/index.js');
-const { CONFIG_DEFAULTS } = await import('../../src/assembly/config-defaults.js');
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -105,7 +104,7 @@ describe('initCommand — Branch 1: 扫描环境变量', () => {
 
     await initCommand({ fsFactory }, true);
     // loadGlobalConfig 在 env var 仍有效时调用，expandEnvVars 展开 ${ANTHROPIC_API_KEY}
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.api_key).toBe('sk-ant-env-test');
     expect(config.llm.primary.preset).toBe('anthropic');
   });
@@ -116,7 +115,7 @@ describe('initCommand — Branch 1: 扫描环境变量', () => {
     rlAnswers.queue = ['1', 'ANTHROPIC_API_KEY', ''];
 
     await initCommand({ fsFactory }, true);
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.api_key).toBe('sk-ant-env-test2');
   });
 
@@ -127,7 +126,7 @@ describe('initCommand — Branch 1: 扫描环境变量', () => {
     rlAnswers.queue = ['1', 'OPENAI_API_KEY', ''];
 
     await initCommand({ fsFactory }, true);
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.api_key).toBe('sk-openai-123');
     expect(config.llm.primary.preset).toBe('openai');
   });
@@ -167,7 +166,7 @@ describe('initCommand — Branch 2: 手动配置', () => {
 
     await initCommand({ fsFactory }, true);
 
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.preset).toBe('custom-openai');
     expect(config.llm.primary.api_key).toBe('sk-manual');
     expect(config.llm.primary.model).toBe('gpt-4o');
@@ -179,7 +178,7 @@ describe('initCommand — Branch 2: 手动配置', () => {
 
     await initCommand({ fsFactory }, true);
 
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.preset).toBe('custom-anthropic');
     expect(config.llm.primary.api_key).toBe('sk-ant-key');
   });
@@ -190,7 +189,7 @@ describe('initCommand — Branch 2: 手动配置', () => {
 
     await initCommand({ fsFactory }, true);
 
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect((config.llm.primary as any).base_url).toBe('https://api.example.com');
   });
 
@@ -200,7 +199,7 @@ describe('initCommand — Branch 2: 手动配置', () => {
 
     await initCommand({ fsFactory }, true);
 
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.api_key).toBe('sk-retry');
   });
 });
@@ -223,7 +222,7 @@ describe('initCommand — Branch 3: 选择 provider', () => {
 
     await initCommand({ fsFactory }, true);
 
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.preset).toBe('anthropic');
     expect(config.llm.primary.api_key).toBe('sk-ant-xxx');
     expect(config.llm.primary.model).toBe('auto');

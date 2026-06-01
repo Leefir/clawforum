@@ -6,7 +6,6 @@ import * as path from 'path';
 import {
   loadGlobalConfig, clawExists, getClawDir,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
 import { runChatViewport } from './chat-viewport.js';
 import { createDirContext } from '../../foundation/audit/index.js';
@@ -17,14 +16,14 @@ import { makeClawId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   if (!clawExists(deps, name)) {
     throw new CliError(`Claw "${name}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }
 
   const clawDir = getClawDir(name);
-  const globalConfig = loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  const globalConfig = loadGlobalConfig(deps);
   const { audit: systemAudit } = createDirContext(deps, clawDir);
   await runChatViewport({
     agentDir: clawDir,

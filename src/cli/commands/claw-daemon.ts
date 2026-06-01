@@ -11,7 +11,6 @@ import * as path from 'path';
 import {
   loadGlobalConfig, clawExists, getClawDir, getGlobalConfigPath,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { createAgentProcessManager } from '../../foundation/process-manager/index.js';
 import type { ProcessManager } from '../../foundation/process-manager/manager.js';
@@ -33,7 +32,7 @@ export async function clawDaemonCommand(
   deps: ClawDaemonDeps,
   name: string,
 ): Promise<void> {
-  loadGlobalConfig({ fsFactory: deps.fsFactory }, CONFIG_DEFAULTS);
+  loadGlobalConfig({ fsFactory: deps.fsFactory });
   if (!clawExists({ fsFactory: deps.fsFactory }, name)) {
     throw new CliError(`Claw "${name}" does not exist. Try \`chestnut claw list\` to see existing claws.`);
   }

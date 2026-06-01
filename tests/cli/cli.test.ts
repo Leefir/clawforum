@@ -15,7 +15,6 @@ import {
   getGlobalConfigPath,
   getClawDir,
 } from '../../src/foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../src/assembly/config-defaults.js';
 import { listCommand } from '../../src/cli/commands/claw.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
@@ -104,7 +103,7 @@ describe('CLI Config', () => {
 
   describe('loadGlobalConfig', () => {
     it('should throw error when config not found', () => {
-      expect(() => loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS)).toThrow('Run "chestnut init" first');
+      expect(() => loadGlobalConfig({ fsFactory })).toThrow('Run "chestnut init" first');
     });
 
     it('should throw error for invalid yaml', () => {
@@ -112,7 +111,7 @@ describe('CLI Config', () => {
       fs.mkdirSync(path.dirname(configPath), { recursive: true });
       fs.writeFileSync(configPath, 'invalid: yaml: content: [}');
 
-      expect(() => loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS)).toThrow();
+      expect(() => loadGlobalConfig({ fsFactory })).toThrow();
     });
 
     it('should load valid config', () => {
@@ -133,7 +132,7 @@ describe('CLI Config', () => {
       };
       saveGlobalConfig({ fsFactory }, config);
 
-      const loaded = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+      const loaded = loadGlobalConfig({ fsFactory });
 
       expect(loaded.version).toBe('1');
       expect(loaded.llm.primary.api_key).toBe('test-key');
@@ -264,7 +263,7 @@ describe('CLI Config', () => {
       const rawYaml = 'version: "1"\nllm:\n  primary:\n    name: anthropic\n    api_key: ${TEST_CLAW_API_KEY_EXPAND}\n    model: claude-3-5-haiku\n    max_tokens: 4096\n    temperature: 0.7\n    timeout_ms: 60000\n  retry_attempts: 3\n  retry_delay_ms: 1000\n';
       fs.writeFileSync(configPath, rawYaml);
 
-      const loaded = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+      const loaded = loadGlobalConfig({ fsFactory });
       expect(loaded.llm.primary.api_key).toBe('resolved-secret-value');
 
       delete process.env.TEST_CLAW_API_KEY_EXPAND;
@@ -277,7 +276,7 @@ describe('CLI Config', () => {
       const rawYaml = 'version: "1"\nllm:\n  primary:\n    name: anthropic\n    api_key: ${MISSING_CLAW_TEST_VAR_XYZ}\n    model: test\n    max_tokens: 4096\n    temperature: 0.7\n    timeout_ms: 60000\n  retry_attempts: 3\n  retry_delay_ms: 1000\n';
       fs.writeFileSync(configPath, rawYaml);
 
-      expect(() => loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS)).toThrow(/MISSING_CLAW_TEST_VAR_XYZ/);
+      expect(() => loadGlobalConfig({ fsFactory })).toThrow(/MISSING_CLAW_TEST_VAR_XYZ/);
     });
   });
 });

@@ -11,7 +11,6 @@ import * as yaml from 'js-yaml';
 import {
   loadGlobalConfig, clawExists, getClawDir,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import { DIALOG_DIR } from '../../foundation/dialog-store/index.js';
@@ -59,7 +58,7 @@ export async function clawTraceCommand(
   contractId: ContractId,
   step?: string,
 ): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   if (!clawExists(deps, clawId)) {
     throw new CliError(`Claw "${clawId}" does not exist`);

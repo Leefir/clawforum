@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { saveGlobalConfig, loadGlobalConfig } from '../../../src/foundation/config/crud.js';
-import { CONFIG_DEFAULTS } from '../../../src/foundation/config/schemas.js';
 
 describe('foundation/config/crud.ts: no race tmp naming', () => {
   it('concurrent saveGlobalConfig does not produce .tmp.<ms> orphan files', async () => {

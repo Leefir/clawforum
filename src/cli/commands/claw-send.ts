@@ -8,7 +8,6 @@ import { randomUUID } from 'crypto';
 import {
   loadGlobalConfig, clawExists, getGlobalConfigPath,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { writeInboxAsync } from '../../foundation/messaging/index.js';
@@ -23,7 +22,7 @@ export async function sendCommand(
   message: string, 
   options?: { priority?: 'critical' | 'high' | 'normal' | 'low' }
 ): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   
   if (!clawExists(deps, name)) {
     throw new CliError(`Claw "${name}" does not exist`);

@@ -34,7 +34,6 @@ import { createSubagentCommand } from './commands/subagent.js';
 import { motionStepsCommand, motionStepCommand } from './commands/motion-steps.js';
 import { createDirContext } from '../foundation/audit/index.js';
 import { getChestnutRoot, getClawDir, loadGlobalConfig } from '../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../assembly/index.js';
 import { parseIntOption } from './parse-int-option.js';
 import { makeClawId } from '../foundation/identity/index.js';
 
@@ -210,7 +209,7 @@ contractCmd
   .option('--file <path>', 'Path to contract YAML file')
   .option('--dir <path>', 'Directory containing contract.yaml and verification/ folder')
   .action(withCliErrorHandling(async (opts: { claw: string; file?: string; dir?: string }) => {
-    loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    loadGlobalConfig({ fsFactory });
     const { audit } = createDirContext({ fsFactory }, getClawDir(opts.claw));
     if (opts.file && opts.dir) {
       throw new CliError('--file and --dir are mutually exclusive. Use one of --file or --dir, not both.');
@@ -239,7 +238,7 @@ contractCmd
   .requiredOption('--reason <text>', 'Cancel reason (recorded in progress checkpoint)')
   .option('--contract <id>', 'Contract ID (default: active contract)')
   .action(withCliErrorHandling(async (opts: { claw: string; reason: string; contract?: string }) => {
-    loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    loadGlobalConfig({ fsFactory });
     const { audit } = createDirContext({ fsFactory }, getClawDir(opts.claw));
     await contractCancelCommand({ fsFactory }, makeClawId(opts.claw), opts.reason, opts.contract, { audit });
   }));
@@ -277,7 +276,7 @@ skillCmd
       if (!opts.skill) {
         throw new CliError('--skill <name> is required with --claw');
       }
-      loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+      loadGlobalConfig({ fsFactory });
       const { audit } = createDirContext({ fsFactory }, getClawDir(opts.claw));
       await skillInstallClawCommand({ fsFactory }, makeClawId(opts.claw), opts.skill, { audit });
     } else {

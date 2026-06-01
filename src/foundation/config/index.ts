@@ -18,11 +18,12 @@ export {
   createClawConfigSchema,
 } from './schemas.js';
 export type {
-  ConfigDefaults,
   LLMProviderConfig,
+} from './schemas.js';
+export type {
   ClawGlobalConfig,
   ClawConfig,
-} from './schemas.js';
+} from '../../assembly/compose-config.js';
 
 // Path getters + shared constants (canonical owner: foundation/paths.ts)
 export { CLAW_SUBDIRS } from '../paths.js';

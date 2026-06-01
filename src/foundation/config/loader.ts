@@ -9,7 +9,6 @@
  */
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import type { z } from 'zod';
 import type { FileSystem } from '../fs/types.js';
 
 // Expand ${ENV_VAR} syntax in config values
@@ -47,7 +46,7 @@ export interface LoaderDeps {
 export function loadYamlConfig<T>(
   deps: LoaderDeps,
   configPath: string,
-  schema: z.ZodSchema<T>,
+  schema: { parse(data: unknown): T },
   options: { notFoundMessage?: string } = {},
 ): T {
   const dir = path.dirname(configPath);

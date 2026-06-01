@@ -6,7 +6,6 @@
 import {
   loadGlobalConfig, clawExists, getClawDir,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CliError } from '../errors.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
@@ -16,7 +15,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 
 export async function stopCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string, extraDeps?: { audit?: AuditLog }): Promise<void> {
   const audit = extraDeps?.audit;
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   if (!clawExists(deps, name)) {
     throw new CliError(`Claw "${name}" does not exist`);

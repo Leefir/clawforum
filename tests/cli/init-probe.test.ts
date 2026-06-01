@@ -70,7 +70,6 @@ afterEach(() => {
 
 const { initCommand } = await import('../../src/cli/commands/init.js');
 const { loadGlobalConfig } = await import('../../src/foundation/config/index.js');
-const { CONFIG_DEFAULTS } = await import('../../src/assembly/config-defaults.js');
 
 let tempDir: string;
 
@@ -104,7 +103,7 @@ describe('initCommand — probe success path', () => {
 
     await initCommand({ fsFactory }, true, { audit: mockAudit });
 
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.preset).toBe('anthropic');
 
     const eventTypes = auditCalls.entries.map(e => e[0]);
@@ -170,7 +169,7 @@ describe('initCommand — probe failure: auth → user exits reconfigure', () =>
     await initCommand({ fsFactory }, true, { audit: mockAudit });
 
     // config still saved (user can fix later)
-    const config = loadGlobalConfig({ fsFactory }, CONFIG_DEFAULTS);
+    const config = loadGlobalConfig({ fsFactory });
     expect(config.llm.primary.model).toBe('bogus-model');
 
     const eventTypes = auditCalls.entries.map(e => e[0]);

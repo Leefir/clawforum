@@ -13,7 +13,9 @@ describe('foundation/config/crud.ts: uses FileSystem for atomic writes', () => {
   });
 
   it('uses writeAtomicSync for config writes', () => {
-    const src = readFileSync('src/foundation/config/crud.ts', 'utf-8');
-    expect(src).toMatch(/writeAtomicSync\(/);
+    const crudSrc = readFileSync('src/foundation/config/crud.ts', 'utf-8');
+    const loaderSrc = readFileSync('src/foundation/config/loader.ts', 'utf-8');
+    // Phase 10: write logic moved to loader.ts; either file may hold writeAtomicSync
+    expect(crudSrc + loaderSrc).toMatch(/writeAtomicSync\(/);
   });
 });

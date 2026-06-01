@@ -10,7 +10,6 @@ import * as path from 'path';
 import {
   loadGlobalConfig, getNamedSubrootDir,
 } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { createAgentProcessManager } from '../../foundation/process-manager/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -27,7 +26,7 @@ export interface MotionDaemonDeps {
 }
 
 export async function motionDaemonCommand(deps: MotionDaemonDeps): Promise<void> {
-  loadGlobalConfig({ fsFactory: deps.fsFactory }, CONFIG_DEFAULTS);
+  loadGlobalConfig({ fsFactory: deps.fsFactory });
   const motionDir = makeClawDir(getNamedSubrootDir('motion'));
   // Motion-only callsite: motionDir = <chestnutRoot>/motion → dirname 一层即 chestnutRoot
   const baseDir = path.dirname(motionDir);

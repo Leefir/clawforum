@@ -1,92 +1,55 @@
 /**
- * CRUD operations for global + claw configs / phase 500 sub-file extraction
- *
- * CRUD operations for global + claw configs / phase 500 sub-file extraction
+ * Phase 10 Step C: facade re-implemented on loader + composer.
+ * Public function signatures preserved (callers unchanged except for removing `defaults` param).
  */
-
 import * as path from 'path';
-import * as yaml from 'js-yaml';
 import {
-  createClawGlobalConfigSchema,
-  createClawConfigSchema,
+  createGlobalConfigSchema,
+  getClawConfigSchema,
   type ClawGlobalConfig,
   type ClawConfig,
-  type ConfigDefaults,
-} from './schemas.js';
+} from '../../assembly/compose-config.js';
+import {
+  loadYamlConfig,
+  writeYamlConfig,
+  patchYamlConfig,
+  configExists,
+} from './loader.js';
 import {
   getGlobalConfigPath,
   getClawConfigPath,
 } from '../paths.js';
 import type { FileSystem } from '../fs/types.js';
 
-// Expand ${ENV_VAR} syntax in config values
-function expandEnvVars(obj: unknown): unknown {
-  if (typeof obj === 'string') {
-    return obj.replace(/\$\{([^}]+)\}/g, (_, varName) => {
-      const val = process.env[varName];
-      if (val === undefined) {
-        throw new Error(`Environment variable "${varName}" is not set`);
-      }
-      return val;
-    });
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(expandEnvVars);
-  }
-  if (obj !== null && typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      result[key] = expandEnvVars(value);
-    }
-    return result;
-  }
-  return obj;
-}
-
-// Load global config
-export function loadGlobalConfig(deps: { fsFactory: (baseDir: string) => FileSystem }, defaults: ConfigDefaults): ClawGlobalConfig {
+export function loadGlobalConfig(deps: { fsFactory: (baseDir: string) => FileSystem }): ClawGlobalConfig {
   const configPath = getGlobalConfigPath();
-  const dir = path.dirname(configPath);
-  const fs = deps.fsFactory(dir);
-
-  if (!fs.existsSync(path.basename(configPath))) {
-    throw new Error(
-      'Global config not found. Run "chestnut init" first.'
+  const schema = createGlobalConfigSchema();
+  try {
+    return loadYamlConfig<ClawGlobalConfig>(
+      { fsFactory: deps.fsFactory },
+      configPath,
+      schema,
+      { notFoundMessage: 'Global config not found. Run "chestnut init" first.' },
     );
-  }
-
-  let content: string;
-  try {
-    content = fs.readSync(path.basename(configPath));
   } catch (err) {
-    throw new Error(`Failed to read config: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = yaml.load(content);
-  } catch (err) {
-    throw new Error(`Invalid YAML in config: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  // Expand environment variables before validation
-  let expanded: unknown;
-  try {
-    expanded = expandEnvVars(parsed);
-  } catch (err) {
-    throw new Error(`Invalid global config (env var): ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  try {
-    return createClawGlobalConfigSchema(defaults).parse(expanded);
-  } catch (error) {
-    throw new Error(
-      `Invalid global config: ${error instanceof Error ? error.message : String(error)}`
-    );
+    if (err instanceof Error) {
+      if (err.message.startsWith('Failed to read config:')) {
+        throw new Error(err.message);
+      }
+      if (err.message.startsWith('Invalid YAML in config:')) {
+        throw new Error(err.message);
+      }
+      if (err.message.startsWith('Invalid config (env var):')) {
+        throw new Error(err.message.replace('Invalid config (env var):', 'Invalid global config (env var):'));
+      }
+      if (err.message.startsWith('Invalid config:')) {
+        throw new Error(err.message.replace('Invalid config:', 'Invalid global config:'));
+      }
+    }
+    throw err;
   }
 }
 
-// Check if initialized
 export function isInitialized(deps: { fsFactory: (baseDir: string) => FileSystem }): boolean {
   const configPath = getGlobalConfigPath();
   const dir = path.dirname(configPath);
@@ -94,86 +57,81 @@ export function isInitialized(deps: { fsFactory: (baseDir: string) => FileSystem
   return fs.existsSync(path.basename(configPath));
 }
 
-// Save global config
 export function saveGlobalConfig(deps: { fsFactory: (baseDir: string) => FileSystem }, config: ClawGlobalConfig): void {
   const configPath = getGlobalConfigPath();
-  const dir = path.dirname(configPath);
-  const fileSystem = deps.fsFactory(dir);
-  const content = yaml.dump(config);
-  fileSystem.writeAtomicSync(path.basename(configPath), content);
+  writeYamlConfig(
+    { fsFactory: deps.fsFactory },
+    configPath,
+    config,
+  );
 }
 
-// Load claw config
-export function loadClawConfig(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string, defaults: ConfigDefaults): ClawConfig {
+export function loadClawConfig(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string): ClawConfig | undefined {
   const configPath = getClawConfigPath(name);
-  const dir = path.dirname(configPath);
-  const fs = deps.fsFactory(dir);
-
-  if (!fs.existsSync(path.basename(configPath))) {
-    throw new Error(`Claw "${name}" not found.`);
+  if (!configExists({ fsFactory: deps.fsFactory }, configPath)) {
+    return undefined;
   }
-
-  let content: string;
   try {
-    content = fs.readSync(path.basename(configPath));
-  } catch (err) {
-    throw new Error(`Failed to read config: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = yaml.load(content);
-  } catch (err) {
-    throw new Error(`Invalid YAML in config: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  let expanded: unknown;
-  try {
-    expanded = expandEnvVars(parsed);
-  } catch (err) {
-    throw new Error(`Invalid claw config (env var): ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  try {
-    return createClawConfigSchema(defaults).parse(expanded);
-  } catch (error) {
-    throw new Error(
-      `Invalid claw config: ${error instanceof Error ? error.message : String(error)}`
+    return loadYamlConfig<ClawConfig>(
+      { fsFactory: deps.fsFactory },
+      configPath,
+      getClawConfigSchema(),
     );
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message.startsWith('Failed to read config:')) {
+        throw new Error(err.message);
+      }
+      if (err.message.startsWith('Invalid YAML in config:')) {
+        throw new Error(err.message);
+      }
+      if (err.message.startsWith('Invalid config (env var):')) {
+        throw new Error(err.message.replace('Invalid config (env var):', 'Invalid claw config (env var):'));
+      }
+      if (err.message.startsWith('Invalid config:')) {
+        throw new Error(err.message.replace('Invalid config:', 'Invalid claw config:'));
+      }
+    }
+    throw err;
   }
 }
 
-// Patch the primary LLM config in-place (raw YAML read/write, no Zod round-trip)
 export function patchGlobalConfigPrimary(deps: { fsFactory: (baseDir: string) => FileSystem }, patch: Record<string, unknown>): void {
   const configPath = getGlobalConfigPath();
-  const dir = path.dirname(configPath);
-  const fs = deps.fsFactory(dir);
-  const loaded = yaml.load(fs.readSync(path.basename(configPath)));
-  if (typeof loaded !== 'object' || loaded === null || Array.isArray(loaded)) {
-    throw new Error(`config parse failed: expected object, got ${typeof loaded}`);
-  }
-  const cfg = loaded as Record<string, unknown>;
-  const llm = (cfg.llm ?? {}) as Record<string, unknown>;
-  const primary = (llm.primary ?? {}) as Record<string, unknown>;
-  llm.primary = { ...primary, ...patch };
-  cfg.llm = llm;
-  const content = yaml.dump(cfg);
-  fs.writeAtomicSync(path.basename(configPath), content);
+  patchYamlConfig(
+    { fsFactory: deps.fsFactory },
+    configPath,
+    (cfg) => {
+      const llm = cfg.llm as Record<string, unknown> | undefined;
+      if (!llm || typeof llm !== 'object') {
+        throw new Error('Invalid global config: missing llm section');
+      }
+      const primary = llm.primary as Record<string, unknown> | undefined;
+      if (!primary || typeof primary !== 'object') {
+        throw new Error('Invalid global config: missing llm.primary section');
+      }
+      for (const [k, v] of Object.entries(patch)) {
+        primary[k] = v;
+      }
+    },
+  );
 }
 
-// Save claw config
 export function saveClawConfig(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string, config: ClawConfig): void {
   const configPath = getClawConfigPath(name);
-  const dir = path.dirname(configPath);
-  const fileSystem = deps.fsFactory(dir);
-  const content = yaml.dump(config);
-  fileSystem.writeAtomicSync(path.basename(configPath), content);
+  writeYamlConfig(
+    { fsFactory: deps.fsFactory },
+    configPath,
+    config,
+  );
 }
 
-// Check if claw exists
 export function clawExists(deps: { fsFactory: (baseDir: string) => FileSystem }, name: string): boolean {
   const configPath = getClawConfigPath(name);
   const dir = path.dirname(configPath);
   const fs = deps.fsFactory(dir);
   return fs.existsSync(path.basename(configPath));
 }
+
+// Re-export type for caller convenience
+export type { ClawGlobalConfig, ClawConfig };

@@ -36,7 +36,6 @@ import {
 import { CliError } from '../errors.js';
 import { createDirContext } from '../../foundation/audit/index.js';
 import { getClawDir, loadGlobalConfig } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { parseIntOption } from '../parse-int-option.js';
 import { makeClawId, makeContractId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -244,7 +243,7 @@ async function runCreate(deps: RouterDeps, name: string, args: string[]): Promis
   if (args.length > 0) {
     throw new CliError(`'create' takes no extra arguments (got: ${args.join(' ')})`);
   }
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   const { audit } = createDirContext(deps, getClawDir(name));
   await createCommand(deps, name, { audit });
 }
@@ -260,7 +259,7 @@ async function runStop(deps: RouterDeps, name: string, args: string[]): Promise<
   if (args.length > 0) {
     throw new CliError(`'stop' takes no extra arguments (got: ${args.join(' ')})`);
   }
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   const { audit } = createDirContext(deps, getClawDir(name));
   await stopCommand(deps, name, { audit });
 }
@@ -307,7 +306,7 @@ async function runOutbox(deps: RouterDeps, name: string, args: string[]): Promis
   } catch (err) {
     throw new CliError(`invalid 'claw <name> outbox' options: ${(err as Error).message}`);
   }
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   const { audit } = createDirContext(deps, getClawDir(name));
   const opts = parser.opts() as { limit: string };
   const limit = parseIntOption(opts.limit, '--limit must be a non-negative integer');
@@ -422,7 +421,7 @@ async function runWatch(deps: RouterDeps, name: string, args: string[]): Promise
   if (parser.args.length > 0) {
     throw new CliError(`'watch' takes no positional arguments (got: ${parser.args.join(' ')})`);
   }
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
   const { audit } = createDirContext(deps, getClawDir(name));
   const opts = parser.opts<{ inactiveAfter?: string }>();
   await watchCommand(deps, name, { inactiveAfter: opts.inactiveAfter }, { audit });

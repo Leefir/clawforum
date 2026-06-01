@@ -11,7 +11,6 @@
 
 import * as path from 'path';
 import { loadGlobalConfig, getNamedSubrootDir } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { resolveDaemonEntry } from '../../foundation/paths.js';
 import {
@@ -28,7 +27,7 @@ import {
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export async function statusCommand(deps: { fsFactory: (baseDir: string) => FileSystem }): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   const motionDir = getNamedSubrootDir(MOTION_CLAW_ID);
   const baseDir = path.dirname(motionDir);

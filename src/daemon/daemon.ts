@@ -23,14 +23,13 @@ import type { FileSystem } from '../foundation/fs/types.js';
 import { LockConflictError } from '../foundation/process-manager/index.js';
 import { DAEMON_AUDIT_EVENTS } from './audit-events.js';
 import type { DaemonInstances } from './types.js';
-import type { ConfigDefaults } from '../foundation/config/schemas.js';
+
 import { makeClawId, type ClawId } from '../foundation/identity/index.js';
 import { type ClawDir, makeClawDir } from '../foundation/identity/index.js';
 
 
 export interface DaemonCommandDeps {
   fsFactory: (baseDir: string) => FileSystem;
-  configDefaults: ConfigDefaults;
   assemble: (config: {
     identity: 'motion' | 'claw';
     clawId: ClawId;
@@ -49,7 +48,7 @@ export interface DaemonCommandDeps {
 export function createDaemonCommand(deps: DaemonCommandDeps) {
   return async function daemonCommand(name: string): Promise<void> {
     const clawId = makeClawId(name);
-    const globalConfig = loadGlobalConfig({ fsFactory: deps.fsFactory }, deps.configDefaults);
+    const globalConfig = loadGlobalConfig({ fsFactory: deps.fsFactory });
     const isMotion = name === MOTION_CLAW_ID;
 
     // 配置
@@ -65,7 +64,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
     // 写 PID 文件（兜底：无论启动方式都确保 PID 可查）
     await processManager.selfWritePid(clawId);
 
-    const clawConfig = isMotion ? null : loadClawConfig({ fsFactory: deps.fsFactory }, name, deps.configDefaults);
+    const clawConfig = isMotion ? null : loadClawConfig({ fsFactory: deps.fsFactory }, name);
 
     // Assembly 装配
     let instances: DaemonInstances;

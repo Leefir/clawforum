@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import { loadGlobalConfig, clawExists, getClawDir } from '../../foundation/config/index.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { CLAWSPACE_DIR } from '../../foundation/paths.js';
 import { resolveWorkspacePath } from '../../foundation/file-tool/resolve-path.js';
 import { CliError } from '../errors.js';
@@ -17,7 +16,7 @@ export async function readCommand(
   filePath: string,
   options?: { offset?: number; limit?: number },
 ): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   if (!clawExists(deps, clawName)) {
     throw new CliError(`Claw "${clawName}" does not exist`);

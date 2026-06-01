@@ -5,7 +5,6 @@
 import * as path from 'path';
 import { loadGlobalConfig, getGlobalConfigPath, getNamedSubrootDir } from '../../foundation/config/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
-import { CONFIG_DEFAULTS } from '../../assembly/index.js';
 import { createAuditWriter } from '../../foundation/audit/index.js';
 import { getChestnutFs, getGlobalConfig, setAuditWriter as setWatchdogAuditWriter } from '../../watchdog/watchdog-context.js';
 import { stopCommand as watchdogStop } from '../../watchdog/watchdog.js';
@@ -21,7 +20,7 @@ import { makeClawId } from '../../foundation/identity/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
 export async function stopAllCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, extraDeps?: { audit?: AuditLog }): Promise<void> {
-  loadGlobalConfig(deps, CONFIG_DEFAULTS);
+  loadGlobalConfig(deps);
 
   // motion-level audit（α 模板复用 / 同 daemon-entry shim / fail-soft）
   let audit: AuditLog | null = extraDeps?.audit ?? null;
