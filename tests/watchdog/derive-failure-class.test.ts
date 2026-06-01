@@ -37,13 +37,13 @@ describe('phase 1482: formatInactivityBody', () => {
   const base = {
     clawId: 'clawA',
     inactiveMin: 30,
-    notifyCount: 2,
+    /* notifyCount removed phase 4 1-shot */
     contract: 'active:c1',
   };
 
   it('phase 4 daemon_silent → clean self-contained sentence (no status/inbox/outbox 杂揉)', () => {
     const body = formatInactivityBody({ ...base, failureClass: 'daemon_silent' });
-    expect(body).toBe(`Claw "clawA" daemon is running but has produced no events for 30m while in contract active:c1 (notification #2).`);
+    expect(body).toBe(`Claw "clawA" daemon is running but has produced no events for 30m while in contract active:c1.`);
     expect(body).not.toMatch(/Status:|inbox_pending|outbox_pending/);
   });
 
@@ -53,7 +53,7 @@ describe('phase 1482: formatInactivityBody', () => {
       failureClass: 'daemon_errored',
       lastError: 'LLM 503',
     });
-    expect(body).toContain('Claw "clawA" daemon is running but encountered an error 30m ago while in contract active:c1 (notification #2).');
+    expect(body).toContain('Claw "clawA" daemon is running but encountered an error 30m ago while in contract active:c1.');
     expect(body).toContain('\n\nLast error: LLM 503');
   });
 

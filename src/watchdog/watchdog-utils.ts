@@ -141,20 +141,19 @@ export function deriveFailureClass(input: DeriveFailureClassInput): FailureClass
   return 'daemon_silent';
 }
 
-/** Body 字面 (phase 4 重写): per-class 自含语义、不杂揉 inbox/outbox/status 等无关字段、lastError 单独一行. */
+/** Body 字面 (phase 4 重写 / phase 4 续 1-shot): per-class 自含语义、不杂揉 inbox/outbox/status 等无关字段、lastError 单独一行 / 移 "(notification #N)" 1-shot 后无意义. */
 export function formatInactivityBody(opts: {
   clawId: string;
   inactiveMin: number;
-  notifyCount: number;     // displayCount (notifyCount + 1)
   failureClass: FailureClass;
   contract: string;
   lastError?: string | null;
 }): string {
   switch (opts.failureClass) {
     case 'daemon_silent':
-      return `Claw "${opts.clawId}" daemon is running but has produced no events for ${opts.inactiveMin}m while in contract ${opts.contract} (notification #${opts.notifyCount}).`;
+      return `Claw "${opts.clawId}" daemon is running but has produced no events for ${opts.inactiveMin}m while in contract ${opts.contract}.`;
     case 'daemon_errored': {
-      const head = `Claw "${opts.clawId}" daemon is running but encountered an error ${opts.inactiveMin}m ago while in contract ${opts.contract} (notification #${opts.notifyCount}).`;
+      const head = `Claw "${opts.clawId}" daemon is running but encountered an error ${opts.inactiveMin}m ago while in contract ${opts.contract}.`;
       return opts.lastError
         ? `${head}\n\nLast error: ${opts.lastError}`
         : head;

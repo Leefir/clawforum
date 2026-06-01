@@ -12,7 +12,7 @@ import {
   lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned, clawPreviouslyNotified,
 } from './watchdog-context.js';
 import { log, writeClawInactivityInbox } from './watchdog-log.js';
-import { clawHasActiveContract, getClawActivityInfo, gatherClawSnapshot, getEffectiveInterval, shouldResetNotifyCount, deriveFailureClass, formatInactivityBody, deriveCrashClass, formatCrashBody, hasCleanStopMarker } from './watchdog-utils.js';
+import { clawHasActiveContract, getClawActivityInfo, gatherClawSnapshot, shouldResetNotifyCount, deriveFailureClass, formatInactivityBody, deriveCrashClass, formatCrashBody, hasCleanStopMarker } from './watchdog-utils.js';
 import { getContractCreatedMs } from '../core/contract/index.js';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
@@ -66,24 +66,20 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
       // Not yet timed out
       if (now - referenceMs < timeoutMs) continue;
 
-      // Reset count if claw has made new progress since last notification
+      // phase 4 续: 1-shot per stuck period (取代 phase 1482 multi-notif backoff)
+      //   - 已通知过 + claw 无新 stream 活动 → skip (user 关切「占用 motion 上下文」)
+      //   - shouldResetNotifyCount (referenceMs > lastNotified) = 真有 progress → 允许重新通知
+      //   - motion 干预后 claw 完全冻死无 stream → 无 reset → 走 restart 路径 (crash_notification) 让 motion 知
       const lastNotified = lastInactivityNotified.get(rawClawId) ?? 0;
-      if (shouldResetNotifyCount(referenceMs, lastNotified)) {
-        inactivityNotifyCount.set(rawClawId, 0);
+      if (lastNotified > 0 && !shouldResetNotifyCount(referenceMs, lastNotified)) {
+        continue;  // 已通知 + 无 progress → 不重发
       }
-
-      const notifyCount = inactivityNotifyCount.get(rawClawId) ?? 0;
-
-      // Backoff interval: first 2 notifications use timeoutMs, from the 3rd onward use 3x
-      const effectiveInterval = getEffectiveInterval(notifyCount, timeoutMs);
-      if (now - lastNotified < effectiveInterval) continue;
 
       // Collect snapshot info
       const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
       const inactiveMin = Math.round((now - referenceMs) / 60000);
 
       // phase 1482: 业主 own FailureClass enum + body 按 class 改字面（取代 "no progress" 误导）
-      const displayCount = notifyCount + 1;
       const failureClass = deriveFailureClass({
         daemonAlive: snapshot.status === 'running',
         lastError,
@@ -91,27 +87,21 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
       const body = formatInactivityBody({
         clawId,
         inactiveMin,
-        notifyCount: displayCount,
         failureClass,
         contract: snapshot.contract,
         lastError,
       });
 
-      log(fsFactory, `[watchdog] Claw ${rawClawId} ${failureClass} ${inactiveMin}m (notify #${displayCount})${lastError ? ` (last error: ${lastError})` : ''}`);
+      log(fsFactory, `[watchdog] Claw ${rawClawId} ${failureClass} ${inactiveMin}m${lastError ? ` (last error: ${lastError})` : ''}`);
       writeClawInactivityInbox(fsFactory, {
         message: body,
         claw_id: rawClawId,
         inactive_ms: now - referenceMs,
-        status: snapshot.status,
         contract: snapshot.contract,
-        inbox_pending: snapshot.inboxPending,
-        outbox_pending: snapshot.outboxPending,
-        notify_count: displayCount,
         as_of: new Date().toISOString(),
         failure_class: failureClass,
         ...(lastError ? { last_error: lastError } : {}),
       });
-      inactivityNotifyCount.set(rawClawId, displayCount);
       lastInactivityNotified.set(rawClawId, now);
     } catch (err) {
       log(fsFactory, `[watchdog] Error checking claw ${rawClawId}: ${err instanceof Error ? err.message : String(err)}`);
