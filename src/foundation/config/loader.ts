@@ -64,27 +64,27 @@ export function loadYamlConfig<T>(
   try {
     content = fs.readSync(basename);
   } catch (err) {
-    throw new Error(`Failed to read config: ${formatErr(err)}`);
+    throw new Error(`Failed to read config: ${formatErr(err)}`, { cause: err });
   }
 
   let parsed: unknown;
   try {
     parsed = yaml.load(content);
   } catch (err) {
-    throw new Error(`Invalid YAML in config: ${formatErr(err)}`);
+    throw new Error(`Invalid YAML in config: ${formatErr(err)}`, { cause: err });
   }
 
   let expanded: unknown;
   try {
     expanded = expandEnvVars(parsed);
   } catch (err) {
-    throw new Error(`Invalid config (env var): ${formatErr(err)}`);
+    throw new Error(`Invalid config (env var): ${formatErr(err)}`, { cause: err });
   }
 
   try {
     return schema.parse(expanded);
   } catch (error) {
-    throw new Error(`Invalid config: ${formatErr(error)}`);
+    throw new Error(`Invalid config: ${formatErr(error)}`, { cause: error });
   }
 }
 
