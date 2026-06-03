@@ -48,6 +48,9 @@ import {
   type RuntimeOptions,
   type StreamCallbacks,
   type DaemonStreamCallbacks,
+  type IRuntimeLifecycle,
+  type IRuntimeDaemon,
+  type IRuntimeChat,
 } from './types.js';
 import { TASKS_SYNC_DIR } from '../async-task-system/index.js';
 
@@ -72,7 +75,7 @@ function auditError(
 /**
  * Runtime - fully assembled Claw runtime instance
  */
-export class Runtime {
+export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat {
   protected options: RuntimeOptions;
   protected initialized = false;
   private currentAbortController: AbortController | null = null;

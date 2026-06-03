@@ -126,3 +126,45 @@ export interface StreamCallbacks {
 export interface DaemonStreamCallbacks extends StreamCallbacks {
   onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;
 }
+
+/**
+ * phase 27 Step E (P2): Runtime API 按消费者拆 3 子接口、I/SP align。
+ *
+ * 消费者依赖只暴露所需子集：
+ * - Assembly: lifecycle (initialize/stop/getters)
+ * - Daemon-loop: 消息处理 (processBatch/processWithMessage/retryLastTurn) + abort
+ * - CLI: 交互 (chat/abort)
+ *
+ * 4 个 diagnostic getter (getCurrentTraceId/SystemPrompt/Tools/Messages) 不入
+ * 子接口、跨消费者用、保 Runtime class own。
+ */
+
+/** chat() options — 1:1 保 runtime.ts:936-945 body */
+export interface ChatOptions {
+  onToolCall?: (toolName: string, toolUseId: ToolUseId) => void;
+  onBeforeLLMCall?: () => void;
+  onToolResult?: (toolName: string, toolUseId: ToolUseId, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+  onTextDelta?: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
+  onProviderInfo?: (info: { name: string; model: string; isFallback: boolean }) => void;
+}
+
+export interface IRuntimeLifecycle {
+  initialize(): Promise<void>;
+  stop(): Promise<void>;
+  getStatus(): { initialized: boolean; clawId: ClawId };
+  getTurnCount(): number;
+  getTaskSystem(): AsyncTaskSystem;
+  getAuditWriter(): AuditLog;
+}
+
+export interface IRuntimeDaemon {
+  processBatch(callbacks?: DaemonStreamCallbacks): Promise<number>;
+  processWithMessage(msg: import('../../foundation/llm-provider/types.js').Message, callbacks?: StreamCallbacks): Promise<void>;
+  retryLastTurn(callbacks?: StreamCallbacks): Promise<void>;
+}
+
+export interface IRuntimeChat {
+  chat(userMessage: string, options?: ChatOptions): Promise<string>;
+  abort(): void;
+}
