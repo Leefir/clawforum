@@ -16,7 +16,7 @@
 import * as path from 'path';
 import { formatErr } from "../foundation/utils/index.js";
 import type { FileSystem } from '../foundation/fs/types.js';
-import type { Runtime, StreamCallbacks } from '../core/runtime/index.js';
+import type { IRuntimeDaemon, IRuntimeChat, StreamCallbacks } from '../core/runtime/index.js';
 import type { InboxMessage } from '../foundation/messaging/types.js';
 import type { StreamWriter, StreamLog } from '../foundation/stream/index.js';
 import { createWatcher } from '../foundation/file-watcher/index.js';
@@ -154,7 +154,7 @@ interface DaemonMotionExtensions {
 export interface DaemonLoopOptions {
   // 核心驱动（5 必填）
   fsFactory: (baseDir: string) => FileSystem;
-  runtime: Runtime;
+  runtime: IRuntimeDaemon & IRuntimeChat;
   agentDir: string;          // agent root directory (listens for interrupt signals)
   clawId: ClawId;            // agent identifier (kebab-case)
   label: string;             // log prefix, e.g. '[motion daemon]' or '[daemon]'
@@ -390,7 +390,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
 
       // Build wrappedCallbacks outside try so catch block can access it for retryLastTurn
-      const callbacks = streamWriter ? createStreamCallbacks(streamWriter, options.audit, runtime) : undefined;
+      const callbacks = streamWriter ? createStreamCallbacks(streamWriter, options.audit, runtime as import('../core/runtime/index.js').Runtime) : undefined;
       const wrappedCallbacks = callbacks
         ? { ...callbacks, onInboxMessages }
         : (onInboxMessages ? { onInboxMessages } : undefined);

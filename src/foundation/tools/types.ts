@@ -9,6 +9,7 @@ import type { ToolProfile } from '../tool-protocol/index.js';
 import type { FileSystem } from '../fs/types.js';
 import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { AuditLog } from '../audit/index.js';
+import type { DialogStore } from '../dialog-store/index.js';
 import type { ToolDescriptor, ToolResult, CallerSnapshot } from '../tool-protocol/index.js';
 export type { CallerSnapshot };
 import type { ScheduleAsyncTool } from './async-dispatch.js';
@@ -128,6 +129,8 @@ export interface ExecutionInfra {
   llm?: LLMOrchestrator;
   /** Tool registry reference for sync spawn path (phase 766) */
   registry?: ToolRegistry;
+  /** phase 27: main dialog store injection (was as { mainDialogStore } cast, phase 768) */
+  mainDialogStore?: DialogStore;
   /** phase 1332: injected task scheduler for subagent scheduling (N2 cross-L4 leak fix) */
   taskSystem?: TaskScheduler;
 }

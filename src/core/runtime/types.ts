@@ -10,7 +10,7 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { InboxReader, OutboxWriter, MessageFormatterRegistry } from '../../foundation/messaging/index.js';
-import type { MotionGuidanceRegistry } from '../../assembly/guidance/index.js';
+
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { IToolExecutor } from '../../foundation/tools/index.js';
 import type { ContextInjector } from '../dialog/index.js';
@@ -26,6 +26,12 @@ import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
 
 
+
+/**
+ * phase 27 Step D P5: guidance compose callback hook、替代直接 import L6 type。
+ * Assembly 注入实际 composer（基于 MotionGuidanceRegistry）、Runtime 仅调用 callback。
+ */
+export type GuidanceCompose = (type: string, state: Record<string, string>) => { text: string } | null;
 
 /** 1:1 保 runtime.ts:47-72 body */
 export interface RuntimeDependencies {
@@ -64,11 +70,10 @@ export interface RuntimeDependencies {
   readonly formatterRegistry: MessageFormatterRegistry;
 
   /**
-   * phase 1469: motion guidance registry — Assembly motion 装配期填 / claw 装配 undefined.
-   * Runtime motion-side formatInboxMessage 末端 append guidance / claw 见 phase 1414 形态不变.
-   * 详 design/modules/l2_messaging.md §10.
+   * phase 27 Step D P5: guidance compose callback hook、替代直接 import L6 type。
+   * Assembly 注入实际 composer（基于 MotionGuidanceRegistry）、Runtime 仅调用 callback。
    */
-  readonly guidanceRegistry?: MotionGuidanceRegistry;
+  readonly guidanceCompose?: GuidanceCompose;
 }
 
 /** 1:1 保 runtime.ts:74-101 body */
@@ -120,4 +125,46 @@ export interface StreamCallbacks {
 /** 1:1 保 runtime.ts:121-126 body */
 export interface DaemonStreamCallbacks extends StreamCallbacks {
   onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;
+}
+
+/**
+ * phase 27 Step E (P2): Runtime API 按消费者拆 3 子接口、I/SP align。
+ *
+ * 消费者依赖只暴露所需子集：
+ * - Assembly: lifecycle (initialize/stop/getters)
+ * - Daemon-loop: 消息处理 (processBatch/processWithMessage/retryLastTurn) + abort
+ * - CLI: 交互 (chat/abort)
+ *
+ * 4 个 diagnostic getter (getCurrentTraceId/SystemPrompt/Tools/Messages) 不入
+ * 子接口、跨消费者用、保 Runtime class own。
+ */
+
+/** chat() options — 1:1 保 runtime.ts:936-945 body */
+export interface ChatOptions {
+  onToolCall?: (toolName: string, toolUseId: ToolUseId) => void;
+  onBeforeLLMCall?: () => void;
+  onToolResult?: (toolName: string, toolUseId: ToolUseId, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
+  onTextDelta?: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
+  onProviderInfo?: (info: { name: string; model: string; isFallback: boolean }) => void;
+}
+
+export interface IRuntimeLifecycle {
+  initialize(): Promise<void>;
+  stop(): Promise<void>;
+  getStatus(): { initialized: boolean; clawId: ClawId };
+  getTurnCount(): number;
+  getTaskSystem(): AsyncTaskSystem;
+  getAuditWriter(): AuditLog;
+}
+
+export interface IRuntimeDaemon {
+  processBatch(callbacks?: DaemonStreamCallbacks): Promise<number>;
+  processWithMessage(msg: import('../../foundation/llm-provider/types.js').Message, callbacks?: StreamCallbacks): Promise<void>;
+  retryLastTurn(callbacks?: StreamCallbacks): Promise<void>;
+}
+
+export interface IRuntimeChat {
+  chat(userMessage: string, options?: ChatOptions): Promise<string>;
+  abort(): void;
 }

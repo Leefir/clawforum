@@ -18,6 +18,7 @@ import { CLAWSPACE_DIR } from '../paths.js';
 
 
 import type { AuditLog } from '../audit/index.js';
+import type { DialogStore } from '../dialog-store/index.js';
 
 import type { ToolRegistry } from './types.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';
@@ -87,6 +88,8 @@ export interface ExecContextImplOptions {
   persistReadFileState?: boolean;
   /** Tool registry reference for sync spawn path (phase 766) */
   registry?: ToolRegistry;
+  /** phase 27: main dialog store injection (was as { mainDialogStore } cast, phase 768) */
+  mainDialogStore?: DialogStore;
   /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
   isShadow?: boolean;
   /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
@@ -168,6 +171,7 @@ export class ExecContextImpl implements ExecContext {
   readFileState: Map<string, FileState>;
   persistReadFileState?: boolean;
   registry?: ToolRegistry;
+  mainDialogStore?: DialogStore;
   isShadow?: boolean;
   permissionChecker?: PermissionChecker;
   toolTimeoutMs?: number;
@@ -199,6 +203,7 @@ export class ExecContextImpl implements ExecContext {
     this.readFileState = options.readFileState ?? new Map();
     this.persistReadFileState = options.persistReadFileState;
     this.registry = options.registry;
+    this.mainDialogStore = options.mainDialogStore;
     this.isShadow = options.isShadow;
     this.permissionChecker = options.permissionChecker;
     this.toolTimeoutMs = options.toolTimeoutMs;
