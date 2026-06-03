@@ -35,22 +35,32 @@ export interface RetroResult {
   detail?: string;
 }
 
-/** Motion 侧资源上下文（review_request 整合专用）。 */
-export interface MotionReviewContext {
-  /** Motion agent 根目录的 FileSystem（clawspace/pending-retrospective/by-contract/ 等资源的访问 fs） */
+/** Motion 侧资源（pending-retrospective 索引读取 + motion audit 路由）。
+ *  motionAudit 与 EvolutionSystemDeps.audit（claw 侧）是两个独立 audit routing target，
+ *  分别写到 motion sink 与 claw sink，不可合并。 */
+export interface MotionResources {
+  /** Motion agent 根目录的 FileSystem */
   motionFs: FileSystem;
-  /** Motion agent 根目录绝对路径（NodeFileSystem.options.baseDir 同义，供 path.join 使用） */
+  /** Motion agent 根目录绝对路径 */
   motionBaseDir: string;
-  /** Motion audit sink（AsyncTaskSystem.schedule 调用需要）*/
+  /** Motion audit sink（与 deps.audit 区分） */
   motionAudit: AuditLog;
-  /** Claws 基础目录（解析目标 claw 路径：`path.resolve(clawsBaseDir, targetClaw)`）*/
+  /** Claws 基础目录 */
   clawsBaseDir: string;
+}
+
+/** target claw 构造 factory（运行期按 targetClaw 解析）。 */
+export interface ClawFactories {
   /** 临时构建 target claw FileSystem 的 factory（assembly 注入 / 业务 0 触 L1 impl）*/
   clawFsFactory: (clawDir: ClawDir) => FileSystem;
   /** 临时构建 target claw ContractSystem 的 factory（assembly 注入 / 业务 0 触 L4 ctor）。
-   *  factory 内部封装 createSystemAudit（避免 L2 audit instance leak 到业务）/ mirror phase 609 clawFsFactory 模板。 */
+   *  factory 内部封装 createSystemAudit（避免 L2 audit instance leak 到业务）。 */
   clawContractManagerFactory: (clawDir: ClawDir, targetClaw: string, fs: FileSystem) => ContractSystem;
 }
+
+/** 调用方便组合：runRetroForContract 一次性收到 motion 资源 + claw factory 两组语义。
+ *  内部仍以 MotionResources / ClawFactories 区分关注点（I 接口隔离）。 */
+export interface MotionReviewContext extends MotionResources, ClawFactories {}
 
 const STATE_FILE_PATH = '.evolution-system-state.json';   // motion root
 

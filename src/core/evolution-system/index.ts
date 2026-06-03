@@ -3,7 +3,14 @@
  * Evolution module exports
  */
 
-export { EvolutionSystem, type EvolutionSystemDeps, type RetroResult } from './system.js';
+export {
+  EvolutionSystem,
+  type EvolutionSystemDeps,
+  type RetroResult,
+  type MotionResources,
+  type ClawFactories,
+  type MotionReviewContext,
+} from './system.js';
 export { RETRO_AUDIT_EVENTS } from './retro-audit-events.js';
 
 import { EvolutionSystem, type EvolutionSystemDeps } from './system.js';
