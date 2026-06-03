@@ -11,3 +11,9 @@
 export { spawnTool, SPAWN_TOOL_NAME } from './tools/spawn.js';
 export { SPAWN_AUDIT_EVENTS } from './audit-events.js';
 export { TASKS_SYNC_SPAWN_DIR } from './constants.js';
+export {
+  SPAWN_TEMPLATES,
+  DEFAULT_SPAWN_TEMPLATE,
+  resolveSpawnTemplate,
+} from './templates.js';
+export type { SpawnTemplateName } from './templates.js';
