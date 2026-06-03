@@ -171,7 +171,14 @@ async function computeWeight(
       const factors = calculateWeightFactors(subtasks);
       weight += factors.recencyBonus + factors.difficultyBonus;
       hints.push(...factors.hints);
-    } catch { /* silent: 无 progress，跳过 */ }
+    } catch (e) {
+      audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
+        `step=getContractProgress_api`,
+        `clawId=${clawId}`,
+        `contractId=${contractId}`,
+        `reason=${formatErr(e)}`);
+      // best-effort：API 失败、跳过 recency/difficulty 加权
+    }
   } else {
     // fallback：直接读 progress.json（backward compatible / 未注入 ContractSystem 时）
     const progressPath = path.join(contractDir, 'progress.json');
@@ -187,7 +194,18 @@ async function computeWeight(
       const factors = calculateWeightFactors(subtasks);
       weight += factors.recencyBonus + factors.difficultyBonus;
       hints.push(...factors.hints);
-    } catch { /* silent: 无 progress.json，跳过 */ }
+    } catch (e) {
+      // ENOENT 是预期（contract 无 progress.json 是正常初态）— 仅非 ENOENT 必 audit
+      const isMissing =
+        (e as NodeJS.ErrnoException).code === 'ENOENT' ||
+        e instanceof FileNotFoundError;
+      if (!isMissing) {
+        audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
+          `step=load_progress_fallback`,
+          `contractDir=${contractDir}`,
+          `reason=${formatErr(e)}`);
+      }
+    }
   }
 
   // 权重下限 1

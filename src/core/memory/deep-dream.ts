@@ -363,7 +363,12 @@ export type { DreamStateData as __test_DreamStateData };
 
 export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
   const maxCompressionTokens = opts.maxCompressionTokens ?? 4000;
-  if (!opts.fs.existsSync(CLAWS_DIR)) return;
+  if (!opts.fs.existsSync(CLAWS_DIR)) {
+    opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_JOB,
+      `step=skipped_no_claws_dir`,
+      `path=${CLAWS_DIR}`);
+    return;
+  }
 
   const clawIds = opts.fs.listSync(CLAWS_DIR, { includeDirs: true })
     .filter(e => opts.fs.statSync(path.join(CLAWS_DIR, e.name)).isDirectory)
