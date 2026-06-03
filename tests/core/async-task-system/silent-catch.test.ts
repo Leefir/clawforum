@@ -99,7 +99,7 @@ describe('phase 541: silent catch fixes', () => {
       );
     });
 
-    it('move + delete both failure writes 2 RECOVERY_FAILED audits', async () => {
+    it('move + delete both failure writes 3 RECOVERY_FAILED audits (phase 18: retry-count cleanup failure 也 emit)', async () => {
       const mockFs = makeMockFsForS1({ moveReject: true, deleteReject: true });
       const { audit, events } = makeMockAudit();
       const pendingQueue: Array<unknown> = [];
@@ -107,7 +107,7 @@ describe('phase 541: silent catch fixes', () => {
       await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
 
       const recoveryFailedEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.RECOVERY_FAILED);
-      expect(recoveryFailedEvents.length).toBe(2);
+      expect(recoveryFailedEvents.length).toBe(3);
 
       expect(recoveryFailedEvents[0]).toEqual(
         expect.arrayContaining([
@@ -122,6 +122,15 @@ describe('phase 541: silent catch fixes', () => {
           TASK_AUDIT_EVENTS.RECOVERY_FAILED,
           expect.stringContaining('taskId='),
           'context=alreadysent_delete_failed',
+          expect.stringContaining('error='),
+        ]),
+      );
+      // phase 18: retry-count cleanup failure 也 emit RECOVERY_FAILED (非 ENOENT 路径)
+      expect(recoveryFailedEvents[2]).toEqual(
+        expect.arrayContaining([
+          TASK_AUDIT_EVENTS.RECOVERY_FAILED,
+          expect.stringContaining('taskId='),
+          'context=retry_counter_cleanup_failed',
           expect.stringContaining('error='),
         ]),
       );

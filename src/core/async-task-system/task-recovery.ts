@@ -121,7 +121,17 @@ async function _recoverAlreadySent(
     });
   });
   // C.3 (phase 989): mirror _recoverWithResult line 166 cleanup / D5 hygiene / retry-count file 不 accumulate
-  await deps.fs.delete(RETRY_COUNT_PATH(task.id)).catch(() => {});
+  // phase 18: narrow ENOENT silent + 其他 IO error audit emit (Design Principle 不可预期失败暴露而非吞没)
+  await deps.fs.delete(RETRY_COUNT_PATH(task.id)).catch((err) => {
+    if (!isFileNotFound(err)) {
+      emitRecoveryFailed(deps.auditWriter, {
+        taskId: task.id,
+        context: 'retry_counter_cleanup_failed',
+        error: formatErr(err),
+      });
+    }
+    // silent: ENOENT/FS_NOT_FOUND first-time recovery、retry-count file 未生成、cleanup 无目标
+  });
   emitRecovered(deps.auditWriter, { taskId: task.id, reason: 'already_sent' });
 }
 
@@ -198,7 +208,17 @@ async function _recoverWithResult(
       });
     });
     // retryPath delete 失败无害（残文件下次 startup 覆盖 / 不影响 dead-letter promotion）
-    await fs.delete(retryPath).catch(() => {});
+    // phase 18: narrow ENOENT silent + 其他 IO error audit emit (Design Principle 不可预期失败暴露而非吞没)
+    await fs.delete(retryPath).catch((err) => {
+      if (!isFileNotFound(err)) {
+        emitRecoveryFailed(auditWriter, {
+          taskId: task.id,
+          context: 'retry_counter_cleanup_failed',
+          error: formatErr(err),
+        });
+      }
+      // silent: ENOENT/FS_NOT_FOUND first-time recovery、retry-count file 未生成、cleanup 无目标
+    });
   } else {
     retryCount++;
     await fs.writeAtomic(retryPath, String(retryCount)).catch((e) => {
