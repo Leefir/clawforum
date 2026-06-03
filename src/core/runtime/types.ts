@@ -10,7 +10,7 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Snapshot } from '../../foundation/snapshot/index.js';
 import type { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { InboxReader, OutboxWriter, MessageFormatterRegistry } from '../../foundation/messaging/index.js';
-import type { MotionGuidanceRegistry } from '../../assembly/guidance/index.js';
+
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { IToolExecutor } from '../../foundation/tools/index.js';
 import type { ContextInjector } from '../dialog/index.js';
@@ -26,6 +26,12 @@ import type { ToolUseId } from '../../foundation/tool-protocol/index.js';
 import { type ClawDir } from '../../foundation/identity/index.js';
 
 
+
+/**
+ * phase 27 Step D P5: guidance compose callback hook、替代直接 import L6 type。
+ * Assembly 注入实际 composer（基于 MotionGuidanceRegistry）、Runtime 仅调用 callback。
+ */
+export type GuidanceCompose = (type: string, state: Record<string, string>) => { text: string } | null;
 
 /** 1:1 保 runtime.ts:47-72 body */
 export interface RuntimeDependencies {
@@ -64,11 +70,10 @@ export interface RuntimeDependencies {
   readonly formatterRegistry: MessageFormatterRegistry;
 
   /**
-   * phase 1469: motion guidance registry — Assembly motion 装配期填 / claw 装配 undefined.
-   * Runtime motion-side formatInboxMessage 末端 append guidance / claw 见 phase 1414 形态不变.
-   * 详 design/modules/l2_messaging.md §10.
+   * phase 27 Step D P5: guidance compose callback hook、替代直接 import L6 type。
+   * Assembly 注入实际 composer（基于 MotionGuidanceRegistry）、Runtime 仅调用 callback。
    */
-  readonly guidanceRegistry?: MotionGuidanceRegistry;
+  readonly guidanceCompose?: GuidanceCompose;
 }
 
 /** 1:1 保 runtime.ts:74-101 body */

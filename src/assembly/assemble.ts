@@ -593,8 +593,8 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       dialogStoreFactory: makeDialogStore,
       // phase 1414: inbox 消息 formatter 注册表（业主自家 register）
       formatterRegistry,
-      // phase 1469: motion guidance registry（motion-only / claw 装配 undefined）
-      guidanceRegistry,
+      // phase 27 Step D P5: guidance compose callback hook（motion-only / claw 装配 undefined）
+      guidanceCompose: (type, state) => guidanceRegistry?.compose(type, state) ?? null,
     };
 
     // 孤儿临时文件清理（从 Runtime.initialize 搬来；Assembly 负责一次性的启动清理）

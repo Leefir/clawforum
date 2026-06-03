@@ -17,7 +17,6 @@ import type { Message } from '../../foundation/llm-provider/types.js';
 import type { InboxMessage } from '../../foundation/messaging/types.js';
 import { InboxListFailed, InboxMoveFailed } from '../../foundation/messaging/index.js';
 import type { MessageFormatterRegistry } from '../../foundation/messaging/index.js';
-import type { MotionGuidanceRegistry } from '../../assembly/guidance/index.js';
 
 import { DialogStore, performRegimeSwitch } from '../../foundation/dialog-store/index.js';
 import { loadReadFileState, clearReadFileState } from '../../foundation/file-tool/file-state-persist.js';
@@ -122,8 +121,8 @@ export class Runtime {
   private snapshot!: Snapshot;
   // phase 1414: inbox 消息 formatter 注册表（Assembly 装配期填、各业主自家）
   private formatterRegistry!: MessageFormatterRegistry;
-  // phase 1469: motion guidance registry — motion 装配期填 / claw undefined / formatInboxMessage 末端 motion-side append
-  private guidanceRegistry?: MotionGuidanceRegistry;
+  // phase 27 Step D P5: guidance compose callback hook
+  private guidanceCompose?: import('./types.js').GuidanceCompose;
 
   // phase 521: regime switch coordination
   private dialogStoreFactory!: () => DialogStore;
@@ -141,7 +140,7 @@ export class Runtime {
     const deps = options.dependencies;
     this.dialogStoreFactory = deps.dialogStoreFactory;
     this.formatterRegistry = deps.formatterRegistry;   // phase 1414: ctor-time bind（formatInboxMessage 可在 initialize 前调）
-    this.guidanceRegistry = deps.guidanceRegistry;     // phase 1469: motion-only / claw undefined
+    this.guidanceCompose = deps.guidanceCompose;        // phase 27 Step D P5: callback hook
     if (deps.parentStreamLog) {
       deps.taskSystem.setParentStreamLog(deps.parentStreamLog);
     }
@@ -376,10 +375,10 @@ export class Runtime {
       formatted = await formatter({ from, body, timestampSec: t });
     }
 
-    // phase 1469: motion-side append guidance（motion 装配 guidanceRegistry 必持 / claw undefined → 跳）
-    if (this.guidanceRegistry) {
+    // phase 27 Step D P5: motion-side append guidance（motion 装配 guidanceCompose 必持 / claw undefined → 跳）
+    if (this.guidanceCompose) {
       try {
-        const g = this.guidanceRegistry.compose(type, extraMeta ?? {});
+        const g = this.guidanceCompose(type, extraMeta ?? {});
         if (g) formatted += '\n\n' + g.text;
       } catch (e) {
         // 不可预期失败暴露 / audit emit / 不破 message 投递（fallback graceful、仅缺 guidance 追加）
