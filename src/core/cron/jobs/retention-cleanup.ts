@@ -2,7 +2,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
 import { cleanupRetention } from '../../../foundation/messaging/index.js';
-import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from '../../../foundation/messaging/index.js';
+// INBOX_DONE_DIR / INBOX_FAILED_DIR removed with DIRS (Phase 28 Step B)
 import { cleanupExpiredTaskFiles } from '../../async-task-system/index.js';
 import { cleanupArchives } from '../../../foundation/dialog-store/index.js';
 import { type ClawDir } from '../../../foundation/identity/index.js';
@@ -26,20 +26,7 @@ export interface RetentionCleanupOptions {
   signal?: AbortSignal;
 }
 
-const DIRS: Array<{ relPath: string; maxDaysKey: keyof RetentionCleanupOptions['maxDays'] }> = [
-  { relPath: INBOX_DONE_DIR, maxDaysKey: 'inbox' },
-  { relPath: INBOX_FAILED_DIR, maxDaysKey: 'inbox' },
-  { relPath: 'outbox/done', maxDaysKey: 'outbox' },
-  { relPath: 'outbox/failed', maxDaysKey: 'outbox' },
-  { relPath: 'outbox/processing', maxDaysKey: 'outbox' },
-  { relPath: 'tasks/done', maxDaysKey: 'tasks' },
-  { relPath: 'tasks/failed', maxDaysKey: 'tasks' },
-  { relPath: 'tasks/results', maxDaysKey: 'tasks' },
-  { relPath: 'dialog/archive', maxDaysKey: 'dialog' },
-];
-
 export async function runRetentionCleanup(opts: RetentionCleanupOptions): Promise<void> {
-  void DIRS; // kept for reference during refactor
   const { motionDir, fs, audit, maxDays, signal } = opts;
 
   let totalDeleted = 0;

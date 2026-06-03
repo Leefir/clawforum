@@ -25,7 +25,6 @@ export const CRON_AUDIT_EVENTS = {
   RUNNER_DRAIN_TIMEOUT: 'cron_drain_timeout',   // phase 793 (P0.22): stop drain cap timeout
   RUNNER_DRAIN_LATE_SETTLE: 'cron_drain_late_settle',  // NEW phase 867 (r111 E fork): post-drain late settle observability
   RETENTION_CLEANUP: 'cron_retention_cleanup',          // NEW phase 1053 β-1: retention cleanup cron
-  RETENTION_CLEANUP_DELETE_FAILED: 'cron_retention_cleanup_delete_failed', // NEW phase1059
   AUDIT_SIZE_THRESHOLD_EXCEEDED: 'cron_audit_size_threshold_exceeded',     // NEW phase 1154 α-3b
   AUDIT_SIZE_CHECK_FAILED: 'cron_audit_size_check_failed',                 // NEW phase 1154 α-3b
   // phase 1476: OUTBOX_DRAIN_* (4 const) 砍 — outbox-drain cron 退场（pull 模型替 push）
