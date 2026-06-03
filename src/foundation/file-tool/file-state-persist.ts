@@ -97,15 +97,36 @@ export async function loadReadFileState(
     return new Map();
   }
   try {
-    const parsed = JSON.parse(raw) as PersistFormatV1;
-    if (parsed.version !== 1) {
+    const parsed: unknown = JSON.parse(raw);
+    // phase 21: inline schema check 防 corrupt JSON 流入业务（playbook 静默失败 §8）
+    // version 检与 shape 检分开：v!=1 是已知版本不匹配（forward-compat skip）、shape invalid 是 corrupt
+    if (typeof parsed !== 'object' || parsed === null) {
       audit?.write(
         FILE_TOOL_AUDIT_EVENTS.READ_FILE_STATE_LOADED,
-        `result=skipped_unknown_version version=${parsed.version}`,
+        `result=skipped_schema_invalid raw=${raw.slice(0, 200)}`,
       );
       return new Map();
     }
-    const map = new Map(Object.entries(parsed.entries));
+    const obj = parsed as { version?: unknown; updated_at?: unknown; entries?: unknown };
+    if (obj.version !== 1) {
+      audit?.write(
+        FILE_TOOL_AUDIT_EVENTS.READ_FILE_STATE_LOADED,
+        `result=skipped_unknown_version version=${String(obj.version)}`,
+      );
+      return new Map();
+    }
+    const isValidShape =
+      typeof obj.updated_at === 'string' &&
+      typeof obj.entries === 'object' && obj.entries !== null && !Array.isArray(obj.entries);
+    if (!isValidShape) {
+      audit?.write(
+        FILE_TOOL_AUDIT_EVENTS.READ_FILE_STATE_LOADED,
+        `result=skipped_schema_invalid raw=${raw.slice(0, 200)}`,
+      );
+      return new Map();
+    }
+    const validParsed = parsed as PersistFormatV1;
+    const map = new Map(Object.entries(validParsed.entries));
     audit?.write(
       FILE_TOOL_AUDIT_EVENTS.READ_FILE_STATE_LOADED,
       `result=ok entry_count=${map.size}`,
