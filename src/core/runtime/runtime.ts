@@ -222,12 +222,9 @@ export class Runtime {
         tools: this._currentTools ?? [],
         messages: this._currentMessages ?? [],
       }),
+      registry: this.toolRegistry,
+      mainDialogStore: this.sessionManager,
     });
-
-    // phase 766: inject registry into execContext for sync spawn path
-    (this.execContext as { registry?: unknown }).registry = this.toolRegistry;
-    // phase 768: inject mainDialogStore into main agent execContext.
-    (this.execContext as { mainDialogStore?: DialogStore }).mainDialogStore = this.sessionManager;
 
     // 3. Session repair（业务链路）
     //    先 load 再 archive：直接读 current.json 恢复，避免不必要的归档恢复中转。
