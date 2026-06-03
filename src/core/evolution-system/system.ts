@@ -13,7 +13,7 @@ import { CONTRACT_AUDIT_EVENTS } from '../contract/audit-events.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { isProgrammingBug } from '../../foundation/errors.js';
-import { readPendingRetrospective, InvalidJSONError, UnexpectedFormatError } from '../summon-system/index.js';
+import { readPendingRetrospective, InvalidJSONError, UnexpectedFormatError, InvalidTargetClawError } from '../summon-system/index.js';
 import type { ContractId } from '../../foundation/identity/index.js';
 import { type ClawDir, makeClawDir } from '../../foundation/identity/index.js';
 
@@ -202,10 +202,6 @@ export class EvolutionSystem {
     let miningTaskId: string | undefined;
     try {
       const r = await readPendingRetrospective({ fs: ctx.motionFs, contractId });
-      if (!r.targetClaw || !/^[a-z0-9-]+$/.test(r.targetClaw)) {
-        this.deps.audit.write(RETRO_AUDIT_EVENTS.INDEX_FAILED, `contractId=${contractId}`, `reason=invalid_targetClaw`, `rawTarget=${r.targetClaw ?? 'null'}`);
-        return { status: 'error', detail: 'invalid_targetClaw' };
-      }
       targetClaw = r.targetClaw;
       mode = r.mode;
       miningTaskId = r.miningTaskId;
@@ -217,6 +213,10 @@ export class EvolutionSystem {
       if (e instanceof UnexpectedFormatError) {
         this.deps.audit.write(RETRO_AUDIT_EVENTS.INDEX_FAILED, `contractId=${contractId}`, `reason=unexpected_format`);
         return { status: 'error', detail: 'unexpected_format' };
+      }
+      if (e instanceof InvalidTargetClawError) {
+        this.deps.audit.write(RETRO_AUDIT_EVENTS.INDEX_FAILED, `contractId=${contractId}`, `reason=invalid_targetClaw`, `rawTarget=${e.raw}`);
+        return { status: 'error', detail: 'invalid_targetClaw' };
       }
       const code = (e as NodeJS.ErrnoException).code;
       if (code === 'ENOENT' || e instanceof FileNotFoundError) {

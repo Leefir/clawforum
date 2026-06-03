@@ -19,7 +19,15 @@ import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUMMON_AUDIT_EVENTS } from './audit-events.js';
 import { type ContractId, makeContractId } from '../../foundation/identity/index.js';
 
+/** kebab-case claw id 模式 — 与 schema 内 targetClaw description 字面一致 */
+const TARGET_CLAW_PATTERN = /^[a-z0-9-]+$/;
 
+export class InvalidTargetClawError extends Error {
+  constructor(public readonly raw: string) {
+    super(`targetClaw must match /^[a-z0-9-]+$/, got ${JSON.stringify(raw)}`);
+    this.name = 'InvalidTargetClawError';
+  }
+}
 
 /** Phase 1335 (r138 F fork): cross-module query API — pending retrospective reference */
 export interface PendingRetroRef {
@@ -62,9 +70,13 @@ export async function readPendingRetrospective(opts: {
     throw new UnexpectedFormatError(`expected object, got ${typeof parsed}`, parsed);
   }
   const p = parsed as Record<string, unknown>;
+  const targetClawRaw = typeof p.targetClaw === 'string' ? p.targetClaw : '';
+  if (!TARGET_CLAW_PATTERN.test(targetClawRaw)) {
+    throw new InvalidTargetClawError(targetClawRaw);
+  }
   return {
     contractId: opts.contractId,
-    targetClaw: typeof p.targetClaw === 'string' ? p.targetClaw : '', // caller validate /^[a-z0-9-]+$/
+    targetClaw: targetClawRaw,
     mode: typeof p.mode === 'string' ? p.mode : undefined,
     miningTaskId: typeof p.miningTaskId === 'string' ? p.miningTaskId : undefined,
     shadowTaskId: typeof p.shadowTaskId === 'string' ? p.shadowTaskId : undefined,
@@ -88,7 +100,6 @@ export async function listPendingRetrospectives(opts: {
     if (opts.filter?.contractId !== undefined && contractId !== opts.filter.contractId) continue;
     try {
       const ref = await readPendingRetrospective({ fs: opts.fs, contractId });
-      if (!ref.targetClaw) continue;
       results.push(ref);
     } catch (e) {
       // silent: bulk listing per-file parse-fail audit-emitted + skip
