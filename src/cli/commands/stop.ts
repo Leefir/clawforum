@@ -3,6 +3,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { loadGlobalConfig, getGlobalConfigPath, getNamedSubrootDir } from '../../foundation/config/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import { createAuditWriter } from '../../foundation/audit/index.js';
@@ -138,7 +139,7 @@ export async function stopAllCommand(deps: { fsFactory: (baseDir: string) => Fil
             PROCESS_MANAGER_AUDIT_EVENTS.ORPHAN_SIGTERM_FAILED,
             `pid=${p}`,
             `context=stop_all_orphan_cleanup`,
-            `reason=${err instanceof Error ? err.message : String(err)}`,
+            `reason=${formatErr(err)}`,
           );
         }
       }
@@ -147,7 +148,7 @@ export async function stopAllCommand(deps: { fsFactory: (baseDir: string) => Fil
     audit?.write(
       PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_LIST_FAILED,
       `context=stop_all_cleanup_pipeline`,
-      `reason=${err instanceof Error ? err.message : String(err)}`,
+      `reason=${formatErr(err)}`,
     );
   }
 }

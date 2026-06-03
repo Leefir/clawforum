@@ -1,4 +1,5 @@
 import type { Instances } from './types.js';
+import { formatErr } from "../foundation/utils/index.js";
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 
 export async function disassemble(instances: Instances, signal: string): Promise<void> {
@@ -87,5 +88,5 @@ export async function disassemble(instances: Instances, signal: string): Promise
 }
 
 function _reason(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return formatErr(e);
 }

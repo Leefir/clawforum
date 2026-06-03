@@ -4,6 +4,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { randomUUID } from 'crypto';
 import { getClawDir } from '../../foundation/config/index.js';
 import { CliError } from '../errors.js';
@@ -77,7 +78,7 @@ export async function outboxCommand(
           `claw=${name}`, `file=${fileName}`);
         continue;
       }
-      console.warn(`[outbox] Failed to claim ${fileName}: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(`[outbox] Failed to claim ${fileName}: ${formatErr(err)}`);
       continue;
     }
 
@@ -101,12 +102,12 @@ export async function outboxCommand(
           MESSAGING_AUDIT_EVENTS.OUTBOX_DELIVERED,
           `claw=${name}`,
           `file=${fileName}`,
-          `error=${err instanceof Error ? err.message : String(err)}`,
+          `error=${formatErr(err)}`,
         );
-        console.warn(`[outbox] Failed to move ${fileName} to done: ${err instanceof Error ? err.message : String(err)}`);
+        console.warn(`[outbox] Failed to move ${fileName} to done: ${formatErr(err)}`);
       }
     } catch (err) {
-      console.warn(`[outbox] Failed to read ${fileName}: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(`[outbox] Failed to read ${fileName}: ${formatErr(err)}`);
     }
   }
 

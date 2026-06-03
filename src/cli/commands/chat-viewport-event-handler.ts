@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import stringWidth from 'string-width';
 import { createDirContext } from '../../foundation/audit/index.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
@@ -289,7 +290,7 @@ export function createEventHandler(deps: EventHandlerDeps) {
           taskReader.start(0);
         } catch (err) {
           try {
-            deps.audit.write(VIEWPORT_AUDIT_EVENTS.STREAM_READER_START_FAILED, `taskId=${taskId}`, `reason=${err instanceof Error ? err.message : String(err)}`);
+            deps.audit.write(VIEWPORT_AUDIT_EVENTS.STREAM_READER_START_FAILED, `taskId=${taskId}`, `reason=${formatErr(err)}`);
           } catch { /* audit self-failure tolerated */ }
           break;   // phase 1217 r131 C.3 fix: 不 register stale TaskWatch with failed streamReader
         }

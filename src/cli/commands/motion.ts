@@ -9,6 +9,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { fileURLToPath } from 'url';
 import { loadGlobalConfig, getNamedSubrootDir } from '../../foundation/config/index.js';
 import { STATUS_SUBDIR } from '../../foundation/process-manager/index.js';
@@ -166,7 +167,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
         existed.push(name);
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
+      const errorMsg = formatErr(err);
       console.error(`Failed to read template ${name}: ${errorMsg}`);
       failed.push(name);
     }

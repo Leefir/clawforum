@@ -6,6 +6,7 @@
  */
 
 import * as readline from 'readline';
+import { formatErr } from "../foundation/utils/index.js";
 
 import { loadGlobalConfig, patchGlobalConfigPrimary, PRESETS } from '../foundation/config/index.js';
 import { FORMAT_MAP } from '../foundation/llm-orchestrator/llm-provider-config-schema.js';
@@ -17,7 +18,7 @@ import type { FileSystem } from '../foundation/fs/types.js';
 export type LLMErrorType = 'auth' | 'model' | 'network' | 'rate_limit' | 'unknown';
 
 export function classifyLLMError(err: unknown): LLMErrorType {
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  const msg = (formatErr(err)).toLowerCase();
   if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid api key') || msg.includes('authentication')) return 'auth';
   if (msg.includes('404') || msg.includes('model') || msg.includes('not found')) return 'model';
   if (msg.includes('429') || msg.includes('rate limit') || msg.includes('quota')) return 'rate_limit';
@@ -56,7 +57,7 @@ export async function checkLLMConnection(deps: { fsFactory: (baseDir: string) =>
     });
     return { ok: true, model: llmConfig.primary.model };
   } catch (err) {
-    return { ok: false, errorType: classifyLLMError(err), message: err instanceof Error ? err.message : String(err) };
+    return { ok: false, errorType: classifyLLMError(err), message: formatErr(err) };
   }
 }
 

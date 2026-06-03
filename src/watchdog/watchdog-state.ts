@@ -4,6 +4,7 @@
  */
 
 import type { FileSystem } from '../foundation/fs/types.js';
+import { formatErr } from "../foundation/utils/index.js";
 import { getChestnutFs, getAuditWriter, lastInactivityNotified, inactivityNotifyCount, clawPreviouslyAlive, everSpawned, clawPreviouslyNotified } from './watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
@@ -89,7 +90,7 @@ export function loadWatchdogState(fsFactory: (baseDir: string) => FileSystem): v
       `backup=${backupPath}`,
       ...(isSchemaErr ? [`reason=unknown_schema_version`, `actual=${String((err as WatchdogSchemaError).actualVersion)}`, `current=${CURRENT_WATCHDOG_SCHEMA_VERSION}`] : []),
       `move_ok=${moveOk}`,
-      ...(moveOk ? [] : [`move_error=${(moveErr instanceof Error ? moveErr.message : String(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`]),
+      ...(moveOk ? [] : [`move_error=${(formatErr(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`]),
       `error=${(err as Error).message?.slice(0, AUDIT_MESSAGE_MAX_CHARS) ?? String(err)}`,
     );
   }

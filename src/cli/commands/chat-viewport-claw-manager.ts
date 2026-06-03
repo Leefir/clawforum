@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { isAlive } from '../../foundation/process-exec/index.js';
 import { getContractCreatedMs } from '../../core/contract/index.js';
 import { LLM_OUTPUT_EVENTS } from '../../foundation/stream/index.js';
@@ -179,7 +180,7 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
       // ENOENT (clawsDir 首次启动) silent OK / non-ENOENT (FS perm / NFS hang / EACCES) audit emit 防 orphan watcher silent 累
       if (!isFileNotFound(err)) {
         const code = (err as { code?: string })?.code;
-        audit.write(VIEWPORT_AUDIT_EVENTS.REFRESH_CLAWS_FAILED, `code=${code ?? 'unknown'}`, `error=${err instanceof Error ? err.message : String(err)}`);
+        audit.write(VIEWPORT_AUDIT_EVENTS.REFRESH_CLAWS_FAILED, `code=${code ?? 'unknown'}`, `error=${formatErr(err)}`);
       }
       return;
     }

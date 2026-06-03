@@ -8,6 +8,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import * as readline from 'readline';
 
 import { isInitialized, getNamedSubrootDir } from '../../foundation/config/index.js';
@@ -117,7 +118,7 @@ export async function startCommand(deps: { fsFactory: (baseDir: string) => FileS
   try {
     await _start(deps, audit);
   } catch (error) {
-    throw new CliError('chestnut start failed: ' + (error instanceof Error ? error.message : String(error)));
+    throw new CliError('chestnut start failed: ' + (formatErr(error)));
   }
 }
 

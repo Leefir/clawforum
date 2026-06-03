@@ -78,7 +78,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
         clawConfig,
       });
     } catch (e) {
-      const reason = e instanceof Error ? e.message : String(e);
+      const reason = formatErr(e);
       if (e instanceof LockConflictError) {
         preAssembleAudit.write(deps.auditEvents.assembleFailed, 'module=lockfile', 'phase=preconstruct', `reason=${reason}`);
         process.exit(1);
@@ -132,7 +132,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       }
     }).catch((err: unknown) => {
       // 不可预期失败：audit 已在 snapshot 内写
-      auditWriter.write(DAEMON_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=daemon-start`, `reason=${err instanceof Error ? err.message : String(err)}`);
+      auditWriter.write(DAEMON_AUDIT_EVENTS.SNAPSHOT_COMMIT_FAILED, `context=daemon-start`, `reason=${formatErr(err)}`);
     });
 
     const inboxPendingDir = path.join(dir, 'inbox', 'pending');

@@ -4,6 +4,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { loadGlobalConfig, clawExists, getClawDir } from '../../foundation/config/index.js';
 import { CLAWSPACE_DIR } from '../../foundation/paths.js';
 import { resolveWorkspacePath } from '../../foundation/file-tool/resolve-path.js';
@@ -37,7 +38,7 @@ export async function readCommand(
   try {
     content = await fs.read(resolved);
   } catch (error) {
-    throw new CliError(`Error reading file: ${error instanceof Error ? error.message : String(error)}`);
+    throw new CliError(`Error reading file: ${formatErr(error)}`);
   }
 
   if (options?.offset !== undefined || options?.limit !== undefined) {

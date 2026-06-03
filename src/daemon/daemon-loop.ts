@@ -14,6 +14,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../foundation/utils/index.js";
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { Runtime, StreamCallbacks } from '../core/runtime/index.js';
 import type { InboxMessage } from '../foundation/messaging/types.js';
@@ -248,7 +249,7 @@ export function waitForInbox(
         MESSAGING_AUDIT_EVENTS.INBOX_WATCHER_FAILED,
         `path=${inboxPendingDir}`,
         'context=init',
-        `reason=${err instanceof Error ? err.message : String(err)}`,
+        `reason=${formatErr(err)}`,
       );
       if (!settled) {
         settled = true;
@@ -411,7 +412,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
             }
             interruptErrCount++;
             if (interruptErrCount >= INTERRUPT_POLL_MAX_ERRORS) {
-              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT_POLLER_DISABLED, `error_count=${interruptErrCount}`, `last_error=${err instanceof Error ? err.message : String(err)}`);
+              options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT_POLLER_DISABLED, `error_count=${interruptErrCount}`, `last_error=${formatErr(err)}`);
               clearInterval(interruptPoller!);
               interruptPoller = null;
             }
@@ -498,7 +499,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           llmRetryCount = 0;
           llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
           saveLlmRetryState();
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `error=${err instanceof Error ? err.message : String(err)}`);
+          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `error=${formatErr(err)}`);
           if (isLLMMaxRetry) {
             // LLM max retries exhausted — already audited as LOOP_FATAL above
           }

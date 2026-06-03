@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { getContractCreatedMs } from '../../core/contract/index.js';
 import { makeClawTrack, buildClawLine, type ClawTrack } from './chat-viewport-claw-line.js';
 import { STREAM_FILE } from '../../foundation/stream/index.js';
@@ -83,7 +84,7 @@ export function createRescanClawsDir(deps: RescanClawsDirDeps) {
         deps.updateClawPanel(deps.clawTrackMap);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = formatErr(err);
       try {
         deps.audit.write(VIEWPORT_AUDIT_EVENTS.CLAWSDIR_SCAN_FAILED, `reason=${msg}`);
       } catch { /* audit self-failure tolerated */ }

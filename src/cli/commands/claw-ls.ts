@@ -19,6 +19,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 import { loadGlobalConfig, clawExists, getClawDir } from '../../foundation/config/index.js';
 import { CLAWSPACE_DIR } from '../../foundation/paths.js';
 import { resolveWorkspacePath } from '../../foundation/file-tool/resolve-path.js';
@@ -86,7 +87,7 @@ export async function lsCommand(
       includeDirs: true,
     });
   } catch (err) {
-    throw new CliError(`Error listing path: ${err instanceof Error ? err.message : String(err)}`);
+    throw new CliError(`Error listing path: ${formatErr(err)}`);
   }
 
   // Stable sort: directories first, then alphabetical.

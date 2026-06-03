@@ -4,6 +4,7 @@
  * （commit 16ba139b 当年删此逻辑改 isWatchdogAlive 幂等、phase 1269 实证假设破）
  */
 import type { FileSystem } from '../foundation/fs/types.js';
+import { formatErr } from "../foundation/utils/index.js";
 import { kill, isAlive } from '../foundation/process-exec/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/index.js';
 import { getWatchdogEntryPath } from './watchdog-context.js';
@@ -36,7 +37,7 @@ export async function sweepOrphanWatchdogs(
     auditWriter?.write(
       WATCHDOG_AUDIT_EVENTS.ORPHAN_SWEEP_FAILED,
       `phase=find`,
-      `reason=${err instanceof Error ? err.message : String(err)}`,
+      `reason=${formatErr(err)}`,
     );
     return [];
   }
@@ -55,7 +56,7 @@ export async function sweepOrphanWatchdogs(
         WATCHDOG_AUDIT_EVENTS.ORPHAN_SWEEP_FAILED,
         `phase=sigterm`,
         `pid=${pid}`,
-        `reason=${err instanceof Error ? err.message : String(err)}`,
+        `reason=${formatErr(err)}`,
       );
     }
   }

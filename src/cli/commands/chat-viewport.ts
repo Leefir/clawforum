@@ -7,6 +7,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../../foundation/utils/index.js";
 
 import { createDirContext } from '../../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
@@ -218,7 +219,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     // declared field 装配端兑现 per phase 1325 / existing VIEWPORT_AUDIT_EVENTS.STREAM_READER_START_FAILED
     options.audit.write(
       VIEWPORT_AUDIT_EVENTS.STREAM_READER_START_FAILED,
-      `reason=${err instanceof Error ? err.message : String(err)}`,
+      `reason=${formatErr(err)}`,
       `offset=${recentTurnOffset}`,
     );
     mainUI.withScope('main', () => {
@@ -333,7 +334,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
         try {
           cmd.execute(args);
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
+          const msg = formatErr(err);
           try {
             options.audit.write(VIEWPORT_AUDIT_EVENTS.COMMAND_ERROR, `name=${name}`, `reason=${msg}`);
           } catch { /* audit self-failure tolerated */ }
@@ -356,7 +357,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
     try {
       writeUserChat(options.agentDir, trimmed, options.fsFactory);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = formatErr(err);
       displayWithHolder.appendOutput('\x1b[31m', `[error] failed to send message: ${msg} (retry or check disk / permissions)`, true);
     }
     tui.requestRender();

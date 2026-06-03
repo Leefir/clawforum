@@ -104,7 +104,7 @@ function clawHasContractSub(
         WATCHDOG_AUDIT_EVENTS.CLAW_HAS_CONTRACT_CHECK_FAILED,
         `clawDir=${clawDir}`,
         `sub=${sub}`,
-        `error=${err instanceof Error ? err.message : String(err)}`,
+        `error=${formatErr(err)}`,
       );
     }
   }

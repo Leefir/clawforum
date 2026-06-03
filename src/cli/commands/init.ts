@@ -3,6 +3,7 @@
  */
 
 import * as readline from 'readline';
+import { formatErr } from "../../foundation/utils/index.js";
 import { saveGlobalConfig, isInitialized, getWorkspaceRoot } from '../../foundation/config/index.js';
 import { FORMAT_MAP } from '../../foundation/llm-orchestrator/llm-provider-config-schema.js';
 import { passwordQuestion } from '../utils/password-prompt.js';
@@ -359,7 +360,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
     }
 
   } catch (error) {
-    throw new CliError(`Init failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new CliError(`Init failed: ${formatErr(error)}`);
   } finally {
     rl.close();
   }

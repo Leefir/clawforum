@@ -19,6 +19,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../foundation/utils/index.js";
 import { setTimeout } from 'timers/promises';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { MOTION_CLAW_ID } from '../constants.js';
@@ -83,7 +84,7 @@ export function shutdownWatchdog(
   try {
     saveWatchdogState(fsFactory);
   } catch (err) {
-    saveFailed = err instanceof Error ? err.message : String(err);
+    saveFailed = formatErr(err);
     log(fsFactory, `[watchdog] Failed to save state: ${saveFailed}`);
   }
   removeWatchdogPid(fsFactory);
@@ -172,7 +173,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
         //     (b) motion 仍活（race / 另 watchdog instance spawn 中）→ spawn 抛 LockConflictError、捕获后 reset 计数
         //   - cleanup 失败不阻塞 respawn / spawn 自身判 race / failure 仅 audit observability
         await pm.stop(MOTION_CLAW_ID).catch((e) => {
-          const msg = `[watchdog] Failed to clean up motion before restart: ${e instanceof Error ? e.message : String(e)}`;
+          const msg = `[watchdog] Failed to clean up motion before restart: ${formatErr(e)}`;
           logWithAudit(fsFactory, msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, AUDIT_MESSAGE_MAX_CHARS));
         });
         const daemonEntryPath = resolveDaemonEntry(fsFactory(process.cwd()));
@@ -193,7 +194,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
           motionRestartFailures = 0;
         } else {
           motionRestartFailures++;
-          auditWriter.write('process_spawn_failed', MOTION_CLAW_ID, `error=${err instanceof Error ? err.message : String(err)}`);
+          auditWriter.write('process_spawn_failed', MOTION_CLAW_ID, `error=${formatErr(err)}`);
           log(fsFactory, `[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
         }
       }

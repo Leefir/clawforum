@@ -1,4 +1,5 @@
 import { LLM_AUDIT_EVENTS } from './llm-audit-events.js';
+import { formatErr } from "../foundation/utils/index.js";
 import type { LLMEventSink, LLMEvent } from '../foundation/llm-orchestrator/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 
@@ -119,7 +120,7 @@ export function createLLMAuditSink(audit: AuditLog): LLMEventSink {
         // Error isolation: audit failure must not interrupt LLM path
         // dev 可见性 fallback (phase 604 / 同 phase 586 [AUDIT CRITICAL] 模板 align)
         console.error(
-          `[LLM AUDIT SINK CRITICAL] sink emit failed: type=${event.type} reason=${err instanceof Error ? err.message : String(err)}`,
+          `[LLM AUDIT SINK CRITICAL] sink emit failed: type=${event.type} reason=${formatErr(err)}`,
         );
       }
     }

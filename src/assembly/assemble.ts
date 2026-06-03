@@ -139,7 +139,7 @@ export function detectUncleanExit(_auditDir: string, auditWriter: AuditLog, fs: 
     // phase 1154 r+ derive: 双码 narrow via foundation helper (FileSystem 抽象层抛 FS_NOT_FOUND)
     if (!isFileNotFound(err)) {
       const code = (err as { code?: string })?.code;
-      const message = err instanceof Error ? err.message : String(err);
+      const message = formatErr(err);
       auditWriter.write(
         ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED,
         `module=detect_unclean_exit`,
@@ -599,7 +599,7 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
 
     // 孤儿临时文件清理（从 Runtime.initialize 搬来；Assembly 负责一次性的启动清理）
     cleanupOrphanedTemp(systemFs, clawDir).catch((err: unknown) => {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.CLEANUP_TEMP_FILES_FAILED, `reason=${err instanceof Error ? err.message : String(err)}`);
+      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.CLEANUP_TEMP_FILES_FAILED, `reason=${formatErr(err)}`);
     });
 
     // --- Runtime 构造（deps 注入） ---

@@ -4,6 +4,7 @@
  */
 
 import * as path from 'path';
+import { formatErr } from "../foundation/utils/index.js";
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { ProcessManager } from '../foundation/process-manager/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
@@ -105,7 +106,7 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
       });
       lastInactivityNotified.set(rawClawId, now);
     } catch (err) {
-      log(fsFactory, `[watchdog] Error checking claw ${rawClawId}: ${err instanceof Error ? err.message : String(err)}`);
+      log(fsFactory, `[watchdog] Error checking claw ${rawClawId}: ${formatErr(err)}`);
     }
   }
 }
@@ -296,7 +297,7 @@ export async function maybeCronCheckSubscriptions(pm: ProcessManager, audit: Aud
       lastInactivityNotified.set(rawClawId, now);
       consumeSubscription(fs, rawClawId);
     } catch (err) {
-      log(fsFactory, `[watchdog] Error processing subscription for ${rawClawId}: ${err instanceof Error ? err.message : String(err)}`);
+      log(fsFactory, `[watchdog] Error processing subscription for ${rawClawId}: ${formatErr(err)}`);
       // 不 consume / 下次 tick 重试
     }
   }
