@@ -141,17 +141,31 @@ export class Snapshot {
       const sf = stateFilePath(this.dir);
       if (await this.fs.exists(sf)) {
         const raw = await this.fs.read(sf);
-        const loaded = JSON.parse(raw) as Partial<SnapshotState>;
-        const s = getState(this.dir);
-        if (typeof loaded.consecutiveFailures === 'number' && loaded.consecutiveFailures > 0) {
-          s.consecutiveFailures = loaded.consecutiveFailures;
-          s.degradedAt = loaded.degradedAt;
-          // audit: restored prior failures from disk
-          emitSnapshotCommitFailed(this.audit, {
-            dir: this.dir,
-            context: 'state_restored_from_disk',
-            consecutive: s.consecutiveFailures,
-          });
+        const loaded: unknown = JSON.parse(raw);
+        // phase 21: inline schema check 覆盖全字段（playbook 静默失败 §8）
+        const isValidState =
+          typeof loaded === 'object' && loaded !== null &&
+          ((loaded as { consecutiveFailures?: unknown }).consecutiveFailures === undefined ||
+            (typeof (loaded as { consecutiveFailures: unknown }).consecutiveFailures === 'number' &&
+             Number.isFinite((loaded as { consecutiveFailures: number }).consecutiveFailures))) &&
+          ((loaded as { degradedAt?: unknown }).degradedAt === undefined ||
+            (typeof (loaded as { degradedAt: unknown }).degradedAt === 'number' &&
+             Number.isFinite((loaded as { degradedAt: number }).degradedAt)));
+        if (!isValidState) {
+          emitSnapshotStateCorrupt(this.audit, { reason: 'state_schema_invalid' });
+        } else {
+          const validState = loaded as Partial<SnapshotState>;
+          const s = getState(this.dir);
+          if (typeof validState.consecutiveFailures === 'number' && validState.consecutiveFailures > 0) {
+            s.consecutiveFailures = validState.consecutiveFailures;
+            s.degradedAt = validState.degradedAt;
+            // audit: restored prior failures from disk
+            emitSnapshotCommitFailed(this.audit, {
+              dir: this.dir,
+              context: 'state_restored_from_disk',
+              consecutive: s.consecutiveFailures,
+            });
+          }
         }
       }
     } catch (e) {
