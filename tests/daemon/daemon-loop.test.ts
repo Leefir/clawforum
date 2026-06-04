@@ -142,7 +142,7 @@ describe('daemon-loop dedicated unit (phase 1157 / r127 H fork)', () => {
       expect(abort).not.toHaveBeenCalled();
     });
 
-    it('runtime.processBatch 被传入 wrapped callbacks 含 onInboxMessages', async () => {
+    it('runtime.processBatch 被传入 wrapped callbacks（streamWriter 存在时）', async () => {
       const audit = createMockAudit();
       const processBatch = vi.fn().mockResolvedValue(0);
       const mockRuntime = {
@@ -152,7 +152,7 @@ describe('daemon-loop dedicated unit (phase 1157 / r127 H fork)', () => {
         getCurrentTraceId: vi.fn().mockReturnValue(undefined),
       } as unknown as Runtime;
 
-      const onInboxMessages = vi.fn().mockResolvedValue(undefined);
+      const streamWriter: StreamLog = { write: vi.fn() };
 
       const { promise, stop } = startDaemonLoop({
         runtime: mockRuntime,
@@ -161,7 +161,7 @@ describe('daemon-loop dedicated unit (phase 1157 / r127 H fork)', () => {
         label: '[test daemon]',
         audit,
         inbox: { pendingDir: inboxPendingDir, fallbackTimeoutMs: 50 },
-        motion: { onInboxMessages },
+        streamWriter,
         fsFactory,
       });
 
@@ -172,7 +172,6 @@ describe('daemon-loop dedicated unit (phase 1157 / r127 H fork)', () => {
       expect(processBatch).toHaveBeenCalledTimes(1);
       const callbacksArg = processBatch.mock.calls[0][0];
       expect(callbacksArg).toBeDefined();
-      expect(typeof callbacksArg.onInboxMessages).toBe('function');
     });
 
     it('streamWriter 通过 createStreamCallbacks 收到 turn events', async () => {

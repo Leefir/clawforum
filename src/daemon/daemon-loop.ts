@@ -17,7 +17,6 @@ import * as path from 'path';
 import { formatErr } from "../foundation/utils/index.js";
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { IRuntimeDaemon, IRuntimeChat } from '../core/runtime/index.js';
-import type { InboxMessage } from '../foundation/messaging/types.js';
 import type { StreamWriter } from '../foundation/stream/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES, LOOP_INTERRUPT_CAUSES } from './audit-events.js';
@@ -58,7 +57,6 @@ export interface DaemonInboxConfig {
 /** motion 专用扩展（claw daemon 整体省略此组） */
 interface DaemonMotionExtensions {
   heartbeat?: Heartbeat;
-  onInboxMessages?: (messages: InboxMessage[]) => Promise<void>;  // review_request handling
 }
 
 export interface DaemonLoopOptions {
@@ -94,7 +92,6 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
   const { pendingDir: inboxPendingDir } = inbox;
   const fallbackTimeout = inbox.fallbackTimeoutMs ?? DAEMON_FALLBACK_TIMEOUT_MS;
   const heartbeat = motion?.heartbeat;
-  const onInboxMessages = motion?.onInboxMessages;
   const loopFs = fsFactory(path.join(agentDir, '..'));
   const agentFs = fsFactory(agentDir);
   let stopped = false;
@@ -212,10 +209,7 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       let interruptPoller: ReturnType<typeof setInterval> | null = null;
 
       // Build wrappedCallbacks outside try so catch block can access it for retryLastTurn
-      const callbacks = streamWriter ? createStreamCallbacks(streamWriter, options.audit, runtime as import('../core/runtime/index.js').Runtime) : undefined;
-      const wrappedCallbacks = callbacks
-        ? { ...callbacks, onInboxMessages }
-        : (onInboxMessages ? { onInboxMessages } : undefined);
+      const wrappedCallbacks = streamWriter ? createStreamCallbacks(streamWriter, runtime as import('../core/runtime/index.js').Runtime) : undefined;
 
       try {
         // Start polling for the interrupt file

@@ -270,7 +270,7 @@ describe('daemonCommand - A4a startup success', () => {
     // phase411: onInboxMessages 已移除（review_request 由 ContractSystem.contract_completed 事件驱动）
     expect(mockState.mockStartDaemonLoop).toHaveBeenCalledWith(expect.objectContaining({
       label: '[motion daemon]',
-      motion: expect.objectContaining({ onInboxMessages: undefined }),
+      motion: expect.objectContaining({ heartbeat: expect.anything() }),
     }));
   });
 });

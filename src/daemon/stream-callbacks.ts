@@ -7,7 +7,6 @@
  * 装配层：将 ReAct 循环业务事件名映射为 stream.jsonl 的 StreamEvent 记录。
  */
 
-import type { AuditLog } from '../foundation/audit/index.js';
 import type { StreamLog } from '../foundation/stream/index.js';
 import type { StreamCallbacks, Runtime } from '../core/runtime/index.js';
 import type { ToolUseId } from '../foundation/tool-protocol/index.js';
@@ -20,7 +19,6 @@ import { oneLine } from '../foundation/utils/index.js';
  */
 export function createStreamCallbacks(
   sink: StreamLog,
-  _audit: AuditLog,
   runtime: Runtime,
 ): StreamCallbacks {
   const checkWrite = (event: import('../foundation/stream/types.js').StreamEvent) => {

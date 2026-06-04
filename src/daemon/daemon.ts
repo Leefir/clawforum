@@ -137,9 +137,6 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
 
     const inboxPendingDir = path.join(dir, 'inbox', 'pending');
 
-    // phase411: review_request 处理已由 ContractSystem.contract_completed → EvolutionSystem.runRetroForContract 接管
-    // onInboxMessages 不再需要（原 review_request 处理器已移除）
-    const onInboxMessages = undefined;
 
     // 注册 uncaughtException / unhandledRejection 处理程序
     const writeCrash = (reason: unknown): void => {
@@ -167,7 +164,7 @@ export function createDaemonCommand(deps: DaemonCommandDeps) {
       audit: auditWriter,
       inbox: { pendingDir: inboxPendingDir },
       motion: isMotion
-        ? { heartbeat: heartbeat ?? undefined, onInboxMessages }
+        ? { heartbeat: heartbeat ?? undefined }
         : undefined,
       streamWriter,
     });
