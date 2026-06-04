@@ -23,7 +23,6 @@ export interface SpawnShadowSubagentOptions {
   shadowIdPrefix?: string;
 }
 
-export interface SpawnShadowSubagentResult {
-  taskId: TaskId;
-  shadowId: string;
-}
+export type SpawnShadowSubagentResult =
+  | { taskId: TaskId; shadowId: string }
+  | { success: false; content: string; error: string };

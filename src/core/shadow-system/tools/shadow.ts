@@ -84,7 +84,7 @@ export function createShadowTool(deps: {
       const mainMessages = stripIncompleteToolUse(messages);
 
       if (asyncMode) {
-        const { taskId } = await spawnShadowSubagent({
+        const result = await spawnShadowSubagent({
           task,
           mainMessages: mainMessages ?? [],
           ctx,
@@ -93,11 +93,12 @@ export function createShadowTool(deps: {
           timeoutMs,
           maxSteps,
         });
+        if (!('taskId' in result)) return result;
 
         return {
           success: true,
-          content: `Shadow queued. Task ID: ${taskId}. Result will be delivered to inbox when complete.`,
-          metadata: { taskId, async: true },
+          content: `Shadow queued. Task ID: ${result.taskId}. Result will be delivered to inbox when complete.`,
+          metadata: { taskId: result.taskId, async: true },
         };
       }
 

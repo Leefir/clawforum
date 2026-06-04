@@ -196,6 +196,7 @@ export class SummonTool implements Tool {
       postProcessor: SUMMON_CONTRACT_EXTRACT_POSTPROCESSOR_NAME,
       shadowIdPrefix: 'summon',
     });
+    if (!('taskId' in result)) return result;
     return { taskId: result.taskId };
   }
 
