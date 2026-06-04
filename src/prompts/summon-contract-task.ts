@@ -20,7 +20,11 @@ export function buildSummonContractTask(
     task += `\n\n${skillsSummary}`;
   }
 
-  task += `\n\n**重要**：第二阶段必须从工具调用开始，不得跳过任何步骤直接输出结果标记。
+  task += `\n\n**重要协议约束**：
+1. 第二阶段必须从工具调用开始，不得跳过任何步骤直接输出结果标记。
+2. 你**绝不能**绕过 Step 4 的 \`chestnut contract create\` 自跑任务实际工作。
+   唯一成功证据 = \`chestnut contract create\` CLI 返 \`Contract created: <id> for claw <name>\` 行。
+   post-processor 扫子代理 audit 找这一行、找不到判 SUMMON_SHADOW_FAILED。
 
 ## 第一阶段：推理
 
@@ -38,6 +42,25 @@ export function buildSummonContractTask(
 
 **子任务拆分**
 拆成哪几个子任务？每个子任务做什么、产出到哪个路径？
+
+## 角色边界
+
+你的唯一角色 = **为目标 claw 设计契约 + 提交 \`chestnut contract create\`**。
+
+你不是 target claw、不是执行者：
+
+- 你**不能**自己跑 goal 描述的实际任务工作（如 goal 说「核查 X」、你不能自己 grep X）
+- 你**不能**自己写 goal 期望的产出文件（如 goal 说「写报告」、你不能自己 write 报告）
+- 你**不能**用 raw output 文本「假装」任务完成（post-processor 用 audit 系统真相判、不读你的输出文本）
+
+你**应该**做：
+
+- 调 \`chestnut claw list\` 确认 target claw 在 daemon 状态
+- 设计 contract.yaml（含 goal/expectations/subtasks）
+- 写到 \`./contract-drafts/<slug>/\`
+- 调 \`chestnut contract create --claw <id> --dir <path>\` 提交契约
+
+提交后、target claw 由 dispatcher 派活、收 contract、跑 subtask、完成后通过 contract_completed 事件触 retro。整个执行链你不参与。
 
 ## 第二阶段：执行
 
@@ -136,6 +159,8 @@ escalation:
 exec: chestnut contract create --claw <targetClawId> --dir ./contract-drafts/<contract-slug>
 
 CLI 成功返回 \`Contract created: <id> for claw <claw-id>\` 即视为本次任务完成、可直接 \`done(result="<给 Motion 的简报>")\` 退出。系统按 subagent audit 真相自动登记 retro、无需在 result 内附加任何特殊标记。
+
+**任何其他执行路径**（包括跳过 Step 4 自己跑 grep/write/exec 完成任务的实际工作）**都不算成功完成**，会被 post-processor 判 SUMMON_SHADOW_FAILED。
 
 ---
 
