@@ -158,7 +158,7 @@ export class SummonTool implements Tool {
 
       return {
         success: true,
-        content: `Summon subagent started (${mode} mode). Task ID: ${result.taskId}. Result will arrive in inbox when complete.`,
+        content: `Summon subagent started (${mode} mode). Task ID: ${result.taskId}. You'll get an inbox notification once the contract is created.`,
         metadata: { taskId: result.taskId },
       };
     } catch (e) {
