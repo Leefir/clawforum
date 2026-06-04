@@ -363,6 +363,80 @@ export class InboxReader {
     return results;
   }
 
+  /**
+   * Find first inbox message whose extraMeta[key] === value.
+   *
+   * Scope:
+   * - pending/ (any age)
+   * - done/ (mtime within opts.includeDoneWithinMs)
+   *
+   * Returns first hit (no need to enumerate all).
+   *
+   * Use case: dedup query — caller wants to check "is there already a delivered/pending
+   * message with this hash within 24h?" before writing a new one.
+   *
+   * Performance: parses every candidate file's meta (no index). For high-frequency
+   * queries, caller should cache result or this method should grow a hash index sidecar.
+   *
+   * @param key extraMeta key (e.g., 'summary-hash')
+   * @param value extraMeta value to match (string)
+   * @param opts.includeDoneWithinMs done file mtime window (ms); 0 / undefined → pending only
+   * @returns null if no hit, else { file: <basename>, location: 'pending' | 'done' }
+   */
+  async findByExtraMeta(
+    key: string,
+    value: string,
+    opts: { includeDoneWithinMs?: number } = {},
+  ): Promise<{ file: string; location: 'pending' | 'done' } | null> {
+    const pendingHit = await this._scanByExtraMeta(this.pendingDir, key, value, undefined);
+    if (pendingHit) return { file: pendingHit, location: 'pending' };
+
+    const windowMs = opts.includeDoneWithinMs ?? 0;
+    if (windowMs > 0) {
+      const cutoff = Date.now() - windowMs;
+      const doneHit = await this._scanByExtraMeta(this.doneDir, key, value, cutoff);
+      if (doneHit) return { file: doneHit, location: 'done' };
+    }
+
+    return null;
+  }
+
+  private async _scanByExtraMeta(
+    dir: string,
+    key: string,
+    value: string,
+    mtimeCutoff: number | undefined,
+  ): Promise<string | null> {
+    let entries: { name: string }[] = [];
+    try {
+      entries = await this.fs.list(dir, { includeDirs: false });
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'FS_NOT_FOUND' || code === 'ENOENT') return null;
+      return null;
+    }
+
+    for (const entry of entries) {
+      if (!entry.name.endsWith('.md')) continue;
+      const filePath = path.join(dir, entry.name);
+
+      if (mtimeCutoff !== undefined) {
+        try {
+          const s = await this.fs.stat(filePath);
+          if (s.mtime.getTime() < mtimeCutoff) continue;
+        } catch {
+          continue;
+        }
+      }
+
+      const result = InboxWriter.readMeta(this.fs, filePath);
+      if (!result.ok) continue;
+      const meta = result.value;
+      if (meta[key] === value) return entry.name;
+    }
+    return null;
+  }
+
   /** Move failed file to failed/ (legacy helper) */
   async markFailed(filePath: string): Promise<void> {
     const fileName = path.basename(filePath);
