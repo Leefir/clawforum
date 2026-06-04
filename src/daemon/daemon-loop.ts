@@ -29,7 +29,6 @@ import {
   INTERRUPT_POLL_INTERVAL_MS,
   INTERRUPT_POLL_MAX_ERRORS,
   REACT_CHAIN_MAX_ITERATIONS,
-  STARTUP_CHECK_COOLDOWN_MS,
   LLM_MAX_RETRIES,
   LLM_RETRY_INITIAL_DELAY_MS,
   LLM_RETRY_MAX_DELAY_MS,
@@ -37,12 +36,11 @@ import {
 import { notifyInbox } from '../foundation/messaging/index.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../core/signals.js';
 import { LLMAllProvidersFailedError } from '../foundation/llm-orchestrator/index.js';
-import { CONTRACT_DIR } from '../core/contract/index.js';
 import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
-import { INBOX_PENDING_DIR } from '../foundation/messaging/index.js';
 import type { ClawId } from '../foundation/identity/index.js';
 import { createStreamCallbacks } from './stream-callbacks.js';
 import { waitForInbox } from './inbox-watcher.js';
+import { shouldEmitStartupCheck } from './startup-check.js';
 
 
 
@@ -155,49 +153,16 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
       // Startup single-fire: has active contract + inbox is empty → trigger once in-process (no disk write)
       if (!startupFired) {
         startupFired = true;
-        const inboxEmpty = (() => {
-          try {
-            return agentFs.listSync(INBOX_PENDING_DIR).filter(e => e.name.endsWith('.md')).length === 0;
-          } catch { /* Ignore: inbox check failure, assume not empty to be safe */ return true; }
-        })();
-        const hasActive = (() => {
-          try {
-            return agentFs.listSync(path.join(CONTRACT_DIR, 'active'), { includeDirs: true }).some(e => e.isDirectory);
-          } catch { /* Ignore: contract check failure, assume no active contracts */ return false; }
-        })();
-        if (inboxEmpty && hasActive) {
-          // Dedup: only write if no startup_check already pending (heartbeat pattern)
-          const alreadyPending = (() => {
-            try {
-              return agentFs.listSync(INBOX_PENDING_DIR).map(e => e.name).some(f => f.includes('_startup_check_'));
-            } catch { /* Ignore: pending check failure, assume no pending startup_check */ return false; }
-          })();
-          // Cooldown: prevent spam from rapid daemon restarts
-          const startupCheckCooledDown = (() => {
-            try {
-              const raw = agentFs.readSync(path.join(STATUS_SUBDIR, 'startup_check_ts')).trim();
-              const ts = parseInt(raw, 10);
-              if (isNaN(ts) || ts < 0) {
-                // corrupt — treat as cooled down (remove file)
-                agentFs.deleteSync(path.join(STATUS_SUBDIR, 'startup_check_ts'));
-                return true;
-              }
-              return Date.now() - ts >= STARTUP_CHECK_COOLDOWN_MS;
-            } catch { /* Ignore: timestamp read failure, use 0 (no cooldown) */ return true; }
-          })();
-
-          if (!alreadyPending && startupCheckCooledDown) {
-            agentFs.ensureDirSync(STATUS_SUBDIR);
-            agentFs.writeAtomicSync(path.join(STATUS_SUBDIR, 'startup_check_ts'), String(Date.now()));
-            notifyInbox(loopFs, {
-              inboxDir: inboxPendingDir,
-              type: 'startup_check',
-              source: 'daemon',
-              priority: 'high',
-              body: 'System startup. Please review active contracts and resume execution.',
-            }, audit);
-          }
-          // No continue — processBatch() naturally picks up the inbox file
+        if (shouldEmitStartupCheck(agentFs)) {
+          agentFs.ensureDirSync(STATUS_SUBDIR);
+          agentFs.writeAtomicSync(path.join(STATUS_SUBDIR, 'startup_check_ts'), String(Date.now()));
+          notifyInbox(loopFs, {
+            inboxDir: inboxPendingDir,
+            type: 'startup_check',
+            source: 'daemon',
+            priority: 'high',
+            body: 'System startup. Please review active contracts and resume execution.',
+          }, audit);
         }
       }
 
