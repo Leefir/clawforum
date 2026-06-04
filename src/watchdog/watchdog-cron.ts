@@ -18,13 +18,52 @@ import { listSubscriptions, consumeSubscription } from './subscription-store.js'
 import { getContractCreatedMs } from '../core/contract/index.js';
 import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
-import { makeChestnutRoot, makeClawDir } from '../foundation/identity/index.js';
+import { makeChestnutRoot, makeClawDir, type ClawId, type ClawDir } from '../foundation/identity/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 import { makeClawId } from '../foundation/identity/index.js';
 import { CLAWS_DIR } from '../foundation/paths.js';
 
+interface FireInactivityOpts {
+  rawClawId: string;
+  clawId: ClawId;
+  clawDir: ClawDir;
+  fsFactory: (baseDir: string) => FileSystem;
+  pm: ProcessManager;
+  inactiveMin: number;
+  inactiveMs: number;
+  lastError: string | null;
+  sourcePath?: string;
+}
 
+function fireInactivityNotification(opts: FireInactivityOpts): { failureClass: string } {
+  const { rawClawId, clawId, clawDir, fsFactory, pm, inactiveMin, inactiveMs, lastError, sourcePath } = opts;
+  const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
+  const failureClass = deriveFailureClass({
+    daemonAlive: snapshot.status === 'running',
+    lastError,
+  });
+  const body = formatInactivityBody({
+    clawId,
+    inactiveMin,
+    failureClass,
+    contract: snapshot.contract,
+    lastError,
+  });
+
+  writeClawInactivityInbox(fsFactory, {
+    message: body,
+    claw_id: rawClawId,
+    inactive_ms: inactiveMs,
+    contract: snapshot.contract,
+    as_of: new Date().toISOString(),
+    failure_class: failureClass,
+    ...(sourcePath ? { source_path: sourcePath } : {}),
+    ...(lastError ? { last_error: lastError } : {}),
+  });
+
+  return { failureClass };
+}
 
 // Check for claws with an active contract but no progress for a long time, and send a reminder
 /** 1:1 保 watchdog.ts:271-349 / 78 行 / inactivity timeout + backoff */
@@ -77,33 +116,18 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
         continue;  // 已通知 + 无 progress → 不重发
       }
 
-      // Collect snapshot info
-      const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
       const inactiveMin = Math.round((now - referenceMs) / 60000);
-
-      // phase 1482: 业主 own FailureClass enum + body 按 class 改字面（取代 "no progress" 误导）
-      const failureClass = deriveFailureClass({
-        daemonAlive: snapshot.status === 'running',
-        lastError,
-      });
-      const body = formatInactivityBody({
+      const { failureClass } = fireInactivityNotification({
+        rawClawId,
         clawId,
+        clawDir,
+        fsFactory,
+        pm,
         inactiveMin,
-        failureClass,
-        contract: snapshot.contract,
+        inactiveMs: now - referenceMs,
         lastError,
       });
-
       log(fsFactory, `[watchdog] Claw ${rawClawId} ${failureClass} ${inactiveMin}m${lastError ? ` (last error: ${lastError})` : ''}`);
-      writeClawInactivityInbox(fsFactory, {
-        message: body,
-        claw_id: rawClawId,
-        inactive_ms: now - referenceMs,
-        contract: snapshot.contract,
-        as_of: new Date().toISOString(),
-        failure_class: failureClass,
-        ...(lastError ? { last_error: lastError } : {}),
-      });
       clawStateAPI.lastInactivityNotified.set(rawClawId, now);
     } catch (err) {
       log(fsFactory, `[watchdog] Error checking claw ${rawClawId}: ${formatErr(err)}`);
@@ -262,31 +286,20 @@ export async function maybeCronCheckSubscriptions(pm: ProcessManager, audit: Aud
       if (now < fireAt) continue;
 
       // (d) still stuck after threshold → fire + consume
-      const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
-      const failureClass = deriveFailureClass({
-        daemonAlive: snapshot.status === 'running',
-        lastError,
-      });
-      const inactiveMin = lastEventMs !== null ? Math.round((now - lastEventMs) / 60000) : Math.round((now - sub.subscribed_at) / 60000);
-      const body = formatInactivityBody({
+      const inactiveMs = lastEventMs !== null ? (now - lastEventMs) : (now - sub.subscribed_at);
+      const inactiveMin = Math.round(inactiveMs / 60000);
+      const { failureClass } = fireInactivityNotification({
+        rawClawId,
         clawId,
+        clawDir,
+        fsFactory,
+        pm,
         inactiveMin,
-        failureClass,
-        contract: snapshot.contract,
+        inactiveMs,
         lastError,
+        sourcePath: 'subscription',
       });
-
       log(fsFactory, `[watchdog] Claw ${rawClawId} subscription fired ${failureClass} ${inactiveMin}m${lastError ? ` (last error: ${lastError})` : ''}`);
-      writeClawInactivityInbox(fsFactory, {
-        message: body,
-        claw_id: rawClawId,
-        inactive_ms: lastEventMs !== null ? (now - lastEventMs) : (now - sub.subscribed_at),
-        contract: snapshot.contract,
-        as_of: new Date().toISOString(),
-        failure_class: failureClass,
-        source_path: 'subscription',
-        ...(lastError ? { last_error: lastError } : {}),
-      });
       audit.write(
         WATCHDOG_AUDIT_EVENTS.SUBSCRIPTION_FIRED,
         `claw=${rawClawId}`,
