@@ -15,21 +15,33 @@ export interface ViewportCommand {
   execute: (args: string[]) => void | Promise<void>;
 }
 
-export interface CommandsDeps {
+/**
+ * phase 31 P2.4: CommandsDeps 按 role 拆 ISP align。
+ */
+
+export interface CommandsClawDeps {
   isMotion: boolean;
   clawsDir: string;
   clawTrackMap: Map<string, ClawTrack>;
   fs: FileSystem;
+  clawManager: ClawManager;
+  updateClawPanel: (clawTrackMap: Map<string, ClawTrack>) => void;
+}
+
+export interface CommandsDisplayDeps {
   appendOutput: (color: string, text: string, wrap?: boolean, hangIndent?: string) => void;
   invalidateBodyCache: () => void;
   clearOutputLines: () => void;
   mainUI: MainTurnUIController;
-  clawManager: ClawManager;
-  updateClawPanel: (clawTrackMap: Map<string, ClawTrack>) => void;
+}
+
+export interface CommandsConfigDeps {
   getThinkingMode: () => ThinkingMode;
   setThinkingMode: (m: ThinkingMode) => void;
   getRegistry: () => Map<string, ViewportCommand>;
 }
+
+export type CommandsDeps = CommandsClawDeps & CommandsDisplayDeps & CommandsConfigDeps;
 
 export const createViewportCommands = (deps: CommandsDeps): ViewportCommand[] => {
   const cmds: ViewportCommand[] = [];

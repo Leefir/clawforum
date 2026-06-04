@@ -48,17 +48,32 @@ const CLAW_REFRESH_INTERVAL_MS = 2000;
 const CLAW_PANEL_TICK_INTERVAL_MS = 1000;
 const DAEMON_LIVENESS_CHECK_INTERVAL_MS = 3000;
 
-export interface ChatViewportOptions {
+/**
+ * phase 31 P2.4: ChatViewportOptions 按 role 拆 ISP align。
+ */
+
+export interface ViewportIdentity {
   agentDir: string;   // motion dir 或 claw dir
   label: string;      // 显示名，如 'motion' 或 'claw-search'
-  ensureDaemon?: () => Promise<void>;  // 调用方提供：检查 daemon 是否运行，没运行就启动
+}
+
+export interface ViewportDisplayOptions {
   showRecapStream?: boolean;   // 复盘子代理 stream，默认 false
   showSystemMessages?: boolean;   // system message，默认 false
   showContractEvents?: boolean;   // contract 子任务完成信息，默认 true
   trimOutputNewlines?: boolean;   // LLM 输出首尾换行清理，默认 true
+}
+
+export interface ViewportLifecycle {
+  ensureDaemon?: () => Promise<void>;  // 调用方提供：检查 daemon 是否运行，没运行就启动
+}
+
+export interface ViewportInfra {
   audit: AuditLog; // audit sink for createWatcher
   fsFactory: (baseDir: string) => FileSystem;
 }
+
+export type ChatViewportOptions = ViewportIdentity & ViewportDisplayOptions & ViewportLifecycle & ViewportInfra;
 
 export type { TurnTracker } from './chat-viewport-types.js';
 

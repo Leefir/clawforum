@@ -31,22 +31,43 @@ export interface TaskWatch {
   lastEventMs: number;
 }
 
-export interface EventHandlerDeps {
+/**
+ * phase 31 P2.4: EventHandlerDeps 按 role 拆 ISP align。
+ */
+
+export interface TurnLifecycleRole {
   turnTracker: TurnTracker;
   mainUI: MainTurnUIController;
+}
+
+export interface DisplayRenderRole {
   appendOutput: (color: string, text: string, wrap?: boolean, hangIndent?: string) => void;
+}
+
+export interface InboxFilterRole {
   showSystemMessages: boolean;
   showContractEvents: boolean;
-  agentDir: string;
   label: string;
-  audit: AuditLog;
-  observability: ReturnType<typeof createViewportObservability>;
+}
+
+export interface TaskWatchRole {
+  agentDir: string;
+  fsFactory: (baseDir: string) => FileSystem;
   taskWatchMap: Map<string, TaskWatch>;
   handleTaskEvent: (taskId: TaskId, ev: unknown) => void;
   taskStatusBar: { addTrack(taskId: TaskId, callerType: string): void };
-  getThinkingMode: () => ThinkingMode;
-  fsFactory: (baseDir: string) => FileSystem;
 }
+
+export interface ObservabilityRole {
+  audit: AuditLog;
+  observability: ReturnType<typeof createViewportObservability>;
+}
+
+export interface ThinkingConfigRole {
+  getThinkingMode: () => ThinkingMode;
+}
+
+export type EventHandlerDeps = TurnLifecycleRole & DisplayRenderRole & InboxFilterRole & TaskWatchRole & ObservabilityRole & ThinkingConfigRole;
 
 export function createEventHandler(deps: EventHandlerDeps) {
   return function handleEvent(event: { type: string; [key: string]: unknown }): void {
