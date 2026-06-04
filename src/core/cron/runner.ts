@@ -80,6 +80,23 @@ export interface CronJob {
 
 const CANCELLING_STUCK_TICKS = 10; // timeout 后 N ticks 仍 cancelling 视为 handler 永挂
 
+/**
+ * Cron 调度器、**stateless** 设计（D4 显式豁免、详 `design/modules/l5_cron.md §4`）。
+ *
+ * 所有运行时状态（`lastRunKey`、`running`、`cancelling`、`cancellingTicks`、
+ * `inflightPromises`、`_initialScanDone` 等）在**进程内存**、**0 磁盘 artifact**。
+ *
+ * Daemon 重启行为：
+ * - `lastRunKey` 重置 → 重启时刻跨 daily 目标的 job 会重新触发（去重靠新累积 lastRunKey）
+ * - `_initialScanDone` 重置 → F5 startup-scan guard 仅在进程生命周期内有效
+ *
+ * **Handler 必须 idempotent 的契约**：cross-restart 安全靠 handler 自身幂等性
+ * + 各 job 自治 cooldown（如 dream `.random-dream-state.json`、`.deep-dream-state.json`）
+ * 兜底。框架不在 runner 层提供 cross-restart dedup。
+ *
+ * D4 豁免理由（详 design）：(a) jobs 设计为幂等 (b) cron 重启场景罕见
+ * (c) 落盘 lastRunKey 引入 fs 依赖收益不抵成本。
+ */
 export class CronRunner {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastRunKey = new Map<string, string>(); // jobName → runKey
