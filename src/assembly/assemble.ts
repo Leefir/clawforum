@@ -4,32 +4,25 @@ import { formatErr } from '../foundation/utils/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 
 import type { AuditLog } from '../foundation/audit/index.js';
-import { createSnapshot } from '../foundation/snapshot/index.js';
-import { SNAPSHOT_IGNORE_PATTERNS } from './snapshot-patterns.js';
-import type { Snapshot } from '../foundation/snapshot/index.js';
-import { createStreamWriter } from '../foundation/stream/index.js';
 import type { StreamWriter } from '../foundation/stream/index.js';
 
 import { isFileNotFound } from '../foundation/fs/types.js';
 
 
 
-import { type Runtime, type RuntimeDependencies } from '../core/runtime/index.js';
-import { createRuntime } from '../core/runtime/index.js';
-import { createContractNotifyCallback } from './contract-notify-callback.js';
+
 import type { CoreInfraOutput } from './core-infrastructure.js';
 
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 
-import { TASKS_SYNC_EXEC_DIR } from '../foundation/command-tool/index.js';
-import { TASKS_SYNC_WRITE_DIR } from '../foundation/file-tool/index.js';
 
 
 
 
 
 
-import { createShadowTool } from '../core/shadow-system/index.js';
+
+
 import { cleanupOrphanedTemp } from './cleanup.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 
@@ -58,13 +51,14 @@ import { createOutboxSummaryJob } from '../core/cron/jobs/outbox-summary.js';
 import type { AssembleConfig, Instances } from './types.js';
 import { createCoreInfrastructure } from './core-infrastructure.js';
 import { createBusinessSystems } from './business-systems.js';
+import { createRuntimeAssembly } from './runtime-assembly.js';
 import { createGateway } from '../core/gateway/index.js';
 import type { Gateway } from '../core/gateway/index.js';
 import { createAskUserTool } from '../core/gateway/index.js';
 import { createStreamReader, STREAM_FILE, findRecentTurnStartOffset } from '../foundation/stream/index.js';
 
 import { resolveChestnutRoot, makeClawDir } from '../foundation/identity/index.js';
-import { MOTION_CLAW_ID } from '../constants.js';
+
 
 
 // 内部 helper（从 daemon.ts L42-75 搬入）
@@ -124,134 +118,24 @@ export async function assemble(config: AssembleConfig): Promise<Instances> {
       fsFactory, systemFs, parentFs,
       auditWriter, processManager,
       llmConfig, llm,
-      maxSteps, toolProfile, toolTimeoutMs, idleTimeoutMs,
-      toolRegistry, skillRegistry, contractManager, outboxWriter,
+      toolTimeoutMs,
+      toolRegistry,
     } = core;
 
     // A.6 motionInboxDir 提前到 taskSystem / callback 定义前（双链路保险 / cron job 注册块同步引用）
     const business = await createBusinessSystems({ core });
     const {
-      taskSystem, evolutionSystem,
-      permissionChecker, motionInboxDir,
-      toolExecutor, sessionManager, makeDialogStore,
-      inboxReader, formatterRegistry, guidanceRegistry,
+      evolutionSystem,
+      inboxReader,
     } = business;
 
-    // --- Snapshot（phase155B 已搬，但需保证在 Runtime 之前） ---
-    let snapshot: Snapshot;
-    try {
-      snapshot = createSnapshot(clawDir, systemFs, auditWriter, SNAPSHOT_IGNORE_PATTERNS, [
-        path.join(clawDir, TASKS_SYNC_EXEC_DIR),
-        path.join(clawDir, TASKS_SYNC_WRITE_DIR),
-      ]);
-    } catch (e) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=snapshot`, `phase=construct`, `reason=${formatErr(e)}`);
-      throw new Error(`Assembly: Snapshot construct failed: ${formatErr(e)}`, { cause: e });
-    }
-
-    const initResult = await snapshot.init();
-    if (!initResult.ok) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=snapshot`, `phase=init`, `reason=${initResult.error.kind}`);
-      throw new Error(`Assembly: Snapshot.init failed: ${initResult.error.kind}`);
-    }
-
-    const recoveryResult = await snapshot.commit('recovery-snapshot');
-    if (!recoveryResult.ok) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=snapshot`, `phase=recovery-commit`, `reason=${recoveryResult.error.kind}`);
-    }
-
-    // --- StreamWriter 前置（phase182 B.p166-5 升档：setter 双阶段消除） ---
-    try {
-      streamWriter = createStreamWriter(systemFs, auditWriter, {
-        maxFiles: globalConfig.stream.retention.max_files,
-        maxDays: globalConfig.stream.retention.max_days,
-      });
-      streamWriter.open();
-    } catch (e) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=stream_writer`, `phase=construct`, `reason=${formatErr(e)}`);
-      throw new Error(`Assembly: StreamWriter construct failed: ${formatErr(e)}`, { cause: e });
-    }
-
-    // contractNotify callback 在 Runtime 构造前形成（注入 deps 而非 setter）
-    const contractNotifyCallback = createContractNotifyCallback({
-      streamWriter: streamWriter!,
-      clawId,
-      systemFs,
-      motionInboxDir,
-      auditWriter,
-    });
-
-    // === RuntimeDependencies 分组构造（assembly-auditor §六.5 follow-up / 可读性） ===
-    const messagingDeps = {
-      inboxReader,
-      outboxWriter,
-      parentStreamLog: streamWriter!,
-    };
-
-    const toolingDeps = {
-      toolRegistry,
-      toolExecutor,
-      skillRegistry,
-      formatterRegistry,
-      // phase 27 Step D P5: guidance compose callback hook（motion-only / claw 装配 undefined）
-      guidanceCompose: (type: string, state: Record<string, string>) => guidanceRegistry?.compose(type, state) ?? null,
-    };
-
-    const lifecycleDeps = {
-      snapshot,
-      sessionManager,
-    };
-
-    const dependencies: RuntimeDependencies = {
-      fsFactory,
-      systemFs,
-      auditWriter,
-      llm,
-      contractManager,
-      taskSystem,
-      permissionChecker,  // NEW phase 1273 / 复用 line 287 既有构造
-      contractNotifyCallback,
-      // phase 521: regime switch coordination / Assembly own factory / closure capture 5 const
-      dialogStoreFactory: makeDialogStore,
-      ...messagingDeps,
-      ...toolingDeps,
-      ...lifecycleDeps,
-    };
+    const { snapshot, streamWriter: sw, runtime } = await createRuntimeAssembly({ core, business, config });
+    streamWriter = sw;
 
     // 孤儿临时文件清理（从 Runtime.initialize 搬来；Assembly 负责一次性的启动清理）
     cleanupOrphanedTemp(systemFs, clawDir).catch((err: unknown) => {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.CLEANUP_TEMP_FILES_FAILED, `reason=${formatErr(err)}`);
     });
-
-    // --- Runtime 构造（deps 注入） ---
-    let runtime: Runtime;
-    try {
-      runtime = createRuntime({
-        identity: isMotion ? 'motion' : 'claw',
-        clawId: isMotion ? MOTION_CLAW_ID : clawId,
-        clawDir,
-        chestnutRoot: resolveChestnutRoot(clawDir, isMotion),  // phase 1406: 单一 truth source
-        llmConfig,
-        maxSteps,
-        toolProfile,
-
-        idleTimeoutMs,
-        dependencies,
-      });
-    } catch (e) {
-      auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=runtime`, `phase=construct`, `reason=${formatErr(e)}`);
-      throw new Error(`Assembly: Runtime construct failed: ${formatErr(e)}`, { cause: e });
-    }
-
-    // shadow tool — 依赖 Runtime.getTurnSnapshot（L4 turn state 快照）
-    // 必须在 runtime 创建后注册，不能提前（runtime 尚未存在）
-    toolRegistry.register(createShadowTool({
-      getTurnSnapshot: () => ({
-        systemPrompt: runtime.getCurrentSystemPrompt(),
-        tools: runtime.getCurrentTools(),
-        messages: runtime.getCurrentMessages(),
-      }),
-    }));
 
     // --- Gateway (motion only, offline mode) ---
     let gateway: Gateway | undefined;
