@@ -96,7 +96,66 @@ export function shutdownWatchdog(
   process.exit(saveFailed ? 1 : 0);
 }
 
-// === Main loop (112 行) ===
+// === Motion restart helper ===
+
+interface RestartMotionResult {
+  newBackoff: number;
+  newFailures: number;
+}
+
+async function restartMotionIfDown(
+  pm: ReturnType<typeof createProcessManagerForCLI>,
+  fsFactory: (baseDir: string) => FileSystem,
+  audit: AuditLog,
+  status: ReturnType<ReturnType<typeof createProcessManagerForCLI>['getAliveStatus']>,
+  failures: number,
+  baseInterval: number,
+  maxBackoff: number,
+): Promise<RestartMotionResult> {
+  if (status.alive) {
+    return { newBackoff: baseInterval, newFailures: 0 };
+  }
+
+  log(fsFactory, `[watchdog] motion down (${status.reason}), restarting...`);
+  audit.write('watchdog_restart_triggered', MOTION_CLAW_ID);
+  log(fsFactory, `[watchdog] motion down (${status.reason}), restarting...`);
+
+  try {
+    // best-effort cleanup before respawn / per phase 636 ratify:
+    //   - cleanup failure 可能源:
+    //     (a) 真 stale PID 文件 → safe to ignore (audit captures)
+    //     (b) motion 仍活（race / 另 watchdog instance spawn 中）→ spawn 抛 LockConflictError、捕获后 reset 计数
+    //   - cleanup 失败不阻塞 respawn / spawn 自身判 race / failure 仅 audit observability
+    await pm.stop(MOTION_CLAW_ID).catch((e) => {
+      const msg = `[watchdog] Failed to clean up motion before restart: ${formatErr(e)}`;
+      logWithAudit(fsFactory, msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, AUDIT_MESSAGE_MAX_CHARS));
+    });
+    const daemonEntryPath = resolveDaemonEntry(fsFactory(process.cwd()));
+    const chestnutRoot = makeChestnutRoot(getChestnutDir());
+    const pid = await pm.spawn(MOTION_CLAW_ID, {
+      command: 'node',
+      args: [daemonEntryPath, MOTION_CLAW_ID],
+      logFile: path.join(makeClawDir(getNamedSubrootDir('motion')), DAEMON_LOG),
+      env: { ...process.env, CHESTNUT_ROOT: path.dirname(chestnutRoot) } as Record<string, string | undefined>,
+    });
+    log(fsFactory, `[watchdog] motion restarted (PID=${pid})`);
+    audit.write('process_spawn', MOTION_CLAW_ID, `pid=${pid}`);
+    return { newBackoff: baseInterval, newFailures: 0 };
+  } catch (err) {
+    if (err instanceof LockConflictError) {
+      // 另一个 watchdog 实例已经启动了 motion，不算失败
+      log(fsFactory, `[watchdog] motion already started by another instance`);
+      return { newBackoff: baseInterval, newFailures: 0 };
+    }
+    const newFailures = failures + 1;
+    const newBackoff = Math.min(baseInterval * Math.pow(2, newFailures - 1), maxBackoff);
+    audit.write('process_spawn_failed', MOTION_CLAW_ID, `error=${formatErr(err)}`);
+    log(fsFactory, `[watchdog] FAILED to restart motion (failure #${newFailures}): ${err}`);
+    return { newBackoff, newFailures };
+  }
+}
+
+// === Main loop ===
 
 /** 1:1 保 watchdog.ts:402-513 */
 export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem): Promise<void> {
@@ -119,7 +178,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
   auditWriter.write('watchdog_start');
 
   let stopped = false;
-  
+
   // Create Motion ProcessManager (reused across loop iterations)
   const pm = createProcessManagerForCLI({ fsFactory });
 
@@ -138,14 +197,14 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
   };
   process.on('SIGTERM', sigtermHandler);
   process.on('SIGINT', sigintHandler);
-  
+
   // Motion restart failure tracking for backoff
   let motionRestartFailures = 0;
 
   while (!stopped) {
     // 1. Check motion liveness
     const status = pm.getAliveStatus(MOTION_CLAW_ID);
-    
+
     // watchdog_check: 枚举所有存活进程
     const aliveIds: string[] = [];
     const presentClawIds: string[] = [];
@@ -161,60 +220,28 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
       }
     }
     auditWriter.write('watchdog_check', `alive=${aliveIds.join(',')} present=${presentClawIds.join(',')}`);
-    
-    if (!status.alive) {
-      log(fsFactory, `[watchdog] motion down (${status.reason}), restarting...`);
-      auditWriter.write('watchdog_restart_triggered', MOTION_CLAW_ID);
-      log(fsFactory, `[watchdog] motion down (${status.reason}), restarting...`);
-      try {
-        // best-effort cleanup before respawn / per phase 636 ratify:
-        //   - cleanup failure 可能源:
-        //     (a) 真 stale PID 文件 → safe to ignore (audit captures)
-        //     (b) motion 仍活（race / 另 watchdog instance spawn 中）→ spawn 抛 LockConflictError、捕获后 reset 计数
-        //   - cleanup 失败不阻塞 respawn / spawn 自身判 race / failure 仅 audit observability
-        await pm.stop(MOTION_CLAW_ID).catch((e) => {
-          const msg = `[watchdog] Failed to clean up motion before restart: ${formatErr(e)}`;
-          logWithAudit(fsFactory, msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, AUDIT_MESSAGE_MAX_CHARS));
-        });
-        const daemonEntryPath = resolveDaemonEntry(fsFactory(process.cwd()));
-        const chestnutRoot = makeChestnutRoot(getChestnutDir());
-        const pid = await pm.spawn(MOTION_CLAW_ID, {
-          command: 'node',
-          args: [daemonEntryPath, MOTION_CLAW_ID],
-          logFile: path.join(makeClawDir(getNamedSubrootDir('motion')), DAEMON_LOG),
-          env: { ...process.env, CHESTNUT_ROOT: path.dirname(chestnutRoot) } as Record<string, string | undefined>,
-        });
-        log(fsFactory, `[watchdog] motion restarted (PID=${pid})`);
-        auditWriter.write('process_spawn', MOTION_CLAW_ID, `pid=${pid}`);
-        motionRestartFailures = 0;  // Success, reset counter
-      } catch (err) {
-        if (err instanceof LockConflictError) {
-          // 另一个 watchdog 实例已经启动了 motion，不算失败
-          log(fsFactory, `[watchdog] motion already started by another instance`);
-          motionRestartFailures = 0;
-        } else {
-          motionRestartFailures++;
-          auditWriter.write('process_spawn_failed', MOTION_CLAW_ID, `error=${formatErr(err)}`);
-          log(fsFactory, `[watchdog] FAILED to restart motion (failure #${motionRestartFailures}): ${err}`);
-        }
-      }
-    } else {
-      motionRestartFailures = 0;  // Motion healthy, reset counter
-    }
-    
+
+    const intervalMs = getGlobalConfig(fsFactory).watchdog.interval_ms;
+    const { newBackoff, newFailures } = await restartMotionIfDown(
+      pm,
+      fsFactory,
+      auditWriter,
+      status,
+      motionRestartFailures,
+      intervalMs,
+      WATCHDOG_BACKOFF_MAX_MS,
+    );
+    motionRestartFailures = newFailures;
+
     // 2. Cron checks (disk_check moved to CronRunner in daemon.ts)
     await maybeCronClawInactivity(pm, auditWriter, fsFactory);
     maybeCronClawCrash(pm, auditWriter, fsFactory);
     // phase 5: process motion-requested subscriptions (file-based dir scan)
     await maybeCronCheckSubscriptions(pm, auditWriter, fsFactory);
     saveWatchdogState(fsFactory);   // 持久化通知状态（每 tick 一次）
-    
+
     // 3. Sleep with backoff on consecutive failures (max 5 minutes)
-    const intervalMs = getGlobalConfig(fsFactory).watchdog.interval_ms;
-    const backoffMs = motionRestartFailures > 0
-      ? Math.min(intervalMs * Math.pow(2, motionRestartFailures - 1), WATCHDOG_BACKOFF_MAX_MS)
-      : intervalMs;
-    await setTimeout(backoffMs);
+    await setTimeout(newBackoff);
   }
 }
 
