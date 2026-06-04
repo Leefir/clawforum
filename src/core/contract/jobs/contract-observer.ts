@@ -3,7 +3,7 @@ import { formatErr } from "../../../foundation/utils/index.js";
 import { isFileNotFound, type FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { InboxMessageOptionsBase } from '../../../foundation/messaging/index.js';
-import { collectContractEvents } from './event-collector.js';
+import { scanArchivedContracts } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 import { CLAWS_DIR } from '../../../foundation/paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
@@ -36,38 +36,85 @@ export interface ContractObserverJobDeps {
   notifyClaw: (fs: FileSystem, chestnutRoot: ChestnutRoot, targetClawId: string, payload: InboxMessageOptionsBase, audit: AuditLog) => void;
 }
 
-// 持久化文件：上次观察时间戳
+// 持久化文件：observer 状态（已通知 contract set + lastCheckTs metric + bootstrap marker）
 const STATE_FILE = 'status/contract-observer-state.json';
+const STATE_SCHEMA_VERSION = 2;
+const NOTIFIED_CAP = 5000;
 
-export async function runContractObserver(options: ContractObserverOptions): Promise<void> {
-  const { chestnutRoot, fs, motionAudit, notifyClaw: notifyClawFn } = options;
+/**
+ * phase 37: state schema v2 治 observer race。
+ * - notifiedContracts: 已 emit 给 motion 的 `<clawId>:<contractId>` 集合。dedup 主防御。
+ * - bootstrapDone: false = 首 tick 后填 set 不 emit（防 v1→v2 migration 时大量历史 archive 反复触发 emit）。
+ * - lastCheckTs: 仅 metric / debug 用、不再作 hard filter（dedup-based 替代）。
+ */
+interface ObserverStateV2 {
+  version: 2;
+  lastCheckTs: number;
+  notifiedContracts: string[];
+  bootstrapDone: boolean;
+}
 
-  // 读上次观察时间戳
-  const stateFile = path.join(chestnutRoot, 'motion', STATE_FILE);
-  let lastCheckTs = 0;
+function loadObserverState(fs: FileSystem, stateFile: string, audit: AuditLog): ObserverStateV2 {
   try {
     const raw = fs.readSync(stateFile);
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null &&
-        typeof (parsed as { lastCheckTs?: unknown }).lastCheckTs === 'number') {
-      lastCheckTs = (parsed as { lastCheckTs: number }).lastCheckTs;
-    } else {
-      motionAudit.write(CONTRACT_AUDIT_EVENTS.OBSERVER_STATE_PARSE_FAILED,
+    if (typeof parsed === 'object' && parsed !== null) {
+      const obj = parsed as Record<string, unknown>;
+      // v2 schema
+      if (obj.version === STATE_SCHEMA_VERSION &&
+          typeof obj.lastCheckTs === 'number' &&
+          Array.isArray(obj.notifiedContracts) &&
+          obj.notifiedContracts.every(x => typeof x === 'string') &&
+          typeof obj.bootstrapDone === 'boolean') {
+        return {
+          version: STATE_SCHEMA_VERSION,
+          lastCheckTs: obj.lastCheckTs,
+          notifiedContracts: obj.notifiedContracts as string[],
+          bootstrapDone: obj.bootstrapDone,
+        };
+      }
+      // v1 → v2 migration: 用旧 lastCheckTs、空 set、未 bootstrap（首 tick 仅填 set 不 emit）
+      if (typeof obj.lastCheckTs === 'number') {
+        return {
+          version: STATE_SCHEMA_VERSION,
+          lastCheckTs: obj.lastCheckTs,
+          notifiedContracts: [],
+          bootstrapDone: false,
+        };
+      }
+      audit?.write(CONTRACT_AUDIT_EVENTS.OBSERVER_STATE_PARSE_FAILED,
         `reason=shape_mismatch`, `stateFile=${stateFile}`);
     }
   } catch (err) {
-    // phase 1154 r+ derive: 双码 narrow via foundation helper (FileSystem 抽象层抛 FS_NOT_FOUND)
     if (!isFileNotFound(err)) {
       const code = (err as NodeJS.ErrnoException)?.code;
-      motionAudit.write(
+      audit?.write(
         CONTRACT_AUDIT_EVENTS.OBSERVER_STATE_LOAD_FAILED,
         `file=${stateFile}`,
         `code=${code ?? 'unknown'}`,
         `error=${formatErr(err)}`,
       );
     }
-    // 行为兼容: lastCheckTs 保 0 (first-run-like)、不 throw
+    // first-run / file 不存在：bootstrap path、首 tick 不 emit
   }
+  return {
+    version: STATE_SCHEMA_VERSION,
+    lastCheckTs: 0,
+    notifiedContracts: [],
+    bootstrapDone: false,
+  };
+}
+
+export async function runContractObserver(options: ContractObserverOptions): Promise<void> {
+  const { chestnutRoot, fs, motionAudit, notifyClaw: notifyClawFn } = options;
+
+  // phase 37: tickStart 在 scan 开始捕获、写为 lastCheckTs（不再 end-of-scan now、关 race window）
+  const tickStart = Date.now();
+
+  const stateFile = path.join(chestnutRoot, 'motion', STATE_FILE);
+  const state = loadObserverState(fs, stateFile, motionAudit);
+  const notifiedSet = new Set(state.notifiedContracts);
+  const wasBootstrapPending = !state.bootstrapDone;
 
   // 扫描 claws/ 目录
   const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
@@ -88,18 +135,24 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
 
   const events: string[] = [];
   const allProblemPairs: string[] = [];
-
+  const newlyDiscovered: string[] = [];
 
   for (const clawId of clawIds) {
     if (options.signal?.aborted) return;
     try {
       const clawDir = makeClawDir(path.join(chestnutRoot, CLAWS_DIR, clawId));
-      const result = collectContractEvents(fs, clawDir, makeClawId(clawId), lastCheckTs, motionAudit);
-      if (result.events.length > 0) {
-        events.push(result.events.join('\n'));
-      }
-      if (result.problemPairs.length > 0) {
-        allProblemPairs.push(...result.problemPairs);
+      const entries = scanArchivedContracts(fs, clawDir, makeClawId(clawId), motionAudit);
+      for (const entry of entries) {
+        const key = `${clawId}:${entry.contractId}`;
+        if (notifiedSet.has(key)) continue;  // dedup: 已通知
+        newlyDiscovered.push(key);
+        // bootstrap 期不 emit、仅填 set（防 migration 后历史 archive 大量重 emit）
+        if (state.bootstrapDone) {
+          events.push(entry.body);
+          if (entry.hasFailure) {
+            allProblemPairs.push(key);
+          }
+        }
       }
     } catch (e) {
       motionAudit.write(
@@ -110,12 +163,12 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     }
   }
 
-  // 有事件时写 motion inbox
+  // 有事件时写 motion inbox（仅 bootstrap 后）
   if (events.length > 0) {
     // phase 1487: 经 extraFields 透传 problem_pairs 给 motion guidance composer
     // observer 不扫 motion 自家 archive（scan claws/ 只含 worker）→ 不设 source_claw
     //   (composer 见 source_claw 缺 → 走 problem_pairs 分支判 guidance)
-    // A3 callback 在 assemble.ts:550 单独透传 source_claw=clawId（含 motion 自家 contract 路径）
+    // A3 callback 在 assemble.ts 单独透传 source_claw=clawId（含 motion 自家 contract 路径）
     notifyClawFn(fs, chestnutRoot, MOTION_CLAW_ID, {
       type: 'contract_events',
       source: 'system',
@@ -127,10 +180,28 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     }, motionAudit);
   }
 
-  // 更新时间戳
-  const now = Date.now();
+  // 更新 state：加入新发现 contract、FIFO cap
+  for (const key of newlyDiscovered) notifiedSet.add(key);
+  let notifiedArr = Array.from(notifiedSet);
+  if (notifiedArr.length > NOTIFIED_CAP) {
+    notifiedArr = notifiedArr.slice(notifiedArr.length - NOTIFIED_CAP);
+  }
+  const newState: ObserverStateV2 = {
+    version: STATE_SCHEMA_VERSION,
+    lastCheckTs: tickStart,  // phase 37: tickStart 不是 end-of-scan now
+    notifiedContracts: notifiedArr,
+    bootstrapDone: true,     // 首 tick 后总是 true
+  };
   fs.ensureDirSync(path.dirname(stateFile));
-  fs.writeAtomicSync(stateFile, JSON.stringify({ lastCheckTs: now }));
+  fs.writeAtomicSync(stateFile, JSON.stringify(newState));
+
+  // bootstrap 完成的 trace
+  if (wasBootstrapPending) {
+    motionAudit.write(
+      CONTRACT_AUDIT_EVENTS.OBSERVER_BOOTSTRAP_DONE,
+      `notified_count=${notifiedArr.length}`,
+    );
+  }
 }
 
 export function createContractObserverJob(

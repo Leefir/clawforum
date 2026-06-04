@@ -63,6 +63,8 @@ export const CONTRACT_AUDIT_EVENTS = {
   EVENT_COLLECTOR_SCAN_FAILED: 'contract_event_collector_scan_failed',
   CONTRACT_DIR_SCAN_FAILED: 'contract_dir_scan_failed',
   OBSERVER_STATE_LOAD_FAILED: 'contract_observer_state_load_failed',
+  // phase 37: observer race 治本 / v1→v2 schema migration 后首 tick bootstrap 完成 trace
+  OBSERVER_BOOTSTRAP_DONE: 'contract_observer_bootstrap_done',
   // phase 1335 (r138 F fork): boot reconcile audit emit trace
   CONTRACT_BOOT_RECONCILE: 'contract_boot_reconcile',
   CONTRACT_BOOT_MIGRATE_ESCALATED: 'contract_boot_migrate_escalated', // ← NEW phase 1399: boot 时 escalated 残留 migrate

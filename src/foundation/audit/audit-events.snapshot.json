@@ -136,6 +136,7 @@
       "contract_lock_unlink_failed",
       "contract_move_archive_failed",
       "contract_notify_failed",
+      "contract_observer_bootstrap_done",
       "contract_observer_event_failed",
       "contract_observer_state_load_failed",
       "contract_observer_state_parse_failed",

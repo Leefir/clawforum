@@ -147,9 +147,12 @@ describe('phase 1010 — silent X TODO cluster narrow', () => {
       motionAudit: audit,
       notifyClaw: notifyInbox,
     });
-    expect(events).toHaveLength(1);
+    // phase 37: state load failed → fall to first-run defaults (bootstrapDone=false)
+    // → 首 tick 后 emit OBSERVER_BOOTSTRAP_DONE trace
+    expect(events).toHaveLength(2);
     expect(events[0][0]).toBe(CONTRACT_AUDIT_EVENTS.OBSERVER_STATE_LOAD_FAILED);
     expect(events[0]).toContain('code=EACCES');
+    expect(events[1][0]).toBe(CONTRACT_AUDIT_EVENTS.OBSERVER_BOOTSTRAP_DONE);
     expect(notifyInbox).not.toHaveBeenCalled();
   });
 

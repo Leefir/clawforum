@@ -61,28 +61,31 @@ function formatContractCompletedEvent(
   return { body: lines.join('\n'), hasFailure };
 }
 
-
 /**
- * phase 1487: 返回结构化 result 替 string[].
- * `events` 字段保留原 join 兼容性 / `problemPairs` 用于 motion guidance composer extraMeta.
+ * phase 37: 结构化 entry、含 contractId（caller 可作 dedup key）+ ms 时间戳（caller 可作 sinceTs filter）。
  */
-export interface CollectedContractEventsResult {
-  events: string[];
-  /** [`<clawId>:<contractDirName>`, ...] for entries with last_failure feedback */
-  problemPairs: string[];
+export interface ArchivedContractEntry {
+  contractId: string;
+  body: string;
+  hasFailure: boolean;
+  /** max(subtask.completed_at) ms epoch、0 if no subtask completed_at */
+  latestSubtaskCompletedAtMs: number;
 }
 
-export function collectContractEvents(
+/**
+ * phase 37: 扫 archive 全 completed contract、不 filter。
+ * Caller 按需 filter (sinceTs / notifiedSet / 其他)。
+ *
+ * 抽出动机：observer race 治本要求按 dedup-set 过滤（不依赖时间戳）、
+ * 同时保留 CLI's `chestnut claw <id> events --since <ts>` sinceTs 语义。
+ */
+export function scanArchivedContracts(
   fs: FileSystem,
   clawDir: ClawDir,
   clawId: ClawId,
-  sinceTs: number,
   audit: AuditLog,
-): CollectedContractEventsResult {
-  const events: string[] = [];
-  const problemPairs: string[] = [];
-
-  // 1. archive 中新完成
+): ArchivedContractEntry[] {
+  const entries: ArchivedContractEntry[] = [];
   const archiveDir = path.join(clawDir, CONTRACT_DIR, 'archive');
   try {
     const dirs = fs.listSync(archiveDir, { includeDirs: true })
@@ -106,16 +109,21 @@ export function collectContractEvents(
           continue;
         }
         const progress = parsed as ProgressData;
-        const completedAfter = Object.values(progress.subtasks)
-          .some(s => s.completed_at && new Date(s.completed_at).getTime() > sinceTs);
-        if (completedAfter && progress.status === 'completed') {
-          const meta = readContractMeta(fs, path.join(archiveDir, d.name));
-          const formatted = formatContractCompletedEvent(clawId, d.name, meta, progress);
-          events.push(formatted.body);
-          if (formatted.hasFailure) {
-            problemPairs.push(`${clawId}:${d.name}`);
-          }
-        }
+        if (progress.status !== 'completed') continue;
+        const latestSubtaskCompletedAtMs = Object.values(progress.subtasks)
+          .reduce((max, s) => {
+            if (!s.completed_at) return max;
+            const ts = new Date(s.completed_at).getTime();
+            return ts > max ? ts : max;
+          }, 0);
+        const meta = readContractMeta(fs, path.join(archiveDir, d.name));
+        const formatted = formatContractCompletedEvent(clawId, d.name, meta, progress);
+        entries.push({
+          contractId: d.name,
+          body: formatted.body,
+          hasFailure: formatted.hasFailure,
+          latestSubtaskCompletedAtMs,
+        });
       } catch (err) {
         // phase 1154 r+ derive: ENOENT-equivalent = progress.json absent (archive 常态 + active 升级 race)、非 corruption 语义
         // phase 587 ⚓ invariant: PROGRESS_CORRUPTED 仅用真 JSON.parse 失败 / schema_invalid 已独立 const
@@ -144,6 +152,33 @@ export function collectContractEvents(
       );
     }
   }
+  return entries;
+}
 
-  return { events, problemPairs };
+/**
+ * phase 1487: 返回结构化 result 替 string[].
+ * `events` 字段保留原 join 兼容性 / `problemPairs` 用于 motion guidance composer extraMeta.
+ */
+export interface CollectedContractEventsResult {
+  events: string[];
+  /** [`<clawId>:<contractDirName>`, ...] for entries with last_failure feedback */
+  problemPairs: string[];
+}
+
+/**
+ * phase 37: thin wrapper over scanArchivedContracts + sinceTs filter (CLI / 既有 API 兼容)
+ */
+export function collectContractEvents(
+  fs: FileSystem,
+  clawDir: ClawDir,
+  clawId: ClawId,
+  sinceTs: number,
+  audit: AuditLog,
+): CollectedContractEventsResult {
+  const entries = scanArchivedContracts(fs, clawDir, clawId, audit)
+    .filter(e => e.latestSubtaskCompletedAtMs > sinceTs);
+  return {
+    events: entries.map(e => e.body),
+    problemPairs: entries.filter(e => e.hasFailure).map(e => `${clawId}:${e.contractId}`),
+  };
 }

@@ -9,6 +9,14 @@ function makeFsMock(scenario: 'empty' | 'completed'): FileSystem {
   const oldTs = now - 86400000;
   const files = new Map<string, string>();
 
+  // phase 37: pre-seed observer state with bootstrapDone=true、避免 bootstrap path 抑制首 tick emit
+  files.set('/tmp/test/motion/status/contract-observer-state.json', JSON.stringify({
+    version: 2,
+    lastCheckTs: 0,
+    notifiedContracts: [],
+    bootstrapDone: true,
+  }));
+
   if (scenario === 'completed') {
     files.set('/tmp/test/claws/claw1/contract/archive/contract-a/progress.json', JSON.stringify({
       contract_id: 'contract-a',
