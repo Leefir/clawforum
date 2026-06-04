@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import type { ToolUseId } from '../tool-protocol/index.js';
 import { detectAndMigrateVersion, validateSessionData, MarkerNotFoundError } from './validate.js';
+import { repairMessages } from './repair.js';
 
 /**
  * loadStable() retry base delay（ms）.
@@ -591,40 +592,7 @@ export class DialogStore {
     messages: Message[],
     opts?: { interruptionMessage?: string },
   ): { repaired: Message[]; toolCount: number } {
-    const last = messages[messages.length - 1];
-    if (!last || last.role !== 'assistant') return { repaired: messages, toolCount: 0 };
-
-    const content = Array.isArray(last.content) ? last.content : null;
-    if (!content) return { repaired: messages, toolCount: 0 };
-    const toolUseBlocks = content.filter(
-      (b): b is ToolUseBlock => b.type === 'tool_use'
-    );
-    if (toolUseBlocks.length === 0) return { repaired: messages, toolCount: 0 };
-
-    const detail = opts?.interruptionMessage && opts.interruptionMessage.trim().length > 0
-      ? opts.interruptionMessage
-      : 'Cause unknown (no context provided to repair).';
-
-    const syntheticResults: ToolResultBlock[] = toolUseBlocks.map(block => {
-      let inputDesc: string;
-      try {
-        inputDesc = JSON.stringify(block.input);
-      } catch {
-        // silent: cyclic reference guard — fallback to unserializable placeholder
-        inputDesc = '<unserializable>';
-      }
-      return {
-        type: 'tool_result',
-        tool_use_id: block.id,
-        content: `Tool call '${block.name}' with input ${inputDesc} was interrupted. ${detail}`,
-        is_error: true,
-      };
-    });
-
-    return {
-      repaired: [...messages, { role: 'user', content: syntheticResults }],
-      toolCount: toolUseBlocks.length,
-    };
+    return repairMessages(messages, opts);
   }
 
   /**
