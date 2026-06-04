@@ -15,7 +15,9 @@ import { formatErr } from '../utils/index.js';
 import type { FileSystem } from '../fs/types.js';
 import { isFileNotFound } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
-import { emitOutboxListFailed } from './audit-emit.js';
+import { emitOutboxListFailed, emitOutboxPeekFailed } from './audit-emit.js';
+import { decodeOutbox } from './codec-outbox.js';
+import type { OutboxMessage } from './types.js';
 
 const OUTBOX_PENDING_SUBDIR = 'outbox/pending';
 
@@ -50,5 +52,58 @@ export class OutboxReader {
       });
       return [];
     }
+  }
+
+  /**
+   * Read the **latest** message from `<clawDir>/outbox/pending` (last by filename sort order).
+   *
+   * Outbox filenames follow `{timestamp}_{type}_{uuid}.md` — lexical sort == time sort asc,
+   * so the last element is the newest.
+   *
+   * Pure read: no file move/delete side effect.
+   *
+   * Use case: outbox-summary motion notification — show preview of each claw's latest
+   * unread message.
+   *
+   * Failure modes (all silent → return null + audit):
+   *  - pending dir missing → null
+   *  - list failure (perms/IO) → null + audit
+   *  - read failure (race with consumer) → null + audit
+   *  - decode failure (malformed) → null + audit
+   *
+   * @param clawDir absolute path to a claw root
+   * @returns null if pending empty / any failure, else { filename, message }
+   */
+  async peekLastOutboxPending(
+    clawDir: string,
+  ): Promise<{ filename: string; message: OutboxMessage } | null> {
+    const filenames = await this.listClawOutboxPending(clawDir);
+    if (filenames.length === 0) return null;
+    const latest = filenames[filenames.length - 1];
+    const pendingDir = path.join(clawDir, OUTBOX_PENDING_SUBDIR);
+    const filePath = path.join(pendingDir, latest);
+    let raw: string;
+    try {
+      raw = await this.fs.read(filePath);
+    } catch (err) {
+      emitOutboxPeekFailed(this.audit, {
+        file: filePath,
+        stage: 'read',
+        reason: formatErr(err),
+      });
+      return null;
+    }
+    let message: OutboxMessage;
+    try {
+      message = decodeOutbox(raw);
+    } catch (err) {
+      emitOutboxPeekFailed(this.audit, {
+        file: filePath,
+        stage: 'decode',
+        reason: formatErr(err),
+      });
+      return null;
+    }
+    return { filename: latest, message };
   }
 }

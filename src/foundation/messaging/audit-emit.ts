@@ -182,6 +182,19 @@ export function emitOutboxListFailed(
   audit.write(MESSAGING_AUDIT_EVENTS.OUTBOX_LIST_FAILED, `dir=${opts.dir}`, `reason=${opts.reason}`);
 }
 
+// ─── OUTBOX_PEEK_FAILED ───────────────────────────────────────────────────────
+export function emitOutboxPeekFailed(
+  audit: AuditLog,
+  opts: { file: string; stage: 'read' | 'decode'; reason: string },
+): void {
+  audit.write(
+    MESSAGING_AUDIT_EVENTS.OUTBOX_PEEK_FAILED,
+    `file=${opts.file}`,
+    `stage=${opts.stage}`,
+    `reason=${opts.reason}`,
+  );
+}
+
 // ─── OUTBOX_PROCESSING_ORPHAN_CLEANED ─────────────────────────────────────────
 export function emitOutboxProcessingOrphanCleaned(
   audit: AuditLog,
