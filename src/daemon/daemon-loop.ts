@@ -19,23 +19,19 @@ import type { FileSystem } from '../foundation/fs/types.js';
 import type { IRuntimeDaemon, IRuntimeChat } from '../core/runtime/index.js';
 import type { StreamWriter } from '../foundation/stream/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
-import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES, LOOP_INTERRUPT_CAUSES } from './audit-events.js';
+import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES } from './audit-events.js';
 
 import type { Heartbeat } from '../core/runtime/index.js';
 
 import {
   DAEMON_FALLBACK_TIMEOUT_MS,
-  INTERRUPT_RECOVERY_DELAY_MS,
   INTERRUPT_POLL_INTERVAL_MS,
   INTERRUPT_POLL_MAX_ERRORS,
   REACT_CHAIN_MAX_ITERATIONS,
-  LLM_MAX_RETRIES,
   LLM_RETRY_INITIAL_DELAY_MS,
-  LLM_RETRY_MAX_DELAY_MS,
 } from './constants.js';
 import { notifyInbox } from '../foundation/messaging/index.js';
-import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../core/signals.js';
-import { LLMAllProvidersFailedError } from '../foundation/llm-orchestrator/index.js';
+import { dispatchError } from './error-handlers.js';
 import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
 import type { ClawId } from '../foundation/identity/index.js';
 import { createStreamCallbacks } from './stream-callbacks.js';
@@ -250,43 +246,21 @@ export function startDaemonLoop(options: DaemonLoopOptions): {
           interruptPoller = null;
         }
 
-        // Distinguish system idle timeout, user interrupts from genuine errors
-        if (err instanceof IdleTimeoutSignal) {
-          // System idle timeout — turn_interrupted already written by processBatch/retryLastTurn via callbacks
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.IDLE_TIMEOUT}`, `recovery_delay_ms=${INTERRUPT_RECOVERY_DELAY_MS}`);
-          await new Promise(resolve => setTimeout(resolve, INTERRUPT_RECOVERY_DELAY_MS));
-        } else if (err instanceof UserInterrupt) {
-          // User interrupt — turn_interrupted already written by processBatch/retryLastTurn via callbacks
-          // Wait for NEW user input before continuing; don't re-process the interrupted message.
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.USER_INTERRUPT}`);
-          await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
-        } else if (err instanceof PriorityInboxInterrupt) {
-          // 步间中断 — 直接继续，下一轮立即处理优先消息，无需 recovery delay
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_INTERRUPT, `cause=${LOOP_INTERRUPT_CAUSES.PRIORITY_INBOX}`, `recovery_delay_ms=0`);
-        } else if (
-          err instanceof LLMAllProvidersFailedError &&
-          llmRetryCount < LLM_MAX_RETRIES
-        ) {
-          // Transient LLM failure — schedule retry via llmRetryPending flag
-          llmRetryCount++;
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_LLM_RETRY, `attempt=${llmRetryCount}`, `max=${LLM_MAX_RETRIES}`, `delay_ms=${llmRetryDelayMs}`, `error=${err.message}`);
-          await new Promise(resolve => setTimeout(resolve, llmRetryDelayMs));
-          llmRetryDelayMs = Math.min(llmRetryDelayMs * 2, LLM_RETRY_MAX_DELAY_MS);
-          llmRetryPending = true; // next iteration will call retryLastTurn
-          saveLlmRetryState();
-        } else {
-          // Non-LLM error, or max retries exceeded — reset and wait
-          const isLLMMaxRetry = err instanceof LLMAllProvidersFailedError;
-          llmRetryCount = 0;
-          llmRetryDelayMs = LLM_RETRY_INITIAL_DELAY_MS;
-          saveLlmRetryState();
-          options.audit.write(DAEMON_AUDIT_EVENTS.LOOP_FATAL, `reason=${isLLMMaxRetry ? 'max_retries_exhausted' : 'non_llm_error'}`, `error=${formatErr(err)}`);
-          if (isLLMMaxRetry) {
-            // LLM max retries exhausted — already audited as LOOP_FATAL above
-          }
-
-          await waitForInbox(loopFs, options.audit, inboxPendingDir, fallbackTimeout);
-        }
+        await dispatchError(err, {
+          audit: options.audit,
+          loopFs,
+          inboxPendingDir,
+          fallbackTimeout,
+          llmRetry: {
+            get count() { return llmRetryCount; },
+            set count(v) { llmRetryCount = v; },
+            get delayMs() { return llmRetryDelayMs; },
+            set delayMs(v) { llmRetryDelayMs = v; },
+            get pending() { return llmRetryPending; },
+            set pending(v) { llmRetryPending = v; },
+          },
+          saveLlmRetryState,
+        });
       }
     }
     clearInterval(livenessTimer);
