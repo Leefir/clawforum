@@ -34,10 +34,6 @@ const D4_FIELDS = new Set([
 const D5_FIELDS = new Set([
   'auditWriter', 'currentToolUseId', 'trace_id', 'readFileState', 'persistReadFileState', 'getCallerSnapshot',
 ]);
-/** D8 业务穿透（待迁出 by P4 b tags）*/
-const D8_FIELDS = new Set([
-  'isShadow',
-]);
 
 function classifyField(field: string): string {
   if (D1_FIELDS.has(field)) return 'D1.ClawIdentity';
@@ -45,7 +41,6 @@ function classifyField(field: string): string {
   if (D3_FIELDS.has(field)) return 'D3.ExecutionInfra';
   if (D4_FIELDS.has(field)) return 'D4.ExecutionControl';
   if (D5_FIELDS.has(field)) return 'D5.ExecutionAudit';
-  if (D8_FIELDS.has(field)) return 'D8.LegacyShadow';
   return 'Unknown';
 }
 

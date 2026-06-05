@@ -90,8 +90,6 @@ export interface ExecContextImplOptions {
   registry?: ToolRegistry;
   /** phase 27: main dialog store injection (was as { mainDialogStore } cast, phase 768) */
   mainDialogStore?: DialogStore;
-  /** Whether this context belongs to a shadow agent (phase 766 prep for 767) */
-  isShadow?: boolean;
   /** Assembly-injected per-claw permission checker (replaces module-level factory pattern, phase 1006) */
   permissionChecker?: PermissionChecker;
   /** Tool-level wall-clock timeout, inherited from globalConfig.tool_timeout_ms / Assembly 装配期注入 (phase 1029 / F-2) */
@@ -172,7 +170,6 @@ export class ExecContextImpl implements ExecContext {
   persistReadFileState?: boolean;
   registry?: ToolRegistry;
   mainDialogStore?: DialogStore;
-  isShadow?: boolean;
   permissionChecker?: PermissionChecker;
   toolTimeoutMs?: number;
   taskSystem?: import('./types.js').TaskScheduler;
@@ -204,7 +201,6 @@ export class ExecContextImpl implements ExecContext {
     this.persistReadFileState = options.persistReadFileState;
     this.registry = options.registry;
     this.mainDialogStore = options.mainDialogStore;
-    this.isShadow = options.isShadow;
     this.permissionChecker = options.permissionChecker;
     this.toolTimeoutMs = options.toolTimeoutMs;
     this.taskSystem = options.taskSystem;

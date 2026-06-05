@@ -203,7 +203,7 @@ describe('shadow tool async (phase 1087)', () => {
   });
 
   describe('recursion defense', () => {
-    it('rejects when ctx.isShadow is true even for async', async () => {
+    it('rejects when ctx.callerLabel is shadow even for async', async () => {
       const shadowCtx = new ExecContextImpl({
         clawId: 'shadow-claw',
         clawDir: tempDir,
@@ -211,7 +211,7 @@ describe('shadow tool async (phase 1087)', () => {
         profile: 'full',
         fs,
         auditWriter: audit.audit,
-        isShadow: true,
+        callerLabel: 'shadow',
       });
 
       const result = await shadowTool.execute({ task: 'test' }, shadowCtx);

@@ -14,7 +14,7 @@ import { runShadow } from '../system.js';
 import { SHADOW_AUDIT_EVENTS } from '../audit-events.js';
 import { spawnShadowSubagent } from '../spawn-shadow-subagent.js';
 import { stripIncompleteToolUse } from '../_helpers.js';
-import { SHADOW_TOOL_NAME } from '../constants.js';
+import { SHADOW_TOOL_NAME, SHADOW_CALLER_LABEL } from '../constants.js';
 
 export function createShadowTool(deps: {
   getTurnSnapshot: () => {
@@ -62,7 +62,7 @@ export function createShadowTool(deps: {
 
     async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
       // 防递归（D6 A ratify）
-      if (ctx.isShadow) {
+      if (ctx.callerLabel === SHADOW_CALLER_LABEL) {
         ctx.auditWriter?.write(SHADOW_AUDIT_EVENTS.RECURSION_REJECTED, String(ctx.clawId ?? 'unknown'));
         return {
           success: false,

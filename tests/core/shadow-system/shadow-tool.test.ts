@@ -3,7 +3,7 @@
  *
  * Coverage:
  * - missing task validation
- * - recursion rejection (ctx.isShadow)
+ * - recursion rejection (ctx.callerLabel === 'shadow')
  * - missing main context (no mainDialogStore)
  * - shadow path via runShadow
  * - spawn async=true rejected from within shadow (phase 766 defense)
@@ -137,7 +137,7 @@ describe('shadow tool (phase 767)', () => {
   });
 
   describe('recursion defense', () => {
-    it('rejects when ctx.isShadow is true', async () => {
+    it('rejects when ctx.callerLabel is shadow', async () => {
       const shadowCtx = new ExecContextImpl({
         clawId: 'shadow-claw',
         clawDir: tempDir,
@@ -145,7 +145,7 @@ describe('shadow tool (phase 767)', () => {
         profile: 'full',
         fs,
         auditWriter: audit.audit,
-        isShadow: true,
+        callerLabel: 'shadow',
       });
 
       const result = await shadowTool.execute({ task: 'test' }, shadowCtx);
@@ -272,7 +272,7 @@ describe('shadow tool (phase 767)', () => {
   });
 
   describe('spawn-from-shadow defense (phase 766)', () => {
-    it('rejects spawn with async=true when ctx.isShadow', async () => {
+    it('rejects spawn with async=true when ctx.callerLabel is shadow', async () => {
       const shadowCtx = new ExecContextImpl({
         clawId: 'shadow-claw',
         clawDir: tempDir,
@@ -282,7 +282,7 @@ describe('shadow tool (phase 767)', () => {
         auditWriter: audit.audit,
         llm: makeLLM(),
         registry: makeRegistry(),
-        isShadow: true,
+        callerLabel: 'shadow',
         taskSystem: createMockTaskSystem(fs, audit.audit),
       });
 
@@ -292,7 +292,7 @@ describe('shadow tool (phase 767)', () => {
       expect(result.error).toBe('shadow_async_spawn_rejected');
     });
 
-    it('allows spawn with async=false when ctx.isShadow', async () => {
+    it('allows spawn with async=false when ctx.callerLabel is shadow', async () => {
       mockRunSubagent.mockResolvedValue({ text: 'shadow sync result' });
       const shadowCtx = new ExecContextImpl({
         clawId: 'shadow-claw',
@@ -303,7 +303,7 @@ describe('shadow tool (phase 767)', () => {
         auditWriter: audit.audit,
         llm: makeLLM(),
         registry: makeRegistry(),
-        isShadow: true,
+        callerLabel: 'shadow',
       });
 
       const result = await spawnTool.execute({ intent: 'test', async: false }, shadowCtx);
@@ -313,7 +313,7 @@ describe('shadow tool (phase 767)', () => {
   });
 
   describe('summon-from-shadow defense (phase 767)', () => {
-    it('rejects summon when ctx.isShadow', async () => {
+    it('rejects summon when ctx.callerLabel is shadow', async () => {
       const summonTool = new SummonTool(
         async () => 'system prompt',
         () => [],
@@ -326,7 +326,7 @@ describe('shadow tool (phase 767)', () => {
         profile: 'full',
         fs,
         auditWriter: audit.audit,
-        isShadow: true,
+        callerLabel: 'shadow',
         taskSystem: createMockTaskSystem(fs, audit.audit),
       });
 

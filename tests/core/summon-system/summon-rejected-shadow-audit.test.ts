@@ -2,8 +2,8 @@
  * Phase 1411 (reframe of phase 1409) — summon REJECTED_SHADOW audit emit reverse.
  *
  * Verifies:
- * - ctx.isShadow=true → emits `summon_rejected_shadow` + returns success:false
- * - ctx.isShadow=false → no REJECTED_SHADOW emit
+ * - ctx.callerLabel='shadow' → emits `summon_rejected_shadow` + returns success:false
+ * - ctx.callerLabel≠'shadow' → no REJECTED_SHADOW emit
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
@@ -41,7 +41,7 @@ describe('Phase 1411 — summon_rejected_shadow audit emit', () => {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  function makeCtx(opts: { isShadow: boolean; toolUseId?: string }): any {
+  function makeCtx(opts: { callerLabel: string; toolUseId?: string }): any {
     const auditWriter = { write: auditWrite } as any;
     return new ExecContextImpl({
       clawId: 'test-claw',
@@ -52,7 +52,7 @@ describe('Phase 1411 — summon_rejected_shadow audit emit', () => {
       llm: {} as unknown as LLMOrchestrator,
       auditWriter,
       currentToolUseId: opts.toolUseId ?? 'toolu_reject_test',
-      isShadow: opts.isShadow,
+      callerLabel: opts.callerLabel,
       taskSystem: createMockTaskSystem(mockFs, auditWriter),
       getCallerSnapshot: async () => ({
         systemPrompt: 'p',
@@ -62,8 +62,8 @@ describe('Phase 1411 — summon_rejected_shadow audit emit', () => {
     } as any);
   }
 
-  it('reverse 1 — ctx.isShadow=true emits REJECTED_SHADOW + returns success:false', async () => {
-    const ctx = makeCtx({ isShadow: true });
+  it('reverse 1 — ctx.callerLabel=shadow emits REJECTED_SHADOW + returns success:false', async () => {
+    const ctx = makeCtx({ callerLabel: 'shadow' });
     const result = await tool.execute({ goal: 'test' }, ctx);
 
     expect(result.success).toBe(false);
@@ -79,8 +79,8 @@ describe('Phase 1411 — summon_rejected_shadow audit emit', () => {
     expect(cols).toContain('reason=shadow_call_orphan_async_routing');
   });
 
-  it('reverse 2 — ctx.isShadow=false → no REJECTED_SHADOW emit', async () => {
-    const ctx = makeCtx({ isShadow: false });
+  it('reverse 2 — ctx.callerLabel=claw → no REJECTED_SHADOW emit', async () => {
+    const ctx = makeCtx({ callerLabel: 'claw' });
     const result = await tool.execute({ goal: 'test' }, ctx);
 
     expect(result.success).toBe(true);

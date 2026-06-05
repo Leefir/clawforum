@@ -39,7 +39,7 @@ export async function writePendingToolTaskFile(
       kind: 'tool',
       parent: args.parentClawId,
       tool: args.toolName,
-      isShadow: args.isShadow,
+      isShadow: args.callerLabel === 'shadow',
     });
   }
   return taskId;

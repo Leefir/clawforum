@@ -190,7 +190,7 @@ describe('spawn tool template param (phase 11)', () => {
         auditWriter: audit.audit,
         llm: makeLLM(),
         registry: makeRegistry(),
-        isShadow: true,
+        callerLabel: 'shadow',
       });
 
       const result = await spawnTool.execute(

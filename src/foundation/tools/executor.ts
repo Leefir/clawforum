@@ -120,7 +120,6 @@ export class ToolExecutorImpl implements IToolExecutor {
         retryCount: 0,
         callerLabel: ctx.callerLabel === 'claw' ? undefined : ctx.callerLabel,
         toolUseId: options.toolUseId,
-        isShadow: ctx.isShadow,
       });
       ctx.auditWriter?.write(
         'tool_async_start',
@@ -413,7 +412,7 @@ export class ToolExecutor extends ToolExecutorImpl {
    */
   getExecContext(
     profile: ToolProfile,
-    options: { clawId: ClawId; maxSteps: number; signal?: AbortSignal; allowedGroups: ReadonlySet<ToolGroup>; callerLabel: string; originClawId?: string; isShadow?: boolean; permissionChecker?: PermissionChecker }
+    options: { clawId: ClawId; maxSteps: number; signal?: AbortSignal; allowedGroups: ReadonlySet<ToolGroup>; callerLabel: string; originClawId?: string; permissionChecker?: PermissionChecker }
   ): ExecContextImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
@@ -432,7 +431,6 @@ export class ToolExecutor extends ToolExecutorImpl {
       signal: options.signal,
       subagentMaxSteps: this.subagentMaxSteps,
       originClawId: options.originClawId,
-      isShadow: options.isShadow,
       auditWriter: this.auditWriter,
       registry: this.registry,
     });

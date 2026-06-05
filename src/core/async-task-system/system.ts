@@ -664,7 +664,6 @@ export class AsyncTaskSystem {
       maxSteps: 1,
       signal,
       isMotionChain: task.parentClawId === MOTION_CLAW_ID,
-      isShadow: task.isShadow,
       auditWriter: this.auditWriter,
       getElapsedMs: () => 0,
       incrementStep: () => { /* no-op */ },

@@ -78,7 +78,7 @@ export class SubAgent {
   private callerType?: CallerType;
   private messages?: Message[];
   private originClawId?: string;
-  private isShadow?: boolean;
+  isShadow?: boolean;
   private taskStreamWriter: StreamLog;
   private auditWriter: AuditLog;
   private permissionChecker?: PermissionChecker;
@@ -193,7 +193,6 @@ export class SubAgent {
             allowedGroups: CALLER_TYPE_TO_GROUPS[callerType],
             callerLabel: callerType,
             originClawId: this.originClawId,
-            isShadow: this.isShadow,
             permissionChecker: this.permissionChecker,
           }),
           maxSteps: this.maxSteps,

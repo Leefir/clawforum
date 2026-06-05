@@ -15,3 +15,5 @@ export { synthesizeFormB, stripIncompleteToolUse } from './_helpers.js';
 // phase 1185: spawnShadowSubagent helper — shadow subagent 装配业务归位
 export { spawnShadowSubagent } from './spawn-shadow-subagent.js';
 export type { SpawnShadowSubagentOptions, SpawnShadowSubagentResult } from './types.js';
+// phase 61: SHADOW_CALLER_LABEL 常量定义在 constants.ts（避 tools/shadow.ts → index.ts 循环依赖）
+export { SHADOW_CALLER_LABEL } from './constants.js';

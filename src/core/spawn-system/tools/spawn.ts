@@ -15,6 +15,7 @@ import {
 } from '../templates.js';
 import { SPAWN_AUDIT_EVENTS } from '../audit-events.js';
 import { AUDIT_PREVIEW_LEN } from '../../../foundation/constants.js';
+import { SHADOW_CALLER_LABEL } from '../../shadow-system/index.js';
 
 /**
  * Spawn tool implementation
@@ -74,7 +75,7 @@ export const spawnTool: Tool = {
     const templateName = typeof args.template === 'string' ? args.template : DEFAULT_SPAWN_TEMPLATE;
 
     // shadow 防御（per shadow D6 A ratify）/ 先于 template resolve、保既有 reject 顺序
-    if (ctx.isShadow && asyncMode) {
+    if (ctx.callerLabel === SHADOW_CALLER_LABEL && asyncMode) {
       return {
         success: false,
         content: 'spawn from within shadow must use async=false. shadow has no async machinery — async-scheduled tasks would orphan to main inbox after shadow exits, unreachable from within shadow.',

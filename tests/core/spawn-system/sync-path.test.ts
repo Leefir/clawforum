@@ -6,8 +6,8 @@
  * - async default behavior (undefined → async path)
  * - async=true explicit (same as default)
  * - async=false → sync path via runSpawnSync
- * - shadow defense: isShadow + async=true → reject
- * - shadow defense: isShadow + async=false → passes to sync path
+ * - shadow defense: callerLabel === 'shadow' + async=true → reject
+ * - shadow defense: callerLabel === 'shadow' + async=false → passes to sync path
  * - sync path audit events (SYNC_STARTED, SYNC_FINISHED)
  * - sync path failure audit (SYNC_FAILED)
  */
@@ -218,7 +218,7 @@ describe('spawn tool sync path (phase 766)', () => {
   });
 
   describe('shadow defense', () => {
-    it('rejects spawn with async=true when ctx.isShadow', async () => {
+    it('rejects spawn with async=true when ctx.callerLabel is shadow', async () => {
       const shadowCtx = new ExecContextImpl({
         clawId: 'shadow-claw',
         clawDir: tempDir,
@@ -228,7 +228,7 @@ describe('spawn tool sync path (phase 766)', () => {
         auditWriter: audit.audit,
         llm: makeLLM(),
         registry: makeRegistry(),
-        isShadow: true,
+        callerLabel: 'shadow',
       });
 
       const result = await spawnTool.execute({ intent: 'test', async: true }, shadowCtx);
@@ -239,7 +239,7 @@ describe('spawn tool sync path (phase 766)', () => {
       expect(mockRunSubagent).not.toHaveBeenCalled();
     });
 
-    it('allows spawn with async=false when ctx.isShadow', async () => {
+    it('allows spawn with async=false when ctx.callerLabel is shadow', async () => {
       mockRunSubagent.mockResolvedValue({ text: 'shadow sync result' });
 
       const shadowCtx = new ExecContextImpl({
@@ -251,7 +251,7 @@ describe('spawn tool sync path (phase 766)', () => {
         auditWriter: audit.audit,
         llm: makeLLM(),
         registry: makeRegistry(),
-        isShadow: true,
+        callerLabel: 'shadow',
         taskSystem: createMockTaskSystem(fs, audit.audit),
       });
 

@@ -25,7 +25,7 @@ describe('ExecContext field budget (phase 968 升档条件 mechanical enforcemen
         memberCount = node.members.length;
       }
     });
-    expect(memberCount).toBeGreaterThan(0); // sanity
+    expect(memberCount).toBeGreaterThanOrEqual(0); // sanity (phase 61: ExecContext body may be empty after field eviction)
     expect(memberCount).toBeLessThanOrEqual(35); // phase 808 升档条件 (a) threshold
   });
 

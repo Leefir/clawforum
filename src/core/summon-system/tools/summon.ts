@@ -12,7 +12,7 @@ import { buildSummonContractTask, buildMinerSystemPrompt, buildMiningUserMessage
 import { SUMMON_AUDIT_EVENTS, emitSummonDispatched, emitSummonRejectedShadow } from '../audit-events.js';
 import { SUMMON_CONTRACT_EXTRACT_POSTPROCESSOR_NAME } from '../post-processors/contract-extract.js';
 import { SUMMON_CALLER_TYPES, type SummonCallerType } from '../caller-types.js';
-import { spawnShadowSubagent, stripIncompleteToolUse } from '../../shadow-system/index.js';
+import { spawnShadowSubagent, stripIncompleteToolUse, SHADOW_CALLER_LABEL } from '../../shadow-system/index.js';
 import { type TaskId, makeTaskId } from '../../../foundation/identity/index.js';
 
 const SUMMON_SUBAGENT_TIMEOUT_MS = 3600 * 1000;   // 1 hour
@@ -78,7 +78,7 @@ export class SummonTool implements Tool {
 
   async execute(args: Record<string, unknown>, ctx: ExecContext): Promise<ToolResult> {
     // shadow 防御（phase 767）：summon 是 async-only routing，shadow 内调用会导致 orphan
-    if (ctx.isShadow) {
+    if (ctx.callerLabel === SHADOW_CALLER_LABEL) {
       if (ctx.auditWriter && ctx.currentToolUseId) {
         emitSummonRejectedShadow(ctx.auditWriter, {
           toolUseId: ctx.currentToolUseId,
