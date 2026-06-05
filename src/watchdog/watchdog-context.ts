@@ -9,7 +9,7 @@
  */
 
 import * as path from 'path';
-import { resolveWatchdogEntry } from '../foundation/paths.js';
+import { resolveWatchdogEntry } from '../assembly/spawn-entry.js';
 import { getNamedSubrootDir, loadGlobalConfig } from '../foundation/config/index.js';
 import type { FileSystem } from '../foundation/fs/types.js';
 import type { AuditLog } from '../foundation/audit/index.js';

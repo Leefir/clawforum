@@ -1,23 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import { execSync } from 'node:child_process';
-import { resolveDaemonEntry, resolveWatchdogEntry } from '../../src/foundation/paths.js';
+import { resolveDaemonEntry, resolveWatchdogEntry } from '../../src/assembly/spawn-entry.js';
 
-// daemon-entry.js / watchdog-entry.js 字符串字面量唯一权威 = foundation/paths.ts
+// daemon-entry.js / watchdog-entry.js 字符串字面量唯一权威 = assembly/spawn-entry.ts
 // 的 resolveDaemonEntry / resolveWatchdogEntry。其他 src/ 文件不得持有该字面量
-// （历史散落 8 caller × 6 种写法 → phase 1436 归一）。
+// （历史散落 8 caller × 6 种写法 → phase 1436 归一 → phase 72 迁 L6 Assembly）。
 //
 // Allowlist 显式列：
-// - paths.ts：单一权威 helper 自身
+// - spawn-entry.ts：单一权威 helper 自身
 // - process-manager/types.ts：JSDoc 注释例（args 形态示例）
 // - cli/commands/stop.ts：pgrep 子串匹配 pattern（非路径解析、目标进程命令行子串）
 // - watchdog/orphan-sweep.ts：注释行（"扫 watchdog-entry.js 进程"）
 const ALLOWLIST_DAEMON = [
   'src/cli/commands/stop.ts',
-  'src/foundation/paths.ts',
+  'src/assembly/spawn-entry.ts',
   'src/foundation/process-manager/types.ts',
 ];
 const ALLOWLIST_WATCHDOG = [
-  'src/foundation/paths.ts',
+  'src/assembly/spawn-entry.ts',
   'src/watchdog/orphan-sweep.ts',
 ];
 
@@ -78,5 +78,21 @@ describe('foundation/paths.ts: entry-resolver single source', () => {
       'src/watchdog/watchdog.ts',
     ];
     expect(callers).toEqual(expected);
+  });
+
+  it('resolveDaemonEntry not imported from foundation/paths.js', () => {
+    const out = execSync(
+      `grep -rlF "resolveDaemonEntry" src 2>/dev/null || true`,
+      { encoding: 'utf8' },
+    );
+    const hits = out.split('\n').filter(Boolean);
+    const fromPaths = hits.filter((f) => f !== 'src/assembly/spawn-entry.ts');
+    for (const f of fromPaths) {
+      const content = execSync(`cat ${f}`, { encoding: 'utf8' });
+      // 精确匹配：该文件内是否有从 foundation/paths.js 导入 resolveDaemonEntry
+      const hasOldImport = /resolveDaemonEntry.*from\s+['"]\.\.\/\.\.\/foundation\/paths\.js['"]/.test(content)
+        || /resolveDaemonEntry.*from\s+['"]\.\.\/foundation\/paths\.js['"]/.test(content);
+      expect(hasOldImport, `${f} still imports resolveDaemonEntry from foundation/paths`).toBe(false);
+    }
   });
 });

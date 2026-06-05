@@ -17,7 +17,8 @@ import type { ProcessManager } from '../../foundation/process-manager/manager.js
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { CliError } from '../errors.js';
 import { makeClawId } from '../../foundation/paths.js';
-import { getWorkspaceRoot, resolveDaemonEntry } from '../../foundation/paths.js';
+import { getWorkspaceRoot } from '../../foundation/paths.js';
+import { resolveDaemonEntry } from '../../assembly/spawn-entry.js';
 import { DAEMON_LOG } from '../../daemon/constants.js';
 
 export type DaemonPM = Pick<ProcessManager, 'isAlive' | 'spawn'>;

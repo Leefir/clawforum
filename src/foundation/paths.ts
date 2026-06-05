@@ -6,8 +6,6 @@
  */
 
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-import type { FileSystem } from './fs/types.js';
 // ── Path constants ──
 
 export const CLAWS_DIR = 'claws' as const;
@@ -108,37 +106,3 @@ export function getClawConfigPath(name: string): string {
 }
 
 
-// ── spawn 入口路径解析（M#1 单一权威 / phase 1436）──
-//
-// bundled 输出：tsup code-split 将所有 chunk（含本 helper）平铺至 dist/，
-// daemon-entry.js / watchdog-entry.js 与之同处 dist/ 顶层 → PATHS_THIS_DIR = dist/。
-// unbundled / dev：thisDir = dist/foundation/（tsc 保 src 层级），entry 至 dist 根，
-// 上溯 1 级 → PATHS_THIS_DIR basename = 'foundation'。
-//
-// 模式判别：basename 比较纯路径结构、无 fs 依赖（ML#3 fs 归 foundation/fs/、
-// paths.ts 是 L1 路径层不应直 import node:fs）。
-//
-// 散落历史：phase 1436 前 7 cli/commands + 1 watchdog 共 8 caller 各自手算路径，
-// 3 种 fallback 层数 + 2 种 exists 判定 = 6 种写法。tsup code-split 平铺策略一改
-// 即全炸（toolprotocol-rechecker / messaging-auditor / tools-auditor daemon spawn
-// MODULE_NOT_FOUND 实证）。
-//
-// signature 保 `(_fs?: FileSystem)`：caller 调用形式与既有 `existsSync` 风格一致、
-// 未来若 entry 路径源迁回 user fs（罕见）签名不破。当前实现不消费 fs 参数（路径
-// 结构自决）。
-
-const PATHS_THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
-const PATHS_IS_BUNDLED = path.basename(PATHS_THIS_DIR) !== 'foundation';
-
-export function resolveDaemonEntry(_fs?: FileSystem): string {
-  return resolveSpawnEntry('daemon-entry.js');
-}
-
-export function resolveWatchdogEntry(_fs?: FileSystem): string {
-  return resolveSpawnEntry('watchdog-entry.js');
-}
-
-function resolveSpawnEntry(filename: string): string {
-  if (PATHS_IS_BUNDLED) return path.join(PATHS_THIS_DIR, filename);
-  return path.resolve(PATHS_THIS_DIR, '..', filename);
-}

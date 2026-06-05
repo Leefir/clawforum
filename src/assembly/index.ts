@@ -15,8 +15,8 @@ export { disassemble } from './disassemble.js';
 // 阶段需消费 → barrel re-export。
 // 显式 ratify (ML#9 不可消除耦合应显式表达)。depcruise 3 forbidden rule
 // `no-deep-into-assembly-{config-defaults,audit-events,snapshot-patterns}` 守 future drift。
-// 注：daemon-entry / watchdog-entry 物理路径解析归 `foundation/paths.ts`
-// `resolveDaemonEntry` / `resolveWatchdogEntry`（phase 1436 立单一权威）。
+// 注：daemon-entry / watchdog-entry 物理路径解析归 `assembly/spawn-entry.ts`
+// `resolveDaemonEntry` / `resolveWatchdogEntry`（phase 1436 立单一权威、phase 72 迁 L6 Assembly）。
 // Note: CONFIG_DEFAULTS removed in phase 10 Step D (config decentralize)
 export { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 export { SNAPSHOT_IGNORE_PATTERNS } from './snapshot-patterns.js';
