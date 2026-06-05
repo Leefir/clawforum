@@ -22,6 +22,7 @@ import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import { isAlive } from '../../foundation/process-exec/index.js';
 import { type ContractId, makeContractId } from './types.js';
 import { isolateCorruptedFile } from './_isolation-helper.js';
+import { LockContentionExhaustedError } from './errors.js';
 
 export interface LockContext {
   fs: FileSystem;
@@ -211,7 +212,7 @@ export interface LockContractResult {
   release: () => Promise<void>;
 }
 
-const LOCK_CONTRACT_MAX_RETRY = 5;
+export const LOCK_CONTRACT_MAX_RETRY = 5;
 const LOCK_CONTRACT_RETRY_DELAY_MS = 50;
 
 /**
@@ -262,5 +263,5 @@ export async function lockContract(
     `attempt=${attempt}`,
     `result=exhausted`,
   );
-  throw new Error(`lockContract: TOCTOU race retry exhausted for ${contractId} after ${LOCK_CONTRACT_MAX_RETRY} attempts`);
+  throw new LockContentionExhaustedError(contractId, LOCK_CONTRACT_MAX_RETRY);
 }

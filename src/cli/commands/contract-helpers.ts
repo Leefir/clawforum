@@ -14,6 +14,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { ClawId } from '../../foundation/paths.js';
 import type { ContractId } from '../../core/contract/types.js';
 import type { ClawDir } from '../../foundation/paths.js';
+import { ContractValidationError } from '../../core/contract/errors.js';
 
 export function parseAndValidateContractYaml(yamlContent: string): ContractYaml {
   const parsed = yaml.load(yamlContent);
@@ -27,6 +28,21 @@ export function parseAndValidateContractYaml(yamlContent: string): ContractYaml 
     throw new CliError(`Contract YAML "subtasks" must be an array (use "- id: ..." list syntax), got: ${typeof contract.subtasks}`);
   }
   return contract;
+}
+
+export function formatContractValidationError(err: ContractValidationError): void {
+  console.error(`[contract create] yaml validation failed:`);
+  console.error(`  field:    ${err.field}`);
+  console.error(`  kind:     ${err.kind}`);
+  console.error(`  message:  ${err.message}`);
+  if (err.context) {
+    console.error(`  context:`);
+    for (const [k, v] of Object.entries(err.context)) {
+      console.error(`    ${k}: ${v}`);
+    }
+  }
+  console.error('');
+  console.error('Fix: update the contract yaml according to the message above, then re-run chestnut contract create');
 }
 
 export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: ClawDir, clawId: ClawId, contractId: ContractId, contract: ContractYaml): void {

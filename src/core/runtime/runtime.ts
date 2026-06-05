@@ -34,6 +34,7 @@ import { CLAW_SUBDIRS } from '../../foundation/paths.js';
 import { oneLine, formatErr } from '../../foundation/utils/index.js';
 import { escapeForLog } from '../../foundation/tools/index.js';
 import { MaxStepsExceededError, WallTimeExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../agent-executor/index.js';
+import { LockContentionExhaustedError } from '../contract/errors.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
 import { LLMAllProvidersFailedError } from '../../foundation/llm-orchestrator/index.js';
 import { makeContractId } from '../contract/types.js';
@@ -796,11 +797,14 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
         err instanceof WallTimeExceededError ||
         err instanceof ConsecutiveParseErrorsExceededError ||
         err instanceof ConsecutiveMaxTokensToolUseError ||
-        err instanceof LLMAllProvidersFailedError;
+        err instanceof LLMAllProvidersFailedError ||
+        err instanceof LockContentionExhaustedError;
 
       if (isAgentLoopCrash) {
         for (const info of infos) {
-          const contractId = info.metadata?.contract_id;
+          const contractId = err instanceof LockContentionExhaustedError
+            ? err.contractId
+            : info.metadata?.contract_id;
           if (contractId) {
             try {
               await this.contractManager.markCrashed(

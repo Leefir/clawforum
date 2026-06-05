@@ -16,6 +16,7 @@ import {
   ConsecutiveMaxTokensToolUseError,
 } from '../../../src/core/agent-executor/errors.js';
 import { LLMAllProvidersFailedError } from '../../../src/foundation/llm-orchestrator/errors.js';
+import { LockContentionExhaustedError } from '../../../src/core/contract/errors.js';
 import type { InboxMessage } from '../../../src/foundation/messaging/types.js';
 import type { Message } from '../../../src/foundation/llm-provider/types.js';
 import type { LLMOrchestratorConfig } from '../../../src/foundation/llm-orchestrator/types.js';
@@ -85,6 +86,7 @@ describe('Runtime catch → markCrashed (phase 63)', () => {
     { Cls: ConsecutiveParseErrorsExceededError, args: [3] },
     { Cls: ConsecutiveMaxTokensToolUseError, args: [5] },
     { Cls: LLMAllProvidersFailedError, args: [[{ provider: 'test', error: new Error('fail') }]] },
+    { Cls: LockContentionExhaustedError, args: ['test-contract', 5] },
   ];
 
   for (const { Cls, args } of errClasses) {
@@ -166,5 +168,28 @@ describe('Runtime catch → markCrashed (phase 63)', () => {
     expect(auditWrites.some(a => a[0] === 'mark_crashed_failed')).toBe(true);
     markSpy.mockRestore();
     outboxSpy.mockRestore();
+  });
+
+  it('LockContentionExhaustedError → markCrashed uses err.contractId (not metadata)', async () => {
+    const runtime = await makeCrashRuntime();
+    const markSpy = vi.spyOn((runtime as any).contractManager, 'markCrashed').mockResolvedValue(undefined);
+
+    runtime.drainResult = {
+      injected: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      sources: [],
+      count: 1,
+      infos: [{
+        id: 'msg1', type: 'task_result', from: 'sender', to: 'edge-claw',
+        content: 'hi', priority: 'normal', timestamp: new Date().toISOString(),
+        metadata: {},
+      } as InboxMessage],
+      addressedHandles: [],
+    };
+    runtime.reactThrow = new LockContentionExhaustedError('lock-test-id', 5);
+
+    await expect(runtime.processBatch()).rejects.toBeInstanceOf(LockContentionExhaustedError);
+
+    expect(markSpy).toHaveBeenCalledWith('lock-test-id', 'system: lockcontentionexhaustederror');
+    markSpy.mockRestore();
   });
 });

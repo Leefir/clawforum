@@ -65,6 +65,7 @@ import {
   PROGRESS_CURRENT_SCHEMA_VERSION,
 } from './persistence.js';
 import { type ContractId, makeContractId } from './types.js';
+import { ContractValidationError } from './errors.js';
 import { resolveChestnutRoot } from '../../foundation/paths.js';
 import { type SubtaskId, type ArchiveDir, makeArchiveDir } from './types.js';
 import type { ClawId, ChestnutRoot } from '../../foundation/paths.js';
@@ -562,38 +563,42 @@ export class ContractSystem {
 
   async create(contractYaml: ContractYaml): Promise<string> {
     if (contractYaml.id !== undefined && contractYaml.id.trim() === '') {
-      throw new Error('contract id must not be empty');
+      throw new ContractValidationError('id', 'empty',
+        'contract id must not be empty (yaml: id: "<not blank>")');
     }
     const contractId = makeContractId(contractYaml.id || `${Date.now()}-${randomUUID().slice(0, UUID_SHORT_LEN)}`);
 
     // Check uniqueness against archived contracts too
     if (await this.fs.exists(`${this.archiveDir}/${contractId}`)) {
-      throw new Error(`contract id ${contractId} already exists in archive`);
+      throw new ContractValidationError('id', 'already_exists',
+        `contract id "${contractId}" already exists in archive (use 'chestnut contract list' to inspect or choose a new id)`,
+        { contractId });
     }
 
     if (!contractYaml.subtasks || contractYaml.subtasks.length === 0) {
-      throw new Error('Contract must have at least one subtask');
+      throw new ContractValidationError('subtasks', 'missing',
+        'contract must have at least one subtask (yaml: subtasks: [- id: ..., description: ...])');
     }
 
     for (const a of contractYaml.verification ?? []) {
       if (a.type === 'script' && !('script_file' in a)) {
-        throw new Error(
-          `verification config for subtask "${a.subtask_id}": type "script" requires "script_file"`
-        );
+        throw new ContractValidationError('verification', 'config_missing_field',
+          `verification config for subtask "${a.subtask_id}" has type='script' but missing 'script_file' (yaml: verification: [- subtask_id: "${a.subtask_id}", type: script, script_file: ./path.sh])`,
+          { subtaskId: a.subtask_id, configType: 'script', missingField: 'script_file' });
       }
       if (a.type === 'llm' && !('prompt_file' in a)) {
-        throw new Error(
-          `verification config for subtask "${a.subtask_id}": type "llm" requires "prompt_file"`
-        );
+        throw new ContractValidationError('verification', 'config_missing_field',
+          `verification config for subtask "${a.subtask_id}" has type='llm' but missing 'prompt_file' (yaml: verification: [- subtask_id: "${a.subtask_id}", type: llm, prompt_file: ./prompt.md])`,
+          { subtaskId: a.subtask_id, configType: 'llm', missingField: 'prompt_file' });
       }
     }
 
     const seenSubtaskIds = new Set<string>();
     for (const a of contractYaml.verification ?? []) {
       if (seenSubtaskIds.has(a.subtask_id)) {
-        throw new Error(
-          `verification config: duplicate subtask_id "${a.subtask_id}" — each subtask can only have one verification entry`
-        );
+        throw new ContractValidationError('verification', 'duplicate',
+          `verification config: duplicate subtask_id "${a.subtask_id}" — each subtask can only have one verification entry (remove duplicate row in yaml)`,
+          { subtaskId: a.subtask_id });
       }
       seenSubtaskIds.add(a.subtask_id);
     }
