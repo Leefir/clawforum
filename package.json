@@ -64,8 +64,9 @@
     "node": ">=22.0.0"
   },
   "pnpm": {
-    "ignoredBuiltDependencies": [
-      "esbuild"
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "koffi"
     ]
   }
 }
