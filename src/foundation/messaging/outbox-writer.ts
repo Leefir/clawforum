@@ -21,7 +21,7 @@ import { type ClawDir } from '../paths.js';
  * Outbox writer options
  */
 export interface OutboxWriteOptions {
-  type: 'response' | 'contract_update' | 'status_report' | 'report' | 'question' | 'result' | 'error';
+  type: 'report' | 'question' | 'result' | 'error';
   to: string;
   content: string;
   metadata?: Record<string, string>;

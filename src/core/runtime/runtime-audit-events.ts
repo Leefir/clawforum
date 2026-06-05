@@ -40,6 +40,7 @@ export const RUNTIME_AUDIT_EVENTS = {
   // 详 design/modules/l3_subagent.md §A.phase1409-on-tool-call-args-emit.
   TOOL_CALL_INPUT: 'tool_call_input',
   OUTBOX_WRITE_FAILED: 'outbox_write_failed',
+  CATCH_UNHANDLED: 'runtime_catch_unhandled',
   // INITIALIZE phase failures (phase 454: 替代 Runtime 借 ASSEMBLE_FAILED)
   INBOX_INIT_FAILED: 'runtime_inbox_init_failed',
   SESSION_REPAIR_FAILED: 'runtime_session_repair_failed',

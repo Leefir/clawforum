@@ -301,8 +301,8 @@ describe('Runtime DrainInbox', () => {
       return fs.writeFile(path.join(pendingDir, filename), content);
     }
 
-    // H3 fix: non-MaxSteps errors should notify sender via outbox
-    it('should notify sender when LLM throws non-MaxSteps error (H3)', async () => {
+    // phase 71: non-MaxSteps errors → audit-only (writeErrorResponse 整删)
+    it('phase 71: non-MaxSteps error → audit-only runtime_catch_unhandled', async () => {
       const runtime = trackRuntime(await createTestRuntime({
         clawId: 'test-claw',
         clawDir,
@@ -334,24 +334,16 @@ Test message`;
       };
       (runtime as unknown as { llm: typeof failingLLM }).llm = failingLLM;
 
+      const auditWrites: string[][] = [];
+      vi.spyOn((runtime as unknown as RuntimeTestInternals).auditWriter, 'write').mockImplementation((type: string, ...args: string[]) => {
+        auditWrites.push([type, ...args]);
+      });
+
       // Should throw the error
       await expect(runtime.processBatch()).rejects.toThrow('LLM API crashed');
 
-      // Verify error response was written to outbox
-      const outboxDir = path.join(clawDir, 'outbox', 'pending');
-      const outboxFiles = await fs.readdir(outboxDir);
-      const responseFiles = outboxFiles.filter(f => f.endsWith('.md'));
-      expect(responseFiles.length).toBeGreaterThan(0);
-
-      // Verify the error response content
-      const responseContent = await fs.readFile(
-        path.join(outboxDir, responseFiles[0]),
-        'utf-8'
-      );
-      expect(responseContent).toContain('type: response');
-      expect(responseContent).toContain('to: "motion"');
-      expect(responseContent).toContain('contract_id: "test-contract"');
-      expect(responseContent).toContain('Error: LLM API crashed');
+      // phase 71: audit-only fallback、0 outbox transmit
+      expect(auditWrites.some(a => a[0] === 'runtime_catch_unhandled')).toBe(true);
     });
 
     // UserInterrupt should NOT notify sender (user aborted, not a real error)

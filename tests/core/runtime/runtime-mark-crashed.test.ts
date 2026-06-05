@@ -114,10 +114,13 @@ describe('Runtime catch → markCrashed (phase 63)', () => {
     });
   }
 
-  it('contract_id 缺失 → fallback writeErrorResponse, markCrashed NOT called', async () => {
+  it('phase 71: contract_id 缺失 → audit-only (no outbox transmit)', async () => {
     const runtime = await makeCrashRuntime();
     const markSpy = vi.spyOn((runtime as any).contractManager, 'markCrashed').mockResolvedValue(undefined);
-    const outboxSpy = vi.spyOn((runtime as any).outboxWriter, 'write').mockResolvedValue(undefined);
+    const auditWrites: string[][] = [];
+    vi.spyOn((runtime as any).auditWriter, 'write').mockImplementation((type: string, ...args: string[]) => {
+      auditWrites.push([type, ...args]);
+    });
 
     runtime.drainResult = {
       injected: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
@@ -134,15 +137,13 @@ describe('Runtime catch → markCrashed (phase 63)', () => {
     await expect(runtime.processBatch()).rejects.toBeInstanceOf(MaxStepsExceededError);
 
     expect(markSpy).not.toHaveBeenCalled();
-    expect(outboxSpy).toHaveBeenCalled();
+    expect(auditWrites.some(a => a[0] === 'runtime_catch_unhandled')).toBe(true);
     markSpy.mockRestore();
-    outboxSpy.mockRestore();
   });
 
-  it('markCrashed throw → fallback writeErrorResponse + MARK_CRASHED_FAILED audit', async () => {
+  it('phase 71: markCrashed throw → audit-only fallback (no writeErrorResponse)', async () => {
     const runtime = await makeCrashRuntime();
     const markSpy = vi.spyOn((runtime as any).contractManager, 'markCrashed').mockRejectedValue(new Error('already archived'));
-    const outboxSpy = vi.spyOn((runtime as any).outboxWriter, 'write').mockResolvedValue(undefined);
     const auditWrites: string[][] = [];
     vi.spyOn((runtime as any).auditWriter, 'write').mockImplementation((type: string, ...args: string[]) => {
       auditWrites.push([type, ...args]);
@@ -164,10 +165,9 @@ describe('Runtime catch → markCrashed (phase 63)', () => {
     await expect(runtime.processBatch()).rejects.toBeInstanceOf(MaxStepsExceededError);
 
     expect(markSpy).toHaveBeenCalled();
-    expect(outboxSpy).toHaveBeenCalled();
     expect(auditWrites.some(a => a[0] === 'mark_crashed_failed')).toBe(true);
+    expect(auditWrites.some(a => a[0] === 'runtime_catch_unhandled')).toBe(true);
     markSpy.mockRestore();
-    outboxSpy.mockRestore();
   });
 
   it('LockContentionExhaustedError → markCrashed uses err.contractId (not metadata)', async () => {

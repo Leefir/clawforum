@@ -132,12 +132,15 @@ describe('Runtime SignalAudit', () => {
       expect(await outboxFiles()).toHaveLength(0);
     });
 
-    it('generic Error — outbox notification IS sent to sender', async () => {
+    it('phase 71: generic Error → audit-only runtime_catch_unhandled', async () => {
       const r = await makeSignalRuntime();
       r.reactThrow = new Error('unexpected crash');
+      const auditWrites: string[][] = [];
+      vi.spyOn((r as unknown as RuntimeTestInternals).auditWriter, 'write').mockImplementation((type: string, ...args: string[]) => {
+        auditWrites.push([type, ...args]);
+      });
       await expect(r.processBatch()).rejects.toThrow('unexpected crash');
-      const files = await outboxFiles();
-      expect(files.length).toBeGreaterThan(0);
+      expect(auditWrites.some(a => a[0] === 'runtime_catch_unhandled')).toBe(true);
     });
   });
 

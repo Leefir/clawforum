@@ -26,7 +26,7 @@ import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../signals.js';
 import type { ToolResult } from '../../foundation/tool-protocol/index.js';
 import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-events.js';
-import { handleTurnInterrupt, writeErrorResponse } from './error-response.js';
+// phase 71: writeErrorResponse 消（error-response.ts 整删）
 import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
 // phase 1414: HEARTBEAT_AUDIT_EVENTS import removed — heartbeat 自家 inbox-formatter 持 audit
 // phase 1406: DIALOG_DIR no longer used here — regime-switch recovery path is owned by performRegimeSwitch helper
@@ -122,7 +122,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
   protected execContext!: ExecContext;
   protected toolExecutor!: IToolExecutor;
   private inboxReader!: InboxReader;
-  private outboxWriter!: OutboxWriter;
+  protected outboxWriter!: OutboxWriter;
   private snapshot!: Snapshot;
   // phase 1414: inbox 消息 formatter 注册表（Assembly 装配期填、各业主自家）
   private formatterRegistry!: MessageFormatterRegistry;
@@ -820,19 +820,31 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
                 `err=${err.constructor.name}`,
                 `markErr=${formatErr(markErr)}`,
               );
-              await writeErrorResponse(info, formatErr(err), 'mark_crashed_failed', this.auditWriter, this.outboxWriter);
+              this.auditWriter.write(
+                RUNTIME_AUDIT_EVENTS.CATCH_UNHANDLED,
+                `path=mark_crashed_failed`,
+                `err=${err.constructor.name}`,
+                `reason=${formatErr(err)}`,
+              );
             }
           } else {
-            // contract_id 缺失（非典型路径）→ phase 76+ 待治、保留 fallback string
-            await writeErrorResponse(info, formatErr(err), 'agent_loop_crash_no_contract', this.auditWriter, this.outboxWriter);
+            // phase 71: contract_id 缺失 → audit-only、motion 业务不打扰
+            this.auditWriter.write(
+              RUNTIME_AUDIT_EVENTS.CATCH_UNHANDLED,
+              `path=agent_loop_crash_no_contract`,
+              `err=${(err as Error).constructor.name}`,
+              `reason=${formatErr(err)}`,
+            );
           }
         }
       } else if (!(err instanceof PriorityInboxInterrupt || err instanceof UserInterrupt || err instanceof IdleTimeoutSignal)) {
-        // Non-interrupt error (LLM crash, tool error, etc.) — notify senders
-        const errorMsg = formatErr(err);
-        for (const info of infos) {
-          await writeErrorResponse(info, errorMsg, 'non_interrupt_error', this.auditWriter, this.outboxWriter);
-        }
+        // phase 71: catch-all fallback → audit-only、motion 业务不打扰
+        this.auditWriter.write(
+          RUNTIME_AUDIT_EVENTS.CATCH_UNHANDLED,
+          `path=non_interrupt_error`,
+          `err=${(err as Error).constructor.name}`,
+          `reason=${formatErr(err)}`,
+        );
       }
       // Log unexpected errors to audit (aborts and 5 agent-loop crashes are expected control flow)
       if (
@@ -1257,5 +1269,31 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
     this.sessionManager = result.newStore;
   }
 
+}
+
+/**
+ * phase 71: handleTurnInterrupt 从 error-response.ts 内联（error-response.ts 整删）。
+ * 处理 turn 中断信号 (idle timeout / priority inbox / user interrupt) 或一般 error。
+ */
+export function handleTurnInterrupt(
+  err: unknown,
+  audit: AuditLog,
+  callbacks?: StreamCallbacks,
+): void {
+  if (err instanceof IdleTimeoutSignal) {
+    const msg = `Interrupted (idle timeout: ${Math.round(err.timeoutMs / 1000)}s)`;
+    callbacks?.onTurnInterrupted?.('idle_timeout', msg);
+    audit.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=idle_timeout', `idle_timeout_ms=${err.timeoutMs}`);
+  } else if (err instanceof PriorityInboxInterrupt) {
+    callbacks?.onTurnInterrupted?.('priority_inbox', 'Interrupted (priority inbox)');
+    audit.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=priority_inbox');
+  } else if (err instanceof UserInterrupt) {
+    callbacks?.onTurnInterrupted?.('user_interrupt');
+    audit.write(REACT_LOOP_AUDIT_EVENTS.TURN_INTERRUPTED, 'cause=user_interrupt');
+  } else {
+    const errorMsg = formatErr(err);
+    callbacks?.onTurnError?.(errorMsg);
+    audit.write(REACT_LOOP_AUDIT_EVENTS.TURN_ERROR, `error=${errorMsg}`);
+  }
 }
 

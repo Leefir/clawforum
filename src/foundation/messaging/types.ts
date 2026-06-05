@@ -24,7 +24,7 @@ export interface InboxMessage {
 
 export interface OutboxMessage {
   id: string;
-  type: 'response' | 'contract_update' | 'status_report' | 'report' | 'question' | 'result' | 'error';
+  type: 'report' | 'question' | 'result' | 'error';
   from: string;
   to: string;
   content: string;

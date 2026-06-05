@@ -16,7 +16,7 @@ import type { Message } from '../../src/foundation/llm-provider/types.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../../src/core/signals.js';
 import { createTempDir, cleanupTempDir } from '../utils/temp.js';
 import { createTestRuntime, createMockLLMConfig, createMockLLM } from './_runtime-test-helpers.js';
-import { handleTurnInterrupt } from '../../src/core/runtime/error-response.js';
+import { handleTurnInterrupt } from '../../src/core/runtime/runtime.js';
 
 
 describe('Runtime RetryOutboxInterrupt', () => {
@@ -199,7 +199,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
       });
     }
 
-    it('MaxStepsExceededError 通知 sender 并重抛错误', async () => {
+    it('phase 71: MaxStepsExceededError 通知 sender 经 markCrashed + 重抛错误', async () => {
       const runtime = await makeTestRuntime();
       edgeRuntimes.push(runtime);
       await runtime.initialize();
@@ -216,23 +216,20 @@ describe('Runtime RetryOutboxInterrupt', () => {
           content: 'hello',
           priority: 'normal',
           timestamp: new Date().toISOString(),
-          contract_id: 'c-1',
+          metadata: { contract_id: 'c-1' },
         } as InboxMessage],
         addressedHandles: [],
       };
       runtime.reactError = new MaxStepsExceededError(10);
 
+      const markSpy = vi.spyOn((runtime as any).contractManager, 'markCrashed').mockResolvedValue(undefined);
+
       // 错误应被重抛
       await expect(runtime.processBatch()).rejects.toThrow(MaxStepsExceededError);
 
-      // outbox 应写入了错误响应
-      const outboxDir = path.join(testClawDir, 'outbox', 'pending');
-      const files = (await fs.readdir(outboxDir)).filter(f => f.endsWith('.md'));
-      expect(files.length).toBeGreaterThan(0);
-
-      const content = await fs.readFile(path.join(outboxDir, files[0]), 'utf-8');
-      expect(content).toContain('Maximum steps');
-      expect(content).toContain('sender-claw');
+      // phase 71: markCrashed 替代 writeErrorResponse
+      expect(markSpy).toHaveBeenCalledWith('c-1', 'system: maxstepsexceedederror');
+      markSpy.mockRestore();
     });
 
     it('outbox write 失败不影响原始错误重抛', async () => {
@@ -269,7 +266,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
       expect(err.message).toBe('LLM exploded');
     });
 
-    it('MaxStepsExceededError 且 contract_id 缺失时 outbox.write 失败 → audit outbox_write_failed scenario=agent_loop_crash_no_contract', async () => {
+    it('phase 71: MaxStepsExceededError 且 contract_id 缺失 → audit-only runtime_catch_unhandled', async () => {
       const runtime = await makeTestRuntime();
       edgeRuntimes.push(runtime);
       await runtime.initialize();
@@ -295,14 +292,13 @@ describe('Runtime RetryOutboxInterrupt', () => {
       vi.spyOn((runtime as unknown as RuntimeTestInternals).auditWriter, 'write').mockImplementation((type: string, ...args: string[]) => {
         audit.push([type, ...args].join('\t'));
       });
-      vi.spyOn((runtime as unknown as RuntimeTestInternals).outboxWriter, 'write').mockRejectedValue(new Error('outbox disk full'));
 
       await expect(runtime.processBatch()).rejects.toThrow(MaxStepsExceededError);
 
-      expect(audit.some(e => /^outbox_write_failed\tcontext=error_response\tscenario=agent_loop_crash_no_contract\treason=outbox disk full$/.test(e))).toBe(true);
+      expect(audit.some(e => /^runtime_catch_unhandled\tpath=agent_loop_crash_no_contract/.test(e))).toBe(true);
     });
 
-    it('non-interrupt error 时 outbox.write 失败 → audit outbox_write_failed scenario=non_interrupt_error', async () => {
+    it('phase 71: non-interrupt error → audit-only runtime_catch_unhandled', async () => {
       const runtime = await makeTestRuntime();
       edgeRuntimes.push(runtime);
       await runtime.initialize();
@@ -330,12 +326,11 @@ describe('Runtime RetryOutboxInterrupt', () => {
       vi.spyOn((runtime as unknown as RuntimeTestInternals).auditWriter, 'write').mockImplementation((type: string, ...args: string[]) => {
         audit.push([type, ...args].join('\t'));
       });
-      vi.spyOn((runtime as unknown as RuntimeTestInternals).outboxWriter, 'write').mockRejectedValue(new Error('outbox io err'));
 
       const err = await runtime.processBatch().catch(e => e);
       expect(err).toBe(originalError);
 
-      expect(audit.some(e => /^outbox_write_failed\tcontext=error_response\tscenario=non_interrupt_error\treason=outbox io err$/.test(e))).toBe(true);
+      expect(audit.some(e => /^runtime_catch_unhandled\tpath=non_interrupt_error/.test(e))).toBe(true);
     });
   });
 

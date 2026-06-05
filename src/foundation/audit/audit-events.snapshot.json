@@ -274,6 +274,7 @@
             "regime_switch_committed",
             "regime_switch_failed",
             "regime_switch_hard_fail",
+            "runtime_catch_unhandled",
             "runtime_inbox_drain_failed",
             "runtime_inbox_init_failed",
             "runtime_inbox_unknown_type",
