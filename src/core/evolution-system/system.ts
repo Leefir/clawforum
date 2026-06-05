@@ -8,7 +8,7 @@ import { scheduleRetro } from './retro-scheduler.js';
 import { RETRO_AUDIT_EVENTS } from './retro-audit-events.js';
 import * as path from 'path';
 
-import { CLAWSPACE_DIR } from '../../foundation/paths.js';
+import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
 import { CONTRACT_AUDIT_EVENTS } from '../contract/audit-events.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';

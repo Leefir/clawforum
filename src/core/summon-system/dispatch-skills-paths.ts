@@ -8,7 +8,8 @@
  * 详 coding plan/cluster-claw-decoupling-roadmap.md。
  */
 
-import { CLAWSPACE_DIR } from '../../foundation/paths.js';
-
 export const DISPATCH_SKILLS_SUBDIR = 'dispatch-skills' as const;
-export const DISPATCH_SKILLS_PATH = `${CLAWSPACE_DIR}/${DISPATCH_SKILLS_SUBDIR}` as const;
+// phase 75: inline 'clawspace' 字面避 L4 → L6 反向 import
+// (CLAWSPACE_DIR own = L6 Assembly assembly/claw-dirs.ts、L4 dispatch-skills-paths
+// 不可反向 import L6、字面冗余 = chestnut 拓扑 vocabulary 不漂移)
+export const DISPATCH_SKILLS_PATH = `clawspace/${DISPATCH_SKILLS_SUBDIR}` as const;

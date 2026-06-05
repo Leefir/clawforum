@@ -17,7 +17,7 @@ import { ToolExecutor, type ToolRegistry } from '../../foundation/tools/index.js
 import type { Message, ToolDefinition } from '../../foundation/llm-provider/types.js';
 import type { CallerType } from '../caller-types.js';
 import { createDialogStore } from '../../foundation/dialog-store/index.js';
-import { CLAWSPACE_DIR } from '../../foundation/paths.js';
+import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 
 import { SubAgent } from './agent.js';

@@ -11,7 +11,7 @@ import { createDirContext } from '../../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
-import { CLAWS_DIR } from '../../foundation/paths.js';
+import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { getLastActiveMs } from './claw-shared.js';
 import { makeClawId } from '../../foundation/paths.js';
 import { handleCliError } from '../errors.js';

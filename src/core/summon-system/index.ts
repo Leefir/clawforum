@@ -14,7 +14,7 @@ export {
 
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { formatErr } from "../../foundation/utils/index.js";
-import { CLAWSPACE_DIR } from '../../foundation/paths.js';
+import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { SUMMON_AUDIT_EVENTS } from './audit-events.js';
 import { type ContractId, makeContractId } from '../contract/types.js';

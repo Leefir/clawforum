@@ -14,7 +14,7 @@ import type { ToolProfile } from '../tool-protocol/index.js';
 import type { ExecContext, ToolGroup, FileState } from './types.js';
 import path from 'path';
 import { MOTION_CLAW_ID } from '../../constants.js';
-import { CLAWSPACE_DIR } from '../paths.js';
+import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
 
 
 import type { AuditLog } from '../audit/index.js';

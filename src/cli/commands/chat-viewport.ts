@@ -19,7 +19,7 @@ import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { isFileNotFound } from '../../foundation/fs/types.js';
 import { createStreamReader, STREAM_FILE } from '../../foundation/stream/index.js';
 import { createViewportObservability } from './chat-viewport-observability.js';
-import { CLAWS_DIR } from '../../foundation/paths.js';
+import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 
 

@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { CRON_AUDIT_EVENTS } from '../audit-events.js';
-import { CLAWS_DIR } from '../../../foundation/paths.js';
+import { CLAWS_DIR } from '../../../assembly/claw-dirs.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import { type ClawId, makeClawId } from '../../../foundation/paths.js'
 import { type ChestnutRoot } from '../../../foundation/paths.js';

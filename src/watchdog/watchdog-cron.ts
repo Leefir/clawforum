@@ -22,7 +22,7 @@ import { makeChestnutRoot, makeClawDir, type ClawId, type ClawDir } from '../fou
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { MOTION_CLAW_ID } from '../constants.js';
 import { makeClawId } from '../foundation/paths.js';
-import { CLAWS_DIR } from '../foundation/paths.js';
+import { CLAWS_DIR } from '../assembly/claw-dirs.js';
 
 interface FireInactivityOpts {
   rawClawId: string;

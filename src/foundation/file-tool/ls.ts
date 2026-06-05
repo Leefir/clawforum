@@ -13,7 +13,7 @@ import { LS_MAX_ENTRIES } from './constants.js';
 
 import { resolveWorkspacePath } from './resolve-path.js';
 
-import { CLAWS_DIR } from '../paths.js';
+import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 export const LS_TOOL_NAME = 'ls' as const;
 
 export const lsTool: Tool = {

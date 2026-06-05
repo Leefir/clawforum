@@ -15,7 +15,7 @@ import type { Tool, ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 
 import { resolveWorkspacePath } from './resolve-path.js';
-import { CLAWS_DIR } from '../paths.js';
+import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { formatErr } from '../utils/index.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import {

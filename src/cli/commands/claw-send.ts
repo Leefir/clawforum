@@ -12,7 +12,7 @@ import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { writeInboxAsync } from '../../foundation/messaging/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
-import { CLAWS_DIR } from '../../foundation/paths.js';
+import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { makeClawId } from '../../foundation/paths.js';
 

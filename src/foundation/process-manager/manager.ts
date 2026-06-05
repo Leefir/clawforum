@@ -20,7 +20,7 @@ import * as lockOps from './lock.js';
 import { spawnProcess } from './spawn.js';
 import { stopProcess } from './stop.js';
 import { findProcesses } from './find.js';
-import { CLAWS_DIR } from '../paths.js';
+import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import type { ProcessManagerContext, SpawnOptions } from './types.js';
 import type { ClawId } from '../paths.js';
 

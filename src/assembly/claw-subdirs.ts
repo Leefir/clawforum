@@ -14,7 +14,7 @@
  */
 
 import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, OUTBOX_PENDING_DIR } from '../foundation/messaging/index.js';
-import { CLAWSPACE_DIR } from '../foundation/paths.js';
+import { CLAWSPACE_DIR } from './claw-dirs.js';
 
 export const CLAW_SUBDIRS = [
   // L2b DialogStore

@@ -6,11 +6,6 @@
  */
 
 import * as path from 'path';
-// ── Path constants ──
-
-export const CLAWS_DIR = 'claws' as const;
-export const CLAWSPACE_DIR = 'clawspace' as const;
-
 // ── Runtime path resolution ──
 
 /** Workspace root — prefers CHESTNUT_ROOT env var (inherited by exec child processes). */

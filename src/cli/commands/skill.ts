@@ -6,7 +6,8 @@
  */
 
 import * as path from 'path';
-import { CLAWSPACE_DIR, getWorkspaceRoot } from '../../foundation/paths.js';
+import { getWorkspaceRoot } from '../../foundation/paths.js';
+import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
 import { SKILLS_DIR_DEFAULT } from '../../foundation/skill-system/index.js';
 import { DISPATCH_SKILLS_SUBDIR } from '../../core/summon-system/dispatch-skills-paths.js';
 import { getClawDir } from '../../foundation/config/index.js';

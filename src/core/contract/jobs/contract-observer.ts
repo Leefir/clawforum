@@ -5,7 +5,7 @@ import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { InboxMessageOptionsBase } from '../../../foundation/messaging/index.js';
 import { scanArchivedContracts } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
-import { CLAWS_DIR } from '../../../foundation/paths.js';
+import { CLAWS_DIR } from '../../../assembly/claw-dirs.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import { makeClawId } from '../../../foundation/paths.js'
 import { type ChestnutRoot } from '../../../foundation/paths.js';
