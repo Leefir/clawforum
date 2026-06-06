@@ -18,7 +18,8 @@ import { migrateAndValidateSession, validateSessionData } from '../../foundation
 import type { ClawId } from '../../foundation/paths.js';
 import type { ContractId } from '../../core/contract/types.js';
 
-
+/** claw-trace separator console.log 输出截断 cap（防 terminal 过长）*/
+const SEP_DISPLAY_CHARS = 50;
 
 interface StreamEvent {
   ts: number;
@@ -261,7 +262,7 @@ function showTraceOverview(
     const line = '─'.repeat(50);
     const pos = Math.floor((50 - label.length) / 2);
     const sep = line.slice(0, pos) + label + line.slice(pos + label.length);
-    console.log(sep.slice(0, 50));
+    console.log(sep.slice(0, SEP_DISPLAY_CHARS));
     pendingTrigger = null;
   };
 
