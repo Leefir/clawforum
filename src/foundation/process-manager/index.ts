@@ -15,5 +15,5 @@ export { createProcessManagerForCLI } from './factories.js';
 // 同 phase 1416 F1 form 复用、跨模块 caller (daemon/) 走 barrel
 // assembly/assemble.ts 装配根 by-design 保留 deep import (lint allowlist)。
 export { createAgentProcessManager } from './agent-factory.js';
-export { STATUS_SUBDIR, getStatusDir, getPidFile, getLockFile, getReadyFile, ensureStatusDir } from './paths.js';
+export { STATUS_SUBDIR } from './paths.js';
 export { signalCleanStop } from './signal-clean-stop.js';
