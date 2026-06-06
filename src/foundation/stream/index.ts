@@ -9,7 +9,6 @@
 export type { StreamEvent, StreamLog } from './types.js';
 export { STREAM_FILE } from './types.js';
 export { StreamWriter } from './writer.js';
-export type { StreamRetentionOptions } from './writer.js';
 export type { StreamReader } from './reader.js';
 export { createStreamReader, readAll } from './reader.js';
 export { findRecentTurnStartOffset } from './turn-start-offset.js';
