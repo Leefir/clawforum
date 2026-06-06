@@ -16,7 +16,7 @@
  *   给 `chestnut status` CLI 用、与 per-claw aggregator 平行（进程层 vs 业务层）。
  */
 
-export { createStatusTool, STATUS_TOOL_NAME } from './status-tool.js';
+export { createStatusTool } from './status-tool.js';
 export { STATUS_AUDIT_EVENTS } from './audit-events.js';
 export {
   computeContractView,
@@ -26,20 +26,11 @@ export {
   formatTaskView,
   formatStorageView,
 } from './aggregators.js';
-export type {
-  ContractView,
-  TaskView,
-  StorageMemoryView,
-  StorageClawspaceView,
-  StorageView,
-} from './aggregators.js';
+
 export {
   STATUS_MOTION_GUIDANCE_FACTS,
-  formatMotionGuidance,
 } from './motion-guidance.js';
 export type {
-  StatusMotionGuidanceFacts,
-  StatusMotionGuidanceVerb,
   StatusMotionGuidance,
 } from './motion-guidance.js';
 export {
@@ -50,10 +41,6 @@ export {
   findOrphans,
 } from './forum-aggregators.js';
 export type {
-  SystemComponentView,
-  ActiveClawView,
-  OrphansView,
-  ForumStatusView,
   ForumStatusDeps,
 } from './forum-aggregators.js';
 export { formatForumStatusView, humanizeUptime, humanizeAgo } from './forum-formatter.js';
