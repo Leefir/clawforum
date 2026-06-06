@@ -24,7 +24,8 @@ const VI_MOCK_FILES = [
   // phase 99 (SHA df8f4558): l1IsAlive DI injected via ProcessManagerContext — tests no longer need vi.mock for process-exec isAlive.
   // 'tests/cli/chat-viewport-claw-manager-narrow.test.ts',
   'tests/cli/chat-viewport-stream-reader-start-fail.test.ts',
-  'tests/core/contract/lock-retry-jitter.test.ts',
+  // phase 102 (SHA fb9764d0): LockContext + VerificationContext DI 替 vi.mock pattern。
+  // 'tests/core/contract/lock-retry-jitter.test.ts',
   'tests/cli/claw-send-confinement.test.ts',
   'tests/cli/commands/claw-health.test.ts',
   'tests/cli/commands/claw-list.test.ts',
@@ -61,7 +62,8 @@ const VI_MOCK_FILES = [
   'tests/core/contract/lifecycle-race.test.ts',
   'tests/core/contract/lock.test.ts',
   'tests/core/contract/pause-abort-verifier.test.ts',
-  'tests/core/contract/verification.test.ts',
+  // phase 102 (SHA fb9764d0): LockContext + VerificationContext DI 替 vi.mock pattern。
+  // 'tests/core/contract/verification.test.ts',
   // phase 91: verifier-job VerifierRuntimeConfig 加 runSubagent? DI 替 vi.mock pattern、
   // 4 测试不需 module registry isolation、移 fast project。
   // 'tests/core/contract/verifier-job-cancel-skip.test.ts',
