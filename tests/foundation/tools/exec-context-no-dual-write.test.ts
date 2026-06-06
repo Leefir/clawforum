@@ -2,7 +2,7 @@
  * Phase 1174 ExecContext 7-site dual-write eviction — reverse 3 项
  *
  * Coverage:
- * - reverse 1: summon throws when getCurrentMessages not injected
+ * - reverse 1: summon throws when getCallerSnapshot not injected (phase 146: getCurrentMessages getter removed)
  * - reverse 2: ExecContext type does not have dual-write fields
  * - reverse 3: shadow getTurnSnapshot does not read ctx fields
  */

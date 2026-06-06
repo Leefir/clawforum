@@ -162,14 +162,10 @@ export async function createRuntimeAssembly(
       throw new Error(`Assembly: Runtime construct failed: ${formatErr(e)}`, { cause: e });
     }
 
-    // shadow tool — 依赖 Runtime.getTurnSnapshot（L4 turn state 快照）
+    // shadow tool — 依赖 Runtime.getCallerSnapshot（L4 turn state 快照）
     // 必须在 runtime 创建后注册，不能提前（runtime 尚未存在）
     toolRegistry.register(createShadowTool({
-      getTurnSnapshot: () => ({
-        systemPrompt: runtime.getCurrentSystemPrompt(),
-        tools: runtime.getCurrentTools(),
-        messages: runtime.getCurrentMessages(),
-      }),
+      getTurnSnapshot: () => runtime.getCallerSnapshot(),
     }));
 
     return { snapshot, streamWriter, runtime };

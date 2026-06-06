@@ -22,7 +22,11 @@ export function createShadowTool(deps: {
     systemPrompt?: string;
     tools?: ToolDefinition[];
     messages?: Message[];
-  };
+  } | Promise<{
+    systemPrompt?: string;
+    tools?: ToolDefinition[];
+    messages?: Message[];
+  }>;
   /** DI seam: optional runSubagent override (replaces vi.mock pattern) */
   runSubagent?: typeof defaultRunSubagent;
 }): Tool {
@@ -81,7 +85,7 @@ export function createShadowTool(deps: {
       const maxSteps = typeof args.maxSteps === 'number' ? args.maxSteps : (ctx.subagentMaxSteps ?? ctx.maxSteps);
       const asyncMode = args.async === undefined ? true : Boolean(args.async);
 
-      const { systemPrompt, tools, messages } = deps.getTurnSnapshot();
+      const { systemPrompt, tools, messages } = await deps.getTurnSnapshot();
 
       // 两路径共同：截掉当前消息末的 shadow tool_use（未配 tool_result）
       const mainMessages = stripIncompleteToolUse(messages);

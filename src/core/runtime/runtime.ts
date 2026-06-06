@@ -24,7 +24,7 @@ import { loadReadFileState, clearReadFileState } from '../../foundation/file-too
 import { runReact } from '../agent-executor/index.js';
 import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../signals.js';
-import type { ToolResult } from '../../foundation/tool-protocol/index.js';
+import type { ToolResult, CallerSnapshot } from '../../foundation/tool-protocol/index.js';
 import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-events.js';
 // phase 71: writeErrorResponse 消（error-response.ts 整删）
 import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
@@ -87,20 +87,16 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
   /** phase 1343 α-6: current turn-level trace id for cross-module audit correlation */
   private currentTraceId?: TraceId;
 
-  // Turn state — stored on Runtime (not ExecContext) so L4 modules can
-  // access current turn snapshot via getter callback without L2 knowing L4 semantics.
-  private _currentSystemPrompt?: string;
-  private _currentTools?: import('../../foundation/llm-provider/types.js').ToolDefinition[];
-  private _currentMessages?: import('../../foundation/llm-provider/types.js').Message[];
-
   /** phase 1343 α-6: expose current trace id for daemon-loop stream callbacks */
   getCurrentTraceId(): TraceId | undefined { return this.currentTraceId; }
-  /** Current turn system prompt (set by _runReact, cleared after turn) */
-  getCurrentSystemPrompt(): string | undefined { return this._currentSystemPrompt; }
-  /** Current turn tool definitions (set by _runReact) */
-  getCurrentTools(): import('../../foundation/llm-provider/types.js').ToolDefinition[] | undefined { return this._currentTools; }
-  /** Current turn messages (set by _runReact, cleared after turn) */
-  getCurrentMessages(): import('../../foundation/llm-provider/types.js').Message[] | undefined { return this._currentMessages; }
+
+  /** phase 146: delegate caller-snapshot to ExecContext (canonical source, direct read true owner) */
+  async getCallerSnapshot(): Promise<CallerSnapshot> {
+    if (!this.execContext?.getCallerSnapshot) {
+      return { systemPrompt: '', tools: [], messages: [] };
+    }
+    return this.execContext.getCallerSnapshot();
+  }
 
   // Foundation
   /**
@@ -222,15 +218,19 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
       auditWriter: this.auditWriter,
       taskSystem: this.taskSystem,
       persistReadFileState: true,  // phase 1443: main claw ctx persists readFileState to <clawDir>/read-state.json
-      // phase 1406: caller-snapshot provider (lazy). SummonTool / AskMotionTool
-      // and other accessesCaller=true tools get caller's systemPrompt + tools
-      // + messages via this callback. ToolExecutor wraps with throwing variant
-      // for undeclared tools. Bound to current turn's runtime snapshot fields.
-      getCallerSnapshot: async () => ({
-        systemPrompt: this._currentSystemPrompt ?? '',
-        tools: this._currentTools ?? [],
-        messages: this._currentMessages ?? [],
-      }),
+      // phase 146: ML#3 资源唯一归属真治、直接 read 真 owner、不经 Runtime mirror state
+      getCallerSnapshot: async () => {
+        const { systemPrompt } = await this._resolveSystemPromptForRun();
+        const tools = this.toolRegistry.formatForLLM(
+          this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
+        );
+        const { session } = await this.sessionManager.load();
+        return {
+          systemPrompt,
+          tools,
+          messages: session.messages,
+        };
+      },
       registry: this.toolRegistry,
       mainDialogStore: this.sessionManager,
     });
@@ -534,14 +534,10 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
     // phase 786: stopRequested 是 per-turn flag，每 turn 起首 reset
     // 防 P0.14 跨 turn sticky bug（done 工具误调后下 turn silent empty）
     this.execContext.stopRequested = false;
-    this._currentMessages = messages;
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
     const { systemPrompt, identityContent } = await this._resolveSystemPromptForRun();
-    // phase 769: inject systemPrompt + tools for shadow sync path
-    this._currentSystemPrompt = systemPrompt;
-    this._currentTools = tools;
 
     // 首个 LLM 输出 delta 时上报当前生效的 provider（确认 API 可用后才显示）
     let providerInfoEmitted = false;
@@ -716,8 +712,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
       // phase 521: turn 末 regime change 检测（per L5.G3 (a) 自动检测）
       await this._checkRegimeSwitch(systemPrompt, identityContent);
     } finally {
-      this._currentMessages = undefined;
-      this._currentSystemPrompt = undefined;
+      // phase 146: mirror state removed — no reset needed
     }
   }
 
@@ -1032,6 +1027,9 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
     const tools = this.toolRegistry.formatForLLM(
       this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
     );
+
+    // phase 146: pre-flight save so getCallerSnapshot reads current turn state
+    await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools, trace_id: traceId });
 
     // 5. Run the ReAct loop (with incremental session saves)
     // align _processBatch turn-start reset, per phase 786 + phase 900 cluster sweep
