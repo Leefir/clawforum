@@ -29,6 +29,9 @@ export {
   INBOX_FAILED_DIR,
   INBOX_INFLIGHT_DIR,
   OUTBOX_PENDING_DIR,
+  OUTBOX_DONE_DIR,
+  OUTBOX_FAILED_DIR,
+  OUTBOX_PROCESSING_DIR,
 } from './dirs.js';
 
 // phase 1435 F8: audit events const re-export — 跨模块 (cli / daemon) 引用走 barrel。

@@ -7,7 +7,10 @@ import * as path from 'path';
 import { formatErr } from "../utils/index.js";
 import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
-import { INBOX_DONE_DIR, INBOX_FAILED_DIR } from './dirs.js';
+import {
+  INBOX_DONE_DIR, INBOX_FAILED_DIR,
+  OUTBOX_DONE_DIR, OUTBOX_FAILED_DIR, OUTBOX_PROCESSING_DIR,
+} from './dirs.js';
 import { MESSAGING_AUDIT_EVENTS } from './audit-events.js';
 import { emitOutboxProcessingOrphanCleaned } from './audit-emit.js';
 
@@ -25,9 +28,9 @@ export async function cleanupRetention(opts: {
   const dirs: Array<{ relPath: string; maxDaysKey: 'inbox' | 'outbox' }> = [
     { relPath: INBOX_DONE_DIR, maxDaysKey: 'inbox' },
     { relPath: INBOX_FAILED_DIR, maxDaysKey: 'inbox' },
-    { relPath: 'outbox/done', maxDaysKey: 'outbox' },
-    { relPath: 'outbox/failed', maxDaysKey: 'outbox' },
-    { relPath: 'outbox/processing', maxDaysKey: 'outbox' },
+    { relPath: OUTBOX_DONE_DIR, maxDaysKey: 'outbox' },
+    { relPath: OUTBOX_FAILED_DIR, maxDaysKey: 'outbox' },
+    { relPath: OUTBOX_PROCESSING_DIR, maxDaysKey: 'outbox' },
   ];
 
   for (const { relPath, maxDaysKey } of dirs) {
@@ -59,7 +62,7 @@ export async function cleanupRetention(opts: {
       audit.write(MESSAGING_AUDIT_EVENTS.RETENTION_CLEANUP_DELETE_FAILED, `context=per-dir`, `dir=${dir}`, `reason=${formatErr(err)}`);
     }
 
-    if (relPath === 'outbox/processing' && dirDeleted > 0) {
+    if (relPath === OUTBOX_PROCESSING_DIR && dirDeleted > 0) {
       emitOutboxProcessingOrphanCleaned(audit, { count: dirDeleted });
     }
   }

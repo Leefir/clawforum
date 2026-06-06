@@ -8,3 +8,6 @@ export const INBOX_DONE_DIR = 'inbox/done';
 export const INBOX_FAILED_DIR = 'inbox/failed';
 export const INBOX_INFLIGHT_DIR = 'inbox/inflight';
 export const OUTBOX_PENDING_DIR = 'outbox/pending';
+export const OUTBOX_DONE_DIR = 'outbox/done';
+export const OUTBOX_FAILED_DIR = 'outbox/failed';
+export const OUTBOX_PROCESSING_DIR = 'outbox/processing';
