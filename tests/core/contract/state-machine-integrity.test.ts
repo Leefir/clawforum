@@ -43,8 +43,8 @@ function makeAcceptanceCtx(
   const ctx: VerificationContext = {
     clawDir: '/tmp/claw',
     clawId: 'claw-test',
-    chestnutRoot: '/tmp/.chestnut' as any,
     audit,
+    notifyClaw: vi.fn(),
     contractDir: vi.fn(async (id: string) => `contract/active/${id}`),
     loadContractYaml: vi.fn(async (id: string) => ({
       title: 'Test',

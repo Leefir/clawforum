@@ -3,18 +3,7 @@
  * Notify helpers — safe wrapper + inbox writer + error writer
  */
 
-import type { VerificationContext, NotifyClawFn } from './verification-types.js';
-import { notifyClaw as defaultNotifyClaw } from '../../foundation/messaging/index.js';
-
-
-/**
- * phase 19 Step C: resolve notify channel via ctx injection point (DIP).
- * Default falls back to foundation/messaging.notifyClaw for backward compat.
- */
-function resolveNotify(ctx: VerificationContext): NotifyClawFn {
-  return ctx.notifyClaw ?? defaultNotifyClaw;
-}
-
+import type { VerificationContext } from './verification-types.js';
 import type { ContractId } from './types.js';
 import type { SubtaskId } from './types.js';
 import { formatErr } from '../../foundation/utils/index.js';
@@ -68,15 +57,14 @@ export function writeVerificationInbox(
     body = feedback || 'No feedback provided';
   }
 
-  const chestnutRoot = ctx.chestnutRoot;
-  resolveNotify(ctx)(ctx.fs, chestnutRoot, ctx.clawId, {
+  ctx.notifyClaw(ctx.clawId, {
     type: verdict === 'passed' ? 'verification_result' : 'verification_rejection',
     source: 'contract_system',
     to: ctx.clawId,
     priority: verdict === 'rejected' ? 'high' : 'normal',
     body,
     extraFields,
-  }, ctx.audit);
+  });
 }
 
 /**
@@ -103,8 +91,7 @@ export function writeForceAcceptInbox(
     ? `Subtask ${subtaskId} force-accepted after ${retryCount} attempts. All subtasks complete!${summary}`
     : `Subtask ${subtaskId} force-accepted after ${retryCount} attempts.${summary}`;
 
-  const chestnutRoot = ctx.chestnutRoot;
-  resolveNotify(ctx)(ctx.fs, chestnutRoot, ctx.clawId, {
+  ctx.notifyClaw(ctx.clawId, {
     type: 'verification_result',
     source: 'contract_system',
     to: ctx.clawId,
@@ -117,7 +104,7 @@ export function writeForceAcceptInbox(
       force_accepted: 'true',
       retry_count: String(retryCount),
     },
-  }, ctx.audit);
+  });
 }
 
 /**
@@ -131,8 +118,7 @@ export function notifyVerificationError(
   subtaskId: SubtaskId,
   errorMsg: string,
 ): void {
-  const chestnutRoot = ctx.chestnutRoot;
-  resolveNotify(ctx)(ctx.fs, chestnutRoot, ctx.clawId, {
+  ctx.notifyClaw(ctx.clawId, {
     type: 'verification_error',
     source: 'contract_system',
     to: ctx.clawId,
@@ -143,7 +129,7 @@ export function notifyVerificationError(
       contract_id: contractId,
       subtask_id: subtaskId,
     },
-  }, ctx.audit);
+  });
 }
 
 /**

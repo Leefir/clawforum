@@ -77,6 +77,7 @@ import {
   type LifecycleContext,
 } from './lifecycle.js';
 import { type ClawDir } from '../../foundation/paths.js';
+import { notifyClaw } from '../../foundation/messaging/index.js';
 // phase 1406: path import removed — chestnutRoot 推算迁 resolveChestnutRoot
 import {
   runVerificationPipeline,
@@ -368,7 +369,9 @@ export class ContractSystem {
       ...this._lockCtx(),
       clawDir: this.clawDir,
       clawId: this.clawId,
-      chestnutRoot: this.chestnutRoot,
+      // phase 95: pre-bound notifyClaw (Manager binds fs + chestnutRoot + audit)
+      notifyClaw: (targetClawId, message) =>
+        notifyClaw(this.fs, this.chestnutRoot, targetClawId, message, this.audit),
       llm: this.llm,
       contractDir: (id) => this.contractDir(id),
       loadContractYaml: (id) => this.loadContractYaml(id),

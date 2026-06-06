@@ -14,14 +14,16 @@ import { writeForceAcceptInbox } from '../../../src/core/contract/verification-n
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import type { VerificationContext } from '../../../src/core/contract/verification-types.js';
 import { createToolRegistry } from '../../../src/foundation/tools/index.js';
+import { notifyClaw } from '../../../src/foundation/messaging/index.js';
 
 function makeMinimalCtx(clawDir: string, clawId: string, nodeFs: NodeFileSystem, chestnutRoot: string): VerificationContext {
+  const audit = { write: () => {} } as any;
   return {
     clawDir: clawDir as any,
     clawId: clawId as any,
-    chestnutRoot: chestnutRoot as any,
-    audit: { write: () => {} } as any,
+    audit,
     fs: nodeFs as any,
+    notifyClaw: (targetClawId, message) => notifyClaw(nodeFs, chestnutRoot, targetClawId, message, audit),
     contractDir: vi.fn(async (id: string) => path.join(clawDir, 'contract', 'active', id)),
     loadContractYaml: vi.fn(async () => ({
       title: 'Test', goal: 'Test',

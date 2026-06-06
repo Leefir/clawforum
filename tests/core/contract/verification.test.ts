@@ -26,6 +26,7 @@ function makeCtx(overrides: Partial<VerificationContext> = {}): VerificationCont
     clawDir: '/tmp/claw',
     clawId: 'claw-test',
     audit: makeMockAudit() as unknown as VerificationContext['audit'],
+    notifyClaw: vi.fn(),
     ...overrides,
   } as VerificationContext;
 }
