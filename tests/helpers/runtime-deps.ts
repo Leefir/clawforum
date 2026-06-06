@@ -65,8 +65,9 @@ export async function makeRuntimeDeps(input: MakeRuntimeDepsInput): Promise<Runt
     audit: auditWriter,
     llm,
     toolRegistry: verifierRegistry,
-    fsFactory
-  });
+    fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: () => {},});
   const taskSystem = new AsyncTaskSystem(clawDir, systemFs, {
     auditWriter, llm, contractManager, outboxWriter, registry: toolRegistry,
   });

@@ -75,8 +75,9 @@ describe('ContractSystem — background verification error handling', () => {
       audit: captureAudit as any,
       llm: mockLLM,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = 'typeerror-test-contract';
     const subtaskId = 'task-1';
@@ -137,8 +138,9 @@ describe('ContractSystem — background verification error handling', () => {
       audit: captureAudit as any,
       llm: mockLLM,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = 'business-error-test-contract';
     const subtaskId = 'task-1';

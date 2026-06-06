@@ -40,13 +40,17 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = makeMockAudit();
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   describe('monitor error reporting', () => {
     it('should log error to monitor when loadActive finds corrupted progress.json', async () => {
       const mockAudit = makeMockAudit();
-      const monitorManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const monitorManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       // 写入损坏的 progress.json
       const contractId = 'corrupt-contract';
@@ -66,7 +70,9 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
 
     it('should log error to monitor when loadPaused finds corrupted progress.json', async () => {
       const mockAudit = makeMockAudit();
-      const monitorManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const monitorManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = 'corrupt-paused-contract';
       const contractDir = path.join(clawDir, 'contract', 'paused', contractId);
@@ -85,7 +91,9 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
 
     it('should log warn to monitor when unknown subtaskId is used in completeSubtask', async () => {
       const mockAudit = makeMockAudit();
-      const monitorManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const monitorManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await monitorManager.create(makeContractYaml({
         title: 'Test',
@@ -120,7 +128,9 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
       });
 
       const mockAudit = makeMockAudit();
-      const failManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const failManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       await expect(failManager.create(makeContractYaml({
         title: 'Test',
         deliverables: [],

@@ -43,8 +43,9 @@ describe('CONTRACT_AUDIT_EVENTS.COMPLETED single emit (phase 791 / P0.17)', () =
       fs: nodeFs,
       audit: captureAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   afterEach(async () => {

@@ -42,7 +42,8 @@ describe('ContractSystem.init() boot reconcile', () => {
       audit: { write: auditWrite } as any,
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
-    });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   }
 
   it('emits CONTRACT_BOOT_RECONCILE recovered=true when paused contract exists', async () => {

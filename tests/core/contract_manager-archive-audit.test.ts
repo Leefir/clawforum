@@ -40,7 +40,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = makeMockAudit();
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   describe('phase230 audit events', () => {
@@ -52,8 +54,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
         fs: nodeFs,
         audit: mockAudit,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contract1 = await testManager.create(makeContractYaml({
         title: 'First',
@@ -92,8 +95,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
         fs: nodeFs,
         audit: mockAudit,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       await expect(failManager.create(makeContractYaml({
         title: 'Test',
@@ -117,8 +121,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
         fs: nodeFs,
         audit: mockAudit,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       testManager.setOnNotify(() => {
         throw new Error('notify crash');
@@ -147,8 +152,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
         fs: nodeFs,
         audit: mockAudit,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       testManager.setOnNotify(onNotifySpy);
 
       const contractId = await testManager.create(makeContractYaml({
@@ -181,7 +187,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
   describe('moveToArchive and audit consistency', () => {
     it('should NOT write audit when moveToArchive fails', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       // Create contract with no-op verification (no script_file/prompt_file = no verification)
       const contractId = await testManager.create(makeContractYaml({
@@ -216,7 +224,9 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
 
     it('should write audit when moveToArchive succeeds', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',

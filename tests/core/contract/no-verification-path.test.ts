@@ -46,8 +46,9 @@ describe('no verification path', () => {
       fs: nodeFs,
       audit,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create(
       makeContractYaml({
@@ -86,8 +87,9 @@ describe('no verification path', () => {
       fs: nodeFs,
       audit,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create(
       makeContractYaml({
@@ -145,8 +147,9 @@ describe('no verification path', () => {
       fs: nodeFs,
       audit,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create(
       makeContractYaml({

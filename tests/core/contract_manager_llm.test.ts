@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as path from 'path';
 import { promises as fs } from 'fs';
+import { notifyClaw as notifyClawFn } from '../../src/foundation/messaging/index.js';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { EventEmitter, once } from 'events';
@@ -279,6 +280,8 @@ describe('ContractSystem Acceptance Flow', () => {
       toolRegistry: createToolRegistry(),
       fsFactory,
       runSubagent: mockRunSubagent,
+      clawsDir: '/tmp/test/claws',
+      notifyClaw: (targetClawId, message) => notifyClawFn(nodeFs, path.resolve(clawDir, '..', '..'), targetClawId, message, mockAudit as any),
     });
   });
 
@@ -554,6 +557,8 @@ describe('ContractSystem Acceptance Flow', () => {
         toolRegistry: createToolRegistry(),
         fsFactory,
         runSubagent: mockRunSubagent,
+        clawsDir: '/tmp/test/claws',
+        notifyClaw: (targetClawId, message) => notifyClawFn(nodeFs, path.resolve(clawDir, '..', '..'), targetClawId, message, mockAudit as any),
       });
 
       await setupContract(tempDir, contractId, makeContractYaml({

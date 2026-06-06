@@ -53,7 +53,9 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = makeMockAudit();
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   // === Phase 22 H1: acquireLock EEXIST retry ===
@@ -106,8 +108,9 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
       fs: nodeFs,
       audit: mockAudit,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await testManager.create(makeContractYaml({
       title: 'Lock Cleanup AuditLog',
@@ -160,8 +163,9 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
       fs: nodeFs,
       audit: mockAudit,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await testManager.create(makeContractYaml({
       title: 'Lock Cleanup ENOENT',

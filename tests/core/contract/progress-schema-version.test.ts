@@ -42,8 +42,9 @@ describe('progress.json schema_version invariant — phase 1134', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create(makeContractYaml({
       title: 'Test',
@@ -86,8 +87,9 @@ describe('progress.json schema_version invariant — phase 1134', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create(makeContractYaml({
       title: 'Test',

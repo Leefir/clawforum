@@ -57,8 +57,9 @@ describe('getProgress schema check', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create(makeContractYaml({
       title: 'Test',
@@ -89,8 +90,9 @@ describe('getProgress schema check', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await manager.create({
       schema_version: 1 as const,

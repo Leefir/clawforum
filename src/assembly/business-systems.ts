@@ -42,6 +42,7 @@ import type { MotionGuidanceRegistry, GuidanceEntry } from './guidance/index.js'
 import type { MessageFormatterRegistry } from '../foundation/messaging/index.js';
 import { createContractSystem } from '../core/contract/index.js';
 import { createSystemAudit } from '../foundation/audit/index.js';
+import { notifyClaw as notifyClawFn } from '../foundation/messaging/index.js';
 import { makeClawId } from '../foundation/paths.js';
 import { resolveChestnutRoot } from './install-paths.js';
 import type { ClawDir } from '../foundation/paths.js';
@@ -161,7 +162,20 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
         clawFsFactory: fsFactory,
         clawContractManagerFactory: (d: ClawDir, id: string, fs: typeof systemFs) => {
           const cr = resolveChestnutRoot(d, false);
-          return createContractSystem({ clawDir: d, clawId: makeClawId(id), fs, audit: createSystemAudit(fs, d), toolRegistry, toolTimeoutMs, fsFactory, chestnutRoot: cr, clawsDir: path.join(cr, 'claws') });
+          const perClawAudit = createSystemAudit(fs, d);
+          return createContractSystem({
+            clawDir: d,
+            clawId: makeClawId(id),
+            fs,
+            audit: perClawAudit,
+            toolRegistry,
+            toolTimeoutMs,
+            fsFactory,
+            clawsDir: path.join(cr, 'claws'),
+            // phase 104: pre-bound notifyClaw
+            notifyClaw: (targetClawId, message) =>
+              notifyClawFn(fs, cr, targetClawId, message, perClawAudit),
+          });
         },
       };
       contractManager.onContractCompleted(async (contractId) => {

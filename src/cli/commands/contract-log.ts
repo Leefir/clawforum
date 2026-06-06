@@ -6,6 +6,7 @@ import * as yaml from 'js-yaml';
 import { ContractSystem, type ContractYaml, type ProgressData } from '../../core/contract/index.js';
 import { getClawDir } from '../../foundation/config/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
+import { notifyClaw } from '../../foundation/messaging/index.js';
 import { isFileNotFound } from '../../foundation/fs/types.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { CliError } from '../errors.js';
@@ -19,7 +20,8 @@ export async function contractLogCommand(deps: { fsFactory: (baseDir: string) =>
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
   const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
-  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: createSystemAudit(clawFs, clawDir), toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, chestnutRoot, clawsDir: path.join(chestnutRoot, 'claws') });
+  const audit = createSystemAudit(clawFs, clawDir);
+  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(chestnutRoot, 'claws'), notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, audit) });
 
   // 若未指定 contractId，用 active 契约
   let resolvedId = contractId;

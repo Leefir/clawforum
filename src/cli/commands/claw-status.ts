@@ -17,6 +17,7 @@ import * as path from 'path';
 import { loadGlobalConfig, clawExists, getClawDir, getClawConfigPath } from '../../foundation/config/index.js';
 import { CliError } from '../errors.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
+import { notifyClaw } from '../../foundation/messaging/index.js';
 import { ContractSystem } from '../../core/contract/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import { makeClawId } from '../../foundation/paths.js';
@@ -52,15 +53,16 @@ export async function clawStatusCommand(
   const clawId = makeClawId(name);
   const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);
 
+  const audit = createSystemAudit(clawFs, clawDir);
   const contractSystem = new ContractSystem({
     clawDir,
     clawId,
     fs: clawFs,
-    audit: createSystemAudit(clawFs, clawDir),
+    audit,
     toolRegistry: createToolRegistry(),
     fsFactory: deps.fsFactory,
-    chestnutRoot,
     clawsDir: path.join(chestnutRoot, 'claws'),
+    notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, audit),
   });
 
   const [contractView, taskView, storageView] = await Promise.all([

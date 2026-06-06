@@ -1,7 +1,9 @@
 /**
  * ContractSystem 测试 - 状态转换
  * 
- * 构造函数: new ContractSystem({ clawDir, clawId, fs, audit, llm?, toolRegistry, toolTimeoutMs?, fsFactory })
+ * 构造函数: new ContractSystem({ clawDir, clawId, fs, audit, llm?, toolRegistry, toolTimeoutMs?, fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),})
  * 
  * 新增测试：
  * - loadActive() 按 started_at 排序
@@ -50,7 +52,9 @@ describe('ContractSystem', () => {
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = makeMockAudit();
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   it('should create contract with running status and todo subtasks', async () => {
@@ -338,8 +342,9 @@ describe('ContractSystem', () => {
       fs: nodeFs,
       audit: makeMockAudit(),
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
     testManager.setOnNotify(onNotifySpy);
 
     const contractId = await testManager.create(makeContractYaml({
@@ -412,8 +417,9 @@ describe('ContractSystem', () => {
         fs: new NodeFileSystem({ baseDir: testClawDir }),
         audit: mockAudit,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       // @ts-expect-error - runScriptVerification is private
       const result = await testManager.runScriptVerification('task-1.sh', path.join(testClawDir, 'verification'));
 

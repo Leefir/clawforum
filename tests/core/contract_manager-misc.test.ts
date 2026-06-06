@@ -43,13 +43,17 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = makeMockAudit();
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   describe('LLM verification', () => {
     it('should reset subtask to todo when verifier throws exception', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       // Create contract with LLM verification
       const contractId = await testManager.create(makeContractYaml({
@@ -109,7 +113,9 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
   describe('force-accept writes force_accepted', () => {
     it('should set force_accepted after reaching max attempts', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Force Accept Test',
@@ -171,7 +177,9 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
 
     it('should not set force_accepted before reaching max attempts', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'No Force Accept Test',
@@ -218,7 +226,9 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
   describe('phase239 audit lifecycle events', () => {
     it('writes CONTRACT_CREATED audit on contract creation', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'AuditLog Lifecycle Test',
@@ -238,7 +248,9 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
 
     it('writes CONTRACT_VERIFICATION_STARTED audit when async verification begins', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       // Create contract with script verification (triggers async background verification)
       const contractId = await testManager.create(makeContractYaml({
@@ -268,7 +280,9 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
 
     it('writes CONTRACT_UPDATED audit on subtask completion', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Contract Updated Test',

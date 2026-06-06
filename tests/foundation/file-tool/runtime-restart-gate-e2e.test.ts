@@ -35,7 +35,7 @@ async function makeCtx(clawDir: string, persist: boolean): Promise<E2eCtx> {
   const audit = makeAudit();
   const nfs = new NodeFileSystem({ baseDir: clawDir });
   const ctx = new ExecContextImpl({
-    clawsDir: path.join(path.dirname(clawDir), 'claws'),
+    clawsDir: '/tmp/test/claws',
     clawId: 'test-claw',
     clawDir,
     syncDir: path.join(clawDir, 'tasks', 'sync'),

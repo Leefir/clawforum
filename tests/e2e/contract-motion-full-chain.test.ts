@@ -57,7 +57,9 @@ describe('contract-motion-full-chain (phase 1168 α-5)', () => {
       },
     };
     const mockLlm = { id: 'mock-llm' } as any;
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: audit as any, llm: mockLlm, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: audit as any, llm: mockLlm, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   afterEach(async () => {

@@ -136,7 +136,9 @@ export async function createMotionAddons(
       const clawContractBridge = createClawContractBridge({
         fsFactory,
         clawsDir: path.join(chestnutRoot, 'claws'),  // phase 84
-        chestnutRoot,
+        // phase 104: pre-bound notifyClaw
+        notifyClaw: (targetClawId, message) =>
+          notifyClaw(parentFs, chestnutRoot, targetClawId, message, auditWriter),
         llm,
         toolRegistry,
         toolTimeoutMs,

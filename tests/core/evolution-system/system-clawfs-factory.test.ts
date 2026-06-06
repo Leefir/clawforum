@@ -67,8 +67,9 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
         fs,
         audit: { write: vi.fn() } as any,
         toolRegistry: createToolRegistry(),
-        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-      }),
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),}),
     };
 
     const evolutionSystem = new EvolutionSystem({
@@ -107,8 +108,9 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
         fs,
         audit: { write: vi.fn() } as any,
         toolRegistry: createToolRegistry(),
-        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-      }),
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),}),
     };
 
     const evolutionSystem = new EvolutionSystem({
@@ -154,8 +156,9 @@ describe('EvolutionSystem — clawFsFactory 注入路径（caller DIP enforce）
         fs,
         audit: { write: vi.fn() } as any,
         toolRegistry: createToolRegistry(),
-        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-      }),
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),}),
     };
 
     const evolutionSystem = new EvolutionSystem({

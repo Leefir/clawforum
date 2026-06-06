@@ -44,8 +44,9 @@ describe('ContractSystem lifecycle race (phase 791 / P0.16 + P0.18)', () => {
       fs: nodeFs,
       audit: captureAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   afterEach(async () => {
@@ -128,8 +129,9 @@ describe('ContractSystem lifecycle race (phase 791 / P0.16 + P0.18)', () => {
       audit: manager['audit'] as any,
       llm: mockLLM,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     // Mock runLLMVerification to delay, simulating slow background verification
     vi.spyOn(testManager as any, 'runLLMVerification').mockImplementation(async () => {

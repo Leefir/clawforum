@@ -66,12 +66,16 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const mockAudit = makeMockAudit();
-    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+    manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
     it('LLM judged failed → cause=llm_rejected + reset todo + retry_count++', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
@@ -111,7 +115,9 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
     it('programming bug throw → cause=programming_bug + reset todo', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
@@ -153,7 +159,9 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
     it('subagent timeout → cause=subagent_timeout + reset todo', async () => {
       const { ToolTimeoutError } = await import('../../src/foundation/errors.js');
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
@@ -188,7 +196,9 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
     it('onNotify verification_failed payload schema = AcceptanceFailedNotification', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const onNotifySpy = vi.fn();
       testManager.setOnNotify(onNotifySpy);
 
@@ -235,7 +245,9 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
     it('max_attempts 后 subtask force_accepted（status=completed）', async () => {
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
@@ -294,7 +306,9 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
     it('retry_count 跨多次失败递增', async () => {
       const { ToolTimeoutError } = await import('../../src/foundation/errors.js');
       const mockAudit = makeMockAudit();
-      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory });
+      const testManager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: mockAudit, toolRegistry: createToolRegistry(), fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',

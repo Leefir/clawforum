@@ -60,8 +60,9 @@ describe('EvolutionSystem — clawContractManagerFactory injection (phase 619 ca
         fs,
         audit: { write: vi.fn() } as any,
         toolRegistry: createToolRegistry(),
-        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-      });
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
     });
 
     const ctx: MotionReviewContext = {
@@ -104,8 +105,9 @@ describe('EvolutionSystem — clawContractManagerFactory injection (phase 619 ca
         fs,
         audit: { write: vi.fn() } as any,
         toolRegistry: createToolRegistry(),
-        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-      });
+        fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
     });
 
     const ctx: MotionReviewContext = {

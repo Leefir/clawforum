@@ -102,8 +102,9 @@ async function setupFixtures(overrides?: {
       fs,
       audit: { write: vi.fn() } as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    }),
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),}),
   };
 
   return { motionDir, clawsBaseDir, targetClawDir, contractId, ctx, evolutionSystem, mockAudit };

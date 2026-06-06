@@ -50,7 +50,8 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       runContractVerifier: mockRunContractVerifier,
-    });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
     mockRunContractVerifier.mockReset();
   });
 
@@ -169,7 +170,8 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       runContractVerifier: mockRunContractVerifier,
-    });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     // 用 vi.spyOn 包装 close
     const spy1 = vi.spyOn(cs1, 'close').mockImplementation(async () => {});

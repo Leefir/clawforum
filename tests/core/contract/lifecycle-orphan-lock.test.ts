@@ -45,8 +45,9 @@ describe('phase 871 r113 G fork: contract lock orphan-on-fs-move-throw cluster f
       fs: nodeFs,
       audit: captureAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   afterEach(async () => {

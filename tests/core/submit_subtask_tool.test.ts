@@ -49,8 +49,9 @@ describe('submitSubtaskTool', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
     submitSubtaskTool = createSubmitSubtaskTool(manager);
   });
 

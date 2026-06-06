@@ -44,8 +44,9 @@ describe('pauseContract abort verifier propagation (phase 1162 DD3)', () => {
       fs: nodeFs,
       audit: captureAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   afterEach(async () => {

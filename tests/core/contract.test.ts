@@ -120,8 +120,9 @@ describe('Contract System', () => {
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const active = await manager.loadActive();
 
       expect(active?.id).toBe('contract-001');
@@ -136,8 +137,9 @@ describe('Contract System', () => {
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const active = await manager.loadActive();
 
       expect(active).toBeNull();
@@ -152,8 +154,9 @@ describe('Contract System', () => {
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const active = await manager.loadActive();
 
       expect(active).toBeNull();
@@ -168,8 +171,9 @@ describe('Contract System', () => {
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const progress = await manager.getProgress('contract-001');
 
       expect(progress.contract_id).toBe('contract-001');
@@ -208,8 +212,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const result = await manager.completeSubtask({
         contractId: 'contract-002',
         subtaskId: 'st-001',
@@ -257,8 +262,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const result = await manager.completeSubtask({
         contractId: 'contract-003',
         subtaskId: 'st-001',
@@ -304,8 +310,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const result = await manager.completeSubtask({
         contractId: 'contract-004',
         subtaskId: 'st-001',
@@ -351,8 +358,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       expect(await manager.isComplete('contract-005')).toBe(false);
 
       // Complete one
@@ -381,8 +389,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       await manager.pause('contract-006', 'Checkpoint note');
 
       const progress = await manager.getProgress('contract-006');
@@ -405,8 +414,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
       const resumed = await manager.resume('contract-007');
 
       expect(resumed.status).toBe('running');
@@ -423,8 +433,9 @@ auth_level: auto
         fs: mockFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
-      });
+        fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
       const contractId = 'corrupt-audit-contract';
       const contractDir = path.join(tempDir, 'contract', 'active', contractId);

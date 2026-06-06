@@ -42,8 +42,9 @@ describe('phase 63: markCrashed', () => {
       fs: nodeFs,
       audit: captureAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
     manager.setOnNotify((type, data) => {
       notifyCalls.push({ type, data });
     });
@@ -130,8 +131,9 @@ describe('phase 63: markCrashed', () => {
       fs: nodeFs,
       audit: audit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir })
-    });
+      fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await localManager.create(makeContractYaml({
       title: 'Crash Audit Test',

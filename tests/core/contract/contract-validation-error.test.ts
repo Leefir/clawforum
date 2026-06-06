@@ -40,7 +40,8 @@ function setupManager() {
     audit,
     toolRegistry: createToolRegistry(),
     fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
-  });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: () => {},});
 }
 
 describe('ContractValidationError (phase 67)', () => {

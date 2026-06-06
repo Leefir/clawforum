@@ -53,8 +53,9 @@ describe('ContractSystem — 并发幂等与锁', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   });
 
   afterEach(async () => {
@@ -199,8 +200,9 @@ describe('ContractSystem — 并发幂等与锁', () => {
       fs: nodeFs,
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
-      fsFactory
-    });
+      fsFactory,
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractId = await auditManager.create(BASE_YAML);
 

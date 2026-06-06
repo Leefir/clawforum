@@ -19,7 +19,7 @@ import { SummonTool } from '../core/summon-system/index.js';
 import { createSkillSystem, SkillSystem } from '../foundation/skill-system/index.js';
 import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/index.js';
 import { ContractSystem, createContractSystem } from '../core/contract/index.js';
-import { createOutboxWriter, type OutboxWriter } from '../foundation/messaging/index.js';
+import { createOutboxWriter, type OutboxWriter, notifyClaw as notifyClawFn } from '../foundation/messaging/index.js';
 import { resolveChestnutRoot } from './install-paths.js';
 import { type ClawDir, type ClawId } from '../foundation/paths.js';
 import { TASKS_SYNC_DIR } from '../core/async-task-system/index.js';
@@ -202,8 +202,10 @@ export async function createCoreInfrastructure(input: CoreInfraInput): Promise<C
         toolRegistry,   // phase 704: toolRegistry 注入 ContractSystem
         toolTimeoutMs,  // phase 1029 / F-2
         fsFactory,
-        chestnutRoot,
         clawsDir,
+        // phase 104: pre-bound notifyClaw (bind fs + chestnutRoot + audit)
+        notifyClaw: (targetClawId, message) =>
+          notifyClawFn(systemFs, chestnutRoot, targetClawId, message, auditWriter!),
       });
     } catch (e) {
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=contract_manager`, `phase=construct`, `reason=${formatErr(e)}`);

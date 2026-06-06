@@ -21,7 +21,6 @@
  */
 
 import * as yaml from 'js-yaml';
-import * as path from 'path';
 import { formatErr } from "../../foundation/utils/index.js";
 import { randomUUID } from 'crypto';
 
@@ -67,9 +66,7 @@ import {
 } from './persistence.js';
 import { type ContractId, makeContractId } from './types.js';
 import { ContractValidationError } from './errors.js';
-import { resolveChestnutRoot } from '../../assembly/install-paths.js';
 import { type SubtaskId, type ArchiveDir, makeArchiveDir } from './types.js';
-import type { ChestnutRoot } from '../../assembly/install-paths.js';
 import type { ClawId } from '../../foundation/paths.js';
 import { runContractVerifier as defaultRunContractVerifier } from './verifier-job.js';
 import {
@@ -78,8 +75,7 @@ import {
   type LifecycleContext,
 } from './lifecycle.js';
 import { type ClawDir } from '../../foundation/paths.js';
-import { notifyClaw } from '../../foundation/messaging/index.js';
-// phase 1406: path import removed — chestnutRoot 推算迁 resolveChestnutRoot
+import type { NotifyClawFn } from './verification-types.js';
 import {
   runVerificationPipeline,
   runScriptVerification as runScriptVerificationFn,
@@ -108,8 +104,8 @@ export {
 export interface ContractSystemDeps {
   clawDir: ClawDir;
   clawId: ClawId;
-  /** phase 1387: Assembly 装配期注入的 chestnut 根目录 */
-  chestnutRoot: ChestnutRoot;
+  /** phase 104: caller (装配期) pre-bound notifyClaw (bind fs + chestnutRoot + audit) */
+  notifyClaw: NotifyClawFn;
   /** phase 98: caller (装配期) 算好的 claws dir */
   clawsDir: string;
   fs: FileSystem;
@@ -128,7 +124,7 @@ export class ContractSystem {
   private readonly clawId: ClawId;
   private readonly audit: AuditLog;
   private llm?: LLMOrchestrator;
-  private chestnutRoot: ChestnutRoot;
+  private notifyClaw: NotifyClawFn;
   private clawsDir: string;
   private toolRegistry: ToolRegistry;
   private toolTimeoutMs?: number;
@@ -225,8 +221,8 @@ export class ContractSystem {
     this.fs = deps.fs;
     this.audit = deps.audit;
     this.llm = deps.llm;
-    this.chestnutRoot = deps.chestnutRoot ?? resolveChestnutRoot(deps.clawDir, /* isMotion */ false);
-    this.clawsDir = deps.clawsDir ?? path.join(String(this.chestnutRoot), 'claws');
+    this.notifyClaw = deps.notifyClaw;
+    this.clawsDir = deps.clawsDir;
     this.toolRegistry = deps.toolRegistry;
     this.toolTimeoutMs = deps.toolTimeoutMs;
     this.fsFactory = deps.fsFactory;
@@ -377,9 +373,8 @@ export class ContractSystem {
       ...this._lockCtx(),
       clawDir: this.clawDir,
       clawId: this.clawId,
-      // phase 95: pre-bound notifyClaw (Manager binds fs + chestnutRoot + audit)
-      notifyClaw: (targetClawId, message) =>
-        notifyClaw(this.fs, this.chestnutRoot, targetClawId, message, this.audit),
+      // phase 104: caller pre-bound、直接 forward
+      notifyClaw: this.notifyClaw,
       llm: this.llm,
       contractDir: (id) => this.contractDir(id),
       loadContractYaml: (id) => this.loadContractYaml(id),

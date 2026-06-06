@@ -42,7 +42,8 @@ function makeManager(audit: any) {
     audit,
     toolRegistry: createToolRegistry(),
     fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
-  });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 }
 
 describe('verification outcome observability (phase 1371 sub-4)', () => {

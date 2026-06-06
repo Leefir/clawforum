@@ -122,7 +122,8 @@ describe('manager.withProgressLock uses lockContract atomic (phase 1371 sub-1)',
       audit: mockAudit as any,
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
-    });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
 
     const contractDirSpy = vi.spyOn(manager as any, 'contractDir');
 

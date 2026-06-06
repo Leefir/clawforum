@@ -39,7 +39,8 @@ async function seedActiveContract(): Promise<string> {
     audit: makeMockAudit(),
     toolRegistry: createToolRegistry(),
     fsFactory,
-  });
+    clawsDir: '/tmp/test/claws',
+    notifyClaw: vi.fn(),});
   return manager.create(makeContractYaml());
 }
 
