@@ -12,7 +12,7 @@
 
 import * as path from 'path';
 import { formatErr } from "../utils/index.js";
-import { exec } from '../process-exec/index.js';
+import { exec as defaultExec } from '../process-exec/index.js';
 import { isFileNotFound, type FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import {
@@ -93,6 +93,7 @@ export class Snapshot {
   private readonly audit: AuditLog;
   private readonly ignorePatterns: readonly string[];
   private readonly syncCleanupDirs?: readonly string[];
+  private execImpl: typeof defaultExec;
   private _lastCommitMs = 0;
   private state: SnapshotState = { consecutiveFailures: 0 };
 
@@ -103,20 +104,21 @@ export class Snapshot {
    * @param ignorePatterns - gitignore 模式
    * @param syncCleanupDirs - commit 成功后清理的目录白名单
    */
-  constructor(dir: string, fs: FileSystem, audit: AuditLog, ignorePatterns: readonly string[], syncCleanupDirs?: readonly string[]) {
+  constructor(dir: string, fs: FileSystem, audit: AuditLog, ignorePatterns: readonly string[], syncCleanupDirs?: readonly string[], execImpl?: typeof defaultExec) {
     this.dir = dir;
     this.fs = fs;
     this.audit = audit;
     this.ignorePatterns = ignorePatterns;
     this.syncCleanupDirs = syncCleanupDirs;
+    this.execImpl = execImpl ?? defaultExec;
   }
 
   private buildGitignore(): string {
     return [...this.ignorePatterns, ...DEFAULT_IGNORES].join('\n') + '\n';
   }
 
-  private static async git(dir: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
-    const result = await exec('git', args, { cwd: dir });
+  private async git(args: string[]): Promise<{ stdout: string; stderr: string }> {
+    const result = await this.execImpl('git', args, { cwd: this.dir });
     return { stdout: result.output.trim(), stderr: result.stderr?.trim() ?? '' };
   }
 
@@ -165,7 +167,7 @@ export class Snapshot {
       // (git init + git commit completed). If init crashed between git init
       // and git commit, .git exists but HEAD does not → commit() would fail.
       try {
-        const head = await Snapshot.git(this.dir, ['rev-parse', 'HEAD']);
+        const head = await this.git(['rev-parse', 'HEAD']);
         if (head.stdout) {
           // idempotent: do NOT reset counter (preserve cross-reassemble failure history)
           return ok(undefined);
@@ -183,11 +185,11 @@ export class Snapshot {
     }
     try {
       await this.fs.writeAtomic('.gitignore', this.buildGitignore());
-      await Snapshot.git(this.dir, ['init']);
-      await Snapshot.git(this.dir, ['config', 'user.name', 'chestnut']);
-      await Snapshot.git(this.dir, ['config', 'user.email', 'chestnut@local']);
-      await Snapshot.git(this.dir, ['add', '.']);
-      await Snapshot.git(this.dir, ['commit', '--allow-empty', '-m', 'init']);
+      await this.git(['init']);
+      await this.git(['config', 'user.name', 'chestnut']);
+      await this.git(['config', 'user.email', 'chestnut@local']);
+      await this.git(['add', '.']);
+      await this.git(['commit', '--allow-empty', '-m', 'init']);
       if (shouldResetCounter) {
         this.state.consecutiveFailures = 0;
         if (!this.state.degradedAt) {
@@ -249,7 +251,7 @@ export class Snapshot {
     }
 
     try {
-      const status = await Snapshot.git(this.dir, ['status', '--porcelain']);
+      const status = await this.git(['status', '--porcelain']);
       if (status.stderr) {
         emitSnapshotStatusStderr(this.audit, {
           dir: this.dir,
@@ -263,8 +265,8 @@ export class Snapshot {
         }
         return ok(undefined);
       }
-      await Snapshot.git(this.dir, ['add', '.']);
-      await Snapshot.git(this.dir, ['commit', '-m', message]);
+      await this.git(['add', '.']);
+      await this.git(['commit', '-m', message]);
       this._lastCommitMs = Date.now();
       this.state.consecutiveFailures = 0;
       if (!this.state.degradedAt) {
