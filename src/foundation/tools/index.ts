@@ -27,6 +27,7 @@ export { ExecContextImpl } from './context.js';
 export { escapeForLog } from './types.js';
 
 // Constants
+// phase 137 ML#8 ratify: wildcard export * by-design、constants.ts 内 const (phase 109 + phase 100 立) 通过 wildcard 暴露、ML#7 模块对外承诺扩张策略优先 ML#8、与 async-task audit-emit wildcard (phase 132) 同模板
 export * from './constants.js';
 
 // Types (Tool, ExecContext now owned by L2c Tools)
@@ -45,9 +46,8 @@ export type {
   ExecutionAudit,
 } from './types.js';
 
-export type { ExecContextImplOptions } from './context.js';
 
-export type { AsyncToolTaskArgs, ScheduleAsyncTool } from './async-dispatch.js';
+export type { AsyncToolTaskArgs } from './async-dispatch.js';
 
 
 
