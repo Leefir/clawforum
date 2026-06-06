@@ -75,7 +75,10 @@ const VI_MOCK_FILES = [
   // 可 fast。若再触 flake、回 ISOLATED。
   // 'tests/core/contract_manager-fire-and-forget.test.ts',
   'tests/core/contract_manager-locks.test.ts',
-  'tests/core/contract_manager_llm.test.ts',
+  // phase 94 (SHA <Step B 合 main>): ContractSystem 加 runSubagent? DI 透传到
+  // VerifierConfig（与 phase 87 + 91 形成 3 层 carrier 链）、本测试不需 module
+  // registry isolation、移 fast project。subagent vi.mock 9× cluster 收官。
+  // 'tests/core/contract_manager_llm.test.ts',
   'tests/core/evolution-system.test.ts',
   'tests/core/evolution-system/retro-scheduler.test.ts',
   'tests/core/evolution-system/state-corrupt.test.ts',
