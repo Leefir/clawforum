@@ -255,7 +255,7 @@ export class Snapshot {
       if (status.stderr) {
         emitSnapshotStatusStderr(this.audit, {
           dir: this.dir,
-          stderr: status.stderr.slice(0, 200),
+          stderr: status.stderr.slice(0, AUDIT_MESSAGE_MAX_CHARS),
         });
       }
       if (!status.stdout) {

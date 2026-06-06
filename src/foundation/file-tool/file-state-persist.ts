@@ -17,6 +17,7 @@
 import type { FileSystem } from '../fs/types.js';
 import { isFileNotFound } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
+import { AUDIT_MESSAGE_MAX_CHARS } from '../constants.js';
 import type { ExecContext, FileState } from '../tools/types.js';
 import { formatErr } from '../utils/index.js';
 import { FILE_TOOL_AUDIT_EVENTS } from './audit-events.js';
@@ -103,7 +104,7 @@ export async function loadReadFileState(
     if (typeof parsed !== 'object' || parsed === null) {
       audit?.write(
         FILE_TOOL_AUDIT_EVENTS.READ_FILE_STATE_LOADED,
-        `result=skipped_schema_invalid raw=${raw.slice(0, 200)}`,
+        `result=skipped_schema_invalid raw=${raw.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
       );
       return new Map();
     }
@@ -121,7 +122,7 @@ export async function loadReadFileState(
     if (!isValidShape) {
       audit?.write(
         FILE_TOOL_AUDIT_EVENTS.READ_FILE_STATE_LOADED,
-        `result=skipped_schema_invalid raw=${raw.slice(0, 200)}`,
+        `result=skipped_schema_invalid raw=${raw.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
       );
       return new Map();
     }

@@ -8,6 +8,7 @@
 
 import { isFileNotFound } from '../../foundation/fs/types.js';
 import { formatErr } from "../../foundation/utils/index.js";
+import { AUDIT_MESSAGE_MAX_CHARS } from '../../foundation/constants.js';
 import { runSubagent as defaultRunSubagent } from '../subagent/index.js';
 
 import {
@@ -144,7 +145,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
                   agentId: config.agentId,
                   clawId: config.clawId,
                   stage: 'done_result_schema_invalid',
-                  reason: `raw=${doneResult.result.slice(0, 200)}`,
+                  reason: `raw=${doneResult.result.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
                 },
               );
             }
@@ -208,7 +209,7 @@ export async function runContractVerifier(config: VerifierConfig): Promise<Verif
             agentId: config.agentId,
             clawId: config.clawId,
             stage: 'text_json_schema_invalid',
-            reason: `raw=${jsonStr.slice(0, 200)}`,
+            reason: `raw=${jsonStr.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
           },
         );
       }
