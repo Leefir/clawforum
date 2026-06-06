@@ -1,4 +1,4 @@
-import { kill, isAlive as defaultL1IsAlive } from '../process-exec/index.js';
+import { kill as defaultKill, isAlive as defaultL1IsAlive } from '../process-exec/index.js';
 import { DAEMON_SHUTDOWN_GRACE_MS, PROCESS_STOP_POLL_INTERVAL_MS } from './constants.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { readPid, removePid } from './pid.js';
@@ -26,7 +26,7 @@ export async function stopProcess(ctx: ProcessManagerContext, clawId: ClawId): P
 
   let via = 'sigterm';
   try {
-    kill(stored.pid, 'TERM');
+    (ctx.kill ?? defaultKill)(stored.pid, 'TERM');
 
     // poll until process exits or timeout (early exit)
     const deadline = Date.now() + DAEMON_SHUTDOWN_GRACE_MS;
@@ -38,7 +38,7 @@ export async function stopProcess(ctx: ProcessManagerContext, clawId: ClawId): P
     }
 
     if ((ctx.l1IsAlive ?? defaultL1IsAlive)(stored.pid, stored.startTime)) {
-      kill(stored.pid, 'KILL');
+      (ctx.kill ?? defaultKill)(stored.pid, 'KILL');
       via = 'sigkill';
       ctx.audit.write(
         PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_KILL_ESCALATED,

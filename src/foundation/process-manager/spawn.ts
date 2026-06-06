@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { formatErr } from "../utils/index.js";
-import { spawnDetached as defaultSpawnDetached, kill } from '../process-exec/index.js';
+import { spawnDetached as defaultSpawnDetached, kill as defaultKill } from '../process-exec/index.js';
 import { DAEMON_SHUTDOWN_GRACE_MS, SPAWN_POLL_INTERVAL_MS } from './constants.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from './audit-events.js';
 import { FileNotFoundError } from '../fs/types.js';
@@ -92,7 +92,7 @@ async function cleanupOrphans(
   let orphanFailCount = 0;
   for (const pid of pids) {
     try {
-      kill(pid, 'TERM');
+      (ctx.kill ?? defaultKill)(pid, 'TERM');
       sentAny = true;
     } catch (err: any) {
       orphanFailCount++;
@@ -134,7 +134,7 @@ async function cleanupLock(
       const lockStartTime = lockHolder.startTime;
       if ((ctx.l1IsAlive ?? defaultL1IsAlive)(lockHolder.pid, lockStartTime)) {
         try {
-          kill(lockHolder.pid, 'TERM');
+          (ctx.kill ?? defaultKill)(lockHolder.pid, 'TERM');
           await sleep(DAEMON_SHUTDOWN_GRACE_MS);
         } catch (err: any) {
           ctx.audit.write(

@@ -26,15 +26,6 @@ vi.mock('../../../src/foundation/process-manager/constants.js', async (importOri
   return { ...actual, DAEMON_SHUTDOWN_GRACE_MS: 0 };
 });
 
-// Mock process-exec so no real signal is sent
-vi.mock('../../../src/foundation/process-exec/index.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/foundation/process-exec/index.js')>();
-  return {
-    ...actual,
-    kill: vi.fn(),
-  };
-});
-
 describe('stop.ts race + getAliveStatus probe single responsibility (phase 879)', () => {
   let tempDir: string;
   let nodeFs: NodeFileSystem;
@@ -57,6 +48,7 @@ describe('stop.ts race + getAliveStatus probe single responsibility (phase 879)'
       audit,
       resolveDir: (id: string) => path.join(tempDir, 'claws', id),
       l1IsAlive: vi.fn().mockReturnValue(false),
+      kill: vi.fn(),
     };
   }
 
