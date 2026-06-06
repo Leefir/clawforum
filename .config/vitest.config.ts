@@ -85,7 +85,8 @@ const VI_MOCK_FILES = [
   // registry isolation、移 fast project。subagent vi.mock 9× cluster 收官。
   // 'tests/core/contract_manager_llm.test.ts',
   'tests/core/evolution-system.test.ts',
-  'tests/core/evolution-system/retro-scheduler.test.ts',
+  // phase 114: RetroConfig DI 替 vi.mock skill-system pattern。
+  // 'tests/core/evolution-system/retro-scheduler.test.ts',
   'tests/core/evolution-system/state-corrupt.test.ts',
   'tests/core/evolution-system/state-file.test.ts',
   // phase 82 Op H: 移出 ISOLATED — 仅用 vi.hoisted + vi.fn instance injection、
