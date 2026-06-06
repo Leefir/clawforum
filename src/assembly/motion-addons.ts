@@ -24,7 +24,7 @@ import { createMemorySystem, memorySearchTool } from '../core/memory/index.js';
 import type { MemorySystem } from '../core/memory/index.js';
 import { createClawContractBridge } from '../core/memory/claw-contract-bridge.js';
 import { createContractObserverJob } from '../core/contract/jobs/contract-observer.js';
-import { createOutboxSummaryJob } from '../core/cron/jobs/outbox-summary.js';
+import { createOutboxSummaryJob } from '../core/cron/jobs/outbox-summary/index.js';
 import { createGateway } from '../core/gateway/index.js';
 import type { Gateway } from '../core/gateway/index.js';
 import { createAskUserTool } from '../core/gateway/index.js';

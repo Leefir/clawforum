@@ -9,7 +9,7 @@
  * phase 42 根治：hash 移入 InboxMessage.extraMeta、查走 Messaging 对外入口、绕过 filename schema。
  */
 
-import type { InboxReader } from '../../foundation/messaging/index.js';
+import type { InboxReader } from '../../../../foundation/messaging/index.js';
 
 export const DEDUP_DONE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const SUMMARY_HASH_META_KEY = 'summary-hash' as const;

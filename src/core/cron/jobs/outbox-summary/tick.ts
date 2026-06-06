@@ -12,10 +12,10 @@
  * 异常隔离归 cron runner（throw → cron_job_error / 详 l5_cron.md §1）.
  */
 
-import type { FileSystem } from '../../foundation/fs/types.js';
-import type { AuditLog } from '../../foundation/audit/index.js';
-import type { InboxReader, InboxWriter, OutboxReader } from '../../foundation/messaging/index.js';
-import { CRON_AUDIT_EVENTS } from '../cron/audit-events.js';
+import type { FileSystem } from '../../../../foundation/fs/types.js';
+import type { AuditLog } from '../../../../foundation/audit/index.js';
+import type { InboxReader, InboxWriter, OutboxReader } from '../../../../foundation/messaging/index.js';
+import { OUTBOX_SUMMARY_AUDIT_EVENTS } from './audit-events.js';
 import { scanOutboxes } from './scan.js';
 import { findExistingSummaryByHash } from './dedup.js';
 import { writeNewSummary } from './write.js';
@@ -39,7 +39,7 @@ export async function runOutboxSummaryTick(deps: OutboxSummaryTickDeps): Promise
   });
 
   if (state.total_msgs === 0) {
-    deps.audit.write(CRON_AUDIT_EVENTS.OUTBOX_SUMMARY_CLEARED);
+    deps.audit.write(OUTBOX_SUMMARY_AUDIT_EVENTS.OUTBOX_SUMMARY_CLEARED);
     return;
   }
 
@@ -49,7 +49,7 @@ export async function runOutboxSummaryTick(deps: OutboxSummaryTickDeps): Promise
   );
   if (hit !== null) {
     deps.audit.write(
-      CRON_AUDIT_EVENTS.OUTBOX_SUMMARY_SKIPPED,
+      OUTBOX_SUMMARY_AUDIT_EVENTS.OUTBOX_SUMMARY_SKIPPED,
       `hash=${state.hash}`,
       `reason=${hit}`,
     );

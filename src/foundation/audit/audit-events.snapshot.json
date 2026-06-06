@@ -186,10 +186,6 @@
       "cron_job_error",
       "cron_job_late_settled",
       "cron_job_started",
-      "cron_outbox_summary_cleared",
-      "cron_outbox_summary_failed",
-      "cron_outbox_summary_skipped",
-      "cron_outbox_summary_written",
       "cron_parse_fallback",
       "cron_parse_invalid",
       "cron_runner_started",
@@ -557,6 +553,12 @@
     ],
     "core_step-executor_audit-events": [
       "step_executor_invariant_violation"
+    ],
+    "core_cron_jobs_outbox-summary_audit-events": [
+      "cron_outbox_summary_cleared",
+      "cron_outbox_summary_failed",
+      "cron_outbox_summary_skipped",
+      "cron_outbox_summary_written"
     ]
   }
 }

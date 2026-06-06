@@ -20,10 +20,7 @@ export const CRON_AUDIT_EVENTS = {
   RUNNER_DRAIN_TIMEOUT: 'cron_drain_timeout',   // phase 793 (P0.22): stop drain cap timeout
   RUNNER_DRAIN_LATE_SETTLE: 'cron_drain_late_settle',  // NEW phase 867 (r111 E fork): post-drain late settle observability
   // phase 1476: OUTBOX_DRAIN_* (4 const) 砍 — outbox-drain cron 退场（pull 模型替 push）
-  OUTBOX_SUMMARY_WRITTEN: 'cron_outbox_summary_written',                   // NEW phase 1476
-  OUTBOX_SUMMARY_SKIPPED: 'cron_outbox_summary_skipped',                   // NEW phase 1476 (dedup hit)
-  OUTBOX_SUMMARY_CLEARED: 'cron_outbox_summary_cleared',                   // NEW phase 1476 (0 unread → archive 旧 pending summary mv→done / 不 delete / DP 不丢弃)
-  OUTBOX_SUMMARY_FAILED: 'cron_outbox_summary_failed',                     // NEW phase 1476 (tick handler throw)
+  // phase 134: outbox-summary 4 events 迁出到自治 helper audit-events 命名空间
   // phase 28: STATE_SAVE_FAILED 砍 — phase1109 state persistence wiring 删（fs? optional 实际从未 wire 进 production）
   // phase 6: SUNSET_READY / SUNSET_QUERY_FAIL 砍 — sunset-monitor cron 移除 / dev-side 信号不该走 motion inbox
 } as const;

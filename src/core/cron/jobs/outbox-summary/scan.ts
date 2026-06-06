@@ -9,10 +9,10 @@
  */
 
 import * as path from 'path';
-import type { FileSystem } from '../../foundation/fs/types.js';
-import { isFileNotFound } from '../../foundation/fs/types.js';
-import type { OutboxReader } from '../../foundation/messaging/index.js';
-import { MOTION_CLAW_ID } from '../../constants.js';
+import type { FileSystem } from '../../../../foundation/fs/types.js';
+import { isFileNotFound } from '../../../../foundation/fs/types.js';
+import type { OutboxReader } from '../../../../foundation/messaging/index.js';
+import { MOTION_CLAW_ID } from '../../../../constants.js';
 import { computeHash } from './hash.js';
 import { PREVIEW_MAX_CHARS } from './types.js';
 import type { OutboxSummaryState } from './types.js';

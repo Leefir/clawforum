@@ -6,11 +6,11 @@
  * dedup 查询不再依赖文件名 schema。
  */
 
-import type { AuditLog } from '../../foundation/audit/index.js';
-import type { InboxWriter } from '../../foundation/messaging/index.js';
-import type { InboxMessage } from '../../foundation/messaging/types.js';
-import { CRON_AUDIT_EVENTS } from '../cron/audit-events.js';
-import { MOTION_CLAW_ID } from '../../constants.js';
+import type { AuditLog } from '../../../../foundation/audit/index.js';
+import type { InboxWriter } from '../../../../foundation/messaging/index.js';
+import type { InboxMessage } from '../../../../foundation/messaging/types.js';
+import { OUTBOX_SUMMARY_AUDIT_EVENTS } from './audit-events.js';
+import { MOTION_CLAW_ID } from '../../../../constants.js';
 import { SUMMARY_HASH_META_KEY } from './dedup.js';
 import { toExtraMeta } from './types.js';
 import type { OutboxSummaryState } from './types.js';
@@ -44,7 +44,7 @@ export async function writeNewSummary(
   await deps.inboxWriter.write(msg, extra);
 
   deps.audit.write(
-    CRON_AUDIT_EVENTS.OUTBOX_SUMMARY_WRITTEN,
+    OUTBOX_SUMMARY_AUDIT_EVENTS.OUTBOX_SUMMARY_WRITTEN,
     `hash=${state.hash}`,
     `total_claws=${state.total_claws}`,
     `total_msgs=${state.total_msgs}`,
