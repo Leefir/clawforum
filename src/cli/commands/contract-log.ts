@@ -16,6 +16,9 @@ import { makeContractId } from '../../core/contract/types.js';
 import * as path from 'path';
 import { resolveChestnutRoot } from '../../assembly/install-paths.js';
 
+/** contract-log evidence console.log 显示截断 cap（trigger=keep 同值、'…' Unicode append）*/
+const EVIDENCE_PREVIEW_CHARS = 300;
+
 export async function contractLogCommand(deps: { fsFactory: (baseDir: string) => FileSystem }, clawId: ClawId, contractId?: string): Promise<void> {
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
@@ -73,7 +76,7 @@ export async function contractLogCommand(deps: { fsFactory: (baseDir: string) =>
     const label = `[${status}]`.padEnd(13);
     console.log(`  ${label} ${subtask.id}: ${subtask.description}`);
     if (st?.evidence) {
-      const ev = st.evidence.length > 300 ? st.evidence.slice(0, 300) + '…' : st.evidence;
+      const ev = st.evidence.length > EVIDENCE_PREVIEW_CHARS ? st.evidence.slice(0, EVIDENCE_PREVIEW_CHARS) + '…' : st.evidence;
       console.log(`               Evidence: ${ev}`);
     }
     if (st?.last_failed_feedback) {
