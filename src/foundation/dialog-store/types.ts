@@ -5,7 +5,6 @@
  */
 
 import type { Message, ToolDefinition } from '../llm-provider/types.js';
-import type { ClawId } from '../paths.js';
 import type { ToolUseId } from '../tool-protocol/index.js';
 
 
@@ -29,7 +28,7 @@ export interface LoadResult {
 
 /** phase 466: marker 模式 for subagent context restoration */
 export interface DialogMarker {
-  clawId: ClawId;
+  clawId: string;
   toolUseId: ToolUseId;
 }
 

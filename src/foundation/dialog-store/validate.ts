@@ -7,7 +7,6 @@
 
 import type { Message } from '../llm-provider/types.js';
 import type { AuditLog } from '../audit/index.js';
-import type { ClawId } from '../paths.js';
 import type { SessionData } from './types.js';
 import { DIALOG_AUDIT_EVENTS } from './audit-events.js';
 import type { ToolUseId } from '../tool-protocol/index.js';
@@ -16,7 +15,7 @@ const SESSION_CURRENT_VERSION = 2;
 
 export class MarkerNotFoundError extends Error {
   constructor(
-    readonly clawId: ClawId,
+    readonly clawId: string,
     readonly toolUseId: ToolUseId,
   ) {
     super(`marker not found: clawId=${clawId} toolUseId=${toolUseId}`);
