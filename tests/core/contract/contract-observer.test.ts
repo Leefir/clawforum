@@ -88,61 +88,46 @@ function makeAuditMock(): AuditLog {
 function makeOpts(overrides: Partial<{
   fs: FileSystem;
   motionAudit: AuditLog;
-  notifyClaw: ReturnType<typeof vi.fn>;
+  notifyMotion: ReturnType<typeof vi.fn>;
 }> = {}) {
   return {
-    chestnutRoot: '/tmp/test',
+    clawsDir: '/tmp/test/claws',
+    motionDir: '/tmp/test/motion',
     fs: makeFsMock('empty'),
     motionAudit: makeAuditMock(),
-    notifyClaw: vi.fn(),
+    notifyMotion: vi.fn(),
     ...overrides,
   };
 }
 
 describe('Phase 542 — contract-observer deps 装配方注入', () => {
-  it('completed contract events → notifyClaw called', async () => {
+  it('completed contract events → notifyMotion called', async () => {
     const opts = makeOpts({ fs: makeFsMock('completed') });
     await runContractObserver(opts);
-    expect(opts.notifyClaw).toHaveBeenCalledWith(
-      opts.fs,
-      opts.chestnutRoot,
-      'motion',
+    expect(opts.notifyMotion).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'contract_events' }),
-      opts.motionAudit,
     );
   });
 
-  it('no events → notifyClaw NOT called', async () => {
+  it('no events → notifyMotion NOT called', async () => {
     const opts = makeOpts({ fs: makeFsMock('empty') });
     await runContractObserver(opts);
-    expect(opts.notifyClaw).not.toHaveBeenCalled();
+    expect(opts.notifyMotion).not.toHaveBeenCalled();
   });
 
-  it('phase 63: 分流 3 个 notifyClawFn 调用 by status', async () => {
+  it('phase 63: 分流 3 个 notifyMotion 调用 by status', async () => {
     const opts = makeOpts({ fs: makeFsMock('mixed') });
     await runContractObserver(opts);
 
-    expect(opts.notifyClaw).toHaveBeenCalledTimes(3);
-    expect(opts.notifyClaw).toHaveBeenCalledWith(
-      opts.fs,
-      opts.chestnutRoot,
-      'motion',
+    expect(opts.notifyMotion).toHaveBeenCalledTimes(3);
+    expect(opts.notifyMotion).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'contract_events', body: expect.stringContaining('c1') }),
-      opts.motionAudit,
     );
-    expect(opts.notifyClaw).toHaveBeenCalledWith(
-      opts.fs,
-      opts.chestnutRoot,
-      'motion',
+    expect(opts.notifyMotion).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'contract_cancelled', body: expect.stringContaining('c2') }),
-      opts.motionAudit,
     );
-    expect(opts.notifyClaw).toHaveBeenCalledWith(
-      opts.fs,
-      opts.chestnutRoot,
-      'motion',
+    expect(opts.notifyMotion).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'contract_crashed', body: expect.stringContaining('c3') }),
-      opts.motionAudit,
     );
   });
 });

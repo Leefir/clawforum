@@ -13,6 +13,8 @@ import { runContractObserver } from '../../../src/core/contract/jobs/contract-ob
 import type { FileSystem, FileEntry } from '../../../src/foundation/fs/types.js';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
 import { makeChestnutRoot } from '../../../src/assembly/install-paths.js';
+const TEST_CLAWS_DIR = '/test/root/claws';
+const TEST_MOTION_DIR = '/test/root/motion';
 
 interface MockArchiveSpec {
   clawId: string;
@@ -116,15 +118,15 @@ describe('phase 37 contract-observer race 根治', () => {
     const notifyClaw = vi.fn();
 
     await runContractObserver({
-      chestnutRoot: makeChestnutRoot('/test/root'),
+      clawsDir: TEST_CLAWS_DIR,
+      motionDir: TEST_MOTION_DIR,
       fs,
       motionAudit: audit,
-      notifyClaw,
+      notifyMotion: notifyClaw,
     });
 
     expect(notifyClaw).toHaveBeenCalledTimes(1);
-    const callArgs = notifyClaw.mock.calls[0];
-    const payload = callArgs[3] as { body: string };
+    const payload = notifyClaw.mock.calls[0][0] as { body: string };
     expect(payload.body).toContain('[contract_completed]');
     expect(payload.body).toContain('claw=gateway-auditor');
     expect(payload.body).toContain('1780554681078-ee7dbf4d');
@@ -149,10 +151,11 @@ describe('phase 37 contract-observer race 根治', () => {
     const notifyClaw = vi.fn();
 
     await runContractObserver({
-      chestnutRoot: makeChestnutRoot('/test/root'),
+      clawsDir: TEST_CLAWS_DIR,
+      motionDir: TEST_MOTION_DIR,
       fs,
       motionAudit: audit,
-      notifyClaw,
+      notifyMotion: notifyClaw,
     });
 
     expect(notifyClaw).not.toHaveBeenCalled();
@@ -172,10 +175,11 @@ describe('phase 37 contract-observer race 根治', () => {
     const notifyClaw = vi.fn();
 
     await runContractObserver({
-      chestnutRoot: makeChestnutRoot('/test/root'),
+      clawsDir: TEST_CLAWS_DIR,
+      motionDir: TEST_MOTION_DIR,
       fs,
       motionAudit: audit,
-      notifyClaw,
+      notifyMotion: notifyClaw,
     });
 
     // bootstrap = no emit
@@ -213,10 +217,11 @@ describe('phase 37 contract-observer race 根治', () => {
     const notifyClaw = vi.fn();
 
     await runContractObserver({
-      chestnutRoot: makeChestnutRoot('/test/root'),
+      clawsDir: TEST_CLAWS_DIR,
+      motionDir: TEST_MOTION_DIR,
       fs,
       motionAudit: audit,
-      notifyClaw,
+      notifyMotion: notifyClaw,
     });
 
     expect(notifyClaw).not.toHaveBeenCalled();
@@ -245,10 +250,11 @@ describe('phase 37 contract-observer race 根治', () => {
     const notifyClaw = vi.fn();
 
     await runContractObserver({
-      chestnutRoot: makeChestnutRoot('/test/root'),
+      clawsDir: TEST_CLAWS_DIR,
+      motionDir: TEST_MOTION_DIR,
       fs,
       motionAudit: audit,
-      notifyClaw,
+      notifyMotion: notifyClaw,
     });
 
     const afterTick = Date.now();

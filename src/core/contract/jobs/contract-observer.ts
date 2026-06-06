@@ -5,11 +5,11 @@ import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { InboxMessageOptionsBase } from '../../../foundation/messaging/index.js';
 import { scanArchivedContracts } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
-import { CLAWS_DIR } from '../../../assembly/claw-dirs.js';
-import { MOTION_CLAW_ID } from '../../../constants.js';
 import { makeClawId } from '../../../foundation/paths.js'
-import { type ChestnutRoot } from '../../../assembly/install-paths.js';
 import { makeClawDir } from '../../../foundation/paths.js';
+
+/** phase 101: DI callback - caller (装配期) bind fs + chestnutRoot + MOTION_CLAW_ID + audit */
+export type NotifyMotionFn = (message: InboxMessageOptionsBase) => void;
 import type { CronJob } from '../../cron/runner.js';
 import { parseSchedule } from '../../cron/runner.js';
 import type { ClawGlobalConfig } from '../../../foundation/config/index.js';
@@ -22,18 +22,23 @@ import type { ClawGlobalConfig } from '../../../foundation/config/index.js';
 export const CONTRACT_OBSERVER_CRON_TIMEOUT_MS = 5 * 60_000;
 
 export interface ContractObserverOptions {
-  chestnutRoot: ChestnutRoot;       // .chestnut/ 目录
-  fs: FileSystem;             // baseDir = chestnutRoot (装配方预 build)
-  motionAudit: AuditLog;      // motion system audit (装配方预 build)
-  notifyClaw: (fs: FileSystem, chestnutRoot: ChestnutRoot, targetClawId: string, payload: InboxMessageOptionsBase, audit: AuditLog) => void; // 装配方 closure 包装
+  /** phase 101: caller (装配期) 算好的 claws dir */
+  clawsDir: string;
+  /** phase 101: caller (装配期) 算好的 motion dir (state file 位置) */
+  motionDir: string;
+  fs: FileSystem;
+  motionAudit: AuditLog;
+  /** phase 101: pre-bound notifyMotion */
+  notifyMotion: NotifyMotionFn;
   signal?: AbortSignal;
 }
 
 export interface ContractObserverJobDeps {
-  chestnutRoot: ChestnutRoot;
+  clawsDir: string;
+  motionDir: string;
   fs: FileSystem;
   motionAudit: AuditLog;
-  notifyClaw: (fs: FileSystem, chestnutRoot: ChestnutRoot, targetClawId: string, payload: InboxMessageOptionsBase, audit: AuditLog) => void;
+  notifyMotion: NotifyMotionFn;
 }
 
 // 持久化文件：observer 状态（已通知 contract set + lastCheckTs metric + bootstrap marker）
@@ -106,18 +111,17 @@ function loadObserverState(fs: FileSystem, stateFile: string, audit: AuditLog): 
 }
 
 export async function runContractObserver(options: ContractObserverOptions): Promise<void> {
-  const { chestnutRoot, fs, motionAudit, notifyClaw: notifyClawFn } = options;
+  const { clawsDir, motionDir, fs, motionAudit, notifyMotion } = options;
 
   // phase 37: tickStart 在 scan 开始捕获、写为 lastCheckTs（不再 end-of-scan now、关 race window）
   const tickStart = Date.now();
 
-  const stateFile = path.join(chestnutRoot, 'motion', STATE_FILE);
+  const stateFile = path.join(motionDir, STATE_FILE);
   const state = loadObserverState(fs, stateFile, motionAudit);
   const notifiedSet = new Set(state.notifiedContracts);
   const wasBootstrapPending = !state.bootstrapDone;
 
   // 扫描 claws/ 目录
-  const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
   let clawIds: string[];
   try {
     clawIds = fs.listSync(clawsDir, { includeDirs: true })
@@ -143,7 +147,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   for (const clawId of clawIds) {
     if (options.signal?.aborted) return;
     try {
-      const clawDir = makeClawDir(path.join(chestnutRoot, CLAWS_DIR, clawId));
+      const clawDir = makeClawDir(path.join(clawsDir, clawId));
       const entries = scanArchivedContracts(fs, clawDir, makeClawId(clawId), motionAudit);
       for (const entry of entries) {
         const key = `${clawId}:${entry.contractId}`;
@@ -180,9 +184,9 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     }
   }
 
-  // 分流投递 3 个独立 notifyClawFn 调用（type 不同）
+  // 分流投递 4 个独立 notifyMotion 调用（type 不同）
   if (completedEvents.length > 0) {
-    notifyClawFn(fs, chestnutRoot, MOTION_CLAW_ID, {
+    notifyMotion({
       type: 'contract_events',
       source: 'system',
       priority: 'high',
@@ -190,34 +194,34 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
       extraFields: {
         problem_pairs: allProblemPairs.join(','),
       },
-    }, motionAudit);
+    });
   }
 
   if (cancelledEvents.length > 0) {
-    notifyClawFn(fs, chestnutRoot, MOTION_CLAW_ID, {
+    notifyMotion({
       type: 'contract_cancelled',
       source: 'system',
       priority: 'high',
       body: cancelledEvents.join('\n\n'),
-    }, motionAudit);
+    });
   }
 
   if (crashedEvents.length > 0) {
-    notifyClawFn(fs, chestnutRoot, MOTION_CLAW_ID, {
+    notifyMotion({
       type: 'contract_crashed',
       source: 'system',
       priority: 'high',
       body: crashedEvents.join('\n\n'),
-    }, motionAudit);
+    });
   }
 
   if (recoveryEvents.length > 0) {
-    notifyClawFn(fs, chestnutRoot, MOTION_CLAW_ID, {
+    notifyMotion({
       type: 'contract_events',  // recovery 复用 contract_events、不立第 4 个 type
       source: 'system',
       priority: 'high',
       body: recoveryEvents.join('\n\n'),
-    }, motionAudit);
+    });
   }
 
   // 更新 state：加入新发现 contract、FIFO cap

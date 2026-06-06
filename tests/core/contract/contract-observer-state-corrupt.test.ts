@@ -39,10 +39,11 @@ describe('contract observer state file shape_mismatch emits OBSERVER_STATE_PARSE
     const { audit, events } = makeAuditMock();
 
     await runContractObserver({
-      chestnutRoot: '/tmp/test',
+      clawsDir: '/tmp/test/claws',
+      motionDir: '/tmp/test/motion',
       fs,
       motionAudit: audit,
-      notifyClaw: vi.fn(),
+      notifyMotion: vi.fn(),
     });
 
     const parseFailedEvents = events.filter(
@@ -63,10 +64,11 @@ describe('contract observer state file shape_mismatch emits OBSERVER_STATE_PARSE
     const { audit, events } = makeAuditMock();
 
     await runContractObserver({
-      chestnutRoot: '/tmp/test',
+      clawsDir: '/tmp/test/claws',
+      motionDir: '/tmp/test/motion',
       fs,
       motionAudit: audit,
-      notifyClaw: vi.fn(),
+      notifyMotion: vi.fn(),
     });
 
     const parseFailedEvents = events.filter(
@@ -86,10 +88,11 @@ describe('contract observer state file shape_mismatch emits OBSERVER_STATE_PARSE
     const { audit, events } = makeAuditMock();
 
     await runContractObserver({
-      chestnutRoot: '/tmp/test',
+      clawsDir: '/tmp/test/claws',
+      motionDir: '/tmp/test/motion',
       fs,
       motionAudit: audit,
-      notifyClaw: vi.fn(),
+      notifyMotion: vi.fn(),
     });
 
     const parseFailedEvents = events.filter(

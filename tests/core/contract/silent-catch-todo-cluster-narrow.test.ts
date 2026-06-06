@@ -117,10 +117,11 @@ describe('phase 1010 — silent X TODO cluster narrow', () => {
     } as unknown as FileSystem;
     const notifyInbox = vi.fn();
     await runContractObserver({
-      chestnutRoot: '/tmp/test',
+      clawsDir: '/tmp/test/claws',
+      motionDir: '/tmp/test/motion',
       fs,
       motionAudit: audit,
-      notifyClaw: notifyInbox,
+      notifyMotion: notifyInbox,
     });
     expect(events).toHaveLength(0);
     // 无事件、不 notify
@@ -142,10 +143,11 @@ describe('phase 1010 — silent X TODO cluster narrow', () => {
     } as unknown as FileSystem;
     const notifyInbox = vi.fn();
     await runContractObserver({
-      chestnutRoot: '/tmp/test',
+      clawsDir: '/tmp/test/claws',
+      motionDir: '/tmp/test/motion',
       fs,
       motionAudit: audit,
-      notifyClaw: notifyInbox,
+      notifyMotion: notifyInbox,
     });
     // phase 37: state load failed → fall to first-run defaults (bootstrapDone=false)
     // → 首 tick 后 emit OBSERVER_BOOTSTRAP_DONE trace

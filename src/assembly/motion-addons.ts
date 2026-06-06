@@ -193,10 +193,11 @@ export async function createMotionAddons(
           audit: auditWriter,
         }, globalConfig),
         createContractObserverJob({
-          chestnutRoot,
+          clawsDir: path.join(chestnutRoot, 'claws'),    // phase 101
+          motionDir: path.join(chestnutRoot, 'motion'),  // phase 101
           fs: chestnutFs,
           motionAudit: auditWriter,  // phase 724 α：主 auditWriter 单 instance 复用
-          notifyClaw: (fs, chestnutRoot, targetClawId, payload, audit) => notifyClaw(fs, chestnutRoot, targetClawId, payload, audit),
+          notifyMotion: (msg) => notifyClaw(chestnutFs, chestnutRoot, MOTION_CLAW_ID, msg, auditWriter),
         }, globalConfig),
         createGitGcWeeklyJob({
           clawsDir: path.join(chestnutRoot, 'claws'),  // phase 84

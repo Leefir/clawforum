@@ -46,7 +46,6 @@ describe('inbox write-side encap invariant (phase 1334 r138 E fork)', () => {
     expect(outNotify).toContain('random-dream.ts');
     expect(outNotify).toContain('result-delivery.ts');
     expect(outNotify).toContain('verification-notify.ts');
-    expect(outNotify).toContain('contract-observer.ts');
 
     // deep-dream uses deprecated notifyInbox for self-notify (chrooted fs special case)
     // phase 1493: grep -rn 单文件在 BSD (macOS) vs GNU (Linux) 输出格式差
