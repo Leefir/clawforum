@@ -28,6 +28,7 @@ export const SUMMON_AUDIT_EVENTS = {
   SUMMON_STATE_WRITE_FAILED: 'summon_state_write_failed',
   SUMMON_STATE_READ_FAILED: 'summon_state_read_failed',
   SUMMON_GATE_NO_DECISION: 'summon_gate_no_decision',
+  SUMMON_TARGET_CLAW_VIOLATION: 'summon_target_claw_violation',
 } as const;
 
 export function emitSummonDispatched(audit: AuditLog, opts: {

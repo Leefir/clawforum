@@ -29,7 +29,7 @@ export async function contractCreateFromDirCommand(
   const contract = parseAndValidateContractYaml(yamlContent);
 
   // NEW: summon gate（subagentTaskId 来自 env、非子代理时 undefined → no-op）
-  await deps.summonContractCreateGate.check(process.env.CHESTNUT_SUBAGENT_TASK_ID, contract);
+  await deps.summonContractCreateGate.check(process.env.CHESTNUT_SUBAGENT_TASK_ID, contract, clawId);
 
   const clawDir = getClawDir(clawId);
   const clawFs = deps.fsFactory(clawDir);
