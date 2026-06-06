@@ -88,8 +88,10 @@ const VI_MOCK_FILES = [
   'tests/core/shadow-system/shadow-async.test.ts',
   'tests/core/shadow-system/shadow-signal-propagation.test.ts',
   'tests/core/shadow-system/shadow-tool.test.ts',
-  'tests/core/spawn-system/spawn-signal-propagation.test.ts',
-  'tests/core/spawn-system/sync-path.test.ts',
+  // phase 88 (SHA 91b0b934): spawn-system createSpawnTool DI 替 vi.mock
+  // pattern、2 测试不需 module registry isolation、移 fast project。
+  // 'tests/core/spawn-system/spawn-signal-propagation.test.ts',
+  // 'tests/core/spawn-system/sync-path.test.ts',
   'tests/core/subagent-executor.test.ts',
   'tests/core/subagent.test.ts',
   'tests/core/subagent/agent-audit-first.test.ts',
