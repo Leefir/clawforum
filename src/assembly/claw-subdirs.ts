@@ -13,44 +13,63 @@
  * `coding plan/cluster-claw-decoupling-roadmap.md`。
  */
 
-import { INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR, OUTBOX_PENDING_DIR } from '../foundation/messaging/index.js';
+import {
+  INBOX_PENDING_DIR, INBOX_DONE_DIR, INBOX_FAILED_DIR,
+  OUTBOX_PENDING_DIR, OUTBOX_DONE_DIR, OUTBOX_FAILED_DIR,
+} from '../foundation/messaging/index.js';
+import { DIALOG_DIR, DIALOG_ARCHIVE_DIR } from '../foundation/dialog-store/index.js';
+import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/index.js';
+import { STATUS_SUBDIR } from '../foundation/process-manager/index.js';
+import { TASKS_SYNC_EXEC_DIR } from '../foundation/command-tool/index.js';
+import { TASKS_SYNC_WRITE_DIR, TASKS_SYNC_SEARCH_DIR } from '../foundation/file-tool/index.js';
+import {
+  TASKS_QUEUES_PENDING_DIR, TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR, TASKS_QUEUES_FAILED_DIR, TASKS_QUEUES_RESULTS_DIR,
+  TASKS_SUBAGENTS_DIR,
+} from '../core/async-task-system/index.js';
+import { TASKS_SYNC_SUBAGENT_DIR } from '../core/subagent/index.js';
+import { TASKS_SYNC_SPAWN_DIR } from '../core/spawn-system/index.js';
+import { TASKS_SYNC_SHADOW_DIR } from '../core/shadow-system/index.js';
+import { MEMORY_DIR } from '../core/memory/index.js';
 import { CLAWSPACE_DIR } from './claw-dirs.js';
 
 export const CLAW_SUBDIRS = [
   // L2b DialogStore
-  'dialog',
-  'dialog/archive',
+  DIALOG_DIR,
+  DIALOG_ARCHIVE_DIR,
   // L2c Messaging
   INBOX_PENDING_DIR,
   INBOX_DONE_DIR,
   INBOX_FAILED_DIR,
   OUTBOX_PENDING_DIR,
-  'outbox/done',
-  'outbox/failed',
+  OUTBOX_DONE_DIR,
+  OUTBOX_FAILED_DIR,
   // L4 AsyncTaskSystem
-  'tasks/queues/pending',
-  'tasks/queues/running',
-  'tasks/queues/done',
-  'tasks/queues/failed',
-  'tasks/queues/results',
+  TASKS_QUEUES_PENDING_DIR,
+  TASKS_QUEUES_RUNNING_DIR,
+  TASKS_QUEUES_DONE_DIR,
+  TASKS_QUEUES_FAILED_DIR,
+  TASKS_QUEUES_RESULTS_DIR,
   // L6 Assembly admit (per l4_async_task_system.md §3「不含 tasks/sync/、装配方 own」)
-  'tasks/sync/exec',
-  'tasks/sync/write',
-  'tasks/sync/search',
-  'tasks/sync/subagent',
-  'tasks/sync/spawn',
-  'tasks/sync/shadow',
-  'tasks/subagents',
+  TASKS_SYNC_EXEC_DIR,
+  TASKS_SYNC_WRITE_DIR,
+  TASKS_SYNC_SEARCH_DIR,
+  TASKS_SYNC_SUBAGENT_DIR,
+  TASKS_SYNC_SPAWN_DIR,
+  TASKS_SYNC_SHADOW_DIR,
+  TASKS_SUBAGENTS_DIR,
   // L4 MemorySystem
-  'memory',
+  MEMORY_DIR,
   // L4 ContractSystem
+  // phase 120 design-gap: contract dir 用户排除本 phase、未立 CONTRACT_DIR const、待后续 phase 治
   'contract',
   // L2c SkillSystem
-  'skills',
+  SKILLS_DIR_DEFAULT,
   // L6 Assembly
   CLAWSPACE_DIR,
   // L2a AuditLog / L6 Assembly
+  // phase 120 design-gap: 'logs' owner 未识别（assembly 装配 dir? audit logs?）、未立 LOGS_DIR const、待后续 phase 治
   'logs',
-  // L5 StatusService
-  'status',
+  // L5 StatusService (own const = process-manager STATUS_SUBDIR)
+  STATUS_SUBDIR,
 ] as const;
