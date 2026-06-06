@@ -21,13 +21,19 @@ import type { ErrorCode } from '../errors.js';
 
 export { LLMError, LLMRateLimitError, LLMTimeoutError, LLMAuthError, LLMNetworkError, LLMEmptyResponseError, LLMModelNotFoundError } from '../llm-provider/errors.js';
 
+/**
+ * LLMFallbackError summary 字符串显示 error.message 截断 cap。
+ * 防 fallback summary 字符串单条过长、user/agent 看到的错误消息可读。
+ */
+const LLM_FALLBACK_ERR_PREVIEW_CHARS = 80;
+
 export class LLMAllProvidersFailedError extends LLMError {
   readonly code: ErrorCode = 'LLM_ALL_PROVIDERS_FAILED';
   readonly failures: Array<{ provider: string; error: Error }>;
 
   constructor(failures: Array<{ provider: string; error: Error }>) {
     const summary = failures
-      .map(f => `${f.provider} (${f.error.message.slice(0, 80)})`)
+      .map(f => `${f.provider} (${f.error.message.slice(0, LLM_FALLBACK_ERR_PREVIEW_CHARS)})`)
       .join(', ');
     super(
       `All LLM providers failed: ${summary}`,
