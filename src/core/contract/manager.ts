@@ -70,7 +70,9 @@ import { resolveChestnutRoot } from '../../assembly/install-paths.js';
 import { type SubtaskId, type ArchiveDir, makeArchiveDir } from './types.js';
 import type { ChestnutRoot } from '../../assembly/install-paths.js';
 import type { ClawId } from '../../foundation/paths.js';
-import { runContractVerifier as defaultRunContractVerifier } from './verifier-job.js';  pauseContract, resumeContract, cancelContract, markCrashed,
+import { runContractVerifier as defaultRunContractVerifier } from './verifier-job.js';
+import {
+  pauseContract, resumeContract, cancelContract, markCrashed,
   isContractComplete, moveContractToArchive,
   type LifecycleContext,
 } from './lifecycle.js';
