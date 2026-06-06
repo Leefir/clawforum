@@ -341,6 +341,7 @@
       "summon_rejected_shadow",
       "summon_state_read_failed",
       "summon_state_write_failed",
+      "summon_target_claw_violation",
       "summon_verify_false_violation",
       "summon_write_by_contract_failed"
     ],
