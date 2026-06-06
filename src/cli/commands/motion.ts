@@ -225,6 +225,7 @@ export async function chatCommand(deps: { fsFactory: (baseDir: string) => FileSy
     showSystemMessages: globalConfig.viewport.show_system_messages,
     showContractEvents: globalConfig.viewport.show_contract_events,
     trimOutputNewlines: globalConfig.viewport.trim_output_newlines,
+    userInputInlineMaxChars: globalConfig.viewport.user_input_inline_max_chars,
   });
 }
 
