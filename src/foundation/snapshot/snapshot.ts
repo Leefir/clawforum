@@ -47,15 +47,11 @@ interface SnapshotState {
   degradedAt?: number;
 }
 
-const STATE_FILE = '.snapshot-state.json';
-
-function stateFilePath(dir: string): string {
-  return path.join(dir, '.git', STATE_FILE);
-}
+const STATE_FILE_REL = path.join('.git', '.snapshot-state.json');
 
 async function persistState(fs: FileSystem, dir: string, state: SnapshotState, audit?: AuditLog): Promise<void> {
   try {
-    await fs.writeAtomic(stateFilePath(dir), JSON.stringify(state));
+    await fs.writeAtomic(STATE_FILE_REL, JSON.stringify(state));
   } catch {
     // silent: persist fail 不抛，下轮 load 最多丢 1 inc
     if (audit) {
@@ -66,7 +62,7 @@ async function persistState(fs: FileSystem, dir: string, state: SnapshotState, a
 
 async function tryClearPersist(fs: FileSystem, dir: string, audit?: AuditLog): Promise<void> {
   try {
-    await fs.delete(stateFilePath(dir));
+    await fs.delete(STATE_FILE_REL);
   } catch (e) {
     // phase 1154 r+ derive: 双码 narrow via foundation helper (FileSystem 抽象层抛 FS_NOT_FOUND)
     if (!isFileNotFound(e) && audit) {
@@ -100,6 +96,13 @@ export class Snapshot {
   private _lastCommitMs = 0;
   private state: SnapshotState = { consecutiveFailures: 0 };
 
+  /**
+   * @param dir - snapshot 根目录绝对路径（必须等于 fs.baseDir、调用方装配责任）
+   * @param fs - FileSystem 实例、baseDir 必须等于 dir
+   * @param audit - 审计日志
+   * @param ignorePatterns - gitignore 模式
+   * @param syncCleanupDirs - commit 成功后清理的目录白名单
+   */
   constructor(dir: string, fs: FileSystem, audit: AuditLog, ignorePatterns: readonly string[], syncCleanupDirs?: readonly string[]) {
     this.dir = dir;
     this.fs = fs;
@@ -123,12 +126,10 @@ export class Snapshot {
    * - 不可预期失败（磁盘满 / 权限）→ throw（冒泡给启动流程）
    */
   async init(): Promise<Result<void, ExpectedGitFailure>> {
-    const gitDir = path.join(this.dir, '.git');
     // load persisted state (cross-reassemble continuity)
     try {
-      const sf = stateFilePath(this.dir);
-      if (await this.fs.exists(sf)) {
-        const raw = await this.fs.read(sf);
+      if (await this.fs.exists(STATE_FILE_REL)) {
+        const raw = await this.fs.read(STATE_FILE_REL);
         const loaded: unknown = JSON.parse(raw);
         // phase 21: inline schema check 覆盖全字段（playbook 静默失败 §8）
         const isValidState =
@@ -159,7 +160,7 @@ export class Snapshot {
       emitSnapshotStateCorrupt(this.audit, { reason: (e as Error).message });
     }
     let shouldResetCounter = false;
-    if (await this.fs.exists(gitDir)) {
+    if (await this.fs.exists('.git')) {
       // Post-init integrity check: a repo is only ready if HEAD exists
       // (git init + git commit completed). If init crashed between git init
       // and git commit, .git exists but HEAD does not → commit() would fail.
@@ -181,7 +182,7 @@ export class Snapshot {
       shouldResetCounter = true;
     }
     try {
-      await this.fs.writeAtomic(path.join(this.dir, '.gitignore'), this.buildGitignore());
+      await this.fs.writeAtomic('.gitignore', this.buildGitignore());
       await Snapshot.git(this.dir, ['init']);
       await Snapshot.git(this.dir, ['config', 'user.name', 'chestnut']);
       await Snapshot.git(this.dir, ['config', 'user.email', 'chestnut@local']);
@@ -217,9 +218,8 @@ export class Snapshot {
   }
 
   private async tryCleanupGit(_failure: ExpectedGitFailure): Promise<void> {
-    const gitDir = path.join(this.dir, '.git');
     try {
-      await this.fs.removeDir(gitDir);
+      await this.fs.removeDir('.git');
     } catch (cleanupErr) {
       const reason = formatErr(cleanupErr);
       emitSnapshotInitCleanupFailed(this.audit, {
