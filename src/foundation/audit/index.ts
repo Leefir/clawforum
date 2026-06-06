@@ -23,12 +23,9 @@ import type { FileSystem } from '../fs/types.js';
 export type { AuditLog } from './types.js';
 import type { AuditLog } from './types.js';
 
-export { AuditWriter, AUDIT_FILE, reconcileFallbackDumps, FALLBACK_BUFFER_CAP } from './writer.js';
-export { AUDIT_FALLBACK_DROPPED } from './audit-events.js';
+export { AuditWriter, AUDIT_FILE, reconcileFallbackDumps } from './writer.js';
 export { AUDIT_MESSAGE_MAX_CHARS } from './defaults.js';
 export { AUDIT_PREVIEW_LEN } from '../constants.js';
-export { BatchedAuditWriter } from './batched-writer.js';
-export type { BatchedAuditWriterOptions } from './batched-writer.js';
 export { createDirContext } from './dir-context.js';
 
 export function createSystemAudit(fs: FileSystem, baseDir: string): AuditLog {
@@ -50,9 +47,7 @@ export {
   listPendingFallbackDumps,
 } from './reader.js';
 export type {
-  AuditReader,
   AuditRecord,
   ReadOptions,
   AuditFileInfo,
-  PendingFallbackDump,
 } from './reader.js';
