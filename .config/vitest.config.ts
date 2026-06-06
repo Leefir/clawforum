@@ -77,8 +77,10 @@ const VI_MOCK_FILES = [
   'tests/core/evolution-system/retro-scheduler.test.ts',
   'tests/core/evolution-system/state-corrupt.test.ts',
   'tests/core/evolution-system/state-file.test.ts',
-  'tests/core/evolution-system/system-clawfs-factory.test.ts',
-  'tests/core/evolution-system/system-contract-factory.test.ts',
+  // phase 82 Op H: 移出 ISOLATED — 仅用 vi.hoisted + vi.fn instance injection、
+  // 无 module-level vi.mock、不引 cross-file 模块串扰
+  // 'tests/core/evolution-system/system-clawfs-factory.test.ts',
+  // 'tests/core/evolution-system/system-contract-factory.test.ts',
   'tests/core/memory/system.test.ts',
   'tests/core/process_manager.test.ts',
   'tests/core/process_manager_spawn.test.ts',
