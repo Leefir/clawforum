@@ -12,11 +12,15 @@ const maxThreads = os.cpus().length;
  * 数量: 110 file
  */
 const VI_MOCK_FILES = [
-  'tests/assembly/assemble-dream-trigger-guard.test.ts',
-  'tests/assembly/assemble-evolution-guard.test.ts',
-  'tests/assembly/assemble-evolution-toolregistry.test.ts',
-  'tests/assembly/assemble-lockfile-cleanup.test.ts',
-  'tests/assembly/assemble.test.ts',
+  // phase 121: 5 assembly tests moved out of ISOLATED
+  // SkillSystem vi.mock removed via AssembleDeps DI; remaining vi.mock
+  // (ContractSystem / AsyncTaskSystem / Messaging) do not cause cross-file
+  // module registry race in 5x consecutive fast-project runs.
+  // 'tests/assembly/assemble-dream-trigger-guard.test.ts',
+  // 'tests/assembly/assemble-evolution-guard.test.ts',
+  // 'tests/assembly/assemble-evolution-toolregistry.test.ts',
+  // 'tests/assembly/assemble-lockfile-cleanup.test.ts',
+  // 'tests/assembly/assemble.test.ts',
   'tests/assembly/detect-unclean-exit.test.ts',
   // phase 1421: tests/cli/already-running-sentinel.test.ts moved to fast project
   // — daemon command bodies extracted with DI seam; tests no longer need vi.mock.
