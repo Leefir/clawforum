@@ -18,8 +18,7 @@ import type { AuditLog } from '../audit/index.js';
 import { emitOutboxListFailed, emitOutboxPeekFailed } from './audit-emit.js';
 import { decodeOutbox } from './codec-outbox.js';
 import type { OutboxMessage } from './types.js';
-
-const OUTBOX_PENDING_SUBDIR = 'outbox/pending';
+import { OUTBOX_PENDING_DIR } from './dirs.js';
 
 export class OutboxReader {
   constructor(
@@ -37,7 +36,7 @@ export class OutboxReader {
    *   - empty array if dir missing / list failed (silent)
    */
   async listClawOutboxPending(clawDir: string): Promise<string[]> {
-    const pendingDir = path.join(clawDir, OUTBOX_PENDING_SUBDIR);
+    const pendingDir = path.join(clawDir, OUTBOX_PENDING_DIR);
     try {
       const entries = await this.fs.list(pendingDir, { includeDirs: false });
       return entries
@@ -80,7 +79,7 @@ export class OutboxReader {
     const filenames = await this.listClawOutboxPending(clawDir);
     if (filenames.length === 0) return null;
     const latest = filenames[filenames.length - 1];
-    const pendingDir = path.join(clawDir, OUTBOX_PENDING_SUBDIR);
+    const pendingDir = path.join(clawDir, OUTBOX_PENDING_DIR);
     const filePath = path.join(pendingDir, latest);
     let raw: string;
     try {
