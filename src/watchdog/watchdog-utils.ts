@@ -223,7 +223,13 @@ export interface ProcessLiveness {
 
 const AUDIT_TAIL_N = 5;
 
-export function gatherClawSnapshot(clawDir: string, fsFactory: (baseDir: string) => FileSystem, pm: ProcessLiveness, clawId: string): ClawSnapshot {
+export function gatherClawSnapshot(
+  clawDir: string,
+  fsFactory: (baseDir: string) => FileSystem,
+  pm: ProcessLiveness,
+  clawId: string,
+  audit?: AuditLog,
+): ClawSnapshot {
   const status = pm.isAlive(clawId) ? 'running' : 'stopped';
 
   const fs = fsFactory(clawDir);
@@ -233,11 +239,33 @@ export function gatherClawSnapshot(clawDir: string, fsFactory: (baseDir: string)
       const entries = fs.listSync(path.join(CONTRACT_DIR, sub), { includeDirs: true });
       const dir = entries.find(e => e.isDirectory);
       if (dir) { contract = `${sub}:${dir.name}`; break; }
-    } catch { /* silent: contract dir scan ENOENT is legitimate / skip */ }
+    } catch (err) {
+      if (!isFileNotFound(err)) {
+        audit?.write(
+          WATCHDOG_AUDIT_EVENTS.CONTRACT_DIR_SCAN_FAILED,
+          `claw=${clawId}`,
+          `sub=${sub}`,
+          `error=${formatErr(err)}`,
+        );
+      }
+      // ENOENT 合法、其他错误 audit emit 留痕
+    }
   }
 
   const countMd = (dir: string) => {
-    try { return fs.listSync(dir).filter(f => f.name.endsWith('.md')).length; } catch { return 0; }
+    try {
+      return fs.listSync(dir).filter(f => f.name.endsWith('.md')).length;
+    } catch (err) {
+      if (!isFileNotFound(err)) {
+        audit?.write(
+          WATCHDOG_AUDIT_EVENTS.CLAW_DIR_LIST_FAILED,
+          `claw=${clawId}`,
+          `dir=${dir}`,
+          `error=${formatErr(err)}`,
+        );
+      }
+      return 0;
+    }
   };
   const inboxPending = countMd(path.join('inbox', 'pending'));
   const outboxPending = countMd(path.join('outbox', 'pending'));

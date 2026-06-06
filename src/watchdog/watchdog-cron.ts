@@ -50,11 +50,12 @@ interface FireInactivityOpts {
   inactiveMs: number;
   lastError: string | null;
   sourcePath?: string;
+  audit?: AuditLog;
 }
 
 function fireInactivityNotification(opts: FireInactivityOpts): { failureClass: string } {
-  const { rawClawId, clawId, clawDir, fsFactory, pm, inactiveMin, inactiveMs, lastError, sourcePath } = opts;
-  const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
+  const { rawClawId, clawId, clawDir, fsFactory, pm, inactiveMin, inactiveMs, lastError, sourcePath, audit } = opts;
+  const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId, audit);
   const failureClass = deriveFailureClass({
     daemonAlive: snapshot.status === 'running',
     lastError,
@@ -144,6 +145,7 @@ export async function maybeCronClawInactivity(pm: ProcessManager, audit: AuditLo
         inactiveMin,
         inactiveMs: now - referenceMs,
         lastError,
+        audit,
       });
       log(fsFactory, `[watchdog] Claw ${rawClawId} ${failureClass} ${inactiveMin}m${lastError ? ` (last error: ${lastError})` : ''}`);
       clawStateAPI.lastInactivityNotified.set(rawClawId, now);
@@ -223,7 +225,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
       );
       log(fsFactory, `[watchdog] Claw ${rawClawId} ${crashClass}${cleanStop ? ' (clean-stop marker present)' : ' (no marker)'}`);
 
-      const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId);
+      const snapshot = gatherClawSnapshot(clawDir, fsFactory, pm, clawId, audit);
       const body = formatCrashBody({
         clawId: rawClawId,
         crashClass,
@@ -324,6 +326,7 @@ export async function maybeCronCheckSubscriptions(pm: ProcessManager, audit: Aud
         inactiveMs,
         lastError,
         sourcePath: 'subscription',
+        audit,
       });
       log(fsFactory, `[watchdog] Claw ${rawClawId} subscription fired ${failureClass} ${inactiveMin}m${lastError ? ` (last error: ${lastError})` : ''}`);
       audit.write(

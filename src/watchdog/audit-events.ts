@@ -31,4 +31,6 @@ export const WATCHDOG_AUDIT_EVENTS = {
   SUBSCRIPTION_CONSUMED_RECOVERED: 'watchdog_subscription_consumed_recovered',
   SUBSCRIPTION_CONSUMED_NO_CONTRACT: 'watchdog_subscription_consumed_no_contract',
   SUBSCRIPTION_CORRUPT: 'watchdog_subscription_corrupt',
+  CONTRACT_DIR_SCAN_FAILED: 'watchdog_contract_dir_scan_failed',
+  CLAW_DIR_LIST_FAILED: 'watchdog_claw_dir_list_failed',
 } as const;
