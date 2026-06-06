@@ -116,6 +116,7 @@ export interface ContractSystemDeps {
   toolTimeoutMs?: number;
   fsFactory: (baseDir: string) => FileSystem;
   runContractVerifier?: typeof defaultRunContractVerifier;
+  runSubagent?: VerifierConfig['runSubagent'];
 }
 
 export class ContractSystem {
@@ -129,6 +130,7 @@ export class ContractSystem {
   private toolTimeoutMs?: number;
   private fsFactory: (baseDir: string) => FileSystem;
   private runContractVerifier: typeof defaultRunContractVerifier;
+  private runSubagent?: VerifierConfig['runSubagent'];
 
   private activeDir = CONTRACT_ACTIVE_DIR;
   private pausedDir = CONTRACT_PAUSED_DIR;
@@ -224,6 +226,7 @@ export class ContractSystem {
     this.toolTimeoutMs = deps.toolTimeoutMs;
     this.fsFactory = deps.fsFactory;
     this.runContractVerifier = deps.runContractVerifier ?? defaultRunContractVerifier;
+    this.runSubagent = deps.runSubagent;
   }
 
   setOnNotify(cb: (type: string, data: Record<string, unknown>) => void): void {
@@ -390,7 +393,7 @@ export class ContractSystem {
       verificationMutex: this.verificationMutex,
       runVerifierWithCancel: async (contractId, config) => {
         const controller = new AbortController();
-        const promise = this.runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory, chestnutRoot: this.chestnutRoot });
+        const promise = this.runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory, chestnutRoot: this.chestnutRoot, runSubagent: this.runSubagent });
         this._registerVerifierController(contractId, controller, promise);
         try {
           return await promise;

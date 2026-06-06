@@ -59,11 +59,17 @@ vi.mock('child_process', async (importOriginal) => {
 const mockSubAgentRun = vi.fn();
 let capturedSubAgentRegistry: import('../../src/foundation/tools/registry.js').ToolRegistryImpl | null = null;
 let capturedOnIdleTimeout: (() => void) | null = null;
-vi.mock('../../src/core/subagent/agent.js', () => ({
-  SubAgent: vi.fn().mockImplementation((opts: any) => {
+
+const { mockRunSubagent } = vi.hoisted(() => ({
+  mockRunSubagent: vi.fn(async (opts: any) => {
     capturedSubAgentRegistry = opts.registry ?? null;
     capturedOnIdleTimeout = opts.onIdleTimeout ?? null;
-    return { run: mockSubAgentRun };
+    const text = await mockSubAgentRun();
+    // 模拟 runSubagent 内部从 registry 提取 capturedResult 的逻辑
+    const toolName = opts.resultTool ?? 'done';
+    const resultToolInstance = opts.registry?.get(toolName);
+    const capturedResult = resultToolInstance?.capturedResult;
+    return { text, capturedResult };
   }),
 }));
 
@@ -232,16 +238,9 @@ describe('ContractSystem Acceptance Flow', () => {
       return proc;
     });
 
-    const { SubAgent } = await import('../../src/core/subagent/agent.js');
-    vi.mocked(SubAgent).mockImplementation((opts: any) => {
-      capturedSubAgentRegistry = opts.registry ?? null;
-      capturedOnIdleTimeout = opts.onIdleTimeout ?? null;
-      return { run: mockSubAgentRun };
-    });
-
     capturedSubAgentRegistry = null;
     capturedOnIdleTimeout = null;
-    
+
     // Reset execFile mock state
     execFileMockBehavior = 'success';
     execFileMockError = null;
@@ -278,7 +277,8 @@ describe('ContractSystem Acceptance Flow', () => {
       audit: mockAudit as any,
       llm: mockLLM,
       toolRegistry: createToolRegistry(),
-      fsFactory
+      fsFactory,
+      runSubagent: mockRunSubagent,
     });
   });
 
@@ -552,7 +552,8 @@ describe('ContractSystem Acceptance Flow', () => {
         fs: nodeFs,
         audit: mockAudit as any,
         toolRegistry: createToolRegistry(),
-        fsFactory
+        fsFactory,
+        runSubagent: mockRunSubagent,
       });
 
       await setupContract(tempDir, contractId, makeContractYaml({
