@@ -8,6 +8,7 @@
  */
 
 import type { ContractFootprint } from './contract-footprint.js';
+import { FOOTPRINT_READS_TOP_N } from './constants.js';
 
 export interface AuditorPromptInput {
   contractId: string;
@@ -38,7 +39,7 @@ export function buildAuditorPrompt(input: AuditorPromptInput): string {
     : '  (none)';
 
   const readsSection = footprint.reads.length > 0
-    ? footprint.reads.slice(0, 20).map(r => `  - ${r.file} @ step ${r.step}`).join('\n')
+    ? footprint.reads.slice(0, FOOTPRINT_READS_TOP_N).map(r => `  - ${r.file} @ step ${r.step}`).join('\n')
     : '  (none)';
 
   const execSection = footprint.execCommands.length > 0
