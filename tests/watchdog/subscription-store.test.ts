@@ -2,7 +2,7 @@
  * phase 5: subscription-store unit tests (file-based 一次性订阅).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fsAsync from 'fs/promises';
 import * as path from 'path';
 import { tmpdir } from 'os';
@@ -14,6 +14,7 @@ import {
   MAX_THRESHOLD_MS,
   SUBSCRIPTION_DIR,
 } from '../../src/watchdog/subscription-store.js';
+import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 
 describe('phase 5: subscription-store', () => {
@@ -82,5 +83,33 @@ describe('phase 5: subscription-store', () => {
     const subs = listSubscriptions(fs);
     expect(subs.length).toBe(1);
     expect(subs[0].clawId).toBe('clawA');
+  });
+
+  it('corrupt JSON file → emits SUBSCRIPTION_CORRUPT audit + skip (phase 135)', async () => {
+    writeSubscription(fs, 'clawA', { subscribed_at: 100, threshold_ms: 5_000 });
+    await fsAsync.writeFile(path.join(root, SUBSCRIPTION_DIR, 'bad-claw.json'), '{invalid json');
+
+    const mockAudit = { write: vi.fn() };
+    const result = listSubscriptions(fs, mockAudit);
+
+    // bad file → skip (return excludes it)
+    expect(result.find(s => s.clawId === 'bad-claw')).toBeUndefined();
+
+    // audit emitted
+    expect(mockAudit.write).toHaveBeenCalledWith(
+      WATCHDOG_AUDIT_EVENTS.SUBSCRIPTION_CORRUPT,
+      'fname=bad-claw.json',
+      expect.stringContaining('error='),
+    );
+  });
+
+  it('corrupt JSON file → silent skip when audit not provided (backward compat)', async () => {
+    writeSubscription(fs, 'clawA', { subscribed_at: 100, threshold_ms: 5_000 });
+    await fsAsync.writeFile(path.join(root, SUBSCRIPTION_DIR, 'bad-claw.json'), '{invalid json');
+    const result = listSubscriptions(fs); // no audit
+    expect(result.find(s => s.clawId === 'bad-claw')).toBeUndefined();
+    expect(result.length).toBe(1);
+    expect(result[0].clawId).toBe('clawA');
+    // 0 throw、行为完全等价 phase 135 前
   });
 });

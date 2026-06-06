@@ -16,6 +16,9 @@
 import * as path from 'path';
 import type { FileSystem } from '../foundation/fs/types.js';
 import { isFileNotFound } from '../foundation/fs/types.js';
+import type { AuditLog } from '../foundation/audit/index.js';
+import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
+import { formatErr } from '../foundation/utils/index.js';
 
 export const SUBSCRIPTION_DIR = 'watchdog-subscriptions';
 export const MAX_THRESHOLD_MS = 24 * 60 * 60 * 1000;   // 24h
@@ -50,7 +53,10 @@ export function writeSubscription(
 }
 
 /** List all subscriptions (watchdog cron tick 调). Returns empty if dir missing. */
-export function listSubscriptions(fs: FileSystem): StoredSubscription[] {
+export function listSubscriptions(
+  fs: FileSystem,
+  audit?: AuditLog,
+): StoredSubscription[] {
   let files: string[];
   try {
     files = fs.listSync(SUBSCRIPTION_DIR, { includeDirs: false })
@@ -70,8 +76,14 @@ export function listSubscriptions(fs: FileSystem): StoredSubscription[] {
         result.push({ clawId, subscribed_at: parsed.subscribed_at, threshold_ms: parsed.threshold_ms });
       }
       // malformed → skip (will be cleaned up next consume of any other subscription)
-    } catch {
-      // silent: race (CLI writing while we read) / corrupted file → ignored this tick
+    } catch (err) {
+      // phase 135: emit SUBSCRIPTION_CORRUPT audit（DP「不丢弃静默」、既存 const 未用、本 phase 激活）
+      audit?.write(
+        WATCHDOG_AUDIT_EVENTS.SUBSCRIPTION_CORRUPT,
+        `fname=${fname}`,
+        `error=${formatErr(err)}`,
+      );
+      // race (CLI writing while we read) / corrupted file → ignored this tick + audit emit
     }
   }
   return result;

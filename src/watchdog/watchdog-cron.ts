@@ -251,7 +251,7 @@ export function maybeCronClawCrash(pm: ProcessManager, audit: AuditLog, fsFactor
 //   (d) now >= subscribed_at + threshold_ms + 仍 stuck → fire claw_inactivity (与 1-shot path 同 type / 同 body shape) + consume
 export async function maybeCronCheckSubscriptions(pm: ProcessManager, audit: AuditLog, fsFactory: (baseDir: string) => FileSystem): Promise<void> {
   const fs = getChestnutFs(fsFactory);
-  const subs = listSubscriptions(fs);
+  const subs = listSubscriptions(fs, audit);
   if (subs.length === 0) return;
 
   const now = Date.now();
