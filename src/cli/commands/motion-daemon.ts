@@ -19,7 +19,7 @@ import { DAEMON_LOG } from '../../daemon/constants.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import type { DaemonPM } from './claw-daemon.js';
 
-export interface MotionDaemonDeps {
+interface MotionDaemonDeps {
   fsFactory: (baseDir: string) => FileSystem;
   /** Test seam — when provided, skips real ProcessManager construction. */
   processManager?: DaemonPM;

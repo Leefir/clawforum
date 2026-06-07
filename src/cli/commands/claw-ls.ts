@@ -26,7 +26,7 @@ import { resolveWorkspacePath } from '../../foundation/file-tool/resolve-path.js
 import { CliError } from '../errors.js';
 import type { FileSystem, FileEntry } from '../../foundation/fs/types.js';
 
-export interface LsOptions {
+interface LsOptions {
   recursive?: boolean;
   json?: boolean;
 }

@@ -24,7 +24,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import _snapshotJson from '../../foundation/audit/audit-events.snapshot.json' with { type: 'json' };
 const snapshotJson = _snapshotJson as SnapshotJson;
 
-export interface AuditInfoOpts {
+interface AuditInfoOpts {
   claw: string;
   json?: boolean;
 }

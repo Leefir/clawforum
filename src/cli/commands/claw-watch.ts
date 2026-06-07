@@ -24,9 +24,9 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { parseDurationMs, DurationParseError } from '../../foundation/duration.js';
 import { writeSubscription, MAX_THRESHOLD_MS } from '../../watchdog/subscription-store.js';
 
-export const DEFAULT_WATCH_DURATION = '5m';
+const DEFAULT_WATCH_DURATION = '5m';
 
-export interface WatchOptions {
+interface WatchOptions {
   inactiveAfter?: string;   // e.g. '5m' / '30m' / '1h'
 }
 

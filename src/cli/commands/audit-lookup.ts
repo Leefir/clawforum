@@ -20,7 +20,7 @@ import {
 } from '../../foundation/audit/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
-export interface AuditLookupOpts {
+interface AuditLookupOpts {
   claw: string;
   file: string;
   contentHash?: string;
