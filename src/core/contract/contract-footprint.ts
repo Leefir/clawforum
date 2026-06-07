@@ -13,6 +13,9 @@
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 
+/** Default cap on recent execution sample count for contract footprint */
+const RECENT_EXEC_N_DEFAULT = 50;
+
 export interface FootprintWrite {
   file: string;
   bytes: number;
@@ -69,7 +72,7 @@ export interface ContractFootprintOptions {
   auditPath?: string;
   /** 从这个 timestamp（ms）开始的事件 / 默认无下限 */
   sinceTimestampMs?: number;
-  /** exec 命令最近保留 N 条、默 50 */
+  /** exec 命令最近保留 N 条、默认 {@link RECENT_EXEC_N_DEFAULT} */
   recentExecN?: number;
 }
 
@@ -117,7 +120,7 @@ export async function contractFootprint(
 ): Promise<ContractFootprint> {
   const auditPath = opts?.auditPath ?? 'audit.tsv';
   const sinceTimestampMs = opts?.sinceTimestampMs ?? 0;
-  const recentExecN = opts?.recentExecN ?? 50;
+  const recentExecN = opts?.recentExecN ?? RECENT_EXEC_N_DEFAULT;
 
   let content: string;
   try {
