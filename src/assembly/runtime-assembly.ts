@@ -28,13 +28,13 @@ import { MOTION_CLAW_ID } from '../constants.js';
 import { CLAW_SUBDIRS } from './claw-subdirs.js';
 import type { AssembleConfig } from './types.js';
 
-export interface RuntimeAssemblyInput {
+interface RuntimeAssemblyInput {
   core: CoreInfraOutput;
   business: BusinessSysOutput;
   config: AssembleConfig;
 }
 
-export interface RuntimeAssemblyOutput {
+interface RuntimeAssemblyOutput {
   snapshot: Snapshot;
   streamWriter: StreamWriter;
   runtime: Runtime;

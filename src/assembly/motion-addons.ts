@@ -38,7 +38,7 @@ import type { BusinessSysOutput } from './business-systems.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
 import type { AssembleConfig } from './types.js';
 
-export interface MotionAddonsInput {
+interface MotionAddonsInput {
   core: CoreInfraOutput;
   business: BusinessSysOutput;
   runtime: Runtime;
@@ -46,7 +46,7 @@ export interface MotionAddonsInput {
   streamWriter: StreamWriter;
 }
 
-export interface MotionAddonsOutput {
+interface MotionAddonsOutput {
   gateway?: Gateway;
   heartbeat?: Heartbeat;
   cronRunner?: CronRunner;
