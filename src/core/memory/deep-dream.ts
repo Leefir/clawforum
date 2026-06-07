@@ -14,6 +14,9 @@ import type { SessionData } from '../../foundation/dialog-store/types.js';
 import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
+
+/** Default max tokens for memory compression pass */
+const COMPRESSION_TOKENS_DEFAULT = 4000;
 import {
   DEEP_DREAM_SYSTEM_PROMPT,
   buildDreamInput,
@@ -35,7 +38,8 @@ export interface DeepDreamOptions {
   motionFs?: FileSystem;                 // baseDir = motionDir
   llmConfig: LLMOrchestratorConfig;
   llmService: LLMOrchestrator;                // ← 注入的 LLM 实例（修 N1）
-  maxCompressionTokens?: number;         // 压缩上限（token 估算），默认 4000
+  /** 压缩上限（token 估算），默认 {@link COMPRESSION_TOKENS_DEFAULT} */
+  maxCompressionTokens?: number;
   fs: FileSystem;
   audit: AuditLog;
   /** 临时构建 per-claw FileSystem 的 factory（memory/system.ts 注入 / 业务 0 触 L1 impl）*/
@@ -379,7 +383,7 @@ export const __test_DEEP_DREAM_STATE_FILE = DEEP_DREAM_STATE_FILE;
 export type { DreamStateData as __test_DreamStateData };
 
 export async function runDeepDream(opts: DeepDreamOptions): Promise<void> {
-  const maxCompressionTokens = opts.maxCompressionTokens ?? 4000;
+  const maxCompressionTokens = opts.maxCompressionTokens ?? COMPRESSION_TOKENS_DEFAULT;
   if (!opts.fs.existsSync(CLAWS_DIR)) {
     opts.audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_JOB,
       `step=skipped_no_claws_dir`,
