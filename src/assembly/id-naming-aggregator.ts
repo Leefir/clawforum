@@ -26,15 +26,3 @@ export const AggregatedIdNamingMap: Readonly<Record<string, IdNamingEntry>> = {
   ...LLM_PROVIDER_ID_NAMING,
 } as const;
 
-export type AggregatedIdName = keyof typeof AggregatedIdNamingMap;
-
-/**
- * Reverse lookup: find the aggregated id name for a given audit column.
- * Used by future reader API (B-3) and CLI (B-4) cross-surface lookup.
- */
-export function lookupByAuditCol(col: string): AggregatedIdName | undefined {
-  for (const [name, entry] of Object.entries(AggregatedIdNamingMap)) {
-    if (entry.auditCol === col) return name as AggregatedIdName;
-  }
-  return undefined;
-}

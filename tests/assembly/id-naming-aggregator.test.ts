@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   AggregatedIdNamingMap,
-  lookupByAuditCol,
   type IdNamingEntry,
 } from '../../src/assembly/id-naming-aggregator.js';
 
@@ -34,19 +33,6 @@ describe('id-naming-aggregator (phase 140 Step C)', () => {
   it('tsField values are unique', () => {
     const tsFields = Object.values(AggregatedIdNamingMap).map((e: IdNamingEntry) => e.tsField);
     expect(new Set(tsFields).size).toBe(tsFields.length);
-  });
-
-  it('lookupByAuditCol returns correct id names', () => {
-    expect(lookupByAuditCol('trace_id')).toBe('trace');
-    expect(lookupByAuditCol('tool_use_id')).toBe('toolUse');
-    expect(lookupByAuditCol('contract_id')).toBe('contract');
-    expect(lookupByAuditCol('subtask_id')).toBe('subtask');
-    expect(lookupByAuditCol('step')).toBe('step');
-    expect(lookupByAuditCol('turn')).toBe('turn');
-  });
-
-  it('lookupByAuditCol returns undefined for unknown col', () => {
-    expect(lookupByAuditCol('nonexistent_col')).toBeUndefined();
   });
 
   it('toolUse auditCol matches runtime tool_result col schema naming', () => {
