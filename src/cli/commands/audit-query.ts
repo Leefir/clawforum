@@ -12,6 +12,8 @@ import {
   getClawDir,
   getClawConfigPath,
 } from '../../foundation/config/index.js';
+import { getNamedSubrootDir } from '../../assembly/install-paths.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import { CliError } from '../errors.js';
 import {
   createAuditReader,
@@ -49,8 +51,9 @@ export async function auditQueryCommand(
 ): Promise<void> {
   loadGlobalConfig(deps);
 
-  // 1. validate claw
-  if (!clawExists(deps, getClawConfigPath(opts.claw))) {
+  // 1. validate claw (motion-aware: motion does not require clawExists)
+  const isMotion = opts.claw === MOTION_CLAW_ID;
+  if (!isMotion && !clawExists(deps, getClawConfigPath(opts.claw))) {
     throw new CliError(`Claw "${opts.claw}" does not exist`);
   }
 
@@ -62,8 +65,8 @@ export async function auditQueryCommand(
     throw new CliError('--follow is incompatible with --all-files (follow targets a single file)');
   }
 
-  // 3. resolve files
-  const clawDir = getClawDir(opts.claw);
+  // 3. resolve files (motion-aware: mirror claw-steps.ts:20 pattern)
+  const clawDir = isMotion ? getNamedSubrootDir(MOTION_CLAW_ID) : getClawDir(opts.claw);
   const fs = deps.fsFactory(clawDir);
   const files = opts.allFiles
     ? listAuditFiles(fs, clawDir)

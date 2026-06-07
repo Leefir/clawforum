@@ -12,6 +12,8 @@ import {
   getClawDir,
   getClawConfigPath,
 } from '../../foundation/config/index.js';
+import { getNamedSubrootDir } from '../../assembly/install-paths.js';
+import { MOTION_CLAW_ID } from '../../constants.js';
 import { CliError } from '../errors.js';
 import {
   createAuditReader,
@@ -34,11 +36,12 @@ export async function auditLookupCommand(
 ): Promise<void> {
   loadGlobalConfig(deps);
 
-  if (!clawExists(deps, getClawConfigPath(opts.claw))) {
+  const isMotion = opts.claw === MOTION_CLAW_ID;
+  if (!isMotion && !clawExists(deps, getClawConfigPath(opts.claw))) {
     throw new CliError(`Claw "${opts.claw}" does not exist`);
   }
 
-  const clawDir = getClawDir(opts.claw);
+  const clawDir = isMotion ? getNamedSubrootDir(MOTION_CLAW_ID) : getClawDir(opts.claw);
   const fs = deps.fsFactory(clawDir);
   const auditPath = path.join(clawDir, `${opts.file}.tsv`);
 
