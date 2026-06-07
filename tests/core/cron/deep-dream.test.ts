@@ -524,10 +524,10 @@ describe('runDeepDream', () => {
     await fs.writeFile(path.join(archiveDir, `1000000000010_meta0001.json`), session, 'utf-8');
     await fs.writeFile(path.join(archiveDir, `1000000000020_meta0002.json`), session, 'utf-8');
 
-    // Call 1（file1）→ dream, Call 2（file1）→ 超长压缩（> 100*4 = 400 chars）
+    // Call 1（file1）→ dream, Call 2（file1）→ 超长压缩（> maxCompressionTokens=100）
     // Call 1（file2）→ dream, Call 2（file2）→ compression
     // 元压缩在 Call 1 file2 前触发 → 额外一次调用
-    const longCompression = 'x'.repeat(500); // 500 chars → ~125 tokens > maxCompressionTokens=100
+    const longCompression = 'x'.repeat(1000); // 1000 chars → ~125 tokens (cl100k_base) > maxCompressionTokens=100
     mockLlmCall
       .mockResolvedValueOnce(makeTextResponse('dream 1'))           // Call 1 file1
       .mockResolvedValueOnce(makeTextResponse(longCompression))     // Call 2 file1（超长）
