@@ -9,6 +9,9 @@ import type { FileEntry } from '../../../foundation/fs/types.js';
 import { MEMORY_DIR } from '../memory-paths.js';
 export const MEMORY_SEARCH_TOOL_NAME = 'memory_search' as const;
 
+/** Default cap on search results returned to agent */
+const SEARCH_MAX_RESULTS_DEFAULT = 10;
+
 
 
 export const memorySearchTool: Tool = {
@@ -54,7 +57,7 @@ export const memorySearchTool: Tool = {
     const query = ((args.query as string) ?? '').toLowerCase().trim();
     const pattern = (args.pattern as string) ?? '';
     const metaFilter = (args.filter as Record<string, string>) ?? {};
-    const maxResults = (args.max_results as number) ?? 10;
+    const maxResults = (args.max_results as number) ?? SEARCH_MAX_RESULTS_DEFAULT;
 
     // query 和 filter 至少一个必填
     if (!query && Object.keys(metaFilter).length === 0) {
