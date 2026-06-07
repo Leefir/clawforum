@@ -657,9 +657,6 @@
       "skill_registry_loaded",
       "skill_version_invalid"
     ],
-    "foundation_audit_audit-events": [
-      "audit_fallback_dropped"
-    ],
     "foundation_command-tool_audit-events": [
       "exec_motion_self_kill_blocked"
     ],
