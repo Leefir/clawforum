@@ -29,6 +29,8 @@ export async function readCommand(
   // resolveWorkspacePath returns clawDir-relative path, so fs must be scoped to clawDir
   const fs = deps.fsFactory(clawDir);
 
+  // `miniCtx as any`: cli boundary 仅 use resolveWorkspacePath clawDir + workspaceDir 字段、
+  // ExecContext 完整 type 在 cli helper 路径外、partial ctx refactor defer (phase 171 ratify B.cli-mini-ctx)
   const miniCtx = { clawDir, workspaceDir } as { clawDir: string; workspaceDir: string };
   const resolved = resolveWorkspacePath(miniCtx as any, filePath);
   if (resolved.startsWith('..') || resolved.startsWith('/')) {
