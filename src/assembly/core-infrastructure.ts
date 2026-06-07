@@ -1,6 +1,7 @@
 import path from 'path';
 import { formatErr } from '../foundation/utils/index.js';
 import { resolveChestnutRoot } from './install-paths.js';
+import { CLAWS_DIR } from './claw-dirs.js';
 
 import type { FileSystem } from '../foundation/fs/types.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
@@ -200,7 +201,7 @@ export async function createCoreInfrastructure(input: CoreInfraInput): Promise<C
 
     // --- L3-L5: contractManager ---
     const chestnutRoot = resolveChestnutRoot(clawDir, isMotion);  // phase 1406: 单一 truth source
-    const clawsDir = path.join(chestnutRoot, 'claws');  // phase 98
+    const clawsDir = path.join(chestnutRoot, CLAWS_DIR);  // phase 98
 
     let contractManager: ContractSystem;
     try {

@@ -7,6 +7,7 @@
  */
 
 import { resolveChestnutRoot } from './install-paths.js';
+import { CLAWS_DIR } from './claw-dirs.js';
 import path from 'path';
 import { formatErr } from '../foundation/utils/index.js';
 import { createSnapshot } from '../foundation/snapshot/index.js';
@@ -150,7 +151,7 @@ export async function createRuntimeAssembly(
         identity: isMotion ? 'motion' : 'claw',
         clawId: isMotion ? MOTION_CLAW_ID : clawId,
         clawDir,
-        clawsDir: path.join(resolveChestnutRoot(clawDir, isMotion), 'claws'),  // phase 98: assembly compute
+        clawsDir: path.join(resolveChestnutRoot(clawDir, isMotion), CLAWS_DIR),  // phase 98: assembly compute
         llmConfig,
         maxSteps,
         toolProfile,

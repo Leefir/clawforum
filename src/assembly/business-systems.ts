@@ -84,7 +84,7 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
   } = core;
 
   const chestnutRoot = resolveChestnutRoot(clawDir, isMotion);
-  const clawsDir = path.join(chestnutRoot, 'claws');
+  const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
 
   // A.6 selfInboxDir 提前到 taskSystem / callback 定义前（双链路保险 / cron job 注册块同步引用）
   const permissionChecker = createClawPermissionChecker({
@@ -100,7 +100,7 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
       TASKS_SYNC_SHADOW_DIR,
     ],
   });
-  const selfInboxDir = path.join(clawDir, 'inbox', 'pending');
+  const selfInboxDir = path.join(clawDir, INBOX_PENDING_DIR);
   const selfInbox = InboxWriter.__internal_create(systemFs, makeInboxPath(selfInboxDir), auditWriter);
 
   // --- 9. AsyncTaskSystem（仅构造，不调 initialize / startDispatch；业务动作归 Runtime） ---
@@ -169,7 +169,7 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
             toolRegistry,
             toolTimeoutMs,
             fsFactory,
-            clawsDir: path.join(cr, 'claws'),
+            clawsDir: path.join(cr, CLAWS_DIR),
             // phase 104: pre-bound notifyClaw
             notifyClaw: (targetClawId, message) =>
               notifyClawFn(fs, cr, targetClawId, message, perClawAudit),
@@ -229,7 +229,7 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
     try {
       const clawInbox = InboxWriter.__internal_create(
         systemFs,
-        makeInboxPath(path.join(clawDir, 'inbox', 'pending')),
+        makeInboxPath(path.join(clawDir, INBOX_PENDING_DIR)),
         auditWriter,
       );
       const auditor = new ContractAuditor({
