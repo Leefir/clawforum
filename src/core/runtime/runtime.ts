@@ -52,7 +52,6 @@ import {
   type DaemonStreamCallbacks,
   type IRuntimeLifecycle,
   type IRuntimeDaemon,
-  type IRuntimeChat,
 } from './types.js';
 import { TASKS_SYNC_DIR } from '../async-task-system/index.js';
 
@@ -78,7 +77,7 @@ function auditError(
 /**
  * Runtime - fully assembled Claw runtime instance
  */
-export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat {
+export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon {
   protected options: RuntimeOptions;
   protected initialized = false;
   private currentAbortController: AbortController | null = null;
@@ -752,7 +751,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
     callbacks?.onTurnStart?.(sources);
     this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_START);
 
-    // AbortController support (same as chat() mode)
+    // AbortController support (same as single-turn mode)
     const abortController = new AbortController();
     this.currentAbortController = abortController;
     this.execContext.signal = abortController.signal;
@@ -992,162 +991,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon, IRuntimeChat 
   }
 
   /**
-   * Interactive conversation (used by CLI)
-   */
-  async chat(
-    userMessage: string,
-    options?: {
-      onToolCall?: (toolName: string, toolUseId: ToolUseId) => void;
-      onBeforeLLMCall?: () => void;
-      onToolResult?: (toolName: string, toolUseId: ToolUseId, result: { success: boolean; content: string }, step: number, maxSteps: number) => void;
-      onTextDelta?: (delta: string) => void;  // streaming text delta
-      onThinkingDelta?: (delta: string) => void;  // streaming thinking delta
-      onProviderInfo?: (info: { name: string; model: string; isFallback: boolean }) => void;
-    }
-  ): Promise<string> {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
-    const traceId = makeTraceId(crypto.randomBytes(8).toString('hex'));
-    this.setTraceId(traceId);
-    this.execContext.trace_id = traceId;
-    try {
-    // 1. Load the current session
-    const { session } = await this.sessionManager.load();
-    const messages = [...session.messages];
-
-    // 2. Build systemPrompt (already includes AGENTS.md + MEMORY.md + skills + contract)
-    const { systemPrompt, identityContent } = await this._resolveSystemPromptForRun();
-
-    // 3. Append the user message
-    messages.push({ role: 'user', content: userMessage });
-
-    // 4. Get tool definitions
-    const tools = this.toolRegistry.formatForLLM(
-      this.toolRegistry.getForProfile(this.options.toolProfile ?? 'full')
-    );
-
-    // phase 146: pre-flight save so getCallerSnapshot reads current turn state
-    await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools, trace_id: traceId });
-
-    // 5. Run the ReAct loop (with incremental session saves)
-    // align _processBatch turn-start reset, per phase 786 + phase 900 cluster sweep
-    this.execContext.stopRequested = false;
-    const abortController = new AbortController();
-    this.currentAbortController = abortController;
-    this.execContext.signal = abortController.signal;
-    this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_START);
-
-    let chatProviderInfoEmitted = false;
-    const emitChatProviderInfoOnce = () => {
-      if (!chatProviderInfoEmitted) {
-        const info = this.llm.getProviderInfo();
-        if (info) {
-          chatProviderInfoEmitted = true;
-          options?.onProviderInfo?.(info);
-        }
-      }
-    };
-
-    try {
-      const result = await runReact({
-        messages,
-        systemPrompt,
-        llm: this.llm,
-        executor: this.toolExecutor,
-        ctx: this.execContext,
-        tools,
-        registry: this.toolRegistry,  // Enable parallel execution for readonly tools
-        maxSteps: this.options.maxSteps,
-        maxConsecutiveParseErrors: this.options.maxConsecutiveParseErrors,
-        maxConsecutiveMaxTokensToolUse: this.options.maxConsecutiveMaxTokensToolUse,
-        onLLMResult: (info) => {
-          if (info.error) {
-            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_ERROR, info.model, `error=${info.error}`, `latency_ms=${info.latencyMs}`);
-          } else {
-            this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.LLM_CALL, info.model, `in=${info.inputTokens}`, `out=${info.outputTokens}`, `latency_ms=${info.latencyMs}`);
-          }
-        },
-        onToolCall: options?.onToolCall,
-        onToolCallInput: (name, toolUseId, args) => {
-          // phase 1411 (reframe of phase 1409): generic tool_call index emit (chat path).
-          const argsSize = JSON.stringify(args).length;
-          this.auditWriter.write(
-            RUNTIME_AUDIT_EVENTS.TOOL_CALL_INPUT,
-            name,
-            `tool_use_id=${String(toolUseId)}`,
-            `step=${this.execContext.stepNumber}`,
-            `contract_id=`,
-            `trace_id=${String(this.execContext.trace_id ?? '')}`,
-            `args_size=${argsSize}`,
-          );
-        },
-        onBeforeLLMCall: options?.onBeforeLLMCall,
-        onToolResult: options?.onToolResult,
-        onTextDelta: (d) => { emitChatProviderInfoOnce(); options?.onTextDelta?.(d); },
-        onThinkingDelta: (d) => { emitChatProviderInfoOnce(); options?.onThinkingDelta?.(d); },
-        onStepComplete: async () => {
-          // Incremental session save
-          await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools, trace_id: this.currentTraceId });
-        },
-        onUnparseableToolUse: (stopReason) => {
-          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.LLM_UNPARSEABLE_TOOL_USE, `stop_reason=${stopReason}`);
-        },
-        onSafeCallbackError: (label, err) => {
-          this.auditWriter.write(RUNTIME_AUDIT_EVENTS.STEP_EXECUTOR_CALLBACK_FAILED, label, `error=${formatErr(err)}`);
-        },
-        onMaxTokensPrebuiltOnlyFinal: (meta) => {
-          this.auditWriter?.write(
-            RUNTIME_AUDIT_EVENTS.MAX_TOKENS_PREBUILT_ONLY_FINAL,
-            `prebuilt_count=${meta.prebuiltCount}`,
-            `model=${meta.llm.model}`,
-          );
-        },
-        onMaxTokensAssistantEmptySkipped: (meta) => {
-          this.auditWriter?.write(
-            RUNTIME_AUDIT_EVENTS.MAX_TOKENS_ASSISTANT_EMPTY_SKIPPED,
-            `model=${meta.llm.model}`,
-          );
-        },
-        onMaxTokensStateAOrphanDrop: (args) => {
-          for (const orphan of args.orphans) {
-            this.auditWriter?.write(
-              RUNTIME_AUDIT_EVENTS.MAX_TOKENS_STATE_A_ORPHAN_DROP,
-              `tool_use_id=${orphan.tool_use_id}`,
-              `is_error=${orphan.is_error}`,
-              `content_preview=${escapeForLog(orphan.content_preview)}`,
-              `model=${args.llm.model}`,
-            );
-          }
-        },
-      });
-
-      // Save the final session
-      await this.sessionManager.save({ systemPrompt, messages, toolsForLLM: tools, trace_id: this.currentTraceId });
-
-      // phase 521: turn 末 regime change 检测（chat() 也走 _runReact 等效路径）
-      await this._checkRegimeSwitch(systemPrompt, identityContent);
-
-      this.auditWriter.write(REACT_LOOP_AUDIT_EVENTS.TURN_END);
-
-      // Return the final text
-      return result.finalText;
-    } catch (err) {
-      handleTurnInterrupt(err, this.auditWriter);
-      throw err;
-    } finally {
-      this.currentAbortController = null;
-      this.execContext.signal = undefined;
-    }
-    } finally {
-      this.setTraceId(undefined);
-      this.execContext.trace_id = undefined;
-    }
-  }
-
-  /**
-   * Abort the currently running chat() call
+   * Abort the currently running turn
    */
   abort(): void {
     this.currentAbortController?.abort({ type: 'user' });

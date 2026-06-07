@@ -223,7 +223,7 @@ Test message
         { content: [{ type: 'text', text: 'Retry' }], stop_reason: 'end_turn' },
       ]);
       (runtime as unknown as RuntimeTestInternals).llm = mockLLM;
-      await runtime.chat('setup');
+      await runtime.processWithMessage({ role: 'user', content: 'setup' });
 
       const auditSpy = vi.spyOn((runtime as unknown as RuntimeTestInternals).auditWriter, 'write');
       await runtime.retryLastTurn();

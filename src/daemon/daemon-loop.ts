@@ -16,7 +16,7 @@
 import * as path from 'path';
 import { formatErr } from "../foundation/utils/index.js";
 import type { FileSystem } from '../foundation/fs/types.js';
-import type { IRuntimeDaemon, IRuntimeChat } from '../core/runtime/index.js';
+import type { IRuntimeDaemon } from '../core/runtime/index.js';
 import type { StreamWriter } from '../foundation/stream/index.js';
 import type { AuditLog } from '../foundation/audit/index.js';
 import { DAEMON_AUDIT_EVENTS, LOOP_ITERATION_TYPES } from './audit-events.js';
@@ -56,7 +56,7 @@ interface DaemonMotionExtensions {
 export interface DaemonLoopOptions {
   // 核心驱动（5 必填）
   fsFactory: (baseDir: string) => FileSystem;
-  runtime: IRuntimeDaemon & IRuntimeChat;
+  runtime: IRuntimeDaemon;
   agentDir: string;          // agent root directory (listens for interrupt signals)
   clawId: string;            // agent identifier (kebab-case)
   label: string;             // log prefix, e.g. '[motion daemon]' or '[daemon]'

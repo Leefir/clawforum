@@ -124,7 +124,7 @@ describe('Runtime regime switch (phase 521)', () => {
     // Mock buildSystemPromptForRegime so _runReact gets a consistent value
     vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'prompt-A', identityContent: 'identity-A' });
 
-    await runtime.chat('Hi!');
+    await runtime.processWithMessage({ role: 'user', content: 'Hi!' });
 
     expect(archiveSpy).toHaveBeenCalledTimes(0);
   });
@@ -151,8 +151,8 @@ describe('Runtime regime switch (phase 521)', () => {
 
     vi.spyOn(runtime.contextInjector, 'buildSystemPromptForRegime').mockResolvedValue({ full: 'same-prompt', identityContent: 'same-identity' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     expect(archiveSpy).toHaveBeenCalledTimes(0);
   });
@@ -185,8 +185,8 @@ describe('Runtime regime switch (phase 521)', () => {
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     expect(archiveSpy).toHaveBeenCalledTimes(1);
     expect(factorySpy).toHaveBeenCalledTimes(1);
@@ -220,8 +220,8 @@ describe('Runtime regime switch (phase 521)', () => {
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     expect(factorySpy).toHaveBeenCalledTimes(1);
     expect(factorySpy).toHaveBeenCalledWith();
@@ -265,8 +265,8 @@ describe('Runtime regime switch (phase 521)', () => {
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
     // Need two chats to trigger regime switch (first sets lastIdentityHash)
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     // factory should create new DialogStore with 'system-prompt-B'
     expect(factorySpy).toHaveBeenCalledTimes(1);
@@ -311,7 +311,7 @@ describe('Runtime regime switch (phase 521)', () => {
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     expect(repairSpy).toHaveBeenCalledTimes(1);
   });
@@ -355,8 +355,8 @@ describe('Runtime regime switch (phase 521)', () => {
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
     // Need two chats to trigger regime switch (first sets lastIdentityHash)
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     const regimeSwitchCall = auditSpy.mock.calls.find(c => c[0] === 'regime_switch');
     expect(regimeSwitchCall).toBeDefined();

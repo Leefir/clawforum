@@ -70,13 +70,13 @@ describe('Runtime RetryOutboxInterrupt', () => {
       }));
       await runtime.initialize();
 
-      // Populate session via chat()
+      // Populate session via processWithMessage()
       const firstLLM = createMockLLM([{
         content: [{ type: 'text', text: 'Initial answer' }],
         stop_reason: 'end_turn',
       }]);
       (runtime as unknown as { llm: typeof firstLLM }).llm = firstLLM;
-      await runtime.chat('What is 2+2?');
+      await runtime.processWithMessage({ role: 'user', content: 'What is 2+2?' });
 
       // Now replace LLM and retry — should call the NEW LLM with the saved session
       const retryLLM = createMockLLM([{
@@ -89,7 +89,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
 
       expect(retryLLM.call).toHaveBeenCalledTimes(1);
       const callArg = retryLLM.call.mock.calls[0][0];
-      // The session messages from the first chat() exchange are included
+      // The session messages from the first turn exchange are included
       expect(callArg.messages.map((m: any) => m.role)).toEqual(['user', 'assistant']);
     });
 
@@ -106,7 +106,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
         { content: [{ type: 'text', text: 'setup' }], stop_reason: 'end_turn' },
       ]);
       (runtime as unknown as { llm: typeof setupLLM }).llm = setupLLM;
-      await runtime.chat('setup');
+      await runtime.processWithMessage({ role: 'user', content: 'setup' });
 
       // Replace LLM with one that throws
       const failingLLM = {
@@ -137,7 +137,7 @@ describe('Runtime RetryOutboxInterrupt', () => {
         { content: [{ type: 'text', text: 'retry ok' }], stop_reason: 'end_turn' },
       ]);
       (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
-      await runtime.chat('setup');
+      await runtime.processWithMessage({ role: 'user', content: 'setup' });
 
       await runtime.retryLastTurn();
 

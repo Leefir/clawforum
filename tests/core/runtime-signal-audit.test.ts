@@ -181,7 +181,7 @@ describe('Runtime SignalAudit', () => {
       (runtime as unknown as RuntimeTestInternals).llm = mockLLM;
 
       const onProviderInfo = vi.fn();
-      await runtime.chat('Hi', { onProviderInfo });
+      await runtime.processWithMessage({ role: 'user', content: 'Hi' }, { onProviderInfo });
 
       expect(onProviderInfo).toHaveBeenCalledTimes(1);
       expect(onProviderInfo).toHaveBeenCalledWith({ name: 'anthropic', model: 'claude-opus-4-6', isFallback: false });
@@ -213,7 +213,7 @@ describe('Runtime SignalAudit', () => {
       (runtime as unknown as RuntimeTestInternals).llm = multiDeltaLLM;
 
       const onProviderInfo = vi.fn();
-      await runtime.chat('Hi', { onProviderInfo });
+      await runtime.processWithMessage({ role: 'user', content: 'Hi' }, { onProviderInfo });
 
       expect(onProviderInfo).toHaveBeenCalledTimes(1);
     });
@@ -235,7 +235,7 @@ describe('Runtime SignalAudit', () => {
       (runtime as unknown as RuntimeTestInternals).llm = mockLLM;
 
       const onProviderInfo = vi.fn();
-      await runtime.chat('Hi', { onProviderInfo });
+      await runtime.processWithMessage({ role: 'user', content: 'Hi' }, { onProviderInfo });
 
       expect(onProviderInfo).toHaveBeenCalledWith(
         expect.objectContaining({ isFallback: true, name: 'openai' })
@@ -257,8 +257,8 @@ describe('Runtime SignalAudit', () => {
       (runtime as unknown as RuntimeTestInternals).llm = mockLLM;
 
       const onProviderInfo = vi.fn();
-      await runtime.chat('Turn 1', { onProviderInfo });
-      await runtime.chat('Turn 2', { onProviderInfo });
+      await runtime.processWithMessage({ role: 'user', content: 'Turn 1' }, { onProviderInfo });
+      await runtime.processWithMessage({ role: 'user', content: 'Turn 2' }, { onProviderInfo });
 
       expect(onProviderInfo).toHaveBeenCalledTimes(2);
     });

@@ -133,8 +133,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     // sessionManager should still be the old one because save threw before commit
     expect(runtime.testGetSessionManager()).toBe(oldSessionManager);
@@ -181,8 +181,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     // Verify recovery file exists in dialog dir
     const dialogDir = path.join(clawDir, 'dialog');
@@ -248,8 +248,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     const failedCall = auditSpy.mock.calls.find(c =>
       c[0] === RUNTIME_AUDIT_EVENTS.REGIME_SWITCH_FAILED && c[1] === 'phase=save_and_dump'
@@ -306,8 +306,8 @@ describe('Runtime regime switch atomicity (phase 600 / A.regime-switch-atomicity
       .mockResolvedValueOnce({ full: 'system-prompt-A', identityContent: 'identity-A' })
       .mockResolvedValueOnce({ full: 'system-prompt-B', identityContent: 'identity-B' });
 
-    await runtime.chat('Message 1');
-    await runtime.chat('Message 2');
+    await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+    await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
     // sessionManager should be the new one
     expect(runtime.testGetSessionManager()).toBe(capturedNewSessionManager);

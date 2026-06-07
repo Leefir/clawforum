@@ -78,7 +78,7 @@ function createMockLLM(responses: LLMResponse[]) {
   };
 }
 
-describe('runtime chat() stopRequested reset (phase 900)', () => {
+describe('runtime stopRequested reset (phase 900)', () => {
   let tempDir: string;
   let clawDir: string;
 
@@ -118,13 +118,11 @@ describe('runtime chat() stopRequested reset (phase 900)', () => {
     // Simulate previous turn's abort leaving stopRequested=true
     runtime.execContext.stopRequested = true;
 
-    const result = await runtime.chat('test message');
+    await runtime.processWithMessage({ role: 'user', content: 'test message' });
 
-    // stopRequested was reset to false at chat() entry
+    // stopRequested was reset to false at turn entry
     expect(runtime.execContext.stopRequested).toBe(false);
     // LLM was actually called (not early-exited due to sticky stopRequested)
     expect(mockLLM.call).toHaveBeenCalledTimes(1);
-    // Result is the mock LLM response, not empty string from early exit
-    expect(result).toBe('ok');
   });
 });

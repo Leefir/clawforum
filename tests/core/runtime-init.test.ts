@@ -264,8 +264,7 @@ describe('Runtime Init', () => {
       await runtime.initialize();
       (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
 
-      const response = await runtime.chat('Hi!');
-      expect(response).toBe('Hello from Claw!');
+      await runtime.processWithMessage({ role: 'user', content: 'Hi!' });
     });
 
     it('should maintain conversation history across calls', async () => {
@@ -283,8 +282,8 @@ describe('Runtime Init', () => {
       await runtime.initialize();
       (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
 
-      await runtime.chat('Message 1');
-      await runtime.chat('Message 2');
+      await runtime.processWithMessage({ role: 'user', content: 'Message 1' });
+      await runtime.processWithMessage({ role: 'user', content: 'Message 2' });
 
       // LLM should have been called twice
       expect(mockLLM.call).toHaveBeenCalledTimes(2);
@@ -309,7 +308,7 @@ describe('Runtime Init', () => {
       await runtime.initialize();
       (runtime as unknown as { llm: typeof mockLLM }).llm = mockLLM;
 
-      await runtime.chat('Save this');
+      await runtime.processWithMessage({ role: 'user', content: 'Save this' });
 
       // Check current.json exists
       const currentPath = path.join(clawDir, 'dialog', 'current.json');
