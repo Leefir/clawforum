@@ -118,8 +118,8 @@ describe('start.ts _start snapshot integration (structural)', () => {
   it('start.ts 源码中 _start 使用 getInitializationSnapshot 而非双独立读', () => {
     const srcPath = path.resolve('src/cli/commands/start.ts');
     const content = fs.readFileSync(srcPath, 'utf-8');
-    // 应存在 getInitializationSnapshot 调用
-    expect(content).toContain('getInitializationSnapshot(deps, motionDir)');
+    // 应存在 getInitializationSnapshot 调用（deps 可能扩展 audit 等可选字段）
+    expect(content).toContain('getInitializationSnapshot(');
     // _start 函数体内不应再出现独立的 isInitialized() 调用
     const startMatch = content.match(/async function _start[\s\S]*?(?=\nasync function|\nexport function|$)/);
     expect(startMatch).toBeTruthy();

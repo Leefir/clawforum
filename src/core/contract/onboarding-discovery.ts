@@ -5,11 +5,14 @@
  */
 import * as path from 'node:path';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import type { AuditLog } from '../../foundation/audit/index.js';
+import { formatErr } from '../../foundation/utils/index.js';
 import {
   CONTRACT_ACTIVE_DIR,
   CONTRACT_PAUSED_DIR,
   CONTRACT_ARCHIVE_DIR,
 } from './dirs.js';
+import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 
 export type OnboardingStatusKind = 'not_found' | 'in_progress' | 'complete';
 
@@ -24,15 +27,14 @@ interface ProgressShape { subtasks?: Record<string, ProgressSubtask>; }
 
 /**
  * 取一个 onboarding contract atomic snapshot：(state, contractId?, pending?)
- * - 0 audit dep (CLI 静态阶段无 audit infra)
  * - 0 ContractSystem instance dep
  * - fs 可注入便于 mock TOCTOU race simulate
  * - retains 6-site silent-swallow semantics (catch-blocks with continue)
- * - 未来如需 race observability、加 audit emit hook（推升档锚 (c) 命中后）
+ * - audit optional：CLI 静态阶段无 audit infra 时跳过、有则 emit forensics
  */
 export function readOnboardingStatus(
   motionDir: string,
-  deps: { fsFactory: (baseDir: string) => FileSystem },
+  deps: { fsFactory: (baseDir: string) => FileSystem; audit?: AuditLog },
 ): OnboardingStatus {
   const fs = deps.fsFactory(motionDir);
   const dirs: ReadonlyArray<readonly [string, OnboardingStatusKind | 'archive_complete']> = [
@@ -58,7 +60,14 @@ export function readOnboardingStatus(
       let progress: ProgressShape;
       try {
         progress = JSON.parse(fs.readSync(progressJson)) as ProgressShape;
-      } catch { /* silent: progress.json read race or parse error — skip to next contract */ continue; }
+      } catch (err) {
+        deps.audit?.write(
+          CONTRACT_AUDIT_EVENTS.CONTRACT_ONBOARDING_PROGRESS_PARSE_FAILED,
+          `path=${progressJson}`,
+          `error=${formatErr(err)}`,
+        );
+        continue; // silent: progress.json read race or parse error — skip to next contract（forensics emit 上面）
+      }
       const subtasks = progress.subtasks ?? {};
       const pending = Object.entries(subtasks)
         .filter(([, v]) => v.status !== 'completed')

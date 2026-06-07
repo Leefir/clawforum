@@ -164,6 +164,7 @@
       "contract_observer_event_failed",
       "contract_observer_state_load_failed",
       "contract_observer_state_parse_failed",
+      "contract_onboarding_progress_parse_failed",
       "contract_paused",
       "contract_progress_corrupted",
       "contract_progress_schema_invalid",
