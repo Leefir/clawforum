@@ -40,7 +40,7 @@ export function createAuditWriter(
   return new AuditWriter(fs, filePath, maxSizeMb);
 }
 
-// Reader API (phase 126)
+// Reader API (phase 126 + phase 147)
 export {
   createAuditReader,
   listAuditFiles,
@@ -50,4 +50,6 @@ export type {
   AuditRecord,
   ReadOptions,
   AuditFileInfo,
+  LookupResult,
+  LookupOptions,
 } from './reader.js';

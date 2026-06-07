@@ -17,6 +17,15 @@ export type { PerformRegimeSwitchOpts } from './regime-switch.js';
 // allowlist: assembly/assemble.ts (装配根 bootstrap by-design)。
 export { DIALOG_DIR, DIALOG_ARCHIVE_DIR } from './dirs.js';
 
+// phase 147 Step B: lookup helper + 4 级降级路径
+export {
+  lookupContentByToolUseId,
+} from './lookup.js';
+export type {
+  LookupResult,
+  LookupOptions,
+} from './lookup.js';
+
 import type { FileSystem } from '../fs/types.js';
 import { formatErr } from "../utils/index.js";
 import type { AuditLog } from '../audit/index.js';

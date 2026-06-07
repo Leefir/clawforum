@@ -16,8 +16,15 @@ import * as path from 'path';
 import { tmpdir } from 'node:os';
 import * as nodeFs from 'node:fs';
 import type { FileSystem } from '../fs/types.js';
+import {
+  lookupContentByToolUseId,
+  type LookupResult,
+  type LookupOptions,
+} from '../dialog-store/lookup.js';
 
 /** Compile-time brand field — prevents structural matching of mocks. */
+export type { LookupResult, LookupOptions };
+
 export interface AuditReader {
   readonly __brand: 'AuditReader';
 
@@ -36,6 +43,14 @@ export interface AuditReader {
 
   /** Stop active follow watcher. Idempotent. */
   close(): void;
+
+  /**
+   * Lookup full tool content via tool_use_id (phase 147 §5.D 4 级降级路径).
+   *
+   * Wrapper that delegates to dialog-store `lookupContentByToolUseId`.
+   * Reader does not own dialog content; dialog-store is SoT (M#3 + M#5).
+   */
+  lookupContent(toolUseId: string, options?: LookupOptions): LookupResult;
 }
 
 export interface AuditRecord {
@@ -44,6 +59,13 @@ export interface AuditRecord {
   type: string;
   cols: readonly string[];
   trace_id?: string;
+
+  // phase 147 typed ID 字段（按 phase 140 AggregatedIdNamingMap 解析）
+  toolUseId?: string;      // from `tool_use_id=X` col
+  stepNumber?: number;      // from `step=N` col
+  contractId?: string;      // from `contract_id=X` col
+  subtaskId?: string;       // from `subtask_id=X` col
+  contentSize?: number;     // from `content_size=N` col
 }
 
 export interface ReadOptions {
@@ -55,6 +77,12 @@ export interface ReadOptions {
   colFilter?: Readonly<Record<string, string>>;
   traceId?: string;
   limit?: number;
+
+  // phase 147 typed filter（与 colFilter 等价语义、typed 优先编译期 check）
+  toolUseId?: string;
+  stepNumber?: number;
+  contractId?: string;
+  subtaskId?: string;
 }
 
 export interface AuditFileInfo {
@@ -71,9 +99,15 @@ export interface PendingFallbackDump {
 }
 
 /** Factory: new reader bound to a file path. */
-export function createAuditReader(fs: FileSystem, filePath: string): AuditReader {
+export function createAuditReader(
+  fs: FileSystem,
+  filePath: string,
+  options?: { dialogDir?: string },
+): AuditReader {
   let closed = false;
   let watcher: ReturnType<typeof setInterval> | null = null;
+
+  const dialogDir = options?.dialogDir ?? deriveDialogDir(filePath);
 
   async function *read(opts: ReadOptions = {}): AsyncIterableIterator<AuditRecord> {
     if (!fs.existsSync(filePath)) return;
@@ -181,7 +215,15 @@ export function createAuditReader(fs: FileSystem, filePath: string): AuditReader
     read,
     follow,
     close,
+    lookupContent(toolUseId: string, lookupOpts?: LookupOptions): LookupResult {
+      return lookupContentByToolUseId(fs, dialogDir, toolUseId, lookupOpts);
+    },
   };
+}
+
+function deriveDialogDir(auditFilePath: string): string {
+  // audit filePath: <baseDir>/audit.tsv → dialogDir = <baseDir>/dialog
+  return path.join(path.dirname(auditFilePath), 'dialog');
 }
 
 function sleep(ms: number): Promise<void> {
@@ -250,7 +292,49 @@ function parseLine(line: string): AuditRecord | null {
     restCols.pop();
   }
 
-  return { ts, seq, type, cols: Object.freeze(restCols), trace_id: traceId };
+  // phase 147: 扫 cols 提取 typed ID 字段
+  let toolUseId: string | undefined;
+  let stepNumber: number | undefined;
+  let contractId: string | undefined;
+  let subtaskId: string | undefined;
+  let contentSize: number | undefined;
+
+  for (const col of restCols) {
+    const eqIdx = col.indexOf('=');
+    if (eqIdx === -1) continue;
+    const colName = col.slice(0, eqIdx);
+    const colValue = col.slice(eqIdx + 1);
+
+    switch (colName) {
+      case 'tool_use_id':
+        toolUseId = colValue;
+        break;
+      case 'step': {
+        const n = parseInt(colValue, 10);
+        if (Number.isFinite(n)) stepNumber = n;
+        else process.stderr.write(`[audit-reader] invalid step value: ${col}\n`);
+        break;
+      }
+      case 'contract_id':
+        contractId = colValue;
+        break;
+      case 'subtask_id':
+        subtaskId = colValue;
+        break;
+      case 'content_size': {
+        const n = parseInt(colValue, 10);
+        if (Number.isFinite(n)) contentSize = n;
+        else process.stderr.write(`[audit-reader] invalid content_size value: ${col}\n`);
+        break;
+      }
+    }
+  }
+
+  return {
+    ts, seq, type, cols: Object.freeze(restCols),
+    trace_id: traceId,
+    toolUseId, stepNumber, contractId, subtaskId, contentSize,
+  };
 }
 
 function matchesOpts(rec: AuditRecord, opts: ReadOptions): boolean {
@@ -266,6 +350,13 @@ function matchesOpts(rec: AuditRecord, opts: ReadOptions): boolean {
       if (!rec.cols.some(c => c.includes(needle))) return false;
     }
   }
+
+  // phase 147 typed filter（AND 语义、与 colFilter 同传时叠加）
+  if (opts.toolUseId !== undefined && rec.toolUseId !== opts.toolUseId) return false;
+  if (opts.stepNumber !== undefined && rec.stepNumber !== opts.stepNumber) return false;
+  if (opts.contractId !== undefined && rec.contractId !== opts.contractId) return false;
+  if (opts.subtaskId !== undefined && rec.subtaskId !== opts.subtaskId) return false;
+
   return true;
 }
 
