@@ -46,6 +46,7 @@ const BASELINE_ALLOW_LIST = new Set([
   'src/core/contract/jobs/contract-observer.ts',
   'src/core/contract/verifier-job.ts',
   'src/core/cron/jobs/llm-stats.ts',
+  'src/core/cron/jobs/git-gc-weekly-audit-events.ts',  // phase 180: col schema 定义含 'claw' 列名（audit event col、非业务逻辑硬绑）
   'src/core/evolution-system/retro-scheduler.ts',
   'src/core/heartbeat/heartbeat.ts',
   'src/core/memory/random-dream.ts',

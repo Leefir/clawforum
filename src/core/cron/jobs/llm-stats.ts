@@ -76,7 +76,10 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
   if (opts.signal?.aborted) return;
   const entries = collectEntries(opts, targetDate);
   if (entries.length === 0) {
-    opts.audit.write(LLM_STATS_AUDIT_EVENTS.LLM_STATS, `step=empty_result`, `date=${targetDate}`);
+    opts.audit.write(
+      LLM_STATS_AUDIT_EVENTS.LLM_STATS_EMPTY,
+      `date=${targetDate}`,
+    );
     return;
   }
 
@@ -87,7 +90,16 @@ export async function runLlmStats(opts: LlmStatsOptions): Promise<void> {
   const statsFile = LLM_STATS_FILE;
   opts.chestnutFs.appendSync(statsFile, JSON.stringify(summary) + '\n');
 
-  opts.audit.write(LLM_STATS_AUDIT_EVENTS.LLM_STATS, `step=report`, `date=${targetDate}`, `totalCalls=${summary.totalCalls}`, `successCalls=${summary.successCalls}`, `failedCalls=${summary.failedCalls}`, `totalInputTokens=${summary.totalInputTokens}`, `totalOutputTokens=${summary.totalOutputTokens}`, `avg_latency_ms=${summary.avgLatencyMs}`);
+  opts.audit.write(
+    LLM_STATS_AUDIT_EVENTS.LLM_STATS_REPORTED,
+    `date=${targetDate}`,
+    `totalCalls=${summary.totalCalls}`,
+    `successCalls=${summary.successCalls}`,
+    `failedCalls=${summary.failedCalls}`,
+    `totalInputTokens=${summary.totalInputTokens}`,
+    `totalOutputTokens=${summary.totalOutputTokens}`,
+    `avgLatencyMs=${summary.avgLatencyMs}`,
+  );
 }
 
 function collectEntries(opts: LlmStatsOptions, targetDate: string): ParsedLlmRow[] {

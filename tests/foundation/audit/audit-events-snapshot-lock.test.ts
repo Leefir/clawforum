@@ -77,7 +77,7 @@ describe('audit-events snapshot lock', () => {
     expect(found).toBe(true);
   });
 
-  it('tool 类 event emit 站点包含 snapshot.json 所有 required cols (β 第 2 步)', () => {
+  it('event emit 站点包含 snapshot.json 所有 required cols (β 第 2 步，phase 180 扩 cron scope)', () => {
     const snapshot: SnapshotJson = JSON.parse(fs.readFileSync(SNAPSHOT_PATH, 'utf-8'));
     const emitSites = collectAuditWriteEmitSites(SRC_ROOT, snapshot);
 
@@ -92,6 +92,19 @@ describe('audit-events snapshot lock', () => {
           `${site.module}/${site.eventType} at ${site.file}:${site.line} missing required col '${required}'`,
         );
       }
+    }
+  });
+
+  it('cron events 不含 step= col (phase 180 命名空间隔离)', () => {
+    const snapshot: SnapshotJson = JSON.parse(fs.readFileSync(SNAPSHOT_PATH, 'utf-8'));
+    const emitSites = collectAuditWriteEmitSites(SRC_ROOT, snapshot);
+
+    for (const site of emitSites) {
+      if (!site.isCron) continue;
+      expect(site.emittedCols).not.toContain(
+        'step',
+        `${site.module}/${site.eventType} at ${site.file}:${site.line} emits forbidden 'step=' col (step col 单源归 step-executor)`,
+      );
     }
   });
 
@@ -261,10 +274,19 @@ function findEventInSnapshot(
   eventType: string,
 ): SnapshotEntry | undefined {
   const entries = snapshot.modules[moduleName];
-  if (!entries) return undefined;
-  for (const entry of entries) {
-    if (typeof entry === 'object' && entry.type === eventType) {
-      return entry;
+  if (entries) {
+    for (const entry of entries) {
+      if (typeof entry === 'object' && entry.type === eventType) {
+        return entry;
+      }
+    }
+  }
+  // Fallback: search all modules for this eventType (phase 180 cron emit sites跨文件)
+  for (const modEntries of Object.values(snapshot.modules)) {
+    for (const entry of modEntries) {
+      if (typeof entry === 'object' && entry.type === eventType) {
+        return entry;
+      }
     }
   }
   return undefined;
@@ -276,6 +298,7 @@ interface EmitSite {
   eventType: string;
   line: number;
   emittedCols: string[];
+  isCron: boolean;
 }
 
 /**
@@ -284,16 +307,36 @@ interface EmitSite {
  * Heuristic: find lines matching `.write(EVENT_CONST, ...)` or `.write('event_type', ...)`
  * and extract `key=` patterns from the arguments.
  */
+function collectAuditConstMap(root: string): Map<string, string> {
+  const map = new Map<string, string>();
+  walk(root, (file) => {
+    if (!file.endsWith('audit-events.ts')) return;
+    const content = fs.readFileSync(file, 'utf-8');
+    const matches = Array.from(content.matchAll(/([A-Z_][A-Z0-9_]*)\s*:\s*['"]([a-z0-9_]+)['"]/g));
+    for (const m of matches) {
+      map.set(m[1], m[2]);
+    }
+  });
+  return map;
+}
+
 function collectAuditWriteEmitSites(root: string, snapshot: SnapshotJson): EmitSite[] {
   const result: EmitSite[] = [];
   const eventsWithCols = new Set<string>();
-  for (const entries of Object.values(snapshot.modules)) {
+  const cronEventTypes = new Set<string>();
+  for (const [moduleName, entries] of Object.entries(snapshot.modules)) {
     for (const entry of entries) {
+      const eventType = typeof entry === 'string' ? entry : entry.type;
       if (typeof entry === 'object' && entry.cols && entry.cols.length > 0) {
-        eventsWithCols.add(entry.type);
+        eventsWithCols.add(eventType);
+      }
+      if (moduleName.startsWith('core_cron_jobs_')) {
+        cronEventTypes.add(eventType);
       }
     }
   }
+
+  const auditConstMap = collectAuditConstMap(root);
 
   walk(root, (file) => {
     if (!file.endsWith('.ts')) return;
@@ -316,12 +359,21 @@ function collectAuditWriteEmitSites(root: string, snapshot: SnapshotJson): EmitS
       } else if (eventArg.includes('_AUDIT_EVENTS.')) {
         const constName = eventArg.split('.').pop();
         // Look up the string value in the same file (heuristic)
-        const constMatch = content.match(new RegExp(`${constName}\\s*:\s*['\"]([a-z0-9_]+)['\"]`));
-        if (constMatch) eventType = constMatch[1];
+        const constMatch = content.match(new RegExp(`${constName}\s*:\s*['"]([a-z0-9_]+)['"]`));
+        if (constMatch) {
+          eventType = constMatch[1];
+        } else {
+          // Cross-file lookup in global audit-events.ts const map
+          eventType = constName ? auditConstMap.get(constName) : undefined;
+        }
       } else if (/^[A-Z][A-Z0-9_]*$/.test(eventArg)) {
         // Direct const reference like SUBAGENT_AUDIT_EVENTS.TOOL_RESULT but without dot
-        const constMatch = content.match(new RegExp(`${eventArg}\s*:\s*['\"]([a-z0-9_]+)['\"]`));
-        if (constMatch) eventType = constMatch[1];
+        const constMatch = content.match(new RegExp(`${eventArg}\s*:\s*['"]([a-z0-9_]+)['"]`));
+        if (constMatch) {
+          eventType = constMatch[1];
+        } else {
+          eventType = auditConstMap.get(eventArg);
+        }
       }
 
       if (!eventType || !eventsWithCols.has(eventType)) continue;
@@ -333,11 +385,12 @@ function collectAuditWriteEmitSites(root: string, snapshot: SnapshotJson): EmitS
         emittedCols.push(m[1]);
       }
 
-      result.push({ file, module: moduleName, eventType, line: i + 1, emittedCols });
+      result.push({ file, module: moduleName, eventType, line: i + 1, emittedCols, isCron: cronEventTypes.has(eventType) });
     }
   });
   return result;
 }
+
 
 function collectAuditEventsFromSrc(root: string): Record<string, string[]> {
   const result: Record<string, string[]> = {};

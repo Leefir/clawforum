@@ -124,6 +124,6 @@ function enrichFile(f: AuditFileInfo, snapshot: SnapshotJson) {
 }
 
 interface SnapshotJson {
-  modules: Record<string, string[]>;
+  modules: Record<string, (string | { type: string })[]>;
   fileRouting?: Record<string, string>;
 }

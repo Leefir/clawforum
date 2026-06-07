@@ -41,15 +41,17 @@ export async function runGitGcWeekly(opts: GitGcWeeklyOptions): Promise<void> {
       await exec('git', ['gc', '--auto'], { cwd: path.join(clawsDir, clawId) });
     } catch (err) {
       audit.write(
-        GIT_GC_WEEKLY_AUDIT_EVENTS.GIT_GC_WEEKLY,
+        GIT_GC_WEEKLY_AUDIT_EVENTS.GIT_GC_WEEKLY_CLAW_FAILED,
         `claw=${clawId}`,
-        `step=gc_failed`,
         `error=${formatErr(err)}`,
       );
     }
   }
 
-  audit.write(GIT_GC_WEEKLY_AUDIT_EVENTS.GIT_GC_WEEKLY, `step=complete`, `claws=${clawIds.length}`);
+  audit.write(
+    GIT_GC_WEEKLY_AUDIT_EVENTS.GIT_GC_WEEKLY_COMPLETED,
+    `claws=${clawIds.length}`,
+  );
 }
 
 export function createGitGcWeeklyJob(
