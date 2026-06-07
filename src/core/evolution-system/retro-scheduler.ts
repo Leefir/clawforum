@@ -18,6 +18,9 @@ import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../summon-system/di
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
+
+/** Default retro subagent timeout (ms); 10 min by design */
+const RETRO_SUBAGENT_TIMEOUT_MS_DEFAULT = 10 * 60_000;
 import { RETRO_AUDIT_EVENTS } from './retro-audit-events.js';
 import type { ContractId } from '../contract/types.js';
 
@@ -69,7 +72,7 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
     kind: 'subagent',
     mode: 'standard',
     intent: retroPrompt,
-    timeoutMs: config.retroSubagentTimeoutMs ?? 600000,
+    timeoutMs: config.retroSubagentTimeoutMs ?? RETRO_SUBAGENT_TIMEOUT_MS_DEFAULT,
     // phase 1490: maxSteps 不传、task.maxSteps optional / undefined → SubAgent boundary fallback
     parentClawId: MOTION_CLAW_ID,
     originClawId: MOTION_CLAW_ID,
