@@ -215,6 +215,16 @@ async function handlePidFileConflict(
         `Claw "${clawId}" is already running (PID file exists)`,
       );
     }
+    // phase 182: PID-wrap detection emit (phase 1023 intent)
+    if (stored.startTime !== undefined && stored.startTime !== startTimeForVerify) {
+      ctx.audit.write(
+        PROCESS_MANAGER_AUDIT_EVENTS.STARTTIME_MISMATCH,
+        `claw=${clawId}`,
+        `stored_pid=${stored.pid}`,
+        `stored_startTime=${stored.startTime}`,
+        `verify_startTime=${startTimeForVerify ?? 'unavailable'}`,
+      );
+    }
     // startTime mismatch or unavailable → fall through to stale cleanup
   }
   // pidfile disappeared during check → fall through to stale cleanup

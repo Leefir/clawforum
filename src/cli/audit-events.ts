@@ -14,7 +14,6 @@ export const CLI_AUDIT_EVENTS = {
   CLAW_OUTBOX_DRAIN_RACE_LOST: 'cli_claw_outbox_drain_race_lost',          // NEW phase 1222 α-2: atomic claim loser
   CONTRACT_CREATE: 'cli_contract_create',
   CONTRACT_CANCEL: 'cli_contract_cancel',                                    // NEW phase 1471: contract cancel CLI
-  CONTRACT_UPDATE: 'cli_contract_update',
   INIT_DONE: 'cli_init_done',
   INIT_PROBE_ATTEMPTED: 'cli_init_probe_attempted',
   INIT_PROBE_SUCCEEDED: 'cli_init_probe_succeeded',
@@ -46,7 +45,6 @@ export const CLI_FILE_ROUTING: Readonly<Record<string, 'audit'>> = {
   cli_claw_outbox_drain_race_lost: 'audit',
   cli_contract_create: 'audit',
   cli_contract_cancel: 'audit',
-  cli_contract_update: 'audit',
   cli_init_done: 'audit',
   cli_init_probe_attempted: 'audit',
   cli_init_probe_succeeded: 'audit',

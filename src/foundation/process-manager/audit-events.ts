@@ -13,7 +13,6 @@ export const PROCESS_MANAGER_AUDIT_EVENTS = {
   PROCESS_STOP_FAILED: 'process_stop_failed',
   PROCESS_KILL_ESCALATED: 'process_kill_escalated',
   PROCESS_STOP_STALE: 'process_stop_stale',
-  PID_READ_OK: 'pid_read_ok',
   PID_READ_FAILED: 'pid_read_failed',
   PID_WRITE_OK: 'pid_write_ok',
   PID_WRITE_FAILED: 'pid_write_failed',
