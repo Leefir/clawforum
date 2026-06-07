@@ -8,6 +8,7 @@ import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js
 import type { LLMOrchestratorConfig } from '../../foundation/llm-orchestrator/index.js';
 import type { Message, ContentBlock, TextBlock, LLMResponse } from '../../foundation/llm-provider/types.js';
 import { notifyInbox } from '../../foundation/messaging/index.js';
+import { estimateTextTokens } from '../../foundation/llm-provider/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
@@ -74,11 +75,6 @@ function serializeSession(messages: Message[]): string {
     lines.push(`${label} ${text}`);
   }
   return lines.join('\n\n');
-}
-
-/** 粗略估算 token 数（4 字符 ≈ 1 token） */
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
 }
 
 // ─── Dream State I/O ─────────────────────────────────────────
@@ -157,7 +153,7 @@ async function maybeMergeCompressions(
   llm: LLMOrchestrator,
   signal?: AbortSignal,
 ): Promise<string[]> {
-  const total = estimateTokens(compressions.join(''));
+  const total = estimateTextTokens(compressions.join(''));
   if (total <= maxTokens) return compressions;
 
   // 元压缩：将所有段合并压一次
@@ -373,7 +369,7 @@ export const __test_responseText = responseText;
 /** @internal test-only export (phase 1467) */
 export const __test_serializeSession = serializeSession;
 /** @internal test-only export (phase 1467) */
-export const __test_estimateTokens = estimateTokens;
+export const __test_estimateTokens = estimateTextTokens;
 /** @internal test-only export (phase 1467) */
 export const __test_loadDreamState = loadDreamState;
 /** @internal test-only export (phase 1467) */
