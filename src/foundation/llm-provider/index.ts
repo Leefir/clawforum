@@ -30,6 +30,17 @@ export { PRESETS, resolvePreset } from './presets.js';
 
 export type { Message, LLMResponse, ContentBlock, ToolUseBlock, ToolResultBlock, ToolDefinition } from './types.js';
 
+export {
+  estimateTextTokens,
+  estimateMessageTokens,
+  estimateMessagesTokens,
+  estimateToolTokens,
+  estimateToolsTokens,
+  estimateInputTokens,
+  PER_MESSAGE_OVERHEAD_TOKENS,
+} from './token-estimator.js';
+export type { InputTokenEstimateOptions, InputTokenEstimate } from './token-estimator.js';
+
 /**
  * LLMProvider interface — single provider call primitive
  *
