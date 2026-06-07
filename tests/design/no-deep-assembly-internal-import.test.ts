@@ -14,9 +14,9 @@ import path from 'node:path';
  * phase 1413 加 barrel re-export + 18 site 改 import 路径 + 本 invariant test
  * 防 future drift。
  *
- * scope: 本测仅治 CONFIG_DEFAULTS。sister deep imports（SNAPSHOT_IGNORE_PATTERNS
- * from snapshot-patterns.ts / ASSEMBLY_AUDIT_EVENTS from audit-events.ts）属同型
- * sister drift、留 follow-up phase 治（需配套修 tests/cli/stop-orphan-* total mock）。
+ * scope: 本测仅治 CONFIG_DEFAULTS。sister deep imports（ASSEMBLY_AUDIT_EVENTS
+ * from audit-events.ts）属同型 sister drift、留 follow-up phase 治。
+ * （SNAPSHOT_IGNORE_PATTERNS 已于 phase 157 迁至 foundation/snapshot/patterns.ts）
  *
  * cross-ref：depcruise `no-deep-into-assembly-config-defaults` forbidden rule 同源 enforce。
  */

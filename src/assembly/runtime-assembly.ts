@@ -10,7 +10,7 @@ import { resolveChestnutRoot } from './install-paths.js';
 import path from 'path';
 import { formatErr } from '../foundation/utils/index.js';
 import { createSnapshot } from '../foundation/snapshot/index.js';
-import { SNAPSHOT_IGNORE_PATTERNS } from './snapshot-patterns.js';
+import { SNAPSHOT_IGNORE_PATTERNS } from '../foundation/snapshot/index.js';
 import type { Snapshot } from '../foundation/snapshot/index.js';
 import { createStreamWriter } from '../foundation/stream/index.js';
 import type { StreamWriter } from '../foundation/stream/index.js';

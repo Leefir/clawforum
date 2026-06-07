@@ -21,7 +21,7 @@ import { CliError } from '../errors.js';
 import { Snapshot } from '../../foundation/snapshot/index.js';
 import { createDirContext } from '../../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
-import { SNAPSHOT_IGNORE_PATTERNS } from '../../assembly/index.js';
+import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
 import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { resolveDaemonEntry } from '../../assembly/spawn-entry.js';
 import { DAEMON_LOG } from '../../daemon/constants.js';
