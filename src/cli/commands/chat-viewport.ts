@@ -13,6 +13,7 @@ import { createDirContext } from '../../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { isAlive } from '../../foundation/process-exec/index.js';
 import { CLAW_SCAN_INTERVAL_MS } from './constants.js';
+import { DEFAULT_TERMINAL_WIDTH } from '../utils/constants.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
@@ -143,7 +144,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
       taskBarUpdateScheduled = true;
       process.nextTick(() => {
         taskBarUpdateScheduled = false;
-        const cols = process.stdout.columns ?? 80;
+        const cols = process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH;
         spawnText.setText(taskStatusBar.renderSpawn(cols));
         shadowText.setText(taskStatusBar.renderShadow(cols));
         tui.requestRender();

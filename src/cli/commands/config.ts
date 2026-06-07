@@ -15,6 +15,7 @@ import { createProcessManagerForCLI } from '../../foundation/process-manager/ind
 import { CliError } from '../errors.js';
 import { REACT_DEFAULT_MAX_TOKENS } from '../../core/step-executor/index.js';
 import { fitLine } from '../utils/string.js';
+import { DEFAULT_TERMINAL_WIDTH } from '../utils/constants.js';
 import { DEFAULT_LLM_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
 import { MOTION_CLAW_ID } from '../../constants.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -230,7 +231,7 @@ async function providerList(deps: { fsFactory: (baseDir: string) => FileSystem }
   const primary = config.llm.primary;
   const fallbacks = config.llm.fallbacks ?? [];
 
-  const terminalWidth = process.stdout.columns ?? 80;
+  const terminalWidth = process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH;
   const fixedColWidth = 82; // "  PRIMARY   " + padEnd(10,15,18,24) + 4 spaces
   const urlWidth = Math.max(10, terminalWidth - fixedColWidth);
 

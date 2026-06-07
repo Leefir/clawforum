@@ -7,6 +7,7 @@
 
 import { wrapLine, fitLine } from '../utils/string.js';
 import { OUTPUT_LINES_CAP } from './constants.js';
+import { DEFAULT_TERMINAL_WIDTH } from '../utils/constants.js';
 import type { MainTurnUIController } from './main-turn-ui.js';
 import type { createViewportObservability } from './chat-viewport-observability.js';
 import type { ClawTrack } from './chat-viewport-claw-line.js';
@@ -43,7 +44,7 @@ export function createDisplay(deps: DisplayDeps) {
 
   const updateDisplay = () => {
     const startNow = performance.now();
-    const cols = process.stdout.columns ?? 80;
+    const cols = process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH;
 
     // body 重算：cache miss 或 cols 变才重算
     if (bodyCache === null || bodyCacheCols !== cols) {
@@ -89,7 +90,7 @@ export function createDisplay(deps: DisplayDeps) {
 
   const onResize = () => {
     deps.updateClawPanel(deps.clawTrackMap);
-    const cols = process.stdout.columns ?? 80;
+    const cols = process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH;
     deps.spawnText.setText(deps.taskStatusBar.renderSpawn(cols));
     deps.shadowText.setText(deps.taskStatusBar.renderShadow(cols));
     updateDisplay();

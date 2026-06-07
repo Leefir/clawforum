@@ -1,6 +1,7 @@
 import stringWidth from 'string-width';
 
 export { oneLine } from '../../foundation/utils/index.js';
+import { DEFAULT_TERMINAL_WIDTH } from './constants.js';
 
 /**
  * 按视觉列宽从头截取字符串（正确处理 emoji / CJK 等宽字符）
@@ -31,7 +32,7 @@ export function sliceFromStart(s: string, maxCols: number): string {
  * - 预留 1 列给 '…'，避免 off-by-one 溢出
  */
 export function fitLine(s: string, cols?: number): string {
-  const width = cols ?? (process.stdout.columns ?? 80);
+  const width = cols ?? (process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH);
   const flat = s.replace(/\n/g, ' ');
   if (stringWidth(flat) <= width) return flat;
   return sliceFromStart(flat, width - 1) + '…';
@@ -43,7 +44,7 @@ export function fitLine(s: string, cols?: number): string {
  * @param hangIndent - 续行缩进前缀（默认空字符串），用于视觉上区分首行和续行
  */
 export function wrapLine(s: string, cols?: number, hangIndent = ''): string[] {
-  const width = cols ?? (process.stdout.columns ?? 80);
+  const width = cols ?? (process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH);
   if (stringWidth(s) <= width) return [s];
   const indentW = stringWidth(hangIndent);
   const lines: string[] = [];

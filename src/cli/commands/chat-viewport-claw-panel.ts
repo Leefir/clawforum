@@ -14,6 +14,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { createClawManager } from './chat-viewport-claw-manager.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
+import { DEFAULT_TERMINAL_WIDTH } from '../utils/constants.js';
 
 export interface ClawPanelDeps {
   attachedClawBar: { setText(text: string): void };
@@ -27,7 +28,7 @@ export function createClawPanel(deps: ClawPanelDeps) {
       deps.attachedClawBar.setText('');
       return;
     }
-    const cols = process.stdout.columns ?? 80;
+    const cols = process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH;
     const lines: string[] = [];
     for (const [id, t] of clawTrackMap) {
       lines.push(buildClawLine(id, t, cols));
