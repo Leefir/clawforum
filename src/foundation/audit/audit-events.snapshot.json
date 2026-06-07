@@ -133,6 +133,7 @@
     ],
     "core_contract_audit-events": [
       "contract_archive_partial_recovery_failed",
+      "contract_archive_progress_read_failed",
       "contract_archive_recovered",
       "contract_archive_started",
       "contract_audit_drift_detected",

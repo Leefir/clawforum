@@ -7,6 +7,8 @@ import * as yaml from 'js-yaml';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
+import { isFileNotFound } from '../../foundation/fs/types.js';
+import { formatErr } from '../../foundation/utils/index.js';
 import { ToolError } from '../../foundation/errors.js';
 import type { Contract } from '../contract/types.js';
 import type { ContractYaml, ProgressData } from './types.js';
@@ -203,6 +205,7 @@ import { type ContractId, makeContractId } from './types.js';
 export async function listArchiveContracts(opts: {
   fs: FileSystem;
   filter?: { sinceMs?: number; untilMs?: number };
+  audit?: AuditLog;  // NEW phase 164
 }): Promise<ArchiveContractRef[]> {
   const { fs, filter } = opts;
   const results: ArchiveContractRef[] = [];
@@ -224,7 +227,17 @@ export async function listArchiveContracts(opts: {
         const progressRaw = fs.readSync(`${contractDir}/progress.json`);
         const progress = JSON.parse(progressRaw) as { completed_at?: string };
         archivedAt = progress.completed_at;
-      } catch { /* silent: progress.json 缺/parse-fail 不阻 archive 列举 / by-design optional metadata */ }
+      } catch (err) {
+        if (!isFileNotFound(err)) {
+          opts.audit?.write(
+            CONTRACT_AUDIT_EVENTS.ARCHIVE_PROGRESS_READ_FAILED,
+            `clawId=${clawId}`,
+            `contractId=${contractId}`,
+            `error=${formatErr(err)}`,
+          );
+        }
+        // ENOENT 合法 / 其他错 audit + archivedAt 仍 undefined + 继续列举
+      }
 
       if (filter?.sinceMs !== undefined || filter?.untilMs !== undefined) {
         const at = archivedAt ? new Date(archivedAt).getTime() : 0;

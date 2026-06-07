@@ -22,6 +22,8 @@ export const CONTRACT_AUDIT_EVENTS = {
   OBSERVER_STATE_PARSE_FAILED: 'contract_observer_state_parse_failed',  // ← NEW (phase 1012 / r123 C fork)
   // NEW phase 160: maybeAuditStep loadActive silent catch audit emit (playbook §1)
   AUDITOR_LOAD_ACTIVE_FAILED: 'contract_auditor_load_active_failed',
+  // NEW phase 164: listArchiveContracts progress.json non-ENOENT silent catch audit emit (playbook §1)
+  ARCHIVE_PROGRESS_READ_FAILED: 'contract_archive_progress_read_failed',
   PROGRESS_CORRUPTED: 'contract_progress_corrupted',
   ARCHIVE_STARTED: 'contract_archive_started',
   ROLLBACK_FAILED: 'contract_rollback_failed',
