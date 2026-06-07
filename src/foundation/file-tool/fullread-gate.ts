@@ -32,9 +32,9 @@ import type { ExecContext } from '../tools/index.js';
 import type { ToolResult } from '../tool-protocol/index.js';
 import { computeContentHash } from './file-hash.js';
 
-export type GateRejectReason = 'not-read' | 'partial' | 'stale' | 'verify-failed';
+type GateRejectReason = 'not-read' | 'partial' | 'stale' | 'verify-failed';
 
-export type GateResult =
+type GateResult =
   | { ok: true }
   | { ok: false; reason: GateRejectReason; result: ToolResult };
 

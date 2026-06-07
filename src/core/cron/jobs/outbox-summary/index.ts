@@ -24,7 +24,7 @@ export const OUTBOX_SUMMARY_CRON_TIMEOUT_MS = 5_000;
 
 // business re-export
 export { runOutboxSummaryTick } from './tick.js';
-export type { OutboxSummaryTickDeps } from './tick.js';
+
 export type { OutboxSummaryState } from './types.js';
 export { toExtraMeta } from './types.js';
 export { computeHash, HASH_LEN } from './hash.js';

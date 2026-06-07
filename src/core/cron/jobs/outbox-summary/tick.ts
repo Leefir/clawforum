@@ -20,7 +20,7 @@ import { scanOutboxes } from './scan.js';
 import { findExistingSummaryByHash } from './dedup.js';
 import { writeNewSummary } from './write.js';
 
-export interface OutboxSummaryTickDeps {
+interface OutboxSummaryTickDeps {
   /** phase 84: caller (L6 装配期) 算好 claws dir 后传入 */
   clawsDir: string;
   fs: FileSystem;

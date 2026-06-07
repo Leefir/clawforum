@@ -115,7 +115,7 @@ export async function restoreMessages(
 }
 
 /** Slice messages at marker（helper for restoreMessages）*/
-export function sliceMessagesAtMarker(messages: Message[], toolUseId: string, inclusive = true): Message[] | null {
+function sliceMessagesAtMarker(messages: Message[], toolUseId: string, inclusive = true): Message[] | null {
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.role === 'assistant' && Array.isArray(msg.content)) {
