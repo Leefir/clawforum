@@ -30,6 +30,11 @@ import { restoreMessages } from './restore.js';
 const LOAD_STABLE_RETRY_BASE_DELAY_MS = 50;
 
 /**
+ * Default retry count for loadStable + loadStableTurnBoundary mid-write race protection.
+ */
+const LOAD_STABLE_DEFAULT_RETRIES = 3;
+
+/**
  * Manages a Claw's dialog session
  */
 export class DialogStore {
@@ -136,7 +141,7 @@ export class DialogStore {
    * Load session with mtime consistency check.
    * phase 1102 r126: prevents reading incomplete session during concurrent save().
    */
-  async loadStable(maxRetries = 3): Promise<LoadResult> {
+  async loadStable(maxRetries = LOAD_STABLE_DEFAULT_RETRIES): Promise<LoadResult> {
     for (let i = 0; i <= maxRetries; i++) {
       let statBefore: { size: number; mtime: number } | null = null;
       try {
@@ -205,7 +210,7 @@ export class DialogStore {
    * Caller: cross-claw read of motion's dialog snapshot at LLM call time
    * (currently ask-motion.ts; future cross-claw readers can adopt this method).
    */
-  async loadStableTurnBoundary(maxRetries = 3): Promise<LoadResult> {
+  async loadStableTurnBoundary(maxRetries = LOAD_STABLE_DEFAULT_RETRIES): Promise<LoadResult> {
     const result = await this.loadStable(maxRetries);
     const messages = result.session.messages;
 
