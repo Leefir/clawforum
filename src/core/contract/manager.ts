@@ -611,7 +611,7 @@ export class ContractSystem {
     // Check uniqueness against archived contracts too
     if (await this.fs.exists(`${this.archiveDir}/${contractId}`)) {
       throw new ContractValidationError('id', 'already_exists',
-        `contract id "${contractId}" already exists in archive (use 'chestnut contract list' to inspect or choose a new id)`,
+        `contract id "${contractId}" already exists in archive`,
         { contractId });
     }
 

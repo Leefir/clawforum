@@ -29,7 +29,7 @@ export function loadGlobalConfig(deps: { fsFactory: (baseDir: string) => FileSys
       { fsFactory: deps.fsFactory },
       configPath,
       schema,
-      { notFoundMessage: 'Global config not found. Run "chestnut init" first.' },
+      { notFoundMessage: 'Global config not found.' },
     );
   } catch (err) {
     if (err instanceof Error) {

@@ -46,8 +46,8 @@ export function buildSummonContractTask(
 
 **关键边界（phase 119）**：
 
-你**只能**为本次 summon 指定的 target_claw 创建契约。即使你跑 \`chestnut claw list\`、
-\`chestnut contract show\` 看到别的 claw 缺契约、跑 daemon 没起、或任何"系统状态不完整"
+你**只能**为本次 summon 指定的 target_claw 创建契约。即使你跑 \`chestnut claw list\`
+看到别的 claw 缺契约、跑 daemon 没起、或任何"系统状态不完整"
 的信号——**也不要补**。
 
 补别人的缺 = **越界违规**：

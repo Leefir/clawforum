@@ -103,7 +103,7 @@ describe('CLI Config', () => {
 
   describe('loadGlobalConfig', () => {
     it('should throw error when config not found', () => {
-      expect(() => loadGlobalConfig({ fsFactory })).toThrow('Run "chestnut init" first');
+      expect(() => loadGlobalConfig({ fsFactory })).toThrow('Global config not found.');
     });
 
     it('should throw error for invalid yaml', () => {
