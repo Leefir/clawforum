@@ -6,6 +6,10 @@ import type { InboxMessageOptionsBase } from '../../../foundation/messaging/inde
 import { scanArchivedContracts } from './event-collector.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unhandled variant: ${JSON.stringify(x)}`);
+}
+
 /** phase 101: DI callback - caller (装配期) bind fs + chestnutRoot + MOTION_CLAW_ID + audit */
 export type NotifyMotionFn = (message: InboxMessageOptionsBase) => void;
 import type { CronJob } from '../../cron/runner.js';
@@ -167,9 +171,14 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
             case 'archive_pending_recovery':
               recoveryEvents.push(entry.body);
               break;
+            case 'pending':
+            case 'running':
+            case 'paused':
+              // unreachable: scanArchivedContracts 已 filter（emit audit + skip）
+              // exhaustive switch 编译期保证、不应在运行时命中
+              break;
             default:
-              // unknown_status: 投 generic 防丢失（保 contract_events 路径）
-              completedEvents.push(entry.body);
+              return assertNever(entry.status);
           }
         }
       }

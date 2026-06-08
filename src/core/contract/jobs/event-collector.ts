@@ -6,6 +6,7 @@ import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { ProgressData } from '../manager.js';
 import type { ContractStatus } from '../types.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
+import { emitContractArchiveNonTerminalDetected } from '../audit-emit.js';
 import { CONTRACT_ARCHIVE_DIR } from '../dirs.js';
 
 function readContractMeta(
@@ -33,12 +34,16 @@ interface FormattedEvent {
   cause?: string;
 }
 
+function assertNever(x: never): never {
+  throw new Error(`Unhandled variant: ${JSON.stringify(x)}`);
+}
+
 function formatContractEvent(
   clawId: string,
   contractDirName: string,
   meta: { title?: string; goal?: string },
   progress: ProgressData,
-): FormattedEvent {
+): FormattedEvent | null {
   const status = progress.status;
   switch (status) {
     case 'completed':
@@ -49,13 +54,14 @@ function formatContractEvent(
       return formatCrashed(clawId, contractDirName, meta, progress);
     case 'archive_pending_recovery':
       return formatPendingRecovery(clawId, contractDirName, meta, progress);
+    case 'pending':
+    case 'running':
+    case 'paused':
+      // active 态在 archive 是状态机断裂、不投 inbox、上层 emit audit
+      return null;
     default:
-      // active/paused 不该在 archive 中、防御性：标 unknown 字面
-      return {
-        body: `[contract_unknown_status:${String(status)}] claw=${clawId} contract=${contractDirName}`,
-        hasFailure: false,
-        status,
-      };
+      // exhaustive check：未来加新 status 编译期失败
+      return assertNever(status);
   }
 }
 
@@ -197,6 +203,13 @@ export function scanArchivedContracts(
           }, 0);
         const meta = readContractMeta(fs, path.join(archiveDir, d.name));
         const formatted = formatContractEvent(clawId, d.name, meta, progress);
+        if (formatted === null) {
+          emitContractArchiveNonTerminalDetected(
+            audit,
+            { clawId, contractId: d.name, status: progress.status, context: 'scanArchivedContracts' },
+          );
+          continue;
+        }
         entries.push({
           contractId: d.name,
           body: formatted.body,
