@@ -28,13 +28,51 @@ import { throwAbortError } from './abort-helpers.js';
 import { safeCallback, extractText, appendAssistantMessage } from './utils.js';
 import { collectStreamResponse } from './llm-stream-collector.js';
 import { handleToolUseStop, handleMaxTokensStop } from './stop-handlers.js';
+import {
+  computeBudget,
+  handleContextExceeded,
+} from '../l4_context_manager/index.js';
+import { estimateTextTokens, estimateInputTokens } from '../../foundation/llm-provider/token-estimator.js';
+
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  'claude-3-7-sonnet-20250219': 200_000,
+  'gpt-4o': 128_000,
+  'deepseek-chat': 64_000,
+  'kimi-k2.5': 256_000,
+  'MiniMax-M1': 1_000_000,
+  'gemini-2.5-pro-preview-03-25': 1_000_000,
+  'llama3.1': 128_000,
+  'grok-4': 128_000,
+  'openai/gpt-4o': 128_000,
+  'anthropic/claude-sonnet-4-5': 200_000,
+  'glm-4.6': 128_000,
+  'qwen-coder-plus-latest': 128_000,
+};
 
 export async function executeStep(input: StepInput): Promise<StepResult> {
-  const { messages, systemPrompt, llm, tools, ctx, callbacks } = input;
+  let { messages, systemPrompt, llm, tools, ctx, callbacks } = input;
   const maxTokens = input.maxTokens ?? REACT_DEFAULT_MAX_TOKENS;
 
   if (ctx.signal?.aborted) throwAbortError(ctx.signal);
   safeCallback('onBeforeLLMCall', () => callbacks?.onBeforeLLMCall?.(), callbacks);
+
+  // Phase 186: context budget + trim before LLM call
+  const providerInfo = llm.getProviderInfo?.();
+  const providerContextWindow = providerInfo?.model
+    ? (MODEL_CONTEXT_WINDOWS[providerInfo.model] ?? 128_000)
+    : 128_000;
+
+  const budget = computeBudget({
+    providerContextWindow,
+    reserveOutputTokens: maxTokens,
+    systemPromptTokens: estimateTextTokens(systemPrompt),
+    toolsForLLMTokens: estimateTextTokens(JSON.stringify(tools ?? [])),
+  });
+
+  if (estimateInputTokens({ messages, systemPrompt, tools }).total > budget.available) {
+    messages = handleContextExceeded(messages, systemPrompt, budget.available);
+    callbacks?.onSafeCallbackError?.('context_trim', new Error(`Context trimmed to ${budget.available} tokens`));
+  }
 
   const llmStartTime = Date.now();
   const callOptions: LLMCallOptions = {
