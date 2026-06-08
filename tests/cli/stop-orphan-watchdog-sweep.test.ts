@@ -48,6 +48,18 @@ vi.mock('../../src/foundation/process-manager/factories.js', () => ({
   })),
 }));
 
+// Mock process-exec to no-op kill/isAlive — avoid hitting real OS (CI may have
+// system processes at low pids like 1111 causing EPERM throws → test flake).
+// Previously without mock, kill(1111) threw EPERM on CI but ESRCH-silent on local dev.
+vi.mock('../../src/foundation/process-exec/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/foundation/process-exec/index.js')>();
+  return {
+    ...actual,
+    kill: vi.fn(),
+    isAlive: vi.fn().mockReturnValue(false),
+  };
+});
+
 vi.mock('../../src/watchdog/watchdog-context.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/watchdog/watchdog-context.js')>();
   return {
