@@ -490,7 +490,7 @@ export class ContractSystem {
                   );
                 }
                 if (contractYaml) {
-                  await archiveAndEmit(this._verificationCtx(), contractId, contractYaml.title, 'init.migrate_escalated');
+                  await archiveAndEmit(this._verificationCtx(), contractId, contractYaml, 'init.migrate_escalated');
                 }
               }
             }
@@ -503,7 +503,7 @@ export class ContractSystem {
               await archiveAndEmit(
                 this._verificationCtx(),
                 contractId,
-                contractYaml.title,
+                contractYaml,
                 'ContractSystem.init.bootReconcile',
               );
             }

@@ -332,7 +332,7 @@ export async function runVerificationPipeline(
         if (result.archived === false) {
           const progressAfterLock = await ctx.getProgress(contractId);
           if (progressAfterLock && progressAfterLock.status === 'completed') {
-            await archiveAndEmit(ctx, contractId, contractYaml.title, 'ContractSystem.backgroundVerification.errorForceAccept');
+            await archiveAndEmit(ctx, contractId, contractYaml, 'ContractSystem.backgroundVerification.errorForceAccept');
           }
         }
       }).catch(inboxErr => {
@@ -416,7 +416,7 @@ export async function runVerificationInBackground(
         outcomeKind = 'cancelled';
         cancelReason = 'contract_cancelled_after_verification';
       } else {
-        await archiveAndEmit(ctx, contractId, contractYaml.title, 'ContractSystem._runVerificationInBackground');
+        await archiveAndEmit(ctx, contractId, contractYaml, 'ContractSystem._runVerificationInBackground');
       }
     }
   } finally {

@@ -1,70 +1,74 @@
 /**
  * @module L6.Assembly.Guidance
  * phase 1469 立 / phase 1487 γ5 real composer 替 NO_GUIDANCE 占位.
+ * phase 205 Step B: 3 旁路删 + 主路精简（state-driven CLI block）
  *
- * state schema（业主侧 wire / 详 sister design row）：
+ * state schema（业主侧 wire）：
  *   - source_claw?: string   A3 path (assemble.ts:550 callback) 透传 = 当前 claw id
- *                            A4 path (observer) 不设 / 默认 != MOTION
+ *   - contract_id?: string   A3 path extraFields（Step A 补）
  *   - problem_pairs?: string A4 path 聚合 `<claw>:<contract>` 逗号分隔（有 last_failure 的 entries）
- *                            A3 path 不设（thin body 无 subtask 信息）
  *
- * composer 单分支：
- *   (1) source_claw == MOTION_CLAW_ID → null (motion 自家、session 已含完整上下文 / DP「不冗余打扰」)
- *   (2) problem_pairs 空 → null (worker clean、body 内 evidence 路径已足 / DP「事件驱动恰好交付」)
- *   (3) 否则枚举 problem_pairs 每 pair 输出 `chestnut claw <实claw> trace --contract <实contract>` + 推荐 shadow
- *
- * 应然 anchor (详 design/modules/l6_assembly.md A.phase1487-contract-events-composer-real):
- *   - DP「motion 是决策主体」: 去 [force-accepted] 字面 (event-collector.ts cleanup)
- *   - DP「事件驱动恰好交付」: 仅在 last_failure 时教 / clean 不打扰
- *   - Philosophy P2「上下文工程」: trace + shadow 工具知识 just-in-time 注入
- *   - ML#5 不预设上层: 业主仅 own state schema, Assembly 此处 own CLI 字面 + tool 名
- *   - ML#9 编译期 check: clawCmd + CLAW_VERBS.TRACE + TOOL_NAMES.SHADOW typed const
+ * composer 单一 logic：state-driven CLI block 出 trace + show per contract。
  */
 
 import type { GuidanceComposer, GuidanceEntry } from '../types.js';
-import { clawCmd, CLAW_VERBS } from '../../../cli/commands/registry.js';
-import { TOOL_NAMES } from '../tool-names.js';
-import { MOTION_CLAW_ID } from '../../../constants.js';
+import { clawCmd, CLAW_VERBS, CONTRACT_COMMANDS } from '../../../cli/commands/registry.js';
 
 interface ContractEventsState {
   source_claw?: string;
+  contract_id?: string;
   problem_pairs?: string;
 }
 
-export const composer: GuidanceComposer<ContractEventsState> = (state): GuidanceEntry | null => {
-  // (1) motion own contract done → null
-  if (state.source_claw === MOTION_CLAW_ID) {
-    return null;
-  }
+interface ContractPair {
+  claw: string;
+  contract: string;
+}
 
-  // (2) worker clean (no failure feedback) → null
-  const pairs = (state.problem_pairs ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  if (pairs.length === 0) {
-    return null;
-  }
+const MAX_PAIR_RENDER = 10;
 
-  // (3) enumerate trace commands for each problem (claw, contract) pair
-  const traceLines: string[] = [];
-  for (const pair of pairs) {
-    const sepIdx = pair.indexOf(':');
-    if (sepIdx <= 0 || sepIdx >= pair.length - 1) continue;  // malformed pair
-    const claw = pair.slice(0, sepIdx);
-    const contract = pair.slice(sepIdx + 1);
-    traceLines.push(`${clawCmd(claw, CLAW_VERBS.TRACE)} --contract ${contract}`);
-  }
-  if (traceLines.length === 0) {
-    return null;
-  }
-
-  const intro = traceLines.length === 1
-    ? '子任务提交但有 last_failure 记录。如需调查 claw 在该 contract 的执行轨迹，可用：'
-    : `${traceLines.length} 个 contract 子任务提交但有 last_failure 记录。如需调查 claw 在该 contract 的执行轨迹，可用：`;
-
-  const text = [
-    intro,
-    ...traceLines,
-    `建议使用 ${TOOL_NAMES.SHADOW} 工具创建分身来进行调查。`,
-  ].join('\n');
-
-  return { text };
+export const composer: GuidanceComposer<ContractEventsState> = (state): GuidanceEntry => {
+  const pairs = parsePairs(state);
+  return { text: renderCliBlock(pairs) };
 };
+
+function parsePairs(state: ContractEventsState): ContractPair[] {
+  // A4 observer 路径：problem_pairs CSV、每 pair `<claw>:<contract>`
+  if (state.problem_pairs) {
+    return state.problem_pairs
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(pair => {
+        const sepIdx = pair.indexOf(':');
+        if (sepIdx <= 0 || sepIdx >= pair.length - 1) return null;
+        return { claw: pair.slice(0, sepIdx), contract: pair.slice(sepIdx + 1) };
+      })
+      .filter((p): p is ContractPair => p !== null);
+  }
+  // A3 path：single source_claw + contract_id
+  if (state.source_claw && state.contract_id) {
+    return [{ claw: state.source_claw, contract: state.contract_id }];
+  }
+  return [];
+}
+
+function renderCliBlock(pairs: ContractPair[]): string {
+  if (pairs.length === 0) {
+    // 兜底：state 缺关键字段、出 `<unknown>` 占位 CLI 模板（与 phase 198 cancelled/crashed 同 pattern）
+    return [
+      `${clawCmd('<unknown>', CLAW_VERBS.TRACE)} --contract <unknown>`,
+      `${CONTRACT_COMMANDS.SHOW} -c <unknown> --contract <unknown>`,
+    ].join('\n');
+  }
+  const lines: string[] = [];
+  const displayCount = Math.min(pairs.length, MAX_PAIR_RENDER);
+  if (pairs.length > MAX_PAIR_RENDER) {
+    lines.push(`(${pairs.length} contract events、显示前 ${MAX_PAIR_RENDER})`, '');
+  }
+  for (const p of pairs.slice(0, displayCount)) {
+    lines.push(`${clawCmd(p.claw, CLAW_VERBS.TRACE)} --contract ${p.contract}`);
+    lines.push(`${CONTRACT_COMMANDS.SHOW} -c ${p.claw} --contract ${p.contract}`);
+  }
+  return lines.join('\n');
+}

@@ -9,7 +9,7 @@ import { safeNotify } from './verification-notify.js';
 import { formatValidIds } from './verification-format.js';
 import { ToolError } from '../../foundation/errors.js';
 import { formatErr } from '../../foundation/utils/index.js';
-import type { ContractId } from './types.js';
+import type { ContractId, ContractYaml } from './types.js';
 import {
   emitContractCompleted,
   emitContractMoveArchiveFailed,
@@ -27,17 +27,38 @@ import {
 export async function archiveAndEmit(
   ctx: VerificationContext,
   contractId: ContractId,
-  title: string,
+  contractYaml: ContractYaml,
   contextLabel: string,
 ): Promise<void> {
   try {
     await ctx.moveContractToArchive(contractId);
     emitContractCompleted(
       ctx.audit,
-      { contractId, title, claw: ctx.clawId },
+      { contractId, title: contractYaml.title, claw: ctx.clawId },
     );
     await ctx.emitContractCompleted(contractId);
-    safeNotify(ctx, 'contract_completed', { contractId, title });
+
+    const progress = await ctx.getProgress(contractId);
+    const subtasksSummary = progress
+      ? Object.entries(progress.subtasks)
+          .filter(([, st]) => st.status === 'completed')
+          .map(([id, st]) => ({ id, completed_at: st.completed_at ?? '', force_accepted: !!st.force_accepted }))
+      : [];
+    const completedAt = progress
+      ? Object.values(progress.subtasks)
+          .reduce((max, s) => {
+            if (!s.completed_at) return max;
+            return s.completed_at > max ? s.completed_at : max;
+          }, '')
+      : '';
+
+    safeNotify(ctx, 'contract_completed', {
+      contractId,
+      title: contractYaml.title,
+      goal: contractYaml.goal,
+      subtasks: subtasksSummary,
+      completed_at: completedAt,
+    });
   } catch (err) {
     try {
       await ctx.withProgressLock(contractId, async () => {
@@ -197,7 +218,7 @@ export async function completeSubtaskSync(
       emitContractCompleteOnCancelled(ctx.audit, { contractId, subtaskId });
       return { ...result, allCompleted: false };
     }
-    await archiveAndEmit(ctx, contractId, contractYaml.title, 'ContractSystem._completeSubtaskSync');
+    await archiveAndEmit(ctx, contractId, contractYaml, 'ContractSystem._completeSubtaskSync');
   }
 
   return { ...result, allCompleted };

@@ -55,6 +55,7 @@ export function createContractNotifyCallback(deps: ContractNotifyDeps): Contract
         body: `[${type}] claw=${deps.clawId} ${formatNotifyData(data)}`,
         extraFields: {
           source_claw: deps.clawId,
+          contract_id: String(data.contractId ?? ''),
         },
       }, deps.auditWriter);
     }
