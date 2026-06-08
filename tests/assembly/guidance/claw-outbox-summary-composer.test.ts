@@ -13,9 +13,8 @@ describe('phase 1476: claw-outbox-summary composer', () => {
       total_msgs: '4',
       counts: JSON.stringify({ clawA: 3, clawB: 1 }),
     });
-    expect(result).not.toBeNull();
-    expect(result!.text).toContain('chestnut claw <claw-id> outbox');
-    expect(result!.text).toContain('--limit 4');
+    expect(result.text).toContain('chestnut claw <claw-id> outbox');
+    expect(result.text).toContain('--limit 4');
   });
 
   it('safe limit fallback if total_msgs is malformed', () => {
@@ -25,7 +24,7 @@ describe('phase 1476: claw-outbox-summary composer', () => {
       total_msgs: 'NaN',
       counts: '{}',
     });
-    expect(result!.text).toContain('--limit 10');
+    expect(result.text).toContain('--limit 10');
   });
 
   it('total_msgs = 0 still returns guidance (caller decides to call or not)', () => {
@@ -36,7 +35,6 @@ describe('phase 1476: claw-outbox-summary composer', () => {
       total_msgs: '0',
       counts: '{}',
     });
-    expect(result).not.toBeNull();
-    expect(result!.text).toContain('--limit 10'); // fallback when limit <= 0
+    expect(result.text).toContain('--limit 10'); // fallback when limit <= 0
   });
 });

@@ -8,16 +8,15 @@ import { composer } from '../../../src/assembly/guidance/composers/task-queue-ov
 describe('task-queue-overflow composer (phase 7)', () => {
   it('returns escalation guidance pointing to user', () => {
     const r = composer({ cap: '1000', queue_length: '1000' });
-    expect(r).not.toBeNull();
-    expect(r!.text).toContain('system-level overload');
-    expect(r!.text).toContain('Surface to the user');
-    expect(r!.text).toContain('developer');
-    expect(r!.text).toContain('Do not retry');
+    expect(r.text).toContain('system-level overload');
+    expect(r.text).toContain('Surface to the user');
+    expect(r.text).toContain('developer');
+    expect(r.text).toContain('Do not retry');
   });
 
   it('returns same guidance regardless of state fields', () => {
     const r1 = composer({});
     const r2 = composer({ cap: '500', queue_length: '500' });
-    expect(r1!.text).toBe(r2!.text);
+    expect(r1.text).toBe(r2.text);
   });
 });

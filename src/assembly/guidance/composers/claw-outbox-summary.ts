@@ -1,6 +1,8 @@
 /**
  * @module L6.Assembly.Guidance
  * phase 1476 γ2: motion guidance for `claw_outbox_summary` (γ2 首个 non-NO_GUIDANCE real composer).
+ * phase 208: signature 收窄 GuidanceEntry | null → GuidanceEntry
+ *   (body 本就单一 return { text }、无 null path、type 收窄 hygiene 对齐已收窄 5 composer)
  *
  * 业主 (core/outbox-summary) own facts (counts / total_claws / total_msgs / hash).
  * Assembly 此处 own motion-side CLI 教学：拼 `chestnut claw <claw-id> outbox --limit N`.
@@ -22,7 +24,7 @@ interface ClawOutboxSummaryState {
   counts: string;       // JSON stringified
 }
 
-export const composer: GuidanceComposer<ClawOutboxSummaryState> = (state): GuidanceEntry | null => {
+export const composer: GuidanceComposer<ClawOutboxSummaryState> = (state): GuidanceEntry => {
   const limit = Number(state.total_msgs);
   const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 10;
   // motion LLM 拿 <claw-id> 占位、按 body 中 counts breakdown 自家替换具体 id
