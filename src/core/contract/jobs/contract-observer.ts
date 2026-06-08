@@ -145,6 +145,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   const recoveryEvents: string[] = [];
   const allProblemPairs: string[] = [];
   const newlyDiscovered: string[] = [];
+  const cancellations: Array<{ source_claw: string; contract_id: string; reason: string }> = [];
 
   for (const clawId of clawIds) {
     if (options.signal?.aborted) return;
@@ -164,6 +165,11 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
               break;
             case 'cancelled':
               cancelledEvents.push(entry.body);
+              cancellations.push({
+                source_claw: clawId,
+                contract_id: entry.contractId,
+                reason: entry.reason ?? '(no reason given)',
+              });
               break;
             case 'crashed':
               crashedEvents.push(entry.body);
@@ -210,6 +216,9 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
       source: 'system',
       priority: 'high',
       body: cancelledEvents.join('\n\n'),
+      extraFields: {
+        cancellations: JSON.stringify(cancellations),
+      },
     });
   }
 

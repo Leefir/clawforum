@@ -1,15 +1,12 @@
 /**
  * phase 63 γ NEW: contract_cancelled composer unit test
+ * phase 190: 删 null 旁路 + 加 batch / fallback case
  */
 
 import { describe, it, expect } from 'vitest';
 import { composer } from '../../../src/assembly/guidance/composers/contract-cancelled.js';
 
-describe('phase 63: contract_cancelled composer', () => {
-  it('observer 路径无 contract_id → null', () => {
-    expect(composer({})).toBeNull();
-  });
-
+describe('phase 63+190: contract_cancelled composer', () => {
   it('含必备字段 + 0 prescription', () => {
     const result = composer({
       source_claw: 'worker',
@@ -20,7 +17,7 @@ describe('phase 63: contract_cancelled composer', () => {
     const text = result!.text;
     expect(text).toContain('[contract_cancelled]');
     expect(text).toContain('事实:');
-    expect(text).toContain('系统已做:');
+    expect(text).toContain('系统已做（per cancellation）:');
     expect(text).toContain('相关基础设施:');
     expect(text).toContain('worker');
     expect(text).toContain('user reason');
@@ -33,5 +30,63 @@ describe('phase 63: contract_cancelled composer', () => {
     const result = composer({ contract_id: 'c1' });
     expect(result).not.toBeNull();
     expect(result!.text).toContain('(no reason given)');
+  });
+
+  it('phase 190: observer 路径无 contract_id 但有 cancellations → batch 渲染', () => {
+    const result = composer({
+      cancellations: JSON.stringify([
+        { source_claw: 'claw1', contract_id: 'c1', reason: 'r1' },
+      ]),
+    });
+    expect(result).not.toBeNull();
+    const text = result!.text;
+    expect(text).toContain('[contract_cancelled]');
+    expect(text).toContain('claw1');
+    expect(text).toContain('c1');
+    expect(text).toContain('r1');
+  });
+
+  it('phase 190: batch 多 entry 渲染', () => {
+    const result = composer({
+      cancellations: JSON.stringify([
+        { source_claw: 'claw1', contract_id: 'c1', reason: 'r1' },
+        { source_claw: 'claw2', contract_id: 'c2', reason: 'r2' },
+      ]),
+    });
+    expect(result).not.toBeNull();
+    const text = result!.text;
+    expect(text).toContain('claw1');
+    expect(text).toContain('c2');
+    expect(text).toContain('r2');
+  });
+
+  it('phase 190: batch 超 10 entry 截断显示 + 标 count', () => {
+    const entries = Array.from({ length: 12 }, (_, i) => ({
+      source_claw: `claw${i}`,
+      contract_id: `c${i}`,
+      reason: `r${i}`,
+    }));
+    const result = composer({ cancellations: JSON.stringify(entries) });
+    expect(result).not.toBeNull();
+    const text = result!.text;
+    expect(text).toContain('(12 cancellations、显示前 10)');
+    expect(text).toContain('claw0');
+    expect(text).not.toContain('claw10'); // 截断
+  });
+
+  it('phase 190: cancellations 非法 JSON 时 fallback 到 single entry 或兜底', () => {
+    const result = composer({ contract_id: 'c1', source_claw: 'worker', reason: 'bad json fallback', cancellations: 'not-json' });
+    expect(result).not.toBeNull();
+    const text = result!.text;
+    expect(text).toContain('worker');
+    expect(text).toContain('c1');
+    expect(text).toContain('bad json fallback');
+  });
+
+  it('phase 190: 空 state 兜底仍出 guidance（不返 null）', () => {
+    const result = composer({});
+    expect(result).not.toBeNull();
+    expect(result!.text).toContain('[contract_cancelled]');
+    expect(result!.text).toContain('(unknown)');
   });
 });

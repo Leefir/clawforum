@@ -124,7 +124,13 @@ describe('Phase 542 — contract-observer deps 装配方注入', () => {
       expect.objectContaining({ type: 'contract_events', body: expect.stringContaining('c1') }),
     );
     expect(opts.notifyMotion).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'contract_cancelled', body: expect.stringContaining('c2') }),
+      expect.objectContaining({
+        type: 'contract_cancelled',
+        body: expect.stringContaining('c2'),
+        extraFields: expect.objectContaining({
+          cancellations: expect.stringContaining('c2'),
+        }),
+      }),
     );
     expect(opts.notifyMotion).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'contract_crashed', body: expect.stringContaining('c3') }),
