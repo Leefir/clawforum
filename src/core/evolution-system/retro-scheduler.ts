@@ -18,6 +18,10 @@ import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../summon-system/di
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
+import {
+  resolveHandoffMarker,
+  AUDIT,
+} from '../l4_context_manager/index.js';
 
 /** Default retro subagent timeout (ms); 10 min by design */
 const RETRO_SUBAGENT_TIMEOUT_MS_DEFAULT = 10 * 60_000;
@@ -61,6 +65,14 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
   } catch (e) {
     config.audit.write(RETRO_AUDIT_EVENTS.SKILL_FAILED,
       `error=${formatErr(e)}`);
+  }
+
+  // Phase 186: resolve handoff marker for retro phase cross-round context
+  const marker = resolveHandoffMarker(config.contractId);
+  if (marker === null) {
+    config.audit.write(AUDIT.HANDOFF_MARKER_NOT_FOUND, `id=${config.contractId}`);
+  } else {
+    config.audit.write(AUDIT.HANDOFF_MARKER_RESOLVED, `id=${marker.id}`, `parent=${marker.parentRound}`);
   }
 
   // 构建 retroPrompt（A.3）
