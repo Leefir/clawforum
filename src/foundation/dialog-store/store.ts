@@ -309,12 +309,15 @@ export class DialogStore {
    * Save session to current.json
    * phase 713: 扩 snapshot 参 / atomic write systemPrompt + messages + toolsForLLM 3 件
    */
-  async save(snapshot: {
-    systemPrompt: string;
-    messages: Message[];
-    toolsForLLM: ToolDefinition[];
-    trace_id?: TraceId;
-  }): Promise<void> {
+  async save(
+    snapshot: {
+      systemPrompt: string;
+      messages: Message[];
+      toolsForLLM: ToolDefinition[];
+      trace_id?: TraceId;
+    },
+    _cacheHints?: { cacheControlMarkerIndex?: number },
+  ): Promise<void> {
     const doSave = async (): Promise<void> => {
       const now = new Date().toISOString();
 
@@ -333,6 +336,10 @@ export class DialogStore {
         toolsForLLM: snapshot.toolsForLLM,
         ...(snapshot.trace_id && { trace_id: snapshot.trace_id }),
       };
+
+      // Phase 186: cacheHints received from ContextManager (cacheControlMarkerIndex used for stable prefix persistence)
+      // TODO: persist cacheHints when SessionData schema supports it (phase TBD)
+      void _cacheHints;
 
       try {
         await this.fs.writeAtomic(this.currentPath, JSON.stringify(data, null, 2));
