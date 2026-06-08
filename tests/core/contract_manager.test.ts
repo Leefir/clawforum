@@ -175,7 +175,7 @@ describe('ContractSystem', () => {
     
     // 验证第一个已被归档
     const progress1 = await manager.getProgress(contract1);
-    expect(progress1.status).toBe('running'); // status 不变，但位置在 archive/
+    expect(progress1.status).toBe('completed'); // phase 188: auto-archive flips to completed before archive
   });
 
   it('should create() auto-archive existing running contract', async () => {
@@ -196,9 +196,9 @@ describe('ContractSystem', () => {
       verification: [],
     }));
 
-    // 第一个被归档（status 仍为 running，但不在 active/）
+    // 第一个被归档（phase 188: auto-archive flips to completed before archive）
     const progress1 = await manager.getProgress(contract1);
-    expect(progress1.status).toBe('running');
+    expect(progress1.status).toBe('completed');
     
     // 第二个是当前的 active
     const progress2 = await manager.getProgress(contract2);

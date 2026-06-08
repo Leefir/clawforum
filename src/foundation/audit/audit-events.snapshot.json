@@ -131,8 +131,13 @@
       "tool_task_retry"
     ],
     "core_contract_audit-events": [
+      "contract_archive_nonterminal_detected",
       "contract_archive_partial_recovery_failed",
+      "contract_archive_precondition_violated",
       "contract_archive_progress_read_failed",
+      "contract_archive_reconcile_failed",
+      "contract_archive_reconcile_stale",
+      "contract_archive_reconcile_summary",
       "contract_archive_recovered",
       "contract_archive_started",
       "contract_audit_drift_detected",

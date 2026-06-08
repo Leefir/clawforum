@@ -87,6 +87,12 @@ describe('moveContractToArchive lock acquire (phase 860 / P0-B)', () => {
       verification: [],
     }));
 
+    // phase 188: archive precondition requires terminal status
+    await (manager as any).withProgressLock(contractId, async () => {
+      const progress = await manager.getProgress(contractId);
+      progress.status = 'completed';
+      await (manager as any).saveProgress(contractId, progress);
+    });
     await (manager as any).moveToArchive(contractId);
 
     // Lock released by releaseLock@TARGET (lock file deleted after move)
@@ -113,6 +119,12 @@ describe('moveContractToArchive lock acquire (phase 860 / P0-B)', () => {
       verification: [],
     }));
 
+    // phase 188: archive precondition requires terminal status
+    await (manager as any).withProgressLock(contractId, async () => {
+      const progress = await manager.getProgress(contractId);
+      progress.status = 'completed';
+      await (manager as any).saveProgress(contractId, progress);
+    });
     await manager.moveToArchive(contractId);
 
     // Second call should early-return without acquiring lock

@@ -122,6 +122,13 @@ describe('phase 871 r113 G fork: contract lock orphan-on-fs-move-throw cluster f
       verification: [],
     }));
 
+    // phase 188: archive precondition requires terminal status
+    await (manager as any).withProgressLock(contractId, async () => {
+      const progress = await manager.getProgress(contractId);
+      progress.status = 'completed';
+      await (manager as any).saveProgress(contractId, progress);
+    });
+
     const sourceLockPath = path.join(clawDir, 'contract', 'active', contractId, 'progress.lock');
 
     const moveSpy = vi.spyOn(nodeFs, 'move').mockRejectedValue(
