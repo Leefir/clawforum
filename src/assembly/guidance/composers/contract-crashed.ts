@@ -1,17 +1,16 @@
 /**
  * @module Assembly.GuidanceComposers
  * phase 63 γ NEW: contract_crashed real composer
- * phase 191: 删 null 旁路、扩 batch 路径（observer 投 extraFields.crashes）
+ * phase 191: 删 null 旁路、扩 batch 路径
+ * phase 198: 精简到最小 state-driven CLI block（删事实段 + 系统已做 + 相关基础设施 + CAUSE_FORMAT_NOTE）
  *
- * 触发：markCrashed 走 safeNotify 路径（motion 自家 contract 执行 5 typed Error 之一）
- *      或 contract-observer cron 扫 worker archive 发现 crashed contract
- *
- * 设计原则（Philosophy「系统为智能体服务、提供基础设施和必要信息」）：
- * - 事实 + 系统已尝试 + 相关基础设施
- * - 0 prescription
- * - motion 自决 cancel + re-summon / 调研 backup / 询问 user / 调整 fork 策略
+ * 设计原则: state-driven CLI just-in-time 注入（仅省 motion 一步推理、不重灌 motion 已知静态知识）
+ * - 事实段归 body（observer formatCrashed / safeNotify path）
+ * - forensics 归 audit log
+ * - 工具 / 路径静态清单归 motion-side chestnut-guide skill
  */
 
+import { clawCmd, CLAW_VERBS, CONTRACT_COMMANDS } from '../../../cli/commands/registry.js';
 import type { GuidanceComposer, GuidanceEntry } from '../types.js';
 
 interface ContractCrashedState {
@@ -27,33 +26,14 @@ interface CrashEntry {
   cause: string;
 }
 
-const CAUSE_FORMAT_NOTE = [
-  `cause 字面格式: "system: <typed_error_class_name>"（如 system: maxstepsexceedederror）`,
-  `  - 表示 agent loop / LLM provider 物理推不动该 contract`,
-  `  - 非 user 主动决策、非 daemon crash（daemon 仍活着）`,
-];
-
-const SYSTEM_DID = [
-  `  - Runtime catch 捕获 typed Error（max_steps / wall_time / parse_loop / max_tokens / llm_all_providers）`,
-  `  - 从 inbox message metadata 取 contract_id`,
-  `  - ContractSystem.markCrashed: lockContract + saveProgress(status='crashed') + abortContractVerifiers + move source → archive`,
-  `  - emit CONTRACT_CRASHED audit`,
-];
-
-const INFRASTRUCTURE = [
-  `  agent 工具: exec, ask_user, send, summon, notify_claw`,
-  `  文件系统:   archive 下的 contract 目录可 read/inspect、含 progress.json (含 cause 在 checkpoint) + contract.yaml`,
-];
-
 const MAX_BATCH_RENDER = 10;
 
 export const composer: GuidanceComposer<ContractCrashedState> = (state): GuidanceEntry => {
   const entries = parseEntries(state);
   if (entries.length === 0) {
-    // 既无 single entry 又无 batch、仍出 guidance（旁路删后底线：至少投 system已做 + 基础设施 hint）
-    return { text: renderBatch([{ source_claw: '(unknown)', contract_id: '(unknown)', cause: '(unknown)' }]) };
+    return { text: renderCliBlock([{ source_claw: '<unknown>', contract_id: '<unknown>', cause: '<unknown>' }]) };
   }
-  return { text: renderBatch(entries) };
+  return { text: renderCliBlock(entries) };
 };
 
 function parseEntries(state: ContractCrashedState): CrashEntry[] {
@@ -85,22 +65,15 @@ function parseEntries(state: ContractCrashedState): CrashEntry[] {
   return [];
 }
 
-function renderBatch(entries: CrashEntry[]): string {
-  const lines: string[] = [`[contract_crashed]`, ``];
+function renderCliBlock(entries: CrashEntry[]): string {
+  const lines: string[] = [];
   const displayCount = Math.min(entries.length, MAX_BATCH_RENDER);
   if (entries.length > MAX_BATCH_RENDER) {
     lines.push(`(${entries.length} crashes、显示前 ${MAX_BATCH_RENDER})`, ``);
   }
-  lines.push(`事实:`);
   for (const e of entries.slice(0, displayCount)) {
-    lines.push(`  - source_claw: ${e.source_claw}`);
-    lines.push(`    contract_id: ${e.contract_id}`);
-    lines.push(`    cause:       ${e.cause}`);
+    lines.push(`${clawCmd(e.source_claw, CLAW_VERBS.TRACE)} --contract ${e.contract_id}`);
+    lines.push(`${CONTRACT_COMMANDS.SHOW} -c ${e.source_claw} --contract ${e.contract_id}`);
   }
-  lines.push(``, ...CAUSE_FORMAT_NOTE);
-  lines.push(``, `系统已做（per crash）:`);
-  lines.push(...SYSTEM_DID);
-  lines.push(``, `相关基础设施:`);
-  lines.push(...INFRASTRUCTURE);
   return lines.join('\n');
 }

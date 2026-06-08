@@ -1,17 +1,16 @@
 /**
  * @module Assembly.GuidanceComposers
  * phase 63 γ NEW: contract_cancelled real composer
- * phase 190: 删 null 旁路、扩 batch 路径（observer 投 extraFields.cancellations）
+ * phase 190: 删 null 旁路、扩 batch 路径
+ * phase 198: 精简到最小 state-driven CLI block（删事实段 + 系统已做 + 相关基础设施）
  *
- * 触发：cancelContract 走 safeNotify 路径（motion 自家 cancel 自家 contract 实时）
- *      或 contract-observer cron 扫 worker archive 发现 cancelled contract
- *
- * 设计原则（Philosophy「系统为智能体服务、提供基础设施和必要信息」）：
- * - 事实 + 系统已尝试 + 相关基础设施
- * - 0 prescription（无「建议」「推荐」「应该」「按优先级」字面）
- * - motion 自决用哪条基础设施处理
+ * 设计原则: state-driven CLI just-in-time 注入（仅省 motion 一步推理、不重灌 motion 已知静态知识）
+ * - 事实段归 body（observer formatCancelled / safeNotify path）
+ * - forensics 归 audit log
+ * - 工具 / 路径静态清单归 motion-side chestnut-guide skill
  */
 
+import { clawCmd, CLAW_VERBS, CONTRACT_COMMANDS } from '../../../cli/commands/registry.js';
 import type { GuidanceComposer, GuidanceEntry } from '../types.js';
 
 interface ContractCancelledState {
@@ -27,28 +26,14 @@ interface CancellationEntry {
   reason: string;
 }
 
-const SYSTEM_DID = [
-  `  - lockContract source dir`,
-  `  - saveProgress(status='cancelled', checkpoint='cancelled: <reason>')`,
-  `  - abortContractVerifiers (best-effort)`,
-  `  - move source → archive`,
-  `  - emit CONTRACT_CANCELLED audit`,
-];
-
-const INFRASTRUCTURE = [
-  `  agent 工具: exec, ask_user, send, summon, notify_claw`,
-  `  文件系统:   archive 下的 contract 目录可 read/inspect、含 progress.json + contract.yaml`,
-];
-
 const MAX_BATCH_RENDER = 10;
 
 export const composer: GuidanceComposer<ContractCancelledState> = (state): GuidanceEntry => {
   const entries = parseEntries(state);
   if (entries.length === 0) {
-    // 既无 single entry 又无 batch、仍出 guidance（旁路删后底线：至少投 system已做 + 基础设施 hint）
-    return { text: renderBatch([{ source_claw: '(unknown)', contract_id: '(unknown)', reason: '(unknown)' }]) };
+    return { text: renderCliBlock([{ source_claw: '<unknown>', contract_id: '<unknown>', reason: '<unknown>' }]) };
   }
-  return { text: renderBatch(entries) };
+  return { text: renderCliBlock(entries) };
 };
 
 function parseEntries(state: ContractCancelledState): CancellationEntry[] {
@@ -80,21 +65,15 @@ function parseEntries(state: ContractCancelledState): CancellationEntry[] {
   return [];
 }
 
-function renderBatch(entries: CancellationEntry[]): string {
-  const lines: string[] = [`[contract_cancelled]`, ``];
+function renderCliBlock(entries: CancellationEntry[]): string {
+  const lines: string[] = [];
   const displayCount = Math.min(entries.length, MAX_BATCH_RENDER);
   if (entries.length > MAX_BATCH_RENDER) {
     lines.push(`(${entries.length} cancellations、显示前 ${MAX_BATCH_RENDER})`, ``);
   }
-  lines.push(`事实:`);
   for (const e of entries.slice(0, displayCount)) {
-    lines.push(`  - source_claw: ${e.source_claw}`);
-    lines.push(`    contract_id: ${e.contract_id}`);
-    lines.push(`    reason:      ${e.reason}`);
+    lines.push(`${clawCmd(e.source_claw, CLAW_VERBS.TRACE)} --contract ${e.contract_id}`);
+    lines.push(`${CONTRACT_COMMANDS.SHOW} -c ${e.source_claw} --contract ${e.contract_id}`);
   }
-  lines.push(``, `系统已做（per cancellation）:`);
-  lines.push(...SYSTEM_DID);
-  lines.push(``, `相关基础设施:`);
-  lines.push(...INFRASTRUCTURE);
   return lines.join('\n');
 }
