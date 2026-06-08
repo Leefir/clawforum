@@ -82,6 +82,7 @@ import {
   type VerificationContext,
 } from './verification.js';
 import { archiveAndEmit } from './verification-lifecycle.js';
+import { reconcileArchiveStaleEntries } from './jobs/archive-reconciler.js';
 import { VerificationMutex } from './verification-mutex.js';
 import { ContractAuditor } from './contract-auditor.js';
 
@@ -517,6 +518,25 @@ export class ContractSystem {
         }
       }
     }
+
+    // NEW phase 188 Step C: archive 目录 stale active 态 sweep
+    try {
+      await reconcileArchiveStaleEntries(
+        { fs: this.fs, audit: this.audit },
+        this.clawId,
+        this.clawDir,
+      );
+      // summary 已由 reconcileArchiveStaleEntries 内 emit
+      // 此处不再额外 audit、不阻断 init 后续路径
+    } catch (err) {
+      // reconciler 内已 catch + audit emit；此处兜底（理论 unreachable）
+      this.audit.write(
+        CONTRACT_AUDIT_EVENTS.CONTRACT_ARCHIVE_RECONCILE_FAILED,
+        `clawId=${this.clawId}`,
+        `context=init_outer_catch`,
+        `error=${formatErr(err)}`,
+      );
+    }
   }
 
   // Verification
@@ -630,7 +650,17 @@ export class ContractSystem {
         { old: existing.id, new: contractId },
       );
       try {
-        await this.moveToArchive(makeContractId(existing.id));
+        // phase 188 Step A: archive precondition requires terminal status
+        // flip old contract to completed before archiving (create replaces old contract)
+        const existingId = makeContractId(existing.id);
+        await this.withProgressLock(existingId, async () => {
+          const progress = await this.getProgress(existingId);
+          if (progress && !['completed', 'cancelled', 'crashed', 'archive_pending_recovery'].includes(progress.status)) {
+            progress.status = 'completed';
+            await this.saveProgress(existingId, progress);
+          }
+        });
+        await this.moveToArchive(existingId);
       } catch (err) {
         emitContractMoveArchiveFailed(
           this.audit,
