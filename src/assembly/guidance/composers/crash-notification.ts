@@ -22,6 +22,10 @@ import type { GuidanceComposer, GuidanceEntry } from '../types.js';
 import { clawCmd, CLAW_VERBS } from '../../../cli/commands/registry.js';
 import type { CrashClass } from '../../../watchdog/watchdog-utils.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected crash class: ${String(x)}`);
+}
+
 interface CrashNotificationState {
   crash_class: string;        // serialized CrashClass enum
   claw_id: string;
@@ -47,5 +51,7 @@ export const composer: GuidanceComposer<CrashNotificationState> = (state): Guida
       };
     case 'active_user_stopped':
       return null;  // FYI — motion 知情即可（用户主动 stop 通常 motion 已知 / 不附 restart 暗示）
+    default:
+      return assertNever(cls);
   }
 };

@@ -22,6 +22,10 @@ import {
 } from '../../foundation/audit/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected lookup result variant: ${String(x)}`);
+}
+
 interface AuditLookupOpts {
   claw: string;
   file: string;
@@ -105,8 +109,12 @@ function emit(result: LookupResult, toolUseId: string, json: boolean): void {
         case 'all_failed':
           process.stderr.write(`  - dialog session 全部失败：dialog dir 不存在 / current/archive 都不含 tool_use_id\n`);
           break;
+        default:
+          assertNever(result.reason);
       }
       break;
     }
+    default:
+      assertNever(result);
   }
 }

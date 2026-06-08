@@ -25,6 +25,9 @@ import { CONTRACT_DIR } from '../core/contract/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { formatErr } from '../foundation/utils/index.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected watchdog classification: ${String(x)}`);
+}
 
 // Parse stream.jsonl, return the timestamp of the last event and the last error message
 export interface ClawActivityInfo {
@@ -157,6 +160,8 @@ export function formatInactivityBody(opts: {
         ? `${head}\n\nLast error: ${opts.lastError}`
         : head;
     }
+    default:
+      return assertNever(opts.failureClass);
   }
 }
 
@@ -203,6 +208,8 @@ export function formatCrashBody(opts: {
       return `Claw "${opts.clawId}" crashed unexpectedly while running contract ${opts.contract}.`;
     case 'active_user_stopped':
       return `Claw "${opts.clawId}" was stopped via CLI while running contract ${opts.contract}.`;
+    default:
+      return assertNever(opts.crashClass);
   }
 }
 

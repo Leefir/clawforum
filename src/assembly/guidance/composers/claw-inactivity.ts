@@ -17,6 +17,10 @@ import type { GuidanceComposer, GuidanceEntry } from '../types.js';
 import { clawCmd, CLAW_VERBS } from '../../../cli/commands/registry.js';
 import type { FailureClass } from '../../../watchdog/watchdog-utils.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected failure class: ${String(x)}`);
+}
+
 interface ClawInactivityState {
   failure_class: string;       // serialized FailureClass enum
   claw_id: string;
@@ -44,6 +48,8 @@ export const composer: GuidanceComposer<ClawInactivityState> = (state): Guidance
         return `To inspect what the agent is stuck on: ${clawCmd(id, CLAW_VERBS.STEPS)}`;
       case 'daemon_errored':
         return `To inspect: ${clawCmd(id, CLAW_VERBS.STEPS)}`;
+      default:
+        return assertNever(cls);
     }
   })();
   const watch = `To be notified if it remains stuck after intervention: ${clawCmd(id, CLAW_VERBS.WATCH)} --inactive-after 5m`;

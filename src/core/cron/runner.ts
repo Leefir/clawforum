@@ -8,6 +8,10 @@ import { formatErr } from "../../foundation/utils/index.js";
 import { CRON_AUDIT_EVENTS } from './audit-events.js';
 import { CRON_TICK_INTERVAL_MS } from './constants.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected cron parse failure reason: ${String(x)}`);
+}
+
 export type CronSchedule =
   | { type: 'daily'; time: string }       // "HH:MM"，每天固定时刻
   | { type: 'hourly' }                     // 每小时整点
@@ -66,6 +70,8 @@ export function parseSchedule(s: string, audit?: AuditLog): CronSchedule | null 
     case 'fallback_hourly':
       audit?.write(CRON_AUDIT_EVENTS.PARSE_FALLBACK, `input=${s}`, 'fallback=hourly');
       return { type: 'hourly' };
+    default:
+      return assertNever(r.reason);
   }
 }
 

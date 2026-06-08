@@ -1,5 +1,8 @@
 import { formatErr } from './utils/index.js';
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected write forbidden reason: ${String(x)}`);
+}
 
 export type WriteForbiddenReason = 'system_readonly' | 'outside_allowlist';
 
@@ -106,6 +109,8 @@ function formatWriteForbiddenMessage(
       return `Path "${targetPath}" cannot be written: target is a claw system path (read-only)`;
     case 'outside_allowlist':
       return `Path "${targetPath}" cannot be written: target is not in claw writable allowlist (${WRITABLE_ALLOWLIST_HINT})`;
+    default:
+      return assertNever(reason);
   }
 }
 
