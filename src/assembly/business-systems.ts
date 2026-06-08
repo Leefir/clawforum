@@ -2,6 +2,7 @@ import path from 'path';
 import { formatErr } from '../foundation/utils/index.js';
 import { resolveChestnutRoot } from './install-paths.js';
 import { DISPATCH_SKILLS_PATH } from '../core/summon-system/dispatch-skills-paths.js';
+import { makeClawId } from '../core/claw-id.js';
 
 import { createClawPermissionChecker } from '../core/permissions/claw-permissions.js';
 import { TASKS_SYNC_EXEC_DIR } from '../foundation/command-tool/index.js';
@@ -163,7 +164,7 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
           const perClawAudit = createSystemAudit(fs, d);
           return createContractSystem({
             clawDir: d,
-            clawId: id,
+            clawId: makeClawId(id),
             fs,
             audit: perClawAudit,
             toolRegistry,

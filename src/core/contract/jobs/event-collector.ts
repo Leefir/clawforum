@@ -8,6 +8,7 @@ import type { ContractStatus } from '../types.js';
 import { CONTRACT_AUDIT_EVENTS } from '../audit-events.js';
 import { emitContractArchiveNonTerminalDetected } from '../audit-emit.js';
 import { CONTRACT_ARCHIVE_DIR } from '../dirs.js';
+import type { ClawId } from '../../../constants.js';
 
 function readContractMeta(
   fs: FileSystem,
@@ -35,7 +36,7 @@ interface FormattedEvent {
 }
 
 function formatContractEvent(
-  clawId: string,
+  clawId: ClawId,
   contractDirName: string,
   meta: { title?: string; goal?: string },
   progress: ProgressData,
@@ -62,7 +63,7 @@ function formatContractEvent(
 }
 
 function formatCompleted(
-  clawId: string,
+  clawId: ClawId,
   dirName: string,
   meta: { title?: string; goal?: string },
   progress: ProgressData,
@@ -90,7 +91,7 @@ function formatCompleted(
 }
 
 function formatCancelled(
-  clawId: string,
+  clawId: ClawId,
   dirName: string,
   meta: { title?: string; goal?: string },
   progress: ProgressData,
@@ -109,7 +110,7 @@ function formatCancelled(
 }
 
 function formatCrashed(
-  clawId: string,
+  clawId: ClawId,
   dirName: string,
   meta: { title?: string; goal?: string },
   progress: ProgressData,
@@ -128,7 +129,7 @@ function formatCrashed(
 }
 
 function formatPendingRecovery(
-  clawId: string,
+  clawId: ClawId,
   dirName: string,
   meta: { title?: string; goal?: string },
   _progress: ProgressData,
@@ -164,7 +165,7 @@ export interface ArchivedContractEntry {
 export function scanArchivedContracts(
   fs: FileSystem,
   clawDir: string,
-  clawId: string,
+  clawId: ClawId,
   audit: AuditLog,
 ): ArchivedContractEntry[] {
   const entries: ArchivedContractEntry[] = [];
@@ -262,7 +263,7 @@ export interface CollectedContractEventsResult {
 export function collectContractEvents(
   fs: FileSystem,
   clawDir: string,
-  clawId: string,
+  clawId: ClawId,
   sinceTs: number,
   audit: AuditLog,
 ): CollectedContractEventsResult {

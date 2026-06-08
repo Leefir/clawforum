@@ -22,6 +22,7 @@ import type { ContentBlock, TextBlock } from '../../foundation/llm-provider/type
 import { buildAuditorPrompt } from './auditor-prompt.js';
 import { contractFootprint, type ContractFootprintOptions } from './contract-footprint.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
+import type { ClawId } from '../../constants.js';
 
 export interface AuditorDrift {
   what: string;
@@ -48,7 +49,7 @@ export interface ContractAuditorDeps {
 export interface AuditRequest {
   contractId: string;
   contractTitle: string;
-  clawId: string;
+  clawId: ClawId;
   /** ReAct 步数（来自 ctx.stepNumber） */
   currentStep: number;
   /** audit_interval（contract.yaml 配置、0=disable） */

@@ -13,6 +13,7 @@ import { formatErr } from '../../foundation/utils/index.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import type { ContractId } from './types.js';
 import type { SubtaskId } from './types.js';
+import type { ClawId } from '../../constants.js';
 
 
 
@@ -611,7 +612,7 @@ export function emitContractVerifierSkipped(
 // ─── VERIFIER_STARTED ─────────────────────────────────────────────────────────
 export function emitContractVerifierStarted(
   audit: AuditLog,
-  opts: { contractId: ContractId; agentId: string; clawId: string },
+  opts: { contractId: ContractId; agentId: string; clawId: ClawId },
 ): void {
   if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierStarted')) return;
   audit.write(
@@ -638,7 +639,7 @@ export function emitContractVerifierPassed(
 // ─── VERIFIER_RESULT_PARSE_FAILED ─────────────────────────────────────────────
 export function emitContractVerifierResultParseFailed(
   audit: AuditLog,
-  opts: { contractId: ContractId; agentId: string; clawId: string; stage: string; reason: string },
+  opts: { contractId: ContractId; agentId: string; clawId: ClawId; stage: string; reason: string },
 ): void {
   if (!assertContractIdNonEmpty(audit, opts.contractId, 'emitContractVerifierResultParseFailed')) return;
   audit.write(
@@ -802,7 +803,7 @@ export function emitContractArchivePreconditionViolated(
 export function emitContractArchiveNonTerminalDetected(
   audit: AuditLog,
   opts: {
-    clawId: string;
+    clawId: ClawId;
     contractId: string;
     status: string;
     context?: string;
@@ -822,7 +823,7 @@ export function emitContractArchiveNonTerminalDetected(
 export function emitContractArchiveReconcileStale(
   audit: AuditLog,
   opts: {
-    clawId: string;
+    clawId: ClawId;
     contractId: string;
     oldStatus: string;
     newStatus: string;
@@ -842,7 +843,7 @@ export function emitContractArchiveReconcileStale(
 export function emitContractArchiveReconcileFailed(
   audit: AuditLog,
   opts: {
-    clawId: string;
+    clawId: ClawId;
     contractId: string;
     context: string;
     error: string;
@@ -862,7 +863,7 @@ export function emitContractArchiveReconcileFailed(
 export function emitContractArchiveReconcileSummary(
   audit: AuditLog,
   opts: {
-    clawId: string;
+    clawId: ClawId;
     scanned: number;
     swept: number;
     failed: number;
@@ -881,7 +882,7 @@ export function emitContractArchiveReconcileSummary(
 // phase 197: archive_pending_recovery 系统内部状态、motion 无 actionable、归 audit 不投 inbox
 export function emitContractArchiveRecoveryPendingObserved(
   audit: AuditLog,
-  args: { clawId: string; contractId: string; context: string },
+  args: { clawId: ClawId; contractId: string; context: string },
 ): void {
   audit.write(
     CONTRACT_AUDIT_EVENTS.CONTRACT_ARCHIVE_RECOVERY_PENDING_OBSERVED,

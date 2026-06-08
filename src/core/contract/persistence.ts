@@ -12,6 +12,7 @@ import { formatErr } from '../../foundation/utils/index.js';
 import { ToolError } from '../../foundation/errors.js';
 import type { Contract } from '../contract/types.js';
 import type { ContractYaml, ProgressData } from './types.js';
+import { makeClawId } from '../../constants.js';
 import { emitContractYamlSchemaInvalid } from './audit-emit.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import { isolateCorruptedFile } from './_isolation-helper.js';
@@ -245,7 +246,7 @@ export async function listArchiveContracts(opts: {
         if (filter.untilMs !== undefined && at > filter.untilMs) continue;
       }
 
-      results.push({ clawId: clawId, contractId: makeContractId(contractId), contractDir, archivedAt });
+      results.push({ clawId: makeClawId(clawId), contractId: makeContractId(contractId), contractDir, archivedAt });
     }
   }
 

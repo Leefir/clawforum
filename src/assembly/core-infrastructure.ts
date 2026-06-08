@@ -207,7 +207,7 @@ export async function createCoreInfrastructure(input: CoreInfraInput): Promise<C
     let contractManager: ContractSystem;
     try {
       contractManager = createContractSystem({
-        clawDir, clawId, fs: systemFs, audit: auditWriter, llm,
+        clawDir, clawId: makeClawId(clawId), fs: systemFs, audit: auditWriter, llm,
         toolRegistry,   // phase 704: toolRegistry 注入 ContractSystem
         toolTimeoutMs,  // phase 1029 / F-2
         fsFactory,

@@ -22,6 +22,7 @@ import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import { notifyClaw } from '../../foundation/messaging/index.js';
 import { ContractSystem } from '../../core/contract/index.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
+import { makeClawId } from '../../core/claw-id.js';
 import {
   computeContractView,
   computeTaskView,
@@ -50,7 +51,7 @@ export async function clawStatusCommand(
 
   const clawDir = getClawDir(name);
   const clawFs = deps.fsFactory(clawDir);
-  const clawId = name;
+  const clawId = makeClawId(name);
   const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);
 
   const audit = createSystemAudit(clawFs, clawDir);

@@ -13,6 +13,7 @@ import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { createToolRegistry } from '../../foundation/tools/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { makeContractId } from '../../core/contract/types.js';
+import { makeClawId } from '../../core/claw-id.js';
 import { parseAndValidateContractYaml, notifyContractCreated } from './contract-helpers.js';
 import type { SummonContractCreateGate } from '../../core/summon-system/index.js';
 
@@ -36,7 +37,7 @@ export async function contractCreateFromDirCommand(
   const clawFs = deps.fsFactory(clawDir);
   const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
   const clawAudit = createSystemAudit(clawFs, clawDir);
-  const manager = new ContractSystem({ clawDir, clawId, fs: clawFs, audit: clawAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(chestnutRoot, CLAWS_DIR), notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, clawAudit) });
+  const manager = new ContractSystem({ clawDir, clawId: makeClawId(clawId), fs: clawFs, audit: clawAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(chestnutRoot, CLAWS_DIR), notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, clawAudit) });
 
   const contractId = await manager.create(contract);
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=dir`);

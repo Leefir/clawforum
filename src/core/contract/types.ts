@@ -15,6 +15,7 @@ export function makeContractId(s: string): ContractId { return s as ContractId; 
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { Priority } from '../../foundation/messaging/types.js';
+import type { ClawId } from '../../constants.js';
 
 
 
@@ -136,7 +137,7 @@ export interface VerifierIdentityConfig {
   clawDir: string;
   /** phase 98: caller (装配期) 算好的 claws dir */
   clawsDir: string;
-  clawId: string;               // phase 514 / caller's clawId for subagent context
+  clawId: ClawId;               // phase 514 / caller's clawId for subagent context
   /** phase 1080: contractId for crash-recovery status check / phase 1151: made required for audit emit contractId col */
   contractId: ContractId;
 }
@@ -172,7 +173,7 @@ export interface VerifierResult {
 
 /** Phase 1335 (r138 F fork): cross-module query API — archive contract reference */
 export interface ArchiveContractRef {
-  clawId: string;
+  clawId: ClawId;
   contractId: ContractId;
   contractDir: string;
   archivedAt?: string;

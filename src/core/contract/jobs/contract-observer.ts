@@ -12,6 +12,7 @@ export type NotifyMotionFn = (message: InboxMessageOptionsBase) => void;
 import type { CronJob } from '../../cron/runner.js';
 import { parseSchedule } from '../../cron/runner.js';
 import type { ClawGlobalConfig } from '../../../foundation/config/index.js';
+import { makeClawId } from '../../../constants.js';
 
 
 /**
@@ -149,7 +150,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     if (options.signal?.aborted) return;
     try {
       const clawDir = path.join(clawsDir, clawId);
-      const entries = scanArchivedContracts(fs, clawDir, clawId, motionAudit);
+      const entries = scanArchivedContracts(fs, clawDir, makeClawId(clawId), motionAudit);
       for (const entry of entries) {
         const key = `${clawId}:${entry.contractId}`;
         if (notifiedSet.has(key)) continue;  // dedup: 已通知
@@ -180,7 +181,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
             case 'archive_pending_recovery':
               // phase 197: 系统内部状态、motion 无 actionable、归 audit 不投 inbox
               emitContractArchiveRecoveryPendingObserved(motionAudit, {
-                clawId,
+                clawId: makeClawId(clawId),
                 contractId: entry.contractId,
                 context: 'observer_scan',
               });

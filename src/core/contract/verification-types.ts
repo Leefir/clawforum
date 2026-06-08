@@ -9,6 +9,7 @@ import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { ContractYaml, ProgressData, VerificationResult, VerifierConfig, VerifierResult, SubtaskId } from './types.js';
 import { type LockContext } from './lock.js';
 import type { ContractId } from './types.js';
+import type { ClawId } from '../../constants.js';
 import type { VerificationMutex } from './verification-mutex.js';
 import type { InboxMessageOptionsBase } from '../../foundation/messaging/inbox-writer.js';
 
@@ -36,7 +37,7 @@ export interface VerificationLockContext extends LockContext {
 
 export interface VerificationContractContext {
   clawDir: string;
-  clawId: string;
+  clawId: ClawId;
   /** phase 95: required pre-bound notifyClaw (caller binds fs + chestnutRoot + audit) */
   notifyClaw: NotifyClawFn;
   contractDir: (contractId: ContractId) => Promise<string>;

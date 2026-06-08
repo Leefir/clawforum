@@ -47,7 +47,7 @@ import {
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import { isolateCorruptedFile } from './_isolation-helper.js';
 import { CONTRACT_ACTIVE_DIR, CONTRACT_PAUSED_DIR, CONTRACT_ARCHIVE_DIR } from './dirs.js';
-import { UUID_SHORT_LEN } from '../../constants.js';
+import { UUID_SHORT_LEN, type ClawId } from '../../constants.js';
 
 import type {
   ContractYaml, ProgressData, VerificationResult, VerifierConfig, VerifierResult,
@@ -102,7 +102,7 @@ export {
 
 export interface ContractSystemDeps {
   clawDir: string;
-  clawId: string;
+  clawId: ClawId;
   /** phase 104: caller (装配期) pre-bound notifyClaw (bind fs + chestnutRoot + audit) */
   notifyClaw: NotifyClawFn;
   /** phase 98: caller (装配期) 算好的 claws dir */
@@ -120,7 +120,7 @@ export interface ContractSystemDeps {
 export class ContractSystem {
   private fs: FileSystem;
   private clawDir: string;
-  private readonly clawId: string;
+  private readonly clawId: ClawId;
   private readonly audit: AuditLog;
   private llm?: LLMOrchestrator;
   private notifyClaw: NotifyClawFn;

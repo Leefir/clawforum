@@ -8,6 +8,7 @@ import { isFileNotFound, type FileSystem } from '../../../foundation/fs/types.js
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { ContractStatus, ProgressData } from '../types.js';
 import { CONTRACT_ARCHIVE_DIR } from '../dirs.js';
+import type { ClawId } from '../../../constants.js';
 import {
   emitContractArchiveReconcileStale,
   emitContractArchiveReconcileFailed,
@@ -23,7 +24,7 @@ export interface ArchiveReconcilerContext {
 
 export async function reconcileArchiveStaleEntries(
   ctx: ArchiveReconcilerContext,
-  clawId: string,
+  clawId: ClawId,
   clawDir: string,
 ): Promise<{ swept: number; failed: number; scanned: number }> {
   const archiveDir = path.join(clawDir, CONTRACT_ARCHIVE_DIR);

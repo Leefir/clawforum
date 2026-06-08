@@ -6,6 +6,7 @@ import type { ToolRegistry } from '../../foundation/tools/index.js';
 import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js';
 import type { ProgressData } from '../contract/index.js';
 import { createContractSystem } from '../contract/index.js';
+import { makeClawId } from '../../constants.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import type { ContractSystem } from '../contract/index.js';
 
@@ -37,7 +38,7 @@ export function createClawContractBridge(deps: ClawContractBridgeDeps): ClawCont
         const cAudit = createSystemAudit(cFs, cDir);
         cs = createContractSystem({
           clawDir: cDir,
-          clawId,
+          clawId: makeClawId(clawId),
           fs: cFs,
           audit: cAudit,
           llm: deps.llm,
