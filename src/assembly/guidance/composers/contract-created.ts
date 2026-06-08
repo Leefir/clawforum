@@ -1,8 +1,13 @@
 /**
  * @module L6.Assembly.Guidance
- * phase 9: composer for inbox type `contract_created` — NO_GUIDANCE sentinel.
+ * phase 9 立 / phase 203 ratify: NO_GUIDANCE by-design.
  *
- * body 已含 contract id + title + goal + subtasks + 提交格式（sender 拼）/ LLM 自决.
+ * 触发: CLI `chestnut contract create` → notifySystem 投目标 claw inbox
+ * 接收方: 目标 claw daemon (clawDir/INBOX_PENDING_DIR)
+ * body 自足: 含 contract title + background + goal + expectations + subtasks 列表 + done 模板（claw 收到即开始执行）
+ * 跨层 CLI hint 需要: ❌（详 design/modules/l6_assembly_composer_framework.md §2）
+ *
+ * 升档条件: contract create 路径 body 不再自含完整指令 / 需补外部调研 hint 时
  */
 
 import { NO_GUIDANCE } from '../types.js';

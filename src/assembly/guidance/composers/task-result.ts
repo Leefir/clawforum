@@ -1,8 +1,13 @@
 /**
  * @module L6.Assembly.Guidance
- * phase 9: composer for inbox type `task_result` — NO_GUIDANCE sentinel.
+ * phase 9 立 / phase 203 ratify: NO_GUIDANCE by-design.
  *
- * body 已是 JSON self-contained framing（含 taskId / result / is_error 等字段、LLM 自决）.
+ * 触发: async task (spawn / subagent / tool task) 完成
+ * 接收方: 父 claw (task.parentClawId)
+ * body 自足: 含 task result JSON (taskId + result + is_error)
+ * 跨层 CLI hint 需要: ❌（详 design/modules/l6_assembly_composer_framework.md §2）
+ *
+ * 升档条件: 父 claw 处置 task result 需要跨层 CLI 调研 / monitor / restart 类 hint 时
  */
 
 import { NO_GUIDANCE } from '../types.js';
