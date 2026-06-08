@@ -1,7 +1,9 @@
 /**
  * @module L6.Assembly.Guidance
- * phase 2 γ4: motion guidance for `crash_notification` real composer
- * (phase 1469 16 NO_GUIDANCE → 15 / 第 3 个 real composer 继 phase 1476 + 1482).
+ * phase 2 γ4 → phase 201:
+ *   - 删 unknown / user_stopped null 旁路
+ *   - active_user_stopped 改 read-only inspect (status + steps)、保 design intent「不附 restart 暗示」
+ *   - unknown 走 fallback inspect (steps)（不静默吞）
  *
  * 业主 (watchdog) own CrashClass enum + base body 字面 + clean-stop marker 探测。
  * Assembly 此处 own motion-side CLI 教学：按 enum switch 1 primary action per case
@@ -13,9 +15,9 @@
  * 业主类型 CrashClass type-only import (peer L6↔L6 装配综合本职、不违 ML#5).
  *
  * Sub-case 行为：
- *  - active_unexpected: 教 motion 重启 daemon (`chestnut claw <id> daemon`)
- *  - active_user_stopped: null FYI (motion 知情即可、不教 action)
- *  - unknown: null fallback (Runtime audit emit `guidance_composer_failed` 兜底)
+ *  - active_unexpected: 教 motion 重启 daemon (`chestnut claw <id> daemon`) + inspect (steps)
+ *  - active_user_stopped: read-only inspect (status + steps)、不附 restart 暗示（保 design intent）
+ *  - unknown: fallback inspect (steps)（phase 201 删 null 旁路、不静默吞）
  */
 
 import type { GuidanceComposer, GuidanceEntry } from '../types.js';
@@ -35,10 +37,17 @@ function isCrashClass(s: string | undefined): s is CrashClass {
   return s === 'active_unexpected' || s === 'active_user_stopped';
 }
 
-export const composer: GuidanceComposer<CrashNotificationState> = (state): GuidanceEntry | null => {
+export const composer: GuidanceComposer<CrashNotificationState> = (state): GuidanceEntry => {
   const cls = state.crash_class;
-  if (!isCrashClass(cls)) return null;
   const id = state.claw_id || '<claw-id>';
+  // phase 201: 删 unknown / user_stopped null 旁路
+  // - unknown → fallback inspect（与 Step A claw_inactivity 同型最小 hint）
+  // - active_user_stopped → read-only inspect（保 design intent「不附 restart 暗示」、但出 status/steps 让 motion 可调研）
+  if (!isCrashClass(cls)) {
+    return {
+      text: `To inspect: ${clawCmd(id, CLAW_VERBS.STEPS)}`,
+    };
+  }
   switch (cls) {
     case 'active_unexpected':
       // phase 4: 2-line guidance — primary action (restart) + optional diagnostic (steps)
@@ -47,7 +56,10 @@ export const composer: GuidanceComposer<CrashNotificationState> = (state): Guida
         text: `To restart: ${clawCmd(id, CLAW_VERBS.DAEMON)}\nTo inspect what the claw was doing before crash: ${clawCmd(id, CLAW_VERBS.STEPS)}`,
       };
     case 'active_user_stopped':
-      return null;  // FYI — motion 知情即可（用户主动 stop 通常 motion 已知 / 不附 restart 暗示）
+      // phase 201: design intent「不暗示 restart」保留 → read-only inspect only
+      return {
+        text: `To check current status: ${clawCmd(id, CLAW_VERBS.STATUS)}\nTo inspect what the claw was doing: ${clawCmd(id, CLAW_VERBS.STEPS)}`,
+      };
     default:
       return assertNever(cls);
   }
