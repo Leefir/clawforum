@@ -17,6 +17,10 @@ import { SPAWN_AUDIT_EVENTS } from '../audit-events.js';
 import { AUDIT_PREVIEW_LEN } from '../../../foundation/constants.js';
 import { SHADOW_CALLER_LABEL } from '../../summon-system/internal/shadow/index.js';
 import { SPAWN_DEFAULT_TIMEOUT_MS } from '../constants.js';
+import {
+  createHandoffMarker,
+  AUDIT,
+} from '../../l4_context_manager/index.js';
 
 /**
  * Spawn tool implementation
@@ -104,6 +108,10 @@ export function createSpawnTool(deps: SpawnToolDeps = {}): Tool {
           error: 'spawn_template_unknown',
         };
       }
+
+      // Phase 186: handoff marker for spawn context
+      const marker = createHandoffMarker(ctx.clawId ?? 'unknown');
+      ctx.auditWriter?.write(AUDIT.HANDOFF_MARKER_CREATED, `id=${marker.id}`, `parent=${marker.parentRound}`);
 
       if (asyncMode) {
         if (!ctx.taskSystem) {

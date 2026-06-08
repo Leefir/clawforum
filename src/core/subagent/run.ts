@@ -20,6 +20,10 @@ import { createDialogStore } from '../../foundation/dialog-store/index.js';
 import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
 import { TASKS_SYNC_DIR } from '../async-task-system/dirs.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
+import {
+  createHandoffMarker,
+  AUDIT,
+} from '../l4_context_manager/index.js';
 
 import { SubAgent } from './agent.js';
 import { DONE_TOOL_NAME, type CapturableTool } from './tools/done.js';
@@ -122,6 +126,12 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
     subagentMaxSteps: opts.maxSteps,  // mirror 原 agent.ts: subagentMaxSteps ?? maxSteps 默认（runSubagent 不暴露 subagentMaxSteps、默 maxSteps）
     auditWriter,
   });
+
+  // Phase 186: create handoff marker when parent context is passed
+  if (opts.messages && opts.messages.length > 0) {
+    const marker = createHandoffMarker(opts.resultDir ?? 'unknown');
+    auditWriter.write(AUDIT.HANDOFF_MARKER_CREATED, `id=${marker.id}`, `parent=${marker.parentRound}`);
+  }
 
   const agent = new SubAgent({
     agentId: opts.agentId,
