@@ -15,6 +15,9 @@ import {
   classifyLLMError,
   getUserActionHint,
 } from './errors.js';
+import {
+  ContextTrimExhaustedError,
+} from '../../core/l4_context_manager/index.js';
 
 import type {
   LLMOrchestratorConfig,
@@ -167,6 +170,12 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           // Provider self-thrown AbortError when hard signal did not fire
           if (lastError.name === 'AbortError' && !hardSignal?.aborted) throw lastError;
 
+          // ContextManager trim exhausted → failover to next provider
+          if (lastError instanceof ContextTrimExhaustedError) {
+            this.events.emit({ type: 'context_exceeded_failover', provider: this.primary.name, stopReason: 'context_trim_exhausted' });
+            break;
+          }
+
           this.events.emit({
             type: 'provider_attempt_failed',
             provider: this.primary.name,
@@ -272,6 +281,12 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
           if (fbLastError.name === 'AbortError' && hardSignal?.aborted) throw fbLastError;
           // Provider self-thrown AbortError when hard signal did not fire
           if (fbLastError.name === 'AbortError' && !hardSignal?.aborted) throw fbLastError;
+
+          // ContextManager trim exhausted → failover to next provider
+          if (fbLastError instanceof ContextTrimExhaustedError) {
+            this.events.emit({ type: 'context_exceeded_failover', provider: fb.name, stopReason: 'context_trim_exhausted' });
+            break;
+          }
 
           this.events.emit({
             type: 'provider_attempt_failed',
