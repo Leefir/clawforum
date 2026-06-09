@@ -327,7 +327,7 @@ describe('chat-viewport Phase 72', () => {
         updateDisplay: () => {},
         trimOutputNewlines: true,
         getThinkingMode: () => 'off',
-        audit: { write: () => {} },
+        audit: { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s},
         observability: { recordSpinner: (a, t) => calls.push([a, t]) },
       });
       mainUI.enterPhase('idle');

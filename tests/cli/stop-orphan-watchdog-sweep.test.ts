@@ -65,7 +65,12 @@ vi.mock('../../src/watchdog/watchdog-context.js', async (importOriginal) => {
   return {
     ...actual,
     getWatchdogEntryPath: vi.fn(() => '/fake/watchdog-entry.js'),
-    getAuditWriter: vi.fn(() => ({ write: mockAuditState.write })),
+    getAuditWriter: vi.fn(() => ({
+      write: mockAuditState.write,
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
+    })),
   };
 });
 

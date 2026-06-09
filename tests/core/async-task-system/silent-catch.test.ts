@@ -54,6 +54,9 @@ function makeMockAudit(): { audit: AuditLog; events: Array<[string, ...(string |
     write: (type: string, ...cols: (string | number)[]) => {
       events.push([type, ...cols]);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
   return { audit, events };
 }
@@ -205,6 +208,9 @@ describe('phase 541: silent catch fixes', () => {
         write: (type: string, ...cols: (string | number)[]) => {
           auditEvents.push([type, ...cols]);
         },
+        preview: (s: string) => s,
+        message: (s: string) => s,
+        summary: (s: string) => s,
       };
 
       system = new AsyncTaskSystem('/tmp/claw', mockFs, {

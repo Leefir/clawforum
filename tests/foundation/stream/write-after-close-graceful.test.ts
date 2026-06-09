@@ -18,7 +18,12 @@ describe('StreamWriter write-after-close graceful (phase 1203 Issue 2)', () => {
     fsNative.mkdirSync(tmpDir, { recursive: true });
     fs = new NodeFileSystem({ baseDir: tmpDir });
     auditWrites = [];
-    mockAudit = { write: (type, ...cols) => auditWrites.push([type, ...cols]) };
+    mockAudit = {
+      write: (type, ...cols) => auditWrites.push([type, ...cols]),
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
+    };
   });
 
   afterEach(() => {

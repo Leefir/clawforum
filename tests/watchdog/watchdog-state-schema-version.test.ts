@@ -60,7 +60,7 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
       everSpawned: [],
     }));
 
-    const mockAudit = { write: vi.fn() } as unknown as AuditLog;
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
     setAuditWriter(mockAudit);
 
     // Should not throw to caller
@@ -103,7 +103,7 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
       everSpawned: ['claw1'],
     }));
 
-    const mockAudit = { write: vi.fn() } as unknown as AuditLog;
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
     setAuditWriter(mockAudit);
 
     loadWatchdogState(fsFactory);

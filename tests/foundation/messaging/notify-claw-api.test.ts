@@ -23,6 +23,9 @@ describe('notifyClaw API', () => {
     write: (type: string, ...cols: (string | number)[]) => {
       auditEvents.push([type, ...cols]);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
 
   beforeEach(async () => {

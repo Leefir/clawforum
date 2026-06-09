@@ -29,7 +29,7 @@ describe('phase 1174 ExecContext 7-site dual-write eviction', () => {
     await fs.mkdir(tempDir, { recursive: true });
     const mockFs = new NodeFileSystem({ baseDir: tempDir });
     const tool = new SummonTool({ write: vi.fn().mockResolvedValue(undefined), read: vi.fn().mockResolvedValue(undefined) });
-    const auditWriter = { write: vi.fn() };
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const ctx = new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,

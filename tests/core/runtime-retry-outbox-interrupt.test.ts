@@ -337,7 +337,12 @@ describe('Runtime RetryOutboxInterrupt', () => {
   // ─── handleTurnInterrupt dispatch (phase 27 Step C: extracted to error-response.ts) ──
 
   describe('handleTurnInterrupt()', () => {
-    const makeMockAudit = () => ({ write: vi.fn() });
+    const makeMockAudit = () => ({
+      write: vi.fn(),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
+    });
 
     it('IdleTimeoutSignal → onTurnInterrupted("idle_timeout", message with seconds)', () => {
       const onTurnInterrupted = vi.fn();

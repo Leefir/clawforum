@@ -26,6 +26,9 @@ const mockKill = vi.hoisted(() => vi.fn());
 const mockFindProcesses = vi.hoisted(() => vi.fn().mockReturnValue([99991, 99992]));
 const mockCreateSystemAudit = vi.hoisted(() => vi.fn(() => ({
   write: mockAuditState.write,
+  preview: (s: string) => s,
+  message: (s: string) => s,
+  summary: (s: string) => s,
 })));
 
 // ============================================================================
@@ -96,7 +99,12 @@ describe('stop — orphan cleanup silent → audit (P1.4)', () => {
       throw new Error('EPERM');
     });
     mockFindProcesses.mockReturnValue([1111, 2222]);
-    mockCreateSystemAudit.mockReturnValue({ write: mockAuditState.write });
+    mockCreateSystemAudit.mockReturnValue({
+      write: mockAuditState.write,
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
+    });
 
     await stopAllCommand({ fsFactory }, { kill: mockKill });
 

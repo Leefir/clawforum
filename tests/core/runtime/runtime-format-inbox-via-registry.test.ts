@@ -75,7 +75,7 @@ function build(opts: MinOpts): TestRuntime {
 
 describe('phase 1414 Runtime.formatInboxMessage via FormatterRegistry', () => {
   it('user_chat → 透传 body（Gateway formatter）', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const registry = createMessageFormatterRegistry();
     registry.register('user_chat', formatUserChat);
     const runtime = build({ audit, formatterRegistry: registry });
@@ -87,7 +87,7 @@ describe('phase 1414 Runtime.formatInboxMessage via FormatterRegistry', () => {
   });
 
   it('user_inbox_message → [user inbox message ...]\\nbody（Messaging formatter）', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const registry = createMessageFormatterRegistry();
     registerMessagingFormatters(registry);
     const runtime = build({ audit, formatterRegistry: registry });
@@ -99,7 +99,7 @@ describe('phase 1414 Runtime.formatInboxMessage via FormatterRegistry', () => {
   });
 
   it('crash_notification → "[system message<ts>] <body>"（Watchdog formatter / phase 4 drop preamble）', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const registry = createMessageFormatterRegistry();
     registry.register('crash_notification', formatCrashNotification);
     const runtime = build({ audit, formatterRegistry: registry });
@@ -114,7 +114,7 @@ describe('phase 1414 Runtime.formatInboxMessage via FormatterRegistry', () => {
   });
 
   it('heartbeat → "Heartbeat triggered..."（Heartbeat formatter）', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const enoent: NodeJS.ErrnoException = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
     const systemFs = { read: vi.fn().mockRejectedValue(enoent) } as any;
     const registry = createMessageFormatterRegistry();
@@ -128,7 +128,7 @@ describe('phase 1414 Runtime.formatInboxMessage via FormatterRegistry', () => {
   });
 
   it('task_result → [system message ...] body（phase 9: was generic "message" → typed task_result）', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const registry = createMessageFormatterRegistry();
     const { registerAsyncTaskSystemFormatters } = await import('../../../src/core/async-task-system/inbox-formatter.js');
     registerAsyncTaskSystemFormatters(registry);
@@ -141,7 +141,7 @@ describe('phase 1414 Runtime.formatInboxMessage via FormatterRegistry', () => {
   });
 
   it('unknown type → 默 fallback + emit INBOX_UNKNOWN_TYPE audit（DP 不静默）', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const registry = createMessageFormatterRegistry();
     // 不 register 任何 formatter
     const runtime = build({ audit, formatterRegistry: registry });

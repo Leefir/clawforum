@@ -10,7 +10,7 @@ vi.mock('../../src/foundation/audit/index.js', async (importOriginal) => ({
     fs: {
       appendSync: vi.fn(() => { throw new Error('disk full'); }),
     },
-    audit: { write: vi.fn() },
+    audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)},
   })),
 }));
 
@@ -27,7 +27,7 @@ const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
 describe('notifyContractCreated audit observability', () => {
   it('audit includes contractId on append failure', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     (createDirContext as any).mockReturnValue({
       fs: {
         appendSync: vi.fn(() => { throw new Error('disk full'); }),
@@ -54,7 +54,7 @@ describe('notifyContractCreated audit observability', () => {
 
   it('appends contract_created event to stream.jsonl via PerResourceStreamWriter (phase 1120)', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'contract-notify-'));
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     try {
       (createDirContext as any).mockReturnValue({
         fs: {
@@ -88,7 +88,7 @@ describe('notifyContractCreated audit observability', () => {
   });
 
   it('emits STREAM_AUDIT_EVENTS.APPEND_FAILED on stream write failure (phase 1120)', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     (createDirContext as any).mockReturnValue({
       fs: {
         appendSync: vi.fn(() => { throw new Error('disk full'); }),

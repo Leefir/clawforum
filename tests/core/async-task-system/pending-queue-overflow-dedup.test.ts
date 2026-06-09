@@ -15,7 +15,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 
 function makeAudit(): { audit: AuditLog } {
-  return { audit: { write: () => {} } };
+  return { audit: { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} };
 }
 
 function setupBaseDir(): string {

@@ -45,7 +45,7 @@ describe('Phase 1411 — summon_dispatched audit emit', () => {
   });
 
   function makeCtx(snapshotMessages: Message[] = [], toolUseId = 'toolu_test_abc'): any {
-    const auditWriter = { write: auditWrite } as any;
+    const auditWriter = { write: auditWrite , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any;
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,

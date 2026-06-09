@@ -74,6 +74,9 @@ describe('Contract System', () => {
       write: vi.fn((type: string, ...cols: string[]) => {
         auditEmitter.emit('write', type, ...cols);
       }),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
     };
   });
 
@@ -426,7 +429,7 @@ auth_level: auto
     });
 
     it('writes CONTRACT_PROGRESS_CORRUPTED audit when loadActive finds corrupted progress.json', async () => {
-      const mockAudit = { write: vi.fn() };
+      const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
       const auditManager = new ContractSystem({
         clawDir: tempDir,
         clawId: 'test-claw',

@@ -42,7 +42,7 @@ describe('Phase 1411 — summon_rejected_shadow audit emit', () => {
   });
 
   function makeCtx(opts: { callerLabel: string; toolUseId?: string }): any {
-    const auditWriter = { write: auditWrite } as any;
+    const auditWriter = { write: auditWrite , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any;
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,

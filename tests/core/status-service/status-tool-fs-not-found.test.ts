@@ -13,7 +13,7 @@ import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
 
 describe('status-tool FS_NOT_FOUND handling (phase 883 B1)', () => {
   it('should NOT audit TASK_PENDING_ERROR when pending dir throws FS_NOT_FOUND', async () => {
-    const auditWriter = { write: vi.fn() };
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const mockFs = {
       list: vi.fn().mockRejectedValue(new FileNotFoundError('/tasks/queues/pending')),
     } as unknown as NodeFileSystem;
@@ -37,7 +37,7 @@ describe('status-tool FS_NOT_FOUND handling (phase 883 B1)', () => {
   });
 
   it('should NOT audit TASK_RUNNING_ERROR when running dir throws FS_NOT_FOUND', async () => {
-    const auditWriter = { write: vi.fn() };
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     let callCount = 0;
     const mockFs = {
       list: vi.fn().mockImplementation(async () => {

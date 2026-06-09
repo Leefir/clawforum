@@ -61,6 +61,9 @@ describe('SummonTool verify parameter', () => {
   function makeCtx() {
     const auditWriter = {
       write: () => {},
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     } as any;
     return new ExecContextImpl({
       clawId: 'test-claw',

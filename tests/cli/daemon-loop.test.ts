@@ -57,7 +57,7 @@ describe('startDaemonLoop interrupt poller circuit breaker', () => {
     // processBatch returns 0 → daemon goes to waitForInbox
     // The try block starts the interrupt poller, then awaits processBatch/waitForInbox
     // We want to advance timers to trigger the poller 20 times
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const processBatch = vi.fn().mockResolvedValue(0);
     const mockRuntime = {
       processBatch,
@@ -113,7 +113,7 @@ describe('startDaemonLoop - LLM retry', () => {
 
   it('LLM error triggers retryLastTurn after exponential delay', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const retryLastTurn = vi.fn().mockResolvedValue(undefined);
     const processBatch = vi.fn()
       .mockRejectedValueOnce(new LLMAllProvidersFailedError([{ provider: 'test', error: new Error('network unreachable') }]))
@@ -157,7 +157,7 @@ describe('startDaemonLoop - LLM retry', () => {
 
   it('LLM max retries exhausted logs error to console', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     // processBatch throws once; retryLastTurn always throws → 3 retries → max exceeded
     const processBatch  = vi.fn().mockRejectedValueOnce(new LLMAllProvidersFailedError([{ provider: 'test', error: new Error('network unreachable') }]));
     const retryLastTurn = vi.fn().mockRejectedValue(new LLMAllProvidersFailedError([{ provider: 'test', error: new Error('network unreachable on retry') }]));
@@ -222,7 +222,7 @@ describe('startDaemonLoop - LLM retry', () => {
 
   it('non-LLM error does not set llmRetryPending and skips retryLastTurn', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     const retryLastTurn = vi.fn();
     const processBatch  = vi.fn()
@@ -269,7 +269,7 @@ describe('startDaemonLoop - interrupt audit', () => {
 
   it('IdleTimeoutSignal triggers daemon_loop_interrupt cause=idle_timeout', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const processBatch = vi.fn().mockRejectedValueOnce(new IdleTimeoutSignal(1000));
 
     const mockRuntime = { processBatch, retryLastTurn: vi.fn(), abort: vi.fn() } as unknown as Runtime;
@@ -301,7 +301,7 @@ describe('startDaemonLoop - interrupt audit', () => {
 
   it('UserInterrupt triggers daemon_loop_interrupt cause=user_interrupt', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const processBatch = vi.fn().mockRejectedValueOnce(new UserInterrupt());
 
     const mockRuntime = { processBatch, retryLastTurn: vi.fn(), abort: vi.fn() } as unknown as Runtime;
@@ -332,7 +332,7 @@ describe('startDaemonLoop - interrupt audit', () => {
 
   it('PriorityInboxInterrupt triggers daemon_loop_interrupt cause=priority_inbox', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const processBatch = vi.fn().mockRejectedValueOnce(new PriorityInboxInterrupt());
 
     const mockRuntime = { processBatch, retryLastTurn: vi.fn(), abort: vi.fn() } as unknown as Runtime;
@@ -371,7 +371,7 @@ describe('startDaemonLoop - iteration audit', () => {
 
   it('chain reaction triggers daemon_loop_iteration type=chain with chain_total', async () => {
     vi.useFakeTimers();
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     // First call injects 2 → chain loop → 1 → 0 (terminate)
     const processBatch = vi.fn()
       .mockResolvedValueOnce(2)
@@ -434,7 +434,7 @@ describe('waitForInbox', () => {
         return listCallCount <= 2 ? [] : [{ name: 'msg1.md', isDirectory: false }];
       }),
     } as unknown as FileSystem;
-    const mockAudit = { write: vi.fn() } as unknown as AuditLog;
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
 
     const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 60_000);
 
@@ -459,7 +459,7 @@ describe('waitForInbox', () => {
       resolve: vi.fn((p: string) => p),
       listSync: vi.fn().mockReturnValue([]),
     } as unknown as FileSystem;
-    const mockAudit = { write: vi.fn() } as unknown as AuditLog;
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
 
     const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 1_000);
 
@@ -476,7 +476,7 @@ describe('waitForInbox', () => {
       ensureDirSync: vi.fn(() => { throw new Error('EACCES'); }),
       resolve: vi.fn((p: string) => p),
     } as unknown as FileSystem;
-    const mockAudit = { write: vi.fn() } as unknown as AuditLog;
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
 
     const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 60_000);
 
@@ -505,7 +505,7 @@ describe('waitForInbox', () => {
         return listCallCount2 <= 2 ? [] : [{ name: 'new.md', isDirectory: false }];
       }),
     } as unknown as FileSystem;
-    const mockAudit = { write: vi.fn() } as unknown as AuditLog;
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
 
     const promise = waitForInbox(mockFs, mockAudit, '/tmp/inbox', 1_000);
     await Promise.resolve();

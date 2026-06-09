@@ -70,7 +70,7 @@ describe('SummonContractCreateGate phase 119: target_claw boundary', () => {
   it('audit event SUMMON_TARGET_CLAW_VIOLATION 触发 + 载荷正确', async () => {
     const store = makeStore({ verify: false, targetClaw: 'statsvc-auditor', mode: 'shadow', dispatchedAt: '2024-01-01T00:00:00.000Z' });
     const auditWrites: string[][] = [];
-    const audit = { write: (...args: string[]) => auditWrites.push(args) };
+    const audit = { write: (...args: string[]) => auditWrites.push(args) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
     const gate = createSummonContractCreateGate(store, audit as any);
     const contract = makeContract();
     await expect(gate.check('task-1', contract, 'gateway-auditor')).rejects.toThrow();
@@ -85,7 +85,7 @@ describe('SummonContractCreateGate phase 119: target_claw boundary', () => {
 });
 
   it('store file missing → audit warn + pass', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const gate = createSummonContractCreateGate(makeStore(), audit as any);
     await expect(gate.check('task-1', makeContract([{ subtask_id: 'a', type: 'llm' }]), 'any-claw')).resolves.toBeUndefined();
     expect(audit.write).toHaveBeenCalledWith('summon_gate_no_decision', expect.stringContaining('task-1'), 'reason=likely_non_summon_subagent');
@@ -107,7 +107,7 @@ describe('SummonContractCreateGate phase 119: target_claw boundary', () => {
   });
 
   it('verify=false + verification non-empty → throw CliError', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const gate = createSummonContractCreateGate(makeStore({ verify: false, targetClaw: 'foo', mode: 'shadow', dispatchedAt: '2024-01-01T00:00:00.000Z' }), audit as any);
     await expect(gate.check('task-1', makeContract([{ subtask_id: 'a', type: 'llm' }]), 'any-claw')).rejects.toThrow(CliError);
     await expect(gate.check('task-1', makeContract([{ subtask_id: 'a', type: 'llm' }]), 'any-claw')).rejects.toThrow(/SUMMON_VERIFY_FALSE_VIOLATION/);

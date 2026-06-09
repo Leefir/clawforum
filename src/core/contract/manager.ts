@@ -30,7 +30,7 @@ import type { Contract, SubtaskStatus } from '../contract/types.js';
 import { ToolError, isProgrammingBug } from '../../foundation/errors.js';
 import { type AuditLog } from '../../foundation/audit/index.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
+
 
 import {
   emitContractCancelled,
@@ -829,7 +829,7 @@ export class ContractSystem {
         {
           contractId,
           path: progressPath,
-          raw: content.slice(0, AUDIT_PREVIEW_LEN),
+          raw: this.audit.preview(content),
         },
       );
       await isolateCorruptedFile(this.fs, this.audit, {

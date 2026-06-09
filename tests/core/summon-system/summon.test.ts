@@ -75,6 +75,9 @@ describe('SummonTool', () => {
   ) {
     const auditWriter = {
       write: (type: string, ...args: unknown[]) => { auditEvents.push({ type, args }); },
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     } as any;
     const ctx = new ExecContextImpl({
       clawId: options?.clawId ?? 'test-claw',
@@ -524,7 +527,7 @@ Content.
 
   describe('audit events', () => {
     it('should audit when loadSkills fails with non-ENOENT error', async () => {
-      const auditWriter = { write: vi.fn() };
+      const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
       const existsSpy = vi.spyOn(mockFs, 'exists').mockRejectedValue(
         Object.assign(new Error('permission denied'), { code: 'EACCES' }),
       );
@@ -550,7 +553,7 @@ Content.
     });
 
     it('should audit when dialogMessages is empty', async () => {
-      const auditWriter = { write: vi.fn() };
+      const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
       const ctx = new ExecContextImpl({
         clawId: 'test-claw',
         clawDir: tempDir,

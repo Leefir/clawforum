@@ -18,7 +18,7 @@ import type { AuditLog } from '../../src/foundation/audit/index.js';
 
 let tmpDir: string;
 let mockFs: NodeFileSystem;
-const mockAudit: AuditLog = { write: () => {} };
+const mockAudit: AuditLog = { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
 beforeEach(() => {
   tmpDir = path.join(os.tmpdir(), `inbox-writer-test-${randomUUID()}`);

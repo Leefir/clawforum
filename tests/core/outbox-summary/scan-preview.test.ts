@@ -18,7 +18,7 @@ import type { OutboxMessage } from '../../../src/foundation/messaging/types.js';
 function makeAudit() {
   const events: Array<[string, ...unknown[]]> = [];
   return {
-    audit: { write: (t: string, ...c: unknown[]) => { events.push([t, ...c]); } },
+    audit: { write: (t: string, ...c: unknown[]) => { events.push([t, ...c]); } , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s},
     events,
   };
 }

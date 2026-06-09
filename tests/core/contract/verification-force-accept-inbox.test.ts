@@ -17,7 +17,7 @@ import { createToolRegistry } from '../../../src/foundation/tools/index.js';
 import { notifyClaw } from '../../../src/foundation/messaging/index.js';
 
 function makeMinimalCtx(clawDir: string, clawId: string, nodeFs: NodeFileSystem, chestnutRoot: string): VerificationContext {
-  const audit = { write: () => {} } as any;
+  const audit = { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any;
   return {
     clawDir: clawDir as any,
     clawId: clawId as any,

@@ -4,7 +4,7 @@ import { HANDOFF_MARKER_CREATED } from '../../../src/core/l4_context_manager/aud
 
 describe('subagent handoff marker integration', () => {
   it('createHandoffMarker emits audit via auditWriter', () => {
-    const auditWriter = { write: vi.fn() };
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const marker = createHandoffMarker('parent-round-123', auditWriter);
 
     expect(marker.parentRound).toBe('parent-round-123');
@@ -17,7 +17,7 @@ describe('subagent handoff marker integration', () => {
   });
 
   it('marker id is unique per call', () => {
-    const auditWriter = { write: vi.fn() };
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const a = createHandoffMarker('r1', auditWriter);
     const b = createHandoffMarker('r1', auditWriter);
     expect(a.id).not.toBe(b.id);

@@ -5,7 +5,7 @@ import type { AuditLog } from '../../../src/foundation/audit/index.js';
 describe('llm-audit-sink phase 952 r118 K fork: 2 missing LLMEvent case (phase 882 S3 continuation)', () => {
   it('emits context_exceeded_failover audit row', () => {
     const writes: any[][] = [];
-    const audit: AuditLog = { write: (...args) => writes.push(args) } as any;
+    const audit: AuditLog = { write: (...args) => writes.push(args) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any;
     const sink = createLLMAuditSink(audit);
     sink.emit({ type: 'context_exceeded_failover', provider: 'openai', stopReason: 'context_window_exceeded' });
     expect(writes.length).toBe(1);
@@ -15,7 +15,7 @@ describe('llm-audit-sink phase 952 r118 K fork: 2 missing LLMEvent case (phase 8
 
   it('emits permanent_skip_retry audit row', () => {
     const writes: any[][] = [];
-    const audit: AuditLog = { write: (...args) => writes.push(args) } as any;
+    const audit: AuditLog = { write: (...args) => writes.push(args) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any;
     const sink = createLLMAuditSink(audit);
     sink.emit({ type: 'permanent_skip_retry', provider: 'openai', attempt: 3, errorClass: 'permanent' });
     expect(writes.length).toBe(1);

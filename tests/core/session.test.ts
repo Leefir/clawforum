@@ -336,7 +336,7 @@ describe('DialogStore unit tests', () => {
   // --- load() source and audit coverage ---
 
   it('load() returns source current when current.json exists', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     await smAudit.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'hi' }], toolsForLLM: [] });
     const result = await smAudit.load();
@@ -344,7 +344,7 @@ describe('DialogStore unit tests', () => {
   });
 
   it('load() returns source archive when recovering from archive', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     await smAudit.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'hi' }], toolsForLLM: [] });
     await smAudit.archive();
@@ -353,14 +353,14 @@ describe('DialogStore unit tests', () => {
   });
 
   it('load() returns source empty when nothing exists', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     const result = await smAudit.load();
     expect(result.source).toBe('empty');
   });
 
   it('load() writes session_corrupted audit when current.json is corrupted', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     const dialogDir = path.join(tmpDir, 'dialog');
     await fs.mkdir(dialogDir, { recursive: true });
@@ -375,7 +375,7 @@ describe('DialogStore unit tests', () => {
   });
 
   it('load() writes session_recovered audit when recovering from archive', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     await smAudit.save({ systemPrompt: 'test-system-prompt', messages: [{ role: 'user', content: 'hi' }], toolsForLLM: [] });
     await smAudit.archive();
@@ -389,7 +389,7 @@ describe('DialogStore unit tests', () => {
   });
 
   it('load() writes session_corrupted for corrupted archive and falls back', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smAudit = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     const archiveDir = path.join(tmpDir, 'dialog', 'archive');
     await fs.mkdir(archiveDir, { recursive: true });
@@ -422,7 +422,7 @@ describe('DialogStore unit tests', () => {
       ...nodeFs,
       writeAtomic: vi.fn(() => Promise.reject(new Error('disk full'))),
     } as unknown as NodeFileSystem;
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-claw');
     await expect(smFail.save([{ role: 'user', content: 'hi' }])).rejects.toThrow('disk full');
     expect(audit.write).toHaveBeenCalledWith(
@@ -433,7 +433,7 @@ describe('DialogStore unit tests', () => {
   });
 
   it('archive: writes session_archive_failed and still throws on move failure', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smArc = new DialogStore(nodeFs, 'dialog', audit, 'current.json', 'test-claw');
     // no current.json exists → move will throw FileNotFoundError (FS_NOT_FOUND)
     await expect(smArc.archive()).rejects.toMatchObject({ code: 'FS_NOT_FOUND' });
@@ -449,7 +449,7 @@ describe('DialogStore unit tests', () => {
       ...nodeFs,
       list: vi.fn(() => Promise.reject(new Error('permission denied'))),
     } as unknown as NodeFileSystem;
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-claw');
     const result = await smFail.load();
     expect(result.source).toBe('empty');
@@ -466,7 +466,7 @@ describe('DialogStore unit tests', () => {
       read: vi.fn(() => Promise.resolve('{ invalid json')),
       move: vi.fn(() => Promise.reject(new Error('rename failed'))),
     } as unknown as NodeFileSystem;
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const smFail = new DialogStore(failingFs, 'dialog', audit, 'current.json', 'test-claw');
     await smFail.load();
     expect(audit.write).toHaveBeenCalledWith(

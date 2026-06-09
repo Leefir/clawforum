@@ -84,7 +84,12 @@ describe('watchdog-cron Map cleanup no-claws-dir (phase 138 audit.P1.wd-1)', () 
     vi.mocked(getGlobalConfig).mockReturnValue({ watchdog: { claw_inactivity_timeout_ms: 300_000 } } as any);
 
     mockPm = { isAlive: vi.fn() } as unknown as ProcessManager;
-    mockAudit = { write: vi.fn() };
+    mockAudit = {
+      write: vi.fn(),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
+    };
 
     // Reset all Maps
     clawStateAPI.lastInactivityNotified.clear();

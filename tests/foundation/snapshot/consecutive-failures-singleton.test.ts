@@ -15,6 +15,7 @@ import * as os from 'os';
 import { Snapshot } from '../../../src/foundation/snapshot/index.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { SNAPSHOT_AUDIT_EVENTS } from '../../../src/foundation/snapshot/audit-events.js';
+import { makeMockAudit } from '../../helpers/audit.js';
 
 // git 必须可用才能跑这些测试
 let gitAvailable = false;
@@ -33,7 +34,7 @@ describe.skipIf(!gitAvailable)('consecutiveFailures singleton', () => {
   });
 
   it('Case 2: DEGRADED trigger writes persist file with degradedAt', async () => {
-    const audit = { write: vi.fn() };
+    const audit = makeMockAudit();
     const fs = new NodeFileSystem({ baseDir: tmpDir });
 
     const snapshot = new Snapshot(tmpDir, fs, audit, []);
@@ -56,7 +57,7 @@ describe.skipIf(!gitAvailable)('consecutiveFailures singleton', () => {
   });
 
   it('Case 3: persist file loaded on init, leading to faster DEGRADED', async () => {
-    const audit = { write: vi.fn() };
+    const audit = makeMockAudit();
     const fs = new NodeFileSystem({ baseDir: tmpDir });
 
     // pre-seed a git repo + persist file with 2 prior failures
@@ -72,7 +73,7 @@ describe.skipIf(!gitAvailable)('consecutiveFailures singleton', () => {
     expect(fsSync.existsSync(persistPath)).toBe(true);
 
     // simulate process restart: NEW instance, init loads persist
-    const audit2 = { write: vi.fn() };
+    const audit2 = makeMockAudit();
     const snapshot1 = new Snapshot(tmpDir, fs, audit2, []);
     await snapshot1.init();
 

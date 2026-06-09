@@ -34,7 +34,12 @@ const mockCronRunner = {
 const mockHeartbeat = {};
 
 vi.mock('../../src/foundation/audit/writer.js', () => ({
-  AuditWriter: vi.fn(() => ({ write: mockAuditWrite })),
+  AuditWriter: vi.fn(() => ({
+    write: mockAuditWrite,
+    preview: vi.fn((s: string) => s),
+    message: vi.fn((s: string) => s),
+    summary: vi.fn((s: string) => s),
+  })),
   AUDIT_FILE: 'audit.tsv',
 }));
 

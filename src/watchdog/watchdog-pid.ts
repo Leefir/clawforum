@@ -10,7 +10,7 @@ import { getChestnutFs } from './watchdog-context.js';
 import { isAlive } from '../foundation/process-exec/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { getAuditWriter } from './watchdog-context.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
+
 import { isFileNotFound } from '../foundation/fs/types.js';
 
 /** 1:1 保 watchdog.ts:85-89 */
@@ -59,8 +59,8 @@ function backupCorruptPid(fsFactory: (baseDir: string) => FileSystem, _content: 
     WATCHDOG_AUDIT_EVENTS.PID_CORRUPT,
     `backup=${backupPath}`,
     `move_ok=${moveOk}`,
-    ...(moveOk ? [] : [`move_error=${(formatErr(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`]),
-    `error=${(formatErr(err)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
+    ...(moveOk ? [] : [`move_error=${auditWriter?.message(formatErr(moveErr)) ?? formatErr(moveErr)}`]),
+    `error=${auditWriter?.message(formatErr(err)) ?? formatErr(err)}`,
   );
 }
 
@@ -107,7 +107,7 @@ export function isWatchdogAlive(fsFactory: (baseDir: string) => FileSystem): boo
     const auditWriter = getAuditWriter();
     auditWriter?.write(
       WATCHDOG_AUDIT_EVENTS.PID_READ_FAILED,
-      `error=${(formatErr(err)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
+      `error=${auditWriter?.message(formatErr(err)) ?? formatErr(err)}`,
     );
     throw err;
   }

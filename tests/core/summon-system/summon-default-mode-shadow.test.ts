@@ -48,7 +48,7 @@ describe('Phase 1166 — default mode shadow', () => {
   });
 
   function makeCtx(snapshotMessages: Message[] = []) {
-    const auditWriter = { write: vi.fn() } as any;
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as any;
     return new ExecContextImpl({
       clawId: 'test-claw',
       clawDir: tempDir,

@@ -33,7 +33,7 @@ import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { CLAWS_DIR } from '../assembly/claw-dirs.js';
 import { resolveDaemonEntry } from '../assembly/spawn-entry.js';
 import { DAEMON_LOG } from '../daemon/constants.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
+
 
 import {
   getChestnutDir, getChestnutFs, getGlobalConfig, setAuditWriter,
@@ -91,7 +91,7 @@ export function shutdownWatchdog(
   }
   removeWatchdogPid(fsFactory);
   if (saveFailed) {
-    auditWriter.write(WATCHDOG_AUDIT_EVENTS.STOP, `signal=${signal}`, `save_failed=${saveFailed.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`);
+    auditWriter.write(WATCHDOG_AUDIT_EVENTS.STOP, `signal=${signal}`, `save_failed=${auditWriter.message(saveFailed)}`);
   } else {
     auditWriter.write(WATCHDOG_AUDIT_EVENTS.STOP, `signal=${signal}`);
   }
@@ -130,7 +130,7 @@ async function restartMotionIfDown(
     //   - cleanup 失败不阻塞 respawn / spawn 自身判 race / failure 仅 audit observability
     await pm.stop(MOTION_CLAW_ID).catch((e) => {
       const msg = `[watchdog] Failed to clean up motion before restart: ${formatErr(e)}`;
-      logWithAudit(fsFactory, msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, msg.slice(0, AUDIT_MESSAGE_MAX_CHARS));
+      logWithAudit(fsFactory, msg, WATCHDOG_AUDIT_EVENTS.CLEANUP_FAILED, audit.message(msg));
     });
     const daemonEntryPath = resolveDaemonEntry(fsFactory(process.cwd()));
     const chestnutRoot = makeChestnutRoot(getChestnutDir());

@@ -11,7 +11,10 @@ export function makeMockAudit(): AuditLog {
   return {
     __brand: 'AuditLog',
     write: vi.fn<(type: string, ...cols: (string | number)[]) => void>(),
-  };
+    preview: vi.fn((s: string) => s),
+    message: vi.fn((s: string) => s),
+    summary: vi.fn((s: string) => s),
+  } as unknown as AuditLog;
 }
 
 /**
@@ -27,6 +30,9 @@ export function makeAudit() {
       events.push([type, ...cols]);
       emitter.emit('write', type, ...cols);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
   return { audit, events, emitter };
 }

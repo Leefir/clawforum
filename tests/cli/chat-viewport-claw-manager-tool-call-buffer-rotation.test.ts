@@ -52,7 +52,7 @@ function driveStream(clawId: string, streamJsonl: string): ClawTrack {
   const manager = createClawManager({
     fs,
     pm: { readPid: vi.fn().mockResolvedValue(null) },
-    audit: { write: vi.fn() } as unknown as AuditLog,
+    audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog,
     isMotion: true,
     clawsDir: '/tmp/claws',
     clawTrackMap,

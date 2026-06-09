@@ -23,6 +23,9 @@ function makeAudit() {
     write: (type: string, ...cols: (string | number)[]) => {
       events.push([type, ...cols]);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
   return { audit, events };
 }
@@ -246,6 +249,9 @@ describe('phase 1038 C-3 Contract state machine integrity (W3-B α-1+α-4+α-7)'
         write: (type: string, ...args: (string | number)[]) => {
           auditCalls.push([type, ...args]);
         },
+        preview: (s: string) => s,
+        message: (s: string) => s,
+        summary: (s: string) => s,
       };
       const manager = new ContractSystem({
         clawDir,

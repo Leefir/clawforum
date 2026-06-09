@@ -13,7 +13,12 @@ vi.mock('../../src/daemon/daemon-loop.js', () => ({
 }));
 
 vi.mock('../../src/foundation/audit/index.js', () => ({
-  createSystemAudit: vi.fn(() => ({ write: vi.fn() })),
+  createSystemAudit: vi.fn(() => ({
+    write: vi.fn(),
+    preview: vi.fn((s: string) => s),
+    message: vi.fn((s: string) => s),
+    summary: vi.fn((s: string) => s),
+  })),
 }));
 
 vi.mock('../../src/foundation/config/index.js', () => ({

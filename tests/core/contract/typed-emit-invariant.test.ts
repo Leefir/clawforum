@@ -11,7 +11,7 @@ import { CONTRACT_AUDIT_EVENTS } from '../../../src/core/contract/audit-events.j
 function makeFakeAudit() {
   const writes: Array<{ event: string; cols: string[] }> = [];
   return {
-    audit: { write: (event: string, ...cols: string[]) => { writes.push({ event, cols }); } } as any,
+    audit: { write: (event: string, ...cols: string[]) => { writes.push({ event, cols }); } , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any,
     writes,
   };
 }

@@ -66,7 +66,7 @@ describe('retention-cleanup', () => {
       isFile: true,
     }));
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) };
+    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     await runRetentionCleanup({ motionDir: '/m', fs, audit, maxDays: { inbox: 30 } });
 
@@ -78,7 +78,7 @@ describe('retention-cleanup', () => {
 
   it('反向 2: no maxDays configured → skip', async () => {
     const fs = mockFs({ exists: true });
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     await runRetentionCleanup({ motionDir: '/m', fs, audit, maxDays: {} });
 
@@ -93,7 +93,7 @@ describe('retention-cleanup', () => {
         { name: 'subdir', path: '/m/inbox/done/subdir', isDirectory: true, isFile: false, size: 0, mtime: new Date(now - 40 * 86400000) },
       ],
     });
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     await runRetentionCleanup({ motionDir: '/m', fs, audit, maxDays: { inbox: 30 } });
 

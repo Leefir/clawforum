@@ -12,6 +12,9 @@ describe('chat-viewport-observability', () => {
       write: (type: string, ...cols: (string | number)[]) => {
         log.push([type, ...cols]);
       },
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     };
     let t = 0;
     const clock = () => t;

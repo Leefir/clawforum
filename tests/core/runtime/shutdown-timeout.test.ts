@@ -32,6 +32,9 @@ describe('runtime.stop shutdown timeout (phase 1332 N4)', () => {
       write: (type: string, ...args: string[]) => {
         auditEvents.push({ type, args });
       },
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     };
 
     const mockDialogStore = {

@@ -5,7 +5,7 @@ import { LLM_PROVIDER_AUDIT_EVENTS } from '../../../src/foundation/llm-provider/
 describe('base-anthropic empty content guard (phase 1274)', () => {
   it('反向: assistant content [] → skip 整条 + ASSISTANT_EMPTY_CONTENT_SKIPPED audit', () => {
     const auditWrites: unknown[][] = [];
-    const mockAudit = { write: (type: string, ...cols: unknown[]) => auditWrites.push([type, ...cols]) };
+    const mockAudit = { write: (type: string, ...cols: unknown[]) => auditWrites.push([type, ...cols]) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const adapter = new CustomAnthropicAdapter({
       name: 'test-provider',
@@ -33,7 +33,7 @@ describe('base-anthropic empty content guard (phase 1274)', () => {
 
   it('反向: dropThinking 后 assistant 只剩 thinking → skip 整条 + ASSISTANT_EMPTY_CONTENT_SKIPPED audit', () => {
     const auditWrites: unknown[][] = [];
-    const mockAudit = { write: (type: string, ...cols: unknown[]) => auditWrites.push([type, ...cols]) };
+    const mockAudit = { write: (type: string, ...cols: unknown[]) => auditWrites.push([type, ...cols]) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const adapter = new CustomAnthropicAdapter({
       name: 'test-provider',

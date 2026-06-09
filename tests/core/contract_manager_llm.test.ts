@@ -264,6 +264,9 @@ describe('ContractSystem Acceptance Flow', () => {
       write: vi.fn((type: string, ...cols: string[]) => {
         auditEmitter.emit('write', type, ...cols);
       }),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
     };
 
     mockLLM = {

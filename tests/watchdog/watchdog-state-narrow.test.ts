@@ -42,7 +42,7 @@ describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 1: FileNotFoundError → 0 audit emit + Maps empty', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     vi.mocked(getAuditWriter).mockReturnValue(audit as any);
     vi.mocked(getChestnutFs).mockReturnValue({
       readSync: vi.fn().mockImplementation(() => {
@@ -60,7 +60,7 @@ describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 2: raw ENOENT → 0 audit emit + Maps empty', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     vi.mocked(getAuditWriter).mockReturnValue(audit as any);
     const err = Object.assign(new Error('no such file'), { code: 'ENOENT' });
     vi.mocked(getChestnutFs).mockReturnValue({
@@ -79,7 +79,7 @@ describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 3: corrupt JSON → emit STATE_LOAD_FAILED + Maps cleared', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     vi.mocked(getAuditWriter).mockReturnValue(audit as any);
     vi.mocked(getChestnutFs).mockReturnValue({
       readSync: vi.fn().mockReturnValue('{broken json'),

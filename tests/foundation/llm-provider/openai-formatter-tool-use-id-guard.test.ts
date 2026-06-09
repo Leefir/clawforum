@@ -9,7 +9,12 @@ describe('openai-message-formatter tool_use_id guard (phase 1203 Issue 1)', () =
 
   beforeEach(() => {
     auditWrites = [];
-    mockAudit = { write: (type, ...cols) => auditWrites.push([type, ...cols]) };
+    mockAudit = {
+      write: (type, ...cols) => auditWrites.push([type, ...cols]),
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
+    };
   });
 
   afterEach(() => {

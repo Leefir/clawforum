@@ -9,7 +9,7 @@ import type { StepInput, StepResult, LLMCallInfo } from './types.js';
 import { extractText, extractToolCalls, appendAssistantMessage, appendToolResults } from './utils.js';
 import { executeToolCalls } from './tool-execution.js';
 import { throwAbortError } from './abort-helpers.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../../foundation/constants.js';
+
 
 export async function handleToolUseStop(
   response: LLMResponse,
@@ -116,7 +116,7 @@ export function handleMaxTokensStop(
       input.callbacks?.onMaxTokensStateAOrphanDrop?.({
         orphans: orphanPrebuilt.map(pr => ({
           tool_use_id: pr.tool_use_id,
-          content_preview: pr.content.slice(0, AUDIT_MESSAGE_MAX_CHARS),
+          content_preview: input.ctx.auditWriter?.message(pr.content) ?? pr.content,
           is_error: pr.is_error === true,
         })),
         llm: llmInfo,

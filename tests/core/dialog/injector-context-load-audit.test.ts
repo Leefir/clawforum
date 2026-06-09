@@ -20,7 +20,7 @@ describe('ContextInjector — context load audit (phase 646 P1.3)', () => {
     { name: 'FNF silent: MEMORY.md not found → 0 audit', file: 'MEMORY.md', err: () => new FileNotFoundError('MEMORY.md'), auditCalls: 0, partsKey: 'memory' as const },
     { name: 'non-FNF audit: MEMORY.md read throws PermissionError → audit LOAD_FAILED', file: 'MEMORY.md', err: () => new PermissionError('denied'), auditCalls: 1, partsKey: 'memory' as const },
   ])('$name', async ({ file, err, auditCalls, partsKey }) => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const mockFs = {
       read: vi.fn().mockImplementation(async (path: string) => {
         if (path === file) throw err();
@@ -43,7 +43,7 @@ describe('ContextInjector — context load audit (phase 646 P1.3)', () => {
   });
 
   it('contractManager.loadActive throws non-FNF → audit LOAD_FAILED file=contract', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const mockFs = {
       read: vi.fn().mockResolvedValue(''),
     };
@@ -68,7 +68,7 @@ describe('ContextInjector — context load audit (phase 646 P1.3)', () => {
   });
 
   it('contractManager.loadActive throws FileNotFoundError → silent (0 audit)', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const mockFs = {
       read: vi.fn().mockResolvedValue(''),
     };

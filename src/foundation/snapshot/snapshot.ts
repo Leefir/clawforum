@@ -31,7 +31,7 @@ import {
 } from './audit-emit.js';
 import { ok, err as errResult, type Result } from '../utils/index.js';
 import { classifyGitError, type ExpectedGitFailure, type GitExecError } from './git-errors.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../audit/index.js';
+
 
 // Node.js child_process / exec 抛错时未声明的 dynamic property
 // 显式 Error & Partial<GitExecError> intersection 替 `(e as any)`、编译期可检 Partial 字段
@@ -255,7 +255,7 @@ export class Snapshot {
       if (status.stderr) {
         emitSnapshotStatusStderr(this.audit, {
           dir: this.dir,
-          stderr: status.stderr.slice(0, AUDIT_MESSAGE_MAX_CHARS),
+          stderr: this.audit.message(status.stderr),
         });
       }
       if (!status.stdout) {
@@ -275,7 +275,7 @@ export class Snapshot {
       await tryClearPersist(this.fs, this.dir, this.audit);
       emitSnapshotCommitted(this.audit, {
         dir: this.dir,
-        message: message.slice(0, AUDIT_MESSAGE_MAX_CHARS),
+        message: this.audit.message(message),
       });
 
       // whitelist cleanup of specified sync scratch subdirs on commit success (§P1 SRP 抽出)

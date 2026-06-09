@@ -7,7 +7,7 @@ import type { FileSystem } from '../foundation/fs/types.js';
 import { formatErr } from "../foundation/utils/index.js";
 import { getChestnutFs, getAuditWriter, clawStateAPI } from './watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../foundation/audit/index.js';
+
 import { isFileNotFound } from '../foundation/fs/types.js';
 
 const CURRENT_WATCHDOG_SCHEMA_VERSION = 2;
@@ -78,8 +78,8 @@ export function loadWatchdogState(fsFactory: (baseDir: string) => FileSystem): v
       `backup=${backupPath}`,
       ...(isSchemaErr ? [`reason=unknown_schema_version`, `actual=${String((err as WatchdogSchemaError).actualVersion)}`, `current=${CURRENT_WATCHDOG_SCHEMA_VERSION}`] : []),
       `move_ok=${moveOk}`,
-      ...(moveOk ? [] : [`move_error=${(formatErr(moveErr)).slice(0, AUDIT_MESSAGE_MAX_CHARS)}`]),
-      `error=${(err as Error).message?.slice(0, AUDIT_MESSAGE_MAX_CHARS) ?? String(err)}`,
+      ...(moveOk ? [] : [`move_error=${auditWriter?.message(formatErr(moveErr)) ?? formatErr(moveErr)}`]),
+      `error=${auditWriter?.message(formatErr(err)) ?? formatErr(err)}`,
     );
   }
 }
@@ -98,6 +98,6 @@ export function saveWatchdogState(fsFactory: (baseDir: string) => FileSystem): v
 export function writeWatchdogCrash(err: Error): void {
   try {
     const auditWriter = getAuditWriter();
-    auditWriter?.write(WATCHDOG_AUDIT_EVENTS.CRASH, `error=${err.message?.slice(0, AUDIT_MESSAGE_MAX_CHARS) ?? String(err)}`);
+    auditWriter?.write(WATCHDOG_AUDIT_EVENTS.CRASH, `error=${auditWriter?.message(formatErr(err)) ?? formatErr(err)}`);
   } catch { /* silent: crash handler must not throw */ }
 }

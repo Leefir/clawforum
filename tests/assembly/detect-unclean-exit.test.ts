@@ -30,7 +30,7 @@ describe('detectUncleanExit catch audit', () => {
   });
 
   it('audits ASSEMBLE_FAILED on non-ENOENT error', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     mockExistsSync.mockReturnValue(true);
     mockStatSync.mockImplementation(() => {
       const err = new Error('EACCES') as any;
@@ -50,7 +50,7 @@ describe('detectUncleanExit catch audit', () => {
   });
 
   it('skips ENOENT (graceful / no audit)', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     mockExistsSync.mockReturnValue(true);
     mockStatSync.mockImplementation(() => {
       const err = new Error('ENOENT') as any;

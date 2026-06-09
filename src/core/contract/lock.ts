@@ -6,7 +6,7 @@
 import * as path from 'path';
 import { formatErr } from "../../foundation/utils/index.js";
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
+
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 import { ToolError } from '../../foundation/errors.js';
@@ -55,7 +55,7 @@ export async function acquireLock(ctx: LockContext, lockPath: string): Promise<v
         ) {
           emitContractLockSchemaInvalid(
             ctx.audit,
-            { path: lockPath, raw: raw.slice(0, AUDIT_PREVIEW_LEN) },
+            { path: lockPath, raw: ctx.audit.preview(raw) },
           );
           // phase 66: 隔离 corrupt lock 文件、然后继续重试
           const contractDir = path.dirname(lockPath);

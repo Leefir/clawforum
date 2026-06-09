@@ -8,7 +8,7 @@ describe('MainTurnUIController', () => {
     updateDisplay: vi.fn(),
     trimOutputNewlines: true,
     getThinkingMode: vi.fn(() => 'full' as const),
-    audit: { write: vi.fn() },
+    audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)},
   });
 
   it('正常 main scope 下写操作不触发 audit', () => {

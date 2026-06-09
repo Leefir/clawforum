@@ -61,7 +61,7 @@ describe('phase 1217 (r131 C fork) B.2 — stream reader start fail no register'
       fsFactory,
       agentDir: '/tmp/agent',
       label: 'test',
-      audit: { write: auditWrite } as any,
+      audit: { write: auditWrite , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any,
       observability: { recordEvent: vi.fn(), recordRenderBatch: vi.fn() } as any,
       taskWatchMap,
       handleTaskEvent: vi.fn(),

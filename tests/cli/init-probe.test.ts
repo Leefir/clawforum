@@ -51,9 +51,13 @@ vi.mock('../../src/cli/llm-connection-check.js', () => ({
 // ── audit log mock ─────────────────────────────────────────────────────────────
 const { auditCalls } = vi.hoisted(() => ({ auditCalls: { entries: [] as string[][] } }));
 const mockAudit = {
+  __brand: 'AuditLog' as const,
   write: vi.fn((...args: string[]) => {
     auditCalls.entries.push(args);
   }),
+  preview: vi.fn((s: string) => s),
+  message: vi.fn((s: string) => s),
+  summary: vi.fn((s: string) => s),
 } as unknown as import('../../src/foundation/audit/index.js').AuditLog;
 
 let processExitSpy: ReturnType<typeof vi.spyOn>;
@@ -219,7 +223,7 @@ describe('initCommand — probe failure: error message truncation', () => {
   });
   afterEach(() => teardownTempDir());
 
-  it('long error message → audit entry truncated to 200 chars', async () => {
+  it('long error message → delegated to audit.message for truncation', async () => {
     const longMsg = 'X'.repeat(500);
     connMock.checkLLMConnection.mockResolvedValue({ ok: false, errorType: 'network', message: longMsg });
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-xxx');
@@ -227,10 +231,9 @@ describe('initCommand — probe failure: error message truncation', () => {
 
     await initCommand({ fsFactory }, true, { audit: mockAudit });
 
+    expect(mockAudit.message).toHaveBeenCalledWith(longMsg);
     const failEntry = auditCalls.entries.find(e => e[0] === 'cli_init_probe_failed');
     const msgField = failEntry?.find(s => s.startsWith('message='));
     expect(msgField).toBeDefined();
-    // 'message=' prefix + 200 chars max
-    expect((msgField as string).length).toBeLessThanOrEqual('message='.length + 200);
   });
 });

@@ -15,7 +15,7 @@ import {
   DEFAULT_RETRY_DELAY_MS,
   INIT_LLM_IDLE_TIMEOUT_MS,
 } from '../../foundation/llm-orchestrator/index.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../../foundation/constants.js';
+
 import {
   WATCHDOG_INTERVAL_MS,
   DEFAULT_DISK_WARNING_MB,
@@ -332,7 +332,7 @@ export async function initCommand(deps: { fsFactory: (baseDir: string) => FileSy
         CLI_AUDIT_EVENTS.INIT_PROBE_FAILED,
         `preset=${presetId}`,
         `error_type=${probe.errorType}`,
-        `message=${probe.message.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
+        `message=${audit?.message(probe.message) ?? probe.message}`,
       );
       console.log(`  ✗ ${LLM_ERROR_LABELS[probe.errorType]}`);
       // 截断防 base64 body / 长 stack dump 灌 stdout

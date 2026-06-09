@@ -11,6 +11,7 @@ import * as os from 'os';
 import { Snapshot } from '../../../src/foundation/snapshot/index.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/node-fs.js';
 import { SNAPSHOT_AUDIT_EVENTS } from '../../../src/foundation/snapshot/audit-events.js';
+import { makeMockAudit } from '../../helpers/audit.js';
 
 const gitAvailable = (() => {
   try { execSync('which git', { stdio: 'ignore' }); return true; } catch { return false; }
@@ -41,7 +42,7 @@ describe.skipIf(!gitAvailable)('Snapshot cleanup race/safety cluster (phase 998)
     await fsp.writeFile(path.join(scratchDir, 'old.md'), 'old');
     await fsp.writeFile(path.join(subDir, 'nested.md'), 'nested');
 
-    const snapshot = new Snapshot(tmpDir, fs, { write: () => {} }, [], [scratchDir]);
+    const snapshot = new Snapshot(tmpDir, fs, makeMockAudit(), [], [scratchDir]);
     await snapshot.init();
 
     const removeDirSpy = vi.spyOn(fs, 'removeDir');
@@ -76,7 +77,7 @@ describe.skipIf(!gitAvailable)('Snapshot cleanup race/safety cluster (phase 998)
     await fsp.writeFile(path.join(childDir, 'child-file.md'), 'child');
 
     // Pass parent first, child second — unsorted order
-    const snapshot = new Snapshot(tmpDir, fs, { write: () => {} }, [], [parentDir, childDir]);
+    const snapshot = new Snapshot(tmpDir, fs, makeMockAudit(), [], [parentDir, childDir]);
     await snapshot.init();
 
     // Record call order of list (which dir is processed first)
@@ -114,7 +115,7 @@ describe.skipIf(!gitAvailable)('Snapshot cleanup race/safety cluster (phase 998)
     // so snapshot.ts boundary check (not NodeFileSystem resolveAndCheck) catches it.
     fs.realpath = vi.fn().mockResolvedValue(outsideDir);
 
-    const audit = { write: vi.fn() };
+    const audit = makeMockAudit();
     const snapshot = new Snapshot(tmpDir, fs, audit, [], [symlinkDir]);
     await snapshot.init();
 

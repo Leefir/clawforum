@@ -66,7 +66,7 @@ describe('cleanupRetention processing orphan (phase 1372 sub-1)', () => {
       isFile: true,
     }));
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) };
+    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { outbox: 30 } });
 
@@ -99,7 +99,7 @@ describe('cleanupRetention processing orphan (phase 1372 sub-1)', () => {
       isFile: true,
     }));
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) };
+    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { outbox: 30 } });
 
@@ -110,7 +110,7 @@ describe('cleanupRetention processing orphan (phase 1372 sub-1)', () => {
 
   it('0 false positive: outbox/processing skipped when maxDays.outbox unset', async () => {
     const fs = mockFs({ exists: true });
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { inbox: 30 } });
 

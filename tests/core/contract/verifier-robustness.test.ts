@@ -26,6 +26,9 @@ function makeAudit() {
     write: (type: string, ...cols: (string | number)[]) => {
       events.push([type, ...cols]);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
   return { audit, events };
 }

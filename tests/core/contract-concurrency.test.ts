@@ -46,7 +46,7 @@ describe('ContractSystem — 并发幂等与锁', () => {
     clawDir = path.join(testDir, 'claws', 'test-claw');
     await fs.mkdir(clawDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     manager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',
@@ -193,7 +193,7 @@ describe('ContractSystem — 并发幂等与锁', () => {
   });
 
   it('writes CONTRACT_LOCK_CLEARED audit when force clearing stale timeout lock', async () => {
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const auditManager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',

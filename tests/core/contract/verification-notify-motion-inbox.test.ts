@@ -10,7 +10,7 @@ import { notifyClaw } from '../../../src/foundation/messaging/index.js';
 import { vi } from 'vitest';
 
 function makeMinimalCtx(clawDir: string, clawId: string, nodeFs: NodeFileSystem, chestnutRoot: string): VerificationContext {
-  const audit = { write: () => {} } as any;
+  const audit = { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any;
   return {
     clawDir: clawDir as any,
     clawId: clawId as any,

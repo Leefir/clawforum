@@ -70,6 +70,9 @@ vi.mock('../../src/core/contract/manager.js', () => ({
 vi.mock('../../src/foundation/audit/index.js', () => ({
   createSystemAudit: vi.fn(() => ({
     write: mockState.mockAuditWrite,
+    preview: vi.fn((s: string) => s),
+    message: vi.fn((s: string) => s),
+    summary: vi.fn((s: string) => s),
   })),
 }));
 

@@ -68,7 +68,7 @@ describe('cleanupRetention', () => {
       isDirectory: false,
       isFile: true,
     }));
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { inbox: 30, outbox: 30 } });
 
@@ -87,7 +87,7 @@ describe('cleanupRetention', () => {
         { name: 'subdir', path: '/m/inbox/done/subdir', isDirectory: true, isFile: false, size: 0, mtime: new Date(now - 40 * 86400000) },
       ],
     });
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { inbox: 30 } });
 
@@ -97,7 +97,7 @@ describe('cleanupRetention', () => {
 
   it('handles missing or empty dirs gracefully', async () => {
     const fs = mockFs({ exists: false });
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { inbox: 30 } });
 
@@ -124,7 +124,7 @@ describe('cleanupRetention', () => {
       throw new Error('permission denied');
     });
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) };
+    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const deleted = await cleanupRetention({ motionDir: '/m', fs, audit, maxDays: { inbox: 30 } });
 

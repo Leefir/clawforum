@@ -18,6 +18,9 @@ describe('createLLMAuditSink critical fallback (phase 604 / B.llm-audit-sink-rec
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const audit: AuditLog = {
       write: vi.fn(() => { throw new Error('audit fs full'); }),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
     };
     const sink = createLLMAuditSink(audit);
 
@@ -40,7 +43,10 @@ describe('createLLMAuditSink critical fallback (phase 604 / B.llm-audit-sink-rec
   it('audit.write success → console.error 0 调（无 fallback noise）', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const audit: AuditLog = {
-      write: vi.fn(),   // 成功
+      write: vi.fn(),   // 成功,
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
     };
     const sink = createLLMAuditSink(audit);
 

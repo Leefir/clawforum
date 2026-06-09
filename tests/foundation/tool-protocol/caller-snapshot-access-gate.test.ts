@@ -61,6 +61,9 @@ async function setup(opts: { withProvider: boolean; snapshotData?: CallerSnapsho
     write: (type: string, ...fields: string[]) => auditEntries.push({ type, fields }),
     flush: async () => {},
     setTraceId: () => {},
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   } as unknown as AuditWriter;
   const ctx = new ExecContextImpl({
     clawId: 'test-claw',
@@ -170,6 +173,9 @@ describe('phase 1406 caller-snapshot access gate', () => {
       write: (type: string, ...fields: string[]) => auditEntries.push({ type, fields }),
       flush: async () => {},
       setTraceId: () => {},
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     } as unknown as AuditWriter;
     const ctx = new ExecContextImpl({
       clawId: 'test-claw',

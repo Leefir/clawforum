@@ -44,7 +44,7 @@ async function setupEvolutionSystem(stateFileContent?: string) {
   }
 
   const motionFs = new NodeFileSystem({ baseDir: motionDir });
-  const mockAudit = { write: vi.fn() };
+  const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
   const evolutionSystem = new EvolutionSystem({
     fs: motionFs,
     audit: mockAudit as any,

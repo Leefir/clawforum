@@ -17,7 +17,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { EXEC_MAX_OUTPUT, EXEC_OVERFLOW_DIR_NAME, EXEC_COMMAND_PLACEHOLDER_CHARS } from './constants.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../constants.js';
+
 import { exec } from '../process-exec/index.js';
 import { ProcessExecError } from '../process-exec/index.js';
 import { PROCESS_EXEC_DEFAULT_TIMEOUT_MS } from '../process-exec/index.js';
@@ -127,7 +127,7 @@ export function createExecTool(): Tool {
         ctx.auditWriter?.write(
           COMMAND_TOOL_AUDIT_EVENTS.EXEC_MOTION_SELF_KILL_BLOCKED,
           `clawId=${ctx.clawId}`,
-          `command=${command.slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
+          `command=${ctx.auditWriter?.message(command) ?? command}`,
         );
         return {
           success: false,

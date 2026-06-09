@@ -88,6 +88,9 @@ function createMockAudit(): { audit: AuditLog; events: string[][] } {
     write: (type: string, ...cols: (string | number)[]) => {
       events.push([type, ...cols.map(c => String(c))]);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   } as unknown as AuditLog;
   return { audit, events };
 }

@@ -12,7 +12,7 @@ import { readLockPid } from './lock.js';
 import { readPid, removePid } from './pid.js';
 import type { PidFileContent } from './pid.js';
 import { findProcesses } from './find.js';
-import { AUDIT_MESSAGE_MAX_CHARS } from '../audit/index.js';
+
 import { isAlive as defaultL1IsAlive, getProcessStartTime as defaultGetProcessStartTime } from '../process-exec/index.js';
 import { LockConflictError, type ProcessManagerContext } from './types.js';
 import type { SpawnOptions } from './types.js';
@@ -319,7 +319,7 @@ async function spawnAndAwaitReady(
       `claw=${clawId}`,
       `pid=${pid}`,
       `command=${options.command}`,
-      `args=${options.args.join(' ').slice(0, AUDIT_MESSAGE_MAX_CHARS)}`,
+      `args=${ctx.audit.message(options.args.join(' '))}`,
       `duration_ms=${Date.now() - startMs}`,
     );
 

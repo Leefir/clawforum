@@ -36,7 +36,7 @@ describe('EvolutionSystem.init() boot reconcile', () => {
     const nodeFs = new NodeFileSystem({ baseDir: clawDir });
     return new EvolutionSystem({
       fs: nodeFs,
-      audit: { write: auditWrite } as any,
+      audit: { write: auditWrite , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any,
       taskSystem: {} as any,
       contractManager: {} as any,
     });

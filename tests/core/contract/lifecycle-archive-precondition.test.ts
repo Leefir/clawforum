@@ -35,6 +35,9 @@ describe('Phase 188 Step A: moveContractToArchive precondition', () => {
       write: (type: string, ...args: string[]) => {
         auditCalls.push({ type, args });
       },
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     };
     return {
       fs: nodeFs,

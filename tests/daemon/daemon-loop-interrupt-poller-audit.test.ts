@@ -34,7 +34,7 @@ describe('daemon-loop interrupt poller audit (phase 123)', () => {
   });
 
   function createHarness() {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     let resolveProcessBatch: ((v: number) => void) | undefined;
     let rejectProcessBatch: ((e: unknown) => void) | undefined;
 

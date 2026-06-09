@@ -34,7 +34,7 @@ describe('phase 930 + 180: LLM_STATS audit emit avgLatencyMs key', () => {
     await fs.writeFile(path.join(motionDir, 'audit.tsv'), auditLines, 'utf-8');
 
     const writes: any[][] = [];
-    const audit = { write: (...args: any[]) => writes.push(args) };
+    const audit = { write: (...args: any[]) => writes.push(args) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const opts: LlmStatsOptions = {
       chestnutDir,

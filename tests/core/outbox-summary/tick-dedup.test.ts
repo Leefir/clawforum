@@ -28,6 +28,9 @@ function makeAudit() {
   const events: Array<[string, ...(string | number)[]]> = [];
   const audit = {
     write: (type: string, ...cols: (string | number)[]) => { events.push([type, ...cols]); },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
   return { audit, events };
 }

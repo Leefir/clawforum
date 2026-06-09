@@ -42,7 +42,7 @@ describe('submitSubtaskTool', () => {
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(clawDir, { recursive: true });
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     manager = new ContractSystem({
       clawDir,
       clawId: 'test-claw',

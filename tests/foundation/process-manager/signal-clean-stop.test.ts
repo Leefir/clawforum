@@ -6,7 +6,7 @@ describe('signalCleanStop (phase 1373 sub-3)', () => {
     const fs = {
       writeAtomic: vi.fn().mockResolvedValue(undefined),
     } as any;
-    const audit = { write: vi.fn() } as any;
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as any;
 
     await signalCleanStop(fs, '/data/chestnut', 'motion', audit);
 

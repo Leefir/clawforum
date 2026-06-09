@@ -23,7 +23,7 @@ describe('runRetentionCleanup > dialog/archive', () => {
 
   function makeAudit() {
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit = { write: (t: string, ...c: string[]) => writes.push({ type: t, cols: c }) };
+    const audit = { write: (t: string, ...c: string[]) => writes.push({ type: t, cols: c }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
     return { audit, writes };
   }
 

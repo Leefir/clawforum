@@ -124,6 +124,9 @@ describe('phase 63: markCrashed', () => {
     const auditWrites: string[][] = [];
     const audit = {
       write: (...args: string[]) => auditWrites.push(args),
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     };
     const localManager = new ContractSystem({
       clawDir,

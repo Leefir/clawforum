@@ -39,7 +39,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('init creates .git with .gitignore and initial commit', async () => {
-      const result = await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, ['stream.jsonl', 'audit.tsv', 'tasks/queues/results/']).init();
+      const result = await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), ['stream.jsonl', 'audit.tsv', 'tasks/queues/results/']).init();
       expect(result.ok).toBe(true);
 
       // .git 目录存在
@@ -69,7 +69,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('init is idempotent — second call is no-op', async () => {
-      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
       await snapshot.init();
       // 手动写一个文件作为标记
       await fsp.writeFile(path.join(tmpDir, 'marker.txt'), 'test');
@@ -95,7 +95,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('init writes .gitignore with only DEFAULT_IGNORES when ignorePatterns is empty', async () => {
-      await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []).init();
+      await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []).init();
 
       const gitignore = await fsp.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
       expect(gitignore).toBe('logs/\n*.tmp\n');
@@ -114,7 +114,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('init preserves duplicate patterns (Snapshot does not dedup)', async () => {
-      await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, ['x', 'x', 'y']).init();
+      await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), ['x', 'x', 'y']).init();
 
       const gitignore = await fsp.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
       expect(gitignore).toBe('x\nx\ny\nlogs/\n*.tmp\n');
@@ -133,7 +133,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('init writes injected patterns before DEFAULT_IGNORES', async () => {
-      await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, ['injected1', 'injected2']).init();
+      await new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), ['injected1', 'injected2']).init();
 
       const gitignore = await fsp.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
       expect(gitignore).toBe('injected1\ninjected2\nlogs/\n*.tmp\n');
@@ -152,7 +152,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('init writes tasks/subagents/ into .gitignore (phase 512)', async () => {
-      const s = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, SNAPSHOT_IGNORE_PATTERNS);
+      const s = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), SNAPSHOT_IGNORE_PATTERNS);
       await s.init();
 
       const gitignore = await fsp.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
@@ -172,7 +172,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('commit is no-op when no changes', async () => {
-      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
       await snapshot.init();
 
       const logBefore = execSync('git log --oneline', { cwd: tmpDir, encoding: 'utf-8' }).trim();
@@ -197,7 +197,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('commit creates snapshot when there are changes', async () => {
-      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
       await snapshot.init();
 
       // 创建一个文件
@@ -223,7 +223,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('commit returns Result.err on expected failure', async () => {
-      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
       await snapshot.init();
       await fsp.writeFile(path.join(tmpDir, 'data.txt'), 'hello');
 
@@ -251,7 +251,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('commit upgrades to error after 3 consecutive failures', async () => {
-      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
       await snapshot.init();
       await fsp.writeFile(path.join(tmpDir, 'data.txt'), 'hello');
 
@@ -342,7 +342,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       });
 
       it('commit message with special characters works correctly', async () => {
-      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+      const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
       await snapshot.init();
       await fsp.writeFile(path.join(tmpDir, 'data.txt'), 'hello');
 
@@ -416,7 +416,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       await fs.ensureDir(writeDir);
       await fs.ensureDir(spawnDir);
 
-      const snapshot = new Snapshot(tmpDir, fs, { write: () => {} }, [], [execDir, writeDir]);
+      const snapshot = new Snapshot(tmpDir, fs, makeMockAudit(), [], [execDir, writeDir]);
       await snapshot.init();
 
       await fsp.writeFile(path.join(execDir, 'a.md'), 'a');
@@ -588,7 +588,7 @@ describe.skipIf(!gitAvailable)('Snapshot', () => {
       throw err;
     });
 
-    const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), { write: () => {} }, []);
+    const snapshot = new Snapshot(tmpDir, new NodeFileSystem({ baseDir: tmpDir }), makeMockAudit(), []);
     await expect(snapshot.init()).rejects.toThrow();
     });
 

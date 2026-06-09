@@ -32,7 +32,7 @@ describe('AskMotionTool', () => {
       deleteSync: () => {},
       resolve: (p: string) => `/base/${p}`,
     } as unknown as import('../../../src/foundation/fs/types.js').FileSystem;
-    const mockAudit = { write: () => {} };
+    const mockAudit = { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
     const mockDialogStore = createDialogStore(mockFs, '/motion', mockAudit, 'current.json');
     await mockDialogStore.save({ systemPrompt: 'system prompt', messages: [], toolsForLLM: [] });
     const tool = new AskMotionTool({} as LLMOrchestrator, mockDialogStore);
@@ -77,7 +77,7 @@ describe('AskMotionTool', () => {
       deleteSync: () => {},
       resolve: (p: string) => `/base/${p}`,
     } as unknown as import('../../../src/foundation/fs/types.js').FileSystem;
-    const mockAudit = { write: () => {} };
+    const mockAudit = { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
     const mockDialogStore = createDialogStore(mockFs, '/motion', mockAudit, 'current.json');
     await mockDialogStore.save({ systemPrompt: 'system prompt', messages: [], toolsForLLM: [] });
     const tool = new AskMotionTool(llm, mockDialogStore);

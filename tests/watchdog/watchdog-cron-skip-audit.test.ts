@@ -72,7 +72,12 @@ describe('maybeCronClawCrash 三分判定 audit 完整性 (phase 133)', () => {
     } as any);
 
     mockPm = { isAlive: vi.fn() } as unknown as ProcessManager;
-    mockAudit = { write: vi.fn() };
+    mockAudit = {
+      write: vi.fn(),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
+    };
     inboxWriteMock = vi.fn();
     vi.mocked(notifyClaw).mockImplementation(inboxWriteMock);
 

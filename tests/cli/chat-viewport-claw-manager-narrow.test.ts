@@ -45,7 +45,7 @@ describe('chat-viewport-claw-manager dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 1: fs.listSync throws FileNotFoundError → 0 audit emit', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const mockFs = makeMockFs({
       listSync: vi.fn().mockImplementation(() => {
         throw new FileNotFoundError('/tmp/claws');
@@ -69,7 +69,7 @@ describe('chat-viewport-claw-manager dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 2: fs.listSync throws raw ENOENT → 0 audit emit', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const err = Object.assign(new Error('no such file'), { code: 'ENOENT' });
     const mockFs = makeMockFs({
       listSync: vi.fn().mockImplementation(() => {
@@ -94,7 +94,7 @@ describe('chat-viewport-claw-manager dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 3: fs.listSync throws EACCES → emit REFRESH_CLAWS_FAILED', async () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
     const mockFs = makeMockFs({
       listSync: vi.fn().mockImplementation(() => {

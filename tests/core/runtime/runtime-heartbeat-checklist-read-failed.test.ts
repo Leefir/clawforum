@@ -22,7 +22,7 @@ describe('heartbeat inbox-formatter HEARTBEAT.md read failed audit (phase 1414 c
     const systemFs = {
       read: vi.fn().mockRejectedValue(enoent),
     } as any;
-    const formatter = createHeartbeatInboxFormatter({ systemFs, audit: { write: auditSpy } as any });
+    const formatter = createHeartbeatInboxFormatter({ systemFs, audit: { write: auditSpy , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any });
 
     const result = await formatter({ from: 'sys', body: 'body', timestampSec: '' });
 
@@ -36,7 +36,7 @@ describe('heartbeat inbox-formatter HEARTBEAT.md read failed audit (phase 1414 c
     const systemFs = {
       read: vi.fn().mockRejectedValue(eacces),
     } as any;
-    const formatter = createHeartbeatInboxFormatter({ systemFs, audit: { write: auditSpy } as any });
+    const formatter = createHeartbeatInboxFormatter({ systemFs, audit: { write: auditSpy , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any });
 
     const result = await formatter({ from: 'sys', body: 'body', timestampSec: '' });
 
@@ -51,7 +51,7 @@ describe('heartbeat inbox-formatter HEARTBEAT.md read failed audit (phase 1414 c
     const systemFs = {
       read: vi.fn().mockResolvedValue('- item A\n- item B'),
     } as any;
-    const formatter = createHeartbeatInboxFormatter({ systemFs, audit: { write: auditSpy } as any });
+    const formatter = createHeartbeatInboxFormatter({ systemFs, audit: { write: auditSpy , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any });
 
     const result = await formatter({ from: 'sys', body: 'body', timestampSec: '' });
 

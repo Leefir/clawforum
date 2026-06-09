@@ -23,7 +23,7 @@ describe('random-dream — ⚓11 pulse strategy α (phase 633)', () => {
 
   it('default behavior: pulseAuditEnabled=false → 0 RANDOM_DREAM_PULSE audit', async () => {
     const motionFs = makeMotionFs();
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const promise = waitForTaskResult(motionFs as any, 't1', 100, 10, audit, false);
     await vi.advanceTimersByTimeAsync(200);
     // promise resolves to null on timeout; no need to await
@@ -36,7 +36,7 @@ describe('random-dream — ⚓11 pulse strategy α (phase 633)', () => {
 
   it('pulseAuditEnabled=true → emits RANDOM_DREAM_PULSE per poll', async () => {
     const motionFs = makeMotionFs(2); // 2 false → 2 pulses, then true on 3rd check
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const promise = waitForTaskResult(motionFs as any, 't2', 100, 10, audit, true);
     await vi.advanceTimersByTimeAsync(100);
     const result = await promise;
@@ -54,7 +54,7 @@ describe('random-dream — ⚓11 pulse strategy α (phase 633)', () => {
 
   it('pulseIntervalMs default 30_000 when opts undefined', async () => {
     const motionFs = makeMotionFs();
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const promise = waitForTaskResult(motionFs as any, 't3', 200_000, undefined, audit, true);
     // Synchronous part of waitForTaskResult runs first while-loop iteration
     // (existsSync=false → audit pulse=0 → setTimeout 30_000).

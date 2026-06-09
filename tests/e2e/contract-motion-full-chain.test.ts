@@ -55,6 +55,9 @@ describe('contract-motion-full-chain (phase 1168 α-5)', () => {
       write: (type: string, ...cols: (string | number)[]) => {
         auditEvents.push([type, ...cols]);
       },
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
     };
     const mockLlm = { id: 'mock-llm' } as any;
     manager = new ContractSystem({ clawDir, clawId: 'test-claw', fs: nodeFs, audit: audit as any, llm: mockLlm, toolRegistry: createToolRegistry(), fsFactory,

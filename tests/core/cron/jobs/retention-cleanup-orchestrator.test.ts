@@ -46,7 +46,7 @@ describe('retention-cleanup orchestrator', () => {
   it('calls the 3 owner APIs and sums deleted counts', async () => {
     const fs = mockFs();
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) };
+    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     vi.spyOn(messaging, 'cleanupRetention').mockResolvedValue(3);
     vi.spyOn(taskSystem, 'cleanupExpiredTaskFiles').mockResolvedValue(5);
@@ -71,7 +71,7 @@ describe('retention-cleanup orchestrator', () => {
   it('emits the final RETENTION_CLEANUP audit even when all counts are 0', async () => {
     const fs = mockFs();
     const writes: Array<{ type: string; cols: string[] }> = [];
-    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) };
+    const audit: AuditLog = { write: (t, ...c) => writes.push({ type: t, cols: c.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     vi.spyOn(messaging, 'cleanupRetention').mockResolvedValue(0);
     vi.spyOn(taskSystem, 'cleanupExpiredTaskFiles').mockResolvedValue(0);
@@ -91,7 +91,7 @@ describe('retention-cleanup orchestrator', () => {
 
   it('does not call fs.deleteSync directly', async () => {
     const fs = mockFs();
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     vi.spyOn(messaging, 'cleanupRetention').mockResolvedValue(1);
     vi.spyOn(taskSystem, 'cleanupExpiredTaskFiles').mockResolvedValue(1);
@@ -109,7 +109,7 @@ describe('retention-cleanup orchestrator', () => {
 
   it('skips task and dialog cleanup when maxDays is not configured', async () => {
     const fs = mockFs();
-    const audit: AuditLog = { write: vi.fn() };
+    const audit: AuditLog = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
     vi.spyOn(messaging, 'cleanupRetention').mockResolvedValue(0);
     const taskSpy = vi.spyOn(taskSystem, 'cleanupExpiredTaskFiles').mockResolvedValue(0);

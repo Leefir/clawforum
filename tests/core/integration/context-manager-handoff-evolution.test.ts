@@ -4,7 +4,7 @@ import { HANDOFF_MARKER_NOT_FOUND } from '../../../src/core/l4_context_manager/a
 
 describe('evolution retro handoff marker integration', () => {
   it('resolveHandoffMarker emits not_found audit when marker missing', () => {
-    const auditWriter = { write: vi.fn() };
+    const auditWriter = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const result = resolveHandoffMarker('missing-id', auditWriter);
 
     expect(result).toBeNull();

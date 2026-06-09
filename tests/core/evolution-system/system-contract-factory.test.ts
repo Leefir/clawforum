@@ -40,7 +40,7 @@ async function setupFixtures() {
 
   const motionFs = new NodeFileSystem({ baseDir: motionDir });
   const motionAudit = { write: vi.fn() };
-  const mockAudit = { write: vi.fn() };
+  const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
   return { motionDir, clawsBaseDir, targetClawDir, contractId, motionFs, motionAudit, mockAudit, tmpBase };
 }
@@ -58,7 +58,7 @@ describe('EvolutionSystem — clawContractManagerFactory injection (phase 619 ca
         clawDir,
         clawId: targetClaw,
         fs,
-        audit: { write: vi.fn() } as any,
+        audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as any,
         toolRegistry: createToolRegistry(),
         fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
     clawsDir: '/tmp/test/claws',
@@ -103,7 +103,7 @@ describe('EvolutionSystem — clawContractManagerFactory injection (phase 619 ca
         clawDir,
         clawId: targetClaw,
         fs,
-        audit: { write: vi.fn() } as any,
+        audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as any,
         toolRegistry: createToolRegistry(),
         fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
     clawsDir: '/tmp/test/claws',

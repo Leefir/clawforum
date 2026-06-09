@@ -5,7 +5,7 @@
 
 import * as yaml from 'js-yaml';
 import type { FileSystem } from '../../foundation/fs/types.js';
-import { AUDIT_PREVIEW_LEN } from '../../foundation/constants.js';
+
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { isFileNotFound } from '../../foundation/fs/types.js';
 import { formatErr } from '../../foundation/utils/index.js';
@@ -73,7 +73,7 @@ export async function loadContractYaml(
   ) {
     emitContractYamlSchemaInvalid(
       ctx.audit,
-      { contractId, path: contractPath, raw: content.slice(0, AUDIT_PREVIEW_LEN) },
+      { contractId, path: contractPath, raw: ctx.audit.preview(content) },
     );
     const contractDir = await ctx.contractDir(contractId);
     await isolateCorruptedFile(ctx.fs, ctx.audit, {

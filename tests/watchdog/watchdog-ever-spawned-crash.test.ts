@@ -65,7 +65,12 @@ describe('watchdog everSpawned crash detection (phase 1047)', () => {
     } as any);
 
     mockPm = { isAlive: vi.fn() } as unknown as ProcessManager;
-    mockAudit = { write: vi.fn() };
+    mockAudit = {
+      write: vi.fn(),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
+    };
 
     // Reset state
     clawStateAPI.clawPreviouslyAlive.clear();

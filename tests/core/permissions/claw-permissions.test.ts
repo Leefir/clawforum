@@ -48,7 +48,7 @@ describe('createClawPermissionChecker', () => {
     });
 
     it('strict: false 时任意路径均允许', () => {
-      const audit = { write: vi.fn() };
+      const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
       const checker = createClawPermissionChecker({ clawDir: CLAW_DIR, strict: false, audit: audit as any });
       expect(() => checker.checkRead('/etc/shadow')).not.toThrow();
       expect(() => checker.checkRead('/root/.ssh/id_rsa')).not.toThrow();
@@ -113,7 +113,7 @@ describe('createClawPermissionChecker', () => {
     });
 
     it('strict: false 时写系统路径也允许', () => {
-      const audit = { write: vi.fn() };
+      const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
       const checker = createClawPermissionChecker({ clawDir: CLAW_DIR, strict: false, audit: audit as any });
       expect(() => checker.checkWrite(`${CLAW_DIR}/dialog/session.json`)).not.toThrow();
       expect(() => checker.checkWrite('/etc/passwd')).not.toThrow();

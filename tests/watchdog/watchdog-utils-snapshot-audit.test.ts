@@ -43,7 +43,12 @@ describe('gatherClawSnapshot audit emit (phase 143)', () => {
   let mockAudit: { write: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    mockAudit = { write: vi.fn() };
+    mockAudit = {
+      write: vi.fn(),
+      preview: vi.fn((s: string) => s),
+      message: vi.fn((s: string) => s),
+      summary: vi.fn((s: string) => s),
+    };
     vi.clearAllMocks();
   });
 

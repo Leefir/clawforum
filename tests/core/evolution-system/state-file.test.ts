@@ -81,7 +81,7 @@ async function setupFixtures(overrides?: {
   // 构造 motion 侧 EvolutionSystem + ctx
   const motionFs = new NodeFileSystem({ baseDir: motionDir });
   const motionAudit = new AuditWriter(motionFs, 'audit.tsv');
-  const mockAudit = { write: vi.fn() };
+  const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
   const mockContractManager = {} as ContractSystem;
   const evolutionSystem = new EvolutionSystem({
     fs: motionFs,
@@ -101,7 +101,7 @@ async function setupFixtures(overrides?: {
       clawDir,
       clawId: targetClaw,
       fs,
-      audit: { write: vi.fn() } as any,
+      audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as any,
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
     clawsDir: '/tmp/test/claws',

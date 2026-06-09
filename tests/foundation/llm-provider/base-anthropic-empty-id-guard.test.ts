@@ -5,7 +5,7 @@ import { LLM_PROVIDER_AUDIT_EVENTS } from '../../../src/foundation/llm-provider/
 describe('base-anthropic empty id guard (phase 1274)', () => {
   it('反向: tool_use_id 空串 → skip + TOOL_RESULT_MISSING_ID audit', () => {
     const auditWrites: unknown[][] = [];
-    const mockAudit = { write: (type: string, ...cols: unknown[]) => auditWrites.push([type, ...cols]) };
+    const mockAudit = { write: (type: string, ...cols: unknown[]) => auditWrites.push([type, ...cols]) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
 
     const adapter = new CustomAnthropicAdapter({
       name: 'test-provider',

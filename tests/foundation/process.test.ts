@@ -25,7 +25,12 @@ describe('ProcessManager', () => {
     tempDir = await createTempDir();
     fsInstance = new NodeFileSystem({ baseDir: tempDir });
     auditEvents = [];
-    audit = { write: (...args: any[]) => auditEvents.push(args as [string, ...any[]]) };
+    audit = {
+      write: (...args: any[]) => auditEvents.push(args as [string, ...any[]]),
+      preview: (s: string) => s,
+      message: (s: string) => s,
+      summary: (s: string) => s,
+    };
     processManager = new ProcessManager(fsInstance, tempDir, audit);
   });
 

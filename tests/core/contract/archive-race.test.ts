@@ -103,7 +103,7 @@ describe('moveContractToArchive lock acquire (phase 860 / P0-B)', () => {
     // Verify lock is truly released: a new acquire on the same path succeeds
     const nodeFs = new NodeFileSystem({ baseDir: clawDir });
     const { acquireLock, releaseLock } = await import('../../../src/core/contract/lock.js');
-    const ctx = { fs: nodeFs, audit: { write: () => {} } };
+    const ctx = { fs: nodeFs, audit: { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} };
     await acquireLock(ctx, archiveLockPath);
     await releaseLock(ctx, archiveLockPath);
   });

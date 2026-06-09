@@ -11,7 +11,12 @@ vi.mock('../../src/foundation/fs/node-fs.js', () => ({
 }));
 
 vi.mock('../../src/foundation/audit/index.js', () => ({
-  createSystemAudit: vi.fn(() => ({ write: mockAuditWrite })),
+  createSystemAudit: vi.fn(() => ({
+    write: mockAuditWrite,
+    preview: vi.fn((s: string) => s),
+    message: vi.fn((s: string) => s),
+    summary: vi.fn((s: string) => s),
+  })),
   AUDIT_FILE: 'audit.tsv',
 }));
 

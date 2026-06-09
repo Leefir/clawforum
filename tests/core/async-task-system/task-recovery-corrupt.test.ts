@@ -15,6 +15,9 @@ function makeMockAudit(): { audit: AuditLog; events: Array<[string, ...(string |
     write: (type: string, ...cols: (string | number)[]) => {
       events.push([type, ...cols]);
     },
+    preview: (s: string) => s,
+    message: (s: string) => s,
+    summary: (s: string) => s,
   };
   return { audit, events };
 }
@@ -281,6 +284,9 @@ describe('task-recovery corrupt-backup 三件套', () => {
         write: (type: string, ...cols: (string | number)[]) => {
           auditEvents.push([type, ...cols]);
         },
+        preview: (s: string) => s,
+        message: (s: string) => s,
+        summary: (s: string) => s,
       };
 
       system = new AsyncTaskSystem('/tmp/claw', mockFs, {

@@ -44,7 +44,7 @@ describe('maybeAuditStep loadActive silent catch audit emit (phase 160)', () => 
       clawDir,
       clawId: 'test-claw',
       fs: nodeFs,
-      audit: { write: auditWrite, __brand: 'AuditLog' } as any,
+      audit: { write: auditWrite, __brand: 'AuditLog' , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s} as any,
       toolRegistry: createToolRegistry(),
       fsFactory: (dir: string) => new NodeFileSystem({ baseDir: dir }),
       clawsDir: '/tmp/test/claws',

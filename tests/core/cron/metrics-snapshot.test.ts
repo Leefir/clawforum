@@ -28,7 +28,7 @@ function makeMockFs(dirs: Record<string, DirEntry[]>): FileSystem {
 function makeMockAudit(): { audit: AuditLog; writes: Array<{ type: string; cols: string[] }> } {
   const writes: Array<{ type: string; cols: string[] }> = [];
   return {
-    audit: { write: (type: string, ...cols: (string | number)[]) => writes.push({ type, cols: cols.map(String) }) },
+    audit: { write: (type: string, ...cols: (string | number)[]) => writes.push({ type, cols: cols.map(String) }) , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s},
     writes,
   };
 }

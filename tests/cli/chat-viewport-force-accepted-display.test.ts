@@ -24,7 +24,7 @@ function makeDeps(captured: { lines: string[] }): EventHandlerDeps {
     showContractEvents: true,
     agentDir: '/tmp/agent',
     label: 'self-claw',
-    audit: { write: vi.fn() } as any,
+    audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as any,
     observability: { recordEvent: vi.fn() } as any,
     taskWatchMap: new Map(),
     handleTaskEvent: vi.fn(),

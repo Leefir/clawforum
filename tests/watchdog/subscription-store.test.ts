@@ -89,7 +89,7 @@ describe('phase 5: subscription-store', () => {
     writeSubscription(fs, 'clawA', { subscribed_at: 100, threshold_ms: 5_000 });
     await fsAsync.writeFile(path.join(root, SUBSCRIPTION_DIR, 'bad-claw.json'), '{invalid json');
 
-    const mockAudit = { write: vi.fn() };
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const result = listSubscriptions(fs, mockAudit);
 
     // bad file → skip (return excludes it)

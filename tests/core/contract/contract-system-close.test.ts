@@ -39,7 +39,7 @@ describe('phase 1217 (r131 C fork) B.1 — ContractSystem.close() true disposabl
 
     nodeFs = new NodeFileSystem({ baseDir: clawDir });
     auditWrite = vi.fn();
-    const mockAudit = { write: auditWrite };
+    const mockAudit = { write: auditWrite , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
     const mockLlm = { id: 'mock-llm' } as any;
     manager = new ContractSystem({
       clawDir,

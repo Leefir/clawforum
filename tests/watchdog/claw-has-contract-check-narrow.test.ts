@@ -31,7 +31,7 @@ describe('clawHasContract dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 1: FileNotFoundError → 0 audit emit + returns false', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const spy = vi.spyOn(NodeFileSystem.prototype, 'listSync').mockImplementation(() => {
       throw new FileNotFoundError('contract/paused');
     });
@@ -44,7 +44,7 @@ describe('clawHasContract dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 2: raw ENOENT → 0 audit emit + returns false', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const err = Object.assign(new Error('no such file'), { code: 'ENOENT' });
     const spy = vi.spyOn(NodeFileSystem.prototype, 'listSync').mockImplementation(() => {
       throw err;
@@ -58,7 +58,7 @@ describe('clawHasContract dual-code narrow (phase 1215)', () => {
   });
 
   it('reverse 3: EACCES → emit CLAW_HAS_CONTRACT_CHECK_FAILED + returns false', () => {
-    const audit = { write: vi.fn() };
+    const audit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
     const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
     const spy = vi.spyOn(NodeFileSystem.prototype, 'listSync').mockImplementation(() => {
       throw err;

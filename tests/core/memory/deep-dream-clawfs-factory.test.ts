@@ -23,7 +23,7 @@ const fakeLlmConfig: LLMOrchestratorConfig = {
   primary: { name: 'test', apiKey: 'sk-test', model: 'claude-test' } as any,
 };
 
-const mockAudit = { write: vi.fn() };
+const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)};
 
 function makeTextResponse(text: string) {
   return { content: [{ type: 'text', text }], stop_reason: 'end_turn' };

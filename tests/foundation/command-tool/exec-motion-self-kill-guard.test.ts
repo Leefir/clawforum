@@ -98,7 +98,7 @@ describe('phase 1473 exec motion-chain self-kill guard', () => {
     expect(result.content).not.toContain(BLOCKED_MESSAGE);
   });
 
-  it('truncates long command in audit emit (cap 200 chars)', async () => {
+  it('delegates long command truncation to auditWriter.message (cap 200 chars)', async () => {
     const audit = makeMockAudit();
     const ctx = makeExecContext({ isMotionChain: true, auditWriter: audit });
     const longSuffix = 'a'.repeat(500);
@@ -106,8 +106,8 @@ describe('phase 1473 exec motion-chain self-kill guard', () => {
 
     await execTool.execute({ command: longCommand }, ctx);
 
+    expect(audit.message).toHaveBeenCalledWith(longCommand);
     const writeCall = (audit.write as ReturnType<typeof vi.fn>).mock.calls[0];
-    const commandCol = writeCall[2] as string;
-    expect(commandCol.length).toBeLessThanOrEqual(200 + 'command='.length);
+    expect(writeCall[0]).toBe('exec_motion_self_kill_blocked');
   });
 });

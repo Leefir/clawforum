@@ -14,7 +14,7 @@ import {
   listSpawnTemplateNames,
 } from '../templates.js';
 import { SPAWN_AUDIT_EVENTS } from '../audit-events.js';
-import { AUDIT_PREVIEW_LEN } from '../../../foundation/constants.js';
+
 import { SHADOW_CALLER_LABEL } from '../../summon-system/internal/shadow/index.js';
 import { SPAWN_DEFAULT_TIMEOUT_MS } from '../constants.js';
 import {
@@ -96,9 +96,10 @@ export function createSpawnTool(deps: SpawnToolDeps = {}): Tool {
       const systemPrompt = resolveSpawnTemplate(templateName);
       if (systemPrompt === null) {
         const available = listSpawnTemplateNames().join(', ');
-        ctx.auditWriter?.write(
+        const aw = ctx.auditWriter;
+        aw?.write(
           SPAWN_AUDIT_EVENTS.TEMPLATE_UNKNOWN,
-          templateName.slice(0, AUDIT_PREVIEW_LEN),
+          aw.preview(templateName),
           available,
         );
         return {
@@ -143,9 +144,10 @@ export function createSpawnTool(deps: SpawnToolDeps = {}): Tool {
           };
         } catch (error) {
           const errorMsg = formatErr(error);
-          ctx.auditWriter?.write(
+          const aw2 = ctx.auditWriter;
+          aw2?.write(
             SPAWN_AUDIT_EVENTS.ASYNC_SCHEDULE_FAILED,
-            intent.slice(0, AUDIT_PREVIEW_LEN),
+            aw2.preview(intent),
             errorMsg,
           );
           return { success: false, content: `Failed to create subagent: ${errorMsg}`, error: errorMsg };

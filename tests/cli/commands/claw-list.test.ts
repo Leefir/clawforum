@@ -32,7 +32,7 @@ vi.mock('../../../src/foundation/config/index.js', () => ({
 
 vi.mock('../../../src/foundation/audit/index.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/foundation/audit/index.js')>()),
-  createDirContext: vi.fn((deps: any) => ({ audit: { write: vi.fn() } })),
+  createDirContext: vi.fn((deps: any) => ({ audit: { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} })),
 }));
 
 vi.mock('../../../src/foundation/process-manager/factories.js', () => ({

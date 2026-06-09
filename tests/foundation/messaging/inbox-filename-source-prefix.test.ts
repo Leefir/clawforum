@@ -24,7 +24,7 @@ describe('inbox filename source prefix (phase 1047)', () => {
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
     await fs.mkdir(testDir, { recursive: true });
     nfs = new NodeFileSystem({ baseDir: testDir });
-    const audit = { write: () => {} };
+    const audit = { write: () => {} , preview: (s: string) => s, message: (s: string) => s, summary: (s: string) => s};
     writer = InboxWriter.__internal_create(nfs, makeInboxPath(INBOX_PENDING_DIR), audit as any);
   });
 

@@ -21,6 +21,9 @@ vi.mock('../../src/foundation/config/index.js', () => ({
 vi.mock('../../src/foundation/audit/index.js', () => ({
   createSystemAudit: vi.fn(() => ({
     write: mockAuditWrite,
+    preview: vi.fn((s: string) => s),
+    message: vi.fn((s: string) => s),
+    summary: vi.fn((s: string) => s),
   })),
 }));
 

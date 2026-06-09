@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Snapshot } from '../../../src/foundation/snapshot/snapshot.js';
 import type { FileSystem } from '../../../src/foundation/fs/types.js';
+import { makeMockAudit } from '../../helpers/audit.js';
 
 // Helper to build a minimal mock FileSystem
 function makeMockFs(): FileSystem {
@@ -25,9 +26,7 @@ function makeMockFs(): FileSystem {
   } as unknown as FileSystem;
 }
 
-const mockAudit = {
-  write: vi.fn(),
-};
+const mockAudit = makeMockAudit();
 
 const { mockExec } = vi.hoisted(() => ({
   mockExec: vi.fn(() => Promise.resolve({ output: '' })),
