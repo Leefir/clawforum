@@ -3,19 +3,34 @@
  *
  * When caller omits maxSteps, the fallback must be DEFAULT_MAX_STEPS (1000)
  * not the stale 20.
+ *
+ * phase 221: replaced 23s-per-run "infinite-loop-1000-iterations" assertion with
+ * (a) vi.mock that shrinks DEFAULT_MAX_STEPS to 5 → exercises the fallback wiring
+ *     (runReact's destructuring default `maxSteps = DEFAULT_MAX_STEPS` is invoked
+ *     and the loop terminates after 5 iterations) at ~100ms cost
+ * (b) a separate vi.importActual assertion that the real production constant is 1000.
+ *
+ * Either edit alone passes; both together catch the regressions the original test
+ * caught (value drift, fallback unwired, loop ignoring cap) without the 23s cost.
  */
 
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('../../../src/core/agent-executor/defaults.js', async () => {
+  const actual = await vi.importActual<typeof import('../../../src/core/agent-executor/defaults.js')>(
+    '../../../src/core/agent-executor/defaults.js',
+  );
+  return { ...actual, DEFAULT_MAX_STEPS: 5 };
+});
+
 import { runReact } from '../../../src/core/agent-executor/index.js';
 import { MaxStepsExceededError } from '../../../src/core/agent-executor/errors.js';
-import { DEFAULT_MAX_STEPS } from '../../../src/core/agent-executor/defaults.js';
 import type { LLMOrchestrator } from '../../../src/foundation/llm-orchestrator/index.js';
-import type { LLMResponse } from '../../../src/foundation/llm-provider/types.js';
 import type { IToolExecutor } from '../../../src/foundation/tools/executor.js';
 import { makeExecContext } from '../../helpers/exec-context.js';
 
 function makeInfiniteToolUseLLM(): LLMOrchestrator {
-  async function* stream(): AsyncIterableIterator<any> {
+  async function* stream(): AsyncIterableIterator<unknown> {
     yield {
       type: 'tool_use_start',
       toolUse: { id: 't1', name: 'noop', partialInput: '' },
@@ -44,7 +59,7 @@ function makeNoopExecutor(): IToolExecutor {
 }
 
 describe('AgentExecutor maxSteps fallback (phase 883 B3)', () => {
-  it('omitted maxSteps falls back to DEFAULT_MAX_STEPS (1000)', async () => {
+  it('omitted maxSteps falls back to DEFAULT_MAX_STEPS (mocked to 5; fallback wiring verified)', async () => {
     const llm = makeInfiniteToolUseLLM();
 
     await expect(
@@ -55,11 +70,18 @@ describe('AgentExecutor maxSteps fallback (phase 883 B3)', () => {
         tools: [],
         executor: makeNoopExecutor(),
         ctx: makeExecContext(),
-        // intentionally omit maxSteps
+        // intentionally omit maxSteps → exercises the `= DEFAULT_MAX_STEPS` destructuring default
       }),
     ).rejects.toThrow(MaxStepsExceededError);
 
-    // LLM stream called DEFAULT_MAX_STEPS times (one per step)
-    expect(llm.stream).toHaveBeenCalledTimes(DEFAULT_MAX_STEPS);
-  }, 60000);
+    // With DEFAULT_MAX_STEPS mocked to 5, the loop must hit exactly the mocked cap.
+    expect(llm.stream).toHaveBeenCalledTimes(5);
+  });
+
+  it('production DEFAULT_MAX_STEPS value is 1000', async () => {
+    const actual = await vi.importActual<typeof import('../../../src/core/agent-executor/defaults.js')>(
+      '../../../src/core/agent-executor/defaults.js',
+    );
+    expect(actual.DEFAULT_MAX_STEPS).toBe(1000);
+  });
 });

@@ -24,6 +24,7 @@ const VI_MOCK_FILES = [
   'tests/assembly/detect-unclean-exit.test.ts',
   // phase 1421: tests/cli/already-running-sentinel.test.ts moved to fast project
   // — daemon command bodies extracted with DI seam; tests no longer need vi.mock.
+  'tests/core/agent-executor/maxsteps-default.test.ts',  // phase 221: vi.mock DEFAULT_MAX_STEPS → 5 (was 23s/run)
   'tests/cli/audit-info.test.ts',
   'tests/cli/audit-query.test.ts',
   'tests/cli/daemon-entry.test.ts',
