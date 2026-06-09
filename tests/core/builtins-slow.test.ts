@@ -51,10 +51,10 @@ describe('Builtin Tools (slow outliers)', () => {
 
   describe('ls tool', () => {
     it('should show pagination indicator when more than 100 files', async () => {
-      // Create 101 files
-      for (let i = 0; i < 101; i++) {
-        await mockFs.writeAtomic(`clawspace/file${i}.txt`, '');
-      }
+      // phase 223: parallelize 101 writes (was sequential ~900ms → batched ~50ms)
+      await Promise.all(
+        Array.from({ length: 101 }, (_, i) => mockFs.writeAtomic(`clawspace/file${i}.txt`, ''))
+      );
 
       const result = await lsTool.execute({ path: '.' }, ctx);
 
@@ -65,10 +65,10 @@ describe('Builtin Tools (slow outliers)', () => {
     });
 
     it('should limit output to 100 entries', async () => {
-      // Create 101 files
-      for (let i = 0; i < 101; i++) {
-        await mockFs.writeAtomic(`clawspace/file${i}.txt`, '');
-      }
+      // phase 223: parallelize 101 writes (was sequential ~900ms → batched ~50ms)
+      await Promise.all(
+        Array.from({ length: 101 }, (_, i) => mockFs.writeAtomic(`clawspace/file${i}.txt`, ''))
+      );
 
       const result = await lsTool.execute({ path: '.' }, ctx);
 
