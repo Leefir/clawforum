@@ -80,7 +80,7 @@ describe('contract-motion-full-chain (phase 1168 α-5)', () => {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       if (auditEvents.some(e => e[0] === type)) return;
-      await new Promise(r => setTimeout(r, 20));
+      await new Promise(r => setTimeout(r, 5));  // phase 224: tighter poll for waitForAudit
     }
     throw new Error(`timeout waiting for audit event ${type}`);
   }

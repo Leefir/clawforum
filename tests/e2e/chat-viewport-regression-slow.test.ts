@@ -198,7 +198,7 @@ async function waitForAudit(
   while (Date.now() - start < timeoutMs) {
     const matched = fx.audit.filter(type);
     if (matched.length >= count) return matched;
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, 5));  // phase 224: tighter poll for waitForAudit
   }
   throw new Error(`waitForAudit timeout: type=${type} count=${count}; got ${fx.audit.filter(type).length}`);
 }
