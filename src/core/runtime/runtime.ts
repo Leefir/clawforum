@@ -31,7 +31,7 @@ import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
 // phase 1414: HEARTBEAT_AUDIT_EVENTS import removed — heartbeat 自家 inbox-formatter 持 audit
 // phase 1406: DIALOG_DIR no longer used here — regime-switch recovery path is owned by performRegimeSwitch helper
 import { formatErr } from '../../foundation/utils/index.js';
-import { escapeForLog } from '../../foundation/tools/index.js';
+
 import { MaxStepsExceededError, WallTimeExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError } from '../agent-executor/index.js';
 import { LockContentionExhaustedError } from '../contract/errors.js';
 import { DEFAULT_MAX_STEPS } from '../agent-executor/index.js';
@@ -687,7 +687,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon {
               toolName,
               toolUseId,
               `reason=parse_error`,
-              `summary=${escapeForLog(rawInput)}`,
+              `summary=${this.auditWriter.message(rawInput)}`,
             ),
           onToolExecutionFailed: (toolName, toolUseId, errorType, errorMsg) =>
             this.auditWriter.write(
@@ -695,7 +695,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon {
               toolName,
               toolUseId,
               `errorType=${errorType}`,
-              `errorMsg=${escapeForLog(errorMsg)}`,
+              `errorMsg=${this.auditWriter.message(errorMsg)}`,
             ),
           onSafeCallbackError: (label, err) => {
             this.auditWriter.write(RUNTIME_AUDIT_EVENTS.STEP_EXECUTOR_CALLBACK_FAILED, label, `error=${formatErr(err)}`);
@@ -719,7 +719,7 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon {
                 RUNTIME_AUDIT_EVENTS.MAX_TOKENS_STATE_A_ORPHAN_DROP,
                 `tool_use_id=${orphan.tool_use_id}`,
                 `is_error=${orphan.is_error}`,
-                `content_preview=${escapeForLog(orphan.content_preview)}`,
+                `content_preview=${this.auditWriter?.preview(orphan.content_preview) ?? orphan.content_preview}`,
                 `model=${args.llm.model}`,
               );
             }

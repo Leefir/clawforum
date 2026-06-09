@@ -2,7 +2,7 @@
  * @module L2.Tools
  * Tool Executor - Implementation
  *
- * phase 501: 4 interface + escapeForLog 抽 to types.ts (C-α 极保守整理性)
+ * phase 501: 4 interface 抽 to types.ts (C-α 极保守整理性)
  */
 
 import * as path from 'path';
@@ -25,12 +25,11 @@ import type { AbortReason } from '../llm-provider/index.js';
 import type { ScheduleAsyncTool } from './async-dispatch.js';
 import { DEFAULT_TOOL_TIMEOUT_MS } from './constants.js';
 import { TOOL_AUDIT_EVENTS } from './audit-events.js';
-import {
-  escapeForLog,
-  type ToolRegistry,
-  type ExecuteOptions,
-  type IToolExecutor,
-  type ToolExecutorOptions,
+import type {
+  ToolRegistry,
+  ExecuteOptions,
+  IToolExecutor,
+  ToolExecutorOptions,
 } from './types.js';
 import { safeNumber } from '../utils/index.js';
 
@@ -227,7 +226,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         toolName,
         'err',
         'context=execution_after_timeout',
-        `error=${escapeForLog(errMsg)}`,
+        `error=${ctx.auditWriter?.message(errMsg) ?? errMsg}`,
       );
     });
 
@@ -250,7 +249,7 @@ export class ToolExecutorImpl implements IToolExecutor {
         toolName,
         auditResult.success ? 'ok' : 'err',
         `elapsed_ms=${duration}`,
-        `summary=${escapeForLog(auditResult.content ?? '')}`,
+        `summary=${ctx.auditWriter?.message(auditResult.content ?? '') ?? (auditResult.content ?? '')}`,
       );
     }
 

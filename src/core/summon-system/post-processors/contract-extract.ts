@@ -15,10 +15,10 @@ export const SUMMON_CONTRACT_EXTRACT_POSTPROCESSOR_NAME = 'summon-contract-extra
 
 /**
  * exec 工具 audit row schema（`src/foundation/tools/executor.ts:222-228`）：
- *   <ts>\t<seq>\ttool_exec\t<toolName>\t<status>\telapsed_ms=<N>\tsummary=<escapeForLog(content)>
+ *   <ts>\t<seq>\ttool_exec\t<toolName>\t<status>\telapsed_ms=<N>\tsummary=<audit.message(content)>
  *
  * CLI 成功创建契约时 stdout 写 `Contract created: <id> for claw <name>\n`（contract.ts:121）、
- * escapeForLog 把 `\n` 转字面 `\\n` 且 slice(0,120)、契约 ID + claw name 均在 120 chars 内。
+ * audit.message(content) 截断到 200 chars、契约 ID + claw name 均在 200 chars 内。
  */
 const CONTRACT_CREATED_SUMMARY = /^summary=Contract created: ([\w\-]+) for claw ([\w\-]+)/;
 

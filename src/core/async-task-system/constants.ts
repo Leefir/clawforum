@@ -32,16 +32,4 @@ export const SHUTDOWN_DEFAULT_TIMEOUT_MS = 30_000;
  */
 export const PENDING_QUEUE_MAX = 1000;
 
-/**
- * Subagent task.intent audit row preview cap.
- * subagent-executor 在 audit row 显示 task.intent 短摘要时截断到此长度、防 audit row 字段过长。
- * 与 shadow-system SHADOW_INTENT_PREVIEW_CHARS 独立可变（同值 60、按 module 自治；ML#1 反向测试 + ML#5 避免 L4→L4 跨模块依赖）
- */
-export const TASK_INTENT_PREVIEW_CHARS = 60;
 
-/**
- * Task recovery audit row payload raw 字段截断 cap.
- * 用于 retry_counter_corrupt 等 task recovery audit event 显示 raw 短摘要、防 audit row 字段过长。
- * 与 TASK_INTENT_PREVIEW_CHARS / audit 模块 message cap 独立可变（task recovery raw 业务 cap）。
- */
-export const TASK_RECOVERY_RAW_PREVIEW_CHARS = 80;

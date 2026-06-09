@@ -17,7 +17,7 @@ import {
   emitResultDeliveryFailed,
 } from './audit-emit.js';
 import { TASKS_QUEUES_RESULTS_DIR, TASKS_SUBAGENTS_DIR } from './dirs.js';
-import { TASK_INTENT_PREVIEW_CHARS } from './constants.js';
+
 import { buildSubagentSystemPrompt, DEFAULT_SUBAGENT_SYSTEM_PROMPT } from '../../prompts/index.js';
 import { sendResult, sendFallbackError } from './result-delivery.js';
 
@@ -187,7 +187,7 @@ export async function executeSubAgentTask(
       kind: 'subagent',
       parent: task.parentClawId,
       callerType: task.callerType ?? 'subagent',
-      intent: task.mode === 'shadow' ? task.intentPreview : task.intent.slice(0, TASK_INTENT_PREVIEW_CHARS),
+      intent: auditWriter.preview(task.mode === 'shadow' ? task.intentPreview : task.intent),
       elapsedMs: Date.now() - taskStartTime,
       len: displayResult.length,
       subAuditPath: `tasks/queues/results/${task.id}/audit.tsv`,
@@ -226,7 +226,7 @@ export async function executeSubAgentTask(
       kind: 'subagent',
       parent: task.parentClawId,
       callerType: task.callerType ?? 'subagent',
-      intent: task.mode === 'shadow' ? task.intentPreview : task.intent.slice(0, TASK_INTENT_PREVIEW_CHARS),
+      intent: auditWriter.preview(task.mode === 'shadow' ? task.intentPreview : task.intent),
       errorCategory: classifyTaskError(error),
       elapsedMs: Date.now() - taskStartTime,
       subAuditPath: `tasks/queues/results/${task.id}/audit.tsv`,

@@ -28,8 +28,7 @@ const CONSECUTIVE_PARSE_FAIL_LIMIT = 5;
 /** recentOutcomes 环形窗口大小；窗口满后按占比判定 ratio_high。 */
 const RECENT_WINDOW = 10;
 
-/** stream parse 失败 audit row line_prefix 字段截断 cap、防 audit row 单字段超长 */
-const LINE_PREFIX_PREVIEW_CHARS = 80;
+
 
 /** 近 RECENT_WINDOW 次 parse 的失败占比阈值（> 则触发 trigger=ratio_high）。 */
 const RECENT_FAIL_RATIO_THRESHOLD = 0.5;
@@ -82,7 +81,7 @@ export async function readAll(
     } catch (err) {
       audit.write(
         STREAM_AUDIT_EVENTS.READER_PARSE_FAILED,
-        `line_prefix=${line.slice(0, LINE_PREFIX_PREVIEW_CHARS)}`,
+        `line_prefix=${audit.preview(line)}`,
         `reason=${formatErr(err)}`,
       );
     }
@@ -198,7 +197,7 @@ export function createStreamReader(
                 recordOutcome(false);
                 audit.write(
                   STREAM_AUDIT_EVENTS.READER_PARSE_FAILED,
-                  `line_prefix=${line.slice(0, LINE_PREFIX_PREVIEW_CHARS)}`,
+                  `line_prefix=${audit.preview(line)}`,
                   `reason=${formatErr(err)}`,
                 );
                 if (await checkEscalation()) {

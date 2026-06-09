@@ -21,7 +21,7 @@ import { makeToolUseId } from '../../../../foundation/tool-protocol/index.js';
 
 /** Default max steps for shadow subagent execution */
 const SHADOW_MAX_STEPS_DEFAULT = 100;
-import { SHADOW_DEFAULT_TIMEOUT_MS, SHADOW_INTENT_PREVIEW_CHARS } from './constants.js';
+import { SHADOW_DEFAULT_TIMEOUT_MS } from './constants.js';
 
 
 
@@ -61,7 +61,7 @@ export async function spawnShadowSubagent(
     kind: 'subagent',
     mode: 'shadow',                            // δ discriminated union 新字段
     shadowMessages,                            // shadow path 真信息源
-    intentPreview: opts.task.slice(0, SHADOW_INTENT_PREVIEW_CHARS),     // δ shadow variant audit 用、不进 LLM
+    intentPreview: opts.task,                                            // δ phase 214: 存全文、消费时由 audit class 截
     timeoutMs: opts.timeoutMs ?? SHADOW_DEFAULT_TIMEOUT_MS,
     maxSteps: opts.maxSteps ?? SHADOW_MAX_STEPS_DEFAULT,
     parentClawId: opts.ctx.clawId ?? '',

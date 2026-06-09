@@ -367,7 +367,7 @@ Content.
     }
 
     function execOkRow(seq: number, summary: string): string {
-      // mimic ToolExecutor audit row format (executor.ts:222-228 + escapeForLog)
+      // mimic ToolExecutor audit row format (executor.ts:222-228 + audit.message)
       const escaped = summary.replace(/\n/g, '\\n').slice(0, 120);
       return `2026-05-30T06:00:00.000Z\tseq=${seq}\ttool_exec\texec\tok\telapsed_ms=100\tsummary=${escaped}`;
     }

@@ -64,6 +64,9 @@ function wrapAuditCapture(realAudit: AuditWriter): AuditCapture {
       events.push([type, ...cols]);
       realAudit.write(type, ...cols);
     },
+    preview: (s: string) => realAudit.preview(s),
+    message: (s: string) => realAudit.message(s),
+    summary: (s: string) => realAudit.summary(s),
   } as AuditWriter;
   return {
     writer,

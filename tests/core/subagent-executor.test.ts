@@ -49,7 +49,7 @@ function makeDeps() {
       stat: vi.fn().mockResolvedValue({ size: 0, mtime: new Date() }),
       watch: vi.fn(),
     } as unknown as import('../../src/foundation/fs/types.js').FileSystem,
-    auditWriter: { write: vi.fn() } as unknown as import('../../src/foundation/audit/index.js').AuditLog,
+    auditWriter: { write: vi.fn(), preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s) } as unknown as import('../../src/foundation/audit/index.js').AuditLog,
     llm: {
       call: vi.fn(),
       stream: vi.fn(),

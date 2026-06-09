@@ -140,6 +140,9 @@ describe('StreamReader — robustness/encoding/corrupt', () => {
         auditEc.onEvent([type, ...cols]);
         auditRec.audit.write(type, ...cols);
       },
+      preview: (s: string) => auditRec.audit.preview(s),
+      message: (s: string) => auditRec.audit.message(s),
+      summary: (s: string) => auditRec.audit.summary(s),
     };
     reader = await makeReadyReader(fs, ec.onEvent, wrappedAudit);
 
@@ -182,6 +185,9 @@ describe('StreamReader — robustness/encoding/corrupt', () => {
         auditEc.onEvent([type, ...cols]);
         auditRec.audit.write(type, ...cols);
       },
+      preview: (s: string) => auditRec.audit.preview(s),
+      message: (s: string) => auditRec.audit.message(s),
+      summary: (s: string) => auditRec.audit.summary(s),
     };
     reader = await makeReadyReader(fs, ec.onEvent, wrappedAudit);
 
