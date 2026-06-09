@@ -70,7 +70,7 @@ export async function persistReadFileState(ctx: ExecContext): Promise<void> {
   if (!ctx.persistReadFileState) return;
   const prev = inflightPersist.get(ctx);
   const next = (async () => {
-    if (prev) await prev.catch(() => {});
+    if (prev) await prev.catch(() => { /* silent: prev persist's own error path already audits READ_FILE_STATE_PERSIST_FAILED in _doPersistReadFileState; we only need to serialize ordering, not re-report */ });
     await _doPersistReadFileState(ctx);
   })();
   inflightPersist.set(ctx, next);
@@ -188,7 +188,7 @@ export async function clearReadFileState(ctx: ExecContext): Promise<void> {
   // AFTER our delete, re-creating read-state.json post-regime-switch.
   const pending = inflightPersist.get(ctx);
   if (pending) {
-    await pending.catch(() => {});
+    await pending.catch(() => { /* silent: pending persist failures already audit READ_FILE_STATE_PERSIST_FAILED inside _doPersistReadFileState; drain only needs ordering */ });
     inflightPersist.delete(ctx);
   }
   try {
