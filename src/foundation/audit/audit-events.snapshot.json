@@ -77,7 +77,10 @@
       "viewport_unknown_event"
     ],
     "core_async-task-system_audit-events": [
+      "async_task_invariant_violated",
       "async_task_invariant_violation",
+      "async_task_queue_cross_source_mismatch",
+      "async_task_queue_cross_source_skipped",
       "legacy_pending_task_no_mode",
       "pending_ingest_failed",
       "result_delivery_ensure_dir_failed",

@@ -20,6 +20,7 @@
 
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import { formatErr } from '../../foundation/utils/index.js';
 import { TASKS_QUEUES_PENDING_DIR, TASKS_QUEUES_RUNNING_DIR } from './dirs.js';
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 
@@ -49,7 +50,7 @@ export async function auditQueueCrossSource(
     audit.write(
       TASK_AUDIT_EVENTS.ASYNC_TASK_QUEUE_CROSS_SOURCE_SKIPPED,
       `reason=fs_list_failed`,
-      `error=${err instanceof Error ? err.message : String(err)}`,
+      `error=${formatErr(err)}`,
       `trace=${traceTag}`,
     );
     return;
