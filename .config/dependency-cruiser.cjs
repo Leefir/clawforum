@@ -8,6 +8,16 @@
 module.exports = {
   forbidden: [
     {
+      name: 'no-core-to-assembly',
+      comment: [
+        'L4/L5 core modules 不应反向 import L6 Assembly (ML#5 strict)。',
+        'phase 238 真治后 27 imports 已 cleared、rule 立 strict 防 future drift。',
+      ].join(' '),
+      severity: 'error',
+      from: { path: '^src/core/' },
+      to: { path: '^src/assembly/' },
+    },
+    {
       name: 'no-foundation-to-core',
       comment: [
         'ML#5 单向依赖 + 底层不预设上层语义。',

@@ -2,7 +2,7 @@ import * as path from 'path';
 import { formatErr } from "../../../foundation/utils/index.js";
 import { exec } from '../../../foundation/process-exec/index.js';
 import type { FileSystem } from '../../../foundation/fs/types.js';
-import { enumerateClaws } from '../../../assembly/enumerate-claws.js';
+import { enumerateClaws } from '../../../foundation/claw-paths.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { GIT_GC_WEEKLY_AUDIT_EVENTS } from './git-gc-weekly-audit-events.js';
 import type { CronJob } from '../runner.js';

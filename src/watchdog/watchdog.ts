@@ -30,7 +30,7 @@ import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/index.js';
 import { LockConflictError } from '../foundation/process-manager/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
-import { CLAWS_DIR } from '../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../foundation/claw-paths.js';
 import { resolveDaemonEntry } from '../assembly/spawn-entry.js';
 import { DAEMON_LOG } from '../daemon/constants.js';
 

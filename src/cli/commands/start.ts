@@ -8,7 +8,7 @@
  */
 
 import { getWorkspaceRoot, makeChestnutRoot } from '../../assembly/install-paths.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import * as path from 'path';
 import { formatErr } from "../../foundation/utils/index.js";
 import * as readline from 'readline';

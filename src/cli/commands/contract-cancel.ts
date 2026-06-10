@@ -16,7 +16,7 @@ import { CliError } from '../errors.js';
 import { makeClawId } from '../../core/claw-id.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { makeContractId } from '../../core/contract/types.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import * as path from 'path';
 
 export async function contractCancelCommand(

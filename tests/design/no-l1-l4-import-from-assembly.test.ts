@@ -18,36 +18,12 @@ import path from 'node:path';
 const ASSEMBLY_IMPORT_PATTERN = /from\s+['"][^'"]*\/assembly\/[^'"]*['"]/;
 
 const BASELINE_ALLOW_LIST = new Set([
-  // L1 foundation/ (9)
+  // L1 foundation/ (5) — install-paths / compose-config 仍 L6 own、待后续 cluster 治理
   'src/foundation/config/crud.ts',
   'src/foundation/config/global-config-path.ts',
   'src/foundation/config/index.ts',
-  'src/foundation/file-tool/read.ts',
   'src/foundation/llm-orchestrator/config-adapter.ts',
-  'src/foundation/process-manager/manager.ts',
   'src/foundation/process-manager/signal-clean-stop.ts',
-  'src/foundation/tools/context.ts',
-  'src/foundation/tools/executor.ts',
-  // L2 foundation/messaging (2) — CLAWS_DIR from assembly/claw-dirs.js (phase 162 Step A)
-  'src/foundation/messaging/notify.ts',
-  'src/foundation/messaging/tools/notify-claw.ts',
-  // L4 core/ (11)
-  'src/core/async-task-system/system.ts',
-  'src/core/contract/persistence.ts',
-  'src/core/cron/jobs/disk-monitor.ts',
-  'src/core/cron/jobs/llm-stats.ts',
-  'src/core/evolution-system/system.ts',
-  'src/core/memory/deep-dream.ts',
-  'src/core/permissions/claw-permissions.ts',
-  'src/core/status-service/aggregators.ts',
-  'src/core/status-service/forum-aggregators.ts',
-  'src/core/subagent/run.ts',
-  'src/core/summon-system/index.ts',
-  // phase 234: claws/ enumeration helper 归 L6 Assembly (ML#3 真治、与 CLAWS_DIR 同 owner)
-  // 5 caller cascade 不可避免地反向 import L6 enumerateClaws、accepted-stable until ClawId brand cluster 完成
-  'src/core/contract/jobs/contract-observer.ts',
-  'src/core/cron/jobs/git-gc-weekly.ts',
-  'src/core/cron/jobs/outbox-summary/scan.ts',
 ]);
 
 function walk(dir: string): string[] {

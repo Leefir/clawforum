@@ -22,7 +22,7 @@ import { Snapshot } from '../../foundation/snapshot/index.js';
 import { createDirContext } from '../../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { SNAPSHOT_IGNORE_PATTERNS } from '../../foundation/snapshot/index.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { resolveDaemonEntry } from '../../assembly/spawn-entry.js';
 import { DAEMON_LOG } from '../../daemon/constants.js';
 import { TASKS_SYNC_EXEC_DIR } from '../../foundation/command-tool/index.js';

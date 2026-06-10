@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { formatErr, assertNever } from "../../../foundation/utils/index.js";
 import { isFileNotFound, type FileSystem } from '../../../foundation/fs/types.js';
-import { enumerateClaws } from '../../../assembly/enumerate-claws.js';
+import { enumerateClaws } from '../../../foundation/claw-paths.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { InboxMessageOptionsBase } from '../../../foundation/messaging/index.js';
 import { scanArchivedContracts } from './event-collector.js';

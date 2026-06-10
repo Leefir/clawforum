@@ -14,7 +14,7 @@ import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { makeContractId } from '../../core/contract/types.js';
 import { makeClawId } from '../../core/claw-id.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import * as path from 'path';
 
 /** contract-show evidence console.log 显示截断 cap（trigger=keep 同值、'…' Unicode append）*/

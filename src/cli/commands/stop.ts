@@ -16,7 +16,7 @@ import { createSystemAudit, type AuditLog } from '../../foundation/audit/index.j
 import { PROCESS_MANAGER_AUDIT_EVENTS } from '../../foundation/process-manager/audit-events.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { makeClawId } from '../../constants.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { resolveDaemonEntry } from '../../assembly/spawn-entry.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
 import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';

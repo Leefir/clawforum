@@ -12,7 +12,7 @@ import { ExecContextImpl, cloneExecContext } from './context.js';
 import {
   ToolTimeoutError,
 } from '../errors.js';
-import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWSPACE_DIR } from '../claw-paths.js';
 import type { ExecContext } from './types.js';
 import type { ToolGroup } from './types.js';
 import type { PermissionChecker } from '../tool-protocol/permission.js';

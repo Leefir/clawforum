@@ -12,7 +12,7 @@ import type { FileSystem } from '../fs/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { MOTION_CLAW_ID, UUID_SHORT_LEN } from '../../constants.js';
 import { INBOX_PENDING_DIR } from './dirs.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../claw-paths.js';
 import { emitUnknownDestinationDlq } from './audit-emit.js';
 import { randomUUID } from 'crypto';
 

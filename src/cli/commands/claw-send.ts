@@ -13,7 +13,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { notifyClaw } from '../../foundation/messaging/notify.js';
 import { formatClawStatusHint } from './claw-shared.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
 import { makeClawId } from '../../constants.js';
 

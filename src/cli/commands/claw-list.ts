@@ -12,7 +12,7 @@ import { createProcessManagerForCLI } from '../../foundation/process-manager/ind
 import { makeClawId } from '../../constants.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { CONTRACT_DIR, CONTRACT_ARCHIVE_DIR } from '../../core/contract/index.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { getLastActiveMs } from './claw-shared.js';
 import { handleCliError } from '../errors.js';
 import { OUTBOX_PENDING_DIR } from '../../foundation/messaging/index.js';

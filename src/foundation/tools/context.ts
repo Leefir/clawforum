@@ -17,7 +17,7 @@ import type { StepNumber } from '../identity/step-number.js';
 import { makeStepNumber } from '../identity/step-number.js';
 import path from 'path';
 import { MOTION_CLAW_ID } from '../../constants.js';
-import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWSPACE_DIR } from '../claw-paths.js';
 
 
 import type { AuditLog } from '../audit/index.js';

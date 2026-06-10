@@ -10,7 +10,7 @@ import { isFileNotFound } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { makeClawId } from '../../constants.js';
-import { enumerateClaws } from '../../assembly/enumerate-claws.js';
+import { enumerateClaws } from '../../foundation/claw-paths.js';
 import { createChatViewportWatcher } from './chat-viewport-watcher.js';
 import { type ClawTrack, makeClawTrack } from './chat-viewport-claw-line.js';
 

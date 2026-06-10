@@ -14,7 +14,7 @@ import type { FileSystem } from '../../foundation/fs/types.js';
 import { formatErr, assertNever } from "../../foundation/utils/index.js";
 import type { ContractSystem } from '../contract/index.js';
 import { TASKS_QUEUES_PENDING_DIR, TASKS_QUEUES_RUNNING_DIR } from '../async-task-system/index.js';
-import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWSPACE_DIR } from '../../foundation/claw-paths.js';
 
 // ── Views ───────────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@
  */
 
 import { resolveChestnutRoot } from '../../assembly/install-paths.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import * as path from 'path';
 import { ContractSystem } from '../../core/contract/index.js';
 import { getClawDir } from '../../foundation/config/index.js';

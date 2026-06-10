@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { execSync } from 'node:child_process';
 
 describe('no claws enumeration fanout', () => {
-  it('only assembly/enumerate-claws.ts uses fs.listSync(clawsDir, {includeDirs:true}) pattern', () => {
+  it('only foundation/claw-paths.ts uses fs.listSync(clawsDir, {includeDirs:true}) pattern', () => {
     let out: string;
     try {
       out = execSync(
-        `grep -rnE "fs\\.listSync\\([^)]*[Cc]laws.*includeDirs" src/ | grep -v 'src/assembly/enumerate-claws.ts'`,
+        `grep -rnE "fs\\.listSync\\([^)]*[Cc]laws.*includeDirs" src/ | grep -v 'src/foundation/claw-paths.ts'`,
         { cwd: process.cwd(), encoding: 'utf-8' },
       ).trim();
     } catch (err: any) {

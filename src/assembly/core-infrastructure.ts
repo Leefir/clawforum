@@ -1,7 +1,7 @@
 import path from 'path';
 import { formatErr } from '../foundation/utils/index.js';
 import { resolveChestnutRoot } from './install-paths.js';
-import { CLAWS_DIR } from './claw-dirs.js';
+import { CLAWS_DIR } from '../foundation/claw-paths.js';
 
 import type { FileSystem } from '../foundation/fs/types.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';

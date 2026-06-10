@@ -29,7 +29,7 @@ import { safeNumber, formatErr } from '../utils/index.js';
 import { recordReadResult } from './file-state-manager.js';
 import { FILE_TOOL_AUDIT_EVENTS } from './audit-events.js';
 
-import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWSPACE_DIR } from '../claw-paths.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 
 export const READ_TOOL_NAME = 'read' as const;

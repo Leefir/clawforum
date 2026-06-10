@@ -34,7 +34,7 @@ import {
   TASKS_QUEUES_RESULTS_DIR,
   TASKS_SUBAGENTS_DIR,
 } from '../async-task-system/index.js';
-import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWSPACE_DIR } from '../../foundation/claw-paths.js';
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 export type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 

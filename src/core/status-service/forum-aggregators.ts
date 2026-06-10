@@ -17,7 +17,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { isFileNotFound } from '../../foundation/fs/types.js';
 import { ProcessManager, ProcessListUnavailable } from '../../foundation/process-manager/index.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { makeClawId } from '../../constants.js';
 import { listAuditFiles } from '../../foundation/audit/index.js';
 import { INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';

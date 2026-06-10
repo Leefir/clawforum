@@ -12,7 +12,7 @@ import path from 'node:path';
 import type { Tool, ExecContext, ToolPermissions } from '../../tools/index.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 
-import { CLAWS_DIR } from '../../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../claw-paths.js';
 import type { ToolResult } from '../../tool-protocol/index.js';
 import type { FileSystem } from '../../fs/types.js';
 import type { AuditLog } from '../../audit/index.js';

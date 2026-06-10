@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import { LLM_STATS_AUDIT_EVENTS } from './llm-stats-audit-events.js';
-import { CLAWS_DIR } from '../../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../../foundation/claw-paths.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 import type { CronJob } from '../runner.js';
 import { parseSchedule } from '../runner.js';

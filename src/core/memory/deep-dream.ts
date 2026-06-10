@@ -12,7 +12,7 @@ import { estimateTextTokens } from '../../foundation/llm-provider/index.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { DialogStore } from '../../foundation/dialog-store/index.js';
 import type { SessionData } from '../../foundation/dialog-store/types.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';
 import { FileNotFoundError } from '../../foundation/fs/types.js';
 

@@ -8,7 +8,7 @@
 import { DISPATCH_SKILLS_SUBDIR } from '../../core/summon-system/dispatch-skills-paths.js';
 import { getWorkspaceRoot } from '../../assembly/install-paths.js';
 import * as path from 'path';
-import { CLAWSPACE_DIR } from '../../assembly/claw-dirs.js';
+import { CLAWSPACE_DIR } from '../../foundation/claw-paths.js';
 import { SKILLS_DIR_DEFAULT } from '../../foundation/skill-system/index.js';
 import { getClawDir } from '../../foundation/config/index.js';
 import type { AuditLog } from '../../foundation/audit/index.js';

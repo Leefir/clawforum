@@ -22,7 +22,7 @@ import { getNamedSubrootDir } from '../foundation/config/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
 import { MOTION_CLAW_ID, makeClawId } from '../constants.js';
-import { CLAWS_DIR } from '../assembly/claw-dirs.js';
+import { CLAWS_DIR } from '../foundation/claw-paths.js';
 
 /**
  * phase 138: watchdog-cron Map cleanup 全路径覆盖（audit.P1.wd-1）

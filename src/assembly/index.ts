@@ -19,5 +19,4 @@ export { disassemble } from './disassemble.js';
 // `resolveDaemonEntry` / `resolveWatchdogEntry`（phase 1436 立单一权威、phase 72 迁 L6 Assembly）。
 // Note: CONFIG_DEFAULTS removed in phase 10 Step D (config decentralize)
 export { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
-export { enumerateClaws } from './enumerate-claws.js';
 
