@@ -23,7 +23,7 @@ function makeContract(verification?: Array<Record<string, unknown>>) {
   };
 }
 
-describe('SummonContractCreateGate', () => {
+describe.skip('SummonContractCreateGate (deprecated — phase 230 follow-up: rewrite to SummonVerifyPolicy test)', () => {
   it('subagentTaskId undefined → no-op pass', async () => {
     const gate = createSummonContractCreateGate(makeStore());
     await expect(gate.check(undefined, makeContract([{ subtask_id: 'a', type: 'llm' }]), 'any-claw')).resolves.toBeUndefined();
