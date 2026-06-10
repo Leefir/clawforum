@@ -41,6 +41,7 @@ import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { STREAM_TASK_EVENTS } from './stream-events.js';
 import { formatErr } from './_helpers.js';
 import { assertTaskShapeOnSave } from './invariants.js';
+import { auditQueueCrossSource, type QueueSnapshot } from './queue-cross-source-audit.js';
 import {
   emitTaskScheduled,
   emitTaskStarted,
@@ -379,6 +380,14 @@ export class AsyncTaskSystem {
    * Ingest a single pending file: read, parse, dedupe, push, dispatch.
    * Shared by watcher callback and _initialScanPending.
    */
+  private captureQueueSnapshot(): QueueSnapshot {
+    return {
+      pendingMemoryIds: new Set(this.pendingQueue.map(t => t.id)),
+      runningMemoryIds: new Set(this.runningTasks.keys()),
+      cancellingIds: new Set(this.cancellingIds),
+    };
+  }
+
   private async _ingestPendingFile(filePath: string): Promise<void> {
     let taskId: TaskId | undefined;
     try {
@@ -397,6 +406,14 @@ export class AsyncTaskSystem {
       if (!taskId || this._isDuplicate(taskId)) return;
 
       await this._enqueueAndDispatch(task);
+
+      // phase 239 Step B: cross-source audit after ingest（fire-and-forget、不阻主路径）
+      void auditQueueCrossSource(
+        this.captureQueueSnapshot(),
+        this.fs,
+        this.auditWriter,
+        'ingest_pending_file',
+      ).catch(() => { /* audit 路径 self-defensive、不影响主路径 */ });
     } catch (err) {
       emitPendingIngestFailed(this.auditWriter, {
         taskId: taskId ?? '<unknown>',
@@ -439,6 +456,15 @@ export class AsyncTaskSystem {
   ): Promise<void> {
     try {
       await this.movePendingToRunning(task.id);
+
+      // phase 239 Step B: cross-source audit after move pending→running（fire-and-forget）
+      void auditQueueCrossSource(
+        this.captureQueueSnapshot(),
+        this.fs,
+        this.auditWriter,
+        'dispatch_after_move',
+      ).catch(() => { /* audit 路径 self-defensive、不影响主路径 */ });
+
       await this.executors[task.kind](task, signal);
     } catch (error) {
       const errorMsg = formatErr(error);

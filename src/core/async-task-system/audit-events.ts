@@ -39,4 +39,6 @@ export const TASK_AUDIT_EVENTS = {
   TASK_SHUTDOWN_TIMEOUT_HIT: 'task_shutdown_timeout_hit', // ← NEW (phase 1332 / r138 C fork N4)
   INVARIANT_VIOLATION: 'async_task_invariant_violation',  // phase 66 NEW
   ASYNC_TASK_INVARIANT_VIOLATED: 'async_task_invariant_violated', // phase 239 Step A
+  ASYNC_TASK_QUEUE_CROSS_SOURCE_MISMATCH: 'async_task_queue_cross_source_mismatch', // phase 239 Step B
+  ASYNC_TASK_QUEUE_CROSS_SOURCE_SKIPPED: 'async_task_queue_cross_source_skipped', // phase 239 Step B
 } as const;
