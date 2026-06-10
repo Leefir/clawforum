@@ -189,6 +189,7 @@ vi.mock('../../src/core/contract/manager.js', () => ({
     }),
     init: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
+    registerCreatePolicy: vi.fn(),
   })),
 }));
 

@@ -17,7 +17,7 @@ import { createToolRegistry, type ToolRegistry } from '../foundation/tools/index
 import { createFileTools } from '../foundation/file-tool/index.js';
 import { createCommandTools } from '../foundation/command-tool/index.js';
 import { spawnTool } from '../core/spawn-system/index.js';
-import { SummonTool, createSummonStateStore } from '../core/summon-system/index.js';
+import { SummonTool, createSummonStateStore, createSummonVerifyPolicy } from '../core/summon-system/index.js';
 import { createSkillSystem as defaultCreateSkillSystem, SkillSystem } from '../foundation/skill-system/index.js';
 import { SKILLS_DIR_DEFAULT } from '../foundation/skill-system/index.js';
 import { ContractSystem, createContractSystem } from '../core/contract/index.js';
@@ -232,6 +232,11 @@ export async function createCoreInfrastructure(input: CoreInfraInput): Promise<C
       auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=contract_manager`, `phase=init`, `reason=${formatErr(e)}`);
       throw new Error(`Assembly: ContractSystem.init failed: ${formatErr(e)}`, { cause: e });
     }
+
+    // Phase 230: wire SummonVerifyPolicy into ContractSystem
+    const summonStateStore = createSummonStateStore(systemFs);
+    const summonVerifyPolicy = createSummonVerifyPolicy({ summonStateStore, auditWriter: auditWriter });
+    contractManager.registerCreatePolicy('summon-verify', summonVerifyPolicy);
 
     // --- L2: outboxWriter ---
     let outboxWriter: OutboxWriter;

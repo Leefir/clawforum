@@ -35,7 +35,14 @@ import { createSubagentCommand } from './commands/subagent.js';
 import { motionStepsCommand, motionStepCommand } from './commands/motion-steps.js';
 import { createDirContext } from '../foundation/audit/index.js';
 import { getChestnutRoot, getClawDir, loadGlobalConfig } from '../foundation/config/index.js';
-import { createSummonStateStore, createSummonContractCreateGate } from '../core/summon-system/index.js';
+import { createSummonStateStore, createSummonVerifyPolicy } from '../core/summon-system/index.js';
+import { createContractSystem } from '../core/contract/index.js';
+import { resolveChestnutRoot } from '../assembly/install-paths.js';
+import { CLAWS_DIR } from '../assembly/claw-dirs.js';
+import { createSystemAudit } from '../foundation/audit/index.js';
+import { notifyClaw } from '../foundation/messaging/index.js';
+import { makeClawId } from '../core/claw-id.js';
+import { createToolRegistry } from '../foundation/tools/index.js';
 import { parseIntOption } from './parse-int-option.js';
 import { collectColFilter } from './commands/audit-query.js';
 
@@ -222,8 +229,26 @@ contractCmd
       const motionClawDir = path.join(getChestnutRoot(), 'motion');
       const motionFs = fsFactory(motionClawDir);
       const summonStateStore = createSummonStateStore(motionFs);
-      const summonContractCreateGate = createSummonContractCreateGate(summonStateStore);
-      await contractCreateFromDirCommand({ fsFactory, summonContractCreateGate }, opts.claw, opts.dir, { audit });
+
+      // Phase 230: create ContractSystem + wire SummonVerifyPolicy
+      const clawDir = getClawDir(opts.claw);
+      const clawFs = fsFactory(clawDir);
+      const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);
+      const clawAudit = createSystemAudit(clawFs, clawDir);
+      const contractSystem = createContractSystem({
+        clawDir,
+        clawId: makeClawId(opts.claw),
+        fs: clawFs,
+        audit: clawAudit,
+        toolRegistry: createToolRegistry(),
+        fsFactory,
+        clawsDir: path.join(chestnutRoot, CLAWS_DIR),
+        notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, clawAudit),
+      });
+      const summonVerifyPolicy = createSummonVerifyPolicy({ summonStateStore, auditWriter: clawAudit });
+      contractSystem.registerCreatePolicy('summon-verify', summonVerifyPolicy);
+
+      await contractCreateFromDirCommand({ fsFactory, contractSystem }, opts.claw, opts.dir, { audit });
     } else {
       throw new CliError('must provide --file or --dir');
     }

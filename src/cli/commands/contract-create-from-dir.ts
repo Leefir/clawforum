@@ -2,23 +2,20 @@
  * Create a contract from a directory containing contract.yaml + verification/
  */
 
-import { resolveChestnutRoot } from '../../assembly/install-paths.js';
-import { CLAWS_DIR } from '../../assembly/claw-dirs.js';
 import * as path from 'path';
-import { ContractSystem, CONTRACT_DIR } from '../../core/contract/index.js';
+import { CONTRACT_DIR } from '../../core/contract/index.js';
+import type { ContractSystem } from '../../core/contract/index.js';
+import { ContractCreatePolicyViolationError } from '../../core/contract/types.js';
 import { getClawDir } from '../../foundation/config/index.js';
-import { createSystemAudit, type AuditLog } from '../../foundation/audit/index.js';
-import { notifyClaw } from '../../foundation/messaging/index.js';
+import type { AuditLog } from '../../foundation/audit/index.js';
 import { CLI_AUDIT_EVENTS } from '../audit-events.js';
-import { createToolRegistry } from '../../foundation/tools/index.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { makeContractId } from '../../core/contract/types.js';
-import { makeClawId } from '../../core/claw-id.js';
 import { parseAndValidateContractYaml, notifyContractCreated } from './contract-helpers.js';
-import type { SummonContractCreateGate } from '../../core/summon-system/index.js';
+import { CliError } from '../errors.js';
 
 export async function contractCreateFromDirCommand(
-  deps: { fsFactory: (baseDir: string) => FileSystem; summonContractCreateGate: SummonContractCreateGate },
+  deps: { fsFactory: (baseDir: string) => FileSystem; contractSystem: ContractSystem },
   clawId: string,
   dirPath: string,
   extraDeps?: { audit?: AuditLog },
@@ -30,22 +27,32 @@ export async function contractCreateFromDirCommand(
   const yamlContent = srcFs.readSync('contract.yaml');
   const contract = parseAndValidateContractYaml(yamlContent);
 
-  // NEW: summon gate（subagentTaskId 来自 env、非子代理时 undefined → no-op）
-  await deps.summonContractCreateGate.check(process.env.CHESTNUT_SUBAGENT_TASK_ID, contract, clawId);
+  // Phase 230: delegate to ContractSystem.create with policy iteration
+  let contractId: string;
+  try {
+    contractId = await deps.contractSystem.create({
+      contract,
+      subagentTaskId: process.env.CHESTNUT_SUBAGENT_TASK_ID,
+      clawDir: clawId,
+    });
+  } catch (err) {
+    if (err instanceof ContractCreatePolicyViolationError) {
+      throw new CliError(
+        `Contract create rejected by policy '${err.policyName}': ${err.cause}`,
+        err.details,
+      );
+    }
+    throw err;
+  }
 
-  const clawDir = getClawDir(clawId);
-  const clawFs = deps.fsFactory(clawDir);
-  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
-  const clawAudit = createSystemAudit(clawFs, clawDir);
-  const manager = new ContractSystem({ clawDir, clawId: makeClawId(clawId), fs: clawFs, audit: clawAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(chestnutRoot, CLAWS_DIR), notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, clawAudit) });
-
-  const contractId = await manager.create(contract);
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=dir`);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
 
   // Copy verification/ 目录（若存在；回退读取旧版 acceptance/）
   const srcDir = srcFs.existsSync('verification') ? 'verification' : srcFs.existsSync('acceptance') ? 'acceptance' : undefined;
   if (srcDir) {
+    const clawDir = getClawDir(clawId);
+    const clawFs = deps.fsFactory(clawDir);
     const destRel = path.join(CONTRACT_DIR, 'active', contractId, 'verification');
     await clawFs.ensureDir(destRel);
     const entries = await srcFs.list(srcDir);
@@ -60,5 +67,5 @@ export async function contractCreateFromDirCommand(
     }
   }
 
-  notifyContractCreated(deps, clawDir, clawId, makeContractId(contractId), contract);
+  notifyContractCreated(deps, getClawDir(clawId), clawId, makeContractId(contractId), contract);
 }
