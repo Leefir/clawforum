@@ -353,6 +353,7 @@ export class ContractSystem {
       audit: this.audit,
       contractDir: (id) => this.contractDir(id),
       getProgress: (id) => this.getProgress(id),
+      getContractYaml: (id) => this.loadContractYaml(id),    // phase 233 Step B
       markCrashed: (id, cause) => this.markCrashed(id, cause),
     };
   }

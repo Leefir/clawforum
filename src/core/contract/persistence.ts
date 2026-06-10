@@ -17,6 +17,7 @@ import { emitContractYamlSchemaInvalid } from './audit-emit.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import { isolateCorruptedFile } from './_isolation-helper.js';
 import { assertProgressShapeInvariants } from './invariants.js';
+import { auditProgressCrossSource } from './cross-source-audit.js';
 
 const CONTRACT_DEFAULTS = {
   schema_version: 1,
@@ -31,6 +32,8 @@ export interface PersistenceContext {
   audit: AuditLog;
   contractDir: (contractId: ContractId) => Promise<string>;
   getProgress: (contractId: ContractId) => Promise<ProgressData | null>;
+  /** phase 233 Step B: cross-source audit yaml loader、可选注入 */
+  getContractYaml?: (contractId: ContractId) => Promise<ContractYaml | null>;
   markCrashed?: (contractId: ContractId, cause: string) => Promise<void>;
 }
 
@@ -175,6 +178,10 @@ export async function saveProgress(
 
   // phase 233 Step A: schema invariant check（违例 emit audit、不 throw、不阻 save、Path #4 防 break）
   assertProgressShapeInvariants(progressToSave, ctx.audit, 'saveProgress');
+
+  // Step B: cross-source audit（yaml 缺时 skip yaml-dep check、status↔subtasks check 仍跑）
+  const yaml = ctx.getContractYaml ? await ctx.getContractYaml(contractId).catch(() => null) : null;
+  auditProgressCrossSource(progressToSave, yaml, ctx.audit);
 
   await ctx.fs.writeAtomic(progressPath, JSON.stringify(progressToSave, null, 2));
 }

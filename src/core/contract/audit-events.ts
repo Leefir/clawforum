@@ -111,6 +111,9 @@ export const CONTRACT_AUDIT_EVENTS = {
   CONTRACT_CREATE_POLICY_REJECTED: 'contract_create_policy_rejected',
   // phase 233 Step A: saveProgress 入口 schema invariant 违例
   CONTRACT_PROGRESS_INVARIANT_VIOLATED: 'contract_progress_invariant_violated',
+  // phase 233 Step B: saveProgress 入口 cross-source mismatch
+  CONTRACT_PROGRESS_CROSS_SOURCE_MISMATCH: 'contract_progress_cross_source_mismatch',
+  CONTRACT_PROGRESS_CROSS_SOURCE_SKIPPED: 'contract_progress_cross_source_skipped',
 } as const;
 
 /**
@@ -213,4 +216,6 @@ export const CONTRACT_FILE_ROUTING: Readonly<Record<string, 'audit'>> = {
   contract_archive_reconcile_summary: 'audit',
   contract_archive_recovery_pending_observed: 'audit',
   contract_progress_invariant_violated: 'audit',
+  contract_progress_cross_source_mismatch: 'audit',
+  contract_progress_cross_source_skipped: 'audit',
 } as const;
