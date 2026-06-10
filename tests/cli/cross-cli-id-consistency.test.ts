@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from 'vitest';
 import * as path from 'path';
 import { auditQueryCommand } from '../../src/cli/commands/audit-query.js';
 import { auditLookupCommand } from '../../src/cli/commands/audit-lookup.js';

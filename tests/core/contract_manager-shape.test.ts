@@ -4,7 +4,7 @@
  * Extracted from contract_manager-escalation.test.ts:229-299 (Contract shape after field removal Step 44).
  * These 4 tests don't trigger spawn or LOCK retry paths — runs in fast project without vi.mock.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
