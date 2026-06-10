@@ -668,6 +668,7 @@
       "dialog_turn_boundary_truncated",
       "dialog_turn_commit",
       "dialog_turn_rollback",
+      "dialog_invariant_violated",
       "session_archive_dir_failed",
       "session_archive_failed",
       "session_archive_parse_failed",

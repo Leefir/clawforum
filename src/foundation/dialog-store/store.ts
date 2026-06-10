@@ -27,6 +27,7 @@ import { UUID_SHORT_LEN } from '../../constants.js';
 import { detectAndMigrateVersion, validateSessionData } from './validate.js';
 import { repairMessages } from './repair.js';
 import { restoreMessages } from './restore.js';
+import { assertDialogShapeInvariants } from './invariants.js';
 
 /**
  * loadStable() retry base delay（ms）.
@@ -48,6 +49,7 @@ export class DialogStore {
   private createdAt: string | null = null;
   private corruptedPoisoned: boolean = false;
   private flushPromise: Promise<void> = Promise.resolve();
+  private prevMessagesLength: number | undefined = undefined;
 
   // phase 1285: turn transaction snapshot (memory-based)
   private _turnSnapshot: {
@@ -80,6 +82,7 @@ export class DialogStore {
       if (archived) {
         this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
         this.createdAt = archived.session.createdAt;
+        this.prevMessagesLength = archived.session.messages.length;
         return { session: archived.session, source: 'archive' };
       }
       return this.coldStart();
@@ -97,6 +100,7 @@ export class DialogStore {
       const data = this.validateSession(detected);
       // Cache createdAt for subsequent saves
       this.createdAt = data.createdAt;
+      this.prevMessagesLength = data.messages.length;
       return { session: data, source: 'current' };
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
@@ -122,6 +126,7 @@ export class DialogStore {
       if (archived) {
         this.audit.write(DIALOG_AUDIT_EVENTS.RECOVERED, `from=${archived.name}`);
         this.createdAt = archived.session.createdAt;
+        this.prevMessagesLength = archived.session.messages.length;
         return { session: archived.session, source: 'archive' };
       }
 
@@ -256,6 +261,8 @@ export class DialogStore {
       `last_complete_turn_idx=${truncateFromIdx - 1}`,
     );
 
+    this.prevMessagesLength = truncated.length;
+
     return {
       ...result,
       session: {
@@ -319,6 +326,21 @@ export class DialogStore {
     _cacheHints?: { cacheControlMarkerIndex?: number },
   ): Promise<void> {
     const doSave = async (): Promise<void> => {
+      // phase 227: schema invariant check（违例 emit audit、不 throw、不阻 save）
+      assertDialogShapeInvariants(snapshot.messages, this.audit);
+
+      // length 单调 check
+      const prev = this.prevMessagesLength;
+      if (prev !== undefined && Array.isArray(snapshot.messages) && snapshot.messages.length < prev) {
+        this.audit.write(
+          DIALOG_AUDIT_EVENTS.DIALOG_INVARIANT_VIOLATED,
+          `kind=length_regressed`,
+          `prev=${prev}`,
+          `curr=${snapshot.messages.length}`,
+        );
+      }
+      this.prevMessagesLength = Array.isArray(snapshot.messages) ? snapshot.messages.length : undefined;
+
       const now = new Date().toISOString();
 
       // Use cached createdAt if available, otherwise use now
@@ -406,6 +428,8 @@ export class DialogStore {
   async rollbackTurn(reason?: string): Promise<void> {
     if (!this._turnSnapshot) return;
     const { messages, systemPrompt, toolsForLLM } = this._turnSnapshot;
+    // phase 227: rollback 是 intentional regression、reset prevLength 防 length_regressed 误报
+    this.prevMessagesLength = messages.length;
     await this.save({ systemPrompt, messages, toolsForLLM });
     this._turnSnapshot = null;
     this.audit.write(
@@ -588,6 +612,7 @@ export class DialogStore {
       toolsForLLM: [],
     };
     this.createdAt = emptySession.createdAt;
+    this.prevMessagesLength = 0;
     this.audit.write(DIALOG_AUDIT_EVENTS.COLD_START);
     return { session: emptySession, source: 'empty' };
   }
