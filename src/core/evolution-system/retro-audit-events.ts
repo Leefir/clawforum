@@ -19,4 +19,6 @@ export const RETRO_AUDIT_EVENTS = {
   SKIPPED_DUPLICATE: 'retro_skipped_duplicate',
   STATE_LOAD_FAILED: 'retro_state_load_failed',
   STATE_SAVE_FAILED: 'retro_state_save_failed',
+  // phase 253 Step A: _saveState schema invariant violated
+  EVOLUTION_STATE_INVARIANT_VIOLATED: 'evolution_state_invariant_violated',
 } as const;

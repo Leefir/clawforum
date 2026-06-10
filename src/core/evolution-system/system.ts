@@ -7,6 +7,7 @@ import { ContractSystem } from '../contract/index.js';
 import { createSkillSystem as defaultCreateSkillSystem } from '../../foundation/skill-system/index.js';
 import { scheduleRetro } from './retro-scheduler.js';
 import { RETRO_AUDIT_EVENTS } from './retro-audit-events.js';
+import { assertEvolutionStateShape } from './invariants.js';
 import * as path from 'path';
 
 import { CLAWSPACE_DIR } from '../../foundation/claw-paths.js';
@@ -165,6 +166,10 @@ export class EvolutionSystem {
         processedContractIds: Array.from(this.processedContractIds),
         lastProcessedAt: new Date().toISOString(),
       };
+
+      // phase 253 Step A: schema invariant check（违例 emit audit、不 throw、不阻 save、Path #4）
+      assertEvolutionStateShape(data, this.deps.audit);
+
       await this.deps.fs.writeAtomic(STATE_FILE_PATH, JSON.stringify(data, null, 2));
     } catch (e) {
       this.deps.audit.write(
