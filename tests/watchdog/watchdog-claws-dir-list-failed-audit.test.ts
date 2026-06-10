@@ -22,7 +22,7 @@ import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { makeMockAudit } from '../helpers/audit.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { setTimeout as setTimeoutP } from 'timers/promises';
-import { getChestnutFs } from '../../src/watchdog/watchdog-context.js';
+import { getChestnutFs, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 
 const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
@@ -66,6 +66,7 @@ describe('watchdog claws dir listSync audit + recovery (phase 149)', () => {
   let clawsDir: string;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(tmpdir(), `wd149-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     clawsDir = path.join(chestnutDir, 'claws');

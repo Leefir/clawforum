@@ -5,7 +5,7 @@ import * as os from 'os';
 import { randomUUID } from 'crypto';
 
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
-import { setAuditWriter } from '../../src/watchdog/watchdog-context.js';
+import { setAuditWriter, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
@@ -36,6 +36,7 @@ describe('watchdog orphan sweep', () => {
   let auditSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wd-sweep-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     fs.mkdirSync(chestnutDir, { recursive: true });

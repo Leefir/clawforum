@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { getWatchdogPid, isWatchdogAlive } from '../../src/watchdog/watchdog-pid.js';
-import { setAuditWriter } from '../../src/watchdog/watchdog-context.js';
+import { setAuditWriter, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
@@ -30,6 +30,7 @@ describe('watchdog-pid corrupt path', () => {
   const originalRoot = process.env.CHESTNUT_ROOT;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wd-pid-corrupt-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     fs.mkdirSync(chestnutDir, { recursive: true });

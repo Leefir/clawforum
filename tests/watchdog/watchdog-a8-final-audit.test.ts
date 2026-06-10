@@ -53,7 +53,7 @@ vi.mock('../../src/watchdog/watchdog-utils.js', async (importOriginal) => {
 });
 
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
-import { getChestnutFs, getGlobalConfig, clawStateAPI } from '../../src/watchdog/watchdog-context.js';
+import { getChestnutFs, getGlobalConfig, clawStateAPI, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 
 const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
@@ -64,6 +64,7 @@ describe('watchdog A.8 final audit emit (phase 155)', () => {
   let subscriptionsDir: string;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(tmpdir(), `wd155-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     clawsDir = path.join(chestnutDir, 'claws');

@@ -22,7 +22,7 @@ import {
   loadWatchdogState,
   saveWatchdogState,
 } from '../../src/watchdog/watchdog-state.js';
-import { clawStateAPI, setAuditWriter } from '../../src/watchdog/watchdog-context.js';
+import { clawStateAPI, setAuditWriter, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import type { AuditLog } from '../../src/foundation/audit/index.js';
@@ -33,6 +33,7 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
   let chestnutDir: string;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wd-schema-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     fs.mkdirSync(chestnutDir, { recursive: true });

@@ -99,11 +99,13 @@ vi.mock('fs', async (importOriginal) => {
 import { stopAllCommand } from '../../src/cli/commands/stop.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
+import { _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 
 const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
 describe('stop — orphan watchdog sweep (phase 1269 sub-4)', () => {
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     mockAuditState.clear();
     vi.clearAllMocks();
   });

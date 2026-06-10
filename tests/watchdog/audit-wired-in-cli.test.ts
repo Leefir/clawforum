@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { buildTestGlobalConfig } from '../helpers/global-config.js';
-import { setAuditWriter, getAuditWriter } from '../../src/watchdog/watchdog-context.js';
+import { setAuditWriter, getAuditWriter, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { ensureAuditWired } from '../../src/watchdog/ensure.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { makeMockAudit } from '../helpers/audit.js';
@@ -37,6 +37,7 @@ describe('audit wired in CLI', () => {
   const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wd-audit-wire-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     fs.mkdirSync(chestnutDir, { recursive: true });

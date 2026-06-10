@@ -8,7 +8,7 @@ import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/confi
 import {
   loadWatchdogState, saveWatchdogState,
 } from '../../src/watchdog/watchdog-state.js';
-import { clawStateAPI, setAuditWriter } from '../../src/watchdog/watchdog-context.js';
+import { clawStateAPI, setAuditWriter, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { AuditWriter } from '../../src/foundation/audit/writer.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
@@ -55,6 +55,7 @@ describe('watchdog notify dedup persist (phase 1269 sub-3)', () => {
   let mockPm: ProcessManager;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wd-dedup-persist-${randomUUID()}`);
     chestnutDir = path.join(tmpDir, '.chestnut');
     clawsDir = path.join(chestnutDir, 'claws');

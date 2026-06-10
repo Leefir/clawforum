@@ -13,7 +13,7 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 import { maybeCronClawCrash } from '../../src/watchdog/watchdog-cron.js';
-import { clawStateAPI } from '../../src/watchdog/watchdog-context.js';
+import { clawStateAPI, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { clawHasContract, clawHasActiveContract, gatherClawSnapshot } from '../../src/watchdog/watchdog-utils.js';
@@ -58,6 +58,7 @@ describe('maybeCronClawCrash 三分判定 audit 完整性 (phase 133)', () => {
   let inboxWriteMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(tmpdir(), `wd-skip-${randomUUID()}`);
     const chestnutDir = path.join(tmpDir, '.chestnut');
     clawsDir = path.join(chestnutDir, 'claws');

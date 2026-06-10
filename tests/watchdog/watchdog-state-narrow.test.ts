@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   loadWatchdogState,
 } from '../../src/watchdog/watchdog-state.js';
-import { clawStateAPI } from '../../src/watchdog/watchdog-context.js';
+import { clawStateAPI, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { FileNotFoundError } from '../../src/foundation/fs/types.js';
 import { WATCHDOG_AUDIT_EVENTS } from '../../src/watchdog/audit-events.js';
 
@@ -27,6 +27,7 @@ import { getChestnutFs, getAuditWriter } from '../../src/watchdog/watchdog-conte
 
 describe('loadWatchdogState dual-code narrow (phase 1215)', () => {
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     vi.restoreAllMocks();
     clawStateAPI.lastInactivityNotified.clear();
     clawStateAPI.inactivityNotifyCount.clear();

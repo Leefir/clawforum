@@ -84,7 +84,7 @@ import {
 import { getNamedSubrootDir, loadGlobalConfig } from '../../src/foundation/config/index.js';
 import { buildTestGlobalConfig } from '../helpers/global-config.js';
 import { clawHasContract, clawHasActiveContract, gatherClawSnapshot } from '../../src/watchdog/watchdog-utils.js';
-import { clawStateAPI, getChestnutFs } from '../../src/watchdog/watchdog-context.js';
+import { clawStateAPI, getChestnutFs, _resetWatchdogContextForTest } from '../../src/watchdog/watchdog-context.js';
 import { InboxWriter } from '../../src/foundation/messaging/index.js';
 import { spawn } from 'child_process';
 import { setTimeout as setTimeoutP } from 'timers/promises';
@@ -104,6 +104,7 @@ describe('maybeCronClawInactivity — fix 4: per-claw error isolation', () => {
   let mockAudit: AuditWriter;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wdfix4-${randomUUID()}`);
     const chestnutDir = path.join(tmpDir, '.chestnut');
     clawsDir = path.join(chestnutDir, 'claws');
@@ -174,6 +175,7 @@ describe('logWithAudit — A1 clearance', () => {
   let auditWriter: AuditWriter;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     tmpDir = path.join(os.tmpdir(), `wd-audit-${randomUUID()}`);
     const chestnutDir = path.join(tmpDir, '.chestnut');
     fs.mkdirSync(path.join(chestnutDir, 'motion'), { recursive: true });
@@ -244,6 +246,7 @@ describe('shutdownWatchdog — fix 005: save state on signal', () => {
   let auditWriter: AuditWriter;
 
   beforeEach(() => {
+    _resetWatchdogContextForTest();
     _resetShutdownGuard();
     tmpDir = path.join(os.tmpdir(), `wd-fix5-${randomUUID()}`);
     const chestnutDir = path.join(tmpDir, '.chestnut');

@@ -184,3 +184,34 @@ export function setAuditWriter(auditWriter: AuditLog | null): void {
 export function getAuditWriter(): AuditLog | null {
   return _auditWriter;
 }
+
+/**
+ * Test-only: reset all module-level state (mirrors `_resetDaemonSignalHandlers` /
+ * `_resetShutdownGuard` patterns from daemon.ts / watchdog.ts).
+ *
+ * Phase 252: 16 watchdog-context-consuming test files previously self-managed
+ * partial cleanup via scattered `setAuditWriter(null)` and `clawStateAPI.*.clear()`
+ * calls in their afterEach blocks. That style is leak-prone — a single forgotten
+ * call (or a new test file added without copying the dance) leaves stale
+ * `_motionCtx` / `_chestnutFs` / `globalConfigCache` / `_auditWriter` / cron-state
+ * Maps for the next test. This helper is a single-call replacement that resets
+ * every module-level mutable surface deterministically.
+ *
+ * Call from beforeEach in every test file that imports any watchdog-context
+ * export. The existing partial cleanup in afterEach blocks is intentionally
+ * left in place as belt-and-suspenders.
+ */
+export function _resetWatchdogContextForTest(): void {
+  // 5 lazy caches
+  _motionCtx = null;
+  _chestnutFs = null;
+  _chestnutFsBaseDir = null;
+  globalConfigCache = null;
+  _auditWriter = null;
+  // 5 cron-state Maps/Sets
+  _lastInactivityNotified.clear();
+  _clawPreviouslyAlive.clear();
+  _inactivityNotifyCount.clear();
+  _everSpawned.clear();
+  _clawPreviouslyNotified.clear();
+}
