@@ -10,6 +10,8 @@ export const DAEMON_AUDIT_EVENTS = {
   // daemon-loop 路径
   LOOP_INTERRUPT_POLLER_DISABLED: 'daemon_loop_interrupt_poller_disabled',
   LOOP_INTERRUPT_POLLER_ERROR: 'daemon_loop_interrupt_poller_error',
+  LOOP_INTERRUPT_POLLER_RECOVERED: 'daemon_loop_interrupt_poller_recovered',
+  LOOP_INTERRUPT_POLLER_RECOVERY_ATTEMPT: 'daemon_loop_interrupt_poller_recovery_attempt',
   LOOP_ITERATION: 'daemon_loop_iteration',
   LOOP_INTERRUPT: 'daemon_loop_interrupt',
   LOOP_LLM_RETRY: 'daemon_loop_llm_retry',
