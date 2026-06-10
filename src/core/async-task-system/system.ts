@@ -40,6 +40,7 @@ import { createPendingWatcher, type PendingWatcherHandle } from './pending-watch
 import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { STREAM_TASK_EVENTS } from './stream-events.js';
 import { formatErr } from './_helpers.js';
+import { assertTaskShapeOnSave } from './invariants.js';
 import {
   emitTaskScheduled,
   emitTaskStarted,
@@ -251,6 +252,10 @@ export class AsyncTaskSystem {
 
     // Save to pending directory; watcher will pick up and dispatch
     const taskPath = `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`;
+
+    // phase 239 Step A: schema invariant check（违例 emit audit、不 throw、不阻 save、Path #4）
+    assertTaskShapeOnSave(task, this.auditWriter, 'schedule_subagent');
+
     await this.fs.writeAtomic(taskPath, JSON.stringify(task, null, 2));
 
     emitTaskScheduled(this.auditWriter, {

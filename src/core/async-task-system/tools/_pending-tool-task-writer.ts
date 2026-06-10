@@ -10,6 +10,7 @@ import type { FileSystem } from '../../../foundation/fs/types.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { AsyncToolTaskArgs } from '../../../foundation/tools/index.js';
 import { emitTaskScheduled } from '../audit-emit.js';
+import { assertTaskShapeOnSave } from '../invariants.js';
 import { makeTaskId } from '../types.js';
 
 
@@ -29,6 +30,11 @@ export async function writePendingToolTaskFile(
     ...args,
     kind: 'tool' as const,  // placed last to prevent spread override
   };
+  // phase 239 Step A: schema invariant check（audit optional 时 skip、防 wrap audit 调用）
+  if (audit) {
+    assertTaskShapeOnSave(task, audit, 'schedule_tool');
+  }
+
   await fs.writeAtomic(
     `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
     JSON.stringify(task, null, 2),
