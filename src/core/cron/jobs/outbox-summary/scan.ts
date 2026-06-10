@@ -13,6 +13,7 @@ import type { FileSystem } from '../../../../foundation/fs/types.js';
 import { isFileNotFound } from '../../../../foundation/fs/types.js';
 import type { OutboxReader } from '../../../../foundation/messaging/index.js';
 import { MOTION_CLAW_ID } from '../../../../constants.js';
+import { enumerateClaws } from '../../../../assembly/enumerate-claws.js';
 import { computeHash } from './hash.js';
 import { PREVIEW_MAX_CHARS } from './types.js';
 import type { OutboxSummaryState } from './types.js';
@@ -29,10 +30,7 @@ export async function scanOutboxes(deps: ScanDeps): Promise<OutboxSummaryState> 
 
   let clawIds: string[];
   try {
-    clawIds = fs.listSync(clawsDir, { includeDirs: true })
-      .filter(e => e.isDirectory)
-      .map(e => e.name)
-      .filter(id => id !== MOTION_CLAW_ID);
+    clawIds = enumerateClaws(fs, clawsDir).filter(id => id !== MOTION_CLAW_ID);
   } catch (err) {
     if (isFileNotFound(err)) return emptyState();
     throw err;

@@ -43,6 +43,11 @@ const BASELINE_ALLOW_LIST = new Set([
   'src/core/status-service/forum-aggregators.ts',
   'src/core/subagent/run.ts',
   'src/core/summon-system/index.ts',
+  // phase 234: claws/ enumeration helper 归 L6 Assembly (ML#3 真治、与 CLAWS_DIR 同 owner)
+  // 5 caller cascade 不可避免地反向 import L6 enumerateClaws、accepted-stable until ClawId brand cluster 完成
+  'src/core/contract/jobs/contract-observer.ts',
+  'src/core/cron/jobs/git-gc-weekly.ts',
+  'src/core/cron/jobs/outbox-summary/scan.ts',
 ]);
 
 function walk(dir: string): string[] {

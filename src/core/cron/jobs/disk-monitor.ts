@@ -5,6 +5,7 @@ import type { AuditLog } from '../../../foundation/audit/index.js';
 import { DISK_MONITOR_AUDIT_EVENTS } from './disk-monitor-audit-events.js';
 import type { StreamLog } from '../../../foundation/stream/index.js';
 import { CLAWSPACE_DIR } from '../../../assembly/claw-dirs.js';
+import { enumerateClaws } from '../../../assembly/enumerate-claws.js';
 import type { CronJob } from '../runner.js';
 import { parseSchedule } from '../runner.js';
 import type { ClawGlobalConfig } from '../../../foundation/config/index.js';
@@ -66,7 +67,7 @@ export async function runDiskMonitor(opts: DiskMonitorOptions): Promise<void> {
   if (!opts.fs.existsSync(clawsDir)) return;
 
   let totalSize = 0;
-  for (const clawId of opts.fs.listSync(clawsDir, { includeDirs: true }).map(e => e.name)) {
+  for (const clawId of enumerateClaws(opts.fs, clawsDir)) {
     if (opts.signal?.aborted) return;
     const clawspaceDir = path.join(clawsDir, clawId, CLAWSPACE_DIR);
     if (opts.fs.existsSync(clawspaceDir)) {

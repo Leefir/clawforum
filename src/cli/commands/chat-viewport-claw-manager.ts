@@ -10,6 +10,7 @@ import { isFileNotFound } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import { VIEWPORT_AUDIT_EVENTS } from './viewport-audit-events.js';
 import { makeClawId } from '../../constants.js';
+import { enumerateClaws } from '../../assembly/enumerate-claws.js';
 import { createChatViewportWatcher } from './chat-viewport-watcher.js';
 import { type ClawTrack, makeClawTrack } from './chat-viewport-claw-line.js';
 
@@ -171,9 +172,7 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
     if (!isMotion) return;
     let clawIds: string[] = [];
     try {
-      clawIds = fs.listSync(clawsDir, { includeDirs: true })
-        .filter(e => e.isDirectory)
-        .map(e => e.name);
+      clawIds = enumerateClaws(fs, clawsDir);
     } catch (err) {
       // phase 979 (r120 C fork / phase 975 B-α2):
       // ENOENT (clawsDir 首次启动) silent OK / non-ENOENT (FS perm / NFS hang / EACCES) audit emit 防 orphan watcher silent 累

@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { formatErr, assertNever } from "../../../foundation/utils/index.js";
 import { isFileNotFound, type FileSystem } from '../../../foundation/fs/types.js';
+import { enumerateClaws } from '../../../assembly/enumerate-claws.js';
 import type { AuditLog } from '../../../foundation/audit/index.js';
 import type { InboxMessageOptionsBase } from '../../../foundation/messaging/index.js';
 import { scanArchivedContracts } from './event-collector.js';
@@ -124,9 +125,7 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
   // 扫描 claws/ 目录
   let clawIds: string[];
   try {
-    clawIds = fs.listSync(clawsDir, { includeDirs: true })
-      .filter(e => e.isDirectory)
-      .map(e => e.name);
+    clawIds = enumerateClaws(fs, clawsDir);
   } catch (err) {
     if (isFileNotFound(err)) return;
     motionAudit.write(
