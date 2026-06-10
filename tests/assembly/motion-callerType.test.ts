@@ -81,6 +81,8 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
     const tool = createNotifyClawTool({
       isClawAlive: () => true,
       formatClawStatusHint,
+      clawExists: () => true,
+      hasActiveContract: () => false,
       fs,
       chestnutRoot: chestnutDir,
       audit: audit.audit,
@@ -118,6 +120,8 @@ describe('motion callerType assemble fix (phase 1160 P0-1)', () => {
     const tool = createNotifyClawTool({
       isClawAlive: () => true,
       formatClawStatusHint,
+      clawExists: () => true,
+      hasActiveContract: () => false,
       fs,
       chestnutRoot: chestnutDir,
       audit: audit.audit,

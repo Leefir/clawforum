@@ -90,12 +90,23 @@ export async function createMotionAddons(
   // notify_claw 工具：motion-only（D11 单向访问特权 / phase 477 design / phase 822 实施 / phase 1021 P0 三重错位 hotfix）
   // motion → claw inbox push、与 send（claw → 自己 outbox pull）物理不同、§10.3 不对称设计
   // fs = parentFs (baseDir = .chestnut/) align chestnutRoot、避免 systemFs (baseDir = motion/) 沙箱拒 sibling claws/<to> absolute path
+  const chestnutRoot = resolveChestnutRoot(clawDir, true);  // phase 241: hoist for callbacks
   toolRegistry.register(createNotifyClawTool({
     fs: parentFs,
-    chestnutRoot: resolveChestnutRoot(clawDir, true),  // phase 1406: motion-only context (motion clawDir = <root>/motion → root)
+    chestnutRoot,  // phase 1406: motion-only context (motion clawDir = <root>/motion → root)
     audit: auditWriter,
     isClawAlive: (clawId: string) => core.processManager.isAlive(makeClawId(clawId)), // phase 232
     formatClawStatusHint, // phase 232: M#1 single source
+    clawExists: (clawId: string) => parentFs.existsSync(path.join(CLAWS_DIR, clawId)), // phase 241
+    hasActiveContract: (clawId: string) => { // phase 241
+      try {
+        const clawFs = fsFactory(path.join(chestnutRoot, CLAWS_DIR, clawId));
+        const entries = clawFs.listSync(path.join('contract', 'active'), { includeDirs: true });
+        return entries.some(e => e.isDirectory);
+      } catch {
+        return false;
+      }
+    },
   }));
 
   // --- Heartbeat (motion + interval > 0, daemon.ts L158-169) ---
@@ -103,7 +114,6 @@ export async function createMotionAddons(
   if (heartbeatIntervalMs > 0) {
     try {
       // phase 84: DI callback - L6 装配期 bind chestnutRoot + MOTION_CLAW_ID + notifyClaw
-      const chestnutRoot = resolveChestnutRoot(clawDir, true);
       heartbeat = createHeartbeat({  // phase 1406: motion-only context
         interval: heartbeatIntervalMs / 1000,
         audit: auditWriter,

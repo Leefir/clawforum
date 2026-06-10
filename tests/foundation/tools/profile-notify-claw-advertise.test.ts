@@ -16,8 +16,12 @@ describe('phase 894 NEW.P0.1 — notify_claw profile advertise pipeline', () => 
     const fakeAudit = { write: () => {} } as any;
     registry.register(createNotifyClawTool({
       fs: fakeFs,
-      clawsDir: '/tmp/forum/claws',
+      chestnutRoot: '/tmp/forum',
       audit: fakeAudit,
+      isClawAlive: () => true,
+      formatClawStatusHint: () => undefined,
+      clawExists: () => true,
+      hasActiveContract: () => false,
     }));
 
     const fullTools = registry.getForProfile('full');
@@ -33,8 +37,12 @@ describe('phase 894 NEW.P0.1 — notify_claw profile advertise pipeline', () => 
     const fakeAudit = { write: () => {} } as any;
     registry.register(createNotifyClawTool({
       fs: fakeFs,
-      clawsDir: '/tmp/forum/claws',
+      chestnutRoot: '/tmp/forum',
       audit: fakeAudit,
+      isClawAlive: () => true,
+      formatClawStatusHint: () => undefined,
+      clawExists: () => true,
+      hasActiveContract: () => false,
     }));
 
     for (const profile of ['readonly', 'subagent', 'miner'] as const) {

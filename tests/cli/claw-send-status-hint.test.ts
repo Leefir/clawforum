@@ -126,4 +126,53 @@ describe('cli claw send status hint (phase 232)', () => {
     );
     expect(formatClawStatusHint('my-claw', true)).toBeUndefined();
   });
+
+  it('console.log 含 contract hint when no active contract (phase 241)', async () => {
+    const { sendCommand } = await import('../../src/cli/commands/claw-send.js');
+    const { getGlobalConfigPath } = await import('../../src/foundation/config/index.js');
+    const { createProcessManagerForCLI } = await import('../../src/foundation/process-manager/index.js');
+
+    vi.mocked(getGlobalConfigPath).mockReturnValue(path.join(tmpRoot, '.chestnut', 'config.yaml'));
+    vi.mocked(createProcessManagerForCLI).mockReturnValue({
+      isAlive: () => true,
+    } as any);
+
+    await sendCommand({ fsFactory }, 'test-claw', 'hello');
+
+    const calls = consoleLogSpy.mock.calls.map(c => c[0]);
+    expect(calls).toContain('Message sent to "test-claw"');
+    expect(calls).toContain(
+      'No active contract for "test-claw". Ask claw to reply via send tool in message body.',
+    );
+  });
+
+  it('console.log 不含 contract hint when has active contract (phase 241)', async () => {
+    const { sendCommand } = await import('../../src/cli/commands/claw-send.js');
+    const { getGlobalConfigPath } = await import('../../src/foundation/config/index.js');
+    const { createProcessManagerForCLI } = await import('../../src/foundation/process-manager/index.js');
+
+    // 模拟有 active contract
+    fs.mkdirSync(path.join(tmpRoot, '.chestnut', 'claws', 'test-claw', 'contract', 'active', 'contract-1'), { recursive: true });
+
+    vi.mocked(getGlobalConfigPath).mockReturnValue(path.join(tmpRoot, '.chestnut', 'config.yaml'));
+    vi.mocked(createProcessManagerForCLI).mockReturnValue({
+      isAlive: () => true,
+    } as any);
+
+    await sendCommand({ fsFactory }, 'test-claw', 'hello');
+
+    const calls = consoleLogSpy.mock.calls.map(c => c[0]);
+    expect(calls).toContain('Message sent to "test-claw"');
+    expect(calls).not.toContain(
+      expect.stringContaining('active contract'),
+    );
+  });
+
+  it('uses formatNoActiveContractHint helper (phase 241)', async () => {
+    const { formatNoActiveContractHint } = await import('../../src/cli/commands/claw-shared.js');
+
+    expect(formatNoActiveContractHint('my-claw')).toBe(
+      'No active contract for "my-claw". Ask claw to reply via send tool in message body.',
+    );
+  });
 });

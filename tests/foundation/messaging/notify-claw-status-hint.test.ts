@@ -35,9 +35,15 @@ describe('notify_claw tool status hint (phase 232)', () => {
     await cleanupTempDir(tempDir);
   });
 
+  const defaultDeps = {
+    formatClawStatusHint,
+    clawExists: () => true,
+    hasActiveContract: () => false,
+  };
+
   describe('status hint', () => {
     it('return content 含 hint when target claw not alive', async () => {
-      const tool = createNotifyClawTool({ formatClawStatusHint,
+      const tool = createNotifyClawTool({ ...defaultDeps,
         isClawAlive: () => false,
         fs,
         chestnutRoot: tempDir,
@@ -55,7 +61,7 @@ describe('notify_claw tool status hint (phase 232)', () => {
     });
 
     it('return content 不含 hint when target claw alive', async () => {
-      const tool = createNotifyClawTool({ formatClawStatusHint,
+      const tool = createNotifyClawTool({ ...defaultDeps,
         isClawAlive: () => true,
         fs,
         chestnutRoot: tempDir,
@@ -73,7 +79,7 @@ describe('notify_claw tool status hint (phase 232)', () => {
 
   describe('wrapper migration (M#3)', () => {
     it('calls notifyClaw wrapper — file written to target inbox', async () => {
-      const tool = createNotifyClawTool({ formatClawStatusHint,
+      const tool = createNotifyClawTool({ ...defaultDeps,
         isClawAlive: () => true,
         fs,
         chestnutRoot: tempDir,
@@ -92,7 +98,7 @@ describe('notify_claw tool status hint (phase 232)', () => {
     });
 
     it('NOTIFY_CLAW_SENT audit emit preserved after wrapper migration', async () => {
-      const tool = createNotifyClawTool({ formatClawStatusHint,
+      const tool = createNotifyClawTool({ ...defaultDeps,
         isClawAlive: () => true,
         fs,
         chestnutRoot: tempDir,
@@ -107,8 +113,9 @@ describe('notify_claw tool status hint (phase 232)', () => {
       expect(sentRows[0]).toContain(`claw=${targetClaw}`);
     });
 
-    it('DLQ for unknown destination preserved via wrapper validation guard', async () => {
-      const tool = createNotifyClawTool({ formatClawStatusHint,
+    it('DLQ for unknown destination preserved via clawExists callback (phase 241)', async () => {
+      const tool = createNotifyClawTool({ ...defaultDeps,
+        clawExists: () => false,
         isClawAlive: () => true,
         fs,
         chestnutRoot: tempDir,
@@ -119,9 +126,65 @@ describe('notify_claw tool status hint (phase 232)', () => {
         motionCtx,
       );
       expect(result.success).toBe(false);
-      expect(result.content).toMatch(/claw not found/i);
+      expect(result.content).toBe('Failed to notify ghost-claw: claw "ghost-claw" does not exist');
       const orphanRoot = path.join(tempDir, 'claws', 'ghost-claw');
       expect(await fs.exists(orphanRoot)).toBe(false);
+    });
+  });
+
+  describe('phase 241: active contract hint', () => {
+    it('return content 含 contract hint when alive but no active contract', async () => {
+      const tool = createNotifyClawTool({ ...defaultDeps,
+        isClawAlive: () => true,
+        hasActiveContract: () => false,
+        fs,
+        chestnutRoot: tempDir,
+        audit: audit.audit,
+      });
+      const result = await tool.execute(
+        { to: targetClaw, body: 'hello worker' },
+        motionCtx,
+      );
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('Notified worker-1');
+      expect(result.content).toContain(
+        'No active contract for "worker-1". Ask claw to reply via send tool in message body.',
+      );
+    });
+
+    it('return content 不含 contract hint when alive + has active contract', async () => {
+      const tool = createNotifyClawTool({ ...defaultDeps,
+        isClawAlive: () => true,
+        hasActiveContract: () => true,
+        fs,
+        chestnutRoot: tempDir,
+        audit: audit.audit,
+      });
+      const result = await tool.execute(
+        { to: targetClaw, body: 'hello worker' },
+        motionCtx,
+      );
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('Notified worker-1');
+      expect(result.content).not.toContain('active contract');
+    });
+
+    it('return content 含 status hint but not contract hint when stopped (not alive)', async () => {
+      const tool = createNotifyClawTool({ ...defaultDeps,
+        isClawAlive: () => false,
+        hasActiveContract: () => false,
+        fs,
+        chestnutRoot: tempDir,
+        audit: audit.audit,
+      });
+      const result = await tool.execute(
+        { to: targetClaw, body: 'hello worker' },
+        motionCtx,
+      );
+      expect(result.success).toBe(true);
+      expect(result.content).toContain('Notified worker-1');
+      expect(result.content).toContain('Note: claw "worker-1" is not running');
+      expect(result.content).not.toContain('active contract');
     });
   });
 });

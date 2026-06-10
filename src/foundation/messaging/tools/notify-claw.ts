@@ -8,11 +8,9 @@ import { formatErr } from "../../utils/index.js";
  * vs send：send 写自己 outbox（claw → motion 汇报 pull）/ notify_claw 写他人 inbox（motion → claw 指挥 push）/ 物理操作不同、§10.3 不对称设计登记
  */
 
-import path from 'node:path';
 import type { Tool, ExecContext, ToolPermissions } from '../../tools/index.js';
 import { MOTION_CLAW_ID } from '../../../constants.js';
 
-import { CLAWS_DIR } from '../../claw-paths.js';
 import type { ToolResult } from '../../tool-protocol/index.js';
 import type { FileSystem } from '../../fs/types.js';
 import type { AuditLog } from '../../audit/index.js';
@@ -26,6 +24,8 @@ export interface NotifyClawDeps {
   audit: AuditLog;        // motion audit（NOTIFY_CLAW_SENT/FAILED emit）
   isClawAlive: (clawId: string) => boolean; // phase 232: status hint callback
   formatClawStatusHint: (clawName: string, isAlive: boolean) => string | undefined; // phase 232: M#1 single source
+  clawExists: (clawId: string) => boolean; // phase 241: exist check callback
+  hasActiveContract: (clawId: string) => boolean; // phase 241: active contract hint callback
 }
 
 export function createNotifyClawTool(deps: NotifyClawDeps): Tool {
@@ -84,16 +84,14 @@ export function createNotifyClawTool(deps: NotifyClawDeps): Tool {
         return { success: false, content: `Failed to notify ${to}: invalid claw id` };
       }
 
-      // phase 895: orphan prevention — target claw root 必由 claw create 流程预建
-      // InboxWriter.ensureDirSync 否则静默建 orphan dir 违 DP「不丢弃静默」
-      const targetClawRoot = path.join(deps.chestnutRoot, CLAWS_DIR, to);
-      if (!deps.fs.existsSync(targetClawRoot)) {
+      // phase 241:前置 exist check — target claw 不存在时不调 wrapper、显式失败
+      if (!deps.clawExists(to)) {
         deps.audit.write(
           MESSAGING_AUDIT_EVENTS.NOTIFY_CLAW_FAILED,
           `claw=${to}`,
           `reason=claw_not_found`,
         );
-        return { success: false, content: `Failed to notify ${to}: claw not found` };
+        return { success: false, content: `Failed to notify ${to}: claw "${to}" does not exist` };
       }
 
       try {
@@ -111,8 +109,13 @@ export function createNotifyClawTool(deps: NotifyClawDeps): Tool {
         );
         const isAlive = deps.isClawAlive(to);
         const statusHint = deps.formatClawStatusHint(to, isAlive);
+        // phase 241: active contract hint — alive but no active contract → remind caller
+        const contractHint = isAlive && !deps.hasActiveContract(to)
+          ? `No active contract for "${to}". Ask claw to reply via send tool in message body.`
+          : undefined;
+        const hints = [statusHint, contractHint].filter(Boolean);
         const baseContent = `Notified ${to}: ${type} (interrupt=${interrupt})`;
-        const content = statusHint ? `${baseContent}. ${statusHint}` : baseContent;
+        const content = hints.length > 0 ? `${baseContent}. ${hints.join('. ')}` : baseContent;
         return {
           success: true,
           content,

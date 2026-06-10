@@ -30,27 +30,27 @@ describe('notify_claw production drift regression (phase 1021)', () => {
     await cleanupTempDir(tempDir);
   });
 
-  // 反向 1: 模拟 phase 1021 修复前的 production 配线 (systemFs baseDir = motion dir、chestnutRoot = workspaceRoot)
-  // 期望：existsSync(targetClawRoot) throw PermissionError、execute escape、NOTIFY_CLAW_FAILED 0 emit
-  it('production drift detection: fs.baseDir = motion dir ≠ chestnutRoot → existsSync throws + audit 0 emit', async () => {
-    // 模拟 production layout: workspaceRoot/.chestnut/motion
+  // 反向 1: phase 241 后 clawExists 为 callback、drift 场景由 callback 实现者负责
+  // 本测试验证：clawExists callback throw → execute escape、NOTIFY_CLAW_FAILED 0 emit
+  it('production drift detection: clawExists callback throws → execute escape + audit 0 emit', async () => {
     const workspaceRoot = tempDir;
     const chestnutDir = path.join(workspaceRoot, '.chestnut');
-    const motionDir = path.join(chestnutDir, 'motion');
-    await new NodeFileSystem({ baseDir: workspaceRoot }).ensureDir('.chestnut/motion');
     await new NodeFileSystem({ baseDir: workspaceRoot }).ensureDir('.chestnut/claws/worker-1');
 
-    // production 配线 drift: fs.baseDir = motionDir、chestnutRoot = workspaceRoot (错位 #1)
-    const driftFs = new NodeFileSystem({ baseDir: motionDir });
-    const driftChestnutRoot = workspaceRoot;  // ← 错位 (应为 chestnutDir)
+    const correctFs = new NodeFileSystem({ baseDir: chestnutDir });
+    const tool = createNotifyClawTool({
+      formatClawStatusHint,
+      isClawAlive: () => true,
+      clawExists: () => { throw new Error('drift detected'); },
+      hasActiveContract: () => false,
+      fs: correctFs,
+      chestnutRoot: chestnutDir,
+      audit: audit.audit,
+    });
 
-    const tool = createNotifyClawTool({ formatClawStatusHint, isClawAlive: () => true, fs: driftFs, chestnutRoot: driftChestnutRoot, audit: audit.audit });
-
-    // targetClawRoot = workspaceRoot/claws/worker-1 = absolute path、outside motionDir baseDir
-    // existsSync → resolveAndCheck throw PermissionError、escape execute()
     await expect(
       tool.execute({ to: 'worker-1', body: 'hello' }, { callerLabel: 'motion' } as any)
-    ).rejects.toThrow(/absolute; paths must be relative to base directory/);
+    ).rejects.toThrow(/drift detected/);
 
     // NOTIFY_CLAW_FAILED audit 0 emit (throw 在 try 之外)
     const failedRows = audit.events.filter(r => r[0] === MESSAGING_AUDIT_EVENTS.NOTIFY_CLAW_FAILED);
@@ -67,7 +67,7 @@ describe('notify_claw production drift regression (phase 1021)', () => {
     const correctFs = new NodeFileSystem({ baseDir: chestnutDir });
     await correctFs.ensureDir('claws/worker-1');
 
-    const tool = createNotifyClawTool({ formatClawStatusHint, isClawAlive: () => true, fs: correctFs, chestnutRoot: chestnutDir, audit: audit.audit });
+    const tool = createNotifyClawTool({ formatClawStatusHint, isClawAlive: () => true, clawExists: () => true, hasActiveContract: () => false, fs: correctFs, chestnutRoot: chestnutDir, audit: audit.audit });
     const result = await tool.execute({ to: 'worker-1', body: 'hello' }, { callerLabel: 'motion' } as any);
 
     expect(result.success).toBe(true);
@@ -83,11 +83,11 @@ describe('notify_claw production drift regression (phase 1021)', () => {
     const correctFs = new NodeFileSystem({ baseDir: chestnutDir });
     await correctFs.ensureDir('claws');  // claws dir exists but no worker-1 subdir
 
-    const tool = createNotifyClawTool({ formatClawStatusHint, isClawAlive: () => true, fs: correctFs, chestnutRoot: chestnutDir, audit: audit.audit });
+    const tool = createNotifyClawTool({ formatClawStatusHint, isClawAlive: () => true, clawExists: () => false, hasActiveContract: () => false, fs: correctFs, chestnutRoot: chestnutDir, audit: audit.audit });
     const result = await tool.execute({ to: 'worker-1', body: 'hello' }, { callerLabel: 'motion' } as any);
 
     expect(result.success).toBe(false);
-    expect(result.content).toMatch(/claw not found/);
+    expect(result.content).toBe('Failed to notify worker-1: claw "worker-1" does not exist');
     const failedRows = audit.events.filter(r => r[0] === MESSAGING_AUDIT_EVENTS.NOTIFY_CLAW_FAILED);
     expect(failedRows.length).toBe(1);
     expect(failedRows[0]).toContain('reason=claw_not_found');

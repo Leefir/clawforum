@@ -36,6 +36,18 @@ export function formatClawStatusHint(clawName: string, isAlive: boolean): string
 }
 
 /**
+ * Format a hint message for caller when target claw has no active contract.
+ *
+ * @returns hint string asking to request reply via send tool, or undefined if there is an active contract.
+ * @example
+ *   formatNoActiveContractHint('my-claw')
+ *     === 'No active contract for "my-claw". Ask claw to reply via send tool in message body.'
+ */
+export function formatNoActiveContractHint(clawName: string): string | undefined {
+  return `No active contract for "${clawName}". Ask claw to reply via send tool in message body.`;
+}
+
+/**
  * 从 stream.jsonl 读取最后活跃时间（统一与 watchdog 指标）
  */
 export async function getLastActiveMs(clawFs: FileSystem, audit: AuditLog): Promise<number | undefined> {

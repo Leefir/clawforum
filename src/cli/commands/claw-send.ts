@@ -11,7 +11,7 @@ import {
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { notifyClaw } from '../../foundation/messaging/notify.js';
-import { formatClawStatusHint } from './claw-shared.js';
+import { formatClawStatusHint, formatNoActiveContractHint } from './claw-shared.js';
 import { createSystemAudit } from '../../foundation/audit/index.js';
 import { CLAWS_DIR } from '../../foundation/claw-paths.js';
 import { createProcessManagerForCLI } from '../../foundation/process-manager/index.js';
@@ -49,4 +49,17 @@ export async function sendCommand(
   const isAlive = processManager.isAlive(makeClawId(name));
   const statusHint = formatClawStatusHint(name, isAlive);
   if (statusHint) console.log(statusHint);
+
+  // phase 241: active contract hint — no active contract → remind caller
+  const clawFs = deps.fsFactory(clawDir);
+  let hasContract = false;
+  try {
+    const entries = clawFs.listSync(path.join('contract', 'active'), { includeDirs: true });
+    hasContract = entries.some(e => e.isDirectory);
+  } catch {
+    // silent: contract dir scan failure is legitimate → treat as no active contract
+    hasContract = false;
+  }
+  const contractHint = !hasContract ? formatNoActiveContractHint(name) : undefined;
+  if (contractHint) console.log(contractHint);
 }
