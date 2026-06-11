@@ -109,8 +109,6 @@ export interface ContractSystemDeps {
   clawId: ClawId;
   /** phase 104: caller (装配期) pre-bound notifyClaw (bind fs + chestnutRoot + audit) */
   notifyClaw: NotifyClawFn;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   fs: FileSystem;
   audit: AuditLog;
   llm?: LLMOrchestrator;
@@ -128,7 +126,6 @@ export class ContractSystem {
   private readonly audit: AuditLog;
   private llm?: LLMOrchestrator;
   private notifyClaw: NotifyClawFn;
-  private clawsDir: string;
   private toolRegistry: ToolRegistry;
   private toolTimeoutMs?: number;
   private fsFactory: (baseDir: string) => FileSystem;
@@ -228,7 +225,6 @@ export class ContractSystem {
     this.audit = deps.audit;
     this.llm = deps.llm;
     this.notifyClaw = deps.notifyClaw;
-    this.clawsDir = deps.clawsDir;
     this.toolRegistry = deps.toolRegistry;
     this.toolTimeoutMs = deps.toolTimeoutMs;
     this.fsFactory = deps.fsFactory;
@@ -407,7 +403,7 @@ export class ContractSystem {
       verificationMutex: this.verificationMutex,
       runVerifierWithCancel: async (contractId, config) => {
         const controller = new AbortController();
-        const promise = this.runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory, clawsDir: this.clawsDir, runSubagent: this.runSubagent });
+        const promise = this.runContractVerifier({ ...config, signal: controller.signal, contractId, fsFactory: this.fsFactory, runSubagent: this.runSubagent });
         this._registerVerifierController(contractId, controller, promise);
         try {
           return await promise;

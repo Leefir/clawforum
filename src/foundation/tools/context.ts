@@ -36,9 +36,6 @@ export interface ExecContextImplOptions {
   /** Claw workspace directory */
   clawDir: string;
 
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
-  
   /** phase 509 / 可选 / 默认 fallback = path.join(clawDir, CLAWSPACE_DIR) */
   workspaceDir?: string;
 
@@ -155,7 +152,6 @@ export function cloneExecContext(
 export class ExecContextImpl implements ExecContext {
   clawId: string;
   clawDir: string;
-  clawsDir: string;  // phase 98
   workspaceDir: string;
   syncDir: string;
   profile: ToolProfile;
@@ -188,7 +184,6 @@ export class ExecContextImpl implements ExecContext {
   constructor(options: ExecContextImplOptions) {
     this.clawId = options.clawId;
     this.clawDir = options.clawDir;
-    this.clawsDir = options.clawsDir;  // phase 98
     this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.syncDir = options.syncDir;
     this.profile = options.profile;

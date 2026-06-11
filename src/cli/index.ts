@@ -38,7 +38,7 @@ import { getChestnutRoot, getClawDir, loadGlobalConfig } from '../foundation/con
 import { createSummonStateStore, createSummonVerifyPolicy } from '../core/summon-system/index.js';
 import { createContractSystem } from '../core/contract/index.js';
 import { resolveChestnutRoot } from '../foundation/install-paths.js';
-import { CLAWS_DIR } from '../foundation/claw-paths.js';
+// CLAWS_DIR removed: phase 263
 import { createSystemAudit } from '../foundation/audit/index.js';
 import { notifyClaw } from '../foundation/messaging/index.js';
 import { makeClawId } from '../core/claw-id.js';
@@ -259,7 +259,6 @@ contractCmd
         audit: clawAudit,
         toolRegistry,
         fsFactory,
-        clawsDir: path.join(chestnutRoot, CLAWS_DIR),
         notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, clawAudit),
       });
       const summonVerifyPolicy = createSummonVerifyPolicy({ summonStateStore, auditWriter: clawAudit });

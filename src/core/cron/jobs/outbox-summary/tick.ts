@@ -22,8 +22,6 @@ import { findExistingSummaryByHash } from './dedup.js';
 import { writeNewSummary } from './write.js';
 
 interface OutboxSummaryTickDeps {
-  /** phase 84: caller (L6 装配期) 算好 claws dir 后传入 */
-  clawsDir: string;
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   fs: FileSystem;
@@ -36,7 +34,6 @@ interface OutboxSummaryTickDeps {
 
 export async function runOutboxSummaryTick(deps: OutboxSummaryTickDeps): Promise<void> {
   const state = await scanOutboxes({
-    clawsDir: deps.clawsDir,
     clawTopology: deps.clawTopology,
     fs: deps.fs,
     outboxReader: deps.outboxReader,

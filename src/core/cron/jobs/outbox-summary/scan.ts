@@ -19,8 +19,6 @@ import { PREVIEW_MAX_CHARS } from './types.js';
 import type { OutboxSummaryState } from './types.js';
 
 export interface ScanDeps {
-  /** phase 84: caller (L6 装配期) 算好 claws dir 后传入 / L4 模块 0 知 chestnut 拓扑 */
-  clawsDir: string;
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   fs: FileSystem;             // 仅供 enumerate claws/

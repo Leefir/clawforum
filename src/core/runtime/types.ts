@@ -82,8 +82,6 @@ export interface RuntimeDependencies {
 export interface RuntimeOptions {
   clawId: string;
   clawDir: string;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   llmConfig: LLMOrchestratorConfig;
   maxSteps?: number;
   toolProfile?: ToolProfile;

@@ -51,8 +51,6 @@ export interface AsyncTaskSystemOptions {
   toolTimeoutMs?: number;
   permissionChecker?: PermissionChecker;
   fsFactory: (baseDir: string) => FileSystem;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   // NEW phase 1369: AskMotionTool factory inject (per phase 619 caller DIP enforce template / cut async-task→summon reverse)
   askMotionToolFactory: (llm: LLMOrchestrator, motionDialogStore: DialogStore, auditWriter?: AuditLog) => import('../../foundation/tools/index.js').Tool;
   /** phase 86: optional WatcherFactory for DI (test mock injection) */

@@ -1,7 +1,7 @@
 import path from 'path';
 import { formatErr } from '../foundation/utils/index.js';
 import { resolveChestnutRoot } from '../foundation/install-paths.js';
-import { CLAWS_DIR } from '../foundation/claw-paths.js';
+// CLAWS_DIR removed: phase 263
 
 import type { FileSystem } from '../foundation/fs/types.js';
 import { NodeFileSystem } from '../foundation/fs/node-fs.js';
@@ -224,7 +224,6 @@ export async function createCoreInfrastructure(input: CoreInfraInput): Promise<C
     }
 
     // --- L3-L5: contractManager ---
-    const clawsDir = path.join(chestnutRoot, CLAWS_DIR);  // phase 98
 
     let contractManager: ContractSystem;
     try {
@@ -233,7 +232,6 @@ export async function createCoreInfrastructure(input: CoreInfraInput): Promise<C
         toolRegistry,   // phase 704: toolRegistry 注入 ContractSystem
         toolTimeoutMs,  // phase 1029 / F-2
         fsFactory,
-        clawsDir,
         // phase 104: pre-bound notifyClaw (bind fs + chestnutRoot + audit)
         notifyClaw: (targetClawId, message) =>
           notifyClawFn(systemFs, chestnutRoot, targetClawId, message, auditWriter!),

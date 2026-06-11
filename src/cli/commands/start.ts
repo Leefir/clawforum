@@ -8,7 +8,7 @@
  */
 
 import { getWorkspaceRoot, makeChestnutRoot } from '../../foundation/install-paths.js';
-import { CLAWS_DIR } from '../../foundation/claw-paths.js';
+// CLAWS_DIR removed: phase 263
 import * as path from 'path';
 import { formatErr } from "../../foundation/utils/index.js";
 import * as readline from 'readline';
@@ -207,7 +207,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     const { ensureWatchdog } = await import('../../watchdog/ensure.js');
     await ensureWatchdog(deps.fsFactory);
 
-    const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(path.dirname(motionDir), CLAWS_DIR), notifyClaw: (targetClawId, message) => notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), targetClawId, message, notifyAudit) });
+    const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, notifyClaw: (targetClawId, message) => notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), targetClawId, message, notifyAudit) });
     const contractId = await manager.create({
       title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
@@ -236,7 +236,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
 
     
     if (onboarding.state === 'not_found') {
-      const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(path.dirname(motionDir), CLAWS_DIR), notifyClaw: (targetClawId, message) => notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), targetClawId, message, notifyAudit) });
+      const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, notifyClaw: (targetClawId, message) => notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), targetClawId, message, notifyAudit) });
       const contractId = await manager.create({
         title: 'Onboarding',
         goal: 'Get to know the user and establish your identity before anything else.',

@@ -22,7 +22,6 @@ export interface ViewportCommand {
 
 export interface CommandsClawDeps {
   isMotion: boolean;
-  clawsDir: string;
   clawTopology: ClawTopology;
   clawTrackMap: Map<string, ClawTrack>;
   fs: FileSystem;

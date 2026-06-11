@@ -37,7 +37,6 @@ interface DreamStateData {
 }
 
 export interface DeepDreamOptions {
-  clawsDir: string;                              // phase 84: caller (装配期) 算好 claws dir 后传入
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   motionDir?: string;                    // motion 域 / dream-outputs 归属

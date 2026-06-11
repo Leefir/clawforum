@@ -43,8 +43,6 @@ export interface RunSubagentOptions {
 
   // 基础设施依赖（caller 注入）
   clawDir: string;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   fs: FileSystem;
   fsFactory?: (baseDir: string) => FileSystem;
   llm: LLMOrchestrator;
@@ -116,7 +114,6 @@ export async function runSubagent(opts: RunSubagentOptions): Promise<RunSubagent
     registry: opts.registry,
     defaultTimeoutMs: opts.toolTimeoutMs,
     clawDir: opts.clawDir,
-    clawsDir: opts.clawsDir,
     syncDir: path.join(opts.clawDir, TASKS_SYNC_DIR),
     workspaceDir: sharedWorkspaceDir,
     fs: opts.fs,

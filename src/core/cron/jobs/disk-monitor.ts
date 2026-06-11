@@ -45,7 +45,6 @@ function getDirSize(dir: string, fs: FileSystem, audit?: AuditLog, signal?: Abor
 }
 
 export interface DiskMonitorOptions {
-  clawsDir: string;   // phase 84: caller (装配期) 算好 claws dir 后传入
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   limitMB: number;        // 阈值（informational only / 仅作开发者参考、无 action）
@@ -57,7 +56,6 @@ export interface DiskMonitorOptions {
 }
 
 export interface DiskMonitorJobDeps {
-  clawsDir: string;
   clawTopology: ClawTopology;
   limitMB: number;
   fs: FileSystem;

@@ -12,7 +12,6 @@ import type { ClawTopology } from '../../core/claw-topology/index.js';
 
 
 export interface MemorySystemOptions {
-  clawsDir: string;       // phase 84: caller (装配期) 算好 claws dir 后传入
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   motionDir: string;
@@ -36,7 +35,6 @@ export class MemorySystem {
 
   async runDeepDream(maxCompressionTokens?: number, opts?: { signal?: AbortSignal }): Promise<void> {
     return runDeepDream({
-      clawsDir: this.opts.clawsDir,
       clawTopology: this.opts.clawTopology,
       motionDir: this.opts.motionDir,
       motionFs: this.opts.motionFs,

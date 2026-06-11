@@ -87,7 +87,6 @@ export class AsyncTaskSystem {
   private readonly toolTimeoutMs?: number;
   private permissionChecker?: PermissionChecker;
   private fsFactory: (baseDir: string) => FileSystem;
-  private clawsDir: string;
   private readonly askMotionToolFactory: (llm: LLMOrchestrator, motionDialogStore: DialogStore, auditWriter?: AuditLog) => Tool;
   private _shuttingDown = false;
 
@@ -132,7 +131,6 @@ export class AsyncTaskSystem {
     this.toolTimeoutMs = options.toolTimeoutMs;
     this.permissionChecker = options.permissionChecker;
     this.fsFactory = options.fsFactory;
-    this.clawsDir = options.clawsDir;
     this.askMotionToolFactory = options.askMotionToolFactory;
 
     // Strategy table: dispatches task body by kind. Adding a new kind
@@ -179,7 +177,6 @@ export class AsyncTaskSystem {
           llm: this.llm,
           registry: this.registry,
           clawDir: this.clawDir,
-          clawsDir: this.clawsDir,
           parentStreamLog: this.parentStreamLog,
           postProcessors: this.postProcessors,
           mainDialogStore: this.mainDialogStore,
@@ -700,7 +697,6 @@ export class AsyncTaskSystem {
     return {
       clawId: task.parentClawId,
       clawDir: task.parentClawDir,
-      clawsDir: this.clawsDir,
       workspaceDir: path.join(task.parentClawDir, CLAWSPACE_DIR),
       syncDir: path.join(task.parentClawDir, TASKS_SYNC_DIR),
       allowedGroups: CALLER_TYPE_TO_GROUPS[task.callerType ?? 'claw'],

@@ -14,8 +14,7 @@ import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
 import { makeContractId } from '../../core/contract/types.js';
 import { makeClawId } from '../../core/claw-id.js';
-import { CLAWS_DIR } from '../../foundation/claw-paths.js';
-import * as path from 'path';
+// CLAWS_DIR and path removed: phase 263
 
 /** contract-show evidence console.log 显示截断 cap（trigger=keep 同值、'…' Unicode append）*/
 const EVIDENCE_PREVIEW_CHARS = 300;
@@ -25,7 +24,7 @@ export async function contractShowCommand(deps: { fsFactory: (baseDir: string) =
   const clawFs = deps.fsFactory(clawDir);
   const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);  // phase 1406: 单一 truth source
   const audit = createSystemAudit(clawFs, clawDir);
-  const manager = new ContractSystem({ clawDir, clawId: makeClawId(clawId), fs: clawFs, audit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, clawsDir: path.join(chestnutRoot, CLAWS_DIR), notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, audit) });
+  const manager = new ContractSystem({ clawDir, clawId: makeClawId(clawId), fs: clawFs, audit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, notifyClaw: (targetClawId, message) => notifyClaw(clawFs, chestnutRoot, targetClawId, message, audit) });
 
   // 若未指定 contractId，用 active 契约
   let resolvedId = contractId;

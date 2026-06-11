@@ -148,7 +148,6 @@ export async function createMotionAddons(
       // M#3: random-dream 读取 contract progress 走 ContractSystem API（phase 1104）
       const clawContractBridge = createClawContractBridge({
         fsFactory,
-        clawsDir: path.join(chestnutRoot, CLAWS_DIR),  // phase 84
         clawTopology: core.topology,  // phase 259
         // phase 104: pre-bound notifyClaw
         notifyClaw: (targetClawId, message) =>
@@ -163,7 +162,6 @@ export async function createMotionAddons(
 
       try {
         memorySystem = createMemorySystem({
-          clawsDir: path.join(chestnutRoot, CLAWS_DIR),  // phase 84
           clawTopology: core.topology,  // phase 259
           motionDir: clawDir,
           fs: chestnutFs,
@@ -190,7 +188,6 @@ export async function createMotionAddons(
     try {
       const cronJobs = [
         createDiskMonitorJob({
-          clawsDir: path.join(chestnutRoot, CLAWS_DIR),  // phase 84
           clawTopology: core.topology,  // phase 259
           limitMB: diskLimitMB,
           fs: chestnutFs,
@@ -212,7 +209,6 @@ export async function createMotionAddons(
           audit: auditWriter,
         }, globalConfig),
         createContractObserverJob({
-          clawsDir: path.join(chestnutRoot, CLAWS_DIR),    // phase 101
           clawTopology: core.topology,  // phase 259
           motionDir: path.join(chestnutRoot, 'motion'),  // phase 101
           fs: chestnutFs,
@@ -220,7 +216,6 @@ export async function createMotionAddons(
           notifyMotion: (msg) => notifyClaw(chestnutFs, chestnutRoot, MOTION_CLAW_ID, msg, auditWriter),
         }, globalConfig),
         createGitGcWeeklyJob({
-          clawsDir: path.join(chestnutRoot, CLAWS_DIR),  // phase 84
           clawTopology: core.topology,  // phase 259
           fs: chestnutFs,
           audit: auditWriter,
@@ -244,7 +239,6 @@ export async function createMotionAddons(
           streamLog: streamWriter,   // phase 8: viewport stream (取代 motionInbox)
         }, globalConfig),
         createOutboxSummaryJob({
-          clawsDir: path.join(chestnutRoot, CLAWS_DIR),  // phase 84: L4 0 知 chestnut 拓扑、装配期算
           clawTopology: core.topology,  // phase 259
           fs: chestnutFs,
           audit: auditWriter,

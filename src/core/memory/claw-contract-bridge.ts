@@ -12,8 +12,6 @@ import type { ClawTopology } from '../../core/claw-topology/index.js';
 
 export interface ClawContractBridgeDeps {
   fsFactory: (baseDir: string) => FileSystem;
-  /** phase 84: claws dir 用于 cross-claw enum；contract Manager 仍接 ChestnutRoot brand、保过渡 */
-  clawsDir: string;
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   /** phase 104: pre-bound notifyClaw - caller (装配期) bind */
@@ -50,7 +48,6 @@ export function createClawContractBridge(deps: ClawContractBridgeDeps): ClawCont
           toolTimeoutMs: deps.toolTimeoutMs,
           fsFactory: deps.fsFactory,
           notifyClaw: deps.notifyClaw,
-          clawsDir: deps.clawsDir,
         });
         cache.set(clawId, cs);
       }

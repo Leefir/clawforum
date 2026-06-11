@@ -411,7 +411,6 @@ export class ToolExecutorImpl implements IToolExecutor {
  */
 export class ToolExecutor extends ToolExecutorImpl {
   private clawDir: string;
-  private clawsDir: string;
   private syncDir: string;
   private workspaceDir: string;
   private fs: FileSystem;
@@ -422,7 +421,6 @@ export class ToolExecutor extends ToolExecutorImpl {
   constructor(options: ToolExecutorOptions) {
     super(options.registry, options.defaultTimeoutMs, options.scheduleAsyncTool);
     this.clawDir = options.clawDir;
-    this.clawsDir = options.clawsDir;
     this.syncDir = options.syncDir;
     this.workspaceDir = options.workspaceDir ?? path.join(options.clawDir, CLAWSPACE_DIR);
     this.fs = options.fs;
@@ -442,7 +440,6 @@ export class ToolExecutor extends ToolExecutorImpl {
     return new ExecContextImpl({
       clawId: options.clawId,
       clawDir: this.clawDir,
-      clawsDir: this.clawsDir,
       workspaceDir: this.workspaceDir,
       syncDir: this.syncDir,
       profile,

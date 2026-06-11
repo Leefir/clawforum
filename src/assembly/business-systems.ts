@@ -84,9 +84,6 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
     toolTimeoutMs, maxConcurrent, outboxWriter,
   } = core;
 
-  const chestnutRoot = resolveChestnutRoot(clawDir, isMotion);
-  const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
-
   // A.6 selfInboxDir 提前到 taskSystem / callback 定义前（双链路保险 / cron job 注册块同步引用）
   const permissionChecker = createClawPermissionChecker({
     clawDir,
@@ -118,7 +115,6 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
       permissionChecker,
       selfInbox,
       fsFactory,
-      clawsDir,
       askMotionToolFactory: (llmArg, motionDialogStore, auditWriterArg) => new AskMotionTool(llmArg, motionDialogStore, auditWriterArg),
     });
   } catch (e) {
@@ -170,7 +166,6 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
             toolRegistry,
             toolTimeoutMs,
             fsFactory,
-            clawsDir: path.join(cr, CLAWS_DIR),
             // phase 104: pre-bound notifyClaw
             notifyClaw: (targetClawId, message) =>
               notifyClawFn(fs, cr, targetClawId, message, perClawAudit),

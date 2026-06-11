@@ -20,7 +20,6 @@ export interface ClawManagerDeps {
   pm: { readPid: (label: import('../../constants.js').ClawId) => Promise<{ pid: number; startTime?: string } | null> };
   audit: AuditLog;
   isMotion: boolean;
-  clawsDir: string;
   clawTopology: ClawTopology;
   clawTrackMap: Map<string, ClawTrack>;
   updateClawPanel: (clawTrackMap: Map<string, ClawTrack>) => void;

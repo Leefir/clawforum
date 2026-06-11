@@ -90,8 +90,6 @@ export interface FileState {
 export interface ClawIdentity {
   clawId: string;
   clawDir: string;
-  /** phase 98: caller (装配期) 算好的 claws dir、L4/L2c 0 知 chestnut 拓扑 */
-  clawsDir: string;
   /** phase 509 NEW / 装配期 per-callerType resolve / 主代理=clawDir/clawspace / 子代理=clawDir/tasks/subagents/<task-id> (phase 512 落地) */
   workspaceDir: string;
   /** 装配-level 共享 sync dir（兜底落盘 + FileTool write_backups 共用 / 应然 §A.7）/ Assembly 装配期注入 */
@@ -302,8 +300,6 @@ export interface IToolExecutor {
 export interface ToolExecutorOptions {
   registry: ToolRegistry;
   clawDir: string;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   syncDir: string;
   workspaceDir?: string;
   fs: FileSystem;

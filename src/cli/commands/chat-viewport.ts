@@ -253,7 +253,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   }
 
   const clawManager = createClawManager({
-    fs: clawsFs, pm, audit: options.audit, isMotion, clawsDir, clawTopology, clawTrackMap,
+    fs: clawsFs, pm, audit: options.audit, isMotion, clawTopology, clawTrackMap,
     updateClawPanel: clawPanel.updateClawPanel,
     requestRender: () => tui.requestRender(),
   });
@@ -325,7 +325,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
 
   // --- 注册 slash 命令 ---
   for (const cmd of createViewportCommands({
-    isMotion, clawsDir, clawTopology, clawTrackMap, fs,
+    isMotion, clawTopology, clawTrackMap, fs,
     appendOutput: displayWithHolder.appendOutput,
     invalidateBodyCache: displayWithHolder.invalidateBodyCache,
     clearOutputLines: displayWithHolder.clearOutputLines,
@@ -476,7 +476,7 @@ export async function runChatViewport(options: ChatViewportOptions): Promise<voi
   let clawScanInterval: NodeJS.Timeout | null = null;
   if (clawsDir) {
     const rescanClawsDir = createRescanClawsDir({
-      clawsFs, clawsDir, clawTopology, clawTrackMap, clawManager,
+      clawsFs, clawTopology, clawTrackMap, clawManager,
       audit: options.audit, agentDir: options.agentDir, updateClawPanel: clawPanel.updateClawPanel,
     });
     clawManager.refreshAllClawStatus();

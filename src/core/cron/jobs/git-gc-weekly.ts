@@ -17,7 +17,6 @@ import type { ClawGlobalConfig } from '../../../foundation/config/index.js';
 export const GIT_GC_WEEKLY_CRON_TIMEOUT_MS = 120_000;
 
 export interface GitGcWeeklyOptions {
-  clawsDir: string;
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   fs: FileSystem;
@@ -26,7 +25,6 @@ export interface GitGcWeeklyOptions {
 }
 
 export interface GitGcWeeklyJobDeps {
-  clawsDir: string;
   clawTopology: ClawTopology;
   fs: FileSystem;
   audit: AuditLog;

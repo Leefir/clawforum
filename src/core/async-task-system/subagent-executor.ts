@@ -39,8 +39,6 @@ interface ExecuteSubAgentTaskDeps {
   llm: LLMOrchestrator;
   registry: ToolRegistry;
   clawDir: string;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   parentStreamLog?: StreamLog;
   postProcessors: Map<string, PostProcessor>;
   mainDialogStore?: DialogStore;
@@ -157,7 +155,6 @@ export async function executeSubAgentTask(
       agentId: task.id,
       callerType: task.callerType,
       clawDir,
-      clawsDir: deps.clawsDir,
       fs,
       fsFactory,
       llm,

@@ -135,8 +135,6 @@ export interface VerifierIdentityConfig {
   agentId: string;
   prompt: string;
   clawDir: string;
-  /** phase 98: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   clawId: ClawId;               // phase 514 / caller's clawId for subagent context
   /** phase 1080: contractId for crash-recovery status check / phase 1151: made required for audit emit contractId col */
   contractId: ContractId;

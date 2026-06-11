@@ -36,7 +36,6 @@ export { OUTBOX_SUMMARY_AUDIT_EVENTS };
 
 // cron wrapper
 export interface OutboxSummaryJobOptions {
-  clawsDir: string;
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   fs: FileSystem;
@@ -48,7 +47,6 @@ export interface OutboxSummaryJobOptions {
 }
 
 export interface OutboxSummaryJobDeps {
-  clawsDir: string;
   clawTopology: ClawTopology;
   fs: FileSystem;
   audit: AuditLog;
@@ -60,7 +58,6 @@ export interface OutboxSummaryJobDeps {
 export async function runOutboxSummary(opts: OutboxSummaryJobOptions): Promise<void> {
   try {
     await runOutboxSummaryTick({
-      clawsDir: opts.clawsDir,
       clawTopology: opts.clawTopology,
       fs: opts.fs,
       audit: opts.audit,

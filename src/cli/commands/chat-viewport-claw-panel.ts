@@ -52,7 +52,6 @@ export function createClawPanel(deps: ClawPanelDeps) {
 
 export interface RescanClawsDirDeps {
   clawsFs: FileSystem;
-  clawsDir: string;
   clawTopology: ClawTopology;
   clawTrackMap: Map<string, ClawTrack>;
   clawManager: ReturnType<typeof createClawManager>;

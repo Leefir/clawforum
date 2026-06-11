@@ -23,8 +23,6 @@ import { makeClawId, MOTION_CLAW_ID } from '../../../constants.js';
 export const CONTRACT_OBSERVER_CRON_TIMEOUT_MS = 5 * 60_000;
 
 export interface ContractObserverOptions {
-  /** phase 101: caller (装配期) 算好的 claws dir */
-  clawsDir: string;
   /** phase 259: caller (装配期) 注入的 claw topology */
   clawTopology: ClawTopology;
   /** phase 101: caller (装配期) 算好的 motion dir (state file 位置) */
@@ -37,7 +35,6 @@ export interface ContractObserverOptions {
 }
 
 export interface ContractObserverJobDeps {
-  clawsDir: string;
   clawTopology: ClawTopology;
   motionDir: string;
   fs: FileSystem;
@@ -115,7 +112,7 @@ function loadObserverState(fs: FileSystem, stateFile: string, audit: AuditLog): 
 }
 
 export async function runContractObserver(options: ContractObserverOptions): Promise<void> {
-  const { clawsDir, clawTopology, motionDir, fs, motionAudit, notifyMotion } = options;
+  const { clawTopology, motionDir, fs, motionAudit, notifyMotion } = options;
 
   // phase 37: tickStart 在 scan 开始捕获、写为 lastCheckTs（不再 end-of-scan now、关 race window）
   const tickStart = Date.now();
@@ -133,7 +130,6 @@ export async function runContractObserver(options: ContractObserverOptions): Pro
     if (isFileNotFound(err)) return;
     motionAudit.write(
       CONTRACT_AUDIT_EVENTS.CONTRACT_DIR_SCAN_FAILED,
-      `dir=${clawsDir}`,
       `reason=${formatErr(err)}`,
     );
     return;

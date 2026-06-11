@@ -52,7 +52,6 @@ describe('MemorySystem', () => {
       await sys.runDeepDream();
       expect(runDeepDreamMock).toHaveBeenCalledOnce();
       expect(runDeepDreamMock).toHaveBeenCalledWith(expect.objectContaining({
-        clawsDir: '/tmp/chestnut/claws',
         clawTopology: mockTopology,
         llmConfig: mockOpts.llmConfig,
         llmService: mockOpts.llmService,
