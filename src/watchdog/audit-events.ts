@@ -37,8 +37,6 @@ export const WATCHDOG_AUDIT_EVENTS = {
   CLAW_INACTIVITY_CHECK_FAILED: 'watchdog_claw_inactivity_check_failed',
   SUBSCRIPTION_PROCESS_FAILED: 'watchdog_subscription_process_failed',
   WATCHDOG_RESTART_TRIGGERED: 'watchdog_restart_triggered',
-  PROCESS_SPAWN: 'process_spawn',
-  PROCESS_SPAWN_FAILED: 'process_spawn_failed',
   WATCHDOG_START: 'watchdog_start',
   WATCHDOG_CHECK: 'watchdog_check',
 } as const;
@@ -81,8 +79,6 @@ export const WATCHDOG_FILE_ROUTING: Readonly<Record<string, 'audit'>> = {
   watchdog_claw_inactivity_check_failed: 'audit',
   watchdog_subscription_process_failed: 'audit',
   watchdog_restart_triggered: 'audit',
-  process_spawn: 'audit',
-  process_spawn_failed: 'audit',
   watchdog_start: 'audit',
   watchdog_check: 'audit',
 } as const;

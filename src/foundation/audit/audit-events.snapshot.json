@@ -876,8 +876,6 @@
       "watchdog_claw_scan",
       "watchdog_claws_dir_list_failed",
       "watchdog_cleanup_failed",
-      "process_spawn",
-      "process_spawn_failed",
       "watchdog_check",
       "watchdog_contract_dir_scan_failed",
       "watchdog_crash",

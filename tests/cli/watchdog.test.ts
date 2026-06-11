@@ -609,7 +609,7 @@ describe('runWatchdogLoop', () => {
     const auditPath = path.join(chestnutDir, 'audit.tsv');
     const auditContent = fs.existsSync(auditPath) ? fs.readFileSync(auditPath, 'utf-8') : '';
     expect(auditContent).toContain('watchdog_restart_triggered');
-    expect(auditContent).toContain('process_spawn');
+    expect(auditContent).toContain('process_spawned');
   });
 
   it('writes process_spawn_failed when restart fails', async () => {

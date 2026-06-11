@@ -30,6 +30,7 @@ import { type AuditLog, createAuditWriter } from '../foundation/audit/index.js';
 import { createProcessManagerForCLI } from '../foundation/process-manager/index.js';
 import { LockConflictError } from '../foundation/process-manager/index.js';
 import { WATCHDOG_AUDIT_EVENTS } from './audit-events.js';
+import { PROCESS_MANAGER_AUDIT_EVENTS } from '../foundation/process-manager/audit-events.js';
 import { CLAWS_DIR } from '../foundation/claw-paths.js';
 import { resolveDaemonEntry } from '../assembly/spawn-entry.js';
 import { DAEMON_LOG } from '../daemon/constants.js';
@@ -141,7 +142,7 @@ async function restartMotionIfDown(
       env: { ...process.env, CHESTNUT_ROOT: path.dirname(chestnutRoot) } as Record<string, string | undefined>,
     });
     log(fsFactory, `[watchdog] motion restarted (PID=${pid})`);
-    audit.write(WATCHDOG_AUDIT_EVENTS.PROCESS_SPAWN, MOTION_CLAW_ID, `pid=${pid}`);
+    audit.write(PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_SPAWNED, MOTION_CLAW_ID, `pid=${pid}`);
     return { newBackoff: baseInterval, newFailures: 0 };
   } catch (err) {
     if (err instanceof LockConflictError) {
@@ -151,7 +152,7 @@ async function restartMotionIfDown(
     }
     const newFailures = failures + 1;
     const newBackoff = Math.min(baseInterval * Math.pow(2, newFailures - 1), maxBackoff);
-    audit.write(WATCHDOG_AUDIT_EVENTS.PROCESS_SPAWN_FAILED, MOTION_CLAW_ID, `error=${formatErr(err)}`);
+    audit.write(PROCESS_MANAGER_AUDIT_EVENTS.PROCESS_SPAWN_FAILED, MOTION_CLAW_ID, `error=${formatErr(err)}`);
     log(fsFactory, `[watchdog] FAILED to restart motion (failure #${newFailures}): ${err}`);
     return { newBackoff, newFailures };
   }
