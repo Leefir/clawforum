@@ -17,6 +17,7 @@ import * as path from 'path';
 import { formatErr, assertNever } from "../utils/index.js";
 import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
+import { isFileNotFound } from '../fs/types.js';
 import type { InboxMessage, InboxHandle } from '../messaging/types.js';
 import { PRIORITY_VALUES, type Priority } from '../messaging/types.js';
 import { decodeInbox } from './codec-inbox.js';
@@ -200,7 +201,7 @@ export class InboxReader {
           try {
             await this.markDone(filePath);
           } catch (e) {
-            if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+            if (!isFileNotFound(e)) {
               emitInboxMarkDoneFailed(this.audit, { reason: (e as Error).message });
             }
           }
