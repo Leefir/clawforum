@@ -88,6 +88,12 @@ export async function writeInboxAsync(
  * Caller expressing fs path inboxDir is the wrong abstraction level;
  * cross-claw delivery destination = Messaging business semantics;
  * caller should express targetClawId.
+ *
+ * @note (per phase 264 reframe): deprecated 仅适用 cross-claw push 场景。
+ * self-inbox 写（claw 写自家 inbox / daemon 写自家 inbox）不属 notifyClaw scope
+ * （不需 chestnutRoot / targetClawId / DLQ），仍是 by-design use of notifyInbox SoT。
+ * 当前 self-inbox by-design caller：deep-dream.ts / heartbeat.ts callback /
+ * contract-notify-callback.ts × 3 / daemon-loop.ts。
  */
 export function notifyInbox(
   fs: FileSystem,
@@ -109,6 +115,9 @@ export function notifyInbox(
  * Convenience wrapper for common system notification pattern.
  *
  * @deprecated since phase 1334 — use notifyClaw(fs, chestnutRoot, MOTION_CLAW_ID, ...) instead.
+ *
+ * @note (per phase 264 reframe): deprecated 仅适用 cross-claw push 场景。
+ * 若 caller 是 self-inbox（system 写自家 inbox），仍属 notifyInbox by-design use 路径。
  */
 export function notifySystem(
   fs: FileSystem,
