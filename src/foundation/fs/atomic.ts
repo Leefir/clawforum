@@ -56,7 +56,7 @@ export async function writeAtomic(
     try {
       await fs.unlink(tmpFile);
     } catch {
-      // Ignore cleanup errors
+      // silent: rollback cleanup best-effort (tmpFile unlink failure leaves cleanup garbage); original error rethrown below preserves caller forensic
     }
     throw error;
   }

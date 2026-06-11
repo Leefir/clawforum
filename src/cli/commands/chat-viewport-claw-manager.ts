@@ -70,7 +70,9 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
         false,
       );
       clawWatchers.set(clawId, w);
-    } catch { /* polling fallback */ }
+    } catch {
+      // silent: fs.watch unsupported / ENOENT — caller already armed polling refresh as fallback, no degradation
+    }
   };
 
   const refreshClawStatus = (clawId: string): void => {
@@ -162,12 +164,16 @@ export const createClawManager = (deps: ClawManagerDeps): ClawManager => {
               track.toolSuccess = null; track.bufferType = null; track.lastOutput = ''; track.clearOnNextDelta = false;
               track.referenceMs = Date.now();
             }
-          } catch { /* skip */ }
+          } catch {
+            // silent: malformed event skip — single event parse failure, next event continues; track partial state remains
+          }
         }
         updateClawPanel(clawTrackMap);
         requestRender();
       }
-    } catch { /* ENOENT 等，跳过 */ }
+    } catch {
+      // silent: stream file ENOENT / IO error — polling retries next interval, claw not yet running OR file not yet created
+    }
   };
 
   const refreshAllClawStatus = async (): Promise<void> => {

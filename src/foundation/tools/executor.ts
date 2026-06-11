@@ -163,7 +163,9 @@ export class ToolExecutorImpl implements IToolExecutor {
         { once: true },
       );
     });
-    timeoutPromise.catch(() => {});
+    timeoutPromise.catch(() => {
+      // silent: race loser — timeoutPromise rejects (ToolTimeoutError) when main execution wins; real error path is executionPromise.catch above
+    });
 
     const ctxWithSignal = cloneExecContext(ctx, { signal: mergedSignal, currentToolUseId: options.toolUseId });
 

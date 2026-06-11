@@ -379,7 +379,9 @@ export class DialogStore {
     };
     // phase 1024 G.2: serialize concurrent save() — chain into flushPromise / catch swallow per-link 防 chain 破裂
     const next = this.flushPromise.then(doSave, doSave);  // 失败也继续 doSave / chain 不破
-    const wrapped = next.catch(() => { /* swallow / 防 chain 破裂、caller 仍看到 original error via await next */ });
+    const wrapped = next.catch(() => {
+      // silent: chain serialize guard (phase 1024 G.2) — original error visible via `await next` to caller; swallow only prevents this.flushPromise chain from breaking for next save
+    });
     this.flushPromise = wrapped;
     // phase 1082: cap flushPromise chain growth — reset to resolved when quiescent
     wrapped.then(() => {

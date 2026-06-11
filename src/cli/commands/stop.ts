@@ -76,7 +76,7 @@ export async function stopAllCommand(
       .map(e => e.name);
   } catch (e) {
     if (!isFileNotFound(e)) {
-      process.stderr.write(`[stop] readdirSync claws dir failed: ${(e as Error).message}\n`);
+      console.error(`[stop] readdirSync claws dir failed: ${(e as Error).message}`);
     }
   }
 

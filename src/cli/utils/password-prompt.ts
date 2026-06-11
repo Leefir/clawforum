@@ -23,7 +23,9 @@ export function passwordQuestion(
     let muted = false;
     const original = rlx._writeToOutput?.bind(rl);
     const restore = () => {
-      try { rlx._writeToOutput = original; } catch { /* private API gone */ }
+      try { rlx._writeToOutput = original; } catch {
+        // silent: readline private API _writeToOutput unavailable / readline disposed — restore best-effort, no user impact
+      }
     };
     try {
       rlx._writeToOutput = (str: string) => { if (!muted) original?.(str); };
