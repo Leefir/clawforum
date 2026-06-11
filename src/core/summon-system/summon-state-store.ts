@@ -1,6 +1,7 @@
 import { isFileNotFound, type FileSystem } from '../../foundation/fs/types.js';
 import type { TaskId } from '../async-task-system/types.js';
 import { SUMMON_AUDIT_EVENTS } from './audit-events.js';
+import { assertSummonDecisionShape } from './invariants.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 
 const SUMMON_STATE_SUBDIR = 'summon-state';
@@ -11,6 +12,7 @@ export interface SummonDecision {
   readonly targetClaw?: string;
   readonly mode: 'shadow' | 'mining';
   readonly dispatchedAt: string;
+  readonly schema_version?: 1;
 }
 
 export interface SummonStateStore {
@@ -33,7 +35,7 @@ export function createSummonStateStore(fs: FileSystem, audit?: AuditLog): Summon
     async write(decision) {
       const relPath = `${SUMMON_STATE_SUBDIR}/${decision.taskId}.json`;
       try {
-        await fs.writeAtomic(relPath, JSON.stringify(decision));
+        await fs.writeAtomic(relPath, JSON.stringify({ ...decision, schema_version: 1 as const }));
       } catch (e) {
         audit?.write(SUMMON_AUDIT_EVENTS.SUMMON_STATE_WRITE_FAILED, `taskId=${decision.taskId}`, `error=${String(e)}`);
         throw e;   // write 失败 → summon 应失败、不能 silent
@@ -43,7 +45,9 @@ export function createSummonStateStore(fs: FileSystem, audit?: AuditLog): Summon
       const relPath = `${SUMMON_STATE_SUBDIR}/${taskId}.json`;
       try {
         const content = await fs.read(relPath);
-        return JSON.parse(content) as SummonDecision;
+        const data = JSON.parse(content) as unknown;
+        assertSummonDecisionShape(data, audit);
+        return data as SummonDecision;
       } catch (e) {
         if (isFileNotFound(e)) return undefined;
         audit?.write(SUMMON_AUDIT_EVENTS.SUMMON_STATE_READ_FAILED, `taskId=${taskId}`, `error=${String(e)}`);
