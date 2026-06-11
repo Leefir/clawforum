@@ -73,6 +73,7 @@ export async function runAuditSizeMonitor(opts: AuditSizeMonitorOptions): Promis
           `path=${p}`,
           `size_bytes=${size}`,
           `level=${level}`,
+          `opt_in_hint=audit.retention.max_size_mb`,
         );
         // phase 8: only emit on transition (level change / new entry) — dedup steady-state
         if (prevLevel !== level) {
@@ -86,7 +87,7 @@ export async function runAuditSizeMonitor(opts: AuditSizeMonitorOptions): Promis
             sizeMB: mb,
             level,
             // 语义：informational only / for developer reference / no action required
-            message: `${p} size ${mb}MB reached ${level} threshold`,
+            message: `${p} size ${mb}MB reached ${level} threshold (set audit.retention.max_size_mb in config.yaml to enable rotation)`,
           });
           auditOverThreshold.set(p, level);
         }
