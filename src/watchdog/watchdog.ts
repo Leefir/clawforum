@@ -119,7 +119,7 @@ async function restartMotionIfDown(
   }
 
   log(fsFactory, `[watchdog] motion down (${status.reason}), restarting...`);
-  audit.write('watchdog_restart_triggered', MOTION_CLAW_ID);
+  audit.write(WATCHDOG_AUDIT_EVENTS.WATCHDOG_RESTART_TRIGGERED, MOTION_CLAW_ID);
   log(fsFactory, `[watchdog] motion down (${status.reason}), restarting...`);
 
   try {
@@ -141,7 +141,7 @@ async function restartMotionIfDown(
       env: { ...process.env, CHESTNUT_ROOT: path.dirname(chestnutRoot) } as Record<string, string | undefined>,
     });
     log(fsFactory, `[watchdog] motion restarted (PID=${pid})`);
-    audit.write('process_spawn', MOTION_CLAW_ID, `pid=${pid}`);
+    audit.write(WATCHDOG_AUDIT_EVENTS.PROCESS_SPAWN, MOTION_CLAW_ID, `pid=${pid}`);
     return { newBackoff: baseInterval, newFailures: 0 };
   } catch (err) {
     if (err instanceof LockConflictError) {
@@ -151,7 +151,7 @@ async function restartMotionIfDown(
     }
     const newFailures = failures + 1;
     const newBackoff = Math.min(baseInterval * Math.pow(2, newFailures - 1), maxBackoff);
-    audit.write('process_spawn_failed', MOTION_CLAW_ID, `error=${formatErr(err)}`);
+    audit.write(WATCHDOG_AUDIT_EVENTS.PROCESS_SPAWN_FAILED, MOTION_CLAW_ID, `error=${formatErr(err)}`);
     log(fsFactory, `[watchdog] FAILED to restart motion (failure #${newFailures}): ${err}`);
     return { newBackoff, newFailures };
   }
@@ -177,7 +177,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
   loadWatchdogState(fsFactory);   // 恢复通知状态（_auditWriter 已设，corrupt 路径可写 audit）
   log(fsFactory, '[watchdog] State loaded.');
 
-  auditWriter.write('watchdog_start');
+  auditWriter.write(WATCHDOG_AUDIT_EVENTS.WATCHDOG_START);
 
   let stopped = false;
 
@@ -232,7 +232,7 @@ export async function runWatchdogLoop(fsFactory: (baseDir: string) => FileSystem
         // ENOENT after existsSync = race（合法）/ 其他错 audit / treat as empty（下 tick 重试）
       }
     }
-    auditWriter.write('watchdog_check', `alive=${aliveIds.join(',')} present=${presentClawIds.join(',')}`);
+    auditWriter.write(WATCHDOG_AUDIT_EVENTS.WATCHDOG_CHECK, `alive=${aliveIds.join(',')} present=${presentClawIds.join(',')}`);
 
     const intervalMs = getGlobalConfig(fsFactory).watchdog.interval_ms;
     const { newBackoff, newFailures } = await restartMotionIfDown(
