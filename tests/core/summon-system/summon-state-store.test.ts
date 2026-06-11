@@ -25,7 +25,7 @@ describe('createSummonStateStore', () => {
     };
     await store.write(decision);
     const read = await store.read('task-1');
-    expect(read).toEqual(decision);
+    expect(read).toEqual({ ...decision, schema_version: 1 });
   });
 
   it('read returns undefined when file does not exist', async () => {

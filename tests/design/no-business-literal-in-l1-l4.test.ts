@@ -18,6 +18,7 @@ import path from 'node:path';
 const BUSINESS_LITERAL_PATTERN = /['"`](motion|claw|subagent|verifier|shadow|miner)['"`]|\bMOTION_CLAW_ID\b/;
 
 const BASELINE_ALLOW_LIST = new Set([
+  'src/core/summon-system/invariants.ts', // phase 261 Step G: summon-state schema invariant checks mode === 'shadow' | 'mining'
   // L1 foundation/ (16)
   'src/foundation/command-tool/exec.ts',
   'src/foundation/file-tool/edit.ts',

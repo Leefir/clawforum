@@ -13,6 +13,7 @@ import type { LLMOrchestrator } from '../llm-orchestrator/index.js';
 import type { ToolProfile } from '../tool-protocol/index.js';
 import type { ExecContext, ToolGroup, FileState } from './types.js';
 import type { TraceId } from '../audit/types.js';
+import type { ToolUseId } from '../tool-protocol/tool-use-id.js';
 import type { StepNumber } from '../identity/step-number.js';
 import { makeStepNumber } from '../identity/step-number.js';
 import path from 'path';
@@ -75,7 +76,7 @@ export interface ExecContextImplOptions {
   /** AuditLog writer for tool events */
   auditWriter?: AuditLog;
   /** Current tool_use block id (set by ToolExecutor before tool.execute) */
-  currentToolUseId?: string;
+  currentToolUseId?: ToolUseId;
   /**
    * Per-claw read state for overwrite gate (phase 1430).
    * See ExecContext.readFileState for semantics.
@@ -166,7 +167,7 @@ export class ExecContextImpl implements ExecContext {
   subagentMaxSteps: number;
   originClawId?: string;
   auditWriter?: AuditLog;
-  currentToolUseId?: string;
+  currentToolUseId?: ToolUseId;
   readFileState: Map<string, FileState>;
   persistReadFileState?: boolean;
   registry?: ToolRegistry;

@@ -152,7 +152,7 @@ export interface ExecutionAudit {
   /** AuditLog writer for tool events */
   auditWriter?: AuditLog;
   /** Current tool_use block id (set by ToolExecutor before tool.execute) */
-  currentToolUseId?: string;
+  currentToolUseId?: ToolUseId;
   /** phase 1343 α-6: turn-level trace id for cross-module audit correlation */
   trace_id?: TraceId;
   /**
