@@ -12,6 +12,7 @@ import type { OutboxMessage } from '../messaging/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { encodeOutbox } from './codec-outbox.js';
 import { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';
+import { assertMessageShape } from './invariants.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import type { ClawId } from '../../constants.js';
 
@@ -77,6 +78,9 @@ export class OutboxWriter {
     const filePath = path.join(this.outboxDir, filename);
 
     // Format content as markdown
+    // phase 273 Step A:
+    assertMessageShape(message, this.audit, 'outbox', 'write');
+
     const content = encodeOutbox(message);
 
     try {

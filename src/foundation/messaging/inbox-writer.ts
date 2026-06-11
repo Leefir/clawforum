@@ -17,6 +17,7 @@ import {
   emitInboxWriteFailed,
   emitInboxWritten,
 } from './audit-emit.js';
+import { assertMessageShape } from './invariants.js';
 import { UUID_SHORT_LEN } from '../../constants.js';
 import { ok, err as errResult, type Result } from '../utils/index.js';
 import type { InboxMetaError } from './errors.js';
@@ -56,6 +57,9 @@ export class InboxWriter {
 
   /** async 写，atomic */
   async write(msg: InboxMessage, extraFields?: Record<string, string>): Promise<void> {
+    // phase 273 Step A: schema invariant (violation emit audit、不 throw、不阻 write、保 IO 错 throw)
+    assertMessageShape(msg, this.audit, 'inbox', 'write');
+
     await this.fs.ensureDir(this.inboxDir);
     const timestamp = String(Date.now()).padStart(15, '0');
     const priority = msg.priority ?? 'normal';
@@ -89,6 +93,9 @@ export class InboxWriter {
       priority,
       timestamp: now.toISOString(),
     };
+
+    // phase 273 Step A:
+    assertMessageShape(message, this.audit, 'inbox', 'write');
 
     this.fs.ensureDirSync(this.inboxDir);
     const source = opts.source || 'unknown';
