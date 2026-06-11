@@ -3,6 +3,13 @@
  *
  * Read-only audit metadata inspection.
  * Does NOT emit audit events (ML 5).
+ *
+ * Exit code semantics (per phase 269、与 audit-lookup phase 152 + audit-query phase 269 区分):
+ * - 0 = success / 1 = CliError ONLY.
+ * - No semantic exit code 3+ by-design — info command 是 reporting view、
+ *   0 audit files 是 valid "fresh claw" state、非 "result unavailable"。
+ *   future caller 若需 audit file presence check、应通过 stdout JSON output 解析、
+ *   而非 exit code。
  */
 
 import * as path from 'path';

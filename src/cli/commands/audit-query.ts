@@ -130,19 +130,24 @@ export async function auditQueryCommand(
     }
   }
 
-  // phase 216 Step D: 0 result hint std-2
-  if (matchedRows === 0 && !opts.noHint) {
-    const filterDesc = formatFilters(opts);
-    const claw = opts.claw ?? 'default';
-    if (process.stderr.isTTY) {
-      process.stderr.write(
-        `No audit rows match filter (${filterDesc}) in claw '${claw}'.\n` +
-        `(${scannedRows} rows scanned)\n`
-      );
-    } else {
-      process.stderr.write(
-        `No audit rows match filter (${filterDesc}) in claw '${claw}'. (${scannedRows} rows scanned)\n`
-      );
+  // phase 269: exit code 3 = "result unavailable / 0 matches" — align audit-lookup phase 152 strict semantics
+  // exit code 独立于 --no-hint flag（exit code 是 cli 契约、--no-hint 仅控 stderr UX）
+  if (matchedRows === 0) {
+    process.exitCode = 3;
+    if (!opts.noHint) {
+      // phase 216 Step D: 0 result hint std-2
+      const filterDesc = formatFilters(opts);
+      const claw = opts.claw ?? 'default';
+      if (process.stderr.isTTY) {
+        process.stderr.write(
+          `No audit rows match filter (${filterDesc}) in claw '${claw}'.\n` +
+          `(${scannedRows} rows scanned)\n`
+        );
+      } else {
+        process.stderr.write(
+          `No audit rows match filter (${filterDesc}) in claw '${claw}'. (${scannedRows} rows scanned)\n`
+        );
+      }
     }
   }
 }
