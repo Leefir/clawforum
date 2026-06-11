@@ -3,6 +3,7 @@
  */
 
 import * as path from 'path';
+import { resolveChestnutRoot } from '../../foundation/install-paths.js';
 import { CONTRACT_DIR } from '../../core/contract/index.js';
 import type { ContractSystem } from '../../core/contract/index.js';
 import { ContractCreatePolicyViolationError } from '../../core/contract/types.js';
@@ -67,5 +68,7 @@ export async function contractCreateFromDirCommand(
     }
   }
 
-  notifyContractCreated(deps, getClawDir(clawId), clawId, makeContractId(contractId), contract);
+  const clawDir = getClawDir(clawId);
+  const chestnutRoot = resolveChestnutRoot(clawDir, /* isMotion */ false);
+  notifyContractCreated(deps, clawDir, clawId, makeContractId(contractId), contract, chestnutRoot);
 }

@@ -3,11 +3,10 @@
  * phase 31 P1.1: contract.ts 拆 file 后共享 helper。
  */
 
-import * as path from 'path';
 import * as yaml from 'js-yaml';
 import type { ContractYaml } from '../../core/contract/index.js';
 import { createDirContext } from '../../foundation/audit/index.js';
-import { notifySystem, INBOX_PENDING_DIR } from '../../foundation/messaging/index.js';
+import { notifyClaw } from '../../foundation/messaging/index.js';
 import { STREAM_FILE, createPerResourceStreamWriter, type StreamEvent } from '../../foundation/stream/index.js';
 import { CliError } from '../errors.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
@@ -43,7 +42,7 @@ export function formatContractValidationError(err: ContractValidationError): voi
   console.error('Fix: update the contract yaml according to the message above, then re-run chestnut contract create');
 }
 
-export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: string, clawId: string, contractId: ContractId, contract: ContractYaml): void {
+export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => FileSystem }, clawDir: string, clawId: string, contractId: ContractId, contract: ContractYaml, chestnutRoot: string): void {
   const { fs, audit: contractAudit } = createDirContext(deps, clawDir);
 
   // best-effort：通知 viewport via stream.jsonl（失败不中断 contract 创建）
@@ -72,11 +71,11 @@ export function notifyContractCreated(deps: { fsFactory: (baseDir: string) => Fi
   lines.push(`After each subtask, submit verification via done:`);
   lines.push(`done: { "subtask": "<subtask-id>", "evidence": "<output path or completion summary>" }`);
   const body = lines.join('\n');
-  notifySystem(
+  notifyClaw(
     fs,
-    path.join(clawDir, INBOX_PENDING_DIR),
-    body,
+    chestnutRoot,
+    clawId,
+    { type: 'contract_created', source: 'system', priority: 'high', body, idPrefix: 'contract-new' },
     contractAudit,
-    { type: 'contract_created', priority: 'high', idPrefix: 'contract-new' }
   );
 }

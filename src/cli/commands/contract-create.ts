@@ -34,5 +34,5 @@ export async function contractCreateCommand(deps: { fsFactory: (baseDir: string)
   audit?.write(CLI_AUDIT_EVENTS.CONTRACT_CREATE, `claw=${clawId}`, `contract=${contractId}`, `mode=file`);
   console.log(`Contract created: ${contractId} for claw ${clawId}`);
 
-  notifyContractCreated(deps, clawDir, clawId, makeContractId(contractId), contract);
+  notifyContractCreated(deps, clawDir, clawId, makeContractId(contractId), contract, chestnutRoot);
 }

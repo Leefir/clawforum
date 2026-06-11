@@ -15,8 +15,7 @@ vi.mock('../../src/foundation/audit/index.js', async (importOriginal) => ({
 }));
 
 vi.mock('../../src/foundation/messaging/index.js', () => ({
-  INBOX_PENDING_DIR: 'inbox/pending',
-  notifySystem: vi.fn(),
+  notifyClaw: vi.fn(),
 }));
 
 import { notifyContractCreated } from '../../src/cli/commands/contract.js';
@@ -41,7 +40,7 @@ describe('notifyContractCreated audit observability', () => {
       subtasks: [{ id: 't1', description: 'd1' }],
     } as any;
 
-    notifyContractCreated({ fsFactory }, '/tmp/claw', 'claw-1', 'test-contract-001', contract);
+    notifyContractCreated({ fsFactory }, '/tmp/claw', 'claw-1', 'test-contract-001', contract, '/tmp/chestnut');
 
     expect(audit.write).toHaveBeenCalledWith(
       'stream_append_failed',
@@ -69,7 +68,7 @@ describe('notifyContractCreated audit observability', () => {
         title: 'T', goal: 'G', subtasks: [{ id: 's1', description: 'd' }],
       };
 
-      notifyContractCreated({ fsFactory }, tempDir, 'claw-A', 'c-001', contract);
+      notifyContractCreated({ fsFactory }, tempDir, 'claw-A', 'c-001', contract, tempDir);
       const streamContent = fs.readFileSync(path.join(tempDir, 'stream.jsonl'), 'utf-8');
       const lines = streamContent.trim().split('\n');
       expect(lines).toHaveLength(1);
@@ -100,7 +99,7 @@ describe('notifyContractCreated audit observability', () => {
       title: 'T', goal: 'G', subtasks: [],
     };
 
-    expect(() => notifyContractCreated({ fsFactory }, '/tmp/claw', 'claw-A', 'c-002', contract)).not.toThrow();
+    expect(() => notifyContractCreated({ fsFactory }, '/tmp/claw', 'claw-A', 'c-002', contract, '/tmp/chestnut')).not.toThrow();
 
     expect(audit.write).toHaveBeenCalledTimes(1);
     const call = audit.write.mock.calls[0];
