@@ -115,7 +115,7 @@ export async function createBusinessSystems(input: BusinessSysInput): Promise<Bu
       permissionChecker,
       selfInbox,
       fsFactory,
-      askMotionToolFactory: (llmArg, motionDialogStore, auditWriterArg) => new AskMotionTool(llmArg, motionDialogStore, auditWriterArg),
+      askMotionToolFactory: (llmArg, motionDialogStore) => new AskMotionTool(llmArg, motionDialogStore),
     });
   } catch (e) {
     auditWriter.write(ASSEMBLY_AUDIT_EVENTS.ASSEMBLE_FAILED, `module=task_system`, `phase=construct`, `reason=${formatErr(e)}`);

@@ -2,12 +2,8 @@ import type { Tool } from '../../../foundation/tools/index.js';
 import type { ToolResult } from '../../../foundation/tool-protocol/index.js';
 import type { LLMOrchestrator } from '../../../foundation/llm-orchestrator/index.js';
 import type { Message } from '../../../foundation/llm-provider/types.js';
-import type { AuditLog } from '../../../foundation/audit/index.js';
 import { buildAskMotionCloneFirstMessage } from '../../../prompts/index.js';
 import { DialogStore } from '../../../foundation/dialog-store/index.js';
-import {
-  createHandoffMarker,
-} from '../../l4_context_manager/index.js';
 
 import { formatErr } from '../../../foundation/utils/index.js';
 export const ASK_MOTION_TOOL_NAME = 'ask_motion' as const;
@@ -40,11 +36,9 @@ export class AskMotionTool implements Tool {
   private readonly cloneHistory: Message[] = [];
 
   // phase 713: ctor 4 → 2 dep（llm + motionDialogStore）
-  // phase 186: +auditWriter for handoff marker audit events
   constructor(
     private readonly llm: LLMOrchestrator,
     private readonly motionDialogStore: DialogStore,
-    private readonly auditWriter?: AuditLog,
   ) {}
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
@@ -61,9 +55,6 @@ export class AskMotionTool implements Tool {
       // phase 1184: use loadStableTurnBoundary to avoid both mid-write race (phase 1102 loadStable)
       // and mid-turn 逻辑边界 race (unpaired tool_use → LLM API 400)
       const { session } = await this.motionDialogStore.loadStableTurnBoundary();
-
-      // Phase 186: handoff marker for ask_motion (replaces full dialog copy)
-      createHandoffMarker('ask-motion', this.auditWriter);
 
       // Backward compat: still pass full messages until runAgent supports handoff marker resolution
       const response = await this.llm.call({

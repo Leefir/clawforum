@@ -87,7 +87,7 @@ export class AsyncTaskSystem {
   private readonly toolTimeoutMs?: number;
   private permissionChecker?: PermissionChecker;
   private fsFactory: (baseDir: string) => FileSystem;
-  private readonly askMotionToolFactory: (llm: LLMOrchestrator, motionDialogStore: DialogStore, auditWriter?: AuditLog) => Tool;
+  private readonly askMotionToolFactory: (llm: LLMOrchestrator, motionDialogStore: DialogStore) => Tool;
   private _shuttingDown = false;
 
   /**

@@ -18,9 +18,6 @@ import { DISPATCH_SKILLS_PATH as DISPATCH_SKILLS_DIR } from '../summon-system/di
 import type { FileSystem } from '../../foundation/fs/types.js';
 import type { AuditLog } from '../../foundation/audit/index.js';
 import type { Message } from '../../foundation/llm-provider/types.js';
-import {
-  resolveHandoffMarker,
-} from '../l4_context_manager/index.js';
 
 /** Default retro subagent timeout (ms); 10 min by design */
 const RETRO_SUBAGENT_TIMEOUT_MS_DEFAULT = 10 * 60_000;
@@ -65,9 +62,6 @@ export async function scheduleRetro(config: RetroConfig): Promise<void> {
     config.audit.write(RETRO_AUDIT_EVENTS.SKILL_FAILED,
       `error=${formatErr(e)}`);
   }
-
-  // Phase 186: resolve handoff marker for retro phase cross-round context
-  resolveHandoffMarker(config.contractId, config.audit);
 
   // 构建 retroPrompt（A.3）
   const retroPrompt = buildRetroPrompt(
