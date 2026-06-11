@@ -400,6 +400,15 @@
       "heartbeat_checklist_read_failed",
       "heartbeat_fire_failed"
     ],
+    "core_l4_context_manager_audit-events": [
+      "cache_invalidated_by_deep_trim",
+      "context_trim_completed",
+      "context_trim_exhausted",
+      "context_trim_insufficient_without_cache_break",
+      "context_trim_started",
+      "handoff_marker_created",
+      "handoff_marker_not_found"
+    ],
     "core_runtime_runtime-audit-events": [
       "inbox_handler_failed",
       "inbox_inject",
