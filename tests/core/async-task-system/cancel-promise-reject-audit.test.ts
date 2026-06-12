@@ -61,7 +61,7 @@ describe('phase 859 r111 H fork: cancel path promise reject audit (Sa.2)', () =>
     // Prevent unhandled rejection crash in test runner
     promise.catch(() => {});
 
-    (system as any).runningTasks.set(taskId, {
+    (system as any).executingTasks.set(taskId, {
       abortController,
       promise,
     });
@@ -106,7 +106,7 @@ describe('phase 859 r111 H fork: cancel path promise reject audit (Sa.2)', () =>
 
     const promise = Promise.resolve();
 
-    (system as any).runningTasks.set(taskId, {
+    (system as any).executingTasks.set(taskId, {
       abortController,
       promise,
     });

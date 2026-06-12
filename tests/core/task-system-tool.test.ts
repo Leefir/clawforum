@@ -223,7 +223,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(taskData.parentClawId).toBe('parent-claw');
       
       // Should no longer be in pending
-      expect(taskSystem.listPending()).not.toContain(taskId);
+      expect(await taskSystem.listPending()).not.toContain(taskId);
       // Should be in running list
       expect(taskSystem.listRunning()).toContain(taskId);
     });
@@ -447,26 +447,26 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       // All 3 should be running
       expect(taskSystem.listRunning().length).toBe(3);
-      expect(taskSystem.listPending().length).toBe(0);
+      expect((await taskSystem.listPending()).length).toBe(0);
 
       // Schedule a 4th task - must go to pending because all 3 slows are blocked.
       const fastCallback = vi.fn().mockResolvedValue({ success: true, content: 'fast' });
       const fourthId = await scheduleToolCompat(taskSystem, 'fourthTool', fastCallback, 'parent-claw');
 
-      await waitFor(() => taskSystem.listPending().includes(fourthId));
+      await waitFor(async () => (await taskSystem.listPending()).includes(fourthId));
 
       // Should be in pending, not running (slows held → no slot free)
-      expect(taskSystem.listPending()).toContain(fourthId);
+      expect(await taskSystem.listPending()).toContain(fourthId);
       expect(taskSystem.listRunning()).not.toContain(fourthId);
 
       // Release the slow callbacks so the dispatcher can drain pending.
       for (const release of slowReleases) release();
 
-      await waitFor(() => !taskSystem.listRunning().includes(fourthId) && !taskSystem.listPending().includes(fourthId));
+      await waitFor(async () => !taskSystem.listRunning().includes(fourthId) && !(await taskSystem.listPending()).includes(fourthId));
       
       // Now fourth should be dispatched and completed
       expect(taskSystem.listRunning()).not.toContain(fourthId); // Should be done now
-      expect(taskSystem.listPending()).not.toContain(fourthId);
+      expect(await taskSystem.listPending()).not.toContain(fourthId);
       
       // Fast callback should have been executed
       expect(fastCallback).toHaveBeenCalled();
@@ -988,7 +988,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       await ts.shutdown(1).catch(() => {});
 
       // Task must NOT be re-queued (result was already delivered)
-      expect(ts.listPending()).not.toContain(taskId);
+      expect(await ts.listPending()).not.toContain(taskId);
       // No new inbox message (duplicate prevented)
       const inboxFiles = await fs.readdir(path.join(testClawDir, 'inbox', 'pending'));
       expect(inboxFiles).toHaveLength(0);
@@ -1115,7 +1115,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       expect(runningExists).toBe(false);
       // No longer running or pending
       expect(taskSystem.listRunning()).not.toContain(taskId);
-      expect(taskSystem.listPending()).not.toContain(taskId);
+      expect(await taskSystem.listPending()).not.toContain(taskId);
     });
   });
 
@@ -1431,7 +1431,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
 
       const doneExists = await fs.access(path.join(freshDir, 'tasks', 'queues', 'done', `${taskId}.json`)).then(() => true).catch(() => false);
       expect(doneExists).toBe(true);
-      expect(freshSystem.listPending()).not.toContain(taskId);
+      expect(await freshSystem.listPending()).not.toContain(taskId);
 
       await freshSystem.shutdown(1).catch(() => {});
       await fs.rm(freshDir, { recursive: true, force: true }).catch(() => {});

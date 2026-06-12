@@ -13,6 +13,7 @@ import * as path from 'path';
 
 import type { PermissionChecker } from '../../foundation/tool-protocol/permission.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+import { isFileNotFound } from '../../foundation/fs/types.js';
 
 import { DEFAULT_MAX_CONCURRENT_TASKS, SHUTDOWN_DRAIN_GRACE_MS, SHUTDOWN_DEFAULT_TIMEOUT_MS, DEFAULT_RETRY_BASE_DELAY_MS, PENDING_QUEUE_MAX } from './constants.js';
 import type { ToolRegistry } from '../../foundation/tools/index.js';
@@ -41,7 +42,7 @@ import { TASK_AUDIT_EVENTS } from './audit-events.js';
 import { STREAM_TASK_EVENTS } from './stream-events.js';
 import { formatErr } from './_helpers.js';
 import { assertTaskShapeOnSave } from './invariants.js';
-import { auditQueueCrossSource, type QueueSnapshot } from './queue-cross-source-audit.js';
+import { auditQueueCrossSource } from './queue-cross-source-audit.js';
 import {
   emitTaskScheduled,
   emitTaskStarted,
@@ -70,7 +71,10 @@ interface TaskState {
 }
 
 export class AsyncTaskSystem {
-  private runningTasks: Map<string, TaskState> = new Map();
+  // Runtime execution handles only (abort controller + promise). This is NOT a memory view of
+  // the running set; the fs running directory remains the authoritative running state.
+  private executingTasks: Map<string, TaskState> = new Map();
+  private _dispatching = false;
   private readonly maxConcurrent: number;
   private readonly registry: ToolRegistry;
   private readonly llm: LLMOrchestrator;
@@ -108,10 +112,6 @@ export class AsyncTaskSystem {
     this.mainDialogStore = store;
   }
   
-  // Transient dispatch buffer; subagent file persistence is authoritative,
-  // tool tasks still use this as entry point
-  private pendingQueue: Array<SubAgentTask | ToolTask> = [];
-
   private readonly retryBaseDelayMs: number;
   private readonly executors: Record<TaskKind, TaskExecutor>;
 
@@ -198,8 +198,9 @@ export class AsyncTaskSystem {
     await this.fs.ensureDir(TASKS_QUEUES_FAILED_DIR);
     await this.fs.ensureDir(TASKS_QUEUES_RESULTS_DIR);
 
-    // Cold-start recovery: load existing pending and running tasks
-    await recoverTasks({ fs: this.fs, auditWriter: this.auditWriter, pendingQueue: this.pendingQueue });
+    // Cold-start recovery: running tasks are moved back to pending by recoverTasks.
+    // No in-memory pending queue is kept; pending state is derived from fs on demand.
+    await recoverTasks({ fs: this.fs, auditWriter: this.auditWriter });
   }
 
   /**
@@ -270,18 +271,21 @@ export class AsyncTaskSystem {
 
 
   /**
-   * Sync dedup gate: check if taskId already exists in running, cancelling, or pending.
+   * Dedup gate: check runtime execution handles + transient cancelling set.
+   * The actual pending/running authoritative state lives on fs; this gate only
+   * prevents duplicate ingestion/dispatch for ids already being processed in
+   * memory. Concurrent ingestion of the same file is serialized by the dispatch
+   * loop guard and fs.move atomicity.
    */
   private _isDuplicate(taskId: TaskId): boolean {
-    return this.runningTasks.has(taskId)
-        || this.cancellingIds.has(taskId)
-        || this.pendingQueue.some(t => t.id === taskId);
+    return this.executingTasks.has(taskId) || this.cancellingIds.has(taskId);
   }
 
   /**
-   * Async load + parse a pending task file. Returns null if kind is invalid.
+   * Async load + parse a task file. Returns null if parsing fails or shape is invalid.
+   * Backups corrupt files to prevent repeated ingestion attempts.
    */
-  private async _loadPendingTask(filePath: string): Promise<SubAgentTask | ToolTask | null> {
+  private async _loadTaskFromFile(filePath: string): Promise<SubAgentTask | ToolTask | null> {
     const content = await this.fs.read(filePath);
     let parsed: unknown;
     try {
@@ -298,15 +302,82 @@ export class AsyncTaskSystem {
   }
 
   /**
+   * Derive pending task ids from the pending directory, excluding tasks that are
+   * currently being cancelled.
+   */
+  private async _getPendingTaskIds(): Promise<Set<string>> {
+    let entries: Awaited<ReturnType<FileSystem['list']>>;
+    try {
+      entries = await this.fs.list(TASKS_QUEUES_PENDING_DIR, { includeDirs: false });
+    } catch (err) {
+      // Race: pending dir or an entry disappeared between list and stat (NodeFileSystem.list stats entries).
+      if (isFileNotFound(err)) return new Set();
+      throw err;
+    }
+    const ids = new Set<string>();
+    for (const e of entries) {
+      if (!e.name.endsWith('.json')) continue;
+      const id = e.name.slice(0, -5);
+      if (this.cancellingIds.has(id)) continue;
+      ids.add(id);
+    }
+    return ids;
+  }
+
+  /**
+   * Derive pending tasks from fs: list, parse, filter cancellingIds, sort by createdAt.
+   */
+  private async _getPendingTasks(): Promise<Array<SubAgentTask | ToolTask>> {
+    const ids = await this._getPendingTaskIds();
+    const tasks: Array<SubAgentTask | ToolTask> = [];
+    for (const id of ids) {
+      const filePath = `${TASKS_QUEUES_PENDING_DIR}/${id}.json`;
+      try {
+        const task = await this._loadTaskFromFile(filePath);
+        if (task) {
+          tasks.push(task);
+        } else {
+          // schema drift / corrupt file: emit audit, skip (derive is read-only)
+          this.auditWriter?.write(
+            TASK_AUDIT_EVENTS.ASYNC_TASK_INVARIANT_VIOLATED,
+            `task_id=${id}`,
+            `context=derive_pending_corrupt`,
+            `reason=load_returned_null`,
+          );
+        }
+      } catch (err) {
+        if (isFileNotFound(err)) continue; // race: file moved/deleted between list and read
+        this.auditWriter?.write(
+          TASK_AUDIT_EVENTS.ASYNC_TASK_INVARIANT_VIOLATED,
+          `task_id=${id}`,
+          `context=derive_pending_corrupt`,
+          `error=${formatErr(err)}`,
+        );
+      }
+    }
+    tasks.sort((a, b) => {
+      const ta = a.createdAt ?? '';
+      const tb = b.createdAt ?? '';
+      if (ta && tb) return ta.localeCompare(tb);
+      return ta ? -1 : tb ? 1 : a.id.localeCompare(b.id);
+    });
+    return tasks;
+  }
+
+  /**
    * Enqueue a validated task (with cap check) and trigger dispatch.
-   * If pending queue is at max capacity, audit overflow and move file to failed/.
+   * The task file is already persisted in pending/; this method only drives the
+   * dispatcher and handles overflow by moving the file to failed/.
    */
   private async _enqueueAndDispatch(task: SubAgentTask | ToolTask): Promise<void> {
+    const pendingIds = await this._getPendingTaskIds();
+    const pendingCount = pendingIds.size;
+
     // T6: PENDING_QUEUE_MAX cap check
-    if (this.pendingQueue.length >= PENDING_QUEUE_MAX) {
+    if (pendingCount >= PENDING_QUEUE_MAX) {
       emitPendingQueueOverflow(this.auditWriter, {
         taskId: task.id,
-        queueLength: this.pendingQueue.length,
+        queueLength: pendingCount,
         cap: PENDING_QUEUE_MAX,
       });
       // Move file to failed/ to prevent restart watcher race re-ingest
@@ -332,12 +403,12 @@ export class AsyncTaskSystem {
             idPrefix: `${Date.now()}_overflow`,
             extraFields: {
               cap: String(PENDING_QUEUE_MAX),
-              queue_length: String(this.pendingQueue.length),
+              queue_length: String(pendingCount),
             },
           });
           emitPendingQueueOverflowNotified(this.auditWriter, {
             taskId: task.id,
-            queueLength: this.pendingQueue.length,
+            queueLength: pendingCount,
             cap: PENDING_QUEUE_MAX,
           });
           this.overflowNotified = true;   // dedup until queue drains below cap
@@ -354,59 +425,39 @@ export class AsyncTaskSystem {
     }
 
     // phase 7: queue 已降回 cap 以下 / 重置 dedup 允许下次 overflow 再发通知
-    if (this.overflowNotified && this.pendingQueue.length < PENDING_QUEUE_MAX) {
+    if (this.overflowNotified && pendingCount < PENDING_QUEUE_MAX) {
       this.overflowNotified = false;
     }
 
-    // task_started: SubAgentTask emitted in executeSubAgentTask after dir creation;
-    // ToolTask emitted here (no per-task result dir / no stream reader needed)
-    if (task.kind === 'tool') {
-      this.parentStreamLog?.write({
-        ts: Date.now(),
-        type: STREAM_TASK_EVENTS.TASK_STARTED,
-        taskId: task.id,
-        callerType: task.callerType ?? 'subagent',
-        silent: false,
-      });
-    }
-    this.pendingQueue.push(task);
     this._dispatch();
   }
 
   /**
-   * Ingest a single pending file: read, parse, dedupe, push, dispatch.
+   * Ingest a single pending file: read, parse, dedupe, dispatch.
    * Shared by watcher callback and _initialScanPending.
    */
-  private captureQueueSnapshot(): QueueSnapshot {
-    return {
-      pendingMemoryIds: new Set(this.pendingQueue.map(t => t.id)),
-      runningMemoryIds: new Set(this.runningTasks.keys()),
-      cancellingIds: new Set(this.cancellingIds),
-    };
-  }
-
   private async _ingestPendingFile(filePath: string): Promise<void> {
     let taskId: TaskId | undefined;
     try {
       taskId = makeTaskId(path.basename(filePath, '.json'));
       if (!taskId || this._isDuplicate(taskId)) return;
 
-      const task = await this._loadPendingTask(filePath);
+      const task = await this._loadTaskFromFile(filePath);
       if (!task) return;
 
       // β race fix (phase 556 + phase 612): concurrent ingest 同 taskId 可
-      // 在 _loadPendingTask await 间隙双通过 sync gate / cancel 也可 race ahead.
-      // 升级三 set 全 re-check (runningTasks + cancellingIds + pendingQueue) 防：
+      // 在 _loadTaskFromFile await 间隙双通过 sync gate / cancel 也可 race ahead.
+      // Re-check runtime handles to prevent:
       // (a) cancel 期间 ghost dispatch (phase 556 β)
-      // (b) concurrent ingest 双 push 同 taskId (phase 612 P1.7)
-      // (c) 上次 ingest 已 push 但本次 await 慢于其
+      // (b) concurrent ingest 双 dispatch 同 taskId (phase 612 P1.7)
+      // (c) 上次 ingest 已 dispatch 但本次 await 慢于其
       if (!taskId || this._isDuplicate(taskId)) return;
 
       await this._enqueueAndDispatch(task);
 
-      // phase 239 Step B: cross-source audit after ingest（fire-and-forget、不阻主路径）
+      // phase 284: QC-4 only (cancellingIds subset of active) after ingest
       void auditQueueCrossSource(
-        this.captureQueueSnapshot(),
+        { cancellingIds: new Set(this.cancellingIds) },
         this.fs,
         this.auditWriter,
         'ingest_pending_file',
@@ -421,17 +472,26 @@ export class AsyncTaskSystem {
   }
 
   /**
-   * Dispatch pending tasks to running state
-   * This is the core dispatcher that manages concurrency
-   * 
-   * CRITICAL: Must immediately occupy slot in runningTasks before any async
-   * operation to prevent race conditions where _dispatch is called again.
+   * Trigger the dispatch loop if not already running.
+   * Pending tasks are derived from fs on each iteration.
    */
   private _dispatch(): void {
-    if (this._shuttingDown) return;
-    // While we have capacity and pending tasks, move them to running
-    while (this.runningTasks.size < this.maxConcurrent && this.pendingQueue.length > 0) {
-      const task = this.pendingQueue.shift();
+    if (this._shuttingDown || this._dispatching) return;
+    this._dispatching = true;
+    void this._runDispatchLoop().finally(() => {
+      this._dispatching = false;
+    });
+  }
+
+  /**
+   * Core dispatch loop: derive pending tasks from fs, then start them until
+   * concurrency is saturated. Only one loop runs at a time to prevent duplicate
+   * starts of the same pending file.
+   */
+  private async _runDispatchLoop(): Promise<void> {
+    while (this.executingTasks.size < this.maxConcurrent && !this._shuttingDown) {
+      const pendingTasks = await this._getPendingTasks();
+      const task = pendingTasks.find(t => !this.executingTasks.has(t.id));
       if (!task) break;
 
       const abortController = new AbortController();
@@ -440,7 +500,7 @@ export class AsyncTaskSystem {
       const promise = this._startTask(task, abortController.signal);
 
       // IMMEDIATELY occupy slot - critical to prevent race conditions
-      this.runningTasks.set(task.id, { abortController, promise });
+      this.executingTasks.set(task.id, { abortController, promise });
     }
   }
 
@@ -454,13 +514,25 @@ export class AsyncTaskSystem {
     try {
       await this.movePendingToRunning(task.id);
 
-      // phase 239 Step B: cross-source audit after move pending→running（fire-and-forget）
+      // phase 284: QC-4 only (cancellingIds subset of active) after move
       void auditQueueCrossSource(
-        this.captureQueueSnapshot(),
+        { cancellingIds: new Set(this.cancellingIds) },
         this.fs,
         this.auditWriter,
         'dispatch_after_move',
       ).catch(() => { /* audit 路径 self-defensive、不影响主路径 */ });
+
+      // task_started: ToolTask emitted here (no per-task result dir / no stream reader needed);
+      // SubAgentTask emitted in executeSubAgentTask after dir creation.
+      if (task.kind === 'tool') {
+        this.parentStreamLog?.write({
+          ts: Date.now(),
+          type: STREAM_TASK_EVENTS.TASK_STARTED,
+          taskId: task.id,
+          callerType: task.callerType ?? 'subagent',
+          silent: false,
+        });
+      }
 
       await this.executors[task.kind](task, signal);
     } catch (error) {
@@ -481,7 +553,7 @@ export class AsyncTaskSystem {
 
     } finally {
       // Remove from running and trigger next dispatch
-      this.runningTasks.delete(task.id);
+      this.executingTasks.delete(task.id);
       this._dispatch();
     }
   }
@@ -546,29 +618,27 @@ export class AsyncTaskSystem {
   }
 
   /**
-   * List running task IDs
+   * List running task IDs (active executions).
    */
   listRunning(): string[] {
-    return Array.from(this.runningTasks.keys());
+    return Array.from(this.executingTasks.keys());
   }
 
   getRunningCount(): number {
-    return this.runningTasks.size;
+    return this.executingTasks.size;
   }
 
   /**
-   * List pending task IDs.
-   *
-   * 语义：仅返回内存中等调度的任务（pendingQueue）；
-   * subagent 文件未被 watcher / startDispatch 拾起前不可见。
-   * 欲看完整 pending 状态请直读 TASKS_QUEUES_PENDING_DIR/ 目录。
+   * List pending task IDs derived from fs.
    */
-  listPending(): string[] {
-    return this.pendingQueue.map(task => task.id);
+  async listPending(): Promise<string[]> {
+    const ids = await this._getPendingTaskIds();
+    return Array.from(ids);
   }
 
-  getPendingCount(): number {
-    return this.pendingQueue.length;
+  async getPendingCount(): Promise<number> {
+    const ids = await this._getPendingTaskIds();
+    return ids.size;
   }
 
   getCancellingIds(): string[] {
@@ -576,11 +646,11 @@ export class AsyncTaskSystem {
   }
 
   /**
-   * Cancel a running task
+   * Cancel a running or pending task.
    */
   async cancel(taskId: TaskId): Promise<void> {
-    // 1. 先检查 running
-    const state = this.runningTasks.get(taskId);
+    // 1. 先检查 running (active execution handles)
+    const state = this.executingTasks.get(taskId);
     if (state) {
       state.abortController.abort();
       try {
@@ -603,17 +673,16 @@ export class AsyncTaskSystem {
       return;
     }
 
-    // 2. 再检查 pending（内存队列 + 文件系统双源）
+    // 2. 再检查 pending（derive from fs）
     this.cancellingIds.add(taskId);
     try {
       const fileExists = await this.fs.exists(`${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`);
-      const queueIdx = this.pendingQueue.findIndex(t => t.id === taskId);
 
-      if (queueIdx === -1 && !fileExists) {
+      if (!fileExists) {
         const violationMsg = `Task ${taskId} not found in running or pending (race / caller bug)`;
         this.auditWriter?.write(
           TASK_AUDIT_EVENTS.INVARIANT_VIOLATION,
-          `site=async-task-system/system.ts:576`,
+          `site=async-task-system/system.ts:cancel`,
           `kind=task_not_found`,
           `taskId=${taskId}`,
           `msg=${violationMsg}`,
@@ -621,55 +690,48 @@ export class AsyncTaskSystem {
         throw new Error(`[INVARIANT VIOLATION] async-task-system: ${violationMsg}`);
       }
 
-      let task: SubAgentTask | ToolTask | undefined =
-        queueIdx !== -1 ? this.pendingQueue[queueIdx] : undefined;
-      if (queueIdx !== -1) this.pendingQueue.splice(queueIdx, 1);
-
-      // 若仅文件存在（未入队或已 shift），尝试从盘读出以决定是否 sendFallbackError
-      if (!task && fileExists) {
-        const filePath = `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`;
-        let content: string | undefined;
-        try {
-          content = await this.fs.read(filePath);
-          const parsed: unknown = JSON.parse(content);
-          if (validateTaskShape(parsed)) {
-            task = parsed as SubAgentTask | ToolTask;
-          } else {
-            await backupCorruptTask(this.fs, this.auditWriter, filePath, content, new Error('shape_mismatch'));
-          }
-        } catch (e) {
-          if (content !== undefined) {
-            await backupCorruptTask(this.fs, this.auditWriter, filePath, content, e).catch(() => { /* silent: fs.move path covered by backupCorruptTask */ });
-          }
-          // read 失败 → 跳过 / 后续 move 仍尝试
-          // phase 1013 E.4: parse fail 显式 audit 留痕
-          emitParseFailed(this.auditWriter, {
-            taskId,
-            context: 'cancel_pending_load',
-            error: formatErr(e),
-          });
+      // 从盘读出以决定是否 sendFallbackError
+      let task: SubAgentTask | ToolTask | undefined;
+      const filePath = `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`;
+      let content: string | undefined;
+      try {
+        content = await this.fs.read(filePath);
+        const parsed: unknown = JSON.parse(content);
+        if (validateTaskShape(parsed)) {
+          task = parsed as SubAgentTask | ToolTask;
+        } else {
+          await backupCorruptTask(this.fs, this.auditWriter, filePath, content, new Error('shape_mismatch'));
         }
+      } catch (e) {
+        if (content !== undefined) {
+          await backupCorruptTask(this.fs, this.auditWriter, filePath, content, e).catch(() => { /* silent: fs.move path covered by backupCorruptTask */ });
+        }
+        // read 失败 → 跳过 / 后续 move 仍尝试
+        // phase 1013 E.4: parse fail 显式 audit 留痕
+        emitParseFailed(this.auditWriter, {
+          taskId,
+          context: 'cancel_pending_load',
+          error: formatErr(e),
+        });
       }
 
       // 文件：pending → failed
-      if (fileExists) {
-        await this.fs.move(
-          `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
-          `${TASKS_QUEUES_FAILED_DIR}/${taskId}.json`
-        ).catch((e) => {
-          const code = (e as NodeJS.ErrnoException)?.code;
-          if (code === 'ENOENT' || code === 'FS_NOT_FOUND') {
-            // race-loss: dispatch 已 movePendingToRunning / cancel pending move 失败是预期 (phase 1011 D.3)
-            emitTaskCancelRaceLostToDispatch(this.auditWriter, { taskId });
-          } else {
-            emitMoveFailed(this.auditWriter, {
-              taskId,
-              context: 'cancel_pending_move',
-              error: formatErr(e),
-            });
-          }
-        });
-      }
+      await this.fs.move(
+        `${TASKS_QUEUES_PENDING_DIR}/${taskId}.json`,
+        `${TASKS_QUEUES_FAILED_DIR}/${taskId}.json`
+      ).catch((e) => {
+        const code = (e as NodeJS.ErrnoException)?.code;
+        if (code === 'ENOENT' || code === 'FS_NOT_FOUND') {
+          // race-loss: dispatch 已 movePendingToRunning / cancel pending move 失败是预期 (phase 1011 D.3)
+          emitTaskCancelRaceLostToDispatch(this.auditWriter, { taskId });
+        } else {
+          emitMoveFailed(this.auditWriter, {
+            taskId,
+            context: 'cancel_pending_move',
+            error: formatErr(e),
+          });
+        }
+      });
 
       // tool 任务：通知 parent
       if (task?.kind === 'tool') {
@@ -722,7 +784,7 @@ export class AsyncTaskSystem {
    * Used by Runtime when shutdown timeout is hit (phase 1332 N4).
    */
   abort(): void {
-    for (const state of this.runningTasks.values()) {
+    for (const state of this.executingTasks.values()) {
       state.abortController.abort();
     }
   }
@@ -738,8 +800,8 @@ export class AsyncTaskSystem {
 
     // Wait for all tasks with timeout
     let timedOut = false;
-    if (this.runningTasks.size > 0) {
-      const promises = Array.from(this.runningTasks.values()).map(s => s.promise);
+    if (this.executingTasks.size > 0) {
+      const promises = Array.from(this.executingTasks.values()).map(s => s.promise);
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         await Promise.race([
@@ -758,7 +820,7 @@ export class AsyncTaskSystem {
 
     // NEW: drain any remaining task promises (file moves in finally blocks) outside the timeout budget.
     // Use SHUTDOWN_DRAIN_GRACE_MS grace cap to avoid indefinite hangs on misbehaving tasks (phase 779 Step B / phase 863 const promote).
-    const remainingPromises = Array.from(this.runningTasks.values()).map(s => s.promise);
+    const remainingPromises = Array.from(this.executingTasks.values()).map(s => s.promise);
     if (remainingPromises.length > 0) {
       await Promise.race([
         Promise.allSettled(remainingPromises),
@@ -767,8 +829,7 @@ export class AsyncTaskSystem {
     }
     emitShutdownPendingCleanupsDrained(this.auditWriter);
 
-    this.runningTasks.clear();
-    this.pendingQueue = [];
+    this.executingTasks.clear();
 
     return timedOut;
   }

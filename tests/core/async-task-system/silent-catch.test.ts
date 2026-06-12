@@ -84,9 +84,7 @@ describe('phase 541: silent catch fixes', () => {
     it('move failure writes RECOVERY_FAILED audit (context=alreadysent_move_failed)', async () => {
       const mockFs = makeMockFsForS1({ moveReject: true, deleteReject: false });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const moveFailedEvents = events.filter(
         (e) => e[0] === TASK_AUDIT_EVENTS.RECOVERY_FAILED && e.some((c) => typeof c === 'string' && c.includes('context=alreadysent_move_failed')),
@@ -105,9 +103,7 @@ describe('phase 541: silent catch fixes', () => {
     it('move + delete both failure writes 3 RECOVERY_FAILED audits (phase 18: retry-count cleanup failure 也 emit)', async () => {
       const mockFs = makeMockFsForS1({ moveReject: true, deleteReject: true });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const recoveryFailedEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.RECOVERY_FAILED);
       expect(recoveryFailedEvents.length).toBe(3);

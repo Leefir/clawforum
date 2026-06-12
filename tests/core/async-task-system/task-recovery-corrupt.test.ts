@@ -124,9 +124,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
         runningFiles: [{ name: 'task-bad.json', path: 'tasks/queues/running/task-bad.json', content: 'invalid json' }],
       });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const corruptEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.TASK_CORRUPT);
       expect(corruptEvents.length).toBe(1);
@@ -153,9 +151,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
         ],
       });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const corruptEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.TASK_CORRUPT);
       expect(corruptEvents.length).toBe(1);
@@ -176,9 +172,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
         ],
       });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const corruptEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.TASK_CORRUPT);
       expect(corruptEvents.length).toBe(0);
@@ -198,9 +192,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
       });
       vi.mocked(mockFs.writeAtomic).mockRejectedValue(new Error('disk full'));
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const corruptEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.TASK_CORRUPT);
       expect(corruptEvents.length).toBe(1);
@@ -223,9 +215,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
         pendingFiles: [{ name: 'task-bad.json', path: 'tasks/queues/pending/task-bad.json', content: 'not json' }],
       });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const corruptEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.TASK_CORRUPT);
       expect(corruptEvents.length).toBe(1);
@@ -245,9 +235,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
         ],
       });
       const { audit, events } = makeMockAudit();
-      const pendingQueue: Array<unknown> = [];
-
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const corruptEvents = events.filter((e) => e[0] === TASK_AUDIT_EVENTS.TASK_CORRUPT);
       expect(corruptEvents.length).toBe(1);
@@ -262,7 +250,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
 
   // ─── system.ts / _loadPendingTask ───────────────────────────────────────────
 
-  describe('_loadPendingTask (system.ts)', () => {
+  describe('_loadTaskFromFile (system.ts)', () => {
     let system: AsyncTaskSystem;
     let mockFs: FileSystem;
     let auditEvents: Array<[string, ...(string | number)[]]>;
@@ -303,7 +291,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
     it('JSON.parse fail → backup + audit TASK_CORRUPT + return null (skip ingest)', async () => {
       vi.mocked(mockFs.read).mockResolvedValue('bad json');
 
-      const result = await (system as any)._loadPendingTask('tasks/queues/pending/task-bad.json');
+      const result = await (system as any)._loadTaskFromFile('tasks/queues/pending/task-bad.json');
 
       expect(result).toBeNull();
 
@@ -322,7 +310,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
     it('shape mismatch → backup + audit + return null', async () => {
       vi.mocked(mockFs.read).mockResolvedValue(JSON.stringify({ id: 'x', kind: 'bogus' }));
 
-      const result = await (system as any)._loadPendingTask('tasks/queues/pending/task-bad.json');
+      const result = await (system as any)._loadTaskFromFile('tasks/queues/pending/task-bad.json');
 
       expect(result).toBeNull();
 
@@ -339,7 +327,7 @@ describe('task-recovery corrupt-backup 三件套', () => {
     it('valid task → no backup + return task', async () => {
       vi.mocked(mockFs.read).mockResolvedValue(JSON.stringify(makeValidTask('tool')));
 
-      const result = await (system as any)._loadPendingTask('tasks/queues/pending/task-1.json');
+      const result = await (system as any)._loadTaskFromFile('tasks/queues/pending/task-1.json');
 
       expect(result).not.toBeNull();
       expect(result.id).toBe('task-1');

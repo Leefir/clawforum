@@ -102,9 +102,7 @@ describe('phase 989 task-recovery sub-fixes', () => {
     await mockFs.writeAtomic(retryPath, 'abc');
 
     const { audit, events } = makeMockAudit();
-    const pendingQueue: Array<unknown> = [];
-
-    await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+    await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
     // Verify: audit emitted retry_counter_corrupt
     const corruptEvents = events.filter(
@@ -139,9 +137,7 @@ describe('phase 989 task-recovery sub-fixes', () => {
     await mockFs.writeAtomic(retryPath, '2');
 
     const { audit, events } = makeMockAudit();
-    const pendingQueue: Array<unknown> = [];
-
-    await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue } as RecoverTasksDeps);
+    await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
     // Verify: task moved to done/
     expect(await mockFs.exists('tasks/queues/done/task-1.json')).toBe(true);

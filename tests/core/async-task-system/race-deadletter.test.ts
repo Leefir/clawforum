@@ -111,7 +111,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       mockFs.move = vi.fn().mockResolvedValue(undefined);
 
-      const pushSpy = vi.spyOn((system as any).pendingQueue, 'push');
+      const enqueueSpy = vi.spyOn(system as any, '_enqueueAndDispatch');
 
       const ingestPromise = (system as any)._ingestPendingFile(filePath);
       const cancelPromise = system.cancel(taskId);
@@ -137,8 +137,8 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       resolveExists(true);
       await cancelPromise;
 
-      // 断言：pendingQueue.push 未被调用（race re-check 拦截了 ghost dispatch）
-      expect(pushSpy).not.toHaveBeenCalled();
+      // 断言：_enqueueAndDispatch 未被调用（race re-check 拦截了 ghost dispatch）
+      expect(enqueueSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -189,7 +189,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockRejectedValue(new Error('send failed'));
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       // retryPath 应该被 delete 调用过
       const deleteCalls = (mockFs.delete as any).mock.calls;
@@ -238,7 +238,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockRejectedValue(new Error('send failed'));
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       const moveFailedEvents = events.filter(
         (e) => e[0] === TASK_AUDIT_EVENTS.RECOVERY_FAILED && e.some((c) => typeof c === 'string' && c.includes('context=dead_letter_move_failed')),
@@ -292,7 +292,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       await system.shutdown(1).catch(() => {});
     });
 
-    it('prevents double push 同 taskId on concurrent ingest', async () => {
+    it('prevents double start 同 taskId on concurrent ingest', async () => {
       const taskId = 'task-race-concurrent';
       const filePath = `tasks/queues/pending/${taskId}.json`;
       const taskObj = {
@@ -306,14 +306,15 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       };
 
       const defers: Array<{ resolve: (v: typeof taskObj) => void }> = [];
-      vi.spyOn(system as any, '_loadPendingTask').mockImplementation(() => {
-        return new Promise((resolve) => { defers.push({ resolve: resolve as any }); });
-      });
-
       mockFs.exists = vi.fn().mockResolvedValue(false);
       mockFs.move = vi.fn().mockResolvedValue(undefined);
 
-      const pushSpy = vi.spyOn((system as any).pendingQueue, 'push');
+      const startSpy = vi.spyOn(system as any, '_startTask').mockResolvedValue(undefined);
+      vi.spyOn(system as any, '_loadTaskFromFile').mockImplementation(() => {
+        return new Promise((resolve) => { defers.push({ resolve: resolve as any }); });
+      });
+      vi.spyOn(system as any, '_getPendingTaskIds').mockResolvedValue(new Set([taskId]));
+      vi.spyOn(system as any, '_getPendingTasks').mockResolvedValue([taskObj]);
 
       // 并发触发两次 _ingestPendingFile
       const p1 = (system as any)._ingestPendingFile(filePath);
@@ -330,8 +331,8 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       await p1;
       await p2;
 
-      // 断言：pendingQueue.push 只被调用一次
-      expect(pushSpy).toHaveBeenCalledTimes(1);
+      // 断言：_startTask 只被调用一次（dispatch loop guard 防重）
+      expect(startSpy).toHaveBeenCalledTimes(1);
     });
 
     it('still prevents ghost dispatch during cancel race (phase 556 regression)', async () => {
@@ -369,7 +370,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       mockFs.move = vi.fn().mockResolvedValue(undefined);
 
-      const pushSpy = vi.spyOn((system as any).pendingQueue, 'push');
+      const enqueueSpy = vi.spyOn(system as any, '_enqueueAndDispatch');
 
       const ingestPromise = (system as any)._ingestPendingFile(filePath);
       const cancelPromise = system.cancel(taskId);
@@ -391,7 +392,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       resolveExists(true);
       await cancelPromise;
 
-      expect(pushSpy).not.toHaveBeenCalled();
+      expect(enqueueSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -442,7 +443,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockRejectedValue(new Error('send failed'));
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       // task 不应被 move 到 DONE
       const moveCalls = (mockFs.move as any).mock.calls;
@@ -506,7 +507,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockRejectedValue(new Error('send failed'));
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       // task 应被 move 到 FAILED
       const moveCalls = (mockFs.move as any).mock.calls;
@@ -551,7 +552,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
       (sendResult as any).mockResolvedValue(undefined);
 
-      await recoverTasks({ fs: mockFs, auditWriter: audit, pendingQueue: [] } as RecoverTasksDeps);
+      await recoverTasks({ fs: mockFs, auditWriter: audit } as RecoverTasksDeps);
 
       // task 应被 move 到 DONE
       const moveCalls = (mockFs.move as any).mock.calls;

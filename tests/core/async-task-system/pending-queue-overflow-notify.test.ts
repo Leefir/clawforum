@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AsyncTaskSystem } from '../../../src/core/async-task-system/system.js';
 import type { AsyncTaskSystemOptions } from '../../../src/core/async-task-system/system.js';
 import { PENDING_QUEUE_MAX } from '../../../src/core/async-task-system/constants.js';
+import { TASKS_QUEUES_PENDING_DIR } from '../../../src/core/async-task-system/dirs.js';
 import { TASK_AUDIT_EVENTS } from '../../../src/core/async-task-system/audit-events.js';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
 import type { InboxWriter } from '../../../src/foundation/messaging/index.js';
@@ -33,6 +34,11 @@ describe('pending queue overflow motion notify', () => {
     fs.mkdirSync(path.join(baseDir, 'subagents'), { recursive: true });
   });
 
+  function writePendingFile(id: string): void {
+    const p = path.join(baseDir, TASKS_QUEUES_PENDING_DIR, `${id}.json`);
+    fs.writeFileSync(p, JSON.stringify({ id, kind: 'subagent', createdAt: new Date().toISOString() }));
+  }
+
   it('反向 1: overflow 触发 -> selfInbox.writeSync called + audit PENDING_QUEUE_OVERFLOW_NOTIFIED + file moved to failed', async () => {
     const { audit, writes } = makeMockAudit();
     const inboxWrites: Array<Record<string, unknown>> = [];
@@ -51,10 +57,9 @@ describe('pending queue overflow motion notify', () => {
       selfInbox: mockInbox,
     });
 
-    // 塞满 pendingQueue 到 PENDING_QUEUE_MAX (src const)
-    const pendingQueue = (system as any).pendingQueue as any[];
+    // 塞满 pending dir 到 PENDING_QUEUE_MAX (src const)
     for (let i = 0; i < PENDING_QUEUE_MAX; i++) {
-      pendingQueue.push({ id: `task-${i}`, kind: 'subagent' });
+      writePendingFile(`task-${i}`);
     }
 
     // 触发 overflow
@@ -87,9 +92,8 @@ describe('pending queue overflow motion notify', () => {
       // 不传 selfInbox
     });
 
-    const pendingQueue = (system as any).pendingQueue as any[];
     for (let i = 0; i < 1000; i++) {
-      pendingQueue.push({ id: `task-${i}`, kind: 'subagent' });
+      writePendingFile(`task-${i}`);
     }
 
     await (system as any)._enqueueAndDispatch({ id: 'no-inbox-task', kind: 'subagent' } as any);
@@ -127,9 +131,8 @@ describe('pending queue overflow motion notify', () => {
       selfInbox: mockInbox,
     });
 
-    const pendingQueue = (system as any).pendingQueue as any[];
     for (let i = 0; i < 1000; i++) {
-      pendingQueue.push({ id: `task-${i}`, kind: 'subagent' });
+      writePendingFile(`task-${i}`);
     }
 
     await (system as any)._enqueueAndDispatch({ id: taskId, kind: 'subagent' } as any);

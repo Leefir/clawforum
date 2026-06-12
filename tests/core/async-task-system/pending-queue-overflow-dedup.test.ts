@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AsyncTaskSystem } from '../../../src/core/async-task-system/system.js';
 import { PENDING_QUEUE_MAX } from '../../../src/core/async-task-system/constants.js';
+import { TASKS_QUEUES_PENDING_DIR } from '../../../src/core/async-task-system/dirs.js';
 import type { AuditLog } from '../../../src/foundation/audit/index.js';
 import type { InboxWriter } from '../../../src/foundation/messaging/index.js';
 import { NodeFileSystem } from '../../../src/foundation/fs/index.js';
@@ -29,6 +30,18 @@ function setupBaseDir(): string {
   return baseDir;
 }
 
+function writePendingFile(baseDir: string, id: string): void {
+  const p = path.join(baseDir, TASKS_QUEUES_PENDING_DIR, `${id}.json`);
+  fs.writeFileSync(p, JSON.stringify({ id, kind: 'subagent', createdAt: new Date().toISOString() }));
+}
+
+function clearPendingDir(baseDir: string): void {
+  const dir = path.join(baseDir, TASKS_QUEUES_PENDING_DIR);
+  for (const f of fs.readdirSync(dir)) {
+    fs.unlinkSync(path.join(dir, f));
+  }
+}
+
 describe('phase 7: overflow dedup (system-level overload, 1 notif per window)', () => {
   let baseDir: string;
   beforeEach(() => { baseDir = setupBaseDir(); });
@@ -46,9 +59,8 @@ describe('phase 7: overflow dedup (system-level overload, 1 notif per window)', 
       outboxWriter: {} as any, registry: {} as any, selfInbox: mockInbox,
     });
 
-    const pendingQueue = (system as any).pendingQueue as any[];
     for (let i = 0; i < PENDING_QUEUE_MAX; i++) {
-      pendingQueue.push({ id: `task-${i}`, kind: 'subagent' });
+      writePendingFile(baseDir, `task-${i}`);
     }
 
     // Trigger 3 overflow rejections in same window
@@ -74,9 +86,8 @@ describe('phase 7: overflow dedup (system-level overload, 1 notif per window)', 
       outboxWriter: {} as any, registry: {} as any, selfInbox: mockInbox,
     });
 
-    const pendingQueue = (system as any).pendingQueue as any[];
     for (let i = 0; i < PENDING_QUEUE_MAX; i++) {
-      pendingQueue.push({ id: `task-${i}`, kind: 'subagent' });
+      writePendingFile(baseDir, `task-${i}`);
     }
 
     await (system as any)._enqueueAndDispatch({ id: 'overflow-task', kind: 'subagent' } as any);
@@ -104,23 +115,22 @@ describe('phase 7: overflow dedup (system-level overload, 1 notif per window)', 
       outboxWriter: {} as any, registry: {} as any, selfInbox: mockInbox,
     });
 
-    const pendingQueue = (system as any).pendingQueue as any[];
     // First overflow window
     for (let i = 0; i < PENDING_QUEUE_MAX; i++) {
-      pendingQueue.push({ id: `task-${i}`, kind: 'subagent' });
+      writePendingFile(baseDir, `task-${i}`);
     }
     await (system as any)._enqueueAndDispatch({ id: 'first-overflow', kind: 'subagent' } as any);
     expect(inboxWrites.filter(w => w.type === 'task_queue_overflow').length).toBe(1);
 
     // Drain queue (simulate processing)
-    pendingQueue.length = 0;
+    clearPendingDir(baseDir);
 
     // _enqueueAndDispatch 不在 overflow case 时也会 reset dedup
     await (system as any)._enqueueAndDispatch({ id: 'recovery-task', kind: 'subagent' } as any).catch(() => {});
 
     // Re-fill queue + second overflow
     for (let i = 0; i < PENDING_QUEUE_MAX; i++) {
-      pendingQueue.push({ id: `task2-${i}`, kind: 'subagent' });
+      writePendingFile(baseDir, `task2-${i}`);
     }
     await (system as any)._enqueueAndDispatch({ id: 'second-overflow', kind: 'subagent' } as any);
 

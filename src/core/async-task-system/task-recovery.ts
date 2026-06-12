@@ -32,7 +32,6 @@ const MAX_RECOVERY_RETRIES = 3;
 export interface RecoverTasksDeps {
   fs: FileSystem;
   auditWriter: AuditLog;
-  pendingQueue: Array<SubAgentTask | ToolTask>;
 }
 
 async function _recoverRunningTasks(deps: RecoverTasksDeps): Promise<number> {
@@ -360,16 +359,18 @@ async function _loadPendingTasks(deps: RecoverTasksDeps): Promise<void> {
  * - Running tasks: move back to pending (they need to be re-executed)
  */
 export async function recoverTasks(deps: RecoverTasksDeps): Promise<void> {
-  const { auditWriter, pendingQueue } = deps;
+  const { auditWriter } = deps;
   try {
     const recoveredFromRunning = await _recoverRunningTasks(deps);
     await _loadPendingTasks(deps);
 
+    const pendingEntries = await deps.fs.list(TASKS_QUEUES_PENDING_DIR).catch(() => []);
+    const pendingCount = pendingEntries.filter(e => e.name.endsWith('.json')).length;
     const failedEntries = await deps.fs.list(TASKS_QUEUES_FAILED_DIR).catch(() => []);
     const failedCount = failedEntries.filter(e => e.name.endsWith('.json')).length;
 
     emitRecoveryComplete(auditWriter, {
-      pending: pendingQueue.length,
+      pending: pendingCount,
       recoveredRunning: recoveredFromRunning,
       failed: failedCount,
     });
@@ -381,6 +382,4 @@ export async function recoverTasks(deps: RecoverTasksDeps): Promise<void> {
       error: errMsg,
     });
   }
-
-
 }
