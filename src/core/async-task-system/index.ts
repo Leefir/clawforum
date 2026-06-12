@@ -36,6 +36,8 @@ import {
   TASKS_QUEUES_FAILED_DIR,
   TASKS_QUEUES_RESULTS_DIR,
 } from './dirs.js';
+import { TASKS_SYNC_SEARCH_DIR } from '../../foundation/file-tool/index.js';
+import { TASKS_SYNC_EXEC_DIR } from '../../foundation/command-tool/constants.js';
 
 /**
  * Delete task files (done/, failed/, results/) older than maxDays.
@@ -58,7 +60,14 @@ export async function cleanupExpiredTaskFiles(opts: {
   // 与实然 dir 'tasks/queues/done|failed|results' (per TASKS_QUEUES_*_DIR) 路径错配、
   // 导致 fs.existsSync 返 false 后 continue、cleanup 实际清 0 文件 (latent bug)。
   // const 化 + 路径修正 = ML#3 single source 后业务路径正确、cron retention-cleanup 真清正确 dir。
-  const dirs = [TASKS_QUEUES_DONE_DIR, TASKS_QUEUES_FAILED_DIR, TASKS_QUEUES_RESULTS_DIR];
+  // phase 287 Step D: cleanup dirs 加 sync/search + sync/exec overflow（file-tool + command-tool 写处）
+  const dirs = [
+    TASKS_QUEUES_DONE_DIR,
+    TASKS_QUEUES_FAILED_DIR,
+    TASKS_QUEUES_RESULTS_DIR,
+    TASKS_SYNC_SEARCH_DIR,
+    TASKS_SYNC_EXEC_DIR,
+  ];
 
   for (const relPath of dirs) {
     if (signal?.aborted) break;

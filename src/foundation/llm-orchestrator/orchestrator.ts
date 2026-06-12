@@ -71,6 +71,19 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
   // phase 1374 sub-3: SDK client cache (instance-lifetime)
   private sdkClientCache = new Map<string, LLMProvider>();
 
+  /**
+   * phase 287 Step C: extract backoff formula to helper (M#1 共用基础设施单源)
+   *
+   * Exponential backoff with jitter, capped at MAX_BACKOFF_MS.
+   * Formula: retryDelayMs * 2^attempt * (0.75 + random * 0.5) capped at MAX_BACKOFF_MS.
+   */
+  private computeBackoffMs(attempt: number): number {
+    return Math.min(
+      this.config.retryDelayMs * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
+      MAX_BACKOFF_MS,
+    );
+  }
+
   private getSdkClient(config: ProviderConfig): LLMProvider {
     const key = `${config.apiFormat ?? 'unknown'}:${config.model ?? 'unknown'}:${(config.apiKey ?? '').slice(-8)}`;
     if (!this.sdkClientCache.has(key)) {
@@ -200,10 +213,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
           // Wait before retry (exponential backoff with jitter, 30s max)
           if (attempt < this.config.maxAttempts - 1) {
-            const backoffMs = Math.min(
-              this.config.retryDelayMs * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
-              MAX_BACKOFF_MS,
-            );
+            const backoffMs = this.computeBackoffMs(attempt);
             this.events.emit({ type: 'retry_scheduled', provider: this.primary.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
           }
@@ -311,10 +321,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
           // Wait before retry (exponential backoff with jitter, 30s max)
           if (attempt < this.config.maxAttempts - 1) {
-            const backoffMs = Math.min(
-              this.config.retryDelayMs * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
-              MAX_BACKOFF_MS,
-            );
+            const backoffMs = this.computeBackoffMs(attempt);
             this.events.emit({ type: 'retry_scheduled', provider: fb.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
           }
@@ -498,10 +505,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
 
           // Don't wait after the last attempt
           if (attempt < this.config.maxAttempts - 1) {
-            const backoffMs = Math.min(
-              this.config.retryDelayMs * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
-              MAX_BACKOFF_MS,
-            );
+            const backoffMs = this.computeBackoffMs(attempt);
             this.events.emit({ type: 'retry_scheduled', provider: adapter.name, attempt, backoffMs });
             await delay(backoffMs, options.signal);
           }

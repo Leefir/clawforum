@@ -192,21 +192,6 @@ export async function releaseLock(ctx: LockContext, lockPath: string): Promise<v
   }
 }
 
-export async function withProgressLock<T>(
-  ctx: LockContext,
-  contractDir: string,
-  contractId: ContractId,
-  fn: () => Promise<T>,
-): Promise<T> {
-  const lockPath = `${contractDir}/${contractId}/progress.lock`;
-  await acquireLock(ctx, lockPath);
-  try {
-    return await fn();
-  } finally {
-    await releaseLock(ctx, lockPath);
-  }
-}
-
 export interface LockContractResult {
   dir: string;
   lockPath: string;
