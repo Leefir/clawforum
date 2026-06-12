@@ -6,6 +6,7 @@
 import type { LLMResponse } from '../../foundation/llm-provider/types.js';
 import type { ToolResultBlock } from '../../foundation/llm-provider/types.js';
 import type { StepInput, StepResult, LLMCallInfo } from './types.js';
+import { asFinalStopReason } from './types.js';
 import { extractText, extractToolCalls, appendAssistantMessage, appendToolResults } from './utils.js';
 import { executeToolCalls } from './tool-execution.js';
 import { throwAbortError } from './abort-helpers.js';
@@ -27,7 +28,7 @@ export async function handleToolUseStop(
     appendAssistantMessage(messages, response.content);
     callbacks?.onMessageAppended?.('assistant', response.content.length);
     callbacks?.onUnparseableToolUse?.(response.stop_reason);
-    return { kind: 'final', stopReason: 'no_tool', finalText: text };
+    return { kind: 'final', stopReason: asFinalStopReason('no_tool'), finalText: text };
   }
   appendAssistantMessage(messages, response.content.filter(b => b.type !== 'tool_result'));
   callbacks?.onMessageAppended?.('assistant', response.content.filter(b => b.type !== 'tool_result').length);
@@ -156,7 +157,7 @@ export function handleMaxTokensStop(
     });
     return {
       kind: 'final',
-      stopReason: 'max_tokens_text',
+      stopReason: asFinalStopReason('max_tokens_text'),
       finalText: maxTokens !== undefined
         ? `[Response truncated due to length limit at ${maxTokens} tokens; only stale tool_result blocks received, no new content]`
         : `[Response truncated due to model length limit; only stale tool_result blocks received, no new content]`,
@@ -173,7 +174,7 @@ export function handleMaxTokensStop(
   }
   return {
     kind: 'final',
-    stopReason: 'max_tokens_text',
+    stopReason: asFinalStopReason('max_tokens_text'),
     finalText: text + '\n\n[Response truncated due to length limit]',
   };
 }

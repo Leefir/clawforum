@@ -13,6 +13,7 @@ import type { LLMOrchestrator } from '../../foundation/llm-orchestrator/index.js
 import type { ExecContext } from '../../foundation/tools/index.js';
 import type { IToolExecutor, ToolRegistry } from '../../foundation/tools/index.js';
 import { executeStep, throwAbortError, type StepCallbacks, type StepMeta, type FinalStopReason } from '../step-executor/index.js';
+import { asFinalStopReason } from '../step-executor/types.js';
 import { MaxStepsExceededError, ConsecutiveParseErrorsExceededError, ConsecutiveMaxTokensToolUseError, WallTimeExceededError } from './errors.js';
 import { DEFAULT_MAX_STEPS } from './defaults.js';
 import { makeStepNumber } from '../../foundation/identity/step-number.js';
@@ -78,7 +79,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     // phase 777: result-capture tools (done) request early stop.
     // capturedResult is read by runSubagent regardless of finalText.
     if (ctx.stopRequested) {
-      return { finalText: '', stepsUsed: stepCount, stopReason: 'end_turn' };
+      return { finalText: '', stepsUsed: stepCount, stopReason: asFinalStopReason('end_turn') };
     }
 
     const result = await executeStep({

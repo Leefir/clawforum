@@ -77,11 +77,50 @@ export interface StepMeta {
   toolNames?: string;
 }
 
+/** Brand symbol — caller 无法构造、唯一通道是 asFinalStopReason factory */
+declare const __FSR_brand: unique symbol;
+
 /**
- * StepResult 'final' variant 的 stopReason 字面联合。
- * phase 1483: 抽 named type、让 AgentExecutor 编译期复用、消除独立字面声明漂移风险（M#9 编译器可检）。
+ * FinalStopReason 单源 const（M#3 资源唯一归属、ML#1 共用基础设施单源）。
+ *
+ * Producer 必经 asFinalStopReason() / tryAsFinalStopReason() 构造、
+ * 不可直接字面 string assign 到 FinalStopReason type（brand 阻挡）。
  */
-export type FinalStopReason = 'end_turn' | 'stop' | 'max_tokens_text' | 'no_tool' | 'content_filter' | 'unknown';
+export const FINAL_STOP_REASONS = [
+  'end_turn',
+  'stop',
+  'max_tokens_text',
+  'no_tool',
+  'content_filter',
+  'unknown',
+] as const;
+
+type RawFinalStopReason = typeof FINAL_STOP_REASONS[number];
+
+/**
+ * 字面联合 + brand intersection。
+ * caller 写 `const x: FinalStopReason = 'end_turn'` 编译 fail（缺 brand）。
+ * caller 必经 `asFinalStopReason('end_turn')` 构造（M#9 优先编译期检查）。
+ */
+export type FinalStopReason = (RawFinalStopReason & { readonly [__FSR_brand]: never });
+
+/**
+ * 唯一构造入口（producer 已知 RawFinalStopReason value）。
+ */
+export function asFinalStopReason(s: RawFinalStopReason): FinalStopReason {
+  return s as FinalStopReason;
+}
+
+/**
+ * Raw LLM string → typed FinalStopReason validate + 构造。
+ * 用于 step-executor.ts:98 dynamic 路径（raw LLM response.stop_reason）。
+ * 返回 undefined 时 caller 应走 onUnknownStopReason callback + fallback。
+ */
+export function tryAsFinalStopReason(s: string): FinalStopReason | undefined {
+  return (FINAL_STOP_REASONS as readonly string[]).includes(s)
+    ? (s as FinalStopReason)
+    : undefined;
+}
 
 export type StepResult =
   | { kind: 'final'; stopReason: FinalStopReason; finalText: string }

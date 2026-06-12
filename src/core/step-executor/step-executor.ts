@@ -21,6 +21,7 @@
 import type { LLMResponse, Message } from '../../foundation/llm-provider/types.js';
 import type { LLMOrchestrator, LLMCallOptions } from '../../foundation/llm-orchestrator/index.js';
 import type { StepInput, StepResult, LLMCallInfo } from './types.js';
+import { asFinalStopReason } from './types.js';
 
 import type { StepCallbacks } from './types.js';
 import { throwAbortError } from './abort-helpers.js';
@@ -95,7 +96,7 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
     const text = extractText(response.content);
     appendAssistantMessage(messages, response.content);
     callbacks?.onMessageAppended?.('assistant', response.content.length);
-    return { kind: 'final', stopReason: response.stop_reason, finalText: text };
+    return { kind: 'final', stopReason: asFinalStopReason(response.stop_reason), finalText: text };
   }
 
   if (response.stop_reason === 'max_tokens') return handleMaxTokensStop(response, input, llmInfo, maxTokens);
@@ -104,7 +105,7 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
   const text = extractText(response.content);
   appendAssistantMessage(messages, response.content);
   callbacks?.onMessageAppended?.('assistant', response.content.length);
-  return { kind: 'final', stopReason: 'content_filter', finalText: text };
+  return { kind: 'final', stopReason: asFinalStopReason('content_filter'), finalText: text };
 }
 
 async function runLLMCall(
