@@ -25,8 +25,9 @@
     "test:fast": "vitest run --config .config/vitest.config.ts --exclude 'tests/e2e/**' --exclude 'tests/foundation/process-*' --exclude 'tests/foundation/process-exec/**' --exclude 'tests/cli/daemon-entry.test.ts' --exclude 'tests/cli/already-running-sentinel.test.ts'",
     "test:smoke": "vitest run --config .config/vitest.config.ts --project=fast",
     "typecheck": "tsc --noEmit",
-    "lint": "pnpm run typecheck && pnpm run lint:arch",
-    "lint:arch": "depcruise --config .config/dependency-cruiser.cjs src"
+    "lint": "pnpm run typecheck && pnpm run lint:arch && pnpm run lint:lint",
+    "lint:arch": "depcruise --config .config/dependency-cruiser.cjs src",
+    "lint:lint": "eslint src/ --config .config/eslint.config.js"
   },
   "keywords": [
     "ai",
@@ -52,8 +53,11 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.10",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
     "@vitest/coverage-v8": "^3.2.4",
     "dependency-cruiser": "^16.10.0",
+    "eslint": "^10.4.1",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
