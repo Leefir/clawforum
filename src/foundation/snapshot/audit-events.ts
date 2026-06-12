@@ -20,6 +20,7 @@ export const SNAPSHOT_AUDIT_EVENTS = {
   STATE_INVARIANT_VIOLATED: 'snapshot_state_invariant_violated',
   STATE_CROSS_SOURCE_MISMATCH: 'snapshot_state_cross_source_mismatch',
   STATE_CROSS_SOURCE_SKIPPED: 'snapshot_state_cross_source_skipped',
+  LEGACY_SCHEMA_MIGRATED: 'snapshot_legacy_schema_migrated',
 } as const;
 
 

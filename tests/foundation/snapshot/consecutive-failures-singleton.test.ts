@@ -51,7 +51,8 @@ describe.skipIf(!gitAvailable)('consecutiveFailures singleton', () => {
 
     const raw = await fsp.readFile(persistPath, 'utf-8');
     const state = JSON.parse(raw);
-    expect(state.consecutiveFailures).toBe(3);
+    expect(state.kind).toBe('degraded');
+    expect(state.failures).toBe(3);
     expect(typeof state.degradedAt).toBe('number');
     expect(state.degradedAt).toBeGreaterThan(0);
   });

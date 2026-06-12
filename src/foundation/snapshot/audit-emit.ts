@@ -119,3 +119,13 @@ export function emitSnapshotRealpathFailed(audit: AuditLog, opts: {
 }): void {
   audit.write(SNAPSHOT_AUDIT_EVENTS.REALPATH_FAILED, `dir=${opts.dir}`, `reason=${opts.reason}`);
 }
+
+// === LEGACY_SCHEMA_MIGRATED ===
+export function emitSnapshotLegacySchemaMigrated(audit: AuditLog, opts: {
+  failures: number;
+  degradedAt?: number;
+}): void {
+  const cols: (string | number)[] = [`failures=${opts.failures}`];
+  if (opts.degradedAt !== undefined) cols.push(`degradedAt=${opts.degradedAt}`);
+  audit.write(SNAPSHOT_AUDIT_EVENTS.LEGACY_SCHEMA_MIGRATED, ...cols);
+}

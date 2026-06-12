@@ -3,7 +3,7 @@ import { assertSnapshotStateShape } from '../../../src/foundation/snapshot/invar
 import { SNAPSHOT_AUDIT_EVENTS } from '../../../src/foundation/snapshot/audit-events.js';
 import { makeMockAudit } from '../../helpers/audit.js';
 
-describe('snapshot state shape invariant (phase 275 Step A)', () => {
+describe('snapshot state shape invariant (phase 275 Step A + phase 285 Step A)', () => {
   describe('state 根 check', () => {
     it('state=null → emit kind=state_not_object', () => {
       const audit = makeMockAudit();
@@ -34,88 +34,122 @@ describe('snapshot state shape invariant (phase 275 Step A)', () => {
         'actual=string',
       );
     });
-  });
 
-  describe('consecutiveFailures', () => {
-    it('合法 number finite → 0 emit', () => {
+    it('state={kind: 1} → emit kind=kind_invalid', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 1 }, audit);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
-    it('0 → 0 emit', () => {
-      const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 0 }, audit);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
-    it('NaN → emit kind=consecutiveFailures_invalid', () => {
-      const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: NaN }, audit);
+      assertSnapshotStateShape({ kind: 1 }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
-        'kind=consecutiveFailures_invalid',
+        'kind=kind_invalid',
+        'actual=1',
+      );
+    });
+  });
+
+  describe('ok branch', () => {
+    it('{ kind: "ok" } → 0 emit', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'ok' }, audit);
+      expect(audit.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('degraded branch', () => {
+    it('合法 degraded → 0 emit', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'degraded', failures: 3, degradedAt: 12345 }, audit);
+      expect(audit.write).not.toHaveBeenCalled();
+    });
+
+    it('failures=0 → 0 emit（边界合法）', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'degraded', failures: 0, degradedAt: 12345 }, audit);
+      expect(audit.write).not.toHaveBeenCalled();
+    });
+
+    it('failures 缺省 → emit kind=failures_invalid', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'degraded', degradedAt: 12345 }, audit);
+      expect(audit.write).toHaveBeenCalledWith(
+        SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
+        'kind=failures_invalid',
+        'actual=undefined',
+      );
+    });
+
+    it('failures=NaN → emit kind=failures_invalid', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'degraded', failures: NaN, degradedAt: 12345 }, audit);
+      expect(audit.write).toHaveBeenCalledWith(
+        SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
+        'kind=failures_invalid',
         'actual=NaN',
       );
     });
 
-    it('Infinity → emit', () => {
+    it('failures=Infinity → emit', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: Infinity }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: Infinity, degradedAt: 12345 }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
-        'kind=consecutiveFailures_invalid',
+        'kind=failures_invalid',
         'actual=Infinity',
       );
     });
 
-    it('-Infinity → emit', () => {
+    it('failures=-Infinity → emit', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: -Infinity }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: -Infinity, degradedAt: 12345 }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
-        'kind=consecutiveFailures_invalid',
+        'kind=failures_invalid',
         'actual=-Infinity',
       );
     });
 
-    it('字符串 → emit', () => {
+    it('failures=-1 → emit', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: '3' }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: -1, degradedAt: 12345 }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
-        'kind=consecutiveFailures_invalid',
+        'kind=failures_invalid',
+        'actual=-1',
+      );
+    });
+
+    it('failures=1.5 → emit', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'degraded', failures: 1.5, degradedAt: 12345 }, audit);
+      expect(audit.write).toHaveBeenCalledWith(
+        SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
+        'kind=failures_invalid',
+        'actual=1.5',
+      );
+    });
+
+    it('failures=字符串 → emit', () => {
+      const audit = makeMockAudit();
+      assertSnapshotStateShape({ kind: 'degraded', failures: '3', degradedAt: 12345 }, audit);
+      expect(audit.write).toHaveBeenCalledWith(
+        SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
+        'kind=failures_invalid',
         'actual=3',
       );
     });
 
-    it('undefined → emit (required)', () => {
+    it('degradedAt 缺省 → emit kind=degradedAt_invalid', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({}, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: 1 }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
-        'kind=consecutiveFailures_invalid',
+        'kind=degradedAt_invalid',
         'actual=undefined',
       );
     });
-  });
 
-  describe('degradedAt', () => {
-    it('undefined → 0 emit (optional)', () => {
+    it('degradedAt=NaN → emit kind=degradedAt_invalid', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 0 }, audit);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
-    it('合法 number → 0 emit', () => {
-      const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 0, degradedAt: 12345 }, audit);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
-    it('NaN → emit kind=degradedAt_invalid', () => {
-      const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 0, degradedAt: NaN }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: 1, degradedAt: NaN }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
         'kind=degradedAt_invalid',
@@ -123,9 +157,9 @@ describe('snapshot state shape invariant (phase 275 Step A)', () => {
       );
     });
 
-    it('Infinity → emit', () => {
+    it('degradedAt=Infinity → emit', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 0, degradedAt: Infinity }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: 1, degradedAt: Infinity }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
         'kind=degradedAt_invalid',
@@ -133,9 +167,9 @@ describe('snapshot state shape invariant (phase 275 Step A)', () => {
       );
     });
 
-    it('字符串 → emit', () => {
+    it('degradedAt=字符串 → emit', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 0, degradedAt: 'now' }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: 1, degradedAt: 'now' }, audit);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
         'kind=degradedAt_invalid',
@@ -145,14 +179,14 @@ describe('snapshot state shape invariant (phase 275 Step A)', () => {
   });
 
   describe('多违例独立 emit', () => {
-    it('consecutiveFailures + degradedAt 均非法 → 2 emit', () => {
+    it('failures + degradedAt 均非法 → 2 emit', () => {
       const audit = makeMockAudit();
-      assertSnapshotStateShape({ consecutiveFailures: 'bad', degradedAt: 'worse' }, audit);
+      assertSnapshotStateShape({ kind: 'degraded', failures: 'bad', degradedAt: 'worse' }, audit);
       expect(audit.write).toHaveBeenCalledTimes(2);
       expect(audit.write).toHaveBeenNthCalledWith(
         1,
         SNAPSHOT_AUDIT_EVENTS.STATE_INVARIANT_VIOLATED,
-        'kind=consecutiveFailures_invalid',
+        'kind=failures_invalid',
         'actual=bad',
       );
       expect(audit.write).toHaveBeenNthCalledWith(

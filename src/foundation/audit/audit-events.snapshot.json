@@ -847,6 +847,7 @@
       "snapshot_state_invariant_violated",
       "snapshot_state_cross_source_mismatch",
       "snapshot_state_cross_source_skipped",
+      "snapshot_legacy_schema_migrated",
       "snapshot_status_stderr",
       "snapshot_sync_clean_failed",
       "snapshot_sync_restore_failed",

@@ -21,6 +21,7 @@ import {
   emitSnapshotDegraded,
   emitSnapshotInitCleanupFailed,
   emitSnapshotInitFailed,
+  emitSnapshotLegacySchemaMigrated,
   emitSnapshotPersistFailed,
   emitSnapshotRealpathFailed,
   emitSnapshotStateCorrupt,
@@ -44,12 +45,79 @@ const DEFAULT_IGNORES = ['logs/', '*.tmp'];
 /** Minimum interval between git commits (ms). Commits within this window are skipped. */
 const COMMIT_THROTTLE_MS = 30_000;
 
-interface SnapshotState {
-  consecutiveFailures: number;
-  degradedAt?: number;
-}
+type SnapshotState =
+  | { kind: 'ok' }
+  | { kind: 'degraded'; failures: number; degradedAt: number };
+
+const INITIAL_STATE: SnapshotState = { kind: 'ok' };
 
 const STATE_FILE_REL = path.join('.git', '.snapshot-state.json');
+
+function onCommitFailure(state: SnapshotState, now: number): SnapshotState {
+  if (state.kind === 'ok') {
+    return { kind: 'degraded', failures: 1, degradedAt: now };
+  }
+  return { ...state, failures: state.failures + 1 };
+}
+
+function onCommitSuccess(): SnapshotState {
+  return { kind: 'ok' };
+}
+
+function parseSnapshotState(raw: unknown, audit: AuditLog): SnapshotState | undefined {
+  if (typeof raw !== 'object' || raw === null) {
+    emitSnapshotStateCorrupt(audit, { reason: 'state_schema_invalid' });
+    return undefined;
+  }
+
+  // new tagged-union schema
+  if ('kind' in raw) {
+    const parsed = raw as { kind?: unknown; failures?: unknown; degradedAt?: unknown };
+    if (parsed.kind === 'ok') {
+      return { kind: 'ok' };
+    }
+    if (parsed.kind === 'degraded') {
+      const failures = Number(parsed.failures);
+      const degradedAt = Number(parsed.degradedAt);
+      if (
+        Number.isFinite(failures) &&
+        Number.isInteger(failures) &&
+        failures >= 0 &&
+        Number.isFinite(degradedAt)
+      ) {
+        return { kind: 'degraded', failures, degradedAt };
+      }
+    }
+    emitSnapshotStateCorrupt(audit, { reason: 'state_schema_invalid' });
+    return undefined;
+  }
+
+  // legacy schema { consecutiveFailures: number; degradedAt?: number }
+  if ('consecutiveFailures' in raw) {
+    const legacy = raw as { consecutiveFailures?: unknown; degradedAt?: unknown };
+    const failures = Number(legacy.consecutiveFailures);
+    if (!Number.isFinite(failures) || !Number.isInteger(failures)) {
+      emitSnapshotStateCorrupt(audit, { reason: 'legacy_state_schema_invalid' });
+      return undefined;
+    }
+    const degradedAt = legacy.degradedAt === undefined ? undefined : Number(legacy.degradedAt);
+    emitSnapshotLegacySchemaMigrated(audit, {
+      failures,
+      degradedAt: Number.isFinite(degradedAt) ? degradedAt : undefined,
+    });
+    if (failures > 0) {
+      return {
+        kind: 'degraded',
+        failures,
+        degradedAt: Number.isFinite(degradedAt) ? degradedAt! : Date.now(),
+      };
+    }
+    return { kind: 'ok' };
+  }
+
+  emitSnapshotStateCorrupt(audit, { reason: 'state_schema_invalid' });
+  return undefined;
+}
 
 async function persistState(fs: FileSystem, dir: string, state: SnapshotState, audit?: AuditLog): Promise<void> {
   if (audit) {
@@ -104,7 +172,7 @@ export class Snapshot {
   private readonly syncCleanupDirs?: readonly string[];
   private execImpl: typeof defaultExec;
   private _lastCommitMs = 0;
-  private state: SnapshotState = { consecutiveFailures: 0 };
+  private state: SnapshotState = INITIAL_STATE;
 
   /**
    * @param dir - snapshot 根目录绝对路径（必须等于 fs.baseDir、调用方装配责任）
@@ -142,27 +210,15 @@ export class Snapshot {
       if (await this.fs.exists(STATE_FILE_REL)) {
         const raw = await this.fs.read(STATE_FILE_REL);
         const loaded: unknown = JSON.parse(raw);
-        // phase 21: inline schema check 覆盖全字段（playbook 静默失败 §8）
-        const isValidState =
-          typeof loaded === 'object' && loaded !== null &&
-          ((loaded as { consecutiveFailures?: unknown }).consecutiveFailures === undefined ||
-            (typeof (loaded as { consecutiveFailures: unknown }).consecutiveFailures === 'number' &&
-             Number.isFinite((loaded as { consecutiveFailures: number }).consecutiveFailures))) &&
-          ((loaded as { degradedAt?: unknown }).degradedAt === undefined ||
-            (typeof (loaded as { degradedAt: unknown }).degradedAt === 'number' &&
-             Number.isFinite((loaded as { degradedAt: number }).degradedAt)));
-        if (!isValidState) {
-          emitSnapshotStateCorrupt(this.audit, { reason: 'state_schema_invalid' });
-        } else {
-          const validState = loaded as Partial<SnapshotState>;
-          if (typeof validState.consecutiveFailures === 'number' && validState.consecutiveFailures > 0) {
-            this.state.consecutiveFailures = validState.consecutiveFailures;
-            this.state.degradedAt = validState.degradedAt;
+        const parsed = parseSnapshotState(loaded, this.audit);
+        if (parsed !== undefined) {
+          this.state = parsed;
+          if (this.state.kind === 'degraded') {
             // audit: restored prior failures from disk
             emitSnapshotCommitFailed(this.audit, {
               dir: this.dir,
               context: 'state_restored_from_disk',
-              consecutive: this.state.consecutiveFailures,
+              consecutive: this.state.failures,
             });
           }
         }
@@ -200,10 +256,7 @@ export class Snapshot {
       await this.git(['add', '.']);
       await this.git(['commit', '--allow-empty', '-m', 'init']);
       if (shouldResetCounter) {
-        this.state.consecutiveFailures = 0;
-        if (!this.state.degradedAt) {
-          this.state = { consecutiveFailures: 0 };
-        }
+        this.state = onCommitSuccess();
       }
       return ok(undefined);
     } catch (rawErr) {
@@ -252,8 +305,8 @@ export class Snapshot {
     const now = Date.now();
     if (now - this._lastCommitMs < COMMIT_THROTTLE_MS) {
       // throttle skip counts as "not a failure" — reset counter
-      if (this.state.consecutiveFailures > 0) {
-        this.state.consecutiveFailures = 0;
+      if (this.state.kind === 'degraded') {
+        this.state = onCommitSuccess();
         await tryClearPersist(this.fs, this.dir, this.audit);
       }
       return ok(undefined);
@@ -268,19 +321,13 @@ export class Snapshot {
         });
       }
       if (!status.stdout) {
-        this.state.consecutiveFailures = 0;
-        if (!this.state.degradedAt) {
-          this.state = { consecutiveFailures: 0 };
-        }
+        this.state = onCommitSuccess();
         return ok(undefined);
       }
       await this.git(['add', '.']);
       await this.git(['commit', '-m', message]);
       this._lastCommitMs = Date.now();
-      this.state.consecutiveFailures = 0;
-      if (!this.state.degradedAt) {
-        this.state = { consecutiveFailures: 0 };
-      }
+      this.state = onCommitSuccess();
       await tryClearPersist(this.fs, this.dir, this.audit);
       emitSnapshotCommitted(this.audit, {
         dir: this.dir,
@@ -293,19 +340,18 @@ export class Snapshot {
       return ok(undefined);
     } catch (rawErr) {
       const failure = this.classifyOrThrow(rawErr);
-      this.state.consecutiveFailures++;
+      this.state = onCommitFailure(this.state, Date.now());
       await persistState(this.fs, this.dir, this.state, this.audit);
+      const consecutive = this.state.kind === 'degraded' ? this.state.failures : 0;
       emitSnapshotCommitFailed(this.audit, {
         dir: this.dir,
         kind: failure.kind,
-        consecutive: this.state.consecutiveFailures,
+        consecutive,
       });
-      if (this.state.consecutiveFailures === 3) {
-        this.state.degradedAt = Date.now();
-        await persistState(this.fs, this.dir, this.state, this.audit);
+      if (this.state.kind === 'degraded' && this.state.failures === 3) {
         emitSnapshotDegraded(this.audit, {
           dir: this.dir,
-          consecutive: this.state.consecutiveFailures,
+          consecutive: this.state.failures,
         });
       }
       return errResult(failure);

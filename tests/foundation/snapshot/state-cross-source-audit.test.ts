@@ -3,107 +3,65 @@ import { auditSnapshotStateCrossSource } from '../../../src/foundation/snapshot/
 import { SNAPSHOT_AUDIT_EVENTS } from '../../../src/foundation/snapshot/audit-events.js';
 import { makeMockAudit } from '../../helpers/audit.js';
 
-describe('snapshot state-internal cross-source audit (phase 275 Step B)', () => {
-  describe('SC-1: consecutiveFailures >= 0 整数', () => {
-    it('0 → 0 emit', () => {
+describe('snapshot state-internal cross-source audit (phase 275 Step B + phase 285 Step A)', () => {
+  describe('ok branch', () => {
+    it('{ kind: "ok" } → 0 emit', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 0 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'ok' }, audit, 1000);
+      expect(audit.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('SC-1: degraded 时 failures >= 0 整数', () => {
+    it('failures=0 → 0 emit', () => {
+      const audit = makeMockAudit();
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: 0, degradedAt: 500 }, audit, 1000);
       expect(audit.write).not.toHaveBeenCalled();
     });
 
-    it('正整数 → 0 emit', () => {
+    it('failures=3 → 0 emit', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 3 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: 3, degradedAt: 500 }, audit, 1000);
       expect(audit.write).not.toHaveBeenCalled();
     });
 
-    it('-1 → emit sc1', () => {
+    it('failures=-1 → emit sc1', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: -1 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: -1, degradedAt: 500 }, audit, 1000);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_CROSS_SOURCE_MISMATCH,
-        'kind=sc1_consecutiveFailures_invalid',
+        'kind=sc1_failures_invalid',
         'actual=-1',
       );
     });
 
-    it('小数 1.5 → emit sc1', () => {
+    it('failures=1.5 → emit sc1', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 1.5 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: 1.5, degradedAt: 500 }, audit, 1000);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_CROSS_SOURCE_MISMATCH,
-        'kind=sc1_consecutiveFailures_invalid',
+        'kind=sc1_failures_invalid',
         'actual=1.5',
       );
     });
   });
 
-  describe('SC-2: degraded 状态语义一致', () => {
-    it('degradedAt undefined + consecutiveFailures=0 → 0 emit', () => {
-      const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 0 }, audit, 1000);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
-    it('degradedAt set + consecutiveFailures=3 → 0 emit', () => {
-      const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 3, degradedAt: 500 }, audit, 1000);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
-    it('degradedAt set + consecutiveFailures=0 → emit sc2', () => {
-      const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 0, degradedAt: 500 }, audit, 1000);
-      expect(audit.write).toHaveBeenCalledWith(
-        SNAPSHOT_AUDIT_EVENTS.STATE_CROSS_SOURCE_MISMATCH,
-        'kind=sc2_degraded_without_failures',
-        'degradedAt=500',
-        'consecutiveFailures=0',
-      );
-    });
-
-    it('degradedAt set + consecutiveFailures=-1 → emit sc1 + sc2', () => {
-      const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: -1, degradedAt: 500 }, audit, 1000);
-      expect(audit.write).toHaveBeenCalledTimes(2);
-      expect(audit.write).toHaveBeenNthCalledWith(
-        1,
-        SNAPSHOT_AUDIT_EVENTS.STATE_CROSS_SOURCE_MISMATCH,
-        'kind=sc1_consecutiveFailures_invalid',
-        'actual=-1',
-      );
-      expect(audit.write).toHaveBeenNthCalledWith(
-        2,
-        SNAPSHOT_AUDIT_EVENTS.STATE_CROSS_SOURCE_MISMATCH,
-        'kind=sc2_degraded_without_failures',
-        'degradedAt=500',
-        'consecutiveFailures=-1',
-      );
-    });
-  });
-
-  describe('SC-3: degradedAt <= now', () => {
-    it('degradedAt undefined → 0 emit', () => {
-      const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 0 }, audit, 1000);
-      expect(audit.write).not.toHaveBeenCalled();
-    });
-
+  describe('SC-3: degraded 时 degradedAt <= now', () => {
     it('degradedAt < now → 0 emit', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 3, degradedAt: 500 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: 3, degradedAt: 500 }, audit, 1000);
       expect(audit.write).not.toHaveBeenCalled();
     });
 
     it('degradedAt == now → 0 emit', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 3, degradedAt: 1000 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: 3, degradedAt: 1000 }, audit, 1000);
       expect(audit.write).not.toHaveBeenCalled();
     });
 
     it('degradedAt > now → emit sc3', () => {
       const audit = makeMockAudit();
-      auditSnapshotStateCrossSource({ consecutiveFailures: 3, degradedAt: 1500 }, audit, 1000);
+      auditSnapshotStateCrossSource({ kind: 'degraded', failures: 3, degradedAt: 1500 }, audit, 1000);
       expect(audit.write).toHaveBeenCalledWith(
         SNAPSHOT_AUDIT_EVENTS.STATE_CROSS_SOURCE_MISMATCH,
         'kind=sc3_degradedAt_in_future',
@@ -113,15 +71,15 @@ describe('snapshot state-internal cross-source audit (phase 275 Step B)', () => 
     });
   });
 
-  describe('3 check 同时 trip', () => {
-    it('SC-1 + SC-2 + SC-3 全违例 → 3 emit', () => {
+  describe('2 check 同时 trip', () => {
+    it('SC-1 + SC-3 全违例 → 2 emit', () => {
       const audit = makeMockAudit();
       auditSnapshotStateCrossSource(
-        { consecutiveFailures: -1.5, degradedAt: 9999 },
+        { kind: 'degraded', failures: -1.5, degradedAt: 9999 },
         audit,
         1000,
       );
-      expect(audit.write).toHaveBeenCalledTimes(3);
+      expect(audit.write).toHaveBeenCalledTimes(2);
     });
   });
 });
