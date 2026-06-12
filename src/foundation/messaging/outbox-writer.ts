@@ -6,15 +6,13 @@
 
 import * as path from 'path';
 import { formatErr } from "../utils/index.js";
-import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
 import type { OutboxMessage } from '../messaging/types.js';
 import type { AuditLog } from '../audit/index.js';
 import { encodeOutbox } from './codec-outbox.js';
 import { emitOutboxSent, emitOutboxSendFailed } from './audit-emit.js';
 import { assertMessageShape } from './invariants.js';
-import { auditOutboxDedup } from './dedup-cross-source-audit.js';
-import { UUID_SHORT_LEN } from '../../constants.js';
+import { SequenceCounter, formatSeq } from './sequence-counter.js';
 import type { ClawId } from '../../constants.js';
 
 
@@ -39,16 +37,33 @@ export function makeOutboxPath(clawId: ClawId, clawDir: string): OutboxPath {
   return path.join(clawDir, 'outbox', 'pending') as OutboxPath;
 }
 
+function deriveClawDirFromOutboxDir(outboxDir: string): string {
+  const normalized = path.normalize(outboxDir);
+  const parts = normalized.split(path.sep).filter(p => p.length > 0);
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    const secondLast = parts[parts.length - 2];
+    if (secondLast === 'outbox' && last === 'pending') {
+      return parts.slice(0, -2).join(path.sep) || '.';
+    }
+  }
+  return normalized || '.';
+}
+
 /**
  * Outbox message writer
  */
 export class OutboxWriter {
+  private readonly counter: SequenceCounter;
+
   private constructor(
     private readonly clawId: ClawId,
     private readonly outboxDir: OutboxPath,
     private readonly fs: FileSystem,
     private readonly audit: AuditLog,
-  ) {}
+  ) {
+    this.counter = new SequenceCounter(fs, deriveClawDirFromOutboxDir(outboxDir));
+  }
 
   /** Internal factory — only callable within the Messaging module. */
   static __internal_create(clawId: ClawId, outboxDir: OutboxPath, fs: FileSystem, audit: AuditLog): OutboxWriter {
@@ -61,8 +76,9 @@ export class OutboxWriter {
    */
   async write(options: OutboxWriteOptions): Promise<string> {
     // Generate message
+    const seq = this.counter.nextSync();
     const message: OutboxMessage = {
-      id: randomUUID(),
+      id: `${this.clawId}-${seq}`,
       type: options.type,
       from: this.clawId,
       to: options.to,
@@ -72,10 +88,10 @@ export class OutboxWriter {
       metadata: options.metadata,
     };
 
-    // Generate filename: {timestamp}_{type}_{uuid}.md
+    // Generate filename: {timestamp}_{type}_{seq}.md
     const timestamp = Date.now();
     const typeSlug = options.type.toLowerCase();
-    const filename = `${timestamp}_${typeSlug}_${message.id.slice(0, UUID_SHORT_LEN)}.md`;
+    const filename = `${timestamp}_${typeSlug}_${formatSeq(seq)}.md`;
     const filePath = path.join(this.outboxDir, filename);
 
     // Format content as markdown
@@ -96,9 +112,6 @@ export class OutboxWriter {
         id: message.id,
         contractId: options.metadata?.contract_id,
       });
-      // phase 273 Step B: dedup CC-2 (fire-and-forget、不阻 write、Path #4)
-      void auditOutboxDedup(filename, this.outboxDir, this.fs, this.audit)
-        .catch(() => { /* silent: fire-and-forget dedup audit must not block write path */ });
       return filePath;
     } catch (err) {
       emitOutboxSendFailed(this.audit, {

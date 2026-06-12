@@ -84,12 +84,12 @@ describe('OutboxWriter', () => {
     expect(stat.isDirectory()).toBe(true);
   });
 
-  it('includes message id in filename', async () => {
+  it('includes monotonic sequence in filename', async () => {
     const { audit } = makeAudit();
     const writer = createOutboxWriter('claw-a', tmpDir, fs, audit);
 
     const filePath = await writer.write({ type: 'question', to: 'claw-b', content: '?' });
     const basename = path.basename(filePath);
-    expect(basename).toMatch(/^\d+_question_[a-f0-9]{8}\.md$/);
+    expect(basename).toMatch(/^\d+_question_\d{10}\.md$/);
   });
 });

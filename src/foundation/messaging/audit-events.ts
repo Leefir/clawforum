@@ -35,8 +35,6 @@ export const MESSAGING_AUDIT_EVENTS = {
   OUTBOX_PEEK_FAILED: 'messaging_outbox_peek_failed',
   UNKNOWN_DESTINATION_DLQ: 'messaging_unknown_destination_dlq',
   MESSAGING_MESSAGE_INVARIANT_VIOLATED: 'messaging_message_invariant_violated',
-  MESSAGING_DEDUP_CROSS_SOURCE_MISMATCH: 'messaging_dedup_cross_source_mismatch',
-  MESSAGING_DEDUP_CROSS_SOURCE_SKIPPED: 'messaging_dedup_cross_source_skipped',
 } as const;
 
 
@@ -73,6 +71,4 @@ export const MESSAGING_FILE_ROUTING: Readonly<Record<string, 'audit'>> = {
   messaging_outbox_peek_failed: 'audit',
   messaging_unknown_destination_dlq: 'audit',
   messaging_message_invariant_violated: 'audit',
-  messaging_dedup_cross_source_mismatch: 'audit',
-  messaging_dedup_cross_source_skipped: 'audit',
 } as const;

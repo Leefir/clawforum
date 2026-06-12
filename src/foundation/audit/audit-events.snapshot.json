@@ -760,8 +760,6 @@
       "inbox_write_failed",
       "inbox_written",
       "messaging_outbox_peek_failed",
-      "messaging_dedup_cross_source_mismatch",
-      "messaging_dedup_cross_source_skipped",
       "messaging_message_invariant_violated",
       "messaging_retention_cleanup_delete_failed",
       "messaging_unknown_destination_dlq",
@@ -928,8 +926,6 @@
     "viewport_spinner_lifecycle": "viewport",
     "contract_legacy_status_field_ignored": "audit",
     "contract_progress_invariant_violated": "audit",
-    "messaging_dedup_cross_source_mismatch": "audit",
-    "messaging_dedup_cross_source_skipped": "audit",
     "messaging_message_invariant_violated": "audit"
   },
   "schema_version": "2.0.0",

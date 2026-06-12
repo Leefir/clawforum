@@ -7,7 +7,6 @@
 
 import * as path from 'path';
 import { formatErr } from "../utils/index.js";
-import { randomUUID } from 'crypto';
 import type { FileSystem } from '../fs/types.js';
 import type { InboxMessage } from '../messaging/types.js';
 import { encodeInbox, parseFrontmatter } from './codec-inbox.js';
@@ -18,8 +17,7 @@ import {
   emitInboxWritten,
 } from './audit-emit.js';
 import { assertMessageShape } from './invariants.js';
-import { auditInboxDedup } from './dedup-cross-source-audit.js';
-import { UUID_SHORT_LEN } from '../../constants.js';
+import { SequenceCounter, formatSeq } from './sequence-counter.js';
 import { ok, err as errResult, type Result } from '../utils/index.js';
 import type { InboxMetaError } from './errors.js';
 
@@ -44,12 +42,32 @@ export function makeInboxPath(absoluteDir: string): InboxPath {
   return absoluteDir as InboxPath;
 }
 
+function deriveClawDirFromInboxDir(inboxDir: string): string {
+  const normalized = path.normalize(inboxDir);
+  const parts = normalized.split(path.sep).filter(p => p.length > 0);
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    const secondLast = parts[parts.length - 2];
+    if (
+      (secondLast === 'inbox' && (last === 'pending' || last === 'dead-letter')) ||
+      (secondLast === 'outbox' && last === 'pending')
+    ) {
+      return parts.slice(0, -2).join(path.sep) || '.';
+    }
+  }
+  return normalized || '.';
+}
+
 export class InboxWriter {
+  private readonly counter: SequenceCounter;
+
   private constructor(
     private readonly fs: FileSystem,
     private readonly inboxDir: InboxPath,
     private readonly audit: AuditLog,
-  ) {}
+  ) {
+    this.counter = new SequenceCounter(fs, deriveClawDirFromInboxDir(inboxDir));
+  }
 
   /** Internal factory — only callable within the Messaging module. */
   static __internal_create(fs: FileSystem, inboxDir: InboxPath, audit: AuditLog): InboxWriter {
@@ -65,7 +83,8 @@ export class InboxWriter {
     const timestamp = String(Date.now()).padStart(15, '0');
     const priority = msg.priority ?? 'normal';
     const source = msg.from || 'unknown';
-    const filename = `${source}-${timestamp}_${priority}_${randomUUID().slice(0, UUID_SHORT_LEN)}.md`;
+    const seq = await this.counter.next();
+    const filename = `${source}-${timestamp}_${priority}_${formatSeq(seq)}.md`;
     const filePath = path.join(this.inboxDir, filename);
     try {
       await this.fs.writeAtomic(filePath, encodeInbox(msg, extraFields));
@@ -75,9 +94,6 @@ export class InboxWriter {
       throw e;
     }
     emitInboxWritten(this.audit, { file: filename, to: msg.to });
-    // phase 273 Step B: dedup CC-1 (fire-and-forget、不阻 write、Path #4)
-    void auditInboxDedup(filename, this.inboxDir, this.fs, this.audit)
-      .catch(() => { /* silent: fire-and-forget dedup audit must not block write path */ });
   }
 
   /** sync 写，供 task/system 同步路径使用 */
@@ -85,7 +101,6 @@ export class InboxWriter {
     const now = new Date();
     const priority = opts.priority ?? 'normal';
     const timestamp = String(now.getTime()).padStart(15, '0');
-    const uuid8 = randomUUID().slice(0, UUID_SHORT_LEN);
     const idPrefix = opts.idPrefix ?? opts.type;
 
     const message: InboxMessage = {
@@ -103,7 +118,8 @@ export class InboxWriter {
 
     this.fs.ensureDirSync(this.inboxDir);
     const source = opts.source || 'unknown';
-    const filename = `${source}-${timestamp}_${priority}_${uuid8}.md`;
+    const seq = this.counter.nextSync();
+    const filename = `${source}-${timestamp}_${priority}_${formatSeq(seq)}.md`;
     try {
       const content = encodeInbox(message, opts.extraFields);
       this.fs.writeAtomicSync(path.join(this.inboxDir, filename), content);
@@ -113,9 +129,6 @@ export class InboxWriter {
       throw e;
     }
     emitInboxWritten(this.audit, { file: filename, to: opts.to });
-    // phase 273 Step B: dedup CC-1 (fire-and-forget)
-    void auditInboxDedup(filename, this.inboxDir, this.fs, this.audit)
-      .catch(() => { /* silent: fire-and-forget dedup audit must not block write path */ });
   }
 
   /** 读 frontmatter meta；纯读，静态方法不依赖 audit */

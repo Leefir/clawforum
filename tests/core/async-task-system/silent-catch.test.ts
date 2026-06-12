@@ -142,6 +142,7 @@ describe('phase 541: silent catch fixes', () => {
       let inboxWriteCount = 0;
       const mockFs = {
         ensureDir: vi.fn().mockResolvedValue(undefined),
+        read: vi.fn().mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })),
         writeAtomic: vi.fn().mockImplementation((filePath: string) => {
           if (filePath.includes('result.txt')) return Promise.resolve();
           // inbox write 总是失败
