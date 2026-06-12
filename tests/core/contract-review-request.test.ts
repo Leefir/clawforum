@@ -72,7 +72,7 @@ async function setupFixtures(): Promise<TestFixtures> {
   const contractYamlPath = path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml');
   await fs.writeFile(contractYamlPath, 'contract_id: ' + contractId + '\nintent: test');
   const progressPath = path.join(targetClawDir, 'contract', 'active', contractId, 'progress.json');
-  await fs.writeFile(progressPath, JSON.stringify({ contractId, state: 'active' }));
+  await fs.writeFile(progressPath, JSON.stringify({ contract_id: contractId, status: 'active', subtasks: {} }));
 
   // 构造 motion 侧 EvolutionSystem + ctx
   const motionFs = new NodeFileSystem({ baseDir: motionDir });
@@ -245,8 +245,8 @@ describe('EvolutionSystem.runRetroForContract - best-effort branches', () => {
   it('contract YAML load failure → skip with warn', async () => {
     const { contractId, ctx, evolutionSystem, targetClawDir } = fixtures;
 
-    // 删除 target claw 的 contract 目录（contractId 变无效）
-    await fs.rm(path.join(targetClawDir, 'contract'), { recursive: true, force: true });
+    // 删除 contract.yaml 模拟 YAML 读失败（保留 progress.json 使高水位线步骤成功）
+    await fs.rm(path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml'));
 
     const result = await evolutionSystem.runRetroForContract(contractId, ctx);
     expect(result.status).toBe('error');

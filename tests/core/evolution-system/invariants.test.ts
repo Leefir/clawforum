@@ -24,7 +24,7 @@ function createMockAudit() {
 
 async function setupEvolutionSystem(overrides?: {
   stateFileContent?: string;
-  processedContractIds?: Set<string>;
+  lastProcessedAt?: number;
 }) {
   const tmpBase = path.join(os.tmpdir(), `phase253-${randomUUID()}`);
   const motionDir = path.join(tmpBase, 'motion');
@@ -44,9 +44,9 @@ async function setupEvolutionSystem(overrides?: {
     contractManager: {} as any,
   });
 
-  // 允许通过反射注入 processedContractIds（用于测试非法状态）
-  if (overrides?.processedContractIds) {
-    (evolutionSystem as any).processedContractIds = overrides.processedContractIds;
+  // 允许通过反射注入 lastProcessedAt（用于测试非法状态）
+  if (overrides?.lastProcessedAt !== undefined) {
+    (evolutionSystem as any).state = { version: 1, lastProcessedAt: overrides.lastProcessedAt };
   }
 
   return { motionDir, evolutionSystem, mockAudit };
@@ -59,7 +59,7 @@ async function cleanup(tmpBase: string) {
 // ============================================================================
 // Unit tests: assertEvolutionStateShape
 // ============================================================================
-describe('evolution-system state save invariant (phase 253 Step A)', () => {
+describe('evolution-system state save invariant (phase 253 Step A + phase 280)', () => {
   let mockAudit: ReturnType<typeof createMockAudit>;
 
   beforeEach(() => {
@@ -98,14 +98,14 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
   });
 
   describe('version', () => {
-    it('version=1 → 0 emit', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
+    it('version=1, lastProcessedAt=0 → 0 emit', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: 0 }, mockAudit as any);
       const calls = mockAudit.write.mock.calls.filter(c => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED);
       expect(calls).toHaveLength(0);
     });
 
     it('version="1" 字符串 → emit kind=version_not_number', () => {
-      assertEvolutionStateShape({ version: '1', processedContractIds: [], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
+      assertEvolutionStateShape({ version: '1', lastProcessedAt: 0 }, mockAudit as any);
       expect(mockAudit.write).toHaveBeenCalledWith(
         RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
         `kind=version_not_number`, `actual=string`,
@@ -113,7 +113,7 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
     });
 
     it('version=2 → emit kind=version_mismatch', () => {
-      assertEvolutionStateShape({ version: 2, processedContractIds: [], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
+      assertEvolutionStateShape({ version: 2, lastProcessedAt: 0 }, mockAudit as any);
       expect(mockAudit.write).toHaveBeenCalledWith(
         RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
         `kind=version_mismatch`, `actual=2`, `expected=1`,
@@ -121,7 +121,7 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
     });
 
     it('version=undefined → emit kind=version_not_number', () => {
-      assertEvolutionStateShape({ processedContractIds: [], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
+      assertEvolutionStateShape({ lastProcessedAt: 0 }, mockAudit as any);
       expect(mockAudit.write).toHaveBeenCalledWith(
         RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
         `kind=version_not_number`, `actual=undefined`,
@@ -129,96 +129,48 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
     });
   });
 
-  describe('processedContractIds', () => {
-    it('空数组 → 0 emit', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
-      const calls = mockAudit.write.mock.calls.filter(c => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED);
-      expect(calls).toHaveLength(0);
-    });
-
-    it('合法 string[] → 0 emit', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: ['a', 'b'], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
-      const calls = mockAudit.write.mock.calls.filter(c => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED);
-      expect(calls).toHaveLength(0);
-    });
-
-    it('非数组 → emit kind=processedContractIds_not_array', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: 'oops', lastProcessedAt: new Date().toISOString() }, mockAudit as any);
-      expect(mockAudit.write).toHaveBeenCalledWith(
-        RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=processedContractIds_not_array`, `actual=string`,
-      );
-    });
-
-    it('含非 string → emit kind=processedContractIds_element_not_string + idx', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: ['a', 123, 'b'], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
-      expect(mockAudit.write).toHaveBeenCalledWith(
-        RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=processedContractIds_element_not_string`,
-        `idx=1`, `actual=number`,
-      );
-    });
-
-    it('含 1 个 duplicate → emit kind=processedContractIds_duplicate', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: ['a', 'a'], lastProcessedAt: new Date().toISOString() }, mockAudit as any);
-      expect(mockAudit.write).toHaveBeenCalledWith(
-        RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=processedContractIds_duplicate`,
-        `dup_ids=a`, `dup_count=1`,
-      );
-    });
-
-    it('含多个 duplicate → emit + dup_ids 截断前 5', () => {
-      const ids = ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd', 'e', 'e', 'f', 'f'];
-      assertEvolutionStateShape({ version: 1, processedContractIds: ids, lastProcessedAt: new Date().toISOString() }, mockAudit as any);
-      expect(mockAudit.write).toHaveBeenCalledWith(
-        RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=processedContractIds_duplicate`,
-        `dup_ids=a,b,c,d,e`, `dup_count=6`,
-      );
-    });
-  });
-
   describe('lastProcessedAt', () => {
-    it('合法 ISO timestamp → 0 emit', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: '2026-06-10T12:00:00Z' }, mockAudit as any);
+    it('合法 0 → 0 emit', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: 0 }, mockAudit as any);
       const calls = mockAudit.write.mock.calls.filter(c => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED);
       expect(calls).toHaveLength(0);
     });
 
-    it('合法带毫秒 ISO → 0 emit', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: '2026-06-10T12:00:00.123Z' }, mockAudit as any);
+    it('合法正数 → 0 emit', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: 1717000000000 }, mockAudit as any);
       const calls = mockAudit.write.mock.calls.filter(c => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED);
       expect(calls).toHaveLength(0);
     });
 
-    it('合法带时区 ISO → 0 emit', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: '2026-06-10T12:00:00+08:00' }, mockAudit as any);
-      const calls = mockAudit.write.mock.calls.filter(c => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED);
-      expect(calls).toHaveLength(0);
-    });
-
-    it('非 string → emit kind=lastProcessedAt_not_string', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: 123 }, mockAudit as any);
+    it('负数 → emit kind=lastProcessedAt_invalid', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: -1 }, mockAudit as any);
       expect(mockAudit.write).toHaveBeenCalledWith(
         RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=lastProcessedAt_not_string`, `actual=number`,
+        `kind=lastProcessedAt_invalid`, `actual=-1`,
       );
     });
 
-    it('错格式 "2026-01-01" → emit kind=lastProcessedAt_not_iso', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: '2026-01-01' }, mockAudit as any);
+    it('NaN → emit kind=lastProcessedAt_invalid', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: NaN }, mockAudit as any);
       expect(mockAudit.write).toHaveBeenCalledWith(
         RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=lastProcessedAt_not_iso`, `actual=2026-01-01`,
+        `kind=lastProcessedAt_invalid`, `actual=NaN`,
       );
     });
 
-    it('错格式 "abc" → emit kind=lastProcessedAt_not_iso', () => {
-      assertEvolutionStateShape({ version: 1, processedContractIds: [], lastProcessedAt: 'abc' }, mockAudit as any);
+    it('Infinity → emit kind=lastProcessedAt_invalid', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: Infinity }, mockAudit as any);
       expect(mockAudit.write).toHaveBeenCalledWith(
         RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
-        `kind=lastProcessedAt_not_iso`, `actual=abc`,
+        `kind=lastProcessedAt_invalid`, `actual=Infinity`,
+      );
+    });
+
+    it('字符串 → emit kind=lastProcessedAt_invalid', () => {
+      assertEvolutionStateShape({ version: 1, lastProcessedAt: '0' }, mockAudit as any);
+      expect(mockAudit.write).toHaveBeenCalledWith(
+        RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED,
+        `kind=lastProcessedAt_invalid`, `actual=0`,
       );
     });
   });
@@ -243,7 +195,7 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
       const content = await fs.readFile(statePath, 'utf-8');
       const state = JSON.parse(content);
       expect(state.version).toBe(1);
-      expect(state.processedContractIds).toEqual([]);
+      expect(state.lastProcessedAt).toBe(0);
 
       const invariantCalls = mockAudit.write.mock.calls.filter(
         (c: any[]) => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_STATE_INVARIANT_VIOLATED
@@ -251,15 +203,9 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
       expect(invariantCalls).toHaveLength(0);
     });
 
-    it('非法 state（手动 mutate processedContractIds 注入非 string）→ 文件仍落盘 + audit emit', async () => {
-      fixtures = await setupEvolutionSystem({
-        processedContractIds: new Set(['a', 'b']),
-      });
+    it('非法 state（lastProcessedAt 负数）→ 文件仍落盘 + audit emit', async () => {
+      fixtures = await setupEvolutionSystem({ lastProcessedAt: -1 });
       const { motionDir, evolutionSystem, mockAudit } = fixtures;
-
-      // 通过反射将 processedContractIds 改成非法值
-      const badSet = new Set<any>(['a', 123, 'b']);
-      (evolutionSystem as any).processedContractIds = badSet;
 
       await (evolutionSystem as any)._saveState();
 
@@ -267,7 +213,7 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
       const statePath = path.join(motionDir, '.evolution-system-state.json');
       const content = await fs.readFile(statePath, 'utf-8');
       const state = JSON.parse(content);
-      expect(state.processedContractIds).toContain('a');
+      expect(state.lastProcessedAt).toBe(-1);
 
       // audit emit
       const invariantCalls = mockAudit.write.mock.calls.filter(
@@ -275,7 +221,7 @@ describe('evolution-system state save invariant (phase 253 Step A)', () => {
       );
       expect(invariantCalls.length).toBeGreaterThanOrEqual(1);
       expect(invariantCalls.some((c: any[]) =>
-        c.some((arg: any) => String(arg).includes('processedContractIds_element_not_string'))
+        c.some((arg: any) => String(arg).includes('lastProcessedAt_invalid'))
       )).toBe(true);
     });
   });

@@ -50,6 +50,17 @@ function makeOpts(chestnutRoot: string, motionDir: string): RandomDreamOptions {
   };
 }
 
+/** 创建 archive 契约目录并写入 progress.json（使 listArchiveContracts 能 derive archivedAt） */
+async function createArchiveContract(chestnutRoot: string, clawId: string, contractId: string, completedAt = new Date().toISOString()) {
+  const dir = path.join(chestnutRoot, 'claws', clawId, 'contract', 'archive', contractId);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, 'progress.json'), JSON.stringify({
+    subtasks: {
+      s1: { status: 'completed', completed_at: completedAt },
+    },
+  }), 'utf-8');
+}
+
 /** 在 motionDir 创建 tasks/queues/results 目录并写入完成信号 */
 async function writeTaskCompletion(motionDir: string, taskId: string, logContent: string) {
   const taskResultDir = path.join(motionDir, 'tasks', 'queues', 'results', taskId);
@@ -97,10 +108,7 @@ describe('runRandomDream', () => {
   describe('有契约 + sub-agent 正常完成', () => {
     beforeEach(async () => {
       // 创建一个契约目录
-      await fs.mkdir(
-        path.join(chestnutRoot, 'claws', 'claw-1', 'contract', 'archive', 'contract-001'),
-        { recursive: true }
-      );
+      await createArchiveContract(chestnutRoot, 'claw-1', 'contract-001');
     });
 
     it('sub-agent 完成后提取 [DREAM_OUTPUT]，写入 inbox，更新 state', async () => {
@@ -118,7 +126,8 @@ Prompt: ...
       const statePath = path.join(chestnutRoot, '.random-dream-state.json');
       expect(fsSync.existsSync(statePath)).toBe(true);
       const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-      expect(state.processedContractIds).toContain('contract-001');
+      expect(typeof state.lastProcessedRandomDreamAt).toBe('number');
+      expect(state.lastProcessedRandomDreamAt).toBeGreaterThan(0);
 
       // inbox 消息写入
       const inboxFiles = fsSync.readdirSync(path.join(motionDir, 'inbox', 'pending'));
@@ -137,10 +146,7 @@ Prompt: ...
 
     it('多个 [DREAM_OUTPUT] 块全部提取', async () => {
       // 创建第二个契约
-      await fs.mkdir(
-        path.join(chestnutRoot, 'claws', 'claw-2', 'contract', 'archive', 'contract-002'),
-        { recursive: true }
-      );
+      await createArchiveContract(chestnutRoot, 'claw-2', 'contract-002');
 
       const dreamLog = `=== started ===
 [DREAM_OUTPUT contract_id="contract-001"]
@@ -157,8 +163,8 @@ Prompt: ...
       const state = JSON.parse(fsSync.readFileSync(
         path.join(chestnutRoot, '.random-dream-state.json'), 'utf-8'
       ));
-      expect(state.processedContractIds).toContain('contract-001');
-      expect(state.processedContractIds).toContain('contract-002');
+      expect(typeof state.lastProcessedRandomDreamAt).toBe('number');
+      expect(state.lastProcessedRandomDreamAt).toBeGreaterThan(0);
     });
 
     it('log 中无 [DREAM_OUTPUT] 块时不写 inbox', async () => {
@@ -309,21 +315,16 @@ Prompt: ...
 
   // ── 已处理契约降权 ──────────────────────────────────────────
 
-  it('已处理契约排序靠后（权重 -80）', async () => {
+  it('已处理契约被高水位线过滤（不再出现在候选列表）', async () => {
     // 两个 claw 各一个契约
-    await fs.mkdir(
-      path.join(chestnutRoot, 'claws', 'claw-new', 'contract', 'archive', 'contract-new'),
-      { recursive: true }
-    );
-    await fs.mkdir(
-      path.join(chestnutRoot, 'claws', 'claw-old', 'contract', 'archive', 'contract-old'),
-      { recursive: true }
-    );
+    const oldCompletedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await createArchiveContract(chestnutRoot, 'claw-new', 'contract-new');
+    await createArchiveContract(chestnutRoot, 'claw-old', 'contract-old', oldCompletedAt);
 
-    // 预置 state：contract-old 已处理
+    // 预置 state：contract-old 已处理（高水位线覆盖其 archivedAt）
     await fs.writeFile(
       path.join(chestnutRoot, '.random-dream-state.json'),
-      JSON.stringify({ processedContractIds: ['contract-old'] }),
+      JSON.stringify({ lastProcessedRandomDreamAt: new Date(oldCompletedAt).getTime() }),
       'utf-8'
     );
 
@@ -340,12 +341,9 @@ Prompt: ...
     expect(capturedPrompt).not.toBe('');
     const lines = capturedPrompt.split('\n').filter(l => l.match(/^\d+\./));
 
-    // contract-new 应排在 contract-old 前面
-    const idxNew = lines.findIndex(l => l.includes('contract-new'));
-    const idxOld = lines.findIndex(l => l.includes('contract-old'));
-    if (idxNew >= 0 && idxOld >= 0) {
-      expect(idxNew).toBeLessThan(idxOld);
-    }
+    // contract-old 被过滤，不应出现；contract-new 出现
+    expect(lines.some(l => l.includes('contract-new'))).toBe(true);
+    expect(lines.some(l => l.includes('contract-old'))).toBe(false);
   });
 
   // ── computeWeight：progress.json 加权 ─────────────────────
@@ -424,10 +422,7 @@ Prompt: ...
   describe('Phase 597 — random-dream state I/O 错误处理', () => {
     beforeEach(async () => {
       // 创建一个契约目录
-      await fs.mkdir(
-        path.join(chestnutRoot, 'claws', 'claw-1', 'contract', 'archive', 'contract-001'),
-        { recursive: true }
-      );
+      await createArchiveContract(chestnutRoot, 'claw-1', 'contract-001');
     });
 
     it('loadRandomDreamState parse 错时 audit RANDOM_DREAM_ERROR site=load_state 并返空（A.dream-state-io-silent random-dream 扩散 phase 597 / phase 216 col 名空间隔离）', async () => {

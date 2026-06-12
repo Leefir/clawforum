@@ -55,6 +55,7 @@ interface WeightedContract {
   contractDir: string;
   weight: number;
   hint: string;
+  archivedAt?: string;  // NEW phase 280: 用于高水位线更新
 }
 
 interface PendingLateSettleEntry {
@@ -64,7 +65,7 @@ interface PendingLateSettleEntry {
 }
 
 interface RandomDreamState {
-  processedContractIds: string[];
+  lastProcessedRandomDreamAt: number;            // ms epoch 高水位线
   pendingLateSettle?: PendingLateSettleEntry[];  // NEW phase 170, optional for backward compat
 }
 
@@ -82,29 +83,40 @@ function isValidPendingEntry(e: unknown): e is PendingLateSettleEntry {
 function loadRandomDreamState(fs: FileSystem, audit: AuditLog): RandomDreamState {
   try {
     const parsed: unknown = JSON.parse(fs.readSync(RANDOM_DREAM_STATE_FILE));
-    if (typeof parsed === 'object' && parsed !== null &&
-        Array.isArray((parsed as { processedContractIds?: unknown }).processedContractIds) &&
-        (parsed as { processedContractIds: unknown[] }).processedContractIds.every(x => typeof x === 'string')) {
-      const pending = Array.isArray((parsed as { pendingLateSettle?: unknown }).pendingLateSettle)
-        ? (parsed as { pendingLateSettle: unknown[] }).pendingLateSettle.filter(isValidPendingEntry)
-        : [];
-      return { processedContractIds: (parsed as { processedContractIds: string[] }).processedContractIds, pendingLateSettle: pending };
+    if (typeof parsed !== 'object' || parsed === null) {
+      audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
+        `site=load_state_shape_invalid`,
+        `reason=state_not_object`,
+        `actual=${typeof parsed}`);
+      return { lastProcessedRandomDreamAt: 0 };
     }
-    audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
-      `site=load_state_shape_invalid`,
-      `reason=processedContractIds_not_string_array`);
-    return { processedContractIds: [] };
+    const r = parsed as Record<string, unknown>;
+
+    // phase 280: legacy schema migration
+    if ('processedContractIds' in r) {
+      audit.write(MEMORY_AUDIT_EVENTS.LEGACY_SCHEMA_MIGRATED_RESET,
+        `kind=random_dream`,
+        `legacy_field=processedContractIds`,
+        `legacy_count=${Array.isArray(r.processedContractIds) ? r.processedContractIds.length : 0}`,
+      );
+      const pending = Array.isArray(r.pendingLateSettle)
+        ? r.pendingLateSettle.filter(isValidPendingEntry)
+        : [];
+      return { lastProcessedRandomDreamAt: 0, pendingLateSettle: pending };
+    }
+
+    return r as unknown as RandomDreamState;
   } catch (err) {
     // FileNotFoundError 首启良性 / silent
     if (err instanceof FileNotFoundError) {
-      return { processedContractIds: [] };
+      return { lastProcessedRandomDreamAt: 0 };
     }
     // 其他 IO 错（parse 损坏 / 权限 / 等）必 audit + 返空 resilient
     audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_ERROR,
       `site=load_state`,
       `reason=${formatErr(err)}`,
     );
-    return { processedContractIds: [] };
+    return { lastProcessedRandomDreamAt: 0 };
   }
 }
 
@@ -112,16 +124,12 @@ function saveRandomDreamState(
   fs: FileSystem,
   state: RandomDreamState,
   audit: AuditLog,
-  listArchiveContractIds?: () => Promise<string[]>,
 ): void {
   // phase 247 Step A: schema invariant
   assertDreamStateShape(state, audit, 'random_dream_save');
 
-  // phase 247 Step B: cross-source audit（fire-and-forget）
-  if (listArchiveContractIds) {
-    void auditRandomDreamCrossSource(state, listArchiveContractIds, audit)
-      .catch(() => { /* silent: fire-and-forget cross-source audit self-defense */ });
-  }
+  // phase 280: internal self-consistency audit（RC-2/RC-3）
+  auditRandomDreamCrossSource(state, audit);
 
   try {
     fs.writeAtomicSync(
@@ -177,19 +185,12 @@ async function computeWeight(
   contractId: ContractId,
   contractDir: string,
   clawId: string,
-  processedIds: Set<string>,
   clawsSeen: Set<string>,     // 本次已选中的 clawId 集合
   audit: AuditLog,
   getContractProgress?: (clawId: string, contractId: ContractId) => Promise<ProgressData | null>,
 ): Promise<{ weight: number; hint: string }> {
   let weight = 10;
   const hints: string[] = [];
-
-  // 已被处理过：大幅降权
-  if (processedIds.has(contractId)) {
-    weight -= 80;
-    hints.push('已处理');
-  }
 
   // 不同 claw 优先
   if (!clawsSeen.has(clawId)) {
@@ -254,17 +255,23 @@ async function discoverWeightedContracts(
   audit: AuditLog,
   getContractProgress?: (clawId: string, contractId: ContractId) => Promise<ProgressData | null>,
 ): Promise<WeightedContract[]> {
-  const processedIds = new Set(state.processedContractIds);
   const clawsSeen = new Set<string>();
   const contracts: WeightedContract[] = [];
 
   // Phase 1335 (r138 F fork): cross-module query API 替代直扫
-  const archiveContracts = await listArchiveContracts({ fs });
+  // phase 280: 高水位线 filter，不再本地持 processedIds Set
+  // 当 lastProcessedRandomDreamAt === 0 时不传 filter（兼容 archivedAt 为 undefined 的初态 archive）
+  const archiveContracts = await listArchiveContracts({
+    fs,
+    filter: state.lastProcessedRandomDreamAt > 0
+      ? { sinceMs: state.lastProcessedRandomDreamAt + 1 }
+      : undefined,
+  });
 
   for (const ref of archiveContracts) {
     const { clawId, contractId, contractDir } = ref;
-    const { weight, hint } = await computeWeight(fs, contractId, contractDir, clawId, processedIds, clawsSeen, audit, getContractProgress);
-    contracts.push({ clawId, contractId, contractDir, weight, hint });
+    const { weight, hint } = await computeWeight(fs, contractId, contractDir, clawId, clawsSeen, audit, getContractProgress);
+    contracts.push({ clawId, contractId, contractDir, weight, hint, archivedAt: ref.archivedAt });
     clawsSeen.add(clawId);  // NEW phase 585 / 每 claw 首契约获 +30 bonus / 后续不获
   }
 
@@ -351,6 +358,8 @@ export function __test_extractDreamOutputs(log: string): DreamExtractionResult {
 export const __test_saveRandomDreamState = saveRandomDreamState;
 /** @internal test-only export (phase 247) */
 export const __test_RANDOM_DREAM_STATE_FILE = RANDOM_DREAM_STATE_FILE;
+/** @internal test-only export (phase 280) */
+export const __test_loadRandomDreamState = loadRandomDreamState;
 export type { RandomDreamState as __test_RandomDreamState };
 
 /** 从 sub-agent log 中提取 [DREAM_OUTPUT contract_id="..."]...[/DREAM_OUTPUT] 块 */
@@ -380,7 +389,10 @@ async function sweepLateSettlePending(
 
   const now = Date.now();
   const remaining: PendingLateSettleEntry[] = [];
-  let processedAccum = state.processedContractIds;
+
+  // phase 280: 为 late-settle 消费的 contract 查 archivedAt 以更新高水位线
+  const archiveContracts = await listArchiveContracts({ fs: opts.fs });
+  const archivedAtMap = new Map(archiveContracts.map(r => [r.contractId, r.archivedAt]));
 
   for (const entry of pending) {
     const donePath = path.join('tasks', 'queues', 'results', entry.taskId, 'result.txt');
@@ -418,7 +430,11 @@ async function sweepLateSettlePending(
           },
         });
 
-        processedAccum = [...new Set([...processedAccum, ...contractIds])];
+        for (const cid of contractIds) {
+          const at = archivedAtMap.get(cid as ContractId);
+          const tsMs = at ? new Date(at).getTime() : 0;
+          state.lastProcessedRandomDreamAt = Math.max(state.lastProcessedRandomDreamAt, tsMs);
+        }
       }
 
       opts.audit.write(
@@ -446,13 +462,10 @@ async function sweepLateSettlePending(
   }
 
   const updatedState: RandomDreamState = {
-    processedContractIds: processedAccum,
+    lastProcessedRandomDreamAt: state.lastProcessedRandomDreamAt,
     pendingLateSettle: remaining,
   };
-  saveRandomDreamState(opts.fs, updatedState, opts.audit, async () => {
-    const contracts = await listArchiveContracts({ fs: opts.fs });
-    return contracts.map(c => c.contractId);
-  });
+  saveRandomDreamState(opts.fs, updatedState, opts.audit);
   return updatedState;
 }
 
@@ -510,7 +523,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
     // NEW phase 170: late-settle pending state
     const now = Date.now();
     const updatedState: RandomDreamState = {
-      processedContractIds: state.processedContractIds,
+      lastProcessedRandomDreamAt: state.lastProcessedRandomDreamAt,
       pendingLateSettle: [
         ...(state.pendingLateSettle ?? []),
         {
@@ -520,10 +533,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
         },
       ],
     };
-    saveRandomDreamState(opts.fs, updatedState, opts.audit, async () => {
-      const contracts = await listArchiveContracts({ fs: opts.fs });
-      return contracts.map(c => c.contractId);
-    });
+    saveRandomDreamState(opts.fs, updatedState, opts.audit);
 
     opts.audit.write(
       MEMORY_AUDIT_EVENTS.RANDOM_DREAM_LATE_SETTLE_PENDING,
@@ -539,7 +549,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
   }
 
   // 解析梦境输出
-  const { outputs, contractIds } = extractDreamOutputs(log);
+  const { outputs } = extractDreamOutputs(log);
   if (outputs.length === 0) {
     opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_OUTPUT_MISSING, `reason=no_output`);
     return;
@@ -547,16 +557,15 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
 
   opts.audit.write(MEMORY_AUDIT_EVENTS.RANDOM_DREAM_JOB, `step=finished`, `output_count=${outputs.length}`);
 
-  // 更新 state
+  // 更新高水位线（phase 280）
+  const maxArchivedAt = weightedContracts.reduce((max, wc) => {
+    const ts = wc.archivedAt ? new Date(wc.archivedAt).getTime() : 0;
+    return Math.max(max, ts);
+  }, state.lastProcessedRandomDreamAt);
   const updatedState: RandomDreamState = {
-    processedContractIds: [
-      ...new Set([...state.processedContractIds, ...contractIds]),
-    ],
+    lastProcessedRandomDreamAt: maxArchivedAt,
   };
-  saveRandomDreamState(opts.fs, updatedState, opts.audit, async () => {
-    const contracts = await listArchiveContracts({ fs: opts.fs });
-    return contracts.map(c => c.contractId);
-  });
+  saveRandomDreamState(opts.fs, updatedState, opts.audit);
 
   const dreamOutput = outputs.join('\n\n---\n\n');
   const dreamOutputPath = `${MEMORY_DREAM_OUTPUTS_DIR}/${taskId}.txt`;

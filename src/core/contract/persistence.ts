@@ -238,8 +238,20 @@ export async function listArchiveContracts(opts: {
       let archivedAt: string | undefined;
       try {
         const progressRaw = fs.readSync(`${contractDir}/progress.json`);
-        const progress = JSON.parse(progressRaw) as { completed_at?: string };
+        const progress = JSON.parse(progressRaw) as {
+          completed_at?: string;
+          subtasks?: Record<string, { completed_at?: string }>;
+        };
         archivedAt = progress.completed_at;
+        // phase 280 fallback: derive archive time from subtask completed_at when top-level field absent
+        if (archivedAt === undefined && progress.subtasks) {
+          const subtaskTimes = Object.values(progress.subtasks)
+            .map((st) => st.completed_at)
+            .filter((t): t is string => typeof t === 'string');
+          if (subtaskTimes.length > 0) {
+            archivedAt = subtaskTimes.sort((a, b) => (a < b ? 1 : -1))[0];
+          }
+        }
       } catch (err) {
         if (!isFileNotFound(err)) {
           opts.audit?.write(

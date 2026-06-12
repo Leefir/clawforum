@@ -3,9 +3,12 @@
  * Contract retrospective audit event names.
  *
  * Module-owned event namespace（phase383 / r52 H 裁决 1+2）.
- * 字符串值保留 'contract_retro_*' 前缀 / 行为契约 0 改 / 与起步态 events.ts CONTRACT_RETRO_* 系列等价 / 0 漂移（裁决 3）.
+ * 字符串值保留 'contract_retro_*' 前缀 / 行为契约 0 改 / 与起步态 events.ts CONTRACT_AUDIT_EVENTS 系列等价 / 0 漂移（裁决 3）.
  *
  * 历史关联：phase338 H1 收官时 RETRO_* 与 CONTRACT_AUDIT_EVENTS 同文件 / phase383 命名空间分离.
+ *
+ * phase 280: 删 EVOLUTION_STATE_CROSS_SOURCE_MISMATCH / _SKIPPED（EC-1 消除）
+ * 加 EVOLUTION_LEGACY_SCHEMA_MIGRATED_RESET（高水位线 migration）.
  */
 export const RETRO_AUDIT_EVENTS = {
   // phase 1335 (r138 F fork): boot reconcile audit emit trace
@@ -21,7 +24,6 @@ export const RETRO_AUDIT_EVENTS = {
   STATE_SAVE_FAILED: 'retro_state_save_failed',
   // phase 253 Step A: _saveState schema invariant violated
   EVOLUTION_STATE_INVARIANT_VIOLATED: 'evolution_state_invariant_violated',
-  // phase 253 Step B: cross-source audit
-  EVOLUTION_STATE_CROSS_SOURCE_MISMATCH: 'evolution_state_cross_source_mismatch',
-  EVOLUTION_STATE_CROSS_SOURCE_SKIPPED: 'evolution_state_cross_source_skipped',
+  // phase 280: legacy schema migration audit
+  EVOLUTION_LEGACY_SCHEMA_MIGRATED_RESET: 'evolution_legacy_schema_migrated_reset',
 } as const;

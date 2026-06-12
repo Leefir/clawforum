@@ -114,6 +114,7 @@ export interface ProgressData {
     force_accepted?: boolean;        // phase 1399: retry 试光后强接受标记
   }>;
   started_at?: string;
+  completed_at?: string;  // phase 280: evolution-system high-water mark source (archive time)
   checkpoint?: string | null;
 }
 

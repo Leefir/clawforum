@@ -42,13 +42,12 @@ describe('EvolutionSystem.init() boot reconcile', () => {
     });
   }
 
-  it('emits EVOLUTION_BOOT_RECONCILE + loads processedContractIds when state file exists', async () => {
+  it('emits EVOLUTION_BOOT_RECONCILE + loads lastProcessedAt when state file exists', async () => {
     await fs.writeFile(
       path.join(clawDir, '.evolution-system-state.json'),
       JSON.stringify({
         version: 1,
-        processedContractIds: ['c1', 'c2'],
-        lastProcessedAt: new Date().toISOString(),
+        lastProcessedAt: 1717000000000,
       }),
     );
 
@@ -59,11 +58,11 @@ describe('EvolutionSystem.init() boot reconcile', () => {
       (c: any) => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_BOOT_RECONCILE,
     );
     expect(reconcileCall).toBeDefined();
-    expect(reconcileCall).toContainEqual('processed_count=2');
-    expect(reconcileCall).toContainEqual('recovered=true');
+    expect(reconcileCall).toContainEqual('last_processed_at=1717000000000');
+    expect(reconcileCall).toContainEqual('high_water_mark_mode=true');
   });
 
-  it('emits EVOLUTION_BOOT_RECONCILE recovered=false when no state file', async () => {
+  it('emits EVOLUTION_BOOT_RECONCILE high_water_mark_mode when no state file', async () => {
     const sys = makeSystem();
     await sys.init();
 
@@ -71,8 +70,8 @@ describe('EvolutionSystem.init() boot reconcile', () => {
       (c: any) => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_BOOT_RECONCILE,
     );
     expect(reconcileCall).toBeDefined();
-    expect(reconcileCall).toContainEqual('processed_count=0');
-    expect(reconcileCall).toContainEqual('recovered=false');
+    expect(reconcileCall).toContainEqual('last_processed_at=0');
+    expect(reconcileCall).toContainEqual('high_water_mark_mode=true');
   });
 
   it('corrupt state file triggers backup path + audit emit', async () => {
@@ -93,6 +92,6 @@ describe('EvolutionSystem.init() boot reconcile', () => {
       (c: any) => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_BOOT_RECONCILE,
     );
     expect(reconcileCall).toBeDefined();
-    expect(reconcileCall).toContainEqual('processed_count=0');
+    expect(reconcileCall).toContainEqual('last_processed_at=0');
   });
 });

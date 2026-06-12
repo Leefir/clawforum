@@ -130,7 +130,7 @@ describe('runDeepDream', () => {
         // state 被重置后流程继续，archive 被处理
         const statePath = path.join(clawDir, '.deep-dream-state.json');
         const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-        expect(state.processedArchives).toContain(filename);
+        expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
       });
 
       it('loadDreamState FileNotFoundError 时 silent 返空（首启良性）', async () => {
@@ -158,7 +158,7 @@ describe('runDeepDream', () => {
         // 流程正常完成
         const statePath = path.join(clawDir, '.deep-dream-state.json');
         const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-        expect(state.processedArchives).toContain(filename);
+        expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
       });
 
       it('saveDreamState writeAtomicSync 失败时 audit step=save_state 但不 re-throw（F36）', async () => {
@@ -217,7 +217,7 @@ describe('runDeepDream', () => {
         // state 含损坏 archive（永标记跳过 / 防 retry-storm）
         const statePath = path.join(clawDir, '.deep-dream-state.json');
         const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-        expect(state.processedArchives).toContain(filename);
+        expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
       });
 
       it('current.json 损坏不 push processedArchives（保留当日重试可能）', async () => {
@@ -238,11 +238,11 @@ describe('runDeepDream', () => {
         );
         expect(hasDialogAudit).toBe(true);
 
-        // state 不应含 'current.json' in processedArchives（current.json 不入永标记列表）
+        // state 不应因 current.json 损坏而推进高水位线（current.json 不入永标记列表）
         const statePath = path.join(clawDir, '.deep-dream-state.json');
         if (fsSync.existsSync(statePath)) {
           const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-          expect(state.processedArchives ?? []).not.toContain('current.json');
+          expect(state.lastProcessedDeepDreamAt).toBe(0);
         }
       });
     });
@@ -273,7 +273,7 @@ describe('runDeepDream', () => {
       const statePath = path.join(clawDir, '.deep-dream-state.json');
       expect(fsSync.existsSync(statePath)).toBe(true);
       const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-      expect(state.processedArchives).toContain(filename);
+      expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
 
       // inbox 消息已写入
       const inboxDir = path.join(clawDir, 'inbox', 'pending');
@@ -321,7 +321,7 @@ describe('runDeepDream', () => {
       const statePath = path.join(clawDir, '.deep-dream-state.json');
       expect(fsSync.existsSync(statePath)).toBe(true);
       const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-      expect(state.processedArchives).toContain(filename);
+      expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
 
       // 无 inbox 消息
       const inboxDir = path.join(clawDir, 'inbox', 'pending');
@@ -347,7 +347,7 @@ describe('runDeepDream', () => {
       // state 落盘
       const statePath = path.join(clawDir, '.deep-dream-state.json');
       const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-      expect(state.processedArchives).toContain(filename);
+      expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
     });
 
     // ── 已处理文件不重复 ────────────────────────────────────────
@@ -363,7 +363,7 @@ describe('runDeepDream', () => {
       // 预置 state
       const statePath = path.join(clawDir, '.deep-dream-state.json');
       await fs.writeFile(statePath, JSON.stringify({
-        processedArchives: [filename],
+        lastProcessedDeepDreamAt: parseInt(filename.split('_')[0], 10),
         currentSessionDreamedDate: '',
       }), 'utf-8');
 
@@ -392,7 +392,7 @@ describe('runDeepDream', () => {
       // state 已更新，inbox 消息已写入（dreamOutput 仍可用）
       const statePath = path.join(clawDir, '.deep-dream-state.json');
       const state = JSON.parse(fsSync.readFileSync(statePath, 'utf-8'));
-      expect(state.processedArchives).toContain(filename);
+      expect(state.lastProcessedDeepDreamAt).toBeGreaterThanOrEqual(parseInt(filename.split('_')[0], 10));
 
       const inboxDir = path.join(clawDir, 'inbox', 'pending');
       const files = fsSync.readdirSync(inboxDir);
@@ -436,7 +436,7 @@ describe('runDeepDream', () => {
       const today = new Date().toLocaleDateString('sv');
       const statePath = path.join(clawDir, '.deep-dream-state.json');
       await fs.writeFile(statePath, JSON.stringify({
-        processedArchives: [],
+        lastProcessedDeepDreamAt: 0,
         currentSessionDreamedDate: today,
       }), 'utf-8');
 

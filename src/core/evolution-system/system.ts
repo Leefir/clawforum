@@ -8,7 +8,6 @@ import { createSkillSystem as defaultCreateSkillSystem } from '../../foundation/
 import { scheduleRetro } from './retro-scheduler.js';
 import { RETRO_AUDIT_EVENTS } from './retro-audit-events.js';
 import { assertEvolutionStateShape } from './invariants.js';
-import { auditEvolutionStateCrossSource } from './state-cross-source-audit.js';
 import * as path from 'path';
 
 import { CLAWSPACE_DIR } from '../../foundation/claw-paths.js';
@@ -27,8 +26,6 @@ export interface EvolutionSystemDeps {
   contractManager: ContractSystem;
   retroSubagentTimeoutMs?: number;   // default 600000ms (10 min)
   createSkillSystem?: typeof defaultCreateSkillSystem;
-  /** phase 253 Step B: cross-source audit archive 列表 provider、可选注入 */
-  listArchiveContractIds?: () => Promise<string[]>;
 }
 
 export interface RetroResult {
@@ -71,12 +68,11 @@ const STATE_FILE_PATH = '.evolution-system-state.json';   // motion root
 
 interface EvolutionState {
   version: number;
-  processedContractIds: string[];
-  lastProcessedAt: string;
+  lastProcessedAt: number;   // ms epoch 高水位线
 }
 
 export class EvolutionSystem {
-  private processedContractIds: Set<string> = new Set();
+  private state: EvolutionState = { version: 1, lastProcessedAt: 0 };
   private stateFileLoaded = false;
   private stateLoadPromise: Promise<void> | null = null;
 
@@ -91,8 +87,8 @@ export class EvolutionSystem {
     await this._ensureStateLoaded();
     this.deps.audit.write(
       RETRO_AUDIT_EVENTS.EVOLUTION_BOOT_RECONCILE,
-      `processed_count=${this.processedContractIds.size}`,
-      `recovered=${this.processedContractIds.size > 0}`,
+      `last_processed_at=${this.state.lastProcessedAt}`,
+      `high_water_mark_mode=true`,
     );
   }
 
@@ -118,15 +114,30 @@ export class EvolutionSystem {
         await this._backupCorruptState(content, parseErr);
         return;
       }
-      if (
-        typeof parsed !== 'object' || parsed === null ||
-        !Array.isArray((parsed as { processedContractIds?: unknown }).processedContractIds) ||
-        !((parsed as { processedContractIds: unknown[] }).processedContractIds).every((x: unknown) => typeof x === 'string')
-      ) {
+      if (typeof parsed !== 'object' || parsed === null) {
         await this._backupCorruptState(content, new Error('shape_mismatch'));
         return;
       }
-      this.processedContractIds = new Set((parsed as { processedContractIds: string[] }).processedContractIds);
+      const r = parsed as Record<string, unknown>;
+
+      // phase 280: legacy schema migration (option 2 silent reset + audit emit)
+      if ('processedContractIds' in r) {
+        this.deps.audit.write(
+          RETRO_AUDIT_EVENTS.EVOLUTION_LEGACY_SCHEMA_MIGRATED_RESET,
+          `legacy_field=processedContractIds`,
+          `legacy_count=${Array.isArray(r.processedContractIds) ? r.processedContractIds.length : 0}`,
+        );
+        this.state = { version: 1, lastProcessedAt: 0 };
+        return;
+      }
+
+      // 新 schema validation
+      if (typeof r.version !== 'number' || typeof r.lastProcessedAt !== 'number'
+          || !Number.isFinite(r.lastProcessedAt) || r.lastProcessedAt < 0) {
+        await this._backupCorruptState(content, new Error('shape_mismatch'));
+        return;
+      }
+      this.state = { version: r.version, lastProcessedAt: r.lastProcessedAt };
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       if (code === 'ENOENT' || e instanceof FileNotFoundError) {
@@ -142,7 +153,7 @@ export class EvolutionSystem {
   }
 
   private async _backupCorruptState(content: string, err: unknown): Promise<void> {
-    this.processedContractIds = new Set();
+    this.state = { version: 1, lastProcessedAt: 0 };
     const backupPath = `${STATE_FILE_PATH}.corrupt-${Date.now()}`;
     let moveOk = true;
     let moveErr: unknown = undefined;
@@ -164,22 +175,10 @@ export class EvolutionSystem {
 
   private async _saveState(): Promise<void> {
     try {
-      const data: EvolutionState = {
-        version: 1,
-        processedContractIds: Array.from(this.processedContractIds),
-        lastProcessedAt: new Date().toISOString(),
-      };
+      // phase 253 Step A: schema invariant check（phase 280 更新为高水位线字段）
+      assertEvolutionStateShape(this.state, this.deps.audit);
 
-      // phase 253 Step A: schema invariant check（违例 emit audit、不 throw、不阻 save、Path #4）
-      assertEvolutionStateShape(data, this.deps.audit);
-
-      // phase 253 Step B: cross-source audit（fire-and-forget、provider 可选）
-      if (this.deps.listArchiveContractIds) {
-        void auditEvolutionStateCrossSource(data, this.deps.listArchiveContractIds, this.deps.audit)
-          .catch(() => { /* silent: fire-and-forget cross-source audit failure handled by state-cross-source-audit.ts internal catch */ });
-      }
-
-      await this.deps.fs.writeAtomic(STATE_FILE_PATH, JSON.stringify(data, null, 2));
+      await this.deps.fs.writeAtomic(STATE_FILE_PATH, JSON.stringify(this.state, null, 2));
     } catch (e) {
       this.deps.audit.write(
         RETRO_AUDIT_EVENTS.STATE_SAVE_FAILED,
@@ -196,15 +195,6 @@ export class EvolutionSystem {
   ): Promise<RetroResult> {
     // Step 0: lazy load state (first call only / retry on failure)
     await this._ensureStateLoaded();
-
-    // Step 1: dedupe check
-    if (this.processedContractIds.has(contractId)) {
-      this.deps.audit.write(
-        RETRO_AUDIT_EVENTS.SKIPPED_DUPLICATE,
-        `contractId=${contractId}`,
-      );
-      return { status: 'skipped_duplicate', detail: 'already processed' };
-    }
 
     // Part 1: by-contract 索引解析（phase 1335: cross-module query API 替代直读）
     const byContractPath = path.join(
@@ -247,6 +237,32 @@ export class EvolutionSystem {
     const clawDir = path.join(ctx.clawsBaseDir, targetClaw);
     const clawFs = ctx.clawFsFactory(clawDir);
     const clawContractManager = ctx.clawContractManagerFactory(clawDir, targetClaw, clawFs);
+
+    // phase 280: 高水位线 dedupe（替代 processedContractIds Set）
+    let contractArchivedAtMs: number;
+    try {
+      const progress = await clawContractManager.getProgress(contractId);
+      contractArchivedAtMs = progress?.completed_at
+        ? new Date(progress.completed_at).getTime()
+        : Date.now();
+    } catch (e) {
+      this.deps.audit.write(
+        RETRO_AUDIT_EVENTS.INDEX_FAILED,
+        `contractId=${contractId}`,
+        `reason=getProgress_failed`,
+        `error=${formatErr(e)}`,
+      );
+      return { status: 'error', detail: 'get_progress_failed' };
+    }
+
+    if (contractArchivedAtMs <= this.state.lastProcessedAt) {
+      this.deps.audit.write(
+        RETRO_AUDIT_EVENTS.SKIPPED_DUPLICATE,
+        `contractId=${contractId}`,
+        `reason=before_high_water_mark`,
+      );
+      return { status: 'skipped_duplicate', detail: 'already processed' };
+    }
 
     let contractYaml: string;
     try {
@@ -329,8 +345,8 @@ export class EvolutionSystem {
       );
     });
 
-    // Step Final: push contractId to dedupe set + save state (best-effort)
-    this.processedContractIds.add(contractId);
+    // Step Final: 更新高水位线 + save state (best-effort)
+    this.state.lastProcessedAt = Math.max(this.state.lastProcessedAt, contractArchivedAtMs);
     await this._saveState();
 
     return { status: 'finished' };

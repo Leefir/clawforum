@@ -1,14 +1,14 @@
 /**
  * memory dream-state save 入口 schema invariant。
  *
- * 应然 anchor（per design/modules/l4_memory_system.md §「persist-state observability」、phase 247）：
+ * 应然 anchor（per design/modules/l4_memory_system.md §「persist-state observability」、phase 247）:
  * - DP1 信息不丢失：dream-state 是 dream cron 累进权威进度
  * - DP2 不静默丢弃：违例 emit audit 消除静默
  * - DP3/DP5 状态可观察 + 凭日志记录重建：违例显式可观察
  *
  * 2 子模块共享 helper、按 source 字段分流走子模块特定 shape check：
- * - source='deep_dream_save': DreamStateData（processedArchives / currentSessionDreamedDate / currentSessionRetryCount?）
- * - source='random_dream_save': RandomDreamState（processedContractIds / pendingLateSettle?）
+ * - source='deep_dream_save': DreamStateData（lastProcessedDeepDreamAt / currentSessionDreamedDate / currentSessionRetryCount?）
+ * - source='random_dream_save': RandomDreamState（lastProcessedRandomDreamAt / pendingLateSettle?）
  *
  * 不 throw（DP1 + Path #4 防 break dream cron 路径、保既有 save throw / 不 throw 业务语义对称差）。
  */
@@ -39,22 +39,15 @@ export function assertDreamStateShape(
 }
 
 function checkDeepDream(s: Record<string, unknown>, audit: AuditLog): void {
-  // processedArchives: string[]
-  if (!Array.isArray(s.processedArchives)) {
+  // lastProcessedDeepDreamAt: number (finite, non-negative)
+  if (typeof s.lastProcessedDeepDreamAt !== 'number'
+      || !Number.isFinite(s.lastProcessedDeepDreamAt)
+      || s.lastProcessedDeepDreamAt < 0) {
     audit.write(
       MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED,
-      `kind=deep_processedArchives_not_array`, `source=deep_dream_save`,
-      `actual=${typeof s.processedArchives}`,
+      `kind=deep_lastProcessedDeepDreamAt_invalid`, `source=deep_dream_save`,
+      `actual=${String(s.lastProcessedDeepDreamAt)}`,
     );
-  } else {
-    const nonStr = s.processedArchives.findIndex(x => typeof x !== 'string');
-    if (nonStr >= 0) {
-      audit.write(
-        MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED,
-        `kind=deep_processedArchives_element_not_string`, `source=deep_dream_save`,
-        `idx=${nonStr}`, `actual=${typeof s.processedArchives[nonStr]}`,
-      );
-    }
   }
 
   // currentSessionDreamedDate: string (empty or YYYY-MM-DD)
@@ -87,22 +80,15 @@ function checkDeepDream(s: Record<string, unknown>, audit: AuditLog): void {
 }
 
 function checkRandomDream(s: Record<string, unknown>, audit: AuditLog): void {
-  // processedContractIds: string[]
-  if (!Array.isArray(s.processedContractIds)) {
+  // lastProcessedRandomDreamAt: number (finite, non-negative)
+  if (typeof s.lastProcessedRandomDreamAt !== 'number'
+      || !Number.isFinite(s.lastProcessedRandomDreamAt)
+      || s.lastProcessedRandomDreamAt < 0) {
     audit.write(
       MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED,
-      `kind=random_processedContractIds_not_array`, `source=random_dream_save`,
-      `actual=${typeof s.processedContractIds}`,
+      `kind=random_lastProcessedRandomDreamAt_invalid`, `source=random_dream_save`,
+      `actual=${String(s.lastProcessedRandomDreamAt)}`,
     );
-  } else {
-    const nonStr = s.processedContractIds.findIndex(x => typeof x !== 'string');
-    if (nonStr >= 0) {
-      audit.write(
-        MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED,
-        `kind=random_processedContractIds_element_not_string`, `source=random_dream_save`,
-        `idx=${nonStr}`,
-      );
-    }
   }
 
   // pendingLateSettle?: PendingLateSettleEntry[]（taskId/string + scheduledAt/number + expectedTimeoutAt/number）

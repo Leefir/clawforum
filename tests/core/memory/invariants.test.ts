@@ -1,5 +1,5 @@
 /**
- * phase 247 Step A — memory dream-state save invariant tests
+ * phase 247 Step A + phase 280 — memory dream-state save invariant tests
  *
  * 覆盖 assertDreamStateShape 共享 helper + 2 子模块 shape check + save 集成。
  */
@@ -26,7 +26,7 @@ function makeMockFsForWrite(writeImpl?: (file: string, content: string) => void)
   return { writeAtomicSync: vi.fn(writeImpl ?? (() => {})) } as any;
 }
 
-describe('memory dream-state save invariant (phase 247 Step A)', () => {
+describe('memory dream-state save invariant (phase 247 Step A + phase 280)', () => {
   describe('共享 helper', () => {
     it('state=null → emit kind=state_not_object', () => {
       const audit = makeMockAudit();
@@ -68,45 +68,64 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       // typeof array == 'object' 且 !== null，所以走入子模块 check
       const audit = makeMockAudit();
       assertDreamStateShape([], audit, 'deep_dream_save');
-      // processedArchives 缺失 → not_array
+      // lastProcessedDeepDreamAt 缺失 → invalid
       expect(audit.write).toHaveBeenCalled();
       const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
-      expect(calls.some(c => c[1]?.includes('deep_processedArchives_not_array'))).toBe(true);
+      expect(calls.some(c => c[1]?.includes('deep_lastProcessedDeepDreamAt_invalid'))).toBe(true);
     });
   });
 
   describe('deep_dream_save', () => {
-    describe('processedArchives', () => {
-      it('合法 string[] → 0 emit', () => {
+    describe('lastProcessedDeepDreamAt', () => {
+      it('合法 0 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: ['a.json', 'b.json'], currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
-      it('空数组 → 0 emit', () => {
+      it('合法正数 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 1717000000000, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
-      it('非数组 → emit kind=deep_processedArchives_not_array', () => {
+      it('负数 → emit kind=deep_lastProcessedDeepDreamAt_invalid', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: 'nope', currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: -1, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
-          c[1]?.includes('deep_processedArchives_not_array')
+          c[1]?.includes('deep_lastProcessedDeepDreamAt_invalid')
         )).toBe(true);
       });
 
-      it('数组含非 string 元素 → emit kind=deep_processedArchives_element_not_string + idx', () => {
+      it('NaN → emit kind=deep_lastProcessedDeepDreamAt_invalid', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: ['a', 123, 'b'], currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: NaN, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
-          c[1]?.includes('deep_processedArchives_element_not_string') &&
-          c.some((s: unknown) => typeof s === 'string' && s.includes('idx=1'))
+          c[1]?.includes('deep_lastProcessedDeepDreamAt_invalid')
+        )).toBe(true);
+      });
+
+      it('Infinity → emit kind=deep_lastProcessedDeepDreamAt_invalid', () => {
+        const audit = makeMockAudit();
+        assertDreamStateShape({ lastProcessedDeepDreamAt: Infinity, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
+        expect(calls.some(c =>
+          c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
+          c[1]?.includes('deep_lastProcessedDeepDreamAt_invalid')
+        )).toBe(true);
+      });
+
+      it('字符串 → emit kind=deep_lastProcessedDeepDreamAt_invalid', () => {
+        const audit = makeMockAudit();
+        assertDreamStateShape({ lastProcessedDeepDreamAt: '0', currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
+        expect(calls.some(c =>
+          c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
+          c[1]?.includes('deep_lastProcessedDeepDreamAt_invalid')
         )).toBe(true);
       });
     });
@@ -114,19 +133,19 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
     describe('currentSessionDreamedDate', () => {
       it('空字符串 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
       it('合法 YYYY-MM-DD → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '2026-05-30' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '2026-05-30' }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
       it('非 string → emit kind=deep_currentSessionDreamedDate_not_string', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: 42 }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: 42 }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
@@ -136,7 +155,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
 
       it('错格式 "abc" → emit kind=deep_currentSessionDreamedDate_invalid_format', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: 'abc' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: 'abc' }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
@@ -146,7 +165,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
 
       it('错格式 "2026-13-99" → 0 emit (regex 仅形态、不验 calendar logic)', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '2026-13-99' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '2026-13-99' }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
     });
@@ -154,25 +173,25 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
     describe('currentSessionRetryCount', () => {
       it('undefined → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
       it('0 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '', currentSessionRetryCount: 0 }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '', currentSessionRetryCount: 0 }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
       it('正整数 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '', currentSessionRetryCount: 5 }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '', currentSessionRetryCount: 5 }, audit, 'deep_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
       it('负数 → emit kind=deep_currentSessionRetryCount_invalid', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '', currentSessionRetryCount: -1 }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '', currentSessionRetryCount: -1 }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
@@ -182,7 +201,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
 
       it('小数 → emit kind=deep_currentSessionRetryCount_invalid', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '', currentSessionRetryCount: 1.5 }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '', currentSessionRetryCount: 1.5 }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
@@ -192,7 +211,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
 
       it('非 number → emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedArchives: [], currentSessionDreamedDate: '', currentSessionRetryCount: '2' }, audit, 'deep_dream_save');
+        assertDreamStateShape({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '', currentSessionRetryCount: '2' }, audit, 'deep_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
@@ -203,36 +222,56 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
   });
 
   describe('random_dream_save', () => {
-    describe('processedContractIds', () => {
-      it('合法 string[] → 0 emit', () => {
+    describe('lastProcessedRandomDreamAt', () => {
+      it('合法 0 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedContractIds: ['a', 'b'] }, audit, 'random_dream_save');
+        assertDreamStateShape({ lastProcessedRandomDreamAt: 0 }, audit, 'random_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
-      it('空数组 → 0 emit', () => {
+      it('合法正数 → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedContractIds: [] }, audit, 'random_dream_save');
+        assertDreamStateShape({ lastProcessedRandomDreamAt: 1717000000000 }, audit, 'random_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
-      it('非数组 → emit kind=random_processedContractIds_not_array', () => {
+      it('负数 → emit kind=random_lastProcessedRandomDreamAt_invalid', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedContractIds: 'nope' }, audit, 'random_dream_save');
+        assertDreamStateShape({ lastProcessedRandomDreamAt: -1 }, audit, 'random_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
-          c[1]?.includes('random_processedContractIds_not_array')
+          c[1]?.includes('random_lastProcessedRandomDreamAt_invalid')
         )).toBe(true);
       });
 
-      it('含非 string → emit kind=random_processedContractIds_element_not_string', () => {
+      it('NaN → emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedContractIds: ['a', 42] }, audit, 'random_dream_save');
+        assertDreamStateShape({ lastProcessedRandomDreamAt: NaN }, audit, 'random_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
-          c[1]?.includes('random_processedContractIds_element_not_string')
+          c[1]?.includes('random_lastProcessedRandomDreamAt_invalid')
+        )).toBe(true);
+      });
+
+      it('Infinity → emit', () => {
+        const audit = makeMockAudit();
+        assertDreamStateShape({ lastProcessedRandomDreamAt: Infinity }, audit, 'random_dream_save');
+        const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
+        expect(calls.some(c =>
+          c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
+          c[1]?.includes('random_lastProcessedRandomDreamAt_invalid')
+        )).toBe(true);
+      });
+
+      it('字符串 → emit', () => {
+        const audit = makeMockAudit();
+        assertDreamStateShape({ lastProcessedRandomDreamAt: '0' }, audit, 'random_dream_save');
+        const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
+        expect(calls.some(c =>
+          c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
+          c[1]?.includes('random_lastProcessedRandomDreamAt_invalid')
         )).toBe(true);
       });
     });
@@ -240,14 +279,14 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
     describe('pendingLateSettle', () => {
       it('undefined → 0 emit', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedContractIds: [] }, audit, 'random_dream_save');
+        assertDreamStateShape({ lastProcessedRandomDreamAt: 0 }, audit, 'random_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
       });
 
       it('合法 entry 数组 → 0 emit', () => {
         const audit = makeMockAudit();
         assertDreamStateShape({
-          processedContractIds: [],
+          lastProcessedRandomDreamAt: 0,
           pendingLateSettle: [{ taskId: 't1', scheduledAt: 1, expectedTimeoutAt: 2 }],
         }, audit, 'random_dream_save');
         expect(audit.write).not.toHaveBeenCalled();
@@ -255,7 +294,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
 
       it('非数组 → emit kind=random_pendingLateSettle_not_array', () => {
         const audit = makeMockAudit();
-        assertDreamStateShape({ processedContractIds: [], pendingLateSettle: 'nope' }, audit, 'random_dream_save');
+        assertDreamStateShape({ lastProcessedRandomDreamAt: 0, pendingLateSettle: 'nope' }, audit, 'random_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
         expect(calls.some(c =>
           c[0] === MEMORY_AUDIT_EVENTS.MEMORY_DREAM_INVARIANT_VIOLATED &&
@@ -266,7 +305,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       it('entry 缺 taskId → emit kind=random_pendingLateSettle_entry_invalid + idx', () => {
         const audit = makeMockAudit();
         assertDreamStateShape({
-          processedContractIds: [],
+          lastProcessedRandomDreamAt: 0,
           pendingLateSettle: [{ scheduledAt: 1, expectedTimeoutAt: 2 }],
         }, audit, 'random_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
@@ -280,7 +319,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       it('entry scheduledAt 非 number → emit', () => {
         const audit = makeMockAudit();
         assertDreamStateShape({
-          processedContractIds: [],
+          lastProcessedRandomDreamAt: 0,
           pendingLateSettle: [{ taskId: 't1', scheduledAt: '1', expectedTimeoutAt: 2 }],
         }, audit, 'random_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
@@ -293,7 +332,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       it('entry expectedTimeoutAt 非 number → emit', () => {
         const audit = makeMockAudit();
         assertDreamStateShape({
-          processedContractIds: [],
+          lastProcessedRandomDreamAt: 0,
           pendingLateSettle: [{ taskId: 't1', scheduledAt: 1, expectedTimeoutAt: '2' }],
         }, audit, 'random_dream_save');
         const calls = (audit.write as ReturnType<typeof vi.fn>).mock.calls;
@@ -312,7 +351,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       const audit = makeMockAudit();
 
       const state: __test_DreamStateData = {
-        processedArchives: ['x.json'],
+        lastProcessedDeepDreamAt: 0,
         currentSessionDreamedDate: '2026-05-30',
       };
       __test_saveDreamState(fs, state, audit, 'test-claw');
@@ -327,7 +366,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       const fs = makeMockFsForWrite((file, content) => { writes.push([file, content]); });
       const audit = makeMockAudit();
 
-      const state = { processedArchives: 'bad', currentSessionDreamedDate: 42 } as unknown as __test_DreamStateData;
+      const state = { lastProcessedDeepDreamAt: -1, currentSessionDreamedDate: 42 } as unknown as __test_DreamStateData;
       __test_saveDreamState(fs, state, audit, 'test-claw');
 
       expect(writes).toHaveLength(1);
@@ -343,7 +382,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       const fs = makeMockFsForWrite((file, content) => { writes.push([file, content]); });
       const audit = makeMockAudit();
 
-      __test_saveRandomDreamState(fs, { processedContractIds: ['c1'] }, audit);
+      __test_saveRandomDreamState(fs, { lastProcessedRandomDreamAt: 0 }, audit);
 
       expect(writes).toHaveLength(1);
       expect(writes[0][0]).toBe('.random-dream-state.json');
@@ -355,7 +394,7 @@ describe('memory dream-state save invariant (phase 247 Step A)', () => {
       const fs = makeMockFsForWrite(() => { throw new Error('ENOSPC'); });
       const audit = makeMockAudit();
 
-      const state = { processedContractIds: 'bad' } as unknown as { processedContractIds: string[] };
+      const state = { lastProcessedRandomDreamAt: -1 } as unknown as { lastProcessedRandomDreamAt: number };
       expect(() => __test_saveRandomDreamState(fs, state, audit)).toThrow('ENOSPC');
 
       expect(writes).toHaveLength(0);

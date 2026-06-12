@@ -26,6 +26,7 @@ export const MEMORY_AUDIT_EVENTS = {
   MEMORY_DREAM_INVARIANT_VIOLATED: 'memory_dream_invariant_violated',  // NEW phase 247 Step A
   MEMORY_DREAM_CROSS_SOURCE_MISMATCH: 'memory_dream_cross_source_mismatch',  // NEW phase 247 Step B
   MEMORY_DREAM_CROSS_SOURCE_SKIPPED: 'memory_dream_cross_source_skipped',    // NEW phase 247 Step B
+  LEGACY_SCHEMA_MIGRATED_RESET: 'memory_legacy_schema_migrated_reset',        // NEW phase 280
 } as const;
 
 

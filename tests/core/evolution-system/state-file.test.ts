@@ -71,7 +71,7 @@ async function setupFixtures(overrides?: {
   const contractYamlPath = path.join(targetClawDir, 'contract', 'active', contractId, 'contract.yaml');
   await fs.writeFile(contractYamlPath, 'contract_id: ' + contractId + '\nintent: test');
   const progressPath = path.join(targetClawDir, 'contract', 'active', contractId, 'progress.json');
-  await fs.writeFile(progressPath, JSON.stringify({ contractId, state: 'active' }));
+  await fs.writeFile(progressPath, JSON.stringify({ contract_id: contractId, status: 'completed', subtasks: {}, completed_at: new Date().toISOString() }));
 
   // 可选：预写 state file
   if (overrides?.stateFileContent !== undefined) {
@@ -149,8 +149,8 @@ describe('EvolutionSystem state file dedupe', () => {
     const stateContent = await fs.readFile(statePath, 'utf-8');
     const state = JSON.parse(stateContent);
     expect(state.version).toBe(1);
-    expect(state.processedContractIds).toContain(contractId);
-    expect(typeof state.lastProcessedAt).toBe('string');
+    expect(typeof state.lastProcessedAt).toBe('number');
+    expect(state.lastProcessedAt).toBeGreaterThan(0);
   });
 
   it('second call same contractId: dedupe hit + return skipped_duplicate + 0 retro scheduled', async () => {
@@ -177,10 +177,11 @@ describe('EvolutionSystem state file dedupe', () => {
     expect(result2.status).toBe('skipped_duplicate');
     expect(result2.detail).toBe('already processed');
     expect(mockSchedule).not.toHaveBeenCalled();
-    expect(auditSpy).toHaveBeenCalledWith(
-      RETRO_AUDIT_EVENTS.SKIPPED_DUPLICATE,
-      expect.stringContaining('contractId='),
+    const skippedCall = auditSpy.mock.calls.find(
+      (c: any) => c[0] === RETRO_AUDIT_EVENTS.SKIPPED_DUPLICATE,
     );
+    expect(skippedCall).toBeDefined();
+    expect(skippedCall!.some((arg: unknown) => typeof arg === 'string' && arg.includes('contractId='))).toBe(true);
   });
 
   it('state load JSON parse error: audits + 0 dedupe (best-effort) + processes contract', async () => {
@@ -207,7 +208,7 @@ describe('EvolutionSystem state file dedupe', () => {
 
     // 把 state file path 变成一个目录，阻止文件写入
     const statePath = path.join(motionDir, '.evolution-system-state.json');
-    await fs.writeFile(statePath, JSON.stringify({ version: 1, processedContractIds: [], lastProcessedAt: new Date().toISOString() }));
+    await fs.writeFile(statePath, JSON.stringify({ version: 1, lastProcessedAt: 0 }));
     await fs.rm(statePath);
     await fs.mkdir(statePath);
 

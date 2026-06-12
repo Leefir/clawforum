@@ -159,13 +159,13 @@ describe('deep-dream pure helpers (phase 1467)', () => {
       const audit = makeMockAudit();
 
       const state = __test_loadDreamState(fs, audit, clawId);
-      expect(state).toEqual({ processedArchives: [], currentSessionDreamedDate: '' });
+      expect(state).toEqual({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' });
       expect(audit.write).not.toHaveBeenCalled();
     });
 
     it('valid JSON returns parsed state', () => {
       const stored: __test_DreamStateData = {
-        processedArchives: ['a.json', 'b.json'],
+        lastProcessedDeepDreamAt: 1717000000000,
         currentSessionDreamedDate: '2026-05-30',
       };
       const fs = makeMockFs(() => JSON.stringify(stored));
@@ -181,7 +181,7 @@ describe('deep-dream pure helpers (phase 1467)', () => {
       const audit = makeMockAudit();
 
       const state = __test_loadDreamState(fs, audit, clawId);
-      expect(state).toEqual({ processedArchives: [], currentSessionDreamedDate: '' });
+      expect(state).toEqual({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' });
       expect(audit.write).toHaveBeenCalledTimes(1);
       const call = (audit.write as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(call[0]).toBe(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR);
@@ -198,7 +198,7 @@ describe('deep-dream pure helpers (phase 1467)', () => {
       const audit = makeMockAudit();
 
       const state = __test_loadDreamState(fs, audit, clawId);
-      expect(state).toEqual({ processedArchives: [], currentSessionDreamedDate: '' });
+      expect(state).toEqual({ lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' });
       expect(audit.write).toHaveBeenCalledTimes(1);
       const call = (audit.write as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(call[0]).toBe(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR);
@@ -218,7 +218,7 @@ describe('deep-dream pure helpers (phase 1467)', () => {
       const audit = makeMockAudit();
 
       const state: __test_DreamStateData = {
-        processedArchives: ['x.json'],
+        lastProcessedDeepDreamAt: 1717000000000,
         currentSessionDreamedDate: '2026-05-30',
       };
       __test_saveDreamState(fs, state, audit, clawId);
@@ -234,7 +234,7 @@ describe('deep-dream pure helpers (phase 1467)', () => {
       const audit = makeMockAudit();
 
       const state: __test_DreamStateData = {
-        processedArchives: [],
+        lastProcessedDeepDreamAt: 0,
         currentSessionDreamedDate: '',
       };
       expect(() => __test_saveDreamState(fs, state, audit, clawId)).not.toThrow();

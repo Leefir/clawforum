@@ -74,7 +74,7 @@ describe('EvolutionSystem _loadState corrupt path', () => {
     vi.clearAllMocks();
   });
 
-  it('corrupt JSON: audits STATE_LOAD_FAILED + resets Set + backup file exists', async () => {
+  it('corrupt JSON: audits STATE_LOAD_FAILED + resets state + backup file exists', async () => {
     const { motionDir, evolutionSystem, mockAudit } = await setupEvolutionSystem('not-valid-json{{{');
     auditSpy = vi.spyOn(mockAudit, 'write');
 
@@ -107,7 +107,7 @@ describe('EvolutionSystem _loadState corrupt path', () => {
     await cleanup(motionDir);
   });
 
-  it('wrong type processedContractIds: audits STATE_LOAD_FAILED + resets Set + backup file exists', async () => {
+  it('legacy processedContractIds schema: migration + backup + audit emit', async () => {
     const { motionDir, evolutionSystem, mockAudit } = await setupEvolutionSystem(
       JSON.stringify({ version: 1, processedContractIds: [123, 'abc'], lastProcessedAt: new Date().toISOString() })
     );
@@ -123,19 +123,15 @@ describe('EvolutionSystem _loadState corrupt path', () => {
       motionAudit: { write: vi.fn() } as any,
       clawsBaseDir: path.join(motionDir, 'claws'),
       clawFsFactory: (clawDir) => new NodeFileSystem({ baseDir: clawDir }),
-      clawContractManagerFactory: () => ({}) as any,
+      clawContractManagerFactory: () => ({ getProgress: async () => ({ completed_at: new Date().toISOString() }) }) as any,
     });
 
-    expect(auditSpy).toHaveBeenCalledWith(
-      RETRO_AUDIT_EVENTS.STATE_LOAD_FAILED,
-      expect.stringContaining('backup='),
-      expect.stringContaining('move_ok=true'),
-      expect.stringContaining('reason=shape_mismatch'),
+    // phase 280: legacy schema 触发 migration audit（不再走 corrupt backup）
+    const migrationCall = auditSpy.mock.calls.find(
+      (c: any) => c[0] === RETRO_AUDIT_EVENTS.EVOLUTION_LEGACY_SCHEMA_MIGRATED_RESET,
     );
-
-    const files = await fs.readdir(motionDir);
-    const backupFile = files.find(f => f.startsWith('.evolution-system-state.json.corrupt-'));
-    expect(backupFile).toBeDefined();
+    expect(migrationCall).toBeDefined();
+    expect(migrationCall!.some((arg: unknown) => typeof arg === 'string' && arg.includes('legacy_field=processedContractIds'))).toBe(true);
 
     await cleanup(motionDir);
   });

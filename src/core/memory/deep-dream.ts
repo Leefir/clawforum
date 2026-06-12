@@ -31,7 +31,7 @@ import {
 // ─── 类型定义 ───────────────────────────────────────────────
 
 interface DreamStateData {
-  processedArchives: string[];           // 已处理的 archive 文件名（不含路径）
+  lastProcessedDeepDreamAt: number;      // ms epoch 高水位线：archivedAt ≤ 此值的视为已处理
   currentSessionDreamedDate: string;     // "YYYY-MM-DD"，当日 current.json 已处理
   currentSessionRetryCount?: number;     // Phase 1200: current.json 损坏重试计数器
 }
@@ -87,11 +87,24 @@ const DEEP_DREAM_STATE_FILE = '.deep-dream-state.json';
 
 function loadDreamState(clawFs: FileSystem, audit: AuditLog, clawId: string): DreamStateData {
   try {
-    return JSON.parse(clawFs.readSync(DEEP_DREAM_STATE_FILE)) as DreamStateData;
+    const raw = JSON.parse(clawFs.readSync(DEEP_DREAM_STATE_FILE)) as Record<string, unknown>;
+
+    // phase 280: legacy schema migration (option 2 silent reset + audit emit)
+    if ('processedArchives' in raw) {
+      audit.write(MEMORY_AUDIT_EVENTS.LEGACY_SCHEMA_MIGRATED_RESET,
+        `kind=deep_dream`,
+        `clawId=${clawId}`,
+        `legacy_field=processedArchives`,
+        `legacy_count=${Array.isArray(raw.processedArchives) ? raw.processedArchives.length : 0}`,
+      );
+      return { lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '', currentSessionRetryCount: 0 };
+    }
+
+    return raw as unknown as DreamStateData;
   } catch (err) {
     // FileNotFoundError 首启良性 / silent
     if (err instanceof FileNotFoundError) {
-      return { processedArchives: [], currentSessionDreamedDate: '' };
+      return { lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' };
     }
     // 其他 IO 错（parse 损坏 / 权限 / 等）必 audit + 返空 resilient
     audit.write(MEMORY_AUDIT_EVENTS.DEEP_DREAM_ERROR,
@@ -99,7 +112,7 @@ function loadDreamState(clawFs: FileSystem, audit: AuditLog, clawId: string): Dr
       `clawId=${clawId}`,
       `reason=${formatErr(err)}`,
     );
-    return { processedArchives: [], currentSessionDreamedDate: '' };
+    return { lastProcessedDeepDreamAt: 0, currentSessionDreamedDate: '' };
   }
 }
 
@@ -108,16 +121,12 @@ function saveDreamState(
   state: DreamStateData,
   audit: AuditLog,
   clawId: string,
-  listArchives?: () => Promise<string[]>,
 ): void {
   // phase 247 Step A: schema invariant
   assertDreamStateShape(state, audit, 'deep_dream_save');
 
-  // phase 247 Step B: cross-source audit（fire-and-forget、可选 provider）
-  if (listArchives) {
-    void auditDeepDreamCrossSource(state, listArchives, audit)
-      .catch(() => { /* silent: fire-and-forget cross-source audit self-defense */ });
-  }
+  // phase 280: internal self-consistency audit（DC-3 retry bound）
+  auditDeepDreamCrossSource(state, audit);
 
   try {
     clawFs.writeAtomicSync(DEEP_DREAM_STATE_FILE, JSON.stringify(state, null, 2));
@@ -139,15 +148,14 @@ interface SessionFile {
 }
 
 async function discoverUnprocessed(dialogStore: DialogStore, state: DreamStateData, today: string): Promise<SessionFile[]> {
-  const processed = new Set(state.processedArchives);
   const files: SessionFile[] = [];
 
   // archive 文件（文件名: {tsMs}_{uuid8}.json）
   const archives = await dialogStore.listArchives();
   for (const name of archives) {
-    if (processed.has(name)) continue;
     const tsMs = parseInt(name.split('_')[0], 10);
     if (isNaN(tsMs)) continue;
+    if (tsMs <= state.lastProcessedDeepDreamAt) continue;   // ← 高水位线 filter
     files.push({ filename: name, tsMs });
   }
 
@@ -225,7 +233,6 @@ async function processSession(
   plan: DreamRunPlan,
   compressions: string[],
   dreamOutputs: string[],
-  processedArchives: string[],
 ): Promise<string[]> {
   let sessionData: SessionData;
   try {
@@ -244,7 +251,7 @@ async function processSession(
       `reason=${formatErr(err)}`,
     );
     if (sf.filename !== 'current.json') {
-      processedArchives.push(sf.filename);
+      plan.state.lastProcessedDeepDreamAt = Math.max(plan.state.lastProcessedDeepDreamAt, sf.tsMs);
       return compressions;
     }
     const retryCount = (plan.state.currentSessionRetryCount ?? 0) + 1;
@@ -255,14 +262,14 @@ async function processSession(
         `file=${sf.filename}`,
         `retries=${retryCount}`,
       );
-      processedArchives.push(sf.filename);
+      plan.state.lastProcessedDeepDreamAt = Math.max(plan.state.lastProcessedDeepDreamAt, sf.tsMs);
     }
     return compressions;
   }
 
   const sessionText = serializeSession(sessionData.messages ?? []);
   if (!sessionText.trim()) {
-    if (sf.filename !== 'current.json') processedArchives.push(sf.filename);
+    if (sf.filename !== 'current.json') plan.state.lastProcessedDeepDreamAt = Math.max(plan.state.lastProcessedDeepDreamAt, sf.tsMs);
     return compressions;
   }
 
@@ -298,7 +305,7 @@ async function processSession(
   const merged = await maybeMergeCompressions(compressions, ctx.maxCompressionTokens, ctx.llm, ctx.signal);
 
   if (sf.filename !== 'current.json') {
-    processedArchives.push(sf.filename);
+    plan.state.lastProcessedDeepDreamAt = Math.max(plan.state.lastProcessedDeepDreamAt, sf.tsMs);
   }
   return merged;
 }
@@ -307,17 +314,15 @@ async function persistDreamRun(
   ctx: DreamRunContext,
   plan: DreamRunPlan,
   dreamOutputs: string[],
-  processedArchives: string[],
 ): Promise<void> {
-  if (processedArchives.length > 0 || plan.sessionFiles.some(f => f.filename === 'current.json')) {
-    const currentProcessedToday = plan.sessionFiles.some(f => f.filename === 'current.json');
-    const updatedState: DreamStateData = {
-      processedArchives: [...new Set([...plan.state.processedArchives, ...processedArchives])],
-      currentSessionDreamedDate: currentProcessedToday ? plan.today : plan.state.currentSessionDreamedDate,
-      currentSessionRetryCount: currentProcessedToday ? 0 : plan.state.currentSessionRetryCount,
-    };
-    saveDreamState(ctx.clawFs, updatedState, ctx.audit, ctx.clawId, () => plan.dialogStore.listArchives());
-  }
+  const currentProcessedToday = plan.sessionFiles.some(f => f.filename === 'current.json');
+  // state 已在 processSession 中 mutate，只需保存当前值
+  const updatedState: DreamStateData = {
+    lastProcessedDeepDreamAt: plan.state.lastProcessedDeepDreamAt,
+    currentSessionDreamedDate: currentProcessedToday ? plan.today : plan.state.currentSessionDreamedDate,
+    currentSessionRetryCount: currentProcessedToday ? 0 : plan.state.currentSessionRetryCount,
+  };
+  saveDreamState(ctx.clawFs, updatedState, ctx.audit, ctx.clawId);
 
   if (dreamOutputs.length === 0) return;
 
@@ -366,13 +371,12 @@ async function runDeepDreamForClaw(
 
   let compressions: string[] = [];
   const dreamOutputs: string[] = [];
-  const processedArchives: string[] = [];
 
   for (const sf of plan.sessionFiles) {
-    compressions = await processSession(ctx, sf, plan, compressions, dreamOutputs, processedArchives);
+    compressions = await processSession(ctx, sf, plan, compressions, dreamOutputs);
   }
 
-  await persistDreamRun(ctx, plan, dreamOutputs, processedArchives);
+  await persistDreamRun(ctx, plan, dreamOutputs);
 }
 
 
