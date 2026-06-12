@@ -36,6 +36,18 @@ export interface StatInfo {
 }
 
 /**
+ * Options for FileSystem.list / FileSystem.listSync.
+ * @member recursive - traverse subdirectories
+ * @member includeDirs - include directory entries in result
+ * @member pattern - regular expression pattern for filename filter
+ */
+export interface ListOptions {
+  recursive?: boolean;
+  includeDirs?: boolean;
+  pattern?: string;
+}
+
+/**
  * FileSystem interface - Abstract file operations
  * 
  * Implementation notes:
@@ -107,11 +119,7 @@ export interface FileSystem {
    * @param options - Listing options
    * @returns Array of file entries
    */
-  list(path: string, options?: {
-    recursive?: boolean;
-    includeDirs?: boolean;
-    pattern?: string;  // regular expression pattern
-  }): Promise<FileEntry[]>;
+  list(path: string, options?: ListOptions): Promise<FileEntry[]>;
   
   // ========================================================================
   // Path Queries
@@ -230,11 +238,7 @@ export interface FileSystem {
    * @param path - Relative path within configured baseDir
    * @param options - Listing options
    */
-  listSync(path: string, options?: {
-    recursive?: boolean;
-    includeDirs?: boolean;
-    pattern?: string;  // regular expression pattern
-  }): FileEntry[];
+  listSync(path: string, options?: ListOptions): FileEntry[];
 
   /**
    * Remove directory and all contents (sync).

@@ -90,7 +90,7 @@ export class InboxWriter {
 
     const message: InboxMessage = {
       id: `${idPrefix}-${now.getTime()}`,
-      type: opts.type,
+      type: opts.type as InboxMessage['type'],
       from: opts.source,
       to: opts.to ?? '',
       content: opts.body,

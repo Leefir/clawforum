@@ -9,7 +9,8 @@ const maxThreads = os.cpus().length;
  * 维护: NEW test 用 vi.mock 需加此列表 (待 r+ lint check 防漂)
  *
  * 生成: grep -rln "^vi.mock\|vi\.mock(" tests/ | sort
- * 数量: 110 file
+ * 数量: 117 file (sync 2026-06-12 / phase 288 Step C)
+ * 注：lint check 立守 list ↔ 真 use site 一致性属 §10 续候选（phase 278 audit V53）
  */
 const VI_MOCK_FILES = [
   // phase 121: 5 assembly tests moved out of ISOLATED
@@ -188,6 +189,55 @@ const VI_MOCK_FILES = [
   'tests/watchdog/watchdog-shutdown-guard.test.ts',
   'tests/watchdog/watchdog-state-narrow.test.ts',
   'tests/watchdog/watchdog-state-schema-version.test.ts',
+  // phase 288 Step C sync: 48 entries added per find -name '*.test.ts' -exec grep 'vi.mock(' {} \;
+  'tests/assembly/assemble-dream-trigger-guard.test.ts',
+  'tests/assembly/assemble-evolution-guard.test.ts',
+  'tests/assembly/assemble-evolution-toolregistry.test.ts',
+  'tests/assembly/assemble-lockfile-cleanup.test.ts',
+  'tests/assembly/assemble.test.ts',
+  'tests/cli/audit-lookup.test.ts',
+  'tests/cli/audit-motion-aware.test.ts',
+  'tests/cli/audit-query-zero-result-hint.test.ts',
+  'tests/cli/chat-viewport-claw-manager-tool-call-buffer-rotation.test.ts',
+  'tests/cli/claw-send-status-hint.test.ts',
+  'tests/cli/commands/claw-ls.test.ts',
+  'tests/cli/commands/claw-status.test.ts',
+  'tests/cli/commands/claw-trace-numbering.test.ts',
+  'tests/cli/cross-cli-id-consistency.test.ts',
+  'tests/cli/init-probe.test.ts',
+  'tests/cli/steps-hint-invariant.test.ts',
+  'tests/cli/stop-orphan-cleanup-audit.test.ts',
+  'tests/cli/stop-orphan-watchdog-sweep.test.ts',
+  'tests/cli/watchdog.test.ts',
+  'tests/core/builtins-slow.test.ts',
+  'tests/core/contract/dispose-await-verifier.test.ts',
+  'tests/core/contract/lock-retry-jitter.test.ts',
+  'tests/core/contract/mark-crashed.test.ts',
+  'tests/core/contract_manager.test.ts',
+  'tests/core/contract_manager_llm.test.ts',
+  'tests/core/subagent/agent-tool-call-input-audit.test.ts',
+  'tests/daemon/daemon-loop-interrupt-poller-audit.test.ts',
+  'tests/daemon/idempotent-signal-handlers.test.ts',
+  'tests/daemon/interrupt-poller-recovery.test.ts',
+  'tests/foundation/audit/fallback-drop-observability.test.ts',
+  'tests/foundation/audit/multi-file-concurrent-write.test.ts',
+  'tests/foundation/process-manager/ready-spawn-integration.test.ts',
+  'tests/foundation/process-manager/ready-spawn-real-poll.test.ts',
+  'tests/foundation/process-manager/spawn-duration-metric.test.ts',
+  'tests/foundation/process-manager/spawn-event-driven-readiness.test.ts',
+  'tests/foundation/process-manager/spawn-fast-fail-child-died.test.ts',
+  'tests/foundation/process-manager/spawn-race.test.ts',
+  'tests/foundation/process-manager/spawn-remove-pid-audit.test.ts',
+  'tests/foundation/process/stop-race.test.ts',
+  'tests/watchdog/audit-wired-in-cli.test.ts',
+  'tests/watchdog/ensure-singleton-lock.test.ts',
+  'tests/watchdog/foreign-workspace-fail-loud.test.ts',
+  'tests/watchdog/notify-dedup-persist.test.ts',
+  'tests/watchdog/orphan-sweep.test.ts',
+  'tests/watchdog/watchdog-a8-final-audit.test.ts',
+  'tests/watchdog/watchdog-claws-dir-list-failed-audit.test.ts',
+  'tests/watchdog/watchdog-cron-map-cleanup-no-claws-dir.test.ts',
+  'tests/watchdog/watchdog-cron-skip-audit.test.ts',
 ];
 
 /**
