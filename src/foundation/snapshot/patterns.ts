@@ -9,7 +9,7 @@
  * - M#3 resource single ownership: patterns belong to the snapshot module
  * - M#9 explicit expression: physical path reflects layer ownership (foundation/snapshot/)
  *
- * phase 936 r114+ Cluster 3 site #1 β-inject landed
+ * phase 936 Cluster 3 site #1 β-inject landed
  * phase 157 α true ownership: moved to foundation/snapshot/patterns.ts
  */
 import { STREAM_FILE } from '../stream/index.js';

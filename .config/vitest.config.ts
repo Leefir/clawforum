@@ -6,11 +6,12 @@ const maxThreads = os.cpus().length;
 /**
  * phase 1231: vi.mock (file-level static) file 列表
  * 这些 file 不能跑 isolate:false (cross-file 模块串扰)
- * 维护: NEW test 用 vi.mock 需加此列表 (待 r+ lint check 防漂)
+ * 维护: NEW test 用 vi.mock 需加此列表
  *
- * 生成: grep -rln "^vi.mock\|vi\.mock(" tests/ | sort
- * 数量: 117 file (sync 2026-06-12 / phase 288 Step C)
- * 注：lint check 立守 list ↔ 真 use site 一致性属 §10 续候选（phase 278 audit V53）
+ * 生成: find tests -name "*.test.ts" -exec grep -lE "^vi\.mock\(|^\s*vi\.mock\(" {} \; | sort
+ * 数量: 115 file (sync 2026-06-13 / phase 316 Step B)
+ * Invariant test: tests/design/vi-mock-list-consistency-invariant.test.ts 守 list ↔ 真 use site 一致性
+ *   (phase 316 V53 a 真治、撤回 phase 306 ratify「推 §10」、详 `coding plan/phase316/`)
  */
 const VI_MOCK_FILES = [
   // phase 121: 5 assembly tests moved out of ISOLATED
@@ -187,6 +188,7 @@ const VI_MOCK_FILES = [
   'tests/watchdog/watchdog-ever-spawned-crash.test.ts',
   'tests/watchdog/watchdog-pid-corrupt.test.ts',
   'tests/watchdog/watchdog-shutdown-guard.test.ts',
+  'tests/watchdog/watchdog-state-legacy-fallback-audit.test.ts',
   'tests/watchdog/watchdog-state-narrow.test.ts',
   'tests/watchdog/watchdog-state-schema-version.test.ts',
   // phase 288 Step C sync: 48 entries added per find -name '*.test.ts' -exec grep 'vi.mock(' {} \;
@@ -209,11 +211,9 @@ const VI_MOCK_FILES = [
   'tests/cli/stop-orphan-cleanup-audit.test.ts',
   'tests/cli/stop-orphan-watchdog-sweep.test.ts',
   'tests/cli/watchdog.test.ts',
-  'tests/core/builtins-slow.test.ts',
   'tests/core/contract/dispose-await-verifier.test.ts',
   'tests/core/contract/lock-retry-jitter.test.ts',
   'tests/core/contract/mark-crashed.test.ts',
-  'tests/core/contract_manager.test.ts',
   'tests/core/contract_manager_llm.test.ts',
   'tests/core/subagent/agent-tool-call-input-audit.test.ts',
   'tests/daemon/daemon-loop-interrupt-poller-audit.test.ts',
@@ -222,7 +222,6 @@ const VI_MOCK_FILES = [
   'tests/foundation/audit/fallback-drop-observability.test.ts',
   'tests/foundation/audit/multi-file-concurrent-write.test.ts',
   'tests/foundation/process-manager/ready-spawn-integration.test.ts',
-  'tests/foundation/process-manager/ready-spawn-real-poll.test.ts',
   'tests/foundation/process-manager/spawn-duration-metric.test.ts',
   'tests/foundation/process-manager/spawn-event-driven-readiness.test.ts',
   'tests/foundation/process-manager/spawn-fast-fail-child-died.test.ts',
