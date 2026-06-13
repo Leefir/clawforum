@@ -1,7 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import os from 'node:os';
 
-const maxThreads = os.cpus().length;
+// phase 323: 多 worktree 并行测试 contention 防护
+// env unset → fallback os.cpus() (单 worktree 跑等价旧行为)
+// env 设有效正整数 → vitest worker 上限取 env 值
+// 详 design/practices.md "多 worktree 并行跑测试" 段
+const envMaxThreads = parseInt(process.env.VITEST_MAX_THREADS ?? '', 10);
+const maxThreads = Number.isFinite(envMaxThreads) && envMaxThreads > 0
+  ? envMaxThreads
+  : os.cpus().length;
 
 /**
  * phase 1231: vi.mock (file-level static) file 列表
