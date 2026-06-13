@@ -44,6 +44,13 @@ import { delay, isContentChunk, wrapResponseAsStream, mergeSignals } from './uti
  */
 const MAX_BACKOFF_MS = 30_000;
 
+/**
+ * Default stream-idle probe timeout (ms).
+ * Derivation: 5_000ms = 5s / 短 enough 不显著拖延 failover decision / 长 enough
+ * 覆盖 typical TCP RTT + first byte（即使 cross-region）.
+ */
+const DEFAULT_STREAM_IDLE_PROBE_TIMEOUT_MS = 5_000;
+
 const CONTEXT_EXCEEDED_STOP_REASONS = new Set<string>([
   'model_context_window_exceeded',  // anthropic
   'context_length_exceeded',         // openai variant
@@ -458,7 +465,7 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
             // - probe success → idle 是 transient lull / retry same provider stream
             // - probe failure (network/timeout) → failover next provider
             // - probe auth/model 错 → throw user-facing reconfigure
-            const probeTimeoutMs = options.streamIdleProbeTimeoutMs ?? 5_000;
+            const probeTimeoutMs = options.streamIdleProbeTimeoutMs ?? DEFAULT_STREAM_IDLE_PROBE_TIMEOUT_MS;
             this.events.emit({
               type: 'stream_idle_probe_attempted',
               provider: adapter.name,

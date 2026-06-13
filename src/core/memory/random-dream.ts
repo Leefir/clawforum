@@ -13,6 +13,13 @@ import type { ContractId } from '../contract/types.js';
 import { type TaskId, makeTaskId } from '../async-task-system/types.js';
 import { listArchiveContracts } from '../contract/index.js';
 import { assertDreamStateShape } from './invariants.js';
+
+/**
+ * Default pulse interval（ms）for waitForTaskResult polling.
+ * Derivation: 30_000ms = 30s / 平衡 watcher event 收敛延迟 vs progress audit 频率;
+ * 配套外层 subagentTimeoutMs（最长 1h）= 30 / pulse 共 ~120 ticks 上限.
+ */
+const DEFAULT_PULSE_INTERVAL_MS = 30_000;
 import { auditRandomDreamCrossSource } from './dream-cross-source-audit.js';
 import {
   RANDOM_DREAM_SYSTEM_PROMPT,
@@ -514,7 +521,7 @@ export async function runRandomDream(opts: RandomDreamOptions): Promise<void> {
     opts.motionFs,
     taskId,
     subagentTimeoutMs,
-    opts.pulseIntervalMs ?? 30_000,
+    opts.pulseIntervalMs ?? DEFAULT_PULSE_INTERVAL_MS,
     opts.audit,
     opts.pulseAuditEnabled ?? false,
     opts.signal,

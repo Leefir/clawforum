@@ -35,19 +35,26 @@ import {
 } from '../l4_context_manager/index.js';
 import { estimateTextTokens, estimateInputTokens } from '../../foundation/llm-provider/token-estimator.js';
 
+/**
+ * Default model context window (token) when provider/model 未在 MODEL_CONTEXT_WINDOWS 表内.
+ * Derivation: 128_000 = 128k token / 现行业界中位（OpenAI gpt-4o / Anthropic claude haiku / Google gemini）
+ * / 既不假设 200k+ premium 也不退保守 32k legacy / 未知 model 用此值估算 budget 不漂离实际太多.
+ */
+const DEFAULT_MODEL_CONTEXT_WINDOW = 128_000;
+
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   'claude-3-7-sonnet-20250219': 200_000,
-  'gpt-4o': 128_000,
+  'gpt-4o': DEFAULT_MODEL_CONTEXT_WINDOW,
   'deepseek-chat': 64_000,
   'kimi-k2.5': 256_000,
   'MiniMax-M1': 1_000_000,
   'gemini-2.5-pro-preview-03-25': 1_000_000,
-  'llama3.1': 128_000,
-  'grok-4': 128_000,
-  'openai/gpt-4o': 128_000,
+  'llama3.1': DEFAULT_MODEL_CONTEXT_WINDOW,
+  'grok-4': DEFAULT_MODEL_CONTEXT_WINDOW,
+  'openai/gpt-4o': DEFAULT_MODEL_CONTEXT_WINDOW,
   'anthropic/claude-sonnet-4-5': 200_000,
-  'glm-4.6': 128_000,
-  'qwen-coder-plus-latest': 128_000,
+  'glm-4.6': DEFAULT_MODEL_CONTEXT_WINDOW,
+  'qwen-coder-plus-latest': DEFAULT_MODEL_CONTEXT_WINDOW,
 };
 
 export async function executeStep(input: StepInput): Promise<StepResult> {
@@ -60,8 +67,8 @@ export async function executeStep(input: StepInput): Promise<StepResult> {
   // Phase 186: context budget + trim before LLM call
   const providerInfo = llm.getProviderInfo?.();
   const providerContextWindow = providerInfo?.model
-    ? (MODEL_CONTEXT_WINDOWS[providerInfo.model] ?? 128_000)
-    : 128_000;
+    ? (MODEL_CONTEXT_WINDOWS[providerInfo.model] ?? DEFAULT_MODEL_CONTEXT_WINDOW)
+    : DEFAULT_MODEL_CONTEXT_WINDOW;
 
   const budget = computeBudget({
     providerContextWindow,

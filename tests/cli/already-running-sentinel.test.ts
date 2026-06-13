@@ -18,6 +18,13 @@ import { motionDaemonCommand } from '../../src/cli/commands/motion-daemon.js';
 import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import { CliError } from '../../src/cli/errors.js';
 
+/**
+ * Early-return upper bound (ms) for clawDaemonCommand happy path.
+ * Derivation: DI fake processManager 0 真 syscall / clawDaemonCommand 应 < 100ms 完成 /
+ * 500ms = ×5 safety / 留出 vitest setup overhead jitter.
+ */
+const EARLY_RETURN_UPPER_BOUND_MS = 500;
+
 const fsFactory = (baseDir: string) => new NodeFileSystem({ baseDir });
 
 describe('already-running sentinel (phase 981 E-α3 / phase 1421 DI)', () => {
@@ -92,7 +99,7 @@ describe('already-running sentinel (phase 981 E-α3 / phase 1421 DI)', () => {
     const start = Date.now();
     await clawDaemonCommand({ fsFactory, processManager: aliveFakePM() }, 'running-claw');
     const elapsed = Date.now() - start;
-    expect(elapsed).toBeLessThan(500);
+    expect(elapsed).toBeLessThan(EARLY_RETURN_UPPER_BOUND_MS);
   });
 
   it('DaemonPM shape invariant — fake pm satisfies the structural contract', () => {

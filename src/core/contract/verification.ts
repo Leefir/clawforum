@@ -8,6 +8,7 @@ import * as path from 'path';
 import type { AcceptanceFailedNotification, ContractYaml, VerificationResult, SubtaskId } from './types.js';
 import { ToolError, isProgrammingBug } from '../../foundation/errors.js';
 import { formatErr } from '../../foundation/utils/index.js';
+import { DEFAULT_VERIFICATION_ATTEMPTS } from './constants.js';
 import {
   emitContractCompleteOnCancelled,
   emitContractPassed,
@@ -184,7 +185,7 @@ async function applyVerificationOutcome(
       feedback: result.feedback,
       cause: failureCause,
     };
-    const maxAttempts = contractYaml.verification_attempts ?? 3;
+    const maxAttempts = contractYaml.verification_attempts ?? DEFAULT_VERIFICATION_ATTEMPTS;
 
     emitContractVerificationFailed(
       ctx.audit,

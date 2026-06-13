@@ -19,6 +19,13 @@ import { makeAudit } from '../../helpers/audit.js';
 import { PROCESS_MANAGER_AUDIT_EVENTS } from '../../../src/foundation/process-manager/audit-events.js';
 import type { ProcessManagerContext } from '../../../src/foundation/process-manager/types.js';
 
+/**
+ * isReady mock 注入 delay (ms) — 模拟真 spawn poll loop 累积时长.
+ * Derivation: > eventloop tick / < 1s 不显著拖测试 / 反向 #3 mock isReady delay
+ * 200ms 推出 duration_ms 下限 = poll 累积 ≥ 150ms.
+ */
+const SPAWN_READY_MIN_ACCUMULATED_MS = 150;
+
 // Mock constants to eliminate sleep delays
 vi.mock('../../../src/foundation/process-manager/constants.js', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -152,6 +159,6 @@ describe('spawn duration metric（phase 1148 / C.3）', () => {
     const durationCol = spawnedEvents[0].find((c) => typeof c === 'string' && c.startsWith('duration_ms='));
     expect(durationCol).toBeDefined();
     const durationMs = parseInt(String(durationCol).split('=')[1], 10);
-    expect(durationMs).toBeGreaterThanOrEqual(150); // at least some delay accumulated
+    expect(durationMs).toBeGreaterThanOrEqual(SPAWN_READY_MIN_ACCUMULATED_MS); // at least some delay accumulated
   });
 });

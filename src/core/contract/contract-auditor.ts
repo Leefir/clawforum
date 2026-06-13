@@ -24,6 +24,12 @@ import { contractFootprint, type ContractFootprintOptions } from './contract-foo
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
 import type { ClawId } from '../../constants.js';
 
+/**
+ * Default `maxOutputTokens` for contract auditor LLM verdict call.
+ * Derivation: 1024 token ≈ 768 中文字符 / 足够 JSON verdict {on_track, drifts, next_focus} + 留 jitter / 不浪费 token budget.
+ */
+const DEFAULT_AUDITOR_MAX_OUTPUT_TOKENS = 1024;
+
 export interface AuditorDrift {
   what: string;
   evidence: string;
@@ -42,7 +48,7 @@ export interface ContractAuditorDeps {
   llm: LLMOrchestrator;
   /** inbox pending dir 绝对路径（用于去重 list + delete） */
   inboxPendingDir: string;
-  /** auditor LLM 最大 token 输出（默 1024） */
+  /** auditor LLM 最大 token 输出. Default: {@link DEFAULT_AUDITOR_MAX_OUTPUT_TOKENS} */
   maxOutputTokens?: number;
 }
 
@@ -163,7 +169,7 @@ export class ContractAuditor {
     const response = await this.deps.llm.call({
       messages: [{ role: 'user', content: prompt }],
       system: AUDITOR_SYSTEM_PROMPT,
-      maxTokens: this.deps.maxOutputTokens ?? 1024,
+      maxTokens: this.deps.maxOutputTokens ?? DEFAULT_AUDITOR_MAX_OUTPUT_TOKENS,
       temperature: 0.2,
     });
     const text = extractText(response.content);

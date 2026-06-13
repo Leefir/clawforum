@@ -32,8 +32,8 @@ export function detectAndMigrateVersion(
   // v1 → v2 intentional migration (phase 713 logic 保留)
   if (!parsed.toolsForLLM) {
     (parsed as SessionData).toolsForLLM = [];
-    (parsed as SessionData).version = 2;
-    audit?.write?.(DIALOG_AUDIT_EVENTS.VERSION_MIGRATE, `file=${filename}`, `from=1`, `to=2`);
+    (parsed as SessionData).version = SESSION_CURRENT_VERSION;
+    audit?.write?.(DIALOG_AUDIT_EVENTS.VERSION_MIGRATE, `file=${filename}`, `from=1`, `to=${SESSION_CURRENT_VERSION}`);
     return parsed as SessionData;
   }
   // NEW unknown version reject（phase 1019 r124 E fork）
@@ -51,14 +51,14 @@ export function validateSessionData(
   audit?: AuditLog,
   clawIdFallback?: string,
 ): SessionData {
-  let version: number = data.version ?? 2;
-  if (typeof version !== 'number' || version > 2 || version < 1) {
-    audit?.write?.(DIALOG_AUDIT_EVENTS.INVARIANT_FAILED, `field=version`, `got=${String(data.version)}`, `fallback=2`);
-    version = 2;
+  let version: number = data.version ?? SESSION_CURRENT_VERSION;
+  if (typeof version !== 'number' || version > SESSION_CURRENT_VERSION || version < 1) {
+    audit?.write?.(DIALOG_AUDIT_EVENTS.INVARIANT_FAILED, `field=version`, `got=${String(data.version)}`, `fallback=${SESSION_CURRENT_VERSION}`);
+    version = SESSION_CURRENT_VERSION;
   }
   if (!Number.isInteger(version)) {
     audit?.write?.(DIALOG_AUDIT_EVENTS.INVARIANT_FAILED, `field=version`, `got=${String(data.version)}`, `reason=non_integer`);
-    version = 2;
+    version = SESSION_CURRENT_VERSION;
   }
   const messages = Array.isArray(data.messages)
     ? data.messages.filter((m): m is Message => {
@@ -92,8 +92,8 @@ export function migrateAndValidateSession(
   // v1 → v2 migration
   if (!parsed.toolsForLLM) {
     (parsed as SessionData).toolsForLLM = [];
-    (parsed as SessionData).version = 2;
-    audit?.write?.(DIALOG_AUDIT_EVENTS.VERSION_MIGRATE, `file=${filename}`, `from=1`, `to=2`);
+    (parsed as SessionData).version = SESSION_CURRENT_VERSION;
+    audit?.write?.(DIALOG_AUDIT_EVENTS.VERSION_MIGRATE, `file=${filename}`, `from=1`, `to=${SESSION_CURRENT_VERSION}`);
   }
   // unknown version reject
   if (typeof parsed.version === 'number' && parsed.version > SESSION_CURRENT_VERSION) {

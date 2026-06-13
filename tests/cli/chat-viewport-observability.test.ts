@@ -53,14 +53,14 @@ describe('chat-viewport-observability', () => {
 
     advance(201);
     obs.recordEvent('turn_end');
-    // 首条到本条 span_ms = 1001 >= INGEST_FLUSH_MS，触发 flush
+    // 首条到本条 span_ms >= INGEST_FLUSH_MS，触发 flush
     expect(log).toHaveLength(1);
     expect(log[0][0]).toBe(VIEWPORT_AUDIT_EVENTS.EVENT_INGEST);
     expect(log[0][1]).toBe('batch_size=4');
     const spanCol = log[0][3] as string;
     expect(spanCol).toMatch(/^span_ms=\d+$/);
     const spanMs = parseInt(spanCol.replace('span_ms=', ''), 10);
-    expect(spanMs).toBeGreaterThanOrEqual(1001);
+    expect(spanMs).toBeGreaterThanOrEqual(VIEWPORT_OBS_CONFIG.INGEST_FLUSH_MS + 1);
   });
 
   it('Spinner start→stop 的 elapsed_ms；连续 stop / 连续 start 边界', () => {

@@ -8,6 +8,7 @@ import type { ContractId } from './types.js';
 import type { SubtaskId } from './types.js';
 import { formatErr } from '../../foundation/utils/index.js';
 import { ToolError, ToolTimeoutError } from '../../foundation/errors.js';
+import { DEFAULT_VERIFICATION_ATTEMPTS } from './constants.js';
 import type { LastFailedFeedback, AcceptanceFailedNotification } from './types.js';
 import {
   emitContractNotifyFailed,
@@ -162,7 +163,7 @@ export async function handleVerificationErrorRetry(
         if (!contractYaml) {
           throw new ToolError(`Contract "${contractId}" unloadable: contract.yaml schema corruption`);
         }
-        const maxAttempts = contractYaml.verification_attempts ?? 3;
+        const maxAttempts = contractYaml.verification_attempts ?? DEFAULT_VERIFICATION_ATTEMPTS;
 
         if (subtask.retry_count >= maxAttempts) {
           // 强制接受：timeout/crash 路径达上限同样 force_accepted

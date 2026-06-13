@@ -18,6 +18,13 @@ const ABORT_TRIGGER_DELAY_MS = 50;
  */
 const ABORT_TRIGGER_QUICK_DELAY_MS = 20;
 
+/**
+ * Retry backoff base ± jitter range bounds (M4 jitter test).
+ * Derivation: retryDelayMs=100 × 2^0 × [0.75, 1.25] = [75, 125]ms / 测 jitter 落区间内.
+ */
+const BACKOFF_JITTER_LOWER_MS = 75;
+const BACKOFF_JITTER_UPPER_MS = 125;
+
 // Mock provider factory
 
 const noopSink: LLMEventSink = { emit: () => {} };
@@ -869,8 +876,8 @@ describe('LLMOrchestratorImpl - events (Phase 254)', () => {
     expect(retryEvent).toBeDefined();
     // M4 jitter: backoff = retryDelayMs * 2^attempt * [0.75, 1.25], capped at MAX_BACKOFF_MS
     const backoffMs = (retryEvent as any).backoffMs;
-    expect(backoffMs).toBeGreaterThanOrEqual(75);
-    expect(backoffMs).toBeLessThanOrEqual(125);
+    expect(backoffMs).toBeGreaterThanOrEqual(BACKOFF_JITTER_LOWER_MS);
+    expect(backoffMs).toBeLessThanOrEqual(BACKOFF_JITTER_UPPER_MS);
   });
 
   it('emits provider_exhausted + fallback_switched when primary exhausted', async () => {

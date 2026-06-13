@@ -127,13 +127,19 @@ function clipLineText(line: string): string {
  * needles have their first line scanned — if even that doesn't appear nearby,
  * the agent's oldText is likely far off and full re-read is the right answer).
  */
+/**
+ * Default `limit` for findNearMatches traversal cap.
+ * Derivation: 3 = 经验值控制 chunk fan-out / 防 LLM context blow when needle 重复出现.
+ */
+const DEFAULT_FIND_NEAR_MATCHES_LIMIT = 3;
+
 export function findNearMatches(
   content: string,
   needle: string,
   opts: { limit?: number } = {},
 ): NearMatch[] {
   if (!needle) return [];
-  const limit = opts.limit ?? 3;
+  const limit = opts.limit ?? DEFAULT_FIND_NEAR_MATCHES_LIMIT;
   const lines = content.split('\n');
   const scanCount = Math.min(lines.length, NEAR_MATCH_SCAN_LINE_LIMIT);
 
