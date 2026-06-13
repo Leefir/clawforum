@@ -59,7 +59,6 @@ describe('pauseContract abort verifier propagation (phase 1162 DD3)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Pause Abort Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -78,7 +77,6 @@ describe('pauseContract abort verifier propagation (phase 1162 DD3)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Pause Abort Throw Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -106,7 +104,6 @@ describe('pauseContract abort verifier propagation (phase 1162 DD3)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Pause Order Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));

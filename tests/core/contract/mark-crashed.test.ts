@@ -59,7 +59,6 @@ describe('phase 63: markCrashed', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Crash Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -87,7 +86,6 @@ describe('phase 63: markCrashed', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Crash Already Archived',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -100,7 +98,6 @@ describe('phase 63: markCrashed', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Crash Abort Throw',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -141,7 +138,6 @@ describe('phase 63: markCrashed', () => {
     const contractId = await localManager.create(makeContractYaml({
       title: 'Crash Audit Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));

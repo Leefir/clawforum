@@ -77,27 +77,10 @@ export interface Contract {
   completed_at?: string;
 }
 
-// YAML contract file structure (exported for CLI use)
-export interface ContractYaml {
-  schema_version?: number;
-  id?: string;
-  title: string;
-  background?: string;      // 用户意图
-  goal: string;
-  expectations?: string;    // 全局执行要求和质量期望
-  subtasks: Array<{
-    id: string;
-    description: string;
-  }>;
-  verification?: Array<
-    | { subtask_id: string; type: 'script'; script_file?: string }
-    | { subtask_id: string; type: 'llm'; prompt_file?: string }
-  >;
-  auth_level?: 'auto' | 'notify' | 'confirm';
-  verification_attempts?: number;  // 全局 retry 上限，默认 3
-  // escalation 字段已废弃（phase 1399），读时通过 persistence.ts 自动迁移到 verification_attempts
-  audit_interval?: number;  // phase 1424: contract auditor 周期、step 为单位、0 = disable（默 0）
-}
+// YAML contract file structure (exported for CLI use).
+// phase 311: type derive from Zod schema (ML#9 优先编译器检查)
+import type { ContractYamlValidated } from './schemas.js';
+export type ContractYaml = ContractYamlValidated;
 
 // phase 282 Step B: 落盘 schema（不含 derive field）
 export interface ProgressDataPersisted {

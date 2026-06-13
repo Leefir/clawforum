@@ -16,8 +16,6 @@ export const CONTRACT_AUDIT_EVENTS = {
   LOCK_CLEANUP_FAILED: 'contract_lock_cleanup_failed',   // ← NEW (phase 850 / r108 F fork F2.1)
   LOCK_RETRY: 'contract_lock_retry',                    // ← NEW (phase 1325 / r137 B fork)
   PROGRESS_SCHEMA_INVALID: 'contract_progress_schema_invalid',  // ← NEW (phase 587)
-  CONTRACT_YAML_LEGACY_ACCEPTANCE_FIELD: 'contract_yaml_legacy_acceptance_field', // ← NEW phase 1257 r134 C fork (mirror PID_FILE_LEGACY_FORMAT phase 1023+1180 模板)
-  CONTRACT_YAML_LEGACY_ESCALATION_FIELD: 'contract_yaml_legacy_escalation_field', // ← NEW phase 1399: escalation.max_retries → verification_attempts 30天兼容
   CONTRACT_YAML_SCHEMA_INVALID: 'contract_yaml_schema_invalid', // ← NEW (phase 587)
   OBSERVER_STATE_PARSE_FAILED: 'contract_observer_state_parse_failed',  // ← NEW (phase 1012 / r123 C fork)
   // NEW phase 160: maybeAuditStep loadActive silent catch audit emit (playbook §1)
@@ -153,8 +151,6 @@ export const CONTRACT_FILE_ROUTING: Readonly<Record<string, 'audit'>> = {
   contract_lock_cleanup_failed: 'audit',
   contract_lock_retry: 'audit',
   contract_progress_schema_invalid: 'audit',
-  contract_yaml_legacy_acceptance_field: 'audit',
-  contract_yaml_legacy_escalation_field: 'audit',
   contract_yaml_schema_invalid: 'audit',
   contract_observer_state_parse_failed: 'audit',
   contract_auditor_load_active_failed: 'audit',

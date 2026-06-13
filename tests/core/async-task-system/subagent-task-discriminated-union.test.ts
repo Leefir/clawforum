@@ -76,9 +76,9 @@ describe('SubAgentTask discriminated union (phase 1185)', () => {
   });
 });
 
-// 反向 4 — backwards-compat 旧 pendingTask 无 mode 字段默认 'standard'
-describe('SubAgentTaskSchema backwards-compat', () => {
-  it('旧 pendingTask 无 mode 字段 parse 为 standard', () => {
+// 反向 4 — phase 311 ML#9 strict: 删 preprocess hook、旧 schema 直接 reject
+describe('SubAgentTaskSchema phase 311 strict (no silent preprocess)', () => {
+  it('rejects old pendingTask without mode field', () => {
     const oldTask = {
       kind: 'subagent',
       id: 'old-task',
@@ -89,11 +89,7 @@ describe('SubAgentTaskSchema backwards-compat', () => {
       createdAt: '2026-05-24T00:00:00Z',
     };
     const result = SubAgentTaskSchema.safeParse(oldTask);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.mode).toBe('standard');
-      expect(result.data.intent).toBe('old intent');
-    }
+    expect(result.success).toBe(false);
   });
 
   it('shadow task 含 mode=shadow 正常 parse', () => {
@@ -116,7 +112,7 @@ describe('SubAgentTaskSchema backwards-compat', () => {
     }
   });
 
-  it('旧 shadow task 含 intentPreview 通过 preprocess 兼容 parse', () => {
+  it('rejects old shadow task with intentPreview field (no silent rename)', () => {
     const oldShadowTask = {
       kind: 'subagent',
       mode: 'shadow',
@@ -129,10 +125,6 @@ describe('SubAgentTaskSchema backwards-compat', () => {
       createdAt: '2026-05-24T00:00:00Z',
     };
     const result = SubAgentTaskSchema.safeParse(oldShadowTask);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.mode).toBe('shadow');
-      expect(result.data.intent).toBe('legacy intent');
-    }
+    expect(result.success).toBe(false);
   });
 });

@@ -97,7 +97,6 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
 
       const contractId = await monitorManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 'real-task', description: 'Real task' }],
         verification: [],
       }));
@@ -133,7 +132,6 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
     notifyClaw: vi.fn(),});
       await expect(failManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }))).rejects.toThrow('disk full');
@@ -152,7 +150,6 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
     it('should throw when type is "script" but prompt_file is used', async () => {
       await expect(manager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           // @ts-expect-error - intentionally wrong field for testing
@@ -164,7 +161,6 @@ describe('ContractSystem - monitor + verification validation (phase 1348 split)'
     it('should throw when type is "llm" but script_file is used', async () => {
       await expect(manager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           // @ts-expect-error - intentionally wrong field for testing

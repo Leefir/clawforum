@@ -53,7 +53,6 @@ describe('moveContractToArchive lock acquire (phase 860 / P0-B)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Archive Lock Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 't1', description: 'T1' },
       ],
@@ -81,7 +80,6 @@ describe('moveContractToArchive lock acquire (phase 860 / P0-B)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Archive Release Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 't1', description: 'T1' },
       ],
@@ -114,7 +112,6 @@ describe('moveContractToArchive lock acquire (phase 860 / P0-B)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Already Archived Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 't1', description: 'T1' },
       ],

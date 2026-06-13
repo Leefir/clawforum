@@ -22,6 +22,7 @@ function makeMockAudit(): { audit: AuditLog; events: Array<[string, ...(string |
 function makeTaskJson(id: string): string {
   return JSON.stringify({
     kind: 'subagent',
+    mode: 'standard',
     id,
     intent: 'test',
     timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,

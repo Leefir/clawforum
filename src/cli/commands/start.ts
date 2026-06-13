@@ -210,6 +210,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
 
     const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, notifyClaw: (targetClawId, message) => notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), targetClawId, message, notifyAudit) });
     const contractId = await manager.create({
+      schema_version: 1,
       title: 'Onboarding',
       goal: 'Get to know the user and establish your identity before anything else. No interrogation — just talk.',
       subtasks: buildOnboardingSubtasks(language),
@@ -239,6 +240,7 @@ async function _start(deps: { fsFactory: (baseDir: string) => FileSystem }, audi
     if (onboarding.state === 'not_found') {
       const manager = new ContractSystem({ clawDir: motionDir, clawId: MOTION_CLAW_ID, fs: notifyFs, audit: notifyAudit, toolRegistry: createToolRegistry(), fsFactory: deps.fsFactory, notifyClaw: (targetClawId, message) => notifyClaw(notifyFs, makeChestnutRoot(path.dirname(motionDir)), targetClawId, message, notifyAudit) });
       const contractId = await manager.create({
+        schema_version: 1,
         title: 'Onboarding',
         goal: 'Get to know the user and establish your identity before anything else.',
         subtasks: buildOnboardingSubtasks('auto'),

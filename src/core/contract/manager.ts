@@ -742,7 +742,7 @@ export class ContractSystem {
       contract_id: contractId,
       status: 'running',
       subtasks: Object.fromEntries(
-        contractYaml.subtasks.map(st => [st.id, { status: 'todo' as SubtaskStatus }])
+        contractYaml.subtasks.map((st: { id: string }) => [st.id, { status: 'todo' as SubtaskStatus }])
       ),
       started_at: new Date().toISOString(),
       checkpoint: null,

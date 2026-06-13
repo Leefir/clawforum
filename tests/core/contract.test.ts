@@ -31,8 +31,6 @@ async function createContract(
 id: ${contractId}
 title: "Test Contract"
 goal: "Test goal"
-deliverables:
-  - "Deliverable 1"
 subtasks:
   - id: st-001
     description: "Subtask 1"
@@ -41,7 +39,7 @@ subtasks:
 verification:
   - subtask_id: st-001
     type: script
-    command: "echo 'test'"
+    script_file: "echo 'test'"
 auth_level: notify
 `;
   await fs.writeFile(path.join(contractDir, 'contract.yaml'), yamlContent);
@@ -193,7 +191,6 @@ describe('Contract System', () => {
 id: contract-002
 title: "No Acceptance"
 goal: "Test"
-deliverables: []
 subtasks:
   - id: st-001
     description: "Subtask without verification"
@@ -239,7 +236,6 @@ auth_level: auto
 id: contract-003
 title: "Script Acceptance"
 goal: "Test"
-deliverables: []
 subtasks:
   - id: st-001
     description: "Subtask with script"
@@ -287,7 +283,6 @@ auth_level: auto
 id: contract-004
 title: "Failing Script"
 goal: "Test"
-deliverables: []
 subtasks:
   - id: st-001
     description: "Subtask with failing script"
@@ -333,7 +328,6 @@ auth_level: auto
 id: contract-005
 title: "Complete Check"
 goal: "Test"
-deliverables: []
 subtasks:
   - id: st-001
     description: "Subtask 1"

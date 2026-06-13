@@ -22,7 +22,6 @@ export const CRON_AUDIT_EVENTS = {
   // phase 1476: OUTBOX_DRAIN_* (4 const) 砍 — outbox-drain cron 退场（pull 模型替 push）
   // phase 134: outbox-summary 4 events 迁出到自治 helper audit-events 命名空间
   // phase 28: STATE_SAVE_FAILED 砍 — phase1109 state persistence wiring 删（fs? optional 实际从未 wire 进 production）
-  // phase 6: SUNSET_READY / SUNSET_QUERY_FAIL 砍 — sunset-monitor cron 移除 / dev-side 信号不该走 motion inbox
 } as const;
 
 /**

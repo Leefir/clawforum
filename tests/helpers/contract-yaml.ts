@@ -3,7 +3,7 @@ import type { ContractYaml } from '../../src/core/contract/types.js';
 /**
  * Test helper: build a ContractYaml literal with sane defaults + overrides.
  *
- * Mirror src/core/contract/types.ts:12 ContractYaml interface.
+ * Mirror src/core/contract/schemas.ts ContractYamlSchema (phase 311 Zod SoT).
  * Schema drift → tsc fails here AND in callers (per phase 703 D-3 / ML「编译器检查」).
  *
  * @param overrides Partial fields to override defaults.
@@ -15,7 +15,6 @@ export function makeContractYaml(
     schema_version: 1,
     title: 'Test Contract',
     goal: 'Test goal',
-    deliverables: ['clawspace/test.txt'],
     subtasks: [
       { id: 'task-1', description: 'Task 1' },
     ],

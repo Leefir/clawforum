@@ -64,7 +64,6 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Lock Retry Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -87,7 +86,6 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Lock Exhaust Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -115,7 +113,6 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
     const contractId = await testManager.create(makeContractYaml({
       title: 'Lock Cleanup AuditLog',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -171,7 +168,6 @@ describe('ContractSystem - lock retry (phase 1351 split)', () => {
     const contractId = await testManager.create(makeContractYaml({
       title: 'Lock Cleanup ENOENT',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));

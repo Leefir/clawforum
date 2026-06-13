@@ -33,7 +33,6 @@ export const TASK_AUDIT_EVENTS = {
   RESULT_DELIVERY_ENSURE_DIR_FAILED: 'result_delivery_ensure_dir_failed',  // ← NEW (phase 878 / B-β2)
   PARSE_FAILED: 'task_parse_failed', // ← NEW (phase 1013 / r123 E fork E.4)
   RESULT_DELIVERY_FAILED: 'task_result_delivery_failed', // ← NEW (phase 1069 / T3)
-  LEGACY_PENDING_TASK_NO_MODE: 'legacy_pending_task_no_mode', // ← NEW (phase 1258 / F.2 sunset observability)
   RUNNING_FILE_DELETE_FAILED: 'task_running_file_delete_failed', // ← NEW (phase 1324 / r137 C fork F.hot.6)
   CLEANUP_RETENTION_DELETE_FAILED: 'task_cleanup_retention_delete_failed',
   TASK_SHUTDOWN_TIMEOUT_HIT: 'task_shutdown_timeout_hit', // ← NEW (phase 1332 / r138 C fork N4)

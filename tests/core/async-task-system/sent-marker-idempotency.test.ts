@@ -57,6 +57,7 @@ describe('SENT_MARKER idempotency (phase 789 / P0.19 + P0.20)', () => {
     const task = {
       id: 'task-1',
       kind: 'subagent' as const,
+      mode: 'standard' as const,
       parentClawId: 'parent',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
@@ -75,6 +76,7 @@ describe('SENT_MARKER idempotency (phase 789 / P0.19 + P0.20)', () => {
     const task = {
       id: 'task-2',
       kind: 'subagent' as const,
+      mode: 'standard' as const,
       parentClawId: 'parent',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
@@ -130,6 +132,7 @@ describe('SENT_MARKER idempotency (phase 789 / P0.19 + P0.20)', () => {
     const task = {
       id: 'task-4',
       kind: 'subagent' as const,
+      mode: 'standard' as const,
       parentClawId: 'parent',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,

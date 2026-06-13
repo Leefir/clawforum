@@ -101,7 +101,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     });
@@ -117,7 +116,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     });
@@ -131,7 +129,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     });
@@ -150,7 +147,6 @@ describe('ContractSystem', () => {
     const contract1 = await manager.create(makeContractYaml({
       title: 'First',
       goal: 'First',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -164,7 +160,6 @@ describe('ContractSystem', () => {
     const contract2 = await manager.create(makeContractYaml({
       title: 'Second',
       goal: 'Second',
-      deliverables: [],
       subtasks: [{ id: 't2', description: 'T2' }],
       verification: [],
     }));
@@ -182,7 +177,6 @@ describe('ContractSystem', () => {
     const contract1 = await manager.create(makeContractYaml({
       title: 'First',
       goal: 'First',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -191,7 +185,6 @@ describe('ContractSystem', () => {
     const contract2 = await manager.create(makeContractYaml({
       title: 'Second',
       goal: 'Second',
-      deliverables: [],
       subtasks: [{ id: 't2', description: 'T2' }],
       verification: [],
     }));
@@ -215,7 +208,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 'task-1', description: 'Task 1' },
         { id: 'task-2', description: 'Task 2' },
@@ -234,7 +226,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       verification: [],
     });
     const contractId = await manager.create(contractYaml);
@@ -277,7 +268,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 'task-1', description: 'Task 1' },
         { id: 'task-2', description: 'Task 2' },
@@ -297,7 +287,6 @@ describe('ContractSystem', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -313,7 +302,6 @@ describe('ContractSystem', () => {
     const contractYaml = makeContractYaml({
       title: 'Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     });
@@ -350,7 +338,6 @@ describe('ContractSystem', () => {
     const contractId = await testManager.create(makeContractYaml({
       title: 'AllCompleted Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -381,7 +368,6 @@ describe('ContractSystem', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Partial Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 't1', description: 'T1' },
         { id: 't2', description: 'T2' },

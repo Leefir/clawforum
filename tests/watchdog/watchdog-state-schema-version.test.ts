@@ -1,5 +1,5 @@
 /**
- * Phase 1134 — watchdog-state.json schema_version invariant + legacy graceful read
+ * Phase 1134 + 311 — watchdog-state.json schema_version invariant + strict-end
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
@@ -42,7 +42,7 @@ import { NodeFileSystem } from '../../src/foundation/fs/node-fs.js';
 import type { AuditLog } from '../../src/foundation/audit/index.js';
 const fsFactory = (dir: string) => new NodeFileSystem({ baseDir: dir });
 
-describe('watchdog-state schema_version invariant — phase 1134', () => {
+describe('watchdog-state schema_version invariant — phase 1134 + 311 strict-end', () => {
   let tmpDir: string;
   let chestnutDir: string;
 
@@ -103,13 +103,50 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
     expect(files.some(f => f.match(/watchdog-state\.json\.corrupt-\d+/))).toBe(true);
   });
 
-  it('reads legacy `version: 1` file (without schema_version) gracefully', () => {
+  it('rejects legacy `version: 1` file (without schema_version) as schema invalid — phase 311 strict-end', () => {
     const stateFile = path.join(chestnutDir, 'watchdog-state.json');
     fs.writeFileSync(stateFile, JSON.stringify({
       version: 1,
       lastInactivityNotified: { claw1: 100 },
       inactivityNotifyCount: { claw1: 2 },
       clawPreviouslyAlive: { claw1: true },
+      everSpawned: ['claw1'],
+    }));
+
+    const mockAudit = { write: vi.fn() , preview: vi.fn((s: string) => s), message: vi.fn((s: string) => s), summary: vi.fn((s: string) => s)} as unknown as AuditLog;
+    setAuditWriter(mockAudit);
+
+    // Should not throw to caller
+    expect(() => loadWatchdogState(fsFactory)).not.toThrow();
+
+    // Maps should be reset to empty
+    expect(clawStateAPI.lastInactivityNotified.size).toBe(0);
+    expect(clawStateAPI.inactivityNotifyCount.size).toBe(0);
+    expect(clawStateAPI.clawPreviouslyAlive.size).toBe(0);
+    expect(clawStateAPI.everSpawned.size).toBe(0);
+
+    // Audit should contain STATE_SCHEMA_INVALID (not legacy fallback)
+    const auditCalls = mockAudit.write.mock.calls;
+    const schemaCall = auditCalls.find((c: any[]) => c[0] === WATCHDOG_AUDIT_EVENTS.STATE_SCHEMA_INVALID);
+    expect(schemaCall).toBeDefined();
+
+    // Must NOT emit legacy fallback audit event
+    const fallbackCall = auditCalls.find((c: any[]) => c[0] === 'watchdog_state_legacy_version_fallback');
+    expect(fallbackCall).toBeUndefined();
+
+    // Original file should be quarantined
+    expect(fs.existsSync(stateFile)).toBe(false);
+    const files = fs.readdirSync(chestnutDir);
+    expect(files.some(f => f.match(/watchdog-state\.json\.corrupt-\d+/))).toBe(true);
+  });
+
+  it('accepts schema_version: 2 and saves back schema_version: 2', () => {
+    const stateFile = path.join(chestnutDir, 'watchdog-state.json');
+    fs.writeFileSync(stateFile, JSON.stringify({
+      schema_version: 2,
+      lastInactivityNotified: { claw1: 200 },
+      inactivityNotifyCount: { claw1: 3 },
+      clawPreviouslyAlive: { claw1: false },
       everSpawned: ['claw1'],
     }));
 
@@ -124,10 +161,10 @@ describe('watchdog-state schema_version invariant — phase 1134', () => {
     );
     expect(badEvents).toHaveLength(0);
 
-    // Maps loaded successfully from legacy file
-    expect(clawStateAPI.lastInactivityNotified.get('claw1')).toBe(100);
-    expect(clawStateAPI.inactivityNotifyCount.get('claw1')).toBe(2);
-    expect(clawStateAPI.clawPreviouslyAlive.get('claw1')).toBe(true);
+    // Maps loaded successfully
+    expect(clawStateAPI.lastInactivityNotified.get('claw1')).toBe(200);
+    expect(clawStateAPI.inactivityNotifyCount.get('claw1')).toBe(3);
+    expect(clawStateAPI.clawPreviouslyAlive.get('claw1')).toBe(false);
     expect(clawStateAPI.everSpawned.has('claw1')).toBe(true);
 
     // Subsequent save writes schema_version, not version

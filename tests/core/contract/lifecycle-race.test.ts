@@ -58,7 +58,6 @@ describe('ContractSystem lifecycle race (phase 791 / P0.16 + P0.18)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Pause Race Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 't1', description: 'T1' },
         { id: 't2', description: 'T2' },
@@ -155,7 +154,6 @@ describe('ContractSystem lifecycle race (phase 791 / P0.16 + P0.18)', () => {
     const contractId = await manager.create(makeContractYaml({
       title: 'Cancelled Guard Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));

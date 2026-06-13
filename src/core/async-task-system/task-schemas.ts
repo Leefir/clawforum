@@ -72,26 +72,10 @@ const subAgentTaskDiscriminatedUnion = z.discriminatedUnion('mode', [
   shadowSubAgentTaskSchema,
 ]);
 
-/**
- * Backwards-compat:
- * 1. old pendingTask files may lack `mode` field. Preprocess injects `mode: 'standard'`.
- * 2. old shadow task files may use `intentPreview` field (phase 218 renamed to `intent`).
- *    Preprocess renames `intentPreview` → `intent` for shadow tasks.
- */
-export const SubAgentTaskSchema = z.preprocess(
-  (val) => {
-    if (typeof val === 'object' && val !== null && !('mode' in val)) {
-      val = { ...(val as object), mode: 'standard' };
-    }
-    // phase 218: old shadow tasks may have intentPreview instead of intent
-    if (typeof val === 'object' && val !== null && 'intentPreview' in val && !('intent' in val)) {
-      const { intentPreview, ...rest } = val as { intentPreview: string; [k: string]: unknown };
-      val = { ...rest, intent: intentPreview };
-    }
-    return val;
-  },
-  subAgentTaskDiscriminatedUnion,
-);
+// phase 311 ML#9 strict: 删 preprocess hook（mode inject + old shadow intent field rename）。
+// active load path pending/running 0 file 含 legacy schema、9 天 audit 0 emit
+// 删 silent fallback。
+export const SubAgentTaskSchema = subAgentTaskDiscriminatedUnion;
 
 export const ToolTaskSchema = z.object({
   kind: z.literal('tool'),

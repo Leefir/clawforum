@@ -60,7 +60,6 @@ describe('phase 871 r113 G fork: contract lock orphan-on-fs-move-throw cluster f
     const contractId = await manager.create(makeContractYaml({
       title: 'Pause Orphan Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -93,7 +92,6 @@ describe('phase 871 r113 G fork: contract lock orphan-on-fs-move-throw cluster f
     const contractId = await manager.create(makeContractYaml({
       title: 'Cancel Orphan Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -117,7 +115,6 @@ describe('phase 871 r113 G fork: contract lock orphan-on-fs-move-throw cluster f
     const contractId = await manager.create(makeContractYaml({
       title: 'Archive Orphan Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -150,7 +147,6 @@ describe('phase 871 r113 G fork: contract lock orphan-on-fs-move-throw cluster f
     const contractId = await manager.create(makeContractYaml({
       title: 'Pause Happy Path Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));

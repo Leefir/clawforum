@@ -32,6 +32,7 @@ function makeValidTask(kind: 'subagent' | 'tool' = 'subagent') {
   if (kind === 'subagent') {
     return {
       ...base,
+      mode: 'standard',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
       maxSteps: 1,

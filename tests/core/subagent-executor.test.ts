@@ -20,6 +20,7 @@ const { mockRunSubagent } = vi.hoisted(() => ({
 function makeTask(overrides: Partial<SubAgentTask> = {}): SubAgentTask {
   return {
     kind: 'subagent',
+    mode: 'standard',
     id: `task-${randomUUID()}`,
     intent: 'test intent',
     timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,

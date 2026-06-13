@@ -64,7 +64,6 @@ describe('submitSubtaskTool', () => {
     await manager.create(makeContractYaml({
       title: 'Single Task Contract',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'Task One' }],
       verification: [],
     }));
@@ -80,7 +79,6 @@ describe('submitSubtaskTool', () => {
     await manager.create(makeContractYaml({
       title: 'Multi Task Contract',
       goal: 'Test',
-      deliverables: [],
       subtasks: [
         { id: 't1', description: 'Task One' },
         { id: 't2', description: 'Task Two' },
@@ -110,7 +108,6 @@ describe('submitSubtaskTool', () => {
     await manager.create(makeContractYaml({
       title: 'Test Contract',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'Task One' }],
       verification: [],
     }));

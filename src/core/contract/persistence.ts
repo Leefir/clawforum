@@ -11,7 +11,9 @@ import { isFileNotFound } from '../../foundation/fs/types.js';
 import { formatErr } from '../../foundation/utils/index.js';
 import { ToolError } from '../../foundation/errors.js';
 import type { Contract } from '../contract/types.js';
-import type { ContractYaml, ProgressData } from './types.js';
+import type { ContractYaml } from './types.js';
+import type { ProgressData } from './types.js';
+import { ContractYamlSchema } from './schemas.js';
 import { makeClawId } from '../../constants.js';
 import { emitContractYamlSchemaInvalid } from './audit-emit.js';
 import { CONTRACT_AUDIT_EVENTS } from './audit-events.js';
@@ -24,7 +26,6 @@ const CONTRACT_DEFAULTS = {
   auth_level: 'auto' as const,
 };
 
-const CONTRACT_CURRENT_SCHEMA_VERSION = 1;
 export const PROGRESS_CURRENT_SCHEMA_VERSION = 1;
 
 export interface PersistenceContext {
@@ -42,44 +43,22 @@ export async function loadContractYaml(
   const dir = await ctx.contractDir(contractId);
   const contractPath = `${dir}/${contractId}/contract.yaml`;
   const content = await ctx.fs.read(contractPath);
-  const parsed = yaml.load(content) as { title?: unknown; goal?: unknown; subtasks?: unknown; schema_version?: unknown };
-
-  // NEW schema_version invariant（phase 1019 r124 E fork）
-  if (parsed?.schema_version !== undefined &&
-      (typeof parsed.schema_version !== 'number' || parsed.schema_version > CONTRACT_CURRENT_SCHEMA_VERSION)) {
+  const rawParsed = yaml.load(content);
+  const result = ContractYamlSchema.safeParse(rawParsed);
+  if (!result.success) {
     emitContractYamlSchemaInvalid(
       ctx.audit,
       {
         contractId,
         path: contractPath,
-        reason: 'unknown_schema_version',
-        actual: String(parsed.schema_version),
-        current: CONTRACT_CURRENT_SCHEMA_VERSION,
+        reason: 'schema_invalid',
+        actual: result.error.issues[0]?.path.join('.') ?? 'unknown',
+        raw: ctx.audit.preview(content),
       },
     );
     const contractDir = await ctx.contractDir(contractId);
     await isolateCorruptedFile(ctx.fs, ctx.audit, {
-      contractId, contractDir, filename: 'contract.yaml',
-      reason: 'unknown_schema_version',
-    });
-    if (ctx.markCrashed) {
-      await ctx.markCrashed(contractId, 'system: schema_corruption_contract_yaml');
-    }
-    return null;
-  }
-
-  if (
-    typeof parsed?.title !== 'string' ||
-    typeof parsed?.goal !== 'string' ||
-    !Array.isArray(parsed?.subtasks)
-  ) {
-    emitContractYamlSchemaInvalid(
-      ctx.audit,
-      { contractId, path: contractPath, raw: ctx.audit.preview(content) },
-    );
-    const contractDir = await ctx.contractDir(contractId);
-    await isolateCorruptedFile(ctx.fs, ctx.audit, {
-      contractId, contractDir, filename: 'contract.yaml',
+      contractId, contractDir: `${contractDir}/${contractId}`, filename: 'contract.yaml',
       reason: 'schema_invalid',
     });
     if (ctx.markCrashed) {
@@ -87,35 +66,7 @@ export async function loadContractYaml(
     }
     return null;
   }
-  // Backwards-compat: old yaml used the legacy field, now renamed to `verification`
-  const data = parsed as Record<string, unknown>;
-  if (Array.isArray(data.acceptance) && !Array.isArray(data.verification)) {
-    ctx.audit.write(
-      CONTRACT_AUDIT_EVENTS.CONTRACT_YAML_LEGACY_ACCEPTANCE_FIELD,
-      `contractId=${contractId}`,
-      `field=acceptance`,
-    );
-    data.verification = data.acceptance;
-  }
-  delete data.acceptance;
-
-  // NEW phase 1399: escalation.max_retries → verification_attempts 30 天兼容
-  if (
-    typeof data.escalation === 'object' && data.escalation !== null &&
-    typeof (data.escalation as Record<string, unknown>).max_retries === 'number' &&
-    data.verification_attempts === undefined
-  ) {
-    ctx.audit.write(
-      CONTRACT_AUDIT_EVENTS.CONTRACT_YAML_LEGACY_ESCALATION_FIELD,
-      `contractId=${contractId}`,
-      `field=escalation.max_retries`,
-      `new_field=verification_attempts`,
-    );
-    data.verification_attempts = (data.escalation as Record<string, unknown>).max_retries;
-  }
-  delete data.escalation;
-
-  return data as unknown as ContractYaml;
+  return result.data;
 }
 
 export async function readContractYamlRaw(

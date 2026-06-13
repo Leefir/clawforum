@@ -8,8 +8,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'path';
 
-describe('phase 1267 D.3: acceptance literal 0 hit in src/core/contract/ (except backwards-compat)', () => {
-  it('grep acceptance in src/core/contract/ → only persistence.ts backwards-compat section', async () => {
+describe('phase 1267 D.3 + phase 311: acceptance literal 0 hit in src/core/contract/', () => {
+  it('grep acceptance in src/core/contract/ → 0 hit (backwards-compat removed by phase 311)', async () => {
     const contractDir = 'src/core/contract';
     const entries = await fs.readdir(contractDir);
     const hits: Array<{ file: string; line: number; text: string }> = [];
@@ -23,12 +23,7 @@ describe('phase 1267 D.3: acceptance literal 0 hit in src/core/contract/ (except
         const line = lines[i];
         if (!line.includes('acceptance')) continue;
 
-        // Allow the backwards-compat section in persistence.ts (lines ~92-104)
-        if (entry === 'persistence.ts' && i >= 91 && i <= 103) continue;
-
-        // Allow audit event constant names that reference legacy field (const + file routing)
-        if (line.toLowerCase().includes('contract_yaml_legacy_acceptance_field')) continue;
-
+        // phase 311: backwards-compat section removed; no acceptance literal allowed
         hits.push({ file: entry, line: i + 1, text: line.trim() });
       }
     }

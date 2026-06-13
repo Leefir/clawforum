@@ -24,6 +24,7 @@ function makeMockFsForS1(opts: { moveReject?: boolean; deleteReject?: boolean } 
     }),
     read: vi.fn().mockResolvedValue(JSON.stringify({
       kind: 'subagent',
+      mode: 'standard',
       id: 'task-1',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,

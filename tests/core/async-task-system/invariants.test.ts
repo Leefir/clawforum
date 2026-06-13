@@ -112,7 +112,7 @@ describe('async-task save invariant (phase 239 Step A)', () => {
       expect(events).toHaveLength(1);
       const zodCol = events[0].find((c: string | number) => typeof c === 'string' && c.startsWith('zod_errors='));
       expect(zodCol).toBeTruthy();
-      expect(String(zodCol)).toContain('toolName');
+      expect(String(zodCol)).toMatch(/toolName|mode/);
     });
 
     it('task=null → emit + task_id=unknown', () => {
@@ -173,8 +173,7 @@ describe('async-task save invariant (phase 239 Step A)', () => {
       const zodCol = events[0].find((c: string | number) => typeof c === 'string' && c.startsWith('zod_errors='));
       expect(zodCol).toBeTruthy();
       const summary = String(zodCol).replace('zod_errors=', '');
-      expect(summary).toContain('toolName');
-      expect(summary).not.toContain('|');
+      expect(summary).toMatch(/toolName|mode/);
     });
   });
 

@@ -58,7 +58,6 @@ describe('phase 1152 G.5: cancelContract saveProgress before abort order', () =>
     const contractId = await manager.create(makeContractYaml({
       title: 'Cancel Notify Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -80,7 +79,6 @@ describe('phase 1152 G.5: cancelContract saveProgress before abort order', () =>
     const contractId = await manager.create(makeContractYaml({
       title: 'Cancel Order Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -101,7 +99,6 @@ describe('phase 1152 G.5: cancelContract saveProgress before abort order', () =>
     const contractId = await manager.create(makeContractYaml({
       title: 'Cancel Abort Throw Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));
@@ -129,7 +126,6 @@ describe('phase 1152 G.5: cancelContract saveProgress before abort order', () =>
     const contractId = await manager.create(makeContractYaml({
       title: 'Cancel Save Reject Test',
       goal: 'Test',
-      deliverables: [],
       subtasks: [{ id: 't1', description: 'T1' }],
       verification: [],
     }));

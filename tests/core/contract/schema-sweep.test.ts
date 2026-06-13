@@ -133,7 +133,7 @@ describe('loadContractYaml schema check', () => {
     await fs.mkdir(contractDir, { recursive: true });
     await fs.writeFile(
       path.join(contractDir, 'contract.yaml'),
-      'goal: Test\nsubtasks:\n  - id: t1\n    description: T1\n',
+      'schema_version: 1\ngoal: Test\nsubtasks:\n  - id: t1\n    description: T1\n',
       'utf-8',
     );
     // minimal progress so contractDir resolves
@@ -156,6 +156,8 @@ describe('loadContractYaml schema check', () => {
       'contract_yaml_schema_invalid',
       expect.stringContaining(`contractId=${contractId}`),
       expect.stringContaining('path='),
+      expect.stringContaining('reason=schema_invalid'),
+      expect.stringContaining('actual=title'),
       expect.stringContaining('raw='),
     );
   });

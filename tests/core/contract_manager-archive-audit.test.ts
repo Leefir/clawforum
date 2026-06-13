@@ -61,7 +61,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
       const contract1 = await testManager.create(makeContractYaml({
         title: 'First',
         goal: 'First',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));
@@ -69,7 +68,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
       const contract2 = await testManager.create(makeContractYaml({
         title: 'Second',
         goal: 'Second',
-        deliverables: [],
         subtasks: [{ id: 't2', description: 'T2' }],
         verification: [],
       }));
@@ -101,7 +99,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
 
       await expect(failManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }))).rejects.toThrow('disk full');
@@ -132,7 +129,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
       await testManager.create(makeContractYaml({
         title: 'Test',
         goal: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));
@@ -159,7 +155,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));
@@ -194,7 +189,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
       // Create contract with no-op verification (no script_file/prompt_file = no verification)
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));
@@ -230,7 +224,6 @@ describe('ContractSystem - audit lifecycle + moveToArchive (phase 1347 split)', 
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));

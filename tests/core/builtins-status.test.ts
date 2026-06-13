@@ -99,7 +99,6 @@ describe('Builtin Tools - status tool', () => {
       await manager.create(makeContractYaml({
         title: 'Test Contract',
         goal: 'Test',
-        deliverables: [],
         subtasks: [
           { id: 'task-1', description: 'First task' },
           { id: 'task-2', description: 'Second task' },
@@ -132,7 +131,6 @@ describe('Builtin Tools - status tool', () => {
       const contractId = await manager.create(makeContractYaml({
         title: 'Mixed Status',
         goal: 'Test',
-        deliverables: [],
         subtasks: [
           { id: 'done-task', description: 'Already done' },
           { id: 'todo-task', description: 'Still pending' },
@@ -223,7 +221,6 @@ describe('Builtin Tools - status tool', () => {
           { id: 'ok-task', description: 'This is ok' },
         ],
         verification: [],
-        deliverables: [],
       });
       // 直接修改 progress.json 设置 in_progress 状态
       const progressPath = path.join(tempDir, 'contract/active', contractId, 'progress.json');

@@ -90,6 +90,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
         if (path === filePath) {
           return Promise.resolve(JSON.stringify({
             kind: 'subagent',
+            mode: 'standard',
             id: taskId,
             intent: 'test',
             timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
@@ -122,6 +123,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
       // resolve fs.read（此时 cancellingIds 中仍有 taskId）
       resolveRead(JSON.stringify({
         kind: 'subagent',
+        mode: 'standard',
         id: taskId,
         intent: 'test',
         timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
@@ -150,6 +152,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
     const taskJson = JSON.stringify({
       kind: 'subagent',
+      mode: 'standard',
       id: 'task-dead',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
@@ -349,6 +352,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
         if (path === filePath) {
           return Promise.resolve(JSON.stringify({
             kind: 'subagent',
+            mode: 'standard',
             id: taskId,
             intent: 'test',
             timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,
@@ -404,6 +408,7 @@ describe('phase 556: race + dead-letter cluster fix', () => {
 
     const taskJson = JSON.stringify({
       kind: 'subagent',
+      mode: 'standard',
       id: 'task-retry',
       intent: 'test',
       timeoutMs: SUBAGENT_SHORT_TIMEOUT_MS,

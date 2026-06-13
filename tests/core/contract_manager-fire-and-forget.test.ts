@@ -80,7 +80,6 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'llm', prompt_file: 'verification/t1.prompt.txt' },
@@ -122,7 +121,6 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'llm', prompt_file: 'verification/t1.prompt.txt' },
@@ -165,7 +163,6 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'llm', prompt_file: 'verification/t1.prompt.txt' },
@@ -204,7 +201,6 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'llm', prompt_file: 'verification/t1.prompt.txt' },
@@ -251,7 +247,6 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'script', script_file: 'verification/t1.sh' },
@@ -311,7 +306,6 @@ describe('ContractSystem - fire-and-forget 失败状态机 (phase 468 / feedback
 
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'llm', prompt_file: 'verification/t1.prompt.txt' },

@@ -59,7 +59,6 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
       // Create contract with LLM verification
       const contractId = await testManager.create(makeContractYaml({
         title: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'llm', prompt_file: 'verification/t1.prompt.txt' },
@@ -233,7 +232,6 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
       const contractId = await testManager.create(makeContractYaml({
         title: 'AuditLog Lifecycle Test',
         goal: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));
@@ -256,7 +254,6 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
       const contractId = await testManager.create(makeContractYaml({
         title: 'Async Acceptance Test',
         goal: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [
           { subtask_id: 't1', type: 'script', script_file: 'verification/t1.sh' },
@@ -287,7 +284,6 @@ describe('ContractSystem - misc (LLM verification + escalation + phase239 audit)
       const contractId = await testManager.create(makeContractYaml({
         title: 'Contract Updated Test',
         goal: 'Test',
-        deliverables: [],
         subtasks: [{ id: 't1', description: 'T1' }],
         verification: [],
       }));

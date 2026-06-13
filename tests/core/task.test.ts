@@ -136,6 +136,7 @@ describe('Task System + SubAgent', () => {
       
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Test task',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 10,
@@ -160,6 +161,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'watcher chain probe',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 5,
@@ -195,6 +197,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Simple task',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 5,
@@ -234,6 +237,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Deliver result',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 5,
@@ -287,6 +291,7 @@ describe('Task System + SubAgent', () => {
       
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Long running task',
         timeoutMs: SUBAGENT_TIMEOUT_MS,  // phase 1159: 用 src 真常量替 magic 300000
         maxSteps: 10,
@@ -319,6 +324,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Simple task',
         timeoutMs: TEST_LLM_TIMEOUT_MS,
         maxSteps: 5,
@@ -348,6 +354,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'This will time out',
         timeoutMs: 300,   // 300ms，触发 SubAgent timeout
         maxSteps: 5,
@@ -409,6 +416,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await failSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'test fallback',
         timeoutMs: SUBAGENT_LONG_TIMEOUT_MS,
         maxSteps: 5,
@@ -454,6 +462,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await failSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'test move failure',
         timeoutMs: SUBAGENT_LONG_TIMEOUT_MS,
         maxSteps: 5,
@@ -495,6 +504,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Hanging task',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 5,
@@ -525,6 +535,7 @@ describe('Task System + SubAgent', () => {
 
       const taskId = await ctx.taskSystem.scheduleSubAgent({
         kind: 'subagent',
+        mode: 'standard',
         intent: 'Hanging task',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
         maxSteps: 5,
@@ -561,6 +572,7 @@ describe('Task System + SubAgent', () => {
 
         await ctx.taskSystem.scheduleSubAgent({
           kind: 'subagent',
+            mode: 'standard',
           intent: 'Test postProcessor',
           timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
           maxSteps: 5,
@@ -610,6 +622,7 @@ describe('Task System + SubAgent', () => {
 
         const taskId = await ctx.taskSystem.scheduleSubAgent({
           kind: 'subagent',
+            mode: 'standard',
           intent: 'Test error path',
           timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
           maxSteps: 5,
@@ -638,6 +651,7 @@ describe('Task System + SubAgent', () => {
 
         const taskId = await ctx.taskSystem.scheduleSubAgent({
           kind: 'subagent',
+            mode: 'standard',
           intent: 'Test missing postProcessor',
           timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
           maxSteps: 5,

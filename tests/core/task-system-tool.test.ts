@@ -574,6 +574,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const taskId = 'recovered-subagent-id';
       const task = { 
         kind: 'subagent' as const, 
+        mode: 'standard' as const,
         id: taskId, 
         intent: 'test prompt',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
@@ -885,6 +886,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const taskId = 'subagent-with-result';
       const task: SubAgentTask = {
         kind: 'subagent',
+        mode: 'standard',
         id: taskId,
         intent: 'test',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
@@ -949,6 +951,7 @@ describe('AsyncTaskSystem Tool Tasks', () => {
       const taskId = 'subagent-already-sent';
       const task: SubAgentTask = {
         kind: 'subagent',
+        mode: 'standard',
         id: taskId,
         intent: 'test',
         timeoutMs: SUBAGENT_DEFAULT_TIMEOUT_MS,
