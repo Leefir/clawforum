@@ -66,7 +66,14 @@ export const RUNTIME_AUDIT_EVENTS = {
   TURN_COMPLETENESS_MISMATCH: 'turn_completeness_mismatch',
   // NEW (raw migration phase 272 Step C)
   GUIDANCE_COMPOSER_FAILED: 'guidance_composer_failed',
+  // phase 320: LLM config hot-reload via inbox `reload_llm_config` message
+  LLM_RELOADED: 'runtime_llm_reloaded',
+  LLM_RELOAD_FAILED: 'runtime_llm_reload_failed',
+  LLM_RELOAD_SKIPPED: 'runtime_llm_reload_skipped',
 } as const;
+
+// phase 320: re-export reload message type const for callers that already import from this file
+export { RELOAD_LLM_CONFIG_MESSAGE_TYPE } from './inbox-message-types.js';
 
 /**
  * React loop audit events (γ 同源复制 / phase375 裁决 2)

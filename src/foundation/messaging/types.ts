@@ -15,7 +15,8 @@ export interface InboxMessage {
       | 'contract_cancelled' | 'contract_crashed'
       | 'claw_inactivity' | 'contract_events' | 'verification_result' | 'verification_rejection'
       | 'verification_error' | 'random_dream' | 'deep_dream' | 'startup_check'
-      | 'task_queue_overflow' | 'claw_outbox_summary';
+      | 'task_queue_overflow' | 'claw_outbox_summary'
+      | 'reload_llm_config';  // phase 320: LLM config hot-reload signal
   from: string;
   to: string;
   content: string;

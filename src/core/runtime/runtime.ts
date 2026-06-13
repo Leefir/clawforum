@@ -25,7 +25,7 @@ import { runReact } from '../agent-executor/index.js';
 import { summarizeLastExit } from './last-exit-summary.js';
 import { IdleTimeoutSignal, PriorityInboxInterrupt, UserInterrupt } from '../signals.js';
 import type { CallerSnapshot } from '../../foundation/tool-protocol/index.js';
-import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS } from './runtime-audit-events.js';
+import { RUNTIME_AUDIT_EVENTS, REACT_LOOP_AUDIT_EVENTS, RELOAD_LLM_CONFIG_MESSAGE_TYPE } from './runtime-audit-events.js';
 // phase 71: writeErrorResponse 消（error-response.ts 整删）
 import { TASK_AUDIT_EVENTS } from '../async-task-system/audit-events.js';
 // phase 1414: HEARTBEAT_AUDIT_EVENTS import removed — heartbeat 自家 inbox-formatter 持 audit
@@ -414,7 +414,18 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon {
     if (entries.length === 0) {
       return { injected: [], sources: [], count: 0, infos: [], addressedHandles: [] };
     }
-    const { addressed } = this._splitAndAuditEntries(entries);
+
+    // phase 320: hot-reload 拦截 — reload_llm_config 旁路、不入 AI 上下文、不入 turn lifecycle
+    const reloadEntries = entries.filter(e => e.message.type === RELOAD_LLM_CONFIG_MESSAGE_TYPE);
+    const nonReloadEntries = entries.filter(e => e.message.type !== RELOAD_LLM_CONFIG_MESSAGE_TYPE);
+    if (reloadEntries.length > 0) {
+      await this._handleReloadEntries(reloadEntries, handles);
+    }
+    if (nonReloadEntries.length === 0) {
+      return { injected: [], sources: [], count: 0, infos: [], addressedHandles: [] };
+    }
+
+    const { addressed } = this._splitAndAuditEntries(nonReloadEntries);
     const { injected, sources } = await this._formatInjected(addressed);
 
     // unaddressed messages are not part of this turn — ack immediately
@@ -436,6 +447,45 @@ export class Runtime implements IRuntimeLifecycle, IRuntimeDaemon {
       infos: addressed.map(e => e.message),
       addressedHandles,
     };
+  }
+
+  /**
+   * phase 320: 处理 reload_llm_config 拦截消息。
+   * - 同批 N 条只 reload 1 次（idempotent / 都读最新磁盘）
+   * - reload 消息无视 to 字段（reload 是「daemon 自家配置」、to 无意义）
+   * - 所有 reload 消息一律 ack（成功 / 失败 / skipped 都已消费、不留在 inflight）
+   */
+  private async _handleReloadEntries(reloadEntries: InboxEntry[], handles: InboxHandle[]): Promise<void> {
+    const reloadPaths = new Set(reloadEntries.map(e => e.filePath));
+    const reloadHandles = handles.filter(h => reloadPaths.has(h.filePath));
+
+    if (!this.options.configReloader) {
+      this.auditWriter.write(
+        RUNTIME_AUDIT_EVENTS.LLM_RELOAD_SKIPPED,
+        `count=${reloadEntries.length}`,
+        `reason=no_reloader_configured`,
+      );
+    } else {
+      try {
+        const newConfig = this.options.configReloader();
+        this.llm.reloadConfig(newConfig);
+        this.auditWriter.write(
+          RUNTIME_AUDIT_EVENTS.LLM_RELOADED,
+          `provider=${newConfig.primary.name ?? 'unknown'}`,
+          `fallbacks=${newConfig.fallbacks?.length ?? 0}`,
+          `triggered_by=${reloadEntries.length}`,
+        );
+      } catch (err) {
+        this.auditWriter.write(
+          RUNTIME_AUDIT_EVENTS.LLM_RELOAD_FAILED,
+          `reason=${formatErr(err)}`,
+        );
+      }
+    }
+
+    for (const h of reloadHandles) {
+      try { await this.inboxReader.ack(h); } catch { /* best-effort; InboxReader audits */ }
+    }
   }
 
   private async _drainEntriesOrEmpty(): Promise<{ entries: InboxEntry[]; handles: InboxHandle[] }> {

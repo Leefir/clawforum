@@ -2,6 +2,7 @@
  * config command - Manage LLM provider configuration
  */
 
+import * as path from 'path';
 import * as readline from 'readline';
 import { Command } from 'commander';
 import { loadGlobalConfig, saveGlobalConfig } from '../../assembly/config-load.js';
@@ -13,31 +14,51 @@ import { CliError } from '../errors.js';
 import { fitLine } from '../utils/string.js';
 import { DEFAULT_TERMINAL_WIDTH } from '../utils/constants.js';
 import { DEFAULT_LLM_TIMEOUT_MS } from '../../foundation/llm-orchestrator/index.js';
-import { MOTION_CLAW_ID } from '../../constants.js';
+import { MOTION_CLAW_ID, makeClawId } from '../../constants.js';
 import type { FileSystem } from '../../foundation/fs/types.js';
+// phase 320: hot-reload — CLI 投递 reload_llm_config 给运行中 daemon
+import { notifyClaw } from '../../foundation/messaging/index.js';
+import { CLAWS_DIR, enumerateClaws } from '../../foundation/claw-paths.js';
+import { getChestnutRoot } from '../../foundation/install-paths.js';
+import { createSystemAudit } from '../../foundation/audit/index.js';
+import { RELOAD_LLM_CONFIG_MESSAGE_TYPE } from '../../core/runtime/runtime-audit-events.js';
 
 /**
- * If motion daemon is running, ask user whether to restart it so config changes take effect.
- * Killing the daemon is enough — watchdog will respawn it automatically.
+ * phase 320: 通知所有运行中的 daemon（motion + 所有 claws）重新加载 LLM 配置。
+ * Producer 侧 / consumer 侧在 Runtime._drainOwnInbox 拦截路径。
+ *
+ * - daemon 不存活 → silent skip（下次启动自然读新配置）
+ * - notifyClaw 失败 silent（按现有 messaging 语义、不阻 CLI）
  */
-async function promptRestartDaemon(deps: { fsFactory: (baseDir: string) => FileSystem }, rl?: readline.Interface): Promise<void> {
+export function notifyRunningDaemons(deps: { fsFactory: (baseDir: string) => FileSystem }, source: string): void {
   const pm = createProcessManagerForCLI(deps);
-  if (!pm.isAlive(MOTION_CLAW_ID)) return;
+  const chestnutRoot = getChestnutRoot();
+  const rootFs = deps.fsFactory(chestnutRoot);
+  const audit = createSystemAudit(rootFs, chestnutRoot);
 
-  const needClose = !rl;
-  if (!rl) rl = createRL();
-  try {
-    const answer = await question(rl, '\nMotion daemon is running. Restart to apply changes? [y/N]', 'N');
-    if (answer.toLowerCase() === 'y') {
-      const stopped = await pm.stop(MOTION_CLAW_ID);
-      if (stopped) {
-        console.log('✓ Daemon stopped. Watchdog will restart it automatically.');
-      } else {
-        console.log('Failed to stop daemon. You can restart manually: chestnut stop && chestnut motion chat');
-      }
-    }
-  } finally {
-    if (needClose) rl.close();
+  const candidates: string[] = [MOTION_CLAW_ID];
+  const clawsDir = path.join(chestnutRoot, CLAWS_DIR);
+  if (rootFs.existsSync(clawsDir)) {
+    const subFs = deps.fsFactory(clawsDir);
+    candidates.push(...enumerateClaws(subFs, '.'));
+  }
+
+  let notified = 0;
+  for (const id of candidates) {
+    const clawId = id === MOTION_CLAW_ID ? MOTION_CLAW_ID : makeClawId(id);
+    if (!pm.isAlive(clawId)) continue;
+    notifyClaw(rootFs, chestnutRoot, id, {
+      type: RELOAD_LLM_CONFIG_MESSAGE_TYPE,
+      // source must not contain '/'; it goes into the inbox file name
+      source: `cli-${source}`,
+      priority: 'high',
+      body: 'LLM config changed on disk; please reload.',
+    }, audit);
+    notified++;
+  }
+
+  if (notified > 0) {
+    console.log(`✓ Notified ${notified} running daemon(s) to reload LLM config`);
   }
 }
 
@@ -206,7 +227,7 @@ async function providerAdd(deps: { fsFactory: (baseDir: string) => FileSystem })
     }
     
     saveGlobalConfig(deps, config);
-    await promptRestartDaemon(deps, rl);
+    notifyRunningDaemons(deps, 'add');
 
   } finally {
     rl.close();
@@ -274,7 +295,7 @@ async function providerRemove(deps: { fsFactory: (baseDir: string) => FileSystem
   config.llm.fallbacks!.splice(found.index, 1);
   saveGlobalConfig(deps, config);
   console.log(`✓ Removed "${label}" from fallbacks`);
-  await promptRestartDaemon(deps);
+  notifyRunningDaemons(deps, 'remove');
 }
 
 // provider set-primary command
@@ -315,7 +336,7 @@ async function providerSetPrimary(deps: { fsFactory: (baseDir: string) => FileSy
 
   saveGlobalConfig(deps, config);
   console.log(`✓ "${label}" is now primary`);
-  await promptRestartDaemon(deps);
+  notifyRunningDaemons(deps, 'set-primary');
 }
 
 // provider move command
@@ -344,7 +365,7 @@ async function providerMove(deps: { fsFactory: (baseDir: string) => FileSystem }
   
   saveGlobalConfig(deps, config);
   console.log(`✓ "${label}" moved to fallback #${newPos + 1}`);
-  await promptRestartDaemon(deps);
+  notifyRunningDaemons(deps, 'move');
 }
 
 // Build the config command

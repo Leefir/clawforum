@@ -89,6 +89,13 @@ export interface RuntimeOptions {
   maxConsecutiveMaxTokensToolUse?: number;
   idleTimeoutMs: number;   // LLM stream idle timeout（0 = 禁用、由 config boundary resolve）
 
+  /**
+   * phase 320: LLM 配置热更新 reloader。Assembly 装配期注入；调时**重读磁盘**拿最新配置。
+   * inbox 收到 `reload_llm_config` 消息时由 _drainOwnInbox 拦截路径调用、传给 llm.reloadConfig。
+   * undefined → 拦截路径 silent skip + audit LLM_RELOAD_SKIPPED。
+   */
+  configReloader?: () => LLMOrchestratorConfig;
+
   dependencies: RuntimeDependencies;  // 必传（phase155B 起，字段随 phase155C 扩展）
 
   // Motion/claw 身份差异由 Assembly 按 identity 分支注入（phase266 消除 MotionRuntime subclass）

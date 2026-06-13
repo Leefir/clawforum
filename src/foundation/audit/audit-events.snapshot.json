@@ -533,7 +533,10 @@
       "turn_error",
       "turn_interrupted",
       "turn_start",
-      "guidance_composer_failed"
+      "guidance_composer_failed",
+      "runtime_llm_reloaded",
+      "runtime_llm_reload_failed",
+      "runtime_llm_reload_skipped"
     ],
     "core_shadow-system_audit-events": [
       "shadow_failed",

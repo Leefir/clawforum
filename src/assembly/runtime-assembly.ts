@@ -20,6 +20,9 @@ import { createContractNotifyCallback } from './contract-notify-callback.js';
 import type { CoreInfraOutput } from './core-infrastructure.js';
 import type { BusinessSysOutput } from './business-systems.js';
 import { ASSEMBLY_AUDIT_EVENTS } from './audit-events.js';
+// phase 320: LLM hot-reload — reloader 每次调时重读磁盘
+import { loadGlobalConfig, loadClawConfig, buildLLMConfig } from './config-load.js';
+import { getClawConfigPath } from '../foundation/config/index.js';
 import { TASKS_SYNC_EXEC_DIR } from '../foundation/command-tool/index.js';
 import { TASKS_SYNC_WRITE_DIR } from '../foundation/file-tool/index.js';
 import { createShadowTool } from '../core/shadow-system/index.js';
@@ -143,6 +146,16 @@ export async function createRuntimeAssembly(
       ...lifecycleDeps,
     };
 
+    // phase 320: configReloader — 每次调时重读磁盘 globalConfig + clawConfig，
+    // 由 Runtime._drainOwnInbox 收到 reload_llm_config 消息时调用。
+    // **不 capture 起步态 globalConfig/clawConfig**（CLOSURE 反模式：那样永远拿不到新配置）。
+    const configReloader = () => {
+      const fresh = loadGlobalConfig({ fsFactory });
+      if (isMotion) return buildLLMConfig(fresh);
+      const freshClawCfg = loadClawConfig({ fsFactory }, getClawConfigPath(clawId));
+      return buildLLMConfig(fresh, freshClawCfg!);
+    };
+
     // --- Runtime 构造（deps 注入） ---
     let runtime: Runtime;
     try {
@@ -154,6 +167,7 @@ export async function createRuntimeAssembly(
         maxSteps,
         toolProfile,
         idleTimeoutMs,
+        configReloader,
         dependencies,
       });
     } catch (e) {

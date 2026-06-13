@@ -905,5 +905,43 @@ export class LLMOrchestratorImpl implements LLMOrchestrator {
   async close(): Promise<void> {
     // No persistent connections to close
   }
+
+  /**
+   * phase 320: 原地替换 primary/fallbacks/breakers，对象引用不变。
+   * 同 ctor L98-131 同构（改 ctor 需同步改本方法、否则 reload 与起步态漂移）。
+   * sdkClientCache 不清（旧 key 残留无害；切回旧 provider 时 cache hit、性能更好）。
+   * events / lastSuccessProvider 不动（events 装配期注入、lastSuccess 下次 call 自然刷新）。
+   */
+  reloadConfig(newConfig: LLMOrchestratorConfig): void {
+    this.config = newConfig;
+    this.primary = this.getSdkClient(newConfig.primary);
+    this.fallbacks = (newConfig.fallbacks ?? []).map((c) => this.getSdkClient(c));
+
+    const cb = newConfig.circuitBreaker;
+    const allProviders = [this.primary, ...this.fallbacks];
+    this.breakers = cb
+      ? allProviders.map((p) => new CircuitBreaker(
+          cb.failureThreshold,
+          cb.resetTimeoutMs,
+          (transition, failures) => {
+            if (transition === 'breaker_opened') {
+              this.events.emit({ type: 'breaker_opened', provider: p.name, consecutiveFailures: failures ?? 0 });
+            } else {
+              this.events.emit({ type: transition, provider: p.name });
+            }
+          },
+        ))
+      : [];
+
+    const parseErrHandler = (e: { provider: string; raw: string; error: string }) =>
+      this.events.emit({ type: 'stream_parse_error', ...e });
+    this.primary.onStreamParseError = parseErrHandler;
+    this.fallbacks.forEach(fb => { fb.onStreamParseError = parseErrHandler; });
+
+    const toolArgErrHandler = (e: { provider: string; toolName: string; rawArgs: string; error: string }) =>
+      this.events.emit({ type: 'tool_arg_parse_error', ...e });
+    this.primary.onToolArgParseError = toolArgErrHandler;
+    this.fallbacks.forEach(fb => { fb.onToolArgParseError = toolArgErrHandler; });
+  }
 }
 
